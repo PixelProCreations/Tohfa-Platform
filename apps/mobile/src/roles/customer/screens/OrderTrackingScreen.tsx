@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -10,7 +11,7 @@ import {
   Platform,
   StatusBar,
   Share,
-  Alert,
+  Linking,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
@@ -19,24 +20,35 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { ProductImages } from '../assets/images/products';
+import { tohfaMarketLogo } from '../assets/images';
+import { ApiError } from '../../../shell/api/client';
+import { gradeLabel, productKey, useCatalogHome } from '../api/catalog';
 import {
-  tohfaMarketLogo,
-  divQrCode,
-  pickupQrCode,
-} from '../assets/images';
+  isActiveStatus,
+  isPickupFulfillment,
+  isReturnEligible,
+  isReviewEligible,
+  isTerminalStatus,
+  useOrder,
+  useOrderTracking,
+  useReorder,
+  type OrderTrackingEvent,
+  type ReorderResult,
+} from '../api/orders';
+import { useOrderReview } from '../api/reviews';
+import { getInvoiceDownloadUrl, useInvoice } from '../api/invoices';
+import { usePickupPoints } from '../api/pickup';
+import { formatAddressLine, useAddresses } from '../api/addresses';
+import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
+import { mapProblem } from '../api/problem';
+import { ProductCard } from '../components/ProductCard';
+import { PickupQrCode } from '../components/PickupQrCode';
+import { formatKg, formatRupees, sumMoney } from '../utils/money';
+import { SLOT_LABELS, activeOrderBadge, formatIstDate, orderStatusLabel } from '../utils/orderFormat';
 
 export interface OrderTrackingScreenProps {
+  /** Order uuid (not the order number). */
   orderId?: string | undefined;
-  order?: {
-    id?: string | undefined;
-    title?: string | undefined;
-    orderNumber?: string | undefined;
-    date?: string | undefined;
-    badge?: string | undefined;
-    image?: any;
-    actionText?: string | undefined;
-  } | undefined;
   onNavigate?: ((screen: string, params?: Record<string, unknown> | undefined) => void) | undefined;
   onBack?: (() => void) | undefined;
 }
@@ -143,19 +155,6 @@ const CartActionSvg = ({ color = '#2E7D32', size = 22 }: { color?: string; size?
   </Svg>
 );
 
-const HeartOutlineSvg = ({ size = 18 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"
-      stroke="#9CA3AF"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// ── SOCIAL SVG ICONS FOR SHARE MODAL ───────────────────────────────────────
 const WhatsAppSvg = () => (
   <View style={[styles.socialIconCircle, { backgroundColor: '#25D366' }]}>
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="#FFFFFF">
@@ -198,173 +197,240 @@ const MoreSvg = () => (
   </View>
 );
 
+export interface TimelineStep {
+  status: string;
+  title: string;
+  subtitle: string;
+  at: string | null;
+  note: string | null;
+  state: 'done' | 'active' | 'todo' | 'cancelled';
+}
+
+const STEP_COPY: Record<string, [string, string]> = {
+  CONFIRMED: ['Order confirmed', 'Your wallet payment was successful and the order is accepted.'],
+  PACKED: ['Packed', 'Your items are collected and packed.'],
+  DISPATCHED: ['On the way', 'Your order has left the warehouse.'],
+  OUT_FOR_DELIVERY: ['Out for delivery', 'Your order is nearly there.'],
+  DELIVERED: ['Delivered', 'Your order has been handed over.'],
+  READY_FOR_PICKUP: ['Ready for pickup', 'Collect it at the pickup point with your pickup code.'],
+  PICKED_UP: ['Order collected', 'Your order has been handed over.'],
+  CANCELLED: ['Cancelled', 'This order was cancelled.'],
+  RETURNED: ['Returned', 'This order was returned.'],
+};
+
+/**
+ * Tracking events (oldest first) mapped onto the fixed step list of the
+ * fulfilment type. A step is done when it (or any later step) has an event;
+ * the next one is active unless the order is terminal. CANCELLED/RETURNED
+ * append a terminal row. Missing steps stay pending.
+ */
+export function buildTimeline(
+  fulfillmentType: string | null | undefined,
+  status: string | null | undefined,
+  events: readonly OrderTrackingEvent[],
+): TimelineStep[] {
+  const pickup = isPickupFulfillment(fulfillmentType);
+  const reached = new Set(events.map((e) => e.status));
+  if (status) reached.add(status as OrderTrackingEvent['status']);
+  const base = pickup
+    ? ['CONFIRMED', 'PACKED', 'READY_FOR_PICKUP', 'PICKED_UP']
+    : ['CONFIRMED', 'PACKED', 'DISPATCHED', ...(reached.has('OUT_FOR_DELIVERY') ? ['OUT_FOR_DELIVERY'] : []), 'DELIVERED'];
+  let lastDone = -1;
+  base.forEach((s, i) => {
+    if (reached.has(s as OrderTrackingEvent['status'])) lastDone = i;
+  });
+  const terminal = isTerminalStatus(status);
+  const steps: TimelineStep[] = base.map((s, i) => {
+    const ev = [...events].reverse().find((e) => e.status === s);
+    const copy = STEP_COPY[s] ?? [s, ''];
+    return {
+      status: s,
+      title: copy[0],
+      subtitle: copy[1],
+      at: ev?.at ?? null,
+      note: ev?.note ?? null,
+      state: i <= lastDone ? 'done' : i === lastDone + 1 && !terminal ? 'active' : 'todo',
+    };
+  });
+  if (status === 'CANCELLED' || status === 'RETURNED') {
+    const ev = [...events].reverse().find((e) => e.status === status);
+    const copy = STEP_COPY[status] ?? [status, ''];
+    steps.push({ status, title: copy[0], subtitle: copy[1], at: ev?.at ?? null, note: ev?.note ?? null, state: 'cancelled' });
+  }
+  return steps;
+}
+
+const REORDER_REASON: Record<string, string> = {
+  OUT_OF_STOCK: 'Out of stock today',
+  DELISTED: 'No longer sold',
+  INSUFFICIENT_ALLOCATION: 'Daily limit reached',
+};
+
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+}
+
 // ── MAIN SCREEN COMPONENT ──────────────────────────────────────────────────
-export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({
-  orderId,
-  order,
-  onNavigate,
-  onBack,
-}) => {
+/**
+ * Order details & tracking (Figma 46:40927, share 46:41111, invoice 46:41394 /
+ * 46:41607). Server-driven: GET /orders/{id} + GET /orders/{id}/tracking (polled
+ * with backoff while active, stopped when terminal; the RN client has no SSE).
+ * Actions are gated by status: review/return only after DELIVERED/PICKED_UP,
+ * invoice only with an invoiceId, reorder rebuilds the server cart.
+ */
+export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderId, onNavigate, onBack }) => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showFullInvoiceModal, setShowFullInvoiceModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [reorderResult, setReorderResult] = useState<ReorderResult | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
-  // Dynamic values with sensible defaults matching design
-  const displayOrderNumber = order?.orderNumber || orderId || 'ORD-20260712-0028';
-  const displayProductName = order?.title || 'Fresh apples';
-  const displayProductImage = order?.image || ProductImages.fruitApple;
+  const orderQuery = useOrder(orderId);
+  const order = orderQuery.data;
+  const trackingQuery = useOrderTracking(orderId, { enabled: !!order });
+  const tracking = trackingQuery.data;
+  const status = tracking?.status ?? order?.status;
+  const pickup = isPickupFulfillment(order?.fulfillmentType);
+  const pointsQuery = usePickupPoints();
+  const point = pointsQuery.data?.find((p) => p.id === order?.warehouseId);
+  const addressesQuery = useAddresses(!!order?.deliveryAddressId);
+  const address = addressesQuery.data?.find((a) => a.id === order?.deliveryAddressId);
+  const reviewEligible = isReviewEligible(status);
+  const reviewQuery = useOrderReview(orderId, { enabled: reviewEligible });
+  const invoiceQuery = useInvoice(showInvoiceModal || showFullInvoiceModal ? order?.invoiceId : null);
+  const invoice = invoiceQuery.data;
+  const reorderM = useReorder();
+  const homeQuery = useCatalogHome();
+  const wishlistKeys = useWishlistKeys();
+  const toggleWishlist = useToggleWishlist();
 
-  // Handle system share
-  const handleSystemShare = async (platformName?: string) => {
+  const timeline = buildTimeline(order?.fulfillmentType, status, tracking?.events ?? []);
+  const deliveryFee = order?.deliveryFee ?? order?.deliveryCharge;
+  const firstThumb = order?.thumbnails?.[0];
+
+  const handleSystemShare = async () => {
+    if (!order) return;
     try {
-      const shareMessage = `TOHFA Market Order Details:
-Order ID: ${displayOrderNumber}
-Items: Fresh apples, Fuji, Green Curly Lettuce (3 items)
-Total: ₹465.00
-Pickup Location: Ooty Market
-Status: Arrive Tomorrow (06/11/2026)`;
-
       await Share.share({
-        message: shareMessage,
-        title: `Order Details - ${displayOrderNumber}`,
+        message: `TOHFA Market order ${order.orderNumber}\nStatus: ${orderStatusLabel(status)}\nItems: ${order.items.length}\nTotal: ${formatRupees(order.totalAmount)}`,
+        title: `Order ${order.orderNumber}`,
       });
-      setShowShareModal(false);
     } catch {
-      Alert.alert('Shared', `Order details shared via ${platformName || 'App'}`);
-      setShowShareModal(false);
+      // Share sheet dismissed.
+    }
+    setShowShareModal(false);
+  };
+
+  const handleDownloadInvoice = async () => {
+    if (!order?.invoiceId) return;
+    setDownloading(true);
+    try {
+      const url = await getInvoiceDownloadUrl(order.invoiceId);
+      await Linking.openURL(url);
+    } catch (err) {
+      const p = mapProblem(err);
+      if (!p.silent) setNotice(err instanceof ApiError && err.status === 404 ? 'Invoice unavailable' : p.message);
+    } finally {
+      setDownloading(false);
     }
   };
 
-  // Handle PDF download
-  const handleDownloadInvoice = () => {
-    Alert.alert(
-      'Invoice Downloaded',
-      `Invoice for ${displayOrderNumber} has been saved to your Downloads folder as PDF.`,
-      [{ text: 'OK', onPress: () => setShowInvoiceModal(false) }]
-    );
+  const handleReorder = async () => {
+    if (!order) return;
+    setNotice(null);
+    try {
+      const res = await reorderM.mutateAsync(order.id);
+      if (res.unavailable.length > 0 || res.addedCount === 0) {
+        setReorderResult(res);
+      } else {
+        onNavigate?.('Cart');
+      }
+    } catch (err) {
+      const p = mapProblem(err);
+      if (!p.silent) setNotice(p.message);
+    }
   };
 
-  // For You Recommendations
-  const forYouItems = [
-    { id: 'fy-1', name: 'Watermelon', price: 60, orig: 86, rating: 4.6, image: ProductImages.fruitWatermelon },
-    { id: 'fy-2', name: 'Green Curly Lettuce', price: 60, orig: 86, rating: 4.6, image: ProductImages.foryouLettuce },
-    { id: 'fy-3', name: 'Strawberry', price: 60, orig: 86, rating: 4.8, image: ProductImages.foryouStrawberries },
-    { id: 'fy-4', name: 'Apple', price: 60, orig: 86, rating: 4.6, image: ProductImages.fruitApple },
-    { id: 'fy-5', name: 'Orange', price: 60, orig: 86, rating: 4.6, image: ProductImages.catFruit },
-  ];
+  const header = (
+    <View style={styles.headerRow}>
+      <View style={styles.headerLeftGroup}>
+        <TouchableOpacity activeOpacity={0.7} onPress={onBack || (() => onNavigate?.('OrderHistory'))} style={styles.circleIconButton} accessibilityLabel="Back">
+          <BackArrowSvg color={customerColors.heading} size={18} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Your Order</Text>
+      </View>
+    </View>
+  );
+
+  if (orderQuery.isLoading) {
+    return (
+      <View style={styles.container}>
+        {header}
+        <ActivityIndicator testID="order-loading" style={{ marginTop: 48 }} />
+      </View>
+    );
+  }
+  if (orderQuery.isError || !order) {
+    const notFound = orderQuery.error instanceof ApiError && (orderQuery.error.status === 404 || orderQuery.error.status === 403);
+    return (
+      <View style={styles.container}>
+        {header}
+        <View style={styles.summaryList} testID={notFound || !orderId ? 'order-not-found' : 'order-error'}>
+          <Text style={styles.sectionHeaderTitle}>{notFound || !orderId ? 'Order not found' : mapProblem(orderQuery.error).message}</Text>
+          {!notFound && !!orderId && (
+            <TouchableOpacity onPress={() => void orderQuery.refetch()}>
+              <Text style={styles.viewQrLink}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  const arriveText = pickup
+    ? orderStatusLabel(status)
+    : `${formatIstDate(tracking?.estimatedArrival ?? order.deliveryDate)}${order.deliverySlot ? ` · ${SLOT_LABELS[order.deliverySlot]}` : ''}`;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      {header}
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerLeftGroup}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onBack || (() => onNavigate?.('OrderHistory'))}
-            style={styles.circleIconButton}
-            accessibilityLabel="Back"
-          >
-            <BackArrowSvg color={customerColors.heading} size={18} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Your Order</Text>
-        </View>
-      </View>
-
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── TOP PRODUCT CARD ────────────────────────────────────────────────── */}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ── TOP CARD: first item + order total ───────────────────────────── */}
         <View style={[styles.topProductCard, customerShadow.subtle]}>
           <View style={styles.productThumbBox}>
-            <Image
-              source={displayProductImage}
-              style={styles.productHeroImage}
-              resizeMode="contain"
-            />
+            {firstThumb ? <Image source={{ uri: firstThumb.imageUrl }} style={styles.productHeroImage} resizeMode="contain" /> : null}
           </View>
           <View style={styles.productDetailsCol}>
             <View style={styles.productTitleRow}>
               <Text style={styles.productTitleText} numberOfLines={1}>
-                {displayProductName}
+                {firstThumb?.productName ?? order.items[0]?.name ?? order.orderNumber}
+                {order.items.length > 1 ? ` +${order.items.length - 1} more` : ''}
               </Text>
-              <Text style={styles.productPriceText}>₹312.00</Text>
+              <Text style={styles.productPriceText}>{formatRupees(order.totalAmount)}</Text>
             </View>
-
-            <View style={styles.productMetaRow}>
-              <Text style={styles.starRatingText}>★ 4.8 </Text>
-              <Text style={styles.reviewsCountText}>(128 reviews)</Text>
-              <Text style={styles.bagWeightText}>  1 kg bag · approx. 6 apples</Text>
-            </View>
-
             <Text style={styles.productTaglineText} numberOfLines={1}>
-              Orchard-fresh crunch, picked for your everyday.
+              {order.items.length} {order.items.length === 1 ? 'item' : 'items'} · {orderStatusLabel(status)}
             </Text>
           </View>
         </View>
 
-        {/* ── DELIVERY STATES ROW ─────────────────────────────────────────────── */}
+        {/* ── DELIVERY STATES ROW ───────────────────────────────────────────── */}
         <View style={styles.deliveryStatesRow}>
-          <Text style={styles.deliveryStatesLabel}>Delivery states:</Text>
+          <Text style={styles.deliveryStatesLabel}>{pickup ? 'Pickup states:' : 'Delivery states:'}</Text>
           <View style={styles.deliveryStatesRight}>
-            <Text style={styles.deliveryDateText}>06/11/2026</Text>
+            {!pickup && !!(tracking?.estimatedArrival ?? order.deliveryDate) && (
+              <Text style={styles.deliveryDateText}>{formatIstDate(tracking?.estimatedArrival ?? order.deliveryDate)}</Text>
+            )}
             <View style={styles.arriveTomorrowPill}>
-              <Text style={styles.arriveTomorrowPillText}>Arrive Tomorrow</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.dashedDivider} />
-
-        {/* ── ORDER SUMMARY ───────────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeaderTitle}>Order summary</Text>
-
-        <View style={styles.summaryList}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Arrive states</Text>
-            <Text style={styles.summaryVal}>06/11/2026 - Tomorrow</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Order ID</Text>
-            <Text style={styles.summaryVal}>{displayOrderNumber}</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Order Date</Text>
-            <Text style={styles.summaryVal}>12 Jul 2026, 6:15 PM</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Pickup location</Text>
-            <Text style={styles.summaryVal}>Home Delivery</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Payment method</Text>
-            <Text style={styles.summaryVal}>Gpay</Text>
-          </View>
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Pickup code</Text>
-            <View style={styles.pickupCodeRow}>
-              <Text style={styles.summaryVal}>PICKUP-0039 | </Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setShowQrModal(true)}>
-                <Text style={styles.viewQrLink}>View QR</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={[styles.summaryRow, { alignItems: 'flex-start' }]}>
-            <Text style={styles.summaryKey}>Pickup or Delivery address</Text>
-            <View style={styles.addressValCol}>
-              <Text style={styles.addressPhoneText}>Ph: 99944 99944,</Text>
-              <Text style={styles.addressBodyText}>
-                The main Ooty Municipal Market is located on Commercial Road / Upper Bazar Road, Ooty, Tamil Nadu 643001.
+              <Text style={styles.arriveTomorrowPillText} testID="order-status-pill">
+                {isActiveStatus(status) ? activeOrderBadge({ status: status ?? '', fulfillmentType: order.fulfillmentType, deliveryDate: order.deliveryDate }) : orderStatusLabel(status)}
               </Text>
             </View>
           </View>
@@ -372,749 +438,540 @@ Status: Arrive Tomorrow (06/11/2026)`;
 
         <View style={styles.dashedDivider} />
 
-        {/* ── ORDER ITEMS BREAKDOWN ───────────────────────────────────────────── */}
-        <Text style={styles.sectionHeaderTitle}>Order progress</Text>
-
-        <View style={styles.itemsBreakdownList}>
-          <View style={styles.itemPriceRow}>
-            <View>
-              <Text style={styles.itemTitle}>Royal Gala</Text>
-              <Text style={styles.itemUnitRate}>1 kg × Rs. 160 / kg</Text>
-            </View>
-            <Text style={styles.itemAmount}>Rs. 160.00</Text>
+        {/* ── ORDER SUMMARY ───────────────────────────────────────────────── */}
+        <Text style={styles.sectionHeaderTitle}>Order summary</Text>
+        <View style={styles.summaryList}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryKey}>{pickup ? 'Status' : 'Arrive states'}</Text>
+            <Text style={styles.summaryVal}>{arriveText}</Text>
           </View>
-
-          <View style={styles.itemPriceRow}>
-            <View>
-              <Text style={styles.itemTitle}>Fuji</Text>
-              <Text style={styles.itemUnitRate}>1 kg × Rs. 152 / kg</Text>
-            </View>
-            <Text style={styles.itemAmount}>Rs. 152.00</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryKey}>Order ID</Text>
+            <Text style={styles.summaryVal} testID="order-number">
+              {order.orderNumber}
+            </Text>
           </View>
-
-          <View style={styles.itemPriceRow}>
-            <View>
-              <Text style={styles.itemTitle}>Green Curly Lettuce</Text>
-              <Text style={styles.itemUnitRate}>1 kg × Rs. 132 / kg</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryKey}>Order Date</Text>
+            <Text style={styles.summaryVal}>{formatDateTime(order.placedAt)}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryKey}>{pickup ? 'Pickup location' : 'Fulfilment'}</Text>
+            <Text style={styles.summaryVal}>{pickup ? (point?.name ?? '') : 'Home Delivery'}</Text>
+          </View>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryKey}>Payment method</Text>
+            <Text style={styles.summaryVal}>{order.paymentMethodLabel ?? 'Wallet'}</Text>
+          </View>
+          {pickup && !!order.pickupCode && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryKey}>Pickup code</Text>
+              <View style={styles.pickupCodeRow}>
+                <Text style={styles.summaryVal}>{order.pickupCode} | </Text>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => setShowQrModal(true)} testID="view-qr">
+                  <Text style={styles.viewQrLink}>View QR</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-            <Text style={styles.itemAmount}>Rs. 132.00</Text>
+          )}
+          {(tracking?.otpRequired ?? order.otpRequired) && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryKey}>Handover</Text>
+              <Text style={styles.summaryVal}>Share the OTP sent to you at handover</Text>
+            </View>
+          )}
+          <View style={[styles.summaryRow, { alignItems: 'flex-start' }]}>
+            <Text style={styles.summaryKey}>{pickup ? 'Pickup address' : 'Delivery address'}</Text>
+            <View style={styles.addressValCol}>
+              {pickup ? (
+                <>
+                  {!!point?.phone && <Text style={styles.addressPhoneText}>Ph: {point.phone},</Text>}
+                  <Text style={styles.addressBodyText}>{point?.address ?? point?.name ?? ''}</Text>
+                </>
+              ) : (
+                <>
+                  {!!address?.contactPhone && <Text style={styles.addressPhoneText}>Ph: {address.contactPhone},</Text>}
+                  <Text style={styles.addressBodyText}>{address ? `${formatAddressLine(address)}, ${address.state}` : ''}</Text>
+                </>
+              )}
+            </View>
           </View>
         </View>
 
         <View style={styles.dashedDivider} />
 
-        {/* ── TOTAL PAID ──────────────────────────────────────────────────────── */}
+        {/* ── ORDER ITEMS ───────────────────────────────────────────────────── */}
+        <Text style={styles.sectionHeaderTitle}>Order items</Text>
+        <View style={styles.itemsBreakdownList}>
+          {order.items.map((it) => (
+            <View key={it.id} style={styles.itemPriceRow}>
+              <View>
+                <Text style={styles.itemTitle}>
+                  {it.name} · {gradeLabel(it.grade)}
+                </Text>
+                <Text style={styles.itemUnitRate}>
+                  {formatKg(it.qtyKg)} × {formatRupees(it.unitPrice)} / kg
+                </Text>
+              </View>
+              <Text style={styles.itemAmount}>{formatRupees(it.lineTotal)}</Text>
+            </View>
+          ))}
+          {(
+            [
+              ['Items total', order.subtotal],
+              ['Delivery fee', deliveryFee],
+              ['Handling fee', order.handlingFee],
+              ['GST', order.gstAmount],
+            ] as const
+          )
+            .filter(([, v]) => v !== undefined && v !== null)
+            .map(([k, v]) => (
+              <View key={k} style={styles.itemPriceRow}>
+                <Text style={styles.itemUnitRate}>{k}</Text>
+                <Text style={styles.itemAmount}>{formatRupees(v)}</Text>
+              </View>
+            ))}
+        </View>
+
+        <View style={styles.dashedDivider} />
+
         <View style={styles.totalPaidRow}>
           <Text style={styles.totalPaidLabel}>Total Paid</Text>
-          <Text style={styles.totalPaidAmount}>Rs. 465.00</Text>
+          <Text style={styles.totalPaidAmount} testID="order-total">
+            {formatRupees(order.totalAmount)}
+          </Text>
         </View>
 
-        {/* ── ORDER PROGRESS STEPPER TIMELINE ─────────────────────────────────── */}
+        {/* ── ORDER PROGRESS TIMELINE (GET /orders/{id}/tracking) ─────────────── */}
         <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>Order progress</Text>
-
-        <View style={styles.timelineStepper}>
-          {/* Step 1 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineLeftCol}>
-              <Text style={styles.stepNumber}>1</Text>
-              <View style={styles.timelineLineActive} />
-            </View>
-            <View style={styles.timelineRightCol}>
-              <View style={styles.stepTitleRow}>
-                <Text style={styles.stepTitle}>Order progress</Text>
-                <View style={styles.completedPill}>
-                  <Text style={styles.completedPillText}>Completed</Text>
+        <View style={styles.timelineStepper} testID="order-timeline">
+          {timeline.map((step, i) => {
+            const last = i === timeline.length - 1;
+            const done = step.state === 'done' || step.state === 'cancelled';
+            return (
+              <View key={step.status} style={[styles.timelineStep, last && { marginBottom: 0 }]} testID={`step-${step.status}-${step.state}`}>
+                <View style={styles.timelineLeftCol}>
+                  <Text style={done || step.state === 'active' ? styles.stepNumber : styles.stepNumberMuted}>{i + 1}</Text>
+                  {!last && <View style={step.state === 'done' ? styles.timelineLineActive : styles.timelineLineMuted} />}
+                </View>
+                <View style={styles.timelineRightCol}>
+                  <View style={styles.stepTitleRow}>
+                    <Text style={done || step.state === 'active' ? styles.stepTitle : styles.stepTitleMuted}>{step.title}</Text>
+                    {step.state === 'done' && (
+                      <View style={styles.completedPill}>
+                        <Text style={styles.completedPillText}>Completed</Text>
+                      </View>
+                    )}
+                    {step.state === 'active' && (
+                      <View style={styles.inProgressPill}>
+                        <Text style={styles.inProgressPillText}>In progress</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.stepSubtitle}>
+                    {step.at ? `${formatDateTime(step.at)} · ` : ''}
+                    {step.subtitle}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.stepSubtitle}>Your payment was successful.</Text>
-            </View>
-          </View>
-
-          {/* Step 2 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineLeftCol}>
-              <Text style={styles.stepNumber}>2</Text>
-              <View style={styles.timelineLineActive} />
-            </View>
-            <View style={styles.timelineRightCol}>
-              <View style={styles.stepTitleRow}>
-                <Text style={styles.stepTitle}>Order confirmed</Text>
-                <View style={styles.completedPill}>
-                  <Text style={styles.completedPillText}>Completed</Text>
-                </View>
-              </View>
-              <Text style={styles.stepSubtitle}>Your order has been accepted.</Text>
-            </View>
-          </View>
-
-          {/* Step 3 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineLeftCol}>
-              <Text style={styles.stepNumber}>3</Text>
-              <View style={styles.timelineLineMuted} />
-            </View>
-            <View style={styles.timelineRightCol}>
-              <View style={styles.stepTitleRow}>
-                <Text style={styles.stepTitle}>Preparing your order</Text>
-                <View style={styles.inProgressPill}>
-                  <Text style={styles.inProgressPillText}>In progress</Text>
-                </View>
-              </View>
-              <Text style={styles.stepSubtitle}>Your items are being collected and packed.</Text>
-            </View>
-          </View>
-
-          {/* Step 4 */}
-          <View style={styles.timelineStep}>
-            <View style={styles.timelineLeftCol}>
-              <Text style={styles.stepNumberMuted}>4</Text>
-              <View style={styles.timelineLineMuted} />
-            </View>
-            <View style={styles.timelineRightCol}>
-              <Text style={styles.stepTitleMuted}>Ready for pickup</Text>
-              <Text style={styles.stepSubtitle}>We'll notify you when your order is ready.</Text>
-            </View>
-          </View>
-
-          {/* Step 5 */}
-          <View style={[styles.timelineStep, { marginBottom: 0 }]}>
-            <View style={styles.timelineLeftCol}>
-              <Text style={styles.stepNumberMuted}>5</Text>
-            </View>
-            <View style={styles.timelineRightCol}>
-              <Text style={styles.stepTitleMuted}>Order collected</Text>
-              <Text style={styles.stepSubtitle}>Your order has been handed over.</Text>
-            </View>
-          </View>
+            );
+          })}
         </View>
 
-        {/* ── ORDER ACTIONS (6 TILES) ─────────────────────────────────────────── */}
-        <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>Order Actions</Text>
+        {!!notice && (
+          <Text style={styles.stepSubtitle} testID="order-notice" accessibilityRole="alert">
+            {notice}
+          </Text>
+        )}
 
+        {/* ── ORDER ACTIONS (gated by status) ─────────────────────────────────── */}
+        <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>Order Actions</Text>
         <View style={styles.actionsGrid}>
-          {/* Action 1: Contact Support */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('ContactSupport')}
-          >
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => onNavigate?.('ContactSupport', { orderId: order.id, orderNumber: order.orderNumber })}>
             <HeadsetSupportSvg color="#2E7D32" size={22} />
             <Text style={styles.actionLabel}>Contact Support</Text>
           </TouchableOpacity>
 
-          {/* Action 2: Write a Review & Feedback */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('ReviewFeedback')}
-          >
-            <StarReviewSvg color="#F59E0B" size={22} />
-            <Text style={styles.actionLabel}>Write a Review & Feedback</Text>
-          </TouchableOpacity>
+          {reviewEligible && (
+            <TouchableOpacity
+              style={styles.actionCard}
+              activeOpacity={0.8}
+              testID="action-review"
+              onPress={() => onNavigate?.('ReviewFeedback', { orderId: order.id })}
+            >
+              <StarReviewSvg color="#F59E0B" size={22} />
+              <Text style={styles.actionLabel}>{reviewQuery.data ? `Your review: ${reviewQuery.data.rating} ★` : 'Write a Review & Feedback'}</Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Action 3: Return Order */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('ReturnOrder')}
-          >
-            <PackageBoxSvg color="#D97706" size={22} />
-            <Text style={styles.actionLabel}>Return Order</Text>
-          </TouchableOpacity>
+          {isReturnEligible(status) && (
+            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} testID="action-return" onPress={() => onNavigate?.('ReturnOrder', { orderId: order.id })}>
+              <PackageBoxSvg color="#D97706" size={22} />
+              <Text style={styles.actionLabel}>Return Order</Text>
+            </TouchableOpacity>
+          )}
 
-          {/* Action 4: Buy Again (REDIRECTS TO HOME) */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('Home')}
-          >
-            <CartActionSvg color="#2E7D32" size={22} />
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} testID="action-reorder" disabled={reorderM.isPending} onPress={() => void handleReorder()}>
+            {reorderM.isPending ? <ActivityIndicator /> : <CartActionSvg color="#2E7D32" size={22} />}
             <Text style={styles.actionLabel}>Buy Again</Text>
           </TouchableOpacity>
 
-          {/* Action 5: Share Order Details (OPENS 4TH IMAGE POPUP) */}
-          <TouchableOpacity
-            style={styles.actionCard}
-            activeOpacity={0.8}
-            onPress={() => setShowShareModal(true)}
-          >
+          <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => setShowShareModal(true)}>
             <ShareNodesSvg color="#2E7D32" size={22} />
-            <Text style={styles.actionLabel}>Share Order Detalis</Text>
+            <Text style={styles.actionLabel}>Share Order Details</Text>
           </TouchableOpacity>
 
-          {/* Action 6: Download Invoice (OPENS 5TH IMAGE POPUP) */}
           <TouchableOpacity
-            style={styles.actionCard}
+            style={[styles.actionCard, !order.invoiceId && { opacity: 0.5 }]}
             activeOpacity={0.8}
+            disabled={!order.invoiceId}
+            testID="action-invoice"
             onPress={() => setShowInvoiceModal(true)}
           >
             <DownloadTraySvg color="#2E7D32" size={22} />
-            <Text style={styles.actionLabel}>Download Invoice</Text>
+            <Text style={styles.actionLabel}>{order.invoiceId ? 'Download Invoice' : 'Invoice not ready yet'}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── FOR YOU SECTION ─────────────────────────────────────────────────── */}
-        <Text style={[styles.sectionHeaderTitle, { marginTop: 24, fontSize: 22 }]}>For you</Text>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.forYouScrollContent}
-        >
-          {forYouItems.map((item) => (
-            <View key={item.id} style={styles.forYouCardContainer}>
-              <View style={[styles.forYouCard, customerShadow.subtle]}>
-                <View style={styles.forYouTopRow}>
-                  <View style={styles.forYouRatingBadge}>
-                    <Text style={styles.forYouStar}>★ </Text>
-                    <Text style={styles.forYouRatingText}>{item.rating.toFixed(1)}</Text>
-                  </View>
-                  <TouchableOpacity activeOpacity={0.7} style={styles.forYouHeartBtn}>
-                    <HeartOutlineSvg size={16} />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.forYouImageCenter}>
-                  <Image source={item.image} style={styles.forYouImage} resizeMode="contain" />
-                </View>
-
-                <View style={styles.forYouPriceRow}>
-                  <Text style={styles.forYouPriceBold}>₹ {item.price}</Text>
-                  <Text style={styles.forYouPriceStrike}>₹ {item.orig}</Text>
-                  <Text style={styles.forYouUnitText}>kg</Text>
-                </View>
-              </View>
-
-              <Text style={styles.forYouProductName} numberOfLines={1}>
-                {item.name}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+        {/* ── FOR YOU (catalog featured) ─────────────────────────────────────── */}
+        {(homeQuery.data?.featured ?? []).length > 0 && (
+          <>
+            <Text style={[styles.sectionHeaderTitle, { marginTop: 24, fontSize: 22 }]}>For you</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.forYouScrollContent}>
+              {(homeQuery.data?.featured ?? []).map((p) => {
+                const key = productKey(p);
+                return (
+                  <ProductCard
+                    key={key}
+                    product={p}
+                    variant="rail"
+                    wishlisted={wishlistKeys.has(key)}
+                    onPress={() => onNavigate?.('ProductDetail', { productId: p.id, grade: p.grade })}
+                    onToggleWishlist={() => toggleWishlist.mutate({ productId: p.id, grade: p.grade, add: !wishlistKeys.has(key), product: p })}
+                  />
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ══════════════════════════════════════════════════════════════════════════
-          POPUP 1: SHARE ORDER DETAILS MODAL (MATCHING EXACT 4TH IMAGE)
-         ══════════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showShareModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowShareModal(false)}
-      >
+      {/* ═══ SHARE ORDER DETAILS (46:41111): system share sheet ═══ */}
+      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.shareModalCard}>
-              {/* Corner Circular Close Button - Exact Position */}
-              <TouchableOpacity
-                style={styles.floatingCloseBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowShareModal(false)}
-                accessibilityLabel="Close"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowShareModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
-
-              {/* Big Green Share Circle */}
               <View style={styles.largeIconCircle}>
                 <ShareNodesSvg color="#2E7D32" size={30} />
               </View>
-
-              {/* Title & Subtitle */}
               <Text style={styles.modalEditorialTitle}>Share Order Details</Text>
               <Text style={styles.modalSubtitle}>Share your information with family or friends.</Text>
-
-              {/* Receipt Ticket Box */}
               <View style={styles.receiptContainer}>
-                {/* Logo & Header */}
-                <Image
-                  source={tohfaMarketLogo}
-                  style={styles.receiptLogoImage}
-                  resizeMode="contain"
-                />
+                <Image source={tohfaMarketLogo} style={styles.receiptLogoImage} resizeMode="contain" />
                 <Text style={styles.receiptOrderDetailsHeader}>Order Details</Text>
-
-                {/* Receipt Key-Value Rows */}
                 <View style={styles.receiptRow}>
                   <Text style={styles.receiptKey}>Order ID</Text>
-                  <Text style={styles.receiptValBold}>{displayOrderNumber}</Text>
+                  <Text style={styles.receiptValBold}>{order.orderNumber}</Text>
                 </View>
-
                 <View style={styles.receiptRow}>
                   <Text style={styles.receiptKey}>Order Date</Text>
-                  <Text style={styles.receiptVal}>15 Nov 2026, 9:41 AM</Text>
+                  <Text style={styles.receiptVal}>{formatDateTime(order.placedAt)}</Text>
                 </View>
-
                 <View style={styles.receiptRow}>
                   <Text style={styles.receiptKey}>Items</Text>
-                  <Text style={styles.receiptVal}>3 Items</Text>
+                  <Text style={styles.receiptVal}>{order.items.length} Items</Text>
                 </View>
-
                 <View style={styles.receiptRow}>
                   <Text style={styles.receiptKey}>Total Paid</Text>
-                  <Text style={styles.receiptTotalPaid}>₹465.00</Text>
+                  <Text style={styles.receiptTotalPaid}>{formatRupees(order.totalAmount)}</Text>
                 </View>
-
-                {/* Pickup Location Highlight Box */}
-                <View style={styles.receiptPickupBox}>
-                  <Text style={{ fontSize: 16 }}>📍</Text>
-                  <View>
-                    <Text style={styles.receiptPickupSub}>Pickup Location</Text>
-                    <Text style={styles.receiptPickupTitle}>Ooty Market</Text>
+                {pickup && point && (
+                  <View style={styles.receiptPickupBox}>
+                    <Text style={{ fontSize: 16 }}>📍</Text>
+                    <View>
+                      <Text style={styles.receiptPickupSub}>Pickup Location</Text>
+                      <Text style={styles.receiptPickupTitle}>{point.name}</Text>
+                    </View>
                   </View>
-                </View>
-
-                {/* Ordered Items List */}
+                )}
                 <View style={styles.receiptItemsList}>
-                  <View style={styles.receiptItemRow}>
-                    <Image source={ProductImages.fruitApple} style={styles.receiptItemThumb} resizeMode="contain" />
-                    <Text style={styles.receiptItemTitle}>Fresh apples (1 kg)</Text>
-                    <Text style={styles.receiptItemPrice}>₹160.00</Text>
-                  </View>
-
-                  <View style={styles.receiptItemRow}>
-                    <Image source={ProductImages.fruitApple} style={styles.receiptItemThumb} resizeMode="contain" />
-                    <Text style={styles.receiptItemTitle}>Fuji (1 kg)</Text>
-                    <Text style={styles.receiptItemPrice}>₹152.00</Text>
-                  </View>
-
-                  <View style={styles.receiptItemRow}>
-                    <Image source={ProductImages.foryouLettuce} style={styles.receiptItemThumb} resizeMode="contain" />
-                    <Text style={styles.receiptItemTitle}>Green Curly Lettuce (1 kg)</Text>
-                    <Text style={styles.receiptItemPrice}>₹132.00</Text>
-                  </View>
+                  {order.items.map((it) => (
+                    <View key={it.id} style={styles.receiptItemRow}>
+                      <Text style={styles.receiptItemTitle}>
+                        {it.name} ({formatKg(it.qtyKg)})
+                      </Text>
+                      <Text style={styles.receiptItemPrice}>{formatRupees(it.lineTotal)}</Text>
+                    </View>
+                  ))}
                 </View>
-
-                {/* Scalloped / Perforated Bottom Edge */}
                 <View style={styles.scallopEdgeContainer}>
                   {[...Array(12)].map((_, i) => (
                     <View key={`scallop-${i}`} style={styles.scallopCircle} />
                   ))}
                 </View>
               </View>
-
-              {/* Share Order Details Header & Social Row */}
               <Text style={styles.shareOptionsHeader}>Share Order Details</Text>
               <View style={styles.socialButtonsRow}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => handleSystemShare('WhatsApp')}
-                  style={styles.socialBtnCol}
-                >
-                  <WhatsAppSvg />
-                  <Text style={styles.socialBtnLabel}>WhatsApp</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => handleSystemShare('Telegram')}
-                  style={styles.socialBtnCol}
-                >
-                  <TelegramSvg />
-                  <Text style={styles.socialBtnLabel}>Telegram</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => handleSystemShare('Message')}
-                  style={styles.socialBtnCol}
-                >
-                  <MessageSvg />
-                  <Text style={styles.socialBtnLabel}>Message</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => handleSystemShare('Email')}
-                  style={styles.socialBtnCol}
-                >
-                  <EmailSvg />
-                  <Text style={styles.socialBtnLabel}>Email</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => handleSystemShare('Other')}
-                  style={styles.socialBtnCol}
-                >
-                  <MoreSvg />
-                  <Text style={styles.socialBtnLabel}>More</Text>
-                </TouchableOpacity>
+                {(
+                  [
+                    ['WhatsApp', WhatsAppSvg],
+                    ['Telegram', TelegramSvg],
+                    ['Message', MessageSvg],
+                    ['Email', EmailSvg],
+                    ['More', MoreSvg],
+                  ] as const
+                ).map(([label, Icon]) => (
+                  <TouchableOpacity key={label} activeOpacity={0.7} onPress={() => void handleSystemShare()} style={styles.socialBtnCol}>
+                    <Icon />
+                    <Text style={styles.socialBtnLabel}>{label}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════════════════════════
-          POPUP 2A: DOWNLOAD INVOICE MODAL (1ST SCREEN FROM USER)
-         ══════════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showInvoiceModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowInvoiceModal(false)}
-      >
+      {/* ═══ DOWNLOAD INVOICE (46:41394): GET /invoices/{id} + signed download ═══ */}
+      <Modal visible={showInvoiceModal} transparent animationType="fade" onRequestClose={() => setShowInvoiceModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
-            <View style={styles.downloadInvoiceModalCard}>
-              {/* Corner Circular Close Button - Exact Position */}
-              <TouchableOpacity
-                style={styles.floatingCloseBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowInvoiceModal(false)}
-                accessibilityLabel="Close"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+            <View style={styles.downloadInvoiceModalCard} testID="invoice-modal">
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowInvoiceModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
-
-              {/* Big Green Download Tray Circle */}
               <View style={styles.largeIconCircle}>
                 <DownloadTraySvg color="#2E7D32" size={30} />
               </View>
-
-              {/* Title & Subtitle */}
               <Text style={styles.modalEditorialTitle}>Download Invoice</Text>
               <Text style={styles.modalSubtitle}>View or download the invoice for your order.</Text>
-
-              {/* Order ID Banner Card */}
               <View style={styles.orderIdBannerCard}>
                 <View style={styles.orderBagCircle}>
                   <CartActionSvg color="#2E7D32" size={18} />
                 </View>
                 <View>
-                  <Text style={styles.orderIdBannerTitle}>Order ID: {displayOrderNumber}</Text>
-                  <Text style={styles.orderIdBannerSub}>15 Nov 2026 - 3 items</Text>
+                  <Text style={styles.orderIdBannerTitle}>Order ID: {order.orderNumber}</Text>
+                  <Text style={styles.orderIdBannerSub}>
+                    {formatIstDate(order.placedAt)} - {order.items.length} items
+                  </Text>
                 </View>
               </View>
-
-              {/* Invoice Label */}
               <Text style={styles.invoiceSectionTitle}>Invoice</Text>
-
-              {/* Stylized Miniature Invoice Document Preview */}
-              <TouchableOpacity
-                style={styles.miniInvoicePreview}
-                activeOpacity={0.9}
-                onPress={() => {
-                  setShowInvoiceModal(false);
-                  setShowFullInvoiceModal(true);
-                }}
-              >
-                <View style={styles.miniInvoiceHeader}>
-                  <View>
-                    <Text style={styles.miniInvoiceBrand}>TOHFA Market</Text>
-                    <Text style={styles.miniInvoiceMeta}>Nilgiris Horticulture Traders Association</Text>
-                    <Text style={styles.miniInvoiceMeta}>GSTIN: 33AAAAA0000A1Z5</Text>
+              {invoiceQuery.isLoading ? (
+                <ActivityIndicator testID="invoice-loading" />
+              ) : invoiceQuery.isError ? (
+                <Text style={styles.invoiceInfoText} testID="invoice-error">
+                  {invoiceQuery.error instanceof ApiError && invoiceQuery.error.status === 404 ? 'Invoice unavailable' : mapProblem(invoiceQuery.error).message}
+                </Text>
+              ) : invoice ? (
+                <TouchableOpacity
+                  style={styles.miniInvoicePreview}
+                  activeOpacity={0.9}
+                  onPress={() => {
+                    setShowInvoiceModal(false);
+                    setShowFullInvoiceModal(true);
+                  }}
+                >
+                  <View style={styles.miniInvoiceHeader}>
+                    <View>
+                      <Text style={styles.miniInvoiceBrand}>TOHFA Market</Text>
+                      {!!invoice.buyerName && <Text style={styles.miniInvoiceMeta}>{invoice.buyerName}</Text>}
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.miniInvoiceInvNo}>{invoice.gstApplicable ? 'Tax Invoice' : 'Invoice'}</Text>
+                      <Text style={styles.miniInvoiceMeta}>Inv No: {invoice.invoiceNumber}</Text>
+                      <Text style={styles.miniInvoiceMeta}>Status: {invoice.status}</Text>
+                    </View>
                   </View>
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={styles.miniInvoiceInvNo}>Tax Invoice</Text>
-                    <Text style={styles.miniInvoiceMeta}>Inv No: TOH-2026-071855</Text>
-                    <Text style={styles.miniInvoiceMeta}>Status: PAID</Text>
+                  <View style={styles.miniInvoiceTableHead}>
+                    <Text style={[styles.miniInvoiceColHead, { flex: 2 }]}>Product</Text>
+                    <Text style={styles.miniInvoiceColHead}>Qty</Text>
+                    <Text style={[styles.miniInvoiceColHead, { textAlign: 'right' }]}>Amount</Text>
                   </View>
-                </View>
-
-                {/* Mini Invoice Table Header */}
-                <View style={styles.miniInvoiceTableHead}>
-                  <Text style={[styles.miniInvoiceColHead, { flex: 2 }]}>Product</Text>
-                  <Text style={styles.miniInvoiceColHead}>Qty</Text>
-                  <Text style={styles.miniInvoiceColHead}>Price</Text>
-                  <Text style={[styles.miniInvoiceColHead, { textAlign: 'right' }]}>Amount</Text>
-                </View>
-
-                {/* Mini Item Rows */}
-                <View style={styles.miniInvoiceRow}>
-                  <Text style={[styles.miniInvoiceCell, { flex: 2 }]} numberOfLines={1}>Royal Gala Apple</Text>
-                  <Text style={styles.miniInvoiceCell}>1 kg</Text>
-                  <Text style={styles.miniInvoiceCell}>₹160</Text>
-                  <Text style={[styles.miniInvoiceCell, { textAlign: 'right' }]}>₹160.00</Text>
-                </View>
-                <View style={styles.miniInvoiceRow}>
-                  <Text style={[styles.miniInvoiceCell, { flex: 2 }]} numberOfLines={1}>Fuji Apple</Text>
-                  <Text style={styles.miniInvoiceCell}>1 kg</Text>
-                  <Text style={styles.miniInvoiceCell}>₹152</Text>
-                  <Text style={[styles.miniInvoiceCell, { textAlign: 'right' }]}>₹152.00</Text>
-                </View>
-                <View style={styles.miniInvoiceRow}>
-                  <Text style={[styles.miniInvoiceCell, { flex: 2 }]} numberOfLines={1}>Green Curly Lettuce</Text>
-                  <Text style={styles.miniInvoiceCell}>1 kg</Text>
-                  <Text style={styles.miniInvoiceCell}>₹132</Text>
-                  <Text style={[styles.miniInvoiceCell, { textAlign: 'right' }]}>₹132.00</Text>
-                </View>
+                  {(invoice.lines ?? []).slice(0, 3).map((l, i) => (
+                    <View key={`${l.description}-${i}`} style={styles.miniInvoiceRow}>
+                      <Text style={[styles.miniInvoiceCell, { flex: 2 }]} numberOfLines={1}>
+                        {l.description}
+                      </Text>
+                      <Text style={styles.miniInvoiceCell}>{formatKg(l.qty)}</Text>
+                      <Text style={[styles.miniInvoiceCell, { textAlign: 'right' }]}>{formatRupees(l.total)}</Text>
+                    </View>
+                  ))}
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity style={styles.downloadPdfBtn} activeOpacity={0.85} onPress={() => void handleDownloadInvoice()} disabled={downloading} testID="invoice-download">
+                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>Download Invoice (PDF)</Text>}
               </TouchableOpacity>
-
-              {/* Action Button 1: Download Invoice (PDF) */}
-              <TouchableOpacity
-                style={styles.downloadPdfBtn}
-                activeOpacity={0.85}
-                onPress={handleDownloadInvoice}
-              >
-                <Text style={styles.downloadPdfBtnText}>Download Invoice (PDF)</Text>
-              </TouchableOpacity>
-
-              {/* Action Button 2: View Invoice (OPENS 2ND SCREEN POPUP) */}
               <TouchableOpacity
                 style={styles.closeBtnOutlined}
                 activeOpacity={0.85}
+                disabled={!invoice}
                 onPress={() => {
                   setShowInvoiceModal(false);
                   setShowFullInvoiceModal(true);
                 }}
+                testID="invoice-view"
               >
                 <Text style={styles.closeBtnOutlinedText}>View Invoice</Text>
               </TouchableOpacity>
-
-              {/* Light Green Info Notice Box */}
-              <View style={styles.invoiceInfoBox}>
-                <View style={styles.infoIconCircle}>
-                  <Text style={styles.infoIconText}>i</Text>
-                </View>
-                <Text style={styles.invoiceInfoText}>
-                  The invoice includes item details, total amount, taxes (if applicable)and payment information.
-                </Text>
-              </View>
+              {!!notice && <Text style={styles.invoiceInfoText}>{notice}</Text>}
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════════════════════════
-          POPUP 2B: FULL INVOICE VIEW MODAL (2ND SCREEN FROM USER)
-         ══════════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showFullInvoiceModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFullInvoiceModal(false)}
-      >
+      {/* ═══ VIEW INVOICE (46:41607): InvoiceDetail; seller GSTIN/legal name not in the API ═══ */}
+      <Modal visible={showFullInvoiceModal} transparent animationType="fade" onRequestClose={() => setShowFullInvoiceModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
-            <View style={styles.invoiceModalCard}>
-              {/* Corner Circular Close Button - Exact Position */}
-              <TouchableOpacity
-                style={styles.floatingCloseBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowFullInvoiceModal(false)}
-                accessibilityLabel="Close"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+            <View style={styles.invoiceModalCard} testID="invoice-full">
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowFullInvoiceModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
-
-              {/* Title: "Invoice" in editorial script font */}
               <Text style={styles.invoiceModalTitle}>Invoice</Text>
-
-              {/* Exact Invoice Document Card (Scrollable for clear reading) */}
-              <ScrollView
-                style={styles.invoiceDocScrollView}
-                contentContainerStyle={styles.invoiceDocScrollContent}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.invoiceDocumentCard}>
-                  {/* Top Header Box (Cream background #FDFBF7) */}
-                  <View style={styles.invHeaderBox}>
-                    <View style={styles.invBrandCol}>
-                      <View style={styles.invLogoRow}>
-                        <Text style={styles.invBrandTohfa}>TOHFA </Text>
-                        <Text style={styles.invBrandMarket}>Market</Text>
+              <ScrollView style={styles.invoiceDocScrollView} contentContainerStyle={styles.invoiceDocScrollContent} showsVerticalScrollIndicator={false}>
+                {invoice && (
+                  <View style={styles.invoiceDocumentCard}>
+                    <View style={styles.invHeaderBox}>
+                      <View style={styles.invBrandCol}>
+                        <View style={styles.invLogoRow}>
+                          <Text style={styles.invBrandTohfa}>TOHFA </Text>
+                          <Text style={styles.invBrandMarket}>Market</Text>
+                        </View>
+                        {!!invoice.placeOfSupply && <Text style={styles.invMetaText}>Place of supply: {invoice.placeOfSupply}</Text>}
                       </View>
-                      <Text style={styles.invMetaText}>Nilgiris Horticulture Organic Farmers Association</Text>
-                      <Text style={styles.invMetaText}>Sample address: Ooty, The Nilgiris, Tamil Nadu - 643001</Text>
-                      <Text style={styles.invMetaText}>support@tohfa.example | +91 98765 43210</Text>
-                      <Text style={styles.invMetaText}>GSTIN: 33XXXXXXXXX1Z5 (sample placeholder)</Text>
+                      <View style={styles.invTaxCol}>
+                        <Text style={styles.invTaxInvoiceTitle}>{invoice.gstApplicable ? 'TAX INVOICE' : 'INVOICE'}</Text>
+                        <Text style={styles.invTaxMeta}>Invoice No.: {invoice.invoiceNumber}</Text>
+                        <Text style={styles.invTaxMeta}>Invoice Date: {formatIstDate(invoice.issueDate)}</Text>
+                        <Text style={styles.invTaxMeta}>Order ID: {order.orderNumber}</Text>
+                        <Text style={styles.invTaxMeta}>Status: {invoice.status}</Text>
+                      </View>
                     </View>
-
-                    <View style={styles.invTaxCol}>
-                      <Text style={styles.invTaxInvoiceTitle}>TAX INVOICE</Text>
-                      <Text style={styles.invTaxMeta}>Invoice No.: TFM/2026-27/0001</Text>
-                      <Text style={styles.invTaxMeta}>Invoice Date: 12 Nov 2026</Text>
-                      <Text style={styles.invTaxMeta}>Order ID: ORD-20261112-0001</Text>
-                      <Text style={styles.invTaxMeta}>Payment Status: Paid</Text>
+                    <View style={styles.invAddressTable}>
+                      <View style={styles.invAddressColLeft}>
+                        <Text style={styles.invAddressHead}>BILL TO</Text>
+                        <Text style={styles.invCustomerBold}>{invoice.buyerName ?? ''}</Text>
+                        {!!invoice.buyerGstin && <Text style={styles.invAddressLine}>GSTIN: {invoice.buyerGstin}</Text>}
+                      </View>
+                      <View style={styles.invAddressColRight}>
+                        <Text style={styles.invAddressHead}>{pickup ? 'PICKUP POINT' : 'DELIVERY ADDRESS'}</Text>
+                        <Text style={styles.invAddressLine}>{pickup ? (point?.name ?? '') : address ? formatAddressLine(address) : ''}</Text>
+                      </View>
                     </View>
+                    <Text style={styles.invOrderItemsHeader}>ORDER ITEMS</Text>
+                    <View style={styles.invItemsTable}>
+                      <View style={styles.invItemsTableHead}>
+                        <Text style={[styles.invTh, { width: 18 }]}>#</Text>
+                        <Text style={[styles.invTh, { flex: 2 }]}>Product description</Text>
+                        <Text style={[styles.invTh, { width: 34, textAlign: 'center' }]}>Qty</Text>
+                        <Text style={[styles.invTh, { width: 56, textAlign: 'right' }]}>Unit price</Text>
+                        <Text style={[styles.invTh, { width: 60, textAlign: 'right' }]}>Amount</Text>
+                      </View>
+                      {(invoice.lines ?? []).map((l, i) => (
+                        <View key={`${l.description}-${i}`} style={styles.invItemRow}>
+                          <Text style={[styles.invTd, { width: 18 }]}>{i + 1}</Text>
+                          <Text style={[styles.invTd, { flex: 2 }]}>{l.description}</Text>
+                          <Text style={[styles.invTd, { width: 34, textAlign: 'center' }]}>{formatKg(l.qty)}</Text>
+                          <Text style={[styles.invTd, { width: 56, textAlign: 'right' }]}>{formatRupees(l.unitPrice)}</Text>
+                          <Text style={[styles.invTd, { width: 60, textAlign: 'right' }]}>{formatRupees(l.total)}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={styles.invSubtotalBlock}>
+                      {!!invoice.taxableAmount && (
+                        <View style={styles.invSubtotalRow}>
+                          <Text style={styles.invSubtotalKey}>Taxable amount</Text>
+                          <Text style={styles.invSubtotalVal}>{formatRupees(invoice.taxableAmount)}</Text>
+                        </View>
+                      )}
+                      <View style={styles.invSubtotalRow}>
+                        <Text style={styles.invSubtotalKey}>Tax</Text>
+                        <Text style={styles.invSubtotalVal} testID="invoice-gst">
+                          {invoice.gstApplicable ? formatRupees(sumMoney([invoice.cgst ?? '0', invoice.sgst ?? '0', invoice.igst ?? '0'])) : 'GST not applicable'}
+                        </Text>
+                      </View>
+                      <View style={styles.invSubtotalDivider} />
+                      <View style={styles.invSubtotalRow}>
+                        <Text style={styles.invGrandTotalKey}>Grand total</Text>
+                        <Text style={styles.invGrandTotalVal}>{formatRupees(invoice.totalAmount)}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.invPaymentBox}>
+                      <Text style={styles.invPaymentHeading}>PAYMENT DETAILS</Text>
+                      <View style={styles.invPaymentRow}>
+                        <Text style={styles.invPaymentText}>Payment method: {order.paymentMethodLabel ?? 'Wallet'}</Text>
+                        <Text style={styles.invPaymentText}>Payment status: {order.paymentStatus ?? ''}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.invThankYouText}>Thank you for choosing TOHFA Market.</Text>
                   </View>
-
-                  {/* Two-Column Bill To & Delivery Address Table */}
-                  <View style={styles.invAddressTable}>
-                    <View style={styles.invAddressColLeft}>
-                      <Text style={styles.invAddressHead}>BILL TO</Text>
-                      <Text style={styles.invCustomerBold}>Arun Kumar</Text>
-                      <Text style={styles.invAddressLine}>Mobile: +91 98765 43210</Text>
-                      <Text style={styles.invAddressLine}>arunkumar@example.com</Text>
-                    </View>
-                    <View style={styles.invAddressColRight}>
-                      <Text style={styles.invAddressHead}>DELIVERY ADDRESS</Text>
-                      <Text style={styles.invAddressLine}>No. 12, Tea Garden Road</Text>
-                      <Text style={styles.invAddressLine}>Ooty, The Nilgiris, Tamil Nadu - 643001</Text>
-                      <Text style={styles.invAddressLine}>India</Text>
-                    </View>
-                  </View>
-
-                  {/* ORDER ITEMS Section */}
-                  <Text style={styles.invOrderItemsHeader}>ORDER ITEMS</Text>
-                  <View style={styles.invItemsTable}>
-                    {/* Green Table Header */}
-                    <View style={styles.invItemsTableHead}>
-                      <Text style={[styles.invTh, { width: 18 }]}>#</Text>
-                      <Text style={[styles.invTh, { flex: 2 }]}>Product description</Text>
-                      <Text style={[styles.invTh, { width: 34, textAlign: 'center' }]}>Qty</Text>
-                      <Text style={[styles.invTh, { width: 56, textAlign: 'right' }]}>Unit price</Text>
-                      <Text style={[styles.invTh, { width: 60, textAlign: 'right' }]}>Amount</Text>
-                    </View>
-
-                    {/* Item 1 */}
-                    <View style={styles.invItemRow}>
-                      <Text style={[styles.invTd, { width: 18 }]}>1</Text>
-                      <Text style={[styles.invTd, { flex: 2 }]}>Royal Gala Apple</Text>
-                      <Text style={[styles.invTd, { width: 34, textAlign: 'center' }]}>1 kg</Text>
-                      <Text style={[styles.invTd, { width: 56, textAlign: 'right' }]}>₹160.00</Text>
-                      <Text style={[styles.invTd, { width: 60, textAlign: 'right' }]}>₹160.00</Text>
-                    </View>
-
-                    {/* Item 2 */}
-                    <View style={[styles.invItemRow, { backgroundColor: '#FCFBF8' }]}>
-                      <Text style={[styles.invTd, { width: 18 }]}>2</Text>
-                      <Text style={[styles.invTd, { flex: 2 }]}>Fuji Apple</Text>
-                      <Text style={[styles.invTd, { width: 34, textAlign: 'center' }]}>1 kg</Text>
-                      <Text style={[styles.invTd, { width: 56, textAlign: 'right' }]}>₹152.00</Text>
-                      <Text style={[styles.invTd, { width: 60, textAlign: 'right' }]}>₹152.00</Text>
-                    </View>
-
-                    {/* Item 3 */}
-                    <View style={styles.invItemRow}>
-                      <Text style={[styles.invTd, { width: 18 }]}>3</Text>
-                      <Text style={[styles.invTd, { flex: 2 }]}>Green Curly Lettuce</Text>
-                      <Text style={[styles.invTd, { width: 34, textAlign: 'center' }]}>1 kg</Text>
-                      <Text style={[styles.invTd, { width: 56, textAlign: 'right' }]}>₹132.00</Text>
-                      <Text style={[styles.invTd, { width: 60, textAlign: 'right' }]}>₹132.00</Text>
-                    </View>
-                  </View>
-
-                  {/* Subtotals & Fees */}
-                  <View style={styles.invSubtotalBlock}>
-                    <View style={styles.invSubtotalRow}>
-                      <Text style={styles.invSubtotalKey}>Items subtotal</Text>
-                      <Text style={styles.invSubtotalVal}>₹444.00</Text>
-                    </View>
-                    <View style={styles.invSubtotalRow}>
-                      <Text style={styles.invSubtotalKey}>Delivery fee</Text>
-                      <Text style={styles.invSubtotalVal}>₹9.00</Text>
-                    </View>
-                    <View style={styles.invSubtotalRow}>
-                      <Text style={styles.invSubtotalKey}>Handling fee</Text>
-                      <Text style={styles.invSubtotalVal}>₹12.00</Text>
-                    </View>
-                    <View style={styles.invSubtotalRow}>
-                      <Text style={styles.invSubtotalKey}>Tax (illustrative sample)</Text>
-                      <Text style={styles.invSubtotalVal}>₹0.00</Text>
-                    </View>
-
-                    <View style={styles.invSubtotalDivider} />
-
-                    <View style={styles.invSubtotalRow}>
-                      <Text style={styles.invGrandTotalKey}>Grand total</Text>
-                      <Text style={styles.invGrandTotalVal}>₹465.00</Text>
-                    </View>
-                  </View>
-
-                  {/* Payment Details Box */}
-                  <View style={styles.invPaymentBox}>
-                    <Text style={styles.invPaymentHeading}>PAYMENT DETAILS</Text>
-                    <View style={styles.invPaymentRow}>
-                      <Text style={styles.invPaymentText}>Payment method: TOHFA Wallet</Text>
-                      <Text style={styles.invPaymentText}>Payment reference: WALLET-TXN-000184</Text>
-                    </View>
-                    <View style={styles.invPaymentRow}>
-                      <Text style={styles.invPaymentText}>Payment status: PAID</Text>
-                      <Text style={styles.invPaymentText}>Paid on: 12 Nov 2026, 09:15 AM</Text>
-                    </View>
-                  </View>
-
-                  {/* Disclaimers & Thank you */}
-                  <Text style={styles.invDisclaimerText}>
-                    Sample only: This invoice is for UI/UX design and prototype purposes. Business address, GSTIN, customer details, invoice number and tax treatment are illustrative placeholders. Replace with verified business and tax information before production use.
-                  </Text>
-                  <Text style={styles.invThankYouText}>
-                    Thank you for choosing TOHFA Market.{'\n'}Fresh from Nilgiri farms to your home.
-                  </Text>
-                  <View style={styles.invFooterRow}>
-                    <Text style={styles.invFooterMeta}>TOHFA Market • Sample Invoice</Text>
-                    <Text style={styles.invFooterMeta}>Page 1</Text>
-                  </View>
-                </View>
+                )}
               </ScrollView>
-
-              {/* Action Button 1: Download Invoice (PDF) */}
-              <TouchableOpacity
-                style={styles.downloadPdfBtn}
-                activeOpacity={0.85}
-                onPress={handleDownloadInvoice}
-              >
-                <Text style={styles.downloadPdfBtnText}>Download Invoice (PDF)</Text>
+              <TouchableOpacity style={styles.downloadPdfBtn} activeOpacity={0.85} onPress={() => void handleDownloadInvoice()} disabled={downloading} testID="invoice-full-download">
+                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>Download Invoice (PDF)</Text>}
               </TouchableOpacity>
-
-              {/* Action Button 2: Close (Outlined) */}
-              <TouchableOpacity
-                style={styles.closeBtnOutlined}
-                activeOpacity={0.85}
-                onPress={() => setShowFullInvoiceModal(false)}
-              >
+              <TouchableOpacity style={styles.closeBtnOutlined} activeOpacity={0.85} onPress={() => setShowFullInvoiceModal(false)}>
                 <Text style={styles.closeBtnOutlinedText}>Close</Text>
               </TouchableOpacity>
-
-              {/* Light Green Info Notice Box */}
-              <View style={styles.invoiceInfoBox}>
-                <View style={styles.infoIconCircle}>
-                  <Text style={styles.infoIconText}>i</Text>
-                </View>
-                <Text style={styles.invoiceInfoText}>
-                  The invoice includes item details, total amount, taxes (if applicable)and payment information.
-                </Text>
-              </View>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* ══════════════════════════════════════════════════════════════════════════
-          POPUP 3: PICKUP QR CODE MODAL (WHEN CLICKING "View QR")
-         ══════════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showQrModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowQrModal(false)}
-      >
+      {/* ═══ PICKUP QR (BR-194): QR of pickupQr.payload, never the OTP ═══ */}
+      <Modal visible={showQrModal} transparent animationType="fade" onRequestClose={() => setShowQrModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
-            <View style={styles.qrModalCard}>
-              <TouchableOpacity
-                style={styles.floatingCloseBtn}
-                activeOpacity={0.8}
-                onPress={() => setShowQrModal(false)}
-                accessibilityLabel="Close"
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
+            <View style={styles.qrModalCard} testID="qr-modal">
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowQrModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
-
               <Text style={styles.modalEditorialTitle}>Pickup QR Code</Text>
               <Text style={styles.modalSubtitle}>Show this QR code at the counter for pickup</Text>
-
               <View style={styles.qrImageFrame}>
-                <Image
-                  source={divQrCode || pickupQrCode}
-                  style={styles.qrImage}
-                  resizeMode="contain"
-                />
+                <PickupQrCode payload={order.pickupQr?.payload} size={180} />
               </View>
-
               <View style={styles.pickupCodeBadge}>
-                <Text style={styles.pickupCodeText}>PICKUP-0039</Text>
+                <Text style={styles.pickupCodeText}>{order.pickupCode}</Text>
               </View>
-              <Text style={styles.qrOrderSubtitle}>Order: {displayOrderNumber}</Text>
+              <Text style={styles.qrOrderSubtitle}>Order: {order.orderNumber}</Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═══ REORDER RESULT: lines that could not be added [needs design review] ═══ */}
+      <Modal visible={!!reorderResult} transparent animationType="fade" onRequestClose={() => setReorderResult(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCardContainer}>
+            <View style={styles.qrModalCard} testID="reorder-modal">
+              <Text style={styles.modalEditorialTitle}>{reorderResult?.addedCount === 0 ? 'Nothing could be added' : 'Some items are unavailable'}</Text>
+              {(reorderResult?.unavailable ?? []).map((u) => (
+                <Text key={`${u.productId}:${u.grade}`} style={styles.modalSubtitle}>
+                  {u.name} · {gradeLabel(u.grade)} — {REORDER_REASON[u.reason] ?? u.reason}
+                </Text>
+              ))}
+              {(reorderResult?.addedCount ?? 0) > 0 && (
+                <TouchableOpacity
+                  style={styles.downloadPdfBtn}
+                  onPress={() => {
+                    setReorderResult(null);
+                    onNavigate?.('Cart');
+                  }}
+                  testID="reorder-go-cart"
+                >
+                  <Text style={styles.downloadPdfBtnText}>Go to cart</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.closeBtnOutlined} onPress={() => setReorderResult(null)}>
+                <Text style={styles.closeBtnOutlinedText}>Close</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1122,6 +979,7 @@ Status: Arrive Tomorrow (06/11/2026)`;
     </View>
   );
 };
+
 
 // ── STYLESHEET ─────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({

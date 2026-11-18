@@ -1292,7 +1292,11 @@ export default function App(): React.JSX.Element {
           <CustomerLoginScreen onNavigate={(s, p) => navigate(s as ScreenName, p)} />
         ) : screen === 'CustomerOtp' ? (
           <CustomerOtpScreen
-            mobile={String(params['mobile'] ?? '9090202033')}
+            mobile={String(params['mobile'] ?? '')}
+            challengeId={String(params['challengeId'] ?? '')}
+            expiresAt={typeof params['expiresAt'] === 'string' ? params['expiresAt'] : undefined}
+            resendAvailableAt={typeof params['resendAvailableAt'] === 'string' ? params['resendAvailableAt'] : undefined}
+            attemptsRemaining={typeof params['attemptsRemaining'] === 'number' ? params['attemptsRemaining'] : undefined}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
           />
         ) : screen === 'CustomerProfileName' ? (

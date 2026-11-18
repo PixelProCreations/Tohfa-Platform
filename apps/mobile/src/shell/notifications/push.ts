@@ -44,6 +44,8 @@ export interface PushRegistration {
   register(options: RegisterPushOptions): Promise<PushRegistrationResult>;
   unregister(): Promise<void>;
   onForegroundMessage(listener: (message: PushMessage) => void): () => void;
+  /** User tapped a push (cold start or from background); a no-op when Firebase is not configured. */
+  onOpenedMessage(listener: (message: PushMessage) => void): () => void;
   /** The token currently registered with the server for this session, if any. */
   registeredToken(): string | null;
 }
@@ -130,6 +132,17 @@ export function createPushRegistration(deps: PushRegistrationDeps): PushRegistra
       }
     },
 
+    onOpenedMessage(listener) {
+      const subscribe = deps.provider.onNotificationOpened;
+      if (subscribe === undefined || !deps.provider.isConfigured()) return () => undefined;
+      try {
+        return subscribe.call(deps.provider, listener);
+      } catch (err) {
+        log(`opened-notification listener unavailable: ${describeFailure(err)}`);
+        return () => undefined;
+      }
+    },
+
     registeredToken() {
       return current?.token ?? null;
     },
@@ -150,3 +163,7 @@ export const unregisterPushForSession = (): Promise<void> => pushRegistration.un
 
 export const onForegroundPush = (listener: (message: PushMessage) => void): (() => void) =>
   pushRegistration.onForegroundMessage(listener);
+
+/** Push tapped (cold start or background). Map `message.data` with roles/customer/api/notifications notificationTarget(). */
+export const onPushOpened = (listener: (message: PushMessage) => void): (() => void) =>
+  pushRegistration.onOpenedMessage(listener);

@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
+import type * as ProfileModule from '../api/profile';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+
+const mocks = vi.hoisted(() => ({
+  fetchProfile: vi.fn(),
+  logout: vi.fn(),
+}));
 
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
@@ -50,7 +57,57 @@ vi.mock('../assets/images', () => ({
   profileWishlistIcon: 5,
 }));
 
-import { CustomerAccountScreen } from '../screens/CustomerAccountScreen';
+vi.mock('../api/profile', async (importOriginal) => {
+  const actual = await importOriginal<typeof ProfileModule>();
+  return {
+    ...actual,
+    useCustomerProfile: () =>
+      useQuery({ queryKey: actual.profileQueryKeys.me, queryFn: () => mocks.fetchProfile(), retry: false }),
+  };
+});
+vi.mock('../api/auth', () => ({ logout: mocks.logout }));
+
+import { CustomerAccountScreen as RawAccountScreen } from '../screens/CustomerAccountScreen';
+import { ApiError } from '../../../shell/api/client';
+import type { Problem } from '@tohfa/shared-types';
+
+const apiProfile = {
+  id: 'c1',
+  customerCode: 'CUS-1',
+  fullName: 'Meena Raj',
+  mobile: '+919876543210',
+  email: 'meena@example.com',
+  emailVerified: true,
+  age: 34,
+  gender: 'FEMALE',
+  harvestPreferences: [],
+  photoKey: null,
+  customerType: 'RETAIL',
+  businessName: null,
+  gstin: null,
+  gstVerified: false,
+  defaultAddressId: null,
+  preferredLocale: 'en',
+  profileComplete: true,
+  missingFields: [],
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
+// Every render runs inside a fresh QueryClientProvider (the screen reads GET /customers/me).
+const CustomerAccountScreen = (props: React.ComponentProps<typeof RawAccountScreen>) => {
+  const [qc] = React.useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={qc}>
+      <RawAccountScreen {...props} />
+    </QueryClientProvider>
+  );
+};
+const flush = () =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
 
 describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
   const mockNavigate = vi.fn();
@@ -60,6 +117,69 @@ describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.fetchProfile.mockResolvedValue(apiProfile);
+    mocks.logout.mockResolvedValue(undefined);
+  });
+
+  it('BR-160: shows name, formatted mobile and email from GET /customers/me', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    await flush();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Meena Raj');
+    expect(json).toContain('+91 98765 43210');
+    expect(json).toContain('meena@example.com');
+    expect(json).not.toContain('Suresh');
+  });
+
+  it('BR-190: hides a null email and the sign-up placeholder name; incomplete profile opens Profile in empty mode', async () => {
+    mocks.fetchProfile.mockResolvedValue({
+      ...apiProfile,
+      fullName: 'TOHFA Customer',
+      email: null,
+      emailVerified: false,
+      profileComplete: false,
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    await flush();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain('TOHFA Customer');
+    expect(json).not.toContain('@');
+    expect(json).toContain('+91 98765 43210');
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'View profile' }).props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerProfile', { mode: 'empty' });
+  });
+
+  it('shows a skeleton while loading and error + retry when the profile fails', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    mocks.fetchProfile.mockReturnValue(new Promise(() => undefined));
+    await act(async () => {
+      tree = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    expect(tree.root.findAllByProps({ testID: 'account-profile-skeleton' }).length).toBeGreaterThan(0);
+
+    mocks.fetchProfile.mockRejectedValue(
+      new ApiError({ type: 'about:blank', title: 'x', status: 500, code: 'INTERNAL' } as unknown as Problem),
+    );
+    let tree2!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree2 = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    await flush();
+    expect(tree2.root.findAllByProps({ testID: 'account-profile-error' }).length).toBeGreaterThan(0);
+    mocks.fetchProfile.mockResolvedValue(apiProfile);
+    await act(async () => {
+      tree2.root.findByProps({ accessibilityLabel: 'Retry loading profile' }).props.onPress();
+    });
+    await flush();
+    expect(JSON.stringify(tree2.toJSON())).toContain('Meena Raj');
   });
 
   it('renders user details correctly', async () => {
@@ -251,6 +371,8 @@ describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
     await act(async () => {
       confirmBtn.props.onPress();
     });
+    await flush();
+    expect(mocks.logout).toHaveBeenCalledTimes(1);
     expect(mockSignOut).toHaveBeenCalled();
   });
 

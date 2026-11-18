@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
+/**
+ * Search (Figma 46:36173 / 46:36183 / 46:36212). Server-driven:
+ *  - typing: debounced GET /catalog/search/suggestions (PRODUCT -> detail, CATEGORY -> grid);
+ *  - submit: GET /catalog/search (cursor paged) + POST /catalog/search/recent (fire-and-forget);
+ *  - empty query: own recent searches (GET/DELETE), categories, trending queries + products.
+ * Product cards are the shared ProductCard (key `${id}:${grade}`).
+ */
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -13,8 +21,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { customerFonts, customerShadow } from '../theme';
-import { CategoryImages, ProductImages } from '../assets/images/products';
+import { customerFonts } from '../theme';
+import { productKey, useCategories, type Product } from '../api/catalog';
+import {
+  SEARCH_MAX_LENGTH,
+  normalizeSearchQuery,
+  useDeleteRecentSearch,
+  useRecentSearches,
+  useRecordRecentSearch,
+  useSearchResults,
+  useSearchSuggestions,
+  useTrending,
+} from '../api/search';
+import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+import { ProductCard } from '../components/ProductCard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -24,94 +45,35 @@ interface SearchScreenProps {
   initialQuery?: string;
 }
 
-interface SearchProduct {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice: number;
-  unit: string;
-  rating: number;
-  image: any;
-  category: string;
-}
-
 // ── BACK ARROW SVG ──────────────────────────────────────────────────────────
 const BackArrowSvg = ({ color = '#111827', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M19 12H5M5 12L12 19M5 12L12 5"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <Path d="M19 12H5M5 12L12 19M5 12L12 5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-// ── COMPREHENSIVE SEARCH CATALOG MATCHING FIGMA SPEC ────────────────────────
-const ALL_SEARCH_PRODUCTS: SearchProduct[] = [
-  // Tomatoes & Chillies (Exact Image 3 Spec)
-  { id: 't1', name: 'Red Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouTomatoes, category: 'Vegetables' },
-  { id: 't2', name: 'Bangalore tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouTomatoes, category: 'Vegetables' },
-  { id: 't3', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.exoticCherryTomato, category: 'Vegetables' },
-  { id: 't4', name: 'Yellow Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.exoticCherryTomato, category: 'Vegetables' },
-  { id: 't5', name: 'Chilli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.spiceDryRedChilli || ProductImages.exoticChilliThai, category: 'Vegetables' },
-
-  // Fruits
-  { id: 'f1', name: 'Royal Gala', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit' },
-  { id: 'f2', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit' },
-  { id: 'f3', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitOrange, category: 'Fruit' },
-  { id: 'f4', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouWatermelon, category: 'Fruit' },
-  { id: 'f5', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouStrawberries, category: 'Fruit' },
-
-  // Vegetables
-  { id: 'v1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegPotato, category: 'Vegetables' },
-  { id: 'v2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegCarrot, category: 'Vegetables' },
-  { id: 'v3', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouLettuce, category: 'Vegetables' },
-  { id: 'v4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouBroccoli, category: 'Vegetables' },
-
-  // Dairy & Grains
-  { id: 'd1', name: 'Milk', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, image: ProductImages.dairyMilk, category: 'Dairy' },
-  { id: 'g1', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.grainBrownRice, category: 'Grains' },
-];
-
-// ── RECENT SEARCHES (EXACT FIGMA SPEC) ───────────────────────────────────────
-const INITIAL_RECENT_SEARCHES = [
-  { id: 'r1', name: 'Royal Gala', subtitle: 'Sweet & mellow', image: ProductImages.fruitApple },
-  { id: 'r2', name: 'Red Tomato', subtitle: 'Fresh & juicy', image: ProductImages.foryouTomatoes },
-  { id: 'r3', name: 'Yellow Cherry Tomato', subtitle: 'Farm fresh', image: ProductImages.exoticCherryTomato },
-  { id: 'r4', name: 'Watermelon', subtitle: 'Crisp & sweet', image: ProductImages.foryouWatermelon },
-];
-
-// ── TRENDING PICKS FOR EMPTY STATE ──────────────────────────────────────────
-const TRENDING_PRODUCTS: SearchProduct[] = [
-  ALL_SEARCH_PRODUCTS[0]!, // Red Tomato
-  ALL_SEARCH_PRODUCTS[5]!, // Royal Gala
-  ALL_SEARCH_PRODUCTS[10]!, // Potato
-  ALL_SEARCH_PRODUCTS[11]!, // Fresh Carrot
-  ALL_SEARCH_PRODUCTS[12]!, // Green Curly Lettuce
-  ALL_SEARCH_PRODUCTS[13]!, // Broccoli
-];
-
-// ── CATEGORIES FOR SEARCH TOP ROW ───────────────────────────────────────────
-const SEARCH_CATEGORIES = [
-  { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables },
-  { id: 'c2', label: 'Fruit', image: CategoryImages.fruit },
-  { id: 'c3', label: 'Dairy', image: CategoryImages.dairy },
-  { id: 'c4', label: 'Grains', image: CategoryImages.grains },
-  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits },
-  { id: 'c6', label: 'Tea & Coffee', image: CategoryImages.teaCoffee },
-  { id: 'c7', label: 'Bakery', image: CategoryImages.bakery },
-];
-
 export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchScreenProps) {
   const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState(initialQuery);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [query, setQuery] = useState(initialQuery.slice(0, SEARCH_MAX_LENGTH));
+  /** The last submitted query (drives results); '' shows the discovery state. */
+  const [submitted, setSubmitted] = useState(normalizeSearchQuery(initialQuery));
+  const debounced = useDebouncedValue(query, 250);
 
-  React.useEffect(() => {
-    if (initialQuery) {
-      setQuery(initialQuery);
+  const suggestions = useSearchSuggestions(submitted ? '' : debounced);
+  const results = useSearchResults(submitted);
+  const recent = useRecentSearches();
+  const recordRecent = useRecordRecentSearch();
+  const deleteRecent = useDeleteRecentSearch();
+  const trending = useTrending();
+  const categories = useCategories();
+  const wishlistKeys = useWishlistKeys();
+  const toggleWishlist = useToggleWishlist();
+
+  useEffect(() => {
+    const q = normalizeSearchQuery(initialQuery);
+    if (q) {
+      setQuery(q);
+      setSubmitted(q);
     }
   }, [initialQuery]);
 
@@ -127,267 +89,192 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
     }
   };
 
-  const toggleFavorite = (id: string) => {
-    setFavorites(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+  const submit = (text: string = query) => {
+    const q = normalizeSearchQuery(text);
+    setQuery(q);
+    setSubmitted(q);
+    if (q) recordRecent.mutate(q);
+  };
+
+  const onChangeText = (text: string) => {
+    setQuery(text.slice(0, SEARCH_MAX_LENGTH));
+    if (submitted) setSubmitted('');
+  };
+
+  const items: Product[] = results.data?.pages.flatMap((p) => p.items) ?? [];
+  const typing = !submitted && normalizeSearchQuery(debounced).length > 0;
+
+  const renderCard = (item: Product) => {
+    const key = productKey(item);
+    const isFav = wishlistKeys.has(key);
+    return (
+      <View key={key} style={styles.cardCol}>
+        <ProductCard
+          product={item}
+          variant="grid"
+          wishlisted={isFav}
+          onPress={() => onNavigate?.('ProductDetail', { productId: item.id, grade: item.grade })}
+          onToggleWishlist={() => toggleWishlist.mutate({ productId: item.id, grade: item.grade, add: !isFav, product: item })}
+        />
+      </View>
     );
   };
 
-  // Filter products by typed search query, category, or banner collection
-  const queryClean = query.trim().toLowerCase();
-  const isJustArrived =
-    queryClean === 'just arrived' ||
-    queryClean === 'just-arrived' ||
-    queryClean.includes('arrived');
-  const isPesticideFree =
-    queryClean === 'pesticide free' ||
-    queryClean === 'pesticide-free' ||
-    queryClean.includes('pesticide');
-  const isSeasonal =
-    queryClean === 'seasonal favs' ||
-    queryClean === 'seasonal' ||
-    queryClean.includes('season');
-
-  const searchResults = query.trim().length > 0
-    ? ALL_SEARCH_PRODUCTS.filter(p => {
-        if (isJustArrived) {
-          return ['t3', 'v2', 'f1', 'f5', 'v3', 'd1'].includes(p.id) || p.name.toLowerCase().includes(queryClean);
-        }
-        if (isPesticideFree) {
-          return ['t1', 't2', 'v3', 'v4', 'v2', 'g1'].includes(p.id) || p.name.toLowerCase().includes(queryClean);
-        }
-        if (isSeasonal) {
-          return ['f4', 'f1', 'f5', 'f3', 't4', 't5'].includes(p.id) || p.name.toLowerCase().includes(queryClean);
-        }
-        return (
-          p.name.toLowerCase().includes(queryClean) ||
-          p.category.toLowerCase().includes(queryClean)
-        );
-      })
-    : [];
+  const trendingProducts = trending.data?.products ?? [];
+  const trendingQueries = trending.data?.queries ?? [];
+  const recentItems = recent.data ?? [];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* ── TOP HEADER ROW WITH BACK BUTTON (SAFELY BELOW CAMERA NOTCH) ────── */}
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={handleBack}
-          style={styles.backButton}
-          accessibilityLabel="Go back"
-        >
+        <TouchableOpacity activeOpacity={0.7} onPress={handleBack} style={styles.backButton} accessibilityLabel="Go back">
           <BackArrowSvg color="#111827" size={18} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {query.trim().length > 0 ? query : 'Fresh Finds for You'}
+          {submitted || 'Fresh Finds for You'}
         </Text>
       </View>
 
-      {/* ── MAIN CONTENT AREA ──────────────────────────────────────────────── */}
       <View style={styles.contentWrap}>
-        {query.trim().length > 0 ? (
-          /* ── 1. ACTIVE SEARCH RESULTS ────────────────────────────────────── */
+        {submitted ? (
+          /* ── 1. SUBMITTED SEARCH RESULTS ───────────────────────────────── */
           <ScrollView
             style={styles.resultsScroll}
             contentContainerStyle={styles.resultsScrollContent}
             showsVerticalScrollIndicator={false}
+            onScrollEndDrag={() => {
+              if (results.hasNextPage && !results.isFetchingNextPage) void results.fetchNextPage();
+            }}
           >
-            {searchResults.length === 0 ? (
+            {results.isLoading ? (
+              <ActivityIndicator testID="search-loading" style={{ marginTop: 32 }} />
+            ) : results.isError ? (
               <View style={styles.noResultsWrap}>
-                <Text style={styles.noResultsText}>No products found for "{query}"</Text>
-                <Text style={styles.noResultsSub}>Try searching for tomato, apple, potato, milk or rice</Text>
+                <Text style={styles.noResultsText}>Couldn't search right now</Text>
+                <TouchableOpacity onPress={() => void results.refetch()} testID="search-retry">
+                  <Text style={styles.noResultsSub}>Tap to retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : items.length === 0 ? (
+              <View style={styles.noResultsWrap} testID="search-no-results">
+                <Text style={styles.noResultsText}>No match for "{submitted}"</Text>
+                {trendingProducts.length > 0 && <Text style={styles.noResultsSub}>Try what others are buying:</Text>}
+                {trendingProducts.length > 0 && <View style={styles.gridWrap}>{trendingProducts.slice(0, 4).map(renderCard)}</View>}
               </View>
             ) : (
-              <View style={styles.gridWrap}>
-                {searchResults.map(item => {
-                  const isFav = favorites.includes(item.id);
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.85}
-                      onPress={() => onNavigate?.('ProductDetail', { productId: item.id, product: item })}
-                      style={styles.cardCol}
-                    >
-                      <View style={[styles.productCard, customerShadow.subtle]}>
-                        {/* Top: Star Rating on Left, Heart on Right */}
-                        <View style={styles.cardHeaderRow}>
-                          <View style={styles.ratingBadge}>
-                            <Text style={styles.starIcon}>★ </Text>
-                            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-                          </View>
-                          <TouchableOpacity
-                            activeOpacity={0.7}
-                            onPress={() => toggleFavorite(item.id)}
-                            style={styles.heartButton}
-                            accessibilityLabel={`Favorite ${item.name}`}
-                          >
-                            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                              <Path
-                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                                fill={isFav ? '#EF4444' : 'none'}
-                                stroke={isFav ? '#EF4444' : '#9CA3AF'}
-                                strokeWidth={1.5}
-                              />
-                            </Svg>
-                          </TouchableOpacity>
-                        </View>
-
-                        {/* Center Product Image */}
-                        <View style={styles.cardImageCenter}>
-                          {item.image ? (
-                            <Image
-                              source={item.image}
-                              style={styles.productCardImage}
-                              resizeMode="contain"
-                            />
-                          ) : null}
-                        </View>
-
-                        {/* Bottom Price Row */}
-                        <View style={styles.cardPriceRow}>
-                          <Text style={styles.priceBold}>₹ {item.price}</Text>
-                          <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
-                          <Text style={styles.unitText}>{item.unit}</Text>
-                        </View>
-                      </View>
-
-                      {/* Product Name placed outside below card */}
-                      <Text style={styles.cardProductName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              <View style={styles.gridWrap}>{items.map(renderCard)}</View>
+            )}
+            {results.hasNextPage && (
+              <TouchableOpacity onPress={() => void results.fetchNextPage()} testID="search-more">
+                <Text style={styles.noResultsSub}>{results.isFetchingNextPage ? 'Loading…' : 'Show more'}</Text>
+              </TouchableOpacity>
             )}
           </ScrollView>
+        ) : typing ? (
+          /* ── 2. TYPE-AHEAD SUGGESTIONS (errors are silent) ─────────────── */
+          <ScrollView style={styles.resultsScroll} contentContainerStyle={styles.initialScrollContent} keyboardShouldPersistTaps="handled">
+            <View style={styles.recentList}>
+              {(suggestions.data ?? []).map((s) => (
+                <TouchableOpacity
+                  key={`${s.type}:${s.id}`}
+                  testID={`suggestion-${s.id}`}
+                  activeOpacity={0.7}
+                  style={styles.recentItemRow}
+                  onPress={() => {
+                    recordRecent.mutate(s.name);
+                    if (s.type === 'CATEGORY') onNavigate?.('ProductGrid', { categoryId: s.id, title: s.name });
+                    else onNavigate?.('ProductDetail', { productId: s.id });
+                  }}
+                >
+                  <View style={styles.recentTextCol}>
+                    <Text style={styles.recentItemName}>{s.name}</Text>
+                    <Text style={styles.recentItemSub}>{s.type === 'CATEGORY' ? 'Category' : 'Product'}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {suggestions.isFetching && <ActivityIndicator testID="suggest-loading" />}
+            </View>
+          </ScrollView>
         ) : (
-          /* ── 2. INITIAL STATE WITH RICH CONTENT ──────────────────────────── */
-          <ScrollView
-            style={styles.resultsScroll}
-            contentContainerStyle={styles.initialScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Category Circles Row */}
-            <View style={styles.categoriesSection}>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryCirclesRow}
-              >
-                {SEARCH_CATEGORIES.map(cat => (
-                  <TouchableOpacity
-                    key={cat.id}
-                    activeOpacity={0.75}
-                    onPress={() => setQuery(cat.label)}
-                    style={styles.categoryCircleItem}
-                  >
-                    <View style={styles.categoryCircleOuter}>
-                      <Image source={cat.image} style={styles.categoryCircleImg} resizeMode="cover" />
-                    </View>
-                    <Text style={styles.categoryCircleLabel} numberOfLines={1}>{cat.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* Recent Searches */}
-            <View style={styles.recentWrap}>
-              <Text style={styles.recentTitle}>Recent searches</Text>
-              <View style={styles.recentList}>
-                {INITIAL_RECENT_SEARCHES.map(item => (
-                  <TouchableOpacity
-                    key={item.id}
-                    activeOpacity={0.7}
-                    onPress={() => setQuery(item.name)}
-                    style={styles.recentItemRow}
-                  >
-                    <View style={styles.recentThumbWrap}>
-                      <Image source={item.image} style={styles.recentThumbImage} resizeMode="contain" />
-                    </View>
-                    <View style={styles.recentTextCol}>
-                      <Text style={styles.recentItemName}>{item.name}</Text>
-                      <Text style={styles.recentItemSub}>{item.subtitle}</Text>
-                    </View>
-                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M7 17L17 7M17 7H7M17 7V17"
-                        stroke="#9CA3AF"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Trending Produce */}
-            <View style={styles.trendingSection}>
-              <Text style={styles.trendingTitle}>Trending Produce</Text>
-              <View style={styles.gridWrap}>
-                {TRENDING_PRODUCTS.map(item => {
-                  const isFav = favorites.includes(item.id);
-                  return (
+          /* ── 3. DISCOVERY: categories, recent, trending ────────────────── */
+          <ScrollView style={styles.resultsScroll} contentContainerStyle={styles.initialScrollContent} showsVerticalScrollIndicator={false}>
+            {(categories.data ?? []).length > 0 && (
+              <View style={styles.categoriesSection}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryCirclesRow}>
+                  {(categories.data ?? []).map((cat) => (
                     <TouchableOpacity
-                      key={item.id}
-                      activeOpacity={0.85}
-                      onPress={() => onNavigate?.('ProductDetail', { productId: item.id, product: item })}
-                      style={styles.cardCol}
+                      key={cat.id}
+                      activeOpacity={0.75}
+                      onPress={() => onNavigate?.('ProductGrid', { categoryId: cat.id, title: cat.name })}
+                      style={styles.categoryCircleItem}
                     >
-                      <View style={[styles.productCard, customerShadow.subtle]}>
-                        <View style={styles.cardHeaderRow}>
-                          <View style={styles.ratingBadge}>
-                            <Text style={styles.starIcon}>★ </Text>
-                            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-                          </View>
-                          <TouchableOpacity
-                            activeOpacity={0.7}
-                            onPress={() => toggleFavorite(item.id)}
-                            style={styles.heartButton}
-                            accessibilityLabel={`Favorite ${item.name}`}
-                          >
-                            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                              <Path
-                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                                fill={isFav ? '#EF4444' : 'none'}
-                                stroke={isFav ? '#EF4444' : '#9CA3AF'}
-                                strokeWidth={1.5}
-                              />
-                            </Svg>
-                          </TouchableOpacity>
-                        </View>
-                        <View style={styles.cardImageCenter}>
-                          {item.image ? (
-                            <Image
-                              source={item.image}
-                              style={styles.productCardImage}
-                              resizeMode="contain"
-                            />
-                          ) : null}
-                        </View>
-                        <View style={styles.cardPriceRow}>
-                          <Text style={styles.priceBold}>₹ {item.price}</Text>
-                          <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
-                          <Text style={styles.unitText}>{item.unit}</Text>
-                        </View>
+                      <View style={styles.categoryCircleOuter}>
+                        {cat.imageUrl ? <Image source={{ uri: cat.imageUrl }} style={styles.categoryCircleImg} resizeMode="cover" /> : null}
                       </View>
-                      <Text style={styles.cardProductName} numberOfLines={1}>
-                        {item.name}
+                      <Text style={styles.categoryCircleLabel} numberOfLines={1}>
+                        {cat.name}
                       </Text>
                     </TouchableOpacity>
-                  );
-                })}
+                  ))}
+                </ScrollView>
               </View>
-            </View>
+            )}
+
+            {recentItems.length > 0 && (
+              <View style={styles.recentWrap} testID="recent-searches">
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.recentTitle}>Recent searches</Text>
+                  <TouchableOpacity onPress={() => deleteRecent.mutate(undefined)} testID="recent-clear-all" accessibilityLabel="Clear all recent searches">
+                    <Text style={styles.recentItemSub}>Clear all</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.recentList}>
+                  {recentItems.map((item) => (
+                    <TouchableOpacity key={item.query} activeOpacity={0.7} onPress={() => submit(item.query)} style={styles.recentItemRow}>
+                      <View style={styles.recentTextCol}>
+                        <Text style={styles.recentItemName}>{item.query}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => deleteRecent.mutate(item.query)}
+                        accessibilityLabel={`Remove ${item.query}`}
+                        testID={`recent-remove-${item.query}`}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path d="M6 6l12 12M18 6L6 18" stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
+                        </Svg>
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {trendingQueries.length > 0 && (
+              <View style={styles.recentWrap}>
+                <Text style={styles.recentTitle}>Trending searches</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryCirclesRow}>
+                  {trendingQueries.map((q) => (
+                    <TouchableOpacity key={q.query} onPress={() => submit(q.query)} style={styles.recentItemRow} testID={`trending-q-${q.query}`}>
+                      <Text style={styles.recentItemName}>{q.query}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {trendingProducts.length > 0 && (
+              <View style={styles.trendingSection}>
+                <Text style={styles.trendingTitle}>Trending Produce</Text>
+                <View style={styles.gridWrap}>{trendingProducts.map(renderCard)}</View>
+              </View>
+            )}
           </ScrollView>
         )}
       </View>
 
-      {/* ── FLOATING BOTTOM SEARCH BAR ─────────────────────────────────────── */}
       <View style={[styles.bottomBarWrap, { bottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.searchInputPill}>
           <TextInput
@@ -395,12 +282,18 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
             placeholder="Search for fresh vegetables..."
             placeholderTextColor="#9CA3AF"
             value={query}
-            onChangeText={setQuery}
+            onChangeText={onChangeText}
+            onSubmitEditing={() => submit()}
+            maxLength={SEARCH_MAX_LENGTH}
             returnKeyType="search"
+            testID="search-input"
           />
           {query.length > 0 && (
             <TouchableOpacity
-              onPress={() => setQuery('')}
+              onPress={() => {
+                setQuery('');
+                setSubmitted('');
+              }}
               style={styles.clearBtn}
               accessibilityLabel="Clear search"
             >
@@ -412,12 +305,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
           )}
         </View>
 
-        {/* Right Green Circular Action Button */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.greenCircleBtn}
-          accessibilityLabel="Search"
-        >
+        <TouchableOpacity activeOpacity={0.8} style={styles.greenCircleBtn} accessibilityLabel="Search" onPress={() => submit()} testID="search-submit">
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Circle cx={11} cy={11} r={7} stroke="#FFFFFF" strokeWidth={2} />
             <Path d="M21 21l-4.35-4.35" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />

@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -13,10 +15,16 @@ import {
   customerFonts,
   customerSpacing,
 } from '../theme';
+import { deleteCustomerAccount } from '../api/profile';
+import { logout } from '../api/auth';
+import { mapProblem } from '../api/problem';
+import { ApiError } from '../../../shell/api/client';
 
 export interface CustomerAccountSettingsScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
+  /** Called after the account was deleted and the session cleaned up. Falls back to onNavigate('SignOut'). */
+  onAccountDeleted?: () => void;
 }
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
@@ -76,10 +84,60 @@ const ChevronRightSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string | un
   </Svg>
 );
 
+const TrashSvg = ({ color = '#B42318', size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const WALLET_MSG = 'Your wallet still has money. Withdraw or use it before deleting your account.';
+const ORDERS_MSG = 'You have orders in progress. You can delete your account once they are delivered.';
+
+/** BR-160: maps a failed account deletion to user-facing text. */
+export function deleteAccountErrorMessage(err: unknown): string {
+  if (err instanceof ApiError && err.is('CONFLICT')) {
+    const reason = err.meta['reason'];
+    if (reason === 'WALLET_NOT_EMPTY') return WALLET_MSG;
+    if (reason === 'OPEN_ORDERS') return ORDERS_MSG;
+  }
+  return mapProblem(err).message;
+}
+
 export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScreenProps> = ({
   onNavigate,
   onBack,
+  onAccountDeleted,
 }) => {
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+  const [deleteError, setDeleteError] = React.useState<string | null>(null);
+
+  const confirmDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteCustomerAccount();
+    } catch (err) {
+      setDeleteError(deleteAccountErrorMessage(err));
+      setDeleting(false);
+      return;
+    }
+    try {
+      await logout();
+    } finally {
+      setDeleting(false);
+      setConfirmOpen(false);
+      if (onAccountDeleted) onAccountDeleted();
+      else onNavigate?.('SignOut');
+    }
+  };
   const insets = useSafeAreaInsets();
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
@@ -142,7 +200,60 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
           <ChevronRightSvg color="#1A2E1A" size={18} />
         </TouchableOpacity>
         <View style={styles.rowDivider} />
+
+        {/* Row 3: Delete account (BR-160) */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            setDeleteError(null);
+            setConfirmOpen(true);
+          }}
+          style={styles.rowItem}
+          accessibilityLabel="Delete account"
+        >
+          <View style={styles.iconWrap}>
+            <TrashSvg color="#B42318" size={22} />
+          </View>
+          <View style={styles.textWrap}>
+            <Text style={[styles.rowTitle, styles.dangerText]}>Delete account</Text>
+            <Text style={styles.rowSubtitle}>Permanently remove your account and data.</Text>
+          </View>
+          <ChevronRightSvg color="#B42318" size={18} />
+        </TouchableOpacity>
+        <View style={styles.rowDivider} />
       </View>
+
+      <Modal visible={confirmOpen} transparent animationType="fade" onRequestClose={() => { if (!deleting) setConfirmOpen(false); }}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Delete account?</Text>
+            <Text style={styles.modalBody}>
+              This will permanently delete your account. This action cannot be undone.
+            </Text>
+            {deleteError ? <Text style={styles.modalError}>{deleteError}</Text> : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={deleting}
+                onPress={() => setConfirmOpen(false)}
+                style={[styles.modalBtn, styles.modalCancel]}
+                accessibilityLabel="Cancel"
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={deleting}
+                onPress={() => void confirmDelete()}
+                style={[styles.modalBtn, styles.modalDelete]}
+                accessibilityLabel="Delete"
+              >
+                {deleting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalDeleteText}>Delete</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -220,5 +331,69 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: '#E5E7EB',
   },
+  dangerText: {
+    color: '#B42318',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    color: '#1A2E1A',
+    fontFamily: customerFonts.editorial,
+    marginBottom: 8,
+  },
+  modalBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#6B7280',
+    fontFamily: customerFonts.regular,
+  },
+  modalError: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#B42318',
+    fontFamily: customerFonts.regular,
+    marginTop: 12,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  modalBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCancel: {
+    borderWidth: 1.2,
+    borderColor: '#1A2E1A',
+    backgroundColor: '#FFFFFF',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A2E1A',
+    fontFamily: customerFonts.semibold,
+  },
+  modalDelete: {
+    backgroundColor: '#B42318',
+  },
+  modalDeleteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: customerFonts.semibold,
+  },
 });
-

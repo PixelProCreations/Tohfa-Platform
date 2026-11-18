@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -12,12 +13,29 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { ApiError } from '../../../shell/api/client';
+import { useWallet } from '../api/wallet';
+import { mapProblem } from '../api/problem';
+import {
+  useLookupRecipient,
+  useSendTransfer,
+  useTransfers,
+  type CreatedTransfer,
+  type TransferRecipient,
+} from '../api/transfers';
+import {
+  checkAmount,
+  exceedsBalance,
+  formatInr,
+  formatIstDateTime,
+  normalizeIndianMobile,
+  sanitizeAmountText,
+  txnCodeFromId,
+} from '../api/walletMoney';
 
 export interface CustomerSendMoneyScreenProps {
-  walletBalance?: number | undefined;
   onBack?: (() => void) | undefined;
   onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
-  onSendSuccess?: ((amount: number) => void) | undefined;
 }
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
@@ -67,19 +85,6 @@ const WalletIdCardSvg = ({ color = '#676767', size = 18 }: { color?: string; siz
   </Svg>
 );
 
-const ContactBookSvg = ({ color = '#676767', size = 18 }: { color?: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z"
-      stroke={color}
-      strokeWidth={1.8}
-    />
-    <Path d="M2 7h2M2 12h2M2 17h2" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    <Circle cx={12} cy={9} r={2.5} stroke={color} strokeWidth={1.5} />
-    <Path d="M8 17a4 4 0 0 1 8 0" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
-  </Svg>
-);
-
 const GreenCheckmarkSvg = ({ size = 18 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} fill="#2E7D32" />
@@ -111,25 +116,6 @@ const CloseCrossSvg = ({ color = '#676767', size = 16 }: { color?: string; size?
       d="M18 6L6 18M6 6l12 12"
       stroke={color}
       strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const LockSvg = ({ color = '#1A1A1A', size = 16 }: { color?: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x={4} y={10} width={16} height={11} rx={2} stroke={color} strokeWidth={1.8} />
-    <Path d="M8 10V6a4 4 0 0 1 8 0v4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
-  </Svg>
-);
-
-const EyeOffSvg = ({ color = '#9CA3AF', size = 18 }: { color?: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"
-      stroke={color}
-      strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
@@ -173,85 +159,122 @@ const CelebrationPlaneSvg = () => (
   </View>
 );
 
-// ── MOCK UPI CONTACTS MATCHING FIGMA SCREEN (IMAGE 2) ─────────────────────────
-
-interface UpiContact {
-  id: string;
-  name: string;
-  phone: string;
-  initials: string;
-  avatarBg: string;
-  avatarText: string;
+interface SendProblem {
+  message: string;
+  /** Shortfall (Money string) when the wallet is too low -> offer "Add money". */
+  shortfall?: string | undefined;
+  /** Not-retryable-by-user-edit: keep the confirm modal open for a same-key retry. */
+  retryable: boolean;
+  waitSeconds?: number | undefined;
 }
 
-const ALL_PEOPLE_ON_UPI: UpiContact[] = [
-  { id: '1', name: 'Ramesh Kumar', phone: '+91 98765 43210', initials: 'RK', avatarBg: '#DCFCE7', avatarText: '#15803D' },
-  { id: '2', name: 'Sathish kumar', phone: '+91 99944 44999', initials: 'SK', avatarBg: '#FEF3C7', avatarText: '#B45309' },
-  { id: '3', name: 'Raja', phone: '+91 99944 44999', initials: 'R', avatarBg: '#FCE7F3', avatarText: '#BE185D' },
-  { id: '4', name: 'Ravi', phone: '+91 99944 44999', initials: 'R', avatarBg: '#DBEAFE', avatarText: '#1D4ED8' },
-  { id: '5', name: 'Mohan', phone: '+91 99944 44999', initials: 'M', avatarBg: '#CCFBF1', avatarText: '#0F766E' },
-];
+function describeSendError(err: unknown): SendProblem | null {
+  const p = mapProblem(err);
+  if (p.silent) return null;
+  if (err instanceof ApiError) {
+    if (err.status === 404) return { message: 'No TOHFA account found for this number.', retryable: false };
+    if (err.is('WALLET_INSUFFICIENT')) {
+      return { message: p.message, shortfall: err.walletShortfall?.shortfall, retryable: false };
+    }
+    if (err.is('WALLET_TRANSFER_LIMIT_EXCEEDED') && err.detail) {
+      return { message: err.detail, retryable: false };
+    }
+    if (p.action === 'wait' && p.retryAfterSeconds !== null) {
+      return { message: p.message, retryable: false, waitSeconds: p.retryAfterSeconds };
+    }
+    return { message: p.message, retryable: p.action === 'retry' };
+  }
+  return { message: p.message, retryable: p.action === 'retry' };
+}
 
-export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = ({
-  walletBalance = 1250,
-  onBack,
-  onNavigate: _onNavigate,
-  onSendSuccess,
-}) => {
+const initialsOf = (displayName: string): string =>
+  displayName
+    .split(' ')
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = ({ onBack, onNavigate }) => {
   const insets = useSafeAreaInsets();
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const [sendMethod, setSendMethod] = useState<'mobile' | 'wallet_id'>('mobile');
-  const [recipientInput, setRecipientInput] = useState<string>('');
-  const [selectedContact, setSelectedContact] = useState<UpiContact | null>({
-    id: '1',
-    name: 'Ramesh Kumar',
-    phone: '+91 98765 43210',
-    initials: 'RK',
-    avatarBg: '#DCFCE7',
-    avatarText: '#15803D',
-  });
-  const [amountInput, setAmountInput] = useState<string>('500.00');
+  const walletQuery = useWallet();
+  const balance = walletQuery.data?.balance ?? null;
+  const lookup = useLookupRecipient();
+  const send = useSendTransfer();
+  const history = useTransfers();
+
+  const [mobileInput, setMobileInput] = useState<string>('');
+  const [recipient, setRecipient] = useState<(TransferRecipient & { mobile: string }) | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [waitSeconds, setWaitSeconds] = useState<number>(0);
+  const [amountInput, setAmountInput] = useState<string>('');
   const [noteInput, setNoteInput] = useState<string>('');
+  const [sendError, setSendError] = useState<SendProblem | null>(null);
 
-  // Modals
-  const [showContactsModal, setShowContactsModal] = useState<boolean>(false);
-  const [contactSearch, setContactSearch] = useState<string>('');
   const [showPaymentDetailsModal, setShowPaymentDetailsModal] = useState<boolean>(false);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [otpValue, setOtpValue] = useState<string>('');
-  const [showOtp, setShowOtp] = useState<boolean>(false);
+  const [done, setDone] = useState<CreatedTransfer | null>(null);
 
-  const parsedAmount = parseFloat(amountInput) || 0;
-  const canSend = parsedAmount > 0 && parsedAmount <= walletBalance;
+  useEffect(() => {
+    if (waitSeconds <= 0) return undefined;
+    const id = setInterval(() => setWaitSeconds((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [waitSeconds > 0]);
 
-  const handleSelectContact = (contact: UpiContact) => {
-    setSelectedContact(contact);
-    setRecipientInput(contact.phone);
-    setShowContactsModal(false);
+  const normalizedMobile = normalizeIndianMobile(mobileInput);
+  const amountCheck = checkAmount(amountInput);
+  const tooMuch = amountCheck.ok && exceedsBalance(amountCheck.amount, balance);
+  const canSend = recipient !== null && amountCheck.ok && !tooMuch && !send.isPending;
+  const canVerify = normalizedMobile !== null && !lookup.isPending && waitSeconds === 0;
+
+  const handleVerify = async () => {
+    setLookupError(null);
+    if (normalizedMobile === null) {
+      setLookupError('Enter a valid 10-digit mobile number.');
+      return;
+    }
+    try {
+      const found = await lookup.mutateAsync(normalizedMobile);
+      setRecipient({ ...found, mobile: normalizedMobile });
+    } catch (err) {
+      setRecipient(null);
+      const problem = describeSendError(err);
+      if (problem === null) return;
+      setLookupError(problem.message);
+      if (problem.waitSeconds !== undefined) setWaitSeconds(problem.waitSeconds);
+    }
   };
 
-  const handleOpenPaymentDetails = () => {
-    if (!canSend) return;
-    setShowPaymentDetailsModal(true);
-  };
-
-  const handleConfirmTransfer = () => {
-    setShowPaymentDetailsModal(false);
-    setShowSuccessModal(true);
-    onSendSuccess?.(parsedAmount);
+  const handleConfirmTransfer = async () => {
+    if (recipient === null || !amountCheck.ok) return;
+    setSendError(null);
+    try {
+      const created = await send.mutateAsync({
+        recipientMobile: recipient.mobile,
+        amount: amountCheck.amount,
+        note: noteInput,
+      });
+      setShowPaymentDetailsModal(false);
+      setDone(created);
+      void history.refetch();
+    } catch (err) {
+      const problem = describeSendError(err);
+      if (problem === null) return;
+      setSendError(problem);
+      // Failures the user can only fix by editing (limits, self, insufficient funds...) close the review step.
+      if (!problem.retryable && problem.shortfall === undefined) setShowPaymentDetailsModal(false);
+    }
   };
 
   const handleCloseSuccess = () => {
-    setShowSuccessModal(false);
+    setDone(null);
     onBack?.();
   };
 
-  const filteredContacts = ALL_PEOPLE_ON_UPI.filter((c) =>
-    c.name.toLowerCase().includes(contactSearch.toLowerCase()) || c.phone.includes(contactSearch)
-  );
+  const transfers = (history.data?.pages ?? []).flatMap((pg) => pg.items);
 
   return (
     <View style={styles.container}>
@@ -274,6 +297,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* ── FROM SECTION ────────────────────────────────────────────────────── */}
         <Text style={styles.fieldLabel}>From</Text>
@@ -283,103 +307,64 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
           </View>
           <View style={styles.fromTextWrap}>
             <Text style={styles.fromTitle}>TOHFA Wallet</Text>
-            <Text style={styles.fromSubtitle}>
-              Balance: ₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </Text>
+            <Text style={styles.fromSubtitle}>Balance: {formatInr(balance)}</Text>
           </View>
         </View>
 
-        {/* ── SEND TO SECTION ─────────────────────────────────────────────────── */}
-        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Send to</Text>
-        <View style={styles.tabsRow}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              setSendMethod('mobile');
-              if (selectedContact) {
-                setRecipientInput(selectedContact.phone);
-              }
-            }}
-            style={[styles.tabButton, sendMethod === 'mobile' && styles.tabButtonActive]}
-          >
-            <PhoneCallSvg color={sendMethod === 'mobile' ? '#2E7D32' : '#676767'} size={17} />
-            <Text style={[styles.tabText, sendMethod === 'mobile' && styles.tabTextActive]}>
-              Mobile Number
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => {
-              setSendMethod('wallet_id');
-              setRecipientInput('TOHFA123456789');
-            }}
-            style={[styles.tabButton, sendMethod === 'wallet_id' && styles.tabButtonActive]}
-          >
-            <WalletIdCardSvg color={sendMethod === 'wallet_id' ? '#2E7D32' : '#676767'} size={17} />
-            <Text style={[styles.tabText, sendMethod === 'wallet_id' && styles.tabTextActive]}>
-              Wallet ID
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── RECIPIENT INPUT ─────────────────────────────────────────────────── */}
-        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>
-          {sendMethod === 'mobile' ? 'Mobile Number' : 'Wallet ID'}
-        </Text>
+        {/* ── RECIPIENT (mobile number only: the API has no wallet-id / directory lookup) ─────── */}
+        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Mobile Number</Text>
         <View style={styles.inputWrap}>
-          {sendMethod === 'mobile' ? (
-            <PhoneCallSvg color="#676767" size={18} />
-          ) : (
-            <WalletIdCardSvg color="#676767" size={18} />
-          )}
-
+          <PhoneCallSvg color="#676767" size={18} />
           <TextInput
             style={styles.textInput}
-            value={recipientInput || (sendMethod === 'mobile' ? '+91 98765 43210' : 'TOHFA123456789')}
-            placeholder={sendMethod === 'mobile' ? 'Pay any on UPI' : 'Enter Wallet ID'}
+            value={mobileInput}
+            placeholder="Enter 10-digit mobile number"
             placeholderTextColor="#9CA3AF"
-            onChangeText={setRecipientInput}
+            keyboardType="phone-pad"
+            maxLength={16}
+            accessibilityLabel="Recipient mobile number"
+            onChangeText={(text) => {
+              setMobileInput(text);
+              setRecipient(null);
+              setLookupError(null);
+              setSendError(null);
+            }}
           />
-
-          {sendMethod === 'mobile' ? (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setShowContactsModal(true)}
-              style={styles.rightIconPress}
-              accessibilityLabel="Select from contacts"
-            >
-              <ContactBookSvg color="#676767" size={18} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setRecipientInput('')}
-              style={styles.rightIconPress}
-              accessibilityLabel="Clear"
-            >
-              <CloseCrossSvg color="#9CA3AF" size={14} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            disabled={!canVerify}
+            onPress={() => void handleVerify()}
+            style={styles.rightIconPress}
+            accessibilityLabel="Verify recipient"
+          >
+            {lookup.isPending ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={{ color: canVerify ? '#2E7D32' : '#9CA3AF', fontWeight: '700', fontSize: 13 }}>
+                {waitSeconds > 0 ? `${waitSeconds}s` : 'Verify'}
+              </Text>
+            )}
+          </TouchableOpacity>
         </View>
+        {lookupError !== null ? (
+          <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 6 }} accessibilityRole="alert">
+            {lookupError}
+          </Text>
+        ) : null}
 
-        {/* ── VERIFIED RECIPIENT BADGE ───────────────────────────────────────── */}
-        <View style={styles.verifiedCard}>
-          <View style={[styles.avatarCircle, { backgroundColor: selectedContact?.avatarBg || '#DCFCE7' }]}>
-            <Text style={[styles.avatarText, { color: selectedContact?.avatarText || '#15803D' }]}>
-              {selectedContact?.initials || 'RK'}
-            </Text>
+        {/* ── VERIFIED RECIPIENT BADGE (masked by the API) ────────────────────── */}
+        {recipient !== null ? (
+          <View style={styles.verifiedCard}>
+            <View style={[styles.avatarCircle, { backgroundColor: '#DCFCE7' }]}>
+              <Text style={[styles.avatarText, { color: '#15803D' }]}>{initialsOf(recipient.displayName)}</Text>
+            </View>
+            <View style={styles.verifiedTextWrap}>
+              <Text style={styles.verifiedName}>{recipient.displayName}</Text>
+              <Text style={styles.verifiedDetail}>{recipient.mobileMasked}</Text>
+            </View>
+            <GreenCheckmarkSvg size={20} />
           </View>
-          <View style={styles.verifiedTextWrap}>
-            <Text style={styles.verifiedName}>{selectedContact?.name || 'Ramesh Kumar'}</Text>
-            <Text style={styles.verifiedDetail}>
-              {sendMethod === 'mobile'
-                ? selectedContact?.phone || '+91 98765 43210'
-                : 'TOHFA Wallet • TOHFA123456789'}
-            </Text>
-          </View>
-          <GreenCheckmarkSvg size={20} />
-        </View>
+        ) : null}
 
         {/* ── AMOUNT SECTION ─────────────────────────────────────────────────── */}
         <Text style={[styles.fieldLabel, { marginTop: 22 }]}>Amount</Text>
@@ -388,31 +373,59 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
           <TextInput
             style={styles.amountInput}
             value={amountInput}
-            onChangeText={setAmountInput}
-            keyboardType="numeric"
+            onChangeText={(text) => {
+              setAmountInput(sanitizeAmountText(text));
+              setSendError(null);
+            }}
+            keyboardType="decimal-pad"
             placeholder="0.00"
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Amount"
           />
         </View>
         <View style={styles.amountUnderline} />
+        {tooMuch ? (
+          <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 6 }}>
+            This is more than your wallet balance.
+          </Text>
+        ) : null}
 
         {/* ── NOTE (OPTIONAL) SECTION ────────────────────────────────────────── */}
         <Text style={[styles.fieldLabel, { marginTop: 20 }]}>Note (optional)</Text>
         <TextInput
           style={styles.noteInput}
-          placeholder="Describe your issue or question... 0/500"
+          placeholder="Add a note for the recipient"
           placeholderTextColor="#9CA3AF"
           value={noteInput}
           onChangeText={setNoteInput}
-          maxLength={500}
+          maxLength={100}
+          accessibilityLabel="Note"
         />
         <View style={styles.noteUnderline} />
+        <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'right', marginTop: 4 }}>{noteInput.length}/100</Text>
+
+        {sendError !== null && !showPaymentDetailsModal ? (
+          <View style={{ marginTop: 12 }} accessibilityRole="alert">
+            <Text style={{ color: '#DC2626', fontSize: 12 }}>{sendError.message}</Text>
+            {sendError.shortfall !== undefined ? (
+              <TouchableOpacity
+                onPress={() => onNavigate?.('Topup', { shortfall: sendError.shortfall })}
+                accessibilityLabel="Add money"
+              >
+                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>Add money</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : null}
 
         {/* ── SEND MONEY BUTTON ──────────────────────────────────────────────── */}
         <TouchableOpacity
           activeOpacity={0.8}
           disabled={!canSend}
-          onPress={handleOpenPaymentDetails}
+          onPress={() => {
+            setSendError(null);
+            setShowPaymentDetailsModal(true);
+          }}
           style={[styles.sendMoneyMainBtn, !canSend && styles.sendMoneyMainBtnDisabled]}
           accessibilityLabel="Send Money"
         >
@@ -421,58 +434,42 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             Send Money
           </Text>
         </TouchableOpacity>
+
+        {/* ── TRANSFER HISTORY ───────────────────────────────────────────────── */}
+        <Text style={[styles.fieldLabel, { marginTop: 28 }]}>Recent transfers</Text>
+        {history.isLoading ? (
+          <ActivityIndicator accessibilityLabel="Loading transfers" />
+        ) : history.isError ? (
+          <TouchableOpacity onPress={() => void history.refetch()} accessibilityLabel="Retry transfers">
+            <Text style={{ color: '#2E7D32', fontWeight: '700' }}>Could not load transfers. Retry</Text>
+          </TouchableOpacity>
+        ) : transfers.length === 0 ? (
+          <Text style={{ color: '#6B7280', fontSize: 13 }}>No transfers yet</Text>
+        ) : (
+          <>
+            {transfers.map((tr) => (
+              <View key={tr.id} style={styles.summaryItemRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.summaryItemValueBold}>
+                    {tr.direction === 'SENT' ? 'Sent to' : 'Received from'} {tr.counterparty.displayName}
+                  </Text>
+                  <Text style={styles.summaryItemLabel}>{formatIstDateTime(tr.createdAt)}</Text>
+                </View>
+                <Text style={[styles.summaryItemValueBold, { color: tr.direction === 'SENT' ? '#DC2626' : '#15803D' }]}>
+                  {tr.direction === 'SENT' ? '-' : '+'} {formatInr(tr.amount)}
+                </Text>
+              </View>
+            ))}
+            {history.hasNextPage ? (
+              <TouchableOpacity onPress={() => void history.fetchNextPage()} accessibilityLabel="Load more transfers">
+                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 8 }}>Load more</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        )}
       </ScrollView>
 
-      {/* ── CONTACTS PICKER MODAL (MIDDLE SCREEN IN FIGMA IMAGE 2) ─────────────── */}
-      <Modal visible={showContactsModal} animationType="slide" transparent={false}>
-        <View style={[styles.contactsModalContainer, { paddingTop: headerTopPadding }]}>
-          <View style={styles.contactsSearchRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setShowContactsModal(false)}
-              style={styles.circleIconButton}
-            >
-              <BackArrowSvg color="#1A1A1A" size={18} />
-            </TouchableOpacity>
-            <View style={styles.contactsSearchInputWrap}>
-              <TextInput
-                style={styles.contactsSearchInput}
-                placeholder="Pay any on UPI"
-                placeholderTextColor="#9CA3AF"
-                value={contactSearch}
-                onChangeText={setContactSearch}
-                autoFocus={true}
-              />
-              <ContactBookSvg color="#676767" size={18} />
-            </View>
-          </View>
-
-          <Text style={styles.contactsSectionHeading}>All people on UPI</Text>
-
-          <ScrollView style={styles.contactsList} showsVerticalScrollIndicator={false}>
-            {filteredContacts.map((contact) => (
-              <TouchableOpacity
-                key={contact.id}
-                activeOpacity={0.7}
-                onPress={() => handleSelectContact(contact)}
-                style={styles.contactRow}
-              >
-                <View style={[styles.contactAvatar, { backgroundColor: contact.avatarBg }]}>
-                  <Text style={[styles.contactAvatarText, { color: contact.avatarText }]}>
-                    {contact.initials}
-                  </Text>
-                </View>
-                <View style={styles.contactInfo}>
-                  <Text style={styles.contactName}>{contact.name}</Text>
-                  <Text style={styles.contactPhone}>{contact.phone}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* ── PAYMENT DETAILS MODAL (MIDDLE SCREEN IN FIGMA IMAGE 3) ─────────────── */}
+      {/* ── CONFIRM MODAL ─────────────────────────────────────────────────────── */}
       <Modal visible={showPaymentDetailsModal} animationType="fade" transparent={true}>
         <View style={styles.modalBackdrop}>
           <View style={styles.paymentModalCard}>
@@ -485,75 +482,74 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               <CloseCrossSvg color="#676767" size={14} />
             </TouchableOpacity>
 
-            <View style={styles.modalRecipientBadge}>
-              <View style={[styles.avatarCircle, { backgroundColor: selectedContact?.avatarBg || '#DCFCE7' }]}>
-                <Text style={[styles.avatarText, { color: selectedContact?.avatarText || '#15803D' }]}>
-                  {selectedContact?.initials || 'RK'}
-                </Text>
+            {recipient !== null ? (
+              <View style={styles.modalRecipientBadge}>
+                <View style={[styles.avatarCircle, { backgroundColor: '#DCFCE7' }]}>
+                  <Text style={[styles.avatarText, { color: '#15803D' }]}>{initialsOf(recipient.displayName)}</Text>
+                </View>
+                <View style={styles.verifiedTextWrap}>
+                  <Text style={styles.verifiedName}>{recipient.displayName}</Text>
+                  <Text style={styles.verifiedDetail}>{recipient.mobileMasked}</Text>
+                </View>
+                <GreenCheckmarkSvg size={18} />
               </View>
-              <View style={styles.verifiedTextWrap}>
-                <Text style={styles.verifiedName}>{selectedContact?.name || 'Ramesh Kumar'}</Text>
-                <Text style={styles.verifiedDetail}>TOHFA Wallet • TOHFA123456789</Text>
-              </View>
-              <GreenCheckmarkSvg size={18} />
-            </View>
+            ) : null}
 
             <Text style={styles.modalSectionTitle}>Payment Details</Text>
 
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount</Text>
-              <Text style={styles.detailValue}>₹{parsedAmount.toFixed(2)}</Text>
+              <Text style={styles.detailValue}>{amountCheck.ok ? formatInr(amountCheck.amount) : '—'}</Text>
             </View>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Transaction Fee</Text>
-              <Text style={styles.detailValue}>₹0.00</Text>
-            </View>
+            {noteInput.trim() !== '' ? (
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Note</Text>
+                <Text style={styles.detailValue}>{noteInput.trim()}</Text>
+              </View>
+            ) : null}
             <View style={[styles.detailRow, styles.totalRow]}>
               <Text style={styles.totalLabel}>Total Payable</Text>
-              <Text style={styles.totalValue}>₹{parsedAmount.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>{amountCheck.ok ? formatInr(amountCheck.amount) : '—'}</Text>
             </View>
 
-            <View style={styles.modalDivider} />
-
-            <View style={styles.otpHeaderRow}>
-              <LockSvg color="#1A1A1A" size={16} />
-              <Text style={styles.otpHeading}>Enter OTP</Text>
-            </View>
-            <Text style={styles.otpSubtext}>
-              Enter the OTP sent to your registered mobile number to complete the payment.
-            </Text>
-
-            <View style={styles.otpInputWrap}>
-              <PhoneCallSvg color="#9CA3AF" size={16} />
-              <TextInput
-                style={styles.otpInput}
-                placeholder="Enter OTP"
-                placeholderTextColor="#9CA3AF"
-                value={otpValue}
-                onChangeText={setOtpValue}
-                secureTextEntry={!showOtp}
-                keyboardType="numeric"
-                maxLength={6}
-              />
-              <TouchableOpacity activeOpacity={0.7} onPress={() => setShowOtp(!showOtp)}>
-                <EyeOffSvg color="#9CA3AF" size={18} />
-              </TouchableOpacity>
-            </View>
+            {sendError !== null ? (
+              <View style={{ marginTop: 10 }} accessibilityRole="alert">
+                <Text style={{ color: '#DC2626', fontSize: 12 }}>{sendError.message}</Text>
+                {sendError.shortfall !== undefined ? (
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowPaymentDetailsModal(false);
+                      onNavigate?.('Topup', { shortfall: sendError.shortfall });
+                    }}
+                    accessibilityLabel="Add money"
+                  >
+                    <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>Add money</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
 
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={handleConfirmTransfer}
+              disabled={send.isPending}
+              onPress={() => void handleConfirmTransfer()}
               style={styles.confirmTransferBtn}
               accessibilityLabel="Confirm Transfer"
             >
-              <Text style={styles.confirmTransferBtnText}>Confirm Transfer</Text>
+              {send.isPending ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.confirmTransferBtnText}>
+                  {sendError?.retryable ? 'Retry Transfer' : 'Confirm Transfer'}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* ── MONEY SENT SUCCESSFULLY MODAL (RIGHT SCREEN IN FIGMA IMAGE 3) ──────── */}
-      <Modal visible={showSuccessModal} animationType="fade" transparent={true}>
+      {/* ── MONEY SENT SUCCESSFULLY MODAL ─────────────────────────────────────── */}
+      <Modal visible={done !== null} animationType="fade" transparent={true}>
         <View style={styles.modalBackdrop}>
           <View style={styles.successModalCard}>
             <TouchableOpacity
@@ -567,41 +563,43 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
 
             <CelebrationPlaneSvg />
 
-            <Text style={styles.successTitle}>Money Send successfully!</Text>
+            <Text style={styles.successTitle}>Money Sent successfully!</Text>
 
-            <Text style={styles.successSubtext}>
-              ₹{parsedAmount.toFixed(0)} Has been sent to{'\n'}
-              <Text style={styles.boldText}>{selectedContact?.name || 'Ramesh Kumar'}</Text>
-              {'\n'}({selectedContact?.phone || '+91 98765 43210'}).
-            </Text>
-
-            <View style={styles.successSummaryCard}>
-              <View style={styles.summaryItemRow}>
-                <View style={styles.summaryItemLeft}>
-                  <ReceiptDocSvg color="#2E7D32" size={15} />
-                  <Text style={styles.summaryItemLabel}>Transaction ID</Text>
-                </View>
-                <Text style={styles.summaryItemValueBold}>#TXN764392</Text>
-              </View>
-
-              <View style={styles.summaryItemRow}>
-                <View style={styles.summaryItemLeft}>
-                  <CalendarSvg color="#2E7D32" size={15} />
-                  <Text style={styles.summaryItemLabel}>Date & Time</Text>
-                </View>
-                <Text style={styles.summaryItemValue}>13 Oct 2026, 09:41 AM</Text>
-              </View>
-
-              <View style={styles.summaryItemRow}>
-                <View style={styles.summaryItemLeft}>
-                  <WalletIdCardSvg color="#2E7D32" size={15} />
-                  <Text style={styles.summaryItemLabel}>Updated Balance</Text>
-                </View>
-                <Text style={styles.summaryItemValueBold}>
-                  ₹{(walletBalance - parsedAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            {done !== null ? (
+              <>
+                <Text style={styles.successSubtext}>
+                  {formatInr(done.amount)} has been sent to{'\n'}
+                  <Text style={styles.boldText}>{done.counterparty.displayName}</Text>
+                  {'\n'}({done.counterparty.mobileMasked}).
                 </Text>
-              </View>
-            </View>
+
+                <View style={styles.successSummaryCard}>
+                  <View style={styles.summaryItemRow}>
+                    <View style={styles.summaryItemLeft}>
+                      <ReceiptDocSvg color="#2E7D32" size={15} />
+                      <Text style={styles.summaryItemLabel}>Transaction ID</Text>
+                    </View>
+                    <Text style={styles.summaryItemValueBold}>{txnCodeFromId(done.id)}</Text>
+                  </View>
+
+                  <View style={styles.summaryItemRow}>
+                    <View style={styles.summaryItemLeft}>
+                      <CalendarSvg color="#2E7D32" size={15} />
+                      <Text style={styles.summaryItemLabel}>Date & Time</Text>
+                    </View>
+                    <Text style={styles.summaryItemValue}>{formatIstDateTime(done.createdAt)}</Text>
+                  </View>
+
+                  <View style={styles.summaryItemRow}>
+                    <View style={styles.summaryItemLeft}>
+                      <WalletIdCardSvg color="#2E7D32" size={15} />
+                      <Text style={styles.summaryItemLabel}>Updated Balance</Text>
+                    </View>
+                    <Text style={styles.summaryItemValueBold}>{formatInr(done.balanceAfter)}</Text>
+                  </View>
+                </View>
+              </>
+            ) : null}
 
             <TouchableOpacity
               activeOpacity={0.8}

@@ -8,7 +8,6 @@ import {
   ScrollView,
   Image,
 } from 'react-native';
-import { ProductImages } from '../assets/images/products';
 import {
   MedalRibbonSvg,
   ShoppingBagSvg,
@@ -35,48 +34,24 @@ export interface ReviewSubmittedModalProps {
   onClose: () => void;
   onReviewAnother?: (productId: string) => void;
   onContinueShopping?: () => void;
+  /** The order's lines as reviewed (one review per order covers them all). */
+  products?: ReviewModalProduct[];
 }
 
-interface ReviewModalProduct {
+export interface ReviewModalProduct {
   id: string;
   name: string;
   weight: string;
-  image: number;
+  imageUri?: string | undefined;
   reviewed: boolean;
   rating: number;
 }
 
-const MODAL_PRODUCTS: ReviewModalProduct[] = [
-  {
-    id: 'prod_1',
-    name: 'Fresh apples',
-    weight: '(1 kg)',
-    image: ProductImages.fruitApple,
-    reviewed: true,
-    rating: 5,
-  },
-  {
-    id: 'prod_2',
-    name: 'Fuji',
-    weight: '(1 kg)',
-    image: ProductImages.fruitApple,
-    reviewed: false,
-    rating: 0,
-  },
-  {
-    id: 'prod_3',
-    name: 'Green Curly Lettuce',
-    weight: '(1 kg)',
-    image: ProductImages.foryouLettuce,
-    reviewed: false,
-    rating: 0,
-  },
-];
-
 export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
   visible,
-  orderNumber = 'ORD-20260715-0147',
-  productName = 'Royal Gala',
+  orderNumber = '',
+  productName = '',
+  products = [],
   onClose,
   onReviewAnother,
   onContinueShopping,
@@ -124,9 +99,9 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
 
             {/* Products List */}
             <View style={styles.productsList}>
-              {MODAL_PRODUCTS.map((prod) => (
+              {products.map((prod) => (
                 <View key={prod.id} style={styles.productRow}>
-                  <Image source={prod.image} style={styles.productThumb} resizeMode="contain" />
+                  {prod.imageUri ? <Image source={{ uri: prod.imageUri }} style={styles.productThumb} resizeMode="contain" /> : <View style={styles.productThumb} />}
                   <View style={styles.productInfoCol}>
                     <Text style={styles.productName} numberOfLines={1}>
                       {prod.name}{' '}
@@ -165,7 +140,7 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
             <TouchableOpacity
               style={styles.primaryButton}
               activeOpacity={0.85}
-              onPress={() => onReviewAnother?.('prod_2')}
+              onPress={() => onReviewAnother?.('')}
               accessibilityLabel="Review Another Product"
             >
               <Text style={styles.primaryButtonText}>Review Another Product</Text>

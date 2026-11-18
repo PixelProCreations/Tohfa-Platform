@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+/**
+ * Permissions primer (Figma 46:34312; the 46:34342 / 46:34379 dialogs are the
+ * real OS prompts now). BR-160/BR-171.
+ *
+ *  - Notifications: shared push service (registers the FCM token with the API).
+ *  - Location: OS location permission (precise/approximate is chosen in the OS dialog).
+ *  - Denied / blocked never stop onboarding: skip always works, a denied
+ *    location falls back to manual address entry.
+ */
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Image,
-  Modal,
-  Platform,
   StatusBar,
+  Platform,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
@@ -18,10 +27,17 @@ import {
   customerSpacing,
 } from '../theme';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
-import type { AddressData } from '../components';
-import { ArrowRightFigmaIcon, CustomerDeliveryAddressModal } from '../components';
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- RN static asset
-const permissionsHeroCrate = require('../assets/images/permissions_hero_crate.jpg');
+import { ArrowRightFigmaIcon } from '../components';
+import { CustomerDeliveryAddressModal, type AddressSaveResult } from '../components/CustomerDeliveryAddressModal';
+import { ServiceAreaRequestModal, prefillFromAddress } from '../components/ServiceAreaRequestFlow';
+import type { CustomerAddress } from '../api/addresses';
+import {
+  openAppSettings,
+  requestLocationPermission,
+  requestNotificationPermission,
+  type PermissionOutcome,
+} from '../utils/deviceLocation';
+import permissionsHeroCrate from '../assets/images/permissions_hero_crate.jpg';
 
 interface CustomerPermissionsScreenProps {
   onNavigate: (
@@ -57,117 +73,72 @@ const GreenPinIcon = () => (
   </Svg>
 );
 
-const CyanBellSvg = () => (
-  <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
-      stroke="#38BDF8"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// Exact Figma Teardrop Location Pin with Circular Inner Cutout
-const CyanLocationPinHeaderSvg = () => (
-  <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
-      fill="#38BDF8"
-    />
-    <Circle cx={12} cy={9} r={3} fill="#334155" />
-  </Svg>
-);
-
-const PreciseMapGraphic = ({ isSelected }: { isSelected: boolean }) => (
-  <View style={[styles.locationCircleOuter, isSelected && styles.locationCircleActive]}>
-    <Svg width={72} height={72} viewBox="0 0 76 76">
-      <Circle cx={38} cy={38} r={38} fill="#1E293B" />
-      <Path d="M0 25h76M0 50h76M25 0v76M50 0v76" stroke="#334155" strokeWidth={1} />
-      <Path d="M10 0l56 76M0 20l76 56M0 56l56-56" stroke="#374151" strokeWidth={0.8} />
-      <Circle cx={20} cy={22} r={3} fill="#FB923C" />
-      <Circle cx={58} cy={54} r={3} fill="#38BDF8" />
-      <Circle cx={54} cy={20} r={2.5} fill="#FACC15" />
-      <Circle cx={38} cy={38} r={14} fill="rgba(56, 189, 248, 0.25)" />
-      <Circle cx={38} cy={38} r={8} fill="rgba(56, 189, 248, 0.45)" />
-      <Path
-        d="M38 28c-3.3 0-6 2.7-6 6 0 4.5 6 11 6 11s6-6.5 6-11c0-3.3-2.7-6-6-6z"
-        fill="#38BDF8"
-      />
-      <Circle cx={38} cy={34} r={2.2} fill="#FFFFFF" />
-    </Svg>
-    {isSelected && (
-      <View style={styles.selectedCheckBadge}>
-        <Text style={styles.selectedCheckIcon}>✓</Text>
-      </View>
-    )}
-  </View>
-);
-
-const ApproximateMapGraphic = ({ isSelected }: { isSelected: boolean }) => (
-  <View style={[styles.locationCircleOuter, isSelected && styles.locationCircleActive]}>
-    <Svg width={72} height={72} viewBox="0 0 76 76">
-      <Circle cx={38} cy={38} r={38} fill="#1E293B" />
-      <Path d="M0 30h76M0 54h76M22 0v76M54 0v76" stroke="#334155" strokeWidth={1} />
-      <Path d="M5 10l66 66M0 45l45-45" stroke="#374151" strokeWidth={0.8} />
-      <Path
-        d="M10 65C22 55 28 35 45 25C54 19 66 18 74 16"
-        stroke="#FBBF24"
-        strokeWidth={3.5}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M6 35C24 38 42 48 58 68"
-        stroke="#38BDF8"
-        strokeWidth={2.4}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <Path
-        d="M44 14l5-3 5 3v5c0 3.5-3 6.5-5 7.5c-2-1-5-4-5-7.5v-5z"
-        fill="#3B82F6"
-      />
-      <Circle cx={49} cy={18} r={1.5} fill="#FFFFFF" />
-    </Svg>
-    {isSelected && (
-      <View style={styles.selectedCheckBadge}>
-        <Text style={styles.selectedCheckIcon}>✓</Text>
-      </View>
-    )}
-  </View>
-);
+const STATUS_TEXT: Record<PermissionOutcome, string> = {
+  granted: 'Turned on',
+  denied: 'Not allowed. You can turn this on later.',
+  blocked: 'Blocked. Enable it in Settings.',
+  unavailable: 'Not available on this device right now.',
+};
 
 export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps> = ({ onNavigate }) => {
-  const [modalStep, setModalStep] = useState<'none' | 'notification' | 'location' | 'delivery' | 'addAddress'>('none');
-  const [locationType, setLocationType] = useState<'precise' | 'approximate'>('precise');
+  const [modalStep, setModalStep] = useState<'none' | 'delivery' | 'addAddress'>('none');
+  const [requesting, setRequesting] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<PermissionOutcome | null>(null);
+  const [locationStatus, setLocationStatus] = useState<PermissionOutcome | null>(null);
+  const [unservedAddress, setUnservedAddress] = useState<CustomerAddress | null>(null);
+  const skipped = useRef(false);
 
-  const handleNext = () => {
-    setModalStep('notification');
+  const handleNext = async () => {
+    if (requesting) return;
+    setRequesting(true);
+    skipped.current = false;
+    try {
+      // Real OS prompts, one after the other; a "no" never blocks onboarding.
+      setNotificationStatus(await requestNotificationPermission());
+      if (skipped.current) return;
+      setLocationStatus(await requestLocationPermission(true));
+      if (skipped.current) return;
+      setModalStep('delivery');
+    } finally {
+      setRequesting(false);
+    }
   };
 
   const handleSkip = () => {
+    skipped.current = true;
+    setModalStep('none');
     onNavigate('CustomerLoadingMarket');
-  };
-
-  const handleNotificationChoice = () => {
-    setModalStep('location');
-  };
-
-  const handleLocationChoice = () => {
-    setModalStep('delivery');
   };
 
   const handleDeliveryChoice = (source: 'current' | 'manual' = 'manual') => {
     setModalStep('none');
-    onNavigate('CustomerAddAddress', { addressSource: source });
+    // Without location permission "current location" falls back to manual entry.
+    const effective = source === 'current' && locationStatus !== null && locationStatus !== 'granted' ? 'manual' : source;
+    onNavigate('CustomerAddAddress', { addressSource: effective });
   };
 
-  const handleSaveAddress = (_address: AddressData) => {
+  const handleSaveAddress = (address: CustomerAddress, result: AddressSaveResult) => {
     setModalStep('none');
+    if (result.serviceable === false) {
+      setUnservedAddress(address);
+      return;
+    }
     onNavigate('CustomerLoadingMarket');
   };
+
+  const statusLine = (status: PermissionOutcome | null, testID: string) =>
+    status === null ? null : (
+      <View style={styles.permissionStatusRow}>
+        <Text testID={testID} style={[styles.permissionStatus, status === 'granted' && styles.permissionStatusOn]}>
+          {STATUS_TEXT[status]}
+        </Text>
+        {status === 'blocked' ? (
+          <TouchableOpacity onPress={openAppSettings} accessibilityRole="button" testID={`${testID}-settings`}>
+            <Text style={styles.permissionSettingsLink}>Open Settings</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    );
 
   return (
     <View style={styles.container}>
@@ -188,6 +159,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
         </TouchableOpacity>
 
         <TouchableOpacity
+          testID="permissions-skip"
           activeOpacity={0.7}
           onPress={handleSkip}
           style={styles.skipButton}
@@ -222,6 +194,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
               <Text style={styles.permissionDesc}>
                 Get alerts about fresh arrivals, order updates and special offers.
               </Text>
+              {statusLine(notificationStatus, 'notification-status')}
             </View>
           </View>
 
@@ -238,6 +211,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
               <Text style={styles.permissionDesc}>
                 See produce available around your area and estimated delivery options.
               </Text>
+              {statusLine(locationStatus, 'location-status')}
             </View>
           </View>
         </View>
@@ -245,125 +219,19 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
 
       {/* ── FLOATING BOTTOM-RIGHT CIRCULAR ACTION BUTTON ─────────────────── */}
       <TouchableOpacity
+        testID="permissions-next"
         activeOpacity={0.8}
-        onPress={handleNext}
+        onPress={() => void handleNext()}
+        disabled={requesting}
         style={[styles.floatingNextButton, customerShadow.raised]}
         accessibilityRole="button"
         accessibilityLabel="Continue to permissions"
+        accessibilityState={{ busy: requesting }}
       >
-        <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+        {requesting ? <ActivityIndicator color="#FFFFFF" /> : <ArrowRightFigmaIcon size={24} color="#FFFFFF" />}
       </TouchableOpacity>
 
-      {/* ── MODAL 1: NOTIFICATION PERMISSION (300 x 222 Hug) ─────────────── */}
-      <Modal visible={modalStep === 'notification'} transparent={true} animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.notificationDialogCard}>
-            {/* Cyan Bell Icon */}
-            <View style={styles.cyanIconCircle}>
-              <CyanBellSvg />
-            </View>
-
-            <Text style={styles.dialogTitle}>
-              Allow <Text style={styles.dialogTitleBold}>TOHFA Market</Text> to send you notification?
-            </Text>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleNotificationChoice}
-              style={styles.dialogPrimaryBtn}
-            >
-              <Text style={styles.dialogBtnText}>CONTINUE</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleNotificationChoice}
-              style={[styles.dialogPrimaryBtn, { marginTop: 10 }]}
-            >
-              <Text style={styles.dialogBtnText}>DON'T ALLOW</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── MODAL 2: LOCATION PERMISSION (300 x 412 Hug - EXACT FIGMA SPEC) ── */}
-      <Modal visible={modalStep === 'location'} transparent={true} animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.locationDialogCard}>
-            {/* Exact Cyan Location Pin with Inner Cutout */}
-            <View style={styles.cyanIconCircle}>
-              <CyanLocationPinHeaderSvg />
-            </View>
-
-            <Text style={styles.dialogTitle}>
-              Allow <Text style={styles.dialogTitleBold}>TOHFA Market</Text> to access this device's location?
-            </Text>
-
-            {/* Precise vs Approximate visual selector */}
-            <View style={styles.locationSelectorRow}>
-              {/* Precise option */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setLocationType('precise')}
-                style={styles.locationChoiceWrap}
-              >
-                <PreciseMapGraphic isSelected={locationType === 'precise'} />
-                <Text
-                  style={[
-                    styles.locationChoiceLabel,
-                    locationType === 'precise' && styles.locationChoiceLabelActive,
-                  ]}
-                >
-                  Precise
-                </Text>
-              </TouchableOpacity>
-
-              {/* Approximate option */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setLocationType('approximate')}
-                style={styles.locationChoiceWrap}
-              >
-                <ApproximateMapGraphic isSelected={locationType === 'approximate'} />
-                <Text
-                  style={[
-                    styles.locationChoiceLabel,
-                    locationType === 'approximate' && styles.locationChoiceLabelActive,
-                  ]}
-                >
-                  Approximate
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleLocationChoice}
-              style={styles.dialogPrimaryBtn}
-            >
-              <Text style={styles.dialogBtnText}>WHILE USING THE APP</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleLocationChoice}
-              style={[styles.dialogPrimaryBtn, { marginTop: 10 }]}
-            >
-              <Text style={styles.dialogBtnText}>ONLY THIS TIME</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleLocationChoice}
-              style={[styles.dialogPrimaryBtn, { marginTop: 10 }]}
-            >
-              <Text style={styles.dialogBtnText}>DON'T ALLOW</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── MODAL 3 & 4: WHERE SHOULD WE DELIVER / ADD ADDRESS MODALS ── */}
+      {/* ── WHERE SHOULD WE DELIVER / ADD ADDRESS MODALS ── */}
       <CustomerDeliveryAddressModal
         visible={modalStep === 'delivery' || modalStep === 'addAddress'}
         initialStep={modalStep === 'addAddress' ? 'addAddress' : 'delivery'}
@@ -372,11 +240,47 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
         onSelectManualLocation={() => handleDeliveryChoice('manual')}
         onSaveAddress={handleSaveAddress}
       />
+
+      {/* ── UNSERVED AREA -> REQUEST AREA (Figma 46:34706 / 46:34925 / 46:35103) ── */}
+      <ServiceAreaRequestModal
+        visible={unservedAddress !== null}
+        initialStep="unserved"
+        prefill={prefillFromAddress(unservedAddress ?? undefined)}
+        onClose={() => {
+          setUnservedAddress(null);
+          onNavigate('CustomerLoadingMarket');
+        }}
+        onContinue={() => {
+          setUnservedAddress(null);
+          onNavigate('CustomerLoadingMarket');
+        }}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  permissionStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  permissionStatus: {
+    fontFamily: customerFonts.regular,
+    fontSize: 11.5,
+    color: '#B45309',
+  },
+  permissionStatusOn: {
+    color: '#2E7D32',
+  },
+  permissionSettingsLink: {
+    fontFamily: customerFonts.semibold,
+    fontSize: 11.5,
+    color: '#2E7D32',
+    textDecorationLine: 'underline',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',

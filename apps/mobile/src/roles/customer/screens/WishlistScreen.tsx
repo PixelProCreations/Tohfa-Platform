@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Image,
+  ActivityIndicator,
   TouchableOpacity,
   TextInput,
   StatusBar,
@@ -13,8 +13,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { customerFonts, customerShadow } from '../theme';
-import { ProductImages } from '../assets/images/products';
+import { customerFonts } from '../theme';
+import { useToggleWishlist, useWishlist, type WishlistItem } from '../api/wishlist';
+import { CatalogNotice, ProductCard, quickAddQty, useCatalogAddToCart } from '../components/ProductCard';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -23,68 +24,19 @@ interface WishlistScreenProps {
   onBack?: () => void;
 }
 
-interface WishlistItem {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice: number;
-  unit: string;
-  rating: number;
-  image: any;
-}
-
-const DEFAULT_WISHLIST_ITEMS: WishlistItem[] = [
-  {
-    id: 'w1',
-    name: 'Thyme',
-    price: 60,
-    originalPrice: 86,
-    unit: 'bunch',
-    rating: 4.6,
-    image: ProductImages.herbThyme,
-  },
-  {
-    id: 'w2',
-    name: 'Natural Honey',
-    price: 60,
-    originalPrice: 86,
-    unit: 'g',
-    rating: 4.6,
-    image: ProductImages.sweetHoney,
-  },
-  {
-    id: 'w3',
-    name: 'Spinach',
-    price: 60,
-    originalPrice: 86,
-    unit: 'bunch',
-    rating: 4.6,
-    image: ProductImages.herbSpinach,
-  },
-  {
-    id: 'w4',
-    name: 'Brown rice',
-    price: 60,
-    originalPrice: 86,
-    unit: 'kg',
-    rating: 4.6,
-    image: ProductImages.grainBrownRice,
-  },
-  {
-    id: 'w5',
-    name: 'Passion fruit',
-    price: 60,
-    originalPrice: 86,
-    unit: 'kg',
-    rating: 4.6,
-    image: ProductImages.fruitPomegranate || ProductImages.fruitApple,
-  },
-];
-
+/**
+ * Wishlist (Figma 46:36507). Server-driven: GET /wishlist (crop + grade rows,
+ * newest first). Remove is optimistic (DELETE /wishlist/{productId}?grade=);
+ * an item that is no longer sellable (`product: null`) is greyed and remove-only.
+ * "+" moves the item to the server cart (POST /cart/items) and off the wishlist.
+ */
 export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [items, setItems] = useState<WishlistItem[]>(DEFAULT_WISHLIST_ITEMS);
+  const wishlist = useWishlist();
+  const toggleWishlist = useToggleWishlist();
+  const { addItem, pendingKey, blockedKeys, notice, clearNotice } = useCatalogAddToCart();
+  const items: WishlistItem[] = wishlist.data?.items ?? [];
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
@@ -98,12 +50,18 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
     }
   };
 
-  const handleRemove = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+  const handleRemove = (item: WishlistItem) => {
+    toggleWishlist.mutate({ productId: item.productId, grade: item.grade, add: false });
+  };
+
+  const handleMoveToCart = async (item: WishlistItem) => {
+    if (!item.product) return;
+    const ok = await addItem({ productId: item.productId, grade: item.grade, qtyKg: quickAddQty(item.product) });
+    if (ok) handleRemove(item);
   };
 
   const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    item.name.toLowerCase().includes(searchQuery.trim().toLowerCase())
   );
 
   return (
@@ -157,7 +115,16 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {filteredItems.length === 0 ? (
+        {wishlist.isLoading ? (
+          <ActivityIndicator testID="wishlist-loading" style={{ marginTop: 32 }} />
+        ) : wishlist.isError ? (
+          <View style={styles.emptyContainer} testID="wishlist-error">
+            <Text style={styles.emptyTitle}>Couldn't load your wishlist</Text>
+            <TouchableOpacity activeOpacity={0.85} onPress={() => void wishlist.refetch()} style={styles.browseButton}>
+              <Text style={styles.browseButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredItems.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
             <Text style={styles.emptySubtitle}>
@@ -173,56 +140,29 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
           </View>
         ) : (
           <View style={styles.gridWrap}>
-            {filteredItems.map(item => (
-              <View key={item.id} style={styles.cardCol}>
-                <View style={[styles.card, customerShadow.subtle]}>
-                  {/* Top Row: Star Rating on Left, Solid Red Heart on Right */}
-                  <View style={styles.cardHeaderRow}>
-                    <View style={styles.ratingBadge}>
-                      <Text style={styles.starIcon}>★ </Text>
-                      <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-                    </View>
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => handleRemove(item.id)}
-                      style={styles.heartBtn}
-                      accessibilityLabel="Remove from wishlist"
-                    >
-                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="#EF4444">
-                        <Path
-                          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                          fill="#EF4444"
-                          stroke="#EF4444"
-                          strokeWidth={1.5}
-                        />
-                      </Svg>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Center Graphic */}
-                  <View style={styles.cardImageCenter}>
-                    {item.image ? (
-                      <Image source={item.image} style={styles.cardImage} resizeMode="contain" />
-                    ) : null}
-                  </View>
-
-                  {/* Pricing Row */}
-                  <View style={styles.cardPriceRow}>
-                    <Text style={styles.priceBold}>₹ {item.price}</Text>
-                    <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
-                    <Text style={styles.unitText}>{item.unit}</Text>
-                  </View>
+            {filteredItems.map(item => {
+              const key = `${item.productId}:${item.grade}`;
+              const sellable = item.available && item.product !== null;
+              return (
+                <View key={key} style={styles.cardCol} testID={`wishlist-item-${key}`}>
+                  <ProductCard
+                    product={sellable ? item.product : null}
+                    name={item.name}
+                    variant="compact"
+                    wishlisted
+                    onPress={sellable ? () => onNavigate?.('ProductDetail', { productId: item.productId, grade: item.grade }) : undefined}
+                    onToggleWishlist={() => handleRemove(item)}
+                    onAdd={sellable ? () => void handleMoveToCart(item) : undefined}
+                    adding={pendingKey === key}
+                    addDisabled={blockedKeys.has(key)}
+                  />
                 </View>
-
-                {/* Name Below Card */}
-                <Text style={styles.productName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
       </ScrollView>
+      <CatalogNotice message={notice} onDismiss={clearNotice} />
     </View>
   );
 }

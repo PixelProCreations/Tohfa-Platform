@@ -1,18 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BackHandler, StyleSheet } from 'react-native';
 import { ThemeProvider, buildThemeForRole, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { RoleCode } from '@tohfa/shared-types';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../shell/api/queryClient';
-import { onForegroundPush, registerPushForSession } from '../../shell/notifications/push';
+import { onForegroundPush, onPushOpened, registerPushForSession } from '../../shell/notifications/push';
+import { notificationTarget } from './api/notifications';
 import { getLocale } from '../../i18n/customer';
 import { CategoriesScreen } from './screens/CategoriesScreen';
 import { ProductGridScreen } from './screens/ProductGridScreen';
 import { ProductDetailScreen } from './screens/ProductDetailScreen';
+import type { ProductSort, SellableGrade } from './api/catalog';
 import { SearchScreen } from './screens/SearchScreen';
 import { CartScreen } from './screens/CartScreen';
 import { CheckoutScreen } from './screens/CheckoutScreen';
-import { ChooseBankScreen } from './screens/ChooseBankScreen';
 import { CustomerAddAddressScreen } from './screens/CustomerAddAddressScreen';
 import { CustomerLoadingMarketScreen } from './screens/CustomerLoadingMarketScreen';
 import { TopupScreen } from './screens/TopupScreen';
@@ -58,7 +59,6 @@ type ScreenName =
   | 'Cart'
   | 'Wishlist'
   | 'Checkout'
-  | 'ChooseBank'
   | 'CustomerAddAddress'
   | 'CustomerLoadingMarket'
   | 'Topup'
@@ -94,12 +94,7 @@ interface NavigationParams {
   issueTypeLabel?: string | undefined;
   submittedOn?: string | undefined;
   initialTab?: RelatedCategory | undefined;
-  selectedBank?: string | null | undefined;
   addressSource?: string | undefined;
-  paymentMethod?: string | undefined;
-  autoProceed?: boolean | undefined;
-  total?: number | undefined;
-  itemsCount?: number | undefined;
   [key: string]: any;
 }
 
@@ -114,7 +109,6 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('Home');
   const [navParams, setNavParams] = useState<NavigationParams>({});
   const [history, setHistory] = useState<CustomerStackEntry[]>([]);
-  const [walletBalance, setWalletBalance] = useState<number>(1250);
 
   const navigate = useCallback(
     (screen: string, params?: NavigationParams) => {
@@ -186,6 +180,19 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
     });
   }, []);
 
+  // Tapping a push (app in background/quit) deep-links via the payload's data.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
+  useEffect(
+    () =>
+      onPushOpened((message) => {
+        void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        const target = notificationTarget(message.data);
+        if (target) navigateRef.current(target.screen, target.params);
+      }),
+    [],
+  );
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
@@ -195,17 +202,26 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           {currentScreen === 'Home' && (
             <HomeScreen onNavigate={(s, p) => navigate(s, p)} />
           )}
-          {currentScreen === 'Categories' && <CategoriesScreen />}
-
-          {currentScreen === 'ProductGrid' && navParams.categoryId && (
-            <ProductGridScreen categoryId={navParams.categoryId} />
+          {currentScreen === 'Categories' && (
+            <CategoriesScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
           )}
-          {currentScreen === 'ProductGrid' && !navParams.categoryId && <ProductGridScreen />}
+
+          {currentScreen === 'ProductGrid' && (
+            <ProductGridScreen
+              key={`${navParams.categoryId ?? ''}|${navParams.sort ?? ''}`}
+              categoryId={navParams.categoryId}
+              sort={navParams.sort as ProductSort | undefined}
+              title={navParams.title as string | undefined}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
 
           {currentScreen === 'ProductDetail' && (
             <ProductDetailScreen
+              key={`${navParams.productId ?? ''}`}
               productId={navParams.productId || ''}
-              product={navParams.product}
+              grade={navParams.grade as SellableGrade | undefined}
               onGoBack={goBack}
               onNavigate={(s, p) => navigate(s, p)}
             />
@@ -229,24 +245,6 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'Checkout' && (
             <CheckoutScreen onNavigate={(s, p) => navigate(s, p)} onGoBack={goBack} params={navParams} />
-          )}
-
-          {currentScreen === 'ChooseBank' && (
-            <ChooseBankScreen
-              selectedBank={(navParams.selectedBank as string) || null}
-              onSelectBank={(bankName) => {
-                navigate('Checkout', { ...navParams, selectedBank: bankName, paymentMethod: 'netbanking' });
-              }}
-              onProceed={(bankName) => {
-                navigate('Checkout', {
-                  ...navParams,
-                  selectedBank: bankName,
-                  paymentMethod: 'netbanking',
-                  autoProceed: true,
-                });
-              }}
-              onBack={goBack}
-            />
           )}
 
           {currentScreen === 'CustomerAddAddress' && (
@@ -283,7 +281,6 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           {currentScreen === 'OrderTracking' && (
             <OrderTrackingScreen
               orderId={navParams.orderId}
-              order={navParams.order}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />
@@ -298,7 +295,6 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'CustomerAccount' && (
             <CustomerAccountScreen
-              walletBalance={`₹ ${walletBalance.toLocaleString('en-IN')}`}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={() => {
                 setHistory([]);
@@ -318,21 +314,11 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'CustomerWallet' && (
-            <CustomerWalletScreen
-              initialBalance={walletBalance}
-              onNavigate={(s, p) => navigate(s, p)}
-              onBack={goBack}
-              onBalanceChange={setWalletBalance}
-            />
+            <CustomerWalletScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
           )}
 
           {(currentScreen === 'CustomerSendMoney' || currentScreen === 'SendMoney') && (
-            <CustomerSendMoneyScreen
-              walletBalance={walletBalance}
-              onNavigate={(s, p) => navigate(s, p)}
-              onBack={goBack}
-              onSendSuccess={(amt) => setWalletBalance((prev) => Math.max(0, prev - amt))}
-            />
+            <CustomerSendMoneyScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
           )}
 
           {currentScreen === 'CustomerSupport' && (
@@ -360,6 +346,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
             <CustomerAccountSettingsScreen
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
+              onAccountDeleted={onSignOut}
             />
           )}
 
@@ -387,6 +374,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'ReviewFeedback' && (
             <ReviewFeedbackScreen
+              orderId={navParams.orderId}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />
@@ -394,6 +382,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'ReturnOrder' && (
             <ReturnOrderScreen
+              initialOrderId={navParams.orderId}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />
@@ -401,11 +390,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'TrackSupportRequest' && (
             <TrackSupportRequestScreen
-              supportId={navParams.supportId}
-              orderNumber={navParams.orderNumber}
-              productName={navParams.productName}
-              issueTypeLabel={navParams.issueTypeLabel}
-              submittedOn={navParams.submittedOn}
+              ticketId={navParams.ticketId}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />

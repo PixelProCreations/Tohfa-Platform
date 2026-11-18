@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import {
   customerColors,
@@ -17,6 +18,8 @@ import {
 } from '../theme';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
+import { displayName, useCustomerProfile, useUpdateCustomerProfile } from '../api/profile';
+import { mapProblem } from '../api/problem';
 
 interface CustomerProfileNameScreenProps {
   onNavigate: (screen: 'CustomerProfileAgeGender' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerLogin') => void;
@@ -24,15 +27,41 @@ interface CustomerProfileNameScreenProps {
 
 export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps> = ({ onNavigate }) => {
   const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const profile = useCustomerProfile();
+  const update = useUpdateCustomerProfile();
+  const saving = update.isPending;
 
-  const hasName = name.trim().length > 0;
+  // BR-190: prefill a real name if one is already saved (never the sign-up placeholder).
+  useEffect(() => {
+    if (prefilled || !profile.data) return;
+    setPrefilled(true);
+    const existing = displayName(profile.data);
+    if (existing) setName((cur) => (cur === '' ? existing : cur));
+  }, [prefilled, profile.data]);
 
-  const handleNext = () => {
-    if (hasName) {
+  const trimmed = name.trim();
+  const hasName = trimmed.length > 0;
+
+  const handleNext = async () => {
+    if (!hasName || saving) return;
+    if (trimmed.length > 120) {
+      setError('Name must be 120 characters or fewer.');
+      return;
+    }
+    setError(null);
+    try {
+      await update.mutateAsync({ fullName: trimmed });
       onNavigate('CustomerProfileAgeGender');
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      setError(p.fieldErrors.fullName ?? p.message);
     }
   };
 
+  // Skip sends nothing (works offline).
   const handleSkip = () => {
     onNavigate('CustomerLoadingMarket');
   };
@@ -75,13 +104,24 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
               placeholder=""
               placeholderTextColor="#9CA3AF"
               value={name}
-              onChangeText={setName}
+              onChangeText={(v) => {
+                setName(v);
+                if (error) setError(null);
+              }}
+              maxLength={120}
+              editable={!saving}
+              accessibilityLabel="Your name"
               textAlign="center"
               autoFocus={true}
               returnKeyType="done"
               onSubmitEditing={handleNext}
             />
-            <View style={styles.underline} />
+            <View style={[styles.underline, error ? styles.underlineError : null]} />
+            {error ? (
+              <Text style={styles.errorText} accessibilityRole="alert" testID="name-error">
+                {error}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -90,7 +130,8 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleNext}
-            disabled={!hasName}
+            disabled={!hasName || saving}
+            accessibilityState={{ disabled: !hasName || saving, busy: saving }}
             style={[
               styles.circularButton,
               hasName ? styles.circularButtonActive : styles.circularButtonDisabled,
@@ -99,7 +140,11 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
             accessibilityRole="button"
             accessibilityLabel="Continue"
           >
-            <ArrowRightFigmaIcon size={24} color={hasName ? '#FFFFFF' : '#9CA3AF'} />
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" testID="name-saving" />
+            ) : (
+              <ArrowRightFigmaIcon size={24} color={hasName ? '#FFFFFF' : '#9CA3AF'} />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -186,6 +231,16 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#E5E7EB',
     width: '100%',
+  },
+  underlineError: {
+    backgroundColor: '#DC2626',
+  },
+  errorText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 13,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginTop: 8,
   },
   bottomArea: {
     width: '100%',

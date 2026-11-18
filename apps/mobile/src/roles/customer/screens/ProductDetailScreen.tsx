@@ -1,5 +1,14 @@
-import React, { useState } from 'react';
+/**
+ * Product detail (Figma 46:37752). Server-driven: GET /catalog/products/{id}
+ * (top level = lowest sellable grade, `variants` = every grade, BR-202) and
+ * GET /catalog/products/{id}/reviews. Farm-anonymous (BR-16): the only place
+ * shown is the generic `originRegion`. Quantities are kg (0.5 kg steps, capped
+ * by the selected grade's availableKg); "Buy now" adds to the server cart first
+ * because checkout always converts the cart.
+ */
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -11,144 +20,198 @@ import {
   Platform,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { ProductImages } from '../assets/images/products';
+import { ApiError } from '../../../shell/api/client';
+import { gradeLabel, useProductDetail, useProductReviews, type ProductVariant, type SellableGrade } from '../api/catalog';
+import { useAddToCart } from '../api/cart';
+import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
+import { mapProblem } from '../api/problem';
+import { canStepDown, canStepUp, clampKg, formatKg, formatRupees, multiplyMoney, qtyToGrams, stepKg } from '../utils/money';
+import { packLabel } from '../components/ProductCard';
 import {
   customerFonts,
 } from '../theme';
 
 interface ProductDetailScreenProps {
-  productId?: string;
-  product?: any;
+  productId: string;
+  /** Grade the user tapped; defaults to the lowest sellable grade. */
+  grade?: SellableGrade | undefined;
   onGoBack?: () => void;
-  onNavigate?: (screen: string, params?: any) => void;
-  onAddToCart?: (product: any, qty: number) => void;
+  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
 }
 
-export function ProductDetailScreen({
-  productId,
-  product: initialProduct,
-  onGoBack,
-  onNavigate,
-  onAddToCart,
-}: ProductDetailScreenProps) {
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [qty, setQty] = useState(1);
-  const [isWishlist, setIsWishlist] = useState(false);
-  const [activeThumb, setActiveThumb] = useState(0);
+const STEP = { step: '0.5', min: '0.5' };
+const FARMING_LABEL: Record<string, string> = { ORGANIC: 'Organic', NATURAL: 'Natural', CONVENTIONAL: 'Conventional' };
+const CERT_LABEL: Record<string, string> = { PGS: 'PGS Organic', NPOP: 'NPOP Organic', OTHER: 'Certified organic' };
 
-  // Fallback product info matching exact screenshot if none passed
-  const product = initialProduct || {
-    id: productId || 'fr1',
-    name: 'Royal gala Applie',
-    title: 'Royal gala Applie',
-    price: 120,
-    originalPrice: 132,
-    discount: '30% OFF',
-    rating: 4.8,
-    reviewsCount: 128,
-    questionsCount: 42,
-    location: 'Farm Fresh · Nilgiris',
-    certified: 'TOHFA Certified',
-    image: ProductImages.fruitApple,
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+}
+
+export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, onNavigate }: ProductDetailScreenProps) {
+  const detail = useProductDetail(productId);
+  const product = detail.data;
+  const [grade, setGrade] = useState<SellableGrade | undefined>(initialGrade);
+  const [qty, setQty] = useState('1.000');
+  const [activeThumb, setActiveThumb] = useState(0);
+  const [starFilter, setStarFilter] = useState<number | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState<'add' | 'buy' | null>(null);
+  const addToCart = useAddToCart();
+  const wishlistKeys = useWishlistKeys();
+  const toggleWishlist = useToggleWishlist();
+
+  const variants: ProductVariant[] = useMemo(() => {
+    if (!product) return [];
+    if (product.variants && product.variants.length > 0) return product.variants;
+    return [
+      {
+        grade: product.grade,
+        pricePerKg: product.pricePerKg,
+        availableKg: product.availableQty,
+        compareAtPrice: product.compareAtPrice,
+        discountPercent: product.discountPercent,
+        flags: { isComingSoon: product.isComingSoon, comingTomorrow: product.comingTomorrow, isUnsalable: product.isUnsalable },
+      },
+    ];
+  }, [product]);
+  const variant = variants.find((v) => v.grade === grade) ?? variants[0];
+  const selectedGrade = variant?.grade;
+  const available = variant ? (qtyToGrams(variant.availableKg) ?? 0) > 0 && !variant.flags.isUnsalable && !variant.flags.isComingSoon : false;
+
+  // Reset/clamp the quantity when the grade (and so the stock cap) changes.
+  useEffect(() => {
+    if (variant) setQty((q) => clampKg(q, { ...STEP, max: variant.availableKg }));
+  }, [variant]);
+
+  const reviews = useProductReviews(product ? productId : null, selectedGrade);
+  const summary = reviews.data?.pages[0]?.summary;
+  const reviewItems = (reviews.data?.pages.flatMap((p) => p.items) ?? []).filter((r) => starFilter === null || r.rating === starFilter);
+  const ratingCount = summary?.ratingCount ?? product?.ratingCount ?? 0;
+  const pct = (star: number) => {
+    const n = summary?.distribution[String(star) as '1'] ?? 0;
+    return ratingCount > 0 ? `${Math.round((n * 100) / ratingCount)}%` : '0%';
   };
 
-  const price = product.price || 120;
-  const originalPrice = product.originalPrice || 132;
-  const discountText = product.discount || '30% OFF';
-  const displayTitle = product.name?.includes('Applie') || product.name?.includes('Apple')
-    ? 'Royal gala Applie'
-    : (product.name || 'Royal gala Applie');
+  const wishKey = product && selectedGrade ? `${product.id}:${selectedGrade}` : '';
+  const isWishlist = wishlistKeys.has(wishKey);
+  const photos = product?.photos ?? [];
+  const heroUri = photos[activeThumb] ?? photos[0];
 
   const handleShare = async () => {
+    if (!product) return;
     try {
       await Share.share({
-        message: `Check out ${displayTitle} on TOHFA Market - Freshly harvested from Nilgiris!`,
+        message: product.originRegion
+          ? `Check out ${product.name} from ${product.originRegion} on TOHFA Market`
+          : `Check out ${product.name} on TOHFA Market`,
       });
     } catch {
-      // Ignored
+      // The user dismissed the share sheet.
     }
   };
 
-  const handleAddToCart = () => {
-    if (onAddToCart) {
-      onAddToCart(product, qty);
+  const addCurrent = async (): Promise<boolean> => {
+    if (!product || !selectedGrade) return false;
+    try {
+      await addToCart.mutateAsync({ productId: product.id, grade: selectedGrade, qtyKg: qty });
+      return true;
+    } catch (err) {
+      const p = mapProblem(err);
+      if (!p.silent) setMessage(p.message);
+      if (err instanceof ApiError && err.status === 404) void detail.refetch();
+      return false;
     }
-    // Navigate to Cart
-    onNavigate?.('Cart', { addedProduct: product, qty });
   };
 
-  const handleBuyNow = () => {
-    onNavigate?.('Checkout', {
-      total: price * qty,
-      itemsCount: qty,
-      directBuy: true,
-      product,
-    });
+  const handleAddToCart = async () => {
+    setBusy('add');
+    setMessage(null);
+    if (await addCurrent()) setMessage('Added to cart');
+    setBusy(null);
   };
+
+  const handleBuyNow = async () => {
+    setBusy('buy');
+    setMessage(null);
+    const ok = await addCurrent();
+    setBusy(null);
+    if (ok) onNavigate?.('Checkout');
+  };
+
+  const topBar = (
+    <View style={styles.topBar}>
+      <TouchableOpacity
+        style={styles.circleBtn}
+        onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Home'))}
+        activeOpacity={0.7}
+        accessibilityLabel="Back"
+      >
+        <Text style={styles.backArrowText}>←</Text>
+      </TouchableOpacity>
+      <Text style={styles.barTitle}>Product Details</Text>
+      <TouchableOpacity style={styles.circleBtn} onPress={() => onNavigate?.('Cart')} activeOpacity={0.7} accessibilityLabel="Cart">
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 3h2l2 12h11l2-8H6" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="#111827" />
+        </Svg>
+      </TouchableOpacity>
+    </View>
+  );
+
+  if (detail.isLoading) {
+    return (
+      <View style={styles.container}>
+        {topBar}
+        <ActivityIndicator testID="loading-indicator" style={{ marginTop: 48 }} />
+      </View>
+    );
+  }
+
+  if (detail.isError || !product || !variant) {
+    const notFound = detail.error instanceof ApiError && detail.error.status === 404;
+    return (
+      <View style={styles.container}>
+        {topBar}
+        <View style={styles.contentPadding} testID={notFound ? 'product-not-found' : 'product-error'}>
+          <Text style={styles.sectionTitle}>{notFound ? 'No longer available' : "Couldn't load this product"}</Text>
+          {!notFound && (
+            <TouchableOpacity onPress={() => void detail.refetch()} style={styles.addToCartOutlineBtn}>
+              <Text style={styles.addToCartOutlineText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  const pack = packLabel(product);
+  const infoRows: [string, string][] = [];
+  if (product.originRegion) infoRows.push(['Origin', product.originRegion]);
+  if (product.farmingType) infoRows.push(['Farming Type', FARMING_LABEL[product.farmingType] ?? product.farmingType]);
+  if (product.harvestSeason) infoRows.push(['Harvest Season', product.harvestSeason]);
+  if (product.shelfLifeDays) infoRows.push(['Shelf Life', `${product.shelfLifeDays} days`]);
+  if (pack) infoRows.push(['Pack', pack]);
+  infoRows.push(['Available', formatKg(variant.availableKg)]);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
+      {topBar}
 
-      {/* ── TOP HEADER BAR: Back + Product Details + Cart Icon ── */}
-      <View style={styles.topBar}>
-        <TouchableOpacity
-          style={styles.circleBtn}
-          onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Home'))}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backArrowText}>←</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.barTitle}>Product Details</Text>
-
-        <TouchableOpacity
-          style={styles.circleBtn}
-          onPress={() => onNavigate?.('Cart')}
-          activeOpacity={0.7}
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M3 3h2l2 12h11l2-8H6"
-              stroke="#111827"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"
-              fill="#111827"
-            />
-          </Svg>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── HERO IMAGE CARD WITH BADGES & DOTS ── */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.heroContainer}>
-          <Image
-            source={product.image || ProductImages.fruitApple}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
+          {heroUri ? <Image source={{ uri: heroUri }} style={styles.heroImage} resizeMode="cover" /> : <View style={styles.heroImage} />}
 
-          {/* Top-left Organic badge */}
-          <View style={styles.organicBadge}>
-            <Text style={styles.organicIcon}>🍃</Text>
-            <Text style={styles.organicText}>Organic</Text>
-          </View>
+          {product.farmingType === 'ORGANIC' && (
+            <View style={styles.organicBadge}>
+              <Text style={styles.organicIcon}>🍃</Text>
+              <Text style={styles.organicText}>Organic</Text>
+            </View>
+          )}
 
-          {/* Top-right Share button (Exact 3-node network icon matching Image 2 left) */}
-          <TouchableOpacity
-            style={styles.shareBtn}
-            onPress={handleShare}
-            activeOpacity={0.8}
-            accessibilityLabel="Share Product"
-          >
+          <TouchableOpacity style={styles.shareBtn} onPress={() => void handleShare()} activeOpacity={0.8} accessibilityLabel="Share Product">
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Circle cx="18" cy="5" r="3" stroke="#1F2937" strokeWidth={2} />
               <Circle cx="6" cy="12" r="3" stroke="#1F2937" strokeWidth={2} />
@@ -157,83 +220,39 @@ export function ProductDetailScreen({
             </Svg>
           </TouchableOpacity>
 
-          {/* Bottom Dots Indicator */}
-          <View style={styles.dotsContainer}>
-            <View style={[styles.dot, styles.activeDot]} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
+          {photos.length > 1 && (
+            <View style={styles.dotsContainer}>
+              {photos.slice(0, 5).map((uri, i) => (
+                <View key={uri} style={[styles.dot, i === activeThumb && styles.activeDot]} />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {photos.length > 1 && (
+          <View style={styles.thumbnailRow}>
+            {photos.slice(0, 4).map((uri, i) => (
+              <TouchableOpacity key={uri} activeOpacity={0.8} onPress={() => setActiveThumb(i)} style={[styles.thumbBox, activeThumb === i && styles.thumbBoxActive]}>
+                <Image source={{ uri }} style={styles.thumbImage} resizeMode="cover" />
+              </TouchableOpacity>
+            ))}
+            {photos.length > 4 && (
+              <View style={[styles.thumbBox, styles.moreThumbBox]}>
+                <Text style={styles.moreThumbText}>+{photos.length - 4}</Text>
+              </View>
+            )}
           </View>
-        </View>
+        )}
 
-        {/* ── THUMBNAIL GALLERY ROW ── */}
-        <View style={styles.thumbnailRow}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveThumb(0)}
-            style={[styles.thumbBox, activeThumb === 0 && styles.thumbBoxActive]}
-          >
-            <Image
-              source={product.image || ProductImages.fruitApple}
-              style={styles.thumbImage}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveThumb(1)}
-            style={[styles.thumbBox, activeThumb === 1 && styles.thumbBoxActive]}
-          >
-            <Image
-              source={product.image || ProductImages.fruitApple}
-              style={styles.thumbImage}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveThumb(2)}
-            style={[styles.thumbBox, activeThumb === 2 && styles.thumbBoxActive]}
-          >
-            <Image
-              source={product.image || ProductImages.fruitApple}
-              style={styles.thumbImage}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveThumb(3)}
-            style={[styles.thumbBox, activeThumb === 3 && styles.thumbBoxActive]}
-          >
-            <Image
-              source={product.image || ProductImages.fruitApple}
-              style={styles.thumbImage}
-              resizeMode="cover"
-            />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setActiveThumb(4)}
-            style={[styles.thumbBox, styles.moreThumbBox]}
-          >
-            <Text style={styles.moreThumbText}>+3</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── TITLE & PRODUCT METADATA ── */}
         <View style={styles.contentPadding}>
-          {/* Title Row with Wishlist Heart */}
           <View style={styles.titleRow}>
-            <Text style={styles.productTitle}>{displayTitle}</Text>
+            <Text style={styles.productTitle}>{product.name}</Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => setIsWishlist(!isWishlist)}
+              onPress={() => selectedGrade && toggleWishlist.mutate({ productId: product.id, grade: selectedGrade, add: !isWishlist, product })}
               style={styles.heartBtn}
+              accessibilityLabel={isWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+              testID="detail-wishlist"
             >
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                 <Path
@@ -246,318 +265,209 @@ export function ProductDetailScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Subtitle Row 1: Farm Fresh & TOHFA Certified */}
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLocation}>📍 Farm Fresh · Nilgiris</Text>
-            <View style={styles.metaDivider} />
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M20 6L9 17l-5-5"
-                stroke="#16A34A"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-            <Text style={styles.certifiedText}> TOHFA Certified</Text>
-          </View>
+          {(product.originRegion || (product.certificationBadges ?? []).length > 0) && (
+            <View style={styles.metaRow}>
+              {!!product.originRegion && <Text style={styles.metaLocation}>📍 {product.originRegion}</Text>}
+              {(product.certificationBadges ?? []).length > 0 && (
+                <>
+                  {!!product.originRegion && <View style={styles.metaDivider} />}
+                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                    <Path d="M20 6L9 17l-5-5" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                  <Text style={styles.certifiedText}> {(product.certificationBadges ?? []).map((c) => CERT_LABEL[c] ?? c).join(' · ')}</Text>
+                </>
+              )}
+            </View>
+          )}
 
-          {/* Subtitle Row 2: Star rating & Questions */}
-          <View style={styles.metaRow}>
-            <Text style={styles.starText}>★ 4.8</Text>
-            <Text style={styles.reviewsCountText}> (128 reviews)</Text>
-            <View style={styles.metaDivider} />
-            <Text style={styles.questionsIcon}>💬</Text>
-            <Text style={styles.questionsText}> 42 Questions</Text>
-          </View>
+          {typeof product.ratingAverage === 'number' && (
+            <View style={styles.metaRow}>
+              <Text style={styles.starText}>★ {product.ratingAverage.toFixed(1)}</Text>
+              <Text style={styles.reviewsCountText}> ({product.ratingCount ?? 0} reviews)</Text>
+            </View>
+          )}
 
-          {/* Price Row */}
+          {/* Grade selector (BR-202): one chip per sellable grade. [needs design review] */}
+          {variants.length > 1 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsRow}>
+              {variants.map((v) => (
+                <TouchableOpacity
+                  key={v.grade}
+                  testID={`grade-${v.grade}`}
+                  style={[styles.filterChip, v.grade === selectedGrade && styles.filterChipActive]}
+                  onPress={() => setGrade(v.grade)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.filterChipText, v.grade === selectedGrade && styles.filterChipTextActive]}>
+                    {gradeLabel(v.grade)} · {formatRupees(v.pricePerKg)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
           <View style={styles.priceRow}>
-            <Text style={styles.priceMain}>₹{price} / kg</Text>
-            <Text style={styles.priceStrikethrough}>₹{originalPrice}</Text>
-            <View style={styles.discountPill}>
-              <Text style={styles.discountPillText}>{discountText}</Text>
-            </View>
+            <Text style={styles.priceMain} testID="detail-price">
+              {formatRupees(variant.pricePerKg)} / kg
+            </Text>
+            {!!variant.compareAtPrice && <Text style={styles.priceStrikethrough}>{formatRupees(variant.compareAtPrice)}</Text>}
+            {variant.discountPercent != null && (
+              <View style={styles.discountPill}>
+                <Text style={styles.discountPillText}>{variant.discountPercent}% OFF</Text>
+              </View>
+            )}
             <View style={{ flex: 1 }} />
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setQty(q => q + 1)}
-              style={styles.plusBtn}
-            >
-              <Text style={styles.plusBtnText}>+</Text>
-            </TouchableOpacity>
+            {available ? (
+              <View style={styles.qualityBadgesRow}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setQty((q) => stepKg(q, -1, { ...STEP, max: variant.availableKg }))}
+                  disabled={!canStepDown(qty, STEP)}
+                  style={styles.plusBtn}
+                  accessibilityLabel="Decrease quantity"
+                >
+                  <Text style={styles.plusBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.starText} testID="detail-qty">
+                  {formatKg(qty)}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setQty((q) => stepKg(q, 1, { ...STEP, max: variant.availableKg }))}
+                  disabled={!canStepUp(qty, { ...STEP, max: variant.availableKg })}
+                  style={styles.plusBtn}
+                  accessibilityLabel="Increase quantity"
+                >
+                  <Text style={styles.plusBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <Text style={styles.reviewsCountText}>Currently unavailable</Text>
+            )}
           </View>
+          {available && <Text style={styles.reviewsCountText}>Total {formatRupees(multiplyMoney(variant.pricePerKg, qty))}</Text>}
 
-          {/* ── 4 GREEN QUALITY BADGES ── */}
-          <View style={styles.qualityBadgesRow}>
-            <View style={styles.qualityCard}>
-              <Text style={styles.qualityIcon}>🍃</Text>
-              <Text style={styles.qualityLabel}>100% Organic</Text>
-            </View>
+          {!!product.tasteNotes && (
+            <>
+              <Text style={styles.sectionTitle}>About this product</Text>
+              <Text style={styles.aboutText}>{product.tasteNotes}</Text>
+            </>
+          )}
 
-            <View style={styles.qualityCard}>
-              <Text style={styles.qualityIcon}>🌿</Text>
-              <Text style={styles.qualityLabel}>Residue Free</Text>
-            </View>
-
-            <View style={styles.qualityCard}>
-              <Text style={styles.qualityIcon}>🧪</Text>
-              <Text style={styles.qualityLabel}>Chemical Free</Text>
-            </View>
-
-            <View style={styles.qualityCard}>
-              <Text style={styles.qualityIcon}>🎖</Text>
-              <Text style={styles.qualityLabel}>Farm Verified</Text>
-            </View>
-          </View>
-
-          {/* ── ABOUT THIS PRODUCT ── */}
-          <Text style={styles.sectionTitle}>About this product</Text>
-          <Text style={styles.aboutText}>
-            Fresh, Crispy and naturally sweet Royal gala apples, sourced directly from TOHFA Certified farmers in the Nilgiris.
-          </Text>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text style={styles.readMoreLink}>Read More...</Text>
-          </TouchableOpacity>
-
-          {/* ── PRODUCT INFORMATION TABLE ── */}
           <Text style={styles.sectionTitle}>Product Information</Text>
           <View style={styles.infoTable}>
-            <View style={styles.infoTableRow}>
-              <Text style={styles.infoKey}>Origin</Text>
-              <Text style={styles.infoVal}>Nilgiris, Tamil Nadu</Text>
-            </View>
-            <View style={styles.infoTableRow}>
-              <Text style={styles.infoKey}>Farming Type</Text>
-              <Text style={styles.infoVal}>Organic</Text>
-            </View>
-            <View style={styles.infoTableRow}>
-              <Text style={styles.infoKey}>Harvest Season</Text>
-              <Text style={styles.infoVal}>Jun - Sep</Text>
-            </View>
-            <View style={styles.infoTableRow}>
-              <Text style={styles.infoKey}>Shelf Life</Text>
-              <Text style={styles.infoVal}>5 - 7 Days (Keep refrigerated)</Text>
-            </View>
+            {infoRows.map(([k, v]) => (
+              <View key={k} style={styles.infoTableRow}>
+                <Text style={styles.infoKey}>{k}</Text>
+                <Text style={styles.infoVal}>{v}</Text>
+              </View>
+            ))}
           </View>
 
-          {/* ── RATINGS & REVIEWS SECTION ── */}
           <Text style={styles.sectionTitle}>Ratings & Reviews</Text>
-          <View style={styles.ratingCard}>
-            <View style={styles.ratingLeftCol}>
-              <View style={styles.bigScoreRow}>
-                <Text style={styles.bigScoreNum}>4.6</Text>
-                <Text style={styles.bigScoreStar}>★</Text>
-              </View>
-              <Text style={styles.bigReviewsTotal}>(328 Reviews)</Text>
-            </View>
-
-            <View style={styles.ratingDivider} />
-
-            <View style={styles.ratingRightCol}>
-              {[
-                { star: 5, pct: '72%' },
-                { star: 4, pct: '16%' },
-                { star: 3, pct: '7%' },
-                { star: 2, pct: '3%' },
-                { star: 1, pct: '2%' },
-              ].map(item => (
-                <View key={item.star} style={styles.barItemRow}>
-                  <Text style={styles.barStarNumber}>{item.star}</Text>
-                  <Text style={styles.barStarGlyph}>★</Text>
-                  <View style={styles.barTrack}>
-                    <View style={[styles.barFill, { width: item.pct }]} />
+          {reviews.isLoading ? (
+            <ActivityIndicator testID="reviews-loading" />
+          ) : reviews.isError ? (
+            <TouchableOpacity onPress={() => void reviews.refetch()}>
+              <Text style={styles.reviewComment}>Couldn't load reviews. Tap to retry.</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={styles.ratingCard}>
+                <View style={styles.ratingLeftCol}>
+                  <View style={styles.bigScoreRow}>
+                    <Text style={styles.bigScoreNum}>{summary?.averageRating ?? '–'}</Text>
+                    <Text style={styles.bigScoreStar}>★</Text>
                   </View>
-                  <Text style={styles.barPercent}>{item.pct}</Text>
+                  <Text style={styles.bigReviewsTotal}>{ratingCount > 0 ? `(${ratingCount} Reviews)` : 'No ratings yet'}</Text>
+                </View>
+                <View style={styles.ratingDivider} />
+                <View style={styles.ratingRightCol}>
+                  {[5, 4, 3, 2, 1].map((star) => (
+                    <View key={star} style={styles.barItemRow}>
+                      <Text style={styles.barStarNumber}>{star}</Text>
+                      <Text style={styles.barStarGlyph}>★</Text>
+                      <View style={styles.barTrack}>
+                        <View style={[styles.barFill, { width: pct(star) as `${number}%` }]} />
+                      </View>
+                      <Text style={styles.barPercent}>{pct(star)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+
+              {ratingCount > 0 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChipsRow}>
+                  {[null, 5, 4, 3, 2, 1].map((f) => (
+                    <TouchableOpacity
+                      key={f ?? 'all'}
+                      style={[styles.filterChip, starFilter === f && styles.filterChipActive]}
+                      onPress={() => setStarFilter(f)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterChipText, starFilter === f && styles.filterChipTextActive]}>
+                        {f === null ? `All Reviews (${ratingCount})` : `${f} ★ (${summary?.distribution[String(f) as '1'] ?? 0})`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+
+              {reviewItems.map((r) => (
+                <View key={r.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewerDetails}>
+                      <View style={styles.verifiedRow}>
+                        <Text style={styles.reviewDate}>{formatReviewDate(r.createdAt)} · </Text>
+                        <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                          <Path d="M20 6L9 17l-5-5" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                        <Text style={styles.verifiedText}> Verified purchase</Text>
+                      </View>
+                    </View>
+                    <View style={styles.starBadgePill}>
+                      <Text style={styles.starBadgePillText}>{r.rating} ★</Text>
+                    </View>
+                  </View>
+                  {!!r.comment && <Text style={styles.reviewComment}>{r.comment}</Text>}
                 </View>
               ))}
-            </View>
-          </View>
+              {reviews.hasNextPage && (
+                <TouchableOpacity onPress={() => void reviews.fetchNextPage()} testID="reviews-more">
+                  <Text style={styles.readMoreLink}>{reviews.isFetchingNextPage ? 'Loading…' : 'Show more reviews'}</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
-          {/* Filter Chips Horizontal Row */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterChipsRow}
-          >
-            {[
-              { id: 'all', label: 'All Reviews (328)' },
-              { id: 'photos', label: 'With Photos (56)' },
-              { id: '5', label: '5 ★ (236)' },
-              { id: '4', label: '4 ★ (52)' },
-              { id: '3', label: '3 ★ (23)' },
-              { id: '2', label: '2 ★ (10)' },
-            ].map(chip => (
-              <TouchableOpacity
-                key={chip.id}
-                style={[
-                  styles.filterChip,
-                  selectedFilter === chip.id && styles.filterChipActive,
-                ]}
-                onPress={() => setSelectedFilter(chip.id)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    selectedFilter === chip.id && styles.filterChipTextActive,
-                  ]}
-                >
-                  {chip.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
-          {/* Customer Reviews List */}
-          {/* Review 1 */}
-          <View style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <View style={[styles.avatarCircle, { backgroundColor: '#D1E7DD' }]}>
-                <Text style={[styles.avatarText, { color: '#0F5132' }]}>R</Text>
-              </View>
-              <View style={styles.reviewerDetails}>
-                <Text style={styles.reviewerName}>Ramya S.</Text>
-                <View style={styles.verifiedRow}>
-                  <Text style={styles.reviewDate}>15 Jul 2026 · </Text>
-                  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M20 6L9 17l-5-5"
-                      stroke="#16A34A"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.verifiedText}> Verified Buyer</Text>
-                </View>
-              </View>
-              <View style={styles.starBadgePill}>
-                <Text style={styles.starBadgePillText}>5 ★</Text>
-              </View>
-            </View>
-
-            <Text style={styles.reviewComment}>
-              Fresh and good quality vegetables. Packaging was also nice. Will order again.
+          {!!message && (
+            <Text style={styles.reviewComment} accessibilityRole="alert" testID="detail-message">
+              {message}
             </Text>
+          )}
 
-            <View style={styles.reviewPhotos}>
-              <Image
-                source={ProductImages.vegPotato}
-                style={styles.reviewPhotoThumb}
-                resizeMode="cover"
-              />
-              <Image
-                source={ProductImages.vegCarrot}
-                style={styles.reviewPhotoThumb}
-                resizeMode="cover"
-              />
-              <Image
-                source={ProductImages.herbCoriander}
-                style={styles.reviewPhotoThumb}
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-
-          {/* Review 2 */}
-          <View style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <View style={[styles.avatarCircle, { backgroundColor: '#E9D5FF' }]}>
-                <Text style={[styles.avatarText, { color: '#6B21A8' }]}>K</Text>
-              </View>
-              <View style={styles.reviewerDetails}>
-                <Text style={styles.reviewerName}>Karthik M.</Text>
-                <View style={styles.verifiedRow}>
-                  <Text style={styles.reviewDate}>12 Jul 2026 · </Text>
-                  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M20 6L9 17l-5-5"
-                      stroke="#16A34A"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.verifiedText}> Verified Buyer</Text>
-                </View>
-              </View>
-              <View style={styles.starBadgePill}>
-                <Text style={styles.starBadgePillText}>4 ★</Text>
-              </View>
-            </View>
-
-            <Text style={styles.reviewComment}>
-              Good quality and fresh. Delivery was on time.
-            </Text>
-          </View>
-
-          {/* Review 3 */}
-          <View style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <View style={[styles.avatarCircle, { backgroundColor: '#DBEAFE' }]}>
-                <Text style={[styles.avatarText, { color: '#1E40AF' }]}>M</Text>
-              </View>
-              <View style={styles.reviewerDetails}>
-                <Text style={styles.reviewerName}>Meena R.</Text>
-                <View style={styles.verifiedRow}>
-                  <Text style={styles.reviewDate}>12 Jul 2026 · </Text>
-                  <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M20 6L9 17l-5-5"
-                      stroke="#16A34A"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.verifiedText}> Verified Buyer</Text>
-                </View>
-              </View>
-              <View style={styles.starBadgePill}>
-                <Text style={styles.starBadgePillText}>5 ★</Text>
-              </View>
-            </View>
-
-            <Text style={styles.reviewComment}>
-              Very fresh produce, especially the carrots. Highly recommended!
-            </Text>
-
-            <View style={styles.reviewPhotos}>
-              <Image
-                source={ProductImages.vegCarrot}
-                style={styles.reviewPhotoThumb}
-                resizeMode="cover"
-              />
-              <Image
-                source={ProductImages.herbCoriander}
-                style={styles.reviewPhotoThumb}
-                resizeMode="cover"
-              />
-            </View>
-          </View>
-
-          {/* Extra bottom scroll spacing */}
           <View style={{ height: 110 }} />
         </View>
       </ScrollView>
 
-      {/* ── FIXED STICKY BOTTOM BAR ── */}
       <View style={styles.fixedBottomBar}>
         <TouchableOpacity
-          style={styles.addToCartOutlineBtn}
-          onPress={handleAddToCart}
+          style={[styles.addToCartOutlineBtn, !available && { opacity: 0.5 }]}
+          onPress={() => void handleAddToCart()}
+          disabled={!available || busy !== null}
           activeOpacity={0.85}
+          testID="detail-add"
         >
-          <Text style={styles.addToCartOutlineText}>Add to Cart</Text>
+          {busy === 'add' ? <ActivityIndicator /> : <Text style={styles.addToCartOutlineText}>Add to Cart</Text>}
         </TouchableOpacity>
-
         <TouchableOpacity
-          style={styles.buyNowSolidBtn}
-          onPress={handleBuyNow}
+          style={[styles.buyNowSolidBtn, !available && { opacity: 0.5 }]}
+          onPress={() => void handleBuyNow()}
+          disabled={!available || busy !== null}
           activeOpacity={0.85}
+          testID="detail-buy"
         >
-          <Text style={styles.buyNowSolidText}>Buy Now</Text>
+          {busy === 'buy' ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buyNowSolidText}>Buy Now</Text>}
         </TouchableOpacity>
       </View>
     </View>

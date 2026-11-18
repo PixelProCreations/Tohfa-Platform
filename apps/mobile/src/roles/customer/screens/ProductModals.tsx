@@ -1,5 +1,11 @@
+/**
+ * Catalog popups: add-to-cart (grades as "varieties"), cart bar, ratings & reviews.
+ * Server-driven (Product / ProductDetail.variants / ProductReviews); money via
+ * formatRupees, quantities in kg.
+ */
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -10,35 +16,15 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { ProductImages } from '../assets/images/products';
+import Svg, { Path } from 'react-native-svg';
+import { gradeLabel, useProductDetail, useProductReviews, type Product, type ProductDetail, type SellableGrade } from '../api/catalog';
+import { useAddToCart, type Cart } from '../api/cart';
+import { mapProblem } from '../api/problem';
+import { canStepDown, canStepUp, clampKg, formatKg, formatRupees, multiplyMoney, qtyToGrams, stepKg, sumMoney } from '../utils/money';
 import {
   customerColors,
   customerFonts,
 } from '../theme';
-
-export interface VarietyItem {
-  id: string;
-  name: string;
-  weight: string;
-  subtitle: string;
-  price: number;
-  image?: any;
-}
-
-export interface ProductModalData {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  unit: string;
-  rating: number;
-  ratingCount?: number;
-  image?: any;
-  description?: string;
-  packageInfo?: string;
-  varieties?: VarietyItem[];
-}
 
 export const ModalCloseCrossSvg = ({ size = 14, color = '#1F2937' }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -71,129 +57,145 @@ export const EditPenSvg = ({ size = 16, color = '#FFFFFF' }: { size?: number; co
   </Svg>
 );
 
-export const APPLE_VARIETIES: VarietyItem[] = [
-  {
-    id: 'var_royal_gala',
-    name: 'Royal Gala',
-    weight: '1 kg',
-    subtitle: 'Sweet & mellow',
-    price: 160.0,
-    image: ProductImages.fruitApple,
-  },
-  {
-    id: 'var_fuji',
-    name: 'Fuji',
-    weight: '1 kg',
-    subtitle: 'Extra sweet & juicy',
-    price: 152.0,
-    image: ProductImages.fruitApple,
-  },
-  {
-    id: 'var_granny_smith',
-    name: 'Granny Smith',
-    weight: '1 kg',
-    subtitle: 'Tart & crisp',
-    price: 158.0,
-    image: ProductImages.fruitApple,
-  },
-  {
-    id: 'var_pink_lady',
-    name: 'Pink Lady',
-    weight: '1 kg',
-    subtitle: 'Sweet with a little tang',
-    price: 120.0,
-    image: ProductImages.fruitApple,
-  },
-];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD-TO-CART POPUP (Figma 46:37143 / 46:37346 / 46:37549). Server-driven:
+// the tapped catalog row plus GET /catalog/products/{id} `variants` (one per
+// sellable grade, BR-202). "Pick a variety" lists the grades; quantities are kg.
+// ─────────────────────────────────────────────────────────────────────────────
 interface ProductDetailsModalProps {
   visible: boolean;
-  product: ProductModalData | null;
+  product: Product | null;
   onClose: () => void;
-  onSelectVarietyProduct?: (variety: VarietyItem, parent: ProductModalData) => void;
-  onAddToCart?: (product: ProductModalData, quantity: number, varietiesTotal?: number) => void;
+  /** Open the full product page for one grade. */
+  onOpenProduct?: (productId: string, grade: SellableGrade) => void;
+  /** Called after every selected line was added (the cart cache is already updated). */
+  onAdded?: (cart: Cart) => void;
 }
 
-export function ProductDetailsModal({
-  visible,
-  product,
-  onClose,
-  onSelectVarietyProduct,
-  onAddToCart,
-}: ProductDetailsModalProps) {
-  const [quantity, setQuantity] = useState(0);
-  const [selectedVarieties, setSelectedVarieties] = useState<{ [id: string]: number }>({});
+interface VariantRow {
+  grade: SellableGrade;
+  pricePerKg: string;
+  compareAtPrice: string | null;
+  availableKg: string;
+  unavailable: boolean;
+}
+
+function variantRows(product: Product, detail: ProductDetail | undefined): VariantRow[] {
+  const variants = detail?.variants ?? [];
+  if (variants.length === 0) {
+    return [
+      {
+        grade: product.grade,
+        pricePerKg: product.pricePerKg,
+        compareAtPrice: product.compareAtPrice ?? null,
+        availableKg: product.availableQty,
+        unavailable: product.isComingSoon || product.isUnsalable,
+      },
+    ];
+  }
+  return variants.map((v) => ({
+    grade: v.grade,
+    pricePerKg: v.pricePerKg,
+    compareAtPrice: v.compareAtPrice,
+    availableKg: v.availableKg,
+    unavailable: v.flags.isComingSoon || v.flags.isUnsalable || (qtyToGrams(v.availableKg) ?? 0) <= 0,
+  }));
+}
+
+const STEP = { step: '0.5', min: '0.5' };
+
+export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, onAdded }: ProductDetailsModalProps) {
+  const detailQuery = useProductDetail(visible && product ? product.id : null);
+  const addToCart = useAddToCart();
+  const [selected, setSelected] = useState<Partial<Record<SellableGrade, string>>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   React.useEffect(() => {
-    if (visible) {
-      setQuantity(0);
-      setSelectedVarieties({});
+    if (visible && product) {
+      setSelected({ [product.grade]: clampKg('1.000', { ...STEP, max: product.availableQty }) });
+      setError(null);
     }
   }, [visible, product]);
 
   if (!product) return null;
 
-  const hasVarieties =
-    (product.varieties && product.varieties.length > 0) ||
-    product.name.toLowerCase().includes('apple');
+  const rows = variantRows(product, detailQuery.data);
+  const hasVarieties = rows.length > 1;
+  const image = product.photos?.[0] ? { uri: product.photos[0] } : null;
+  const rating = typeof product.ratingAverage === 'number' ? product.ratingAverage.toFixed(1) : null;
+  const pack = product.packSize && product.packUnit ? `${product.packSize} ${product.packUnit.toLowerCase()}` : null;
+  const desc = product.tasteNotes ?? product.originRegion ?? '';
 
-  const varietiesList = product.varieties || (hasVarieties ? APPLE_VARIETIES : []);
+  const lines = rows.filter((r) => selected[r.grade] !== undefined);
+  const total = sumMoney(lines.map((r) => multiplyMoney(r.pricePerKg, selected[r.grade] ?? '0')));
 
-  const totalVarietiesPrice = Object.entries(selectedVarieties).reduce((acc, [id, qty]) => {
-    const item = varietiesList.find(v => v.id === id);
-    return acc + (item ? item.price * qty : 0);
-  }, 0);
-
-  const totalSimplePrice = (quantity * (product.price || 165)).toFixed(2);
-  const totalPriceDisplay = hasVarieties
-    ? totalVarietiesPrice.toFixed(2)
-    : totalSimplePrice;
-
-  const totalItemsCount = hasVarieties
-    ? Object.values(selectedVarieties).reduce((sum, q) => sum + q, 0)
-    : quantity;
-
-  const ratingCount = product.ratingCount || 128;
-  const packageInfo = product.packageInfo || '1 kg bag · approx. 6 apples';
-  const desc =
-    product.description || 'Orchard-fresh crunch, picked for your everyday.';
-
-  const toggleVarietySelect = (id: string) => {
-    setSelectedVarieties(prev => {
+  const toggle = (row: VariantRow) => {
+    if (row.unavailable) return;
+    setSelected((prev) => {
       const next = { ...prev };
-      if (next[id]) {
-        delete next[id];
-      } else {
-        next[id] = 1;
-      }
+      if (next[row.grade] !== undefined) delete next[row.grade];
+      else next[row.grade] = clampKg('1.000', { ...STEP, max: row.availableKg });
       return next;
     });
   };
 
-  const updateVarietyQty = (id: string, delta: number) => {
-    setSelectedVarieties(prev => {
-      const current = prev[id] || 0;
-      const nextQty = Math.max(0, current + delta);
-      const copy = { ...prev };
-      if (nextQty === 0) {
-        delete copy[id];
-      } else {
-        copy[id] = nextQty;
-      }
-      return copy;
+  const step = (row: VariantRow, dir: 1 | -1) => {
+    setSelected((prev) => {
+      const current = prev[row.grade] ?? '0.000';
+      const next = { ...prev };
+      if (dir === -1 && !canStepDown(current, STEP)) delete next[row.grade];
+      else next[row.grade] = stepKg(current, dir, { ...STEP, max: row.availableKg });
+      return next;
     });
   };
 
-  const handleAdd = () => {
-    if (hasVarieties) {
-      if (totalItemsCount > 0) {
-        onAddToCart?.(product, totalItemsCount, totalVarietiesPrice);
+  const handleAdd = async () => {
+    if (lines.length === 0 || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let cart: Cart | null = null;
+      for (const r of lines) {
+        cart = await addToCart.mutateAsync({ productId: product.id, grade: r.grade, qtyKg: selected[r.grade] ?? '0.500' });
       }
-    } else {
-      const finalQty = quantity === 0 ? 1 : quantity;
-      onAddToCart?.(product, finalQty, finalQty * (product.price || 165));
+      if (cart) onAdded?.(cart);
+      onClose();
+    } catch (err) {
+      const p = mapProblem(err);
+      if (!p.silent) setError(p.message);
+    } finally {
+      setBusy(false);
     }
-    onClose();
+  };
+
+  const renderStepper = (row: VariantRow) => {
+    const qty = selected[row.grade];
+    if (qty === undefined) {
+      return (
+        <TouchableOpacity style={styles.plusButton} activeOpacity={0.8} onPress={() => toggle(row)} disabled={row.unavailable} accessibilityLabel={`Add ${gradeLabel(row.grade)}`}>
+          <Text style={styles.plusText}>+</Text>
+        </TouchableOpacity>
+      );
+    }
+    return (
+      <View style={styles.stepperContainer}>
+        <TouchableOpacity style={styles.stepBtn} onPress={() => step(row, -1)} activeOpacity={0.7} accessibilityLabel="Decrease">
+          <Text style={styles.stepBtnText}>−</Text>
+        </TouchableOpacity>
+        <Text style={styles.stepQty}>{formatKg(qty)}</Text>
+        <TouchableOpacity
+          style={styles.stepBtn}
+          onPress={() => step(row, 1)}
+          disabled={!canStepUp(qty, { ...STEP, max: row.availableKg })}
+          activeOpacity={0.7}
+          accessibilityLabel="Increase"
+        >
+          <Text style={styles.stepBtnText}>+</Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -201,7 +203,6 @@ export function ProductDetailsModal({
       <View style={styles.backdrop}>
         <View style={styles.cardContainer}>
           <View style={styles.card}>
-            {/* Exact Floating Circular Close Button matching Figma Image 1 left */}
             <TouchableOpacity
               style={styles.floatingCloseBtn}
               activeOpacity={0.8}
@@ -211,108 +212,63 @@ export function ProductDetailsModal({
             >
               <ModalCloseCrossSvg size={14} color="#1F2937" />
             </TouchableOpacity>
-            {/* Header: Product Image, Title, Rating, Price */}
             <View style={styles.headerRow}>
-              <TouchableOpacity
-                style={styles.imageBox}
-                activeOpacity={0.7}
-                onPress={() => {
-                  const firstVar = varietiesList[0] || {
-                    id: product.id,
-                    name: product.name,
-                    weight: '1 kg',
-                    subtitle: '',
-                    price: product.price || 165,
-                    image: product.image,
-                  };
-                  onSelectVarietyProduct?.(firstVar, product);
-                }}
-              >
-                {product.image && (
-                  <Image source={product.image} style={styles.productImg} resizeMode="contain" />
-                )}
+              <TouchableOpacity style={styles.imageBox} activeOpacity={0.7} onPress={() => onOpenProduct?.(product.id, product.grade)}>
+                {image && <Image source={image} style={styles.productImg} resizeMode="contain" />}
               </TouchableOpacity>
-
               <View style={styles.titleCol}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const firstVar = varietiesList[0] || {
-                      id: product.id,
-                      name: product.name,
-                      weight: '1 kg',
-                      subtitle: '',
-                      price: product.price || 165,
-                      image: product.image,
-                    };
-                    onSelectVarietyProduct?.(firstVar, product);
-                  }}
-                >
-                  <Text style={styles.titleText}>
-                    {product.name.toLowerCase() === 'apple' ? 'Fresh apples' : product.name}
-                  </Text>
+                <TouchableOpacity activeOpacity={0.7} onPress={() => onOpenProduct?.(product.id, product.grade)}>
+                  <Text style={styles.titleText}>{product.name}</Text>
                 </TouchableOpacity>
-                <View style={styles.ratingRow}>
-                  <Text style={styles.star}>★</Text>
-                  <Text style={styles.ratingScore}>{product.rating?.toFixed(1) || '4.8'}</Text>
-                  <Text style={styles.ratingCount}>({ratingCount} reviews)</Text>
-                </View>
+                {rating !== null && (
+                  <View style={styles.ratingRow}>
+                    <Text style={styles.star}>★</Text>
+                    <Text style={styles.ratingScore}>{rating}</Text>
+                    <Text style={styles.ratingCount}>({product.ratingCount ?? 0} reviews)</Text>
+                  </View>
+                )}
               </View>
-
               <View style={styles.priceCol}>
-                <Text style={styles.priceText}>
-                  ₹{hasVarieties ? (totalVarietiesPrice > 0 ? totalVarietiesPrice.toFixed(2) : '0.00') : (product.price || 165).toFixed(2)}
-                </Text>
-                <Text style={styles.packageText}>{packageInfo}</Text>
+                <Text style={styles.priceText}>{formatRupees(hasVarieties ? total : product.pricePerKg)}</Text>
+                <Text style={styles.packageText}>{pack ?? 'per kg'}</Text>
               </View>
             </View>
 
-            {/* ── VARIETY SECTION (Screen 3) vs NON-VARIETY SECTION (Screen 1 & 2) ── */}
             {hasVarieties ? (
               <>
-                <Text style={styles.descText}>{desc}</Text>
+                {!!desc && <Text style={styles.descText}>{desc}</Text>}
                 <View style={styles.varietySection}>
                   <View style={styles.varietyHeaderRow}>
-                    <Text style={styles.varietyHeaderTitle}>Pick a variety</Text>
-                    <Text style={styles.varietyHeaderSub}>Price per 1 kg bag</Text>
+                    <Text style={styles.varietyHeaderTitle}>Pick a grade</Text>
+                    <Text style={styles.varietyHeaderSub}>Price per kg</Text>
                   </View>
-
-                  <ScrollView style={styles.varietyList} showsVerticalScrollIndicator={true}>
-                    {varietiesList.map(v => {
-                      const isSelected = !!selectedVarieties[v.id];
+                  <ScrollView style={styles.varietyList} showsVerticalScrollIndicator>
+                    {rows.map((v) => {
+                      const isSelected = selected[v.grade] !== undefined;
                       return (
-                        <View
-                          key={v.id}
-                          style={[
-                            styles.varietyCard,
-                            isSelected && styles.varietyCardSelected,
-                          ]}
-                        >
+                        <View key={`${product.id}:${v.grade}`} testID={`variant-${v.grade}`} style={[styles.varietyCard, isSelected && styles.varietyCardSelected]}>
                           <TouchableOpacity
                             activeOpacity={0.7}
-                            onPress={() => onSelectVarietyProduct?.(v, product)}
+                            onPress={() => onOpenProduct?.(product.id, v.grade)}
                             style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 2 }}
-                            accessibilityLabel={`View details for ${v.name}`}
+                            accessibilityLabel={`View details for ${product.name} ${gradeLabel(v.grade)}`}
                           >
-                            <Image source={v.image || product.image} style={styles.varietyThumb} resizeMode="contain" />
+                            {image && <Image source={image} style={styles.varietyThumb} resizeMode="contain" />}
                             <View style={styles.varietyInfo}>
                               <Text style={styles.varietyName}>
-                                {v.name} ({v.weight})
+                                {product.name} · {gradeLabel(v.grade)}
                               </Text>
-                              <Text style={styles.varietySubtitle}>{v.subtitle}</Text>
+                              <Text style={styles.varietySubtitle}>{v.unavailable ? 'Currently unavailable' : `${formatKg(v.availableKg)} available`}</Text>
                             </View>
-                            <Text style={styles.varietyPrice}>₹{v.price.toFixed(2)}</Text>
+                            <Text style={styles.varietyPrice}>{formatRupees(v.pricePerKg)}</Text>
                           </TouchableOpacity>
-
                           <TouchableOpacity
                             activeOpacity={0.75}
-                            onPress={() => toggleVarietySelect(v.id)}
-                            style={[
-                              styles.checkbox,
-                              isSelected && styles.checkboxSelected,
-                            ]}
+                            onPress={() => toggle(v)}
+                            disabled={v.unavailable}
+                            style={[styles.checkbox, isSelected && styles.checkboxSelected]}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            accessibilityLabel={`Select ${v.name}`}
+                            accessibilityLabel={`Select ${gradeLabel(v.grade)}`}
                           >
                             {isSelected && <Text style={styles.checkmark}>✔</Text>}
                           </TouchableOpacity>
@@ -320,127 +276,65 @@ export function ProductDetailsModal({
                       );
                     })}
                   </ScrollView>
-
-                  {/* Selected variety steppers */}
-                  {Object.keys(selectedVarieties).length > 0 && (
+                  {lines.length > 0 && (
                     <View style={styles.steppersList}>
-                      {Object.entries(selectedVarieties).map(([id, qty]) => {
-                        const item = varietiesList.find(v => v.id === id);
-                        if (!item) return null;
-                        return (
-                          <View key={id} style={styles.stepperItemRow}>
-                            <TouchableOpacity
-                              activeOpacity={0.7}
-                              onPress={() => onSelectVarietyProduct?.(item, product)}
-                              style={styles.stepperItemLabel}
-                            >
-                              <Text style={styles.stepperTitle}>
-                                {item.name} · {item.subtitle}
-                              </Text>
-                              <Text style={styles.stepperSub}>{item.weight} bag</Text>
-                            </TouchableOpacity>
-                            <View style={styles.stepperContainer}>
-                              <TouchableOpacity
-                                style={styles.stepBtn}
-                                onPress={() => updateVarietyQty(id, -1)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={styles.stepBtnText}>−</Text>
-                              </TouchableOpacity>
-                              <Text style={styles.stepQty}>{qty}</Text>
-                              <TouchableOpacity
-                                style={styles.stepBtn}
-                                onPress={() => updateVarietyQty(id, 1)}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={styles.stepBtnText}>+</Text>
-                              </TouchableOpacity>
-                            </View>
+                      {lines.map((r) => (
+                        <View key={r.grade} style={styles.stepperItemRow}>
+                          <View style={styles.stepperItemLabel}>
+                            <Text style={styles.stepperTitle}>
+                              {product.name} · {gradeLabel(r.grade)}
+                            </Text>
+                            <Text style={styles.stepperSub}>{formatRupees(multiplyMoney(r.pricePerKg, selected[r.grade] ?? '0'))}</Text>
                           </View>
-                        );
-                      })}
+                          {renderStepper(r)}
+                        </View>
+                      ))}
                     </View>
                   )}
                 </View>
               </>
             ) : (
-              /* Non-variety stepper row: Description on Left, (+) or Stepper on Right (Screen 1 & 2) */
               <View style={styles.descAndStepperRow}>
                 <Text style={styles.descTextCompact}>{desc}</Text>
-                <View style={styles.simpleStepperCol}>
-                  {quantity === 0 ? (
-                    <TouchableOpacity
-                      style={styles.plusButton}
-                      activeOpacity={0.8}
-                      onPress={() => setQuantity(1)}
-                    >
-                      <Text style={styles.plusText}>+</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.stepperContainer}>
-                      <TouchableOpacity
-                        style={styles.stepBtn}
-                        onPress={() => setQuantity(q => Math.max(0, q - 1))}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.stepBtnText}>−</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.stepQty}>{quantity}</Text>
-                      <TouchableOpacity
-                        style={styles.stepBtn}
-                        onPress={() => setQuantity(q => q + 1)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.stepBtnText}>+</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
+                <View style={styles.simpleStepperCol}>{rows[0] ? renderStepper(rows[0]) : null}</View>
               </View>
+            )}
+
+            {error && (
+              <Text style={styles.modalError} accessibilityRole="alert" testID="add-error">
+                {error}
+              </Text>
             )}
 
             <View style={styles.divider} />
 
-            {/* Add to Cart CTA */}
-            <TouchableOpacity style={styles.addCartBtn} activeOpacity={0.85} onPress={handleAdd}>
+            <TouchableOpacity
+              style={[styles.addCartBtn, (lines.length === 0 || busy) && { opacity: 0.6 }]}
+              activeOpacity={0.85}
+              onPress={() => void handleAdd()}
+              disabled={lines.length === 0 || busy}
+              testID="modal-add-to-cart"
+            >
               <View style={styles.cartBtnContent}>
                 <View style={styles.cartIconWrapper}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M3 3h2l2 12h11l2-8H6"
-                      stroke="#FFFFFF"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"
-                      fill="#FFFFFF"
-                    />
-                  </Svg>
+                  {busy ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Path d="M3 3h2l2 12h11l2-8H6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="#FFFFFF" />
+                    </Svg>
+                  )}
                 </View>
                 <Text style={styles.addCartText}>Add to cart</Text>
               </View>
-              <Text style={styles.totalPriceText}>₹{totalPriceDisplay}</Text>
+              <Text style={styles.totalPriceText}>{formatRupees(total)}</Text>
             </TouchableOpacity>
 
-            {/* Guarantee footer */}
             <View style={styles.guaranteeRow}>
               <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-                  stroke="#52796F"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <Path
-                  d="M9 12l2 2 4-4"
-                  stroke="#52796F"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#52796F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M9 12l2 2 4-4" stroke="#52796F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
               <Text style={styles.guaranteeText}>Freshness guaranteed, or your money back.</Text>
             </View>
@@ -452,329 +346,24 @@ export function ProductDetailsModal({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FULL PRODUCT DETAILS POPUP (Screen 3 & Screen 4 - scrollable full page modal)
-// ─────────────────────────────────────────────────────────────────────────────
-interface FullProductDetailsModalProps {
-  visible: boolean;
-  product: VarietyItem | null;
-  parentProduct: ProductModalData | null;
-  onClose: () => void;
-  onAddToCart?: (item: VarietyItem, qty: number) => void;
-  onBuyNow?: (item: VarietyItem, qty: number) => void;
-  onOpenCart?: () => void;
-}
-
-export function FullProductDetailsModal({
-  visible,
-  product,
-  parentProduct,
-  onClose,
-  onAddToCart,
-  onBuyNow,
-  onOpenCart,
-}: FullProductDetailsModalProps) {
-  const [selectedFilter, setSelectedFilter] = useState('all');
-  const [qty, setQty] = useState(1);
-
-  if (!product) return null;
-
-  const price = product.price || 120;
-  const originalPrice = 132;
-  const displayTitle = 'Royal gala Applie';
-
-  return (
-    <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
-      <View style={styles.fullModalContainer}>
-        {/* Header Bar: Back + Title + Cart Icon */}
-        <View style={styles.fullTopBar}>
-          <TouchableOpacity style={styles.backCircleBtn} onPress={onClose} activeOpacity={0.7}>
-            <Text style={styles.backArrowText}>←</Text>
-          </TouchableOpacity>
-          <Text style={styles.fullBarTitle}>Product Details</Text>
-          <TouchableOpacity
-            style={styles.cartCircleBtn}
-            activeOpacity={0.7}
-            onPress={() => {
-              onClose();
-              onOpenCart?.();
-            }}
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M3 3h2l2 12h11l2-8H6"
-                stroke="#333333"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"
-                fill="#333333"
-              />
-            </Svg>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView style={styles.fullScroll} showsVerticalScrollIndicator={false}>
-          {/* Main Hero Photo Card */}
-          <View style={styles.heroCard}>
-            <Image
-              source={product.image || parentProduct?.image || ProductImages.fruitApple}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-            <View style={styles.heroOrganicBadge}>
-              <Text style={styles.heroOrganicText}>🍃 Organic</Text>
-            </View>
-            <TouchableOpacity style={styles.shareBtn} activeOpacity={0.8}>
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Circle cx="18" cy="5" r="3" stroke="#1F2937" strokeWidth="2" />
-                <Circle cx="6" cy="12" r="3" stroke="#1F2937" strokeWidth="2" />
-                <Circle cx="18" cy="19" r="3" stroke="#1F2937" strokeWidth="2" />
-                <Path
-                  d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
-                  stroke="#1F2937"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          </View>
-
-          {/* Small Thumbnails Row */}
-          <View style={styles.thumbRow}>
-            <Image source={ProductImages.fruitApple} style={styles.smallThumb} resizeMode="cover" />
-            <Image source={ProductImages.fruitApple} style={styles.smallThumb} resizeMode="cover" />
-            <Image source={ProductImages.fruitApple} style={styles.smallThumb} resizeMode="cover" />
-            <Image source={ProductImages.fruitApple} style={styles.smallThumb} resizeMode="cover" />
-            <View style={styles.moreThumb}>
-              <Text style={styles.moreThumbText}>+3</Text>
-            </View>
-          </View>
-
-          {/* Title & Metadata */}
-          <View style={styles.fullContentPadding}>
-            <View style={styles.titleHeartRow}>
-              <Text style={styles.fullProductTitle}>
-                {displayTitle}
-              </Text>
-              <TouchableOpacity style={styles.heartCircleSmall}>
-                <Text style={{ fontSize: 16 }}>♡</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.farmMetaRow}>
-              <Text style={styles.farmMetaText}>📍 Farm Fresh · Nilgiris  |  </Text>
-              <Text style={styles.certifiedBadge}>✔ TOHFA Certified</Text>
-            </View>
-
-            <View style={styles.starQuestionsRow}>
-              <Text style={styles.starYellow}>★ 4.8</Text>
-              <Text style={styles.reviewsMuted}> (128 reviews)  |  💬 42 Questions</Text>
-            </View>
-
-            {/* Price Row */}
-            <View style={styles.fullPriceRow}>
-              <Text style={styles.fullPriceLarge}>₹{price} / kg</Text>
-              <Text style={styles.fullPriceStrikethrough}>₹{originalPrice}</Text>
-              <View style={styles.discountBadge}>
-                <Text style={styles.discountText}>30% OFF</Text>
-              </View>
-              <View style={{ flex: 1 }} />
-              <TouchableOpacity style={styles.fullPlusBtn} onPress={() => setQty(q => q + 1)}>
-                <Text style={styles.fullPlusText}>+</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Quality Badges */}
-            <View style={styles.qualityBadgesRow}>
-              <View style={styles.qualityBadge}>
-                <Text style={styles.qualityIcon}>🍃</Text>
-                <Text style={styles.qualityLabel}>100% Organic</Text>
-              </View>
-              <View style={styles.qualityBadge}>
-                <Text style={styles.qualityIcon}>🌿</Text>
-                <Text style={styles.qualityLabel}>Residue Free</Text>
-              </View>
-              <View style={styles.qualityBadge}>
-                <Text style={styles.qualityIcon}>🧪</Text>
-                <Text style={styles.qualityLabel}>Chemical Free</Text>
-              </View>
-              <View style={styles.qualityBadge}>
-                <Text style={styles.qualityIcon}>🎖</Text>
-                <Text style={styles.qualityLabel}>Farm Verified</Text>
-              </View>
-            </View>
-
-            {/* About this product */}
-            <Text style={styles.sectionHeading}>About this product</Text>
-            <Text style={styles.aboutParagraph}>
-              Fresh, Crispy and naturally sweet Royal gala apples, sourced directly from TOHFA Certified farmers in the Nilgiris.
-            </Text>
-            <TouchableOpacity>
-              <Text style={styles.readMoreText}>Read More...</Text>
-            </TouchableOpacity>
-
-            {/* Product Information Table */}
-            <Text style={styles.sectionHeading}>Product Information</Text>
-            <View style={styles.infoTable}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>Origin</Text>
-                <Text style={styles.infoVal}>Nilgiris, Tamil Nadu</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>Farming Type</Text>
-                <Text style={styles.infoVal}>Organic</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>Harvest Season</Text>
-                <Text style={styles.infoVal}>Jun - Sep</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoKey}>Shelf Life</Text>
-                <Text style={styles.infoVal}>5 - 7 Days (Keep refrigerated)</Text>
-              </View>
-            </View>
-
-            {/* Screen 4 Content: Ratings & Reviews block inside full detail */}
-            <Text style={styles.sectionHeading}>Ratings & Reviews</Text>
-            <View style={styles.detailReviewsSummary}>
-              <View style={styles.scoreCol}>
-                <View style={styles.bigRatingRow}>
-                  <Text style={styles.bigRatingNum}>4.6</Text>
-                  <Text style={styles.bigStar}>★</Text>
-                </View>
-                <Text style={styles.reviewsTotal}>(328 Reviews)</Text>
-              </View>
-              <View style={styles.summaryDivider} />
-              <View style={styles.barsCol}>
-                {[
-                  { star: 5, pct: '72%' },
-                  { star: 4, pct: '16%' },
-                  { star: 3, pct: '7%' },
-                  { star: 2, pct: '3%' },
-                  { star: 1, pct: '2%' },
-                ].map(item => (
-                  <View key={item.star} style={styles.barRow}>
-                    <Text style={styles.barStarNum}>{item.star}</Text>
-                    <Text style={styles.barStarIcon}>★</Text>
-                    <View style={styles.barTrack}>
-                      <View style={[styles.barFill, { width: item.pct }]} />
-                    </View>
-                    <Text style={styles.barPct}>{item.pct}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Filter Pills */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
-              {[
-                { id: 'all', label: 'All Reviews (328)' },
-                { id: 'photos', label: 'With Photos (56)' },
-                { id: '5', label: '5 ★ (236)' },
-                { id: '4', label: '4 ★ (52)' },
-                { id: '3', label: '3 ★ (23)' },
-                { id: '2', label: '2 ★ (10)' },
-              ].map(f => (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[styles.filterPill, selectedFilter === f.id && styles.filterPillActive]}
-                  onPress={() => setSelectedFilter(f.id)}
-                >
-                  <Text style={[styles.filterPillText, selectedFilter === f.id && styles.filterPillTextActive]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Reviews in Detail Screen */}
-            <View style={styles.reviewItem}>
-              <View style={styles.reviewHeader}>
-                <View style={[styles.avatarCircle, { backgroundColor: '#D1E7DD' }]}>
-                  <Text style={[styles.avatarText, { color: '#0F5132' }]}>R</Text>
-                </View>
-                <View style={styles.reviewerMeta}>
-                  <Text style={styles.reviewerName}>Ramya S.</Text>
-                  <View style={styles.verifiedRow}>
-                    <Text style={styles.reviewDate}>15 Jul 2026 · </Text>
-                    <Text style={styles.verifiedBadge}>✔ Verified Buyer</Text>
-                  </View>
-                </View>
-                <View style={styles.starBadgeSmall}>
-                  <Text style={styles.starBadgeText}>5 ★</Text>
-                </View>
-              </View>
-              <Text style={styles.reviewBody}>
-                Fresh and good quality vegetables. Packaging was also nice. Will order again.
-              </Text>
-              <View style={styles.reviewPhotosRow}>
-                <Image source={ProductImages.vegPotato} style={styles.reviewThumb} resizeMode="cover" />
-                <Image source={ProductImages.vegCarrot} style={styles.reviewThumb} resizeMode="cover" />
-                <Image source={ProductImages.herbCoriander} style={styles.reviewThumb} resizeMode="cover" />
-              </View>
-            </View>
-
-            <View style={{ height: 100 }} />
-          </View>
-        </ScrollView>
-
-        {/* Bottom CTA Floating Footer */}
-        <View style={styles.fullBottomActions}>
-          <TouchableOpacity
-            style={styles.fullAddToCartBtn}
-            onPress={() => {
-              onAddToCart?.(product, qty);
-              onClose();
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.fullAddToCartText}>Add to Cart</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.fullBuyNowBtn}
-            onPress={() => {
-              onClose();
-              if (onBuyNow) {
-                onBuyNow(product, qty);
-              } else {
-                onAddToCart?.(product, qty);
-              }
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.fullBuyNowText}>Buy Now</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// TOAST COMPONENT (Screen 5 - floating black pill: "2 items in your cart  ₹312.00")
+// CART BAR (Figma 46:38013): server cart count + subtotal.
 // ─────────────────────────────────────────────────────────────────────────────
 interface CartToastProps {
   visible: boolean;
   itemCount: number;
-  totalPrice: number;
-  thumbImage?: any;
+  /** Cart subtotal (Money string). */
+  totalPrice: string;
+  thumbUri?: string | null;
   onViewCart?: () => void;
 }
 
-export function CartToast({ visible, itemCount, totalPrice, thumbImage, onViewCart }: CartToastProps) {
+export function CartToast({ visible, itemCount, totalPrice, thumbUri, onViewCart }: CartToastProps) {
   if (!visible) return null;
-
   return (
     <View style={styles.toastContainer}>
-      <TouchableOpacity style={styles.toastCard} activeOpacity={0.9} onPress={onViewCart}>
+      <TouchableOpacity style={styles.toastCard} activeOpacity={0.9} onPress={onViewCart} testID="cart-bar">
         <View style={styles.toastThumbWrapper}>
-          <Image
-            source={thumbImage || ProductImages.fruitApple}
-            style={styles.toastThumb}
-            resizeMode="contain"
-          />
+          {thumbUri ? <Image source={{ uri: thumbUri }} style={styles.toastThumb} resizeMode="contain" /> : null}
         </View>
         <View style={styles.toastTextCol}>
           <Text style={styles.toastTitle}>
@@ -782,33 +371,50 @@ export function CartToast({ visible, itemCount, totalPrice, thumbImage, onViewCa
           </Text>
           <Text style={styles.toastSub}>View cart</Text>
         </View>
-        <Text style={styles.toastPrice}>₹{totalPrice.toFixed(2)}</Text>
+        <Text style={styles.toastPrice}>{formatRupees(totalPrice)}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RATINGS & REVIEWS MODAL
+// RATINGS & REVIEWS MODAL (Figma 46:36594): GET /catalog/products/{id}/reviews.
+// Reviews are anonymised (BR-16): no reviewer name/avatar is returned, every
+// review comes from a placed order ("Verified purchase").
 // ─────────────────────────────────────────────────────────────────────────────
 interface RatingsReviewsModalProps {
   visible: boolean;
-  product: ProductModalData | null;
+  productId: string | null;
+  grade?: SellableGrade | undefined;
   onClose: () => void;
   onWriteReview?: () => void;
 }
 
-export function RatingsReviewsModal({ visible, product, onClose, onWriteReview }: RatingsReviewsModalProps) {
-  const [selectedFilter, setSelectedFilter] = useState('all');
+function formatReviewDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+}
 
-  if (!product) return null;
+export function RatingsReviewsModal({ visible, productId, grade, onClose, onWriteReview }: RatingsReviewsModalProps) {
+  const [starFilter, setStarFilter] = useState<number | null>(null);
+  const reviews = useProductReviews(visible ? productId : null, grade);
+  if (!productId) return null;
+
+  const summary = reviews.data?.pages[0]?.summary;
+  const all = reviews.data?.pages.flatMap((p) => p.items) ?? [];
+  const items = starFilter === null ? all : all.filter((r) => r.rating === starFilter);
+  const count = summary?.ratingCount ?? 0;
+  const pct = (star: number) => {
+    const n = summary?.distribution[String(star) as '1'] ?? 0;
+    return count > 0 ? `${Math.round((n * 100) / count)}%` : '0%';
+  };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.cardContainerReviews}>
           <View style={styles.reviewsCard}>
-            {/* Exact Floating Circular Close Button matching Figma Image 1 left */}
             <TouchableOpacity
               style={styles.floatingCloseBtn}
               activeOpacity={0.8}
@@ -820,96 +426,102 @@ export function RatingsReviewsModal({ visible, product, onClose, onWriteReview }
             </TouchableOpacity>
             <Text style={styles.reviewsHeading}>Ratings & Reviews</Text>
 
-            <View style={styles.ratingSummaryRow}>
-              <View style={styles.scoreCol}>
-                <View style={styles.bigRatingRow}>
-                  <Text style={styles.bigRatingNum}>{product.rating?.toFixed(1) || '4.6'}</Text>
-                  <Text style={styles.bigStar}>★</Text>
-                </View>
-                <Text style={styles.reviewsTotal}>(328 Reviews)</Text>
-              </View>
-
-              <View style={styles.summaryDivider} />
-
-              <View style={styles.barsCol}>
-                {[
-                  { star: 5, pct: '72%' },
-                  { star: 4, pct: '16%' },
-                  { star: 3, pct: '7%' },
-                  { star: 2, pct: '3%' },
-                  { star: 1, pct: '2%' },
-                ].map(item => (
-                  <View key={item.star} style={styles.barRow}>
-                    <Text style={styles.barStarNum}>{item.star}</Text>
-                    <Text style={styles.barStarIcon}>★</Text>
-                    <View style={styles.barTrack}>
-                      <View style={[styles.barFill, { width: item.pct }]} />
+            {reviews.isLoading ? (
+              <ActivityIndicator testID="reviews-loading" style={{ marginVertical: 24 }} />
+            ) : reviews.isError ? (
+              <TouchableOpacity onPress={() => void reviews.refetch()} testID="reviews-retry">
+                <Text style={styles.reviewBody}>Couldn't load reviews. Tap to retry.</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <View style={styles.ratingSummaryRow}>
+                  <View style={styles.scoreCol}>
+                    <View style={styles.bigRatingRow}>
+                      <Text style={styles.bigRatingNum}>{summary?.averageRating ?? '–'}</Text>
+                      <Text style={styles.bigStar}>★</Text>
                     </View>
-                    <Text style={styles.barPct}>{item.pct}</Text>
+                    <Text style={styles.reviewsTotal}>{count > 0 ? `(${count} Reviews)` : 'No ratings yet'}</Text>
                   </View>
-                ))}
-              </View>
-            </View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.barsCol}>
+                    {[5, 4, 3, 2, 1].map((star) => (
+                      <View key={star} style={styles.barRow}>
+                        <Text style={styles.barStarNum}>{star}</Text>
+                        <Text style={styles.barStarIcon}>★</Text>
+                        <View style={styles.barTrack}>
+                          <View style={[styles.barFill, { width: pct(star) as `${number}%` }]} />
+                        </View>
+                        <Text style={styles.barPct}>{pct(star)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
-              {[
-                { id: 'all', label: 'All Reviews (328)' },
-                { id: 'photos', label: 'With Photos (56)' },
-                { id: '5', label: '5 ★ (236)' },
-                { id: '4', label: '4 ★ (52)' },
-                { id: '3', label: '3 ★ (23)' },
-              ].map(f => (
-                <TouchableOpacity
-                  key={f.id}
-                  style={[styles.filterPill, selectedFilter === f.id && styles.filterPillActive]}
-                  onPress={() => setSelectedFilter(f.id)}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillsRow}>
+                  {[null, 5, 4, 3, 2, 1].map((f) => (
+                    <TouchableOpacity
+                      key={f ?? 'all'}
+                      style={[styles.filterPill, starFilter === f && styles.filterPillActive]}
+                      onPress={() => setStarFilter(f)}
+                    >
+                      <Text style={[styles.filterPillText, starFilter === f && styles.filterPillTextActive]}>
+                        {f === null ? `All Reviews (${count})` : `${f} ★ (${summary?.distribution[String(f) as '1'] ?? 0})`}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <ScrollView
+                  style={styles.reviewsList}
+                  showsVerticalScrollIndicator
+                  onScrollEndDrag={() => {
+                    if (reviews.hasNextPage && !reviews.isFetchingNextPage) void reviews.fetchNextPage();
+                  }}
                 >
-                  <Text style={[styles.filterPillText, selectedFilter === f.id && styles.filterPillTextActive]}>
-                    {f.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                  {items.length === 0 ? (
+                    <Text style={styles.reviewBody} testID="reviews-empty">
+                      No reviews yet
+                    </Text>
+                  ) : (
+                    items.map((r) => (
+                      <View key={r.id} style={styles.reviewItem}>
+                        <View style={styles.reviewHeader}>
+                          <View style={styles.reviewerMeta}>
+                            <View style={styles.verifiedRow}>
+                              <Text style={styles.reviewDate}>{formatReviewDate(r.createdAt)} · </Text>
+                              <Text style={styles.verifiedBadge}>✔ Verified purchase</Text>
+                            </View>
+                          </View>
+                          <View style={styles.starBadgeSmall}>
+                            <Text style={styles.starBadgeText}>{r.rating} ★</Text>
+                          </View>
+                        </View>
+                        {!!r.comment && <Text style={styles.reviewBody}>{r.comment}</Text>}
+                      </View>
+                    ))
+                  )}
+                  {reviews.hasNextPage && (
+                    <TouchableOpacity onPress={() => void reviews.fetchNextPage()} testID="reviews-more">
+                      <Text style={styles.filterPillText}>{reviews.isFetchingNextPage ? 'Loading…' : 'Show more'}</Text>
+                    </TouchableOpacity>
+                  )}
+                </ScrollView>
+              </>
+            )}
 
-            <ScrollView style={styles.reviewsList} showsVerticalScrollIndicator={true}>
-              <View style={styles.reviewItem}>
-                <View style={styles.reviewHeader}>
-                  <View style={[styles.avatarCircle, { backgroundColor: '#D1E7DD' }]}>
-                    <Text style={[styles.avatarText, { color: '#0F5132' }]}>R</Text>
-                  </View>
-                  <View style={styles.reviewerMeta}>
-                    <Text style={styles.reviewerName}>Ramya S.</Text>
-                    <View style={styles.verifiedRow}>
-                      <Text style={styles.reviewDate}>15 Jul 2026 · </Text>
-                      <Text style={styles.verifiedBadge}>✔ Verified Buyer</Text>
-                    </View>
-                  </View>
-                  <View style={styles.starBadgeSmall}>
-                    <Text style={styles.starBadgeText}>5 ★</Text>
-                  </View>
-                </View>
-                <Text style={styles.reviewBody}>
-                  Fresh and good quality vegetables. Packaging was also nice. Will order again.
-                </Text>
-                <View style={styles.reviewPhotosRow}>
-                  <Image source={ProductImages.vegPotato} style={styles.reviewThumb} resizeMode="cover" />
-                  <Image source={ProductImages.vegCarrot} style={styles.reviewThumb} resizeMode="cover" />
-                  <Image source={ProductImages.herbCoriander} style={styles.reviewThumb} resizeMode="cover" />
-                </View>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity
-              style={styles.writeReviewBtn}
-              activeOpacity={0.85}
-              onPress={() => {
-                onClose();
-                onWriteReview?.();
-              }}
-            >
-              <EditPenSvg size={16} color="#FFFFFF" />
-              <Text style={styles.writeReviewText}>  Write a review</Text>
-            </TouchableOpacity>
+            {onWriteReview && (
+              <TouchableOpacity
+                style={styles.writeReviewBtn}
+                activeOpacity={0.85}
+                onPress={() => {
+                  onClose();
+                  onWriteReview();
+                }}
+              >
+                <EditPenSvg size={16} color="#FFFFFF" />
+                <Text style={styles.writeReviewText}>  Write a review</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </View>
@@ -917,7 +529,14 @@ export function RatingsReviewsModal({ visible, product, onClose, onWriteReview }
   );
 }
 
+
+
 const styles = StyleSheet.create({
+  modalError: {
+    marginTop: 8,
+    fontSize: 12,
+    color: '#B91C1C',
+  },
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',

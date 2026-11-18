@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -13,12 +14,12 @@ import {
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NetworkError } from '../../../shell/api/client';
 import {
   customerColors,
   customerFonts,
   customerSpacing,
 } from '../theme';
-import { ProductImages } from '../assets/images/products';
 import { SupportSubmittedModal } from '../components/SupportSubmittedModal';
 import { ReviewSubmittedModal } from '../components/ReviewSubmittedModal';
 import { ReviewFeedbackSection } from '../components/ReviewFeedbackSection';
@@ -40,22 +41,51 @@ import {
   PRODUCT_ISSUE_TYPES,
   OTHER_ISSUE_TYPES,
   ALL_ISSUE_LABELS,
-  SAMPLE_PRODUCTS,
-  SAMPLE_ORDERS,
   SAMPLE_REVIEW_ITEMS,
 } from '../components/contactSupportData';
 import type {
   RelatedCategory,
   IssueTypeCode,
-  OrderOption,
   ReviewItem,
 } from '../components/contactSupportData';
+import {
+  DESCRIPTION_MAX,
+  MAX_TICKET_PHOTOS,
+  buildTicketDescription,
+  buildTicketSubject,
+  capPhotos,
+  formatSupportDate,
+  formatSupportDateTime,
+  issueLabelFromSubject,
+  issueToCategory,
+  pickIssuePhotos,
+  productFromDescription,
+  remainingPhotoSlots,
+  uploadIssuePhoto,
+  useCreateSupportTicket,
+  useSupportOrders,
+  validateTicketDraft,
+  type CustomerTicketDetail,
+  type PickedPhoto,
+  type SupportOrderOption,
+} from '../api/support';
+import { mapProblem } from '../api/problem';
 
 export interface ContactSupportScreenProps {
   onBack?: (() => void) | undefined;
   onNavigate?: ((screen: string, params?: Record<string, unknown> | undefined) => void) | undefined;
   initialTab?: RelatedCategory | undefined;
 }
+
+interface PhotoItem {
+  key: string;
+  photo: PickedPhoto;
+  status: 'uploading' | 'done' | 'error';
+  progress: number;
+  uploadId?: string;
+}
+
+let photoSeq = 0;
 
 export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   onBack,
@@ -64,33 +94,71 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [relatedTo, setRelatedTo] = useState<RelatedCategory>(initialTab ?? 'order');
-  const [selectedOrder, setSelectedOrder] = useState<OrderOption>(SAMPLE_ORDERS[0]!);
+  const ordersQuery = useSupportOrders();
+  const orders = ordersQuery.data ?? [];
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [showOrderPicker, setShowOrderPicker] = useState<boolean>(false);
-  const [selectedProductId, setSelectedProductId] = useState<string>(SAMPLE_PRODUCTS[0]!.id);
+  const [selectedProductName, setSelectedProductName] = useState<string | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<IssueTypeCode>('product_support');
   const [description, setDescription] = useState<string>('');
-  const [photos, setPhotos] = useState<number[]>([ProductImages.fruitApple, ProductImages.fruitApple]);
-  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState<boolean>(false);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [photoNotice, setPhotoNotice] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [created, setCreated] = useState<CustomerTicketDetail | null>(null);
   const [isReviewModalVisible, setIsReviewModalVisible] = useState<boolean>(false);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(SAMPLE_REVIEW_ITEMS);
   const [activeReviewProductId, setActiveReviewProductId] = useState<string>('prod_1');
   const [overallRating, setOverallRating] = useState<number>(0);
   const [selectedAspects, setSelectedAspects] = useState<string[]>([]);
+  const createTicket = useCreateSupportTicket();
+
+  const selectedOrder: SupportOrderOption | null =
+    orders.find((o) => o.id === selectedOrderId) ?? (orders.length > 0 ? orders[0]! : null);
+  const needsOrder = relatedTo === 'order' || relatedTo === 'product';
+  const uploading = photos.some((p) => p.status === 'uploading');
+  const hasFailedPhoto = photos.some((p) => p.status === 'error');
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const handleAddPhoto = () => {
-    if (photos.length >= 5) {
-      Alert.alert('Limit Reached', 'You can upload up to 5 photos.');
-      return;
+  const patchPhoto = (key: string, patch: Partial<PhotoItem>) =>
+    setPhotos((prev) => prev.map((p) => (p.key === key ? { ...p, ...patch } : p)));
+
+  const startUpload = async (item: PhotoItem) => {
+    patchPhoto(item.key, { status: 'uploading', progress: 0 });
+    try {
+      const uploadId = await uploadIssuePhoto(item.photo, (pct) => patchPhoto(item.key, { progress: pct }));
+      patchPhoto(item.key, { status: 'done', uploadId, progress: 100 });
+    } catch {
+      patchPhoto(item.key, { status: 'error' });
     }
-    setPhotos((prev) => [...prev, ProductImages.fruitApple]);
   };
 
-  const handleRemovePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  const handleAddPhoto = async () => {
+    const slots = remainingPhotoSlots(photos.length);
+    if (slots <= 0) {
+      Alert.alert('Limit Reached', `You can upload up to ${MAX_TICKET_PHOTOS} photos.`);
+      return;
+    }
+    setPhotoNotice(null);
+    try {
+      const { photos: picked, rejected } = await pickIssuePhotos(slots);
+      if (rejected > 0) setPhotoNotice('Only JPG and PNG photos can be attached.');
+      const items: PhotoItem[] = capPhotos<PhotoItem>(
+        [],
+        picked.map((photo) => ({ key: `p${(photoSeq += 1)}`, photo, status: 'uploading' as const, progress: 0 })),
+      ).slice(0, slots);
+      if (items.length === 0) return;
+      setPhotos((prev) => [...prev, ...items]);
+      items.forEach((item) => void startUpload(item));
+    } catch {
+      setPhotoNotice('Could not open your photos. Please try again.');
+    }
+  };
+
+  const handleRemovePhoto = (key: string) => {
+    setPhotos((prev) => prev.filter((p) => p.key !== key));
   };
 
   let bannerTitle = "We're Here to help!";
@@ -122,9 +190,9 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
 
   const handleSelectRelated = (tabId: RelatedCategory) => {
     setRelatedTo(tabId);
+    setSubmitError(null);
     if (tabId === 'product') {
       setSelectedIssue('quality_issue');
-      setPhotos([ProductImages.fruitApple, ProductImages.fruitApple]);
     } else if (tabId === 'other') {
       setSelectedIssue('account_profile');
       setPhotos([]);
@@ -132,12 +200,51 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
       setPhotos([]);
     } else {
       setSelectedIssue('product_support');
-      setPhotos([ProductImages.fruitApple, ProductImages.fruitApple]);
     }
   };
 
-  const selectedProduct = SAMPLE_PRODUCTS.find((p) => p.id === selectedProductId);
-  const selectedProductName = `${selectedProduct?.name ?? 'Royal Gala'} ${selectedProduct?.weight ?? '(1 kg)'}`;
+  const draftProblem = validateTicketDraft({
+    relatedTo,
+    orderId: selectedOrder?.id ?? null,
+    description,
+    photosUploading: uploading,
+  });
+  const canSubmit = relatedTo === 'review' || (draftProblem === null && !hasFailedPhoto && !createTicket.isPending);
+
+  const handleSubmit = async () => {
+    if (relatedTo === 'review') {
+      setIsReviewModalVisible(true);
+      return;
+    }
+    if (!canSubmit) return;
+    setSubmitError(null);
+    const issueLabel = ALL_ISSUE_LABELS[selectedIssue];
+    const orderNumber = needsOrder ? selectedOrder?.orderNumber ?? null : null;
+    const photoUploadIds = photos.flatMap((p) => (p.uploadId ? [p.uploadId] : []));
+    try {
+      const ticket = await createTicket.mutateAsync({
+        category: issueToCategory(selectedIssue),
+        subject: buildTicketSubject(issueLabel, orderNumber),
+        description: buildTicketDescription(description, relatedTo === 'product' ? selectedProductName : null),
+        ...(needsOrder && selectedOrder ? { orderId: selectedOrder.id } : {}),
+        ...(photoUploadIds.length > 0 ? { photoUploadIds } : {}),
+      });
+      setCreated(ticket);
+    } catch (err) {
+      const e = mapProblem(err);
+      if (e.silent) return;
+      // POST /support/tickets has no Idempotency-Key: after a lost response the ticket may exist.
+      const unsure = err instanceof NetworkError;
+      setSubmitError(unsure ? `${e.message} Check My requests before sending it again.` : e.message);
+    }
+  };
+
+  const draftHint =
+    draftProblem === 'order_required'
+      ? 'Select the order this is about.'
+      : draftProblem === 'photos_uploading'
+        ? 'Photos are still uploading...'
+        : null;
 
   return (
     <View style={styles.container}>
@@ -158,12 +265,22 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             {relatedTo === 'review' ? 'Review & Feedback' : 'Contact Support'}
           </Text>
         </View>
+        {relatedTo !== 'review' ? (
+          <TouchableOpacity
+            onPress={() => onNavigate?.('CustomerSupport')}
+            accessibilityLabel="My requests"
+            style={{ marginLeft: 'auto' }}
+          >
+            <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>My requests</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {/* ── BANNER CARD ───────────────────────────────────────────────────── */}
         <View style={styles.bannerCard}>
@@ -203,23 +320,33 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
         {(relatedTo === 'order' || relatedTo === 'product' || relatedTo === 'review') && (
           <>
             <Text style={styles.sectionTitle}>Select order</Text>
-            <TouchableOpacity
-              style={styles.orderCard}
-              activeOpacity={0.7}
-              onPress={() => setShowOrderPicker(true)}
-              accessibilityLabel="Select order"
-            >
-              <View style={styles.orderIconBadge}>
-                <ShoppingBagSvg color="#2E7D32" size={20} />
-              </View>
-              <View style={styles.orderTextColumn}>
-                <Text style={styles.orderNumber}>{selectedOrder.orderNumber}</Text>
-                <Text style={styles.orderSubtitle}>
-                  {`${selectedOrder.dateStr} · ${selectedOrder.itemCount} items`}
-                </Text>
-              </View>
-              <ChevronDownSvg color="#4B5563" size={20} />
-            </TouchableOpacity>
+            {ordersQuery.isLoading ? (
+              <ActivityIndicator accessibilityLabel="Loading orders" />
+            ) : ordersQuery.isError ? (
+              <TouchableOpacity onPress={() => void ordersQuery.refetch()} accessibilityLabel="Retry orders">
+                <Text style={{ color: '#DC2626' }}>Could not load your orders. Tap to retry</Text>
+              </TouchableOpacity>
+            ) : selectedOrder === null ? (
+              <Text style={styles.orderSubtitle}>You have no orders yet. Choose "Other" to contact support.</Text>
+            ) : (
+              <TouchableOpacity
+                style={styles.orderCard}
+                activeOpacity={0.7}
+                onPress={() => setShowOrderPicker(true)}
+                accessibilityLabel="Select order"
+              >
+                <View style={styles.orderIconBadge}>
+                  <ShoppingBagSvg color="#2E7D32" size={20} />
+                </View>
+                <View style={styles.orderTextColumn}>
+                  <Text style={styles.orderNumber}>{selectedOrder.orderNumber}</Text>
+                  <Text style={styles.orderSubtitle}>
+                    {`${formatSupportDate(selectedOrder.placedAt)}${selectedOrder.itemCount !== null ? ` · ${selectedOrder.itemCount} items` : ''}`}
+                  </Text>
+                </View>
+                <ChevronDownSvg color="#4B5563" size={20} />
+              </TouchableOpacity>
+            )}
           </>
         )}
 
@@ -239,25 +366,22 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
           />
         ) : (
           <>
-            {/* ── SELECT PRODUCT SECTION ────────────────────────────────────────── */}
-            {(relatedTo === 'order' || relatedTo === 'product') && (
+            {/* ── SELECT PRODUCT SECTION (names from the order; folded into the description) ── */}
+            {relatedTo === 'product' && selectedOrder !== null && selectedOrder.productNames.length > 0 && (
               <>
                 <Text style={styles.sectionTitle}>Select product</Text>
                 <View style={styles.productListContainer}>
-                  {SAMPLE_PRODUCTS.map((prod) => {
-                    const isSelected = selectedProductId === prod.id;
+                  {selectedOrder.productNames.map((name) => {
+                    const isSelected = selectedProductName === name;
                     return (
                       <TouchableOpacity
-                        key={prod.id}
+                        key={name}
                         style={[styles.productCard, isSelected && styles.productCardSelected]}
                         activeOpacity={0.8}
-                        onPress={() => setSelectedProductId(prod.id)}
-                        accessibilityLabel={`Select product ${prod.name}`}
+                        onPress={() => setSelectedProductName(name)}
+                        accessibilityLabel={`Select product ${name}`}
                       >
-                        <Image source={prod.image} style={styles.productThumb} resizeMode="contain" />
-                        <Text style={styles.productName}>
-                          {prod.name} <Text style={styles.productWeight}>{prod.weight}</Text>
-                        </Text>
+                        <Text style={[styles.productName, { flex: 1 }]}>{name}</Text>
                         <View style={styles.radioWrapper}>
                           {isSelected ? <RadioSelectedSvg /> : <EmptyCircleSvg />}
                         </View>
@@ -307,54 +431,86 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                 placeholder="Describe your issue or question..."
                 placeholderTextColor="#9CA3AF"
                 multiline
-                maxLength={500}
+                maxLength={DESCRIPTION_MAX}
                 value={description}
                 onChangeText={setDescription}
+                accessibilityLabel="Description"
               />
-              <Text style={styles.charCounter}>{`${description.length}/500`}</Text>
+              <Text style={styles.charCounter}>{`${description.length}/${DESCRIPTION_MAX}`}</Text>
             </View>
 
             {/* ── ADD PHOTOS (OPTIONAL) SECTION ─────────────────────────────────── */}
-            <Text style={styles.sectionTitle}>Add Photos (optional)</Text>
-            <View style={styles.photosRow}>
-              <TouchableOpacity style={styles.addPhotoButton} onPress={handleAddPhoto} activeOpacity={0.7} accessibilityLabel="Add photo">
-                <CameraPlusSvg />
-              </TouchableOpacity>
-
-              {photos.map((photoUri, index) => (
-                <View key={index} style={styles.photoThumbnailContainer}>
-                  <Image source={photoUri} style={styles.photoThumbnail} />
+            {(
+              <>
+                <Text style={styles.sectionTitle}>Add Photos (optional)</Text>
+                <View style={styles.photosRow}>
                   <TouchableOpacity
-                    style={styles.photoRemoveBadge}
-                    onPress={() => handleRemovePhoto(index)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    accessibilityLabel="Remove photo"
+                    style={styles.addPhotoButton}
+                    onPress={() => void handleAddPhoto()}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Add photo"
                   >
-                    <CloseSmallSvg />
+                    <CameraPlusSvg />
                   </TouchableOpacity>
+
+                  {photos.map((p) => (
+                    <View key={p.key} style={styles.photoThumbnailContainer}>
+                      <Image source={{ uri: p.photo.uri }} style={styles.photoThumbnail} />
+                      {p.status === 'uploading' ? (
+                        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.6)' }}>
+                          <ActivityIndicator accessibilityLabel="Uploading photo" />
+                          <Text style={{ fontSize: 10 }}>{`${Math.round(p.progress)}%`}</Text>
+                        </View>
+                      ) : null}
+                      {p.status === 'error' ? (
+                        <TouchableOpacity
+                          onPress={() => void startUpload(p)}
+                          accessibilityLabel="Retry photo upload"
+                          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(220,38,38,0.7)' }}
+                        >
+                          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>Retry</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                      <TouchableOpacity
+                        style={styles.photoRemoveBadge}
+                        onPress={() => handleRemovePhoto(p.key)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Remove photo"
+                      >
+                        <CloseSmallSvg />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
-            {relatedTo === 'product' && (
-              <Text style={styles.photosHelperText}>You can add up to 5 images (JPG, PNG)</Text>
+                <Text style={styles.photosHelperText}>{`You can add up to ${MAX_TICKET_PHOTOS} images (JPG, PNG)`}</Text>
+                {photoNotice !== null ? <Text style={{ color: '#DC2626', fontSize: 12 }}>{photoNotice}</Text> : null}
+              </>
             )}
           </>
         )}
 
+        {submitError !== null ? (
+          <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }} accessibilityRole="alert">
+            {submitError}
+          </Text>
+        ) : null}
+        {draftHint !== null && relatedTo !== 'review' ? (
+          <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 8 }}>{draftHint}</Text>
+        ) : null}
+
         {/* ── SUBMIT / SEND TO SUPPORT BUTTON ────────────────────────────────── */}
         <TouchableOpacity
-          style={styles.sendButton}
+          style={[styles.sendButton, !canSubmit && { opacity: 0.5 }]}
           activeOpacity={0.85}
-          onPress={() => {
-            if (relatedTo === 'review') {
-              setIsReviewModalVisible(true);
-            } else {
-              setIsSuccessModalVisible(true);
-            }
-          }}
+          disabled={!canSubmit}
+          onPress={() => void handleSubmit()}
           accessibilityLabel={ctaButtonText}
         >
-          <Text style={styles.sendButtonText}>{ctaButtonText}</Text>
+          {createTicket.isPending ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.sendButtonText}>{ctaButtonText}</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
 
@@ -363,44 +519,42 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOrderPicker(false)}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select an Order</Text>
-            {SAMPLE_ORDERS.map((ord) => (
+            {orders.map((ord) => (
               <TouchableOpacity
                 key={ord.id}
-                style={[styles.modalOrderItem, selectedOrder.id === ord.id && styles.modalOrderItemActive]}
+                style={[styles.modalOrderItem, selectedOrder?.id === ord.id && styles.modalOrderItemActive]}
                 onPress={() => {
-                  setSelectedOrder(ord);
+                  setSelectedOrderId(ord.id);
+                  setSelectedProductName(null);
                   setShowOrderPicker(false);
                 }}
               >
                 <Text style={styles.orderNumber}>{ord.orderNumber}</Text>
-                <Text style={styles.orderSubtitle}>{`${ord.dateStr} · ${ord.itemCount} items`}</Text>
+                <Text style={styles.orderSubtitle}>
+                  {`${formatSupportDate(ord.placedAt)}${ord.itemCount !== null ? ` · ${ord.itemCount} items` : ''}`}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* ── EXACT POPUP (FIGMA DESIGN MATCH) ──────────────────────────────── */}
+      {/* ── SUBMITTED POPUP (real ticket) ─────────────────────────────────── */}
       <SupportSubmittedModal
-        visible={isSuccessModalVisible}
-        orderNumber={relatedTo === 'other' ? 'N/A' : selectedOrder.orderNumber}
-        productName={relatedTo === 'other' ? 'N/A' : selectedProductName}
-        issueTypeLabel={ALL_ISSUE_LABELS[selectedIssue]}
-        submittedOn="15 Nov 2026, 9:41 AM"
-        supportId="SUP-20261115-0039"
-        onClose={() => setIsSuccessModalVisible(false)}
+        visible={created !== null}
+        orderNumber={created?.orderNumber ?? 'N/A'}
+        productName={created ? productFromDescription(created.description) ?? 'N/A' : 'N/A'}
+        issueTypeLabel={created ? issueLabelFromSubject(created.subject, created.orderNumber) : ''}
+        submittedOn={created ? formatSupportDateTime(created.createdAt) : ''}
+        supportId={created?.ticketNumber ?? ''}
+        onClose={() => setCreated(null)}
         onTrackRequest={() => {
-          setIsSuccessModalVisible(false);
-          onNavigate?.('TrackSupportRequest', {
-            supportId: 'SUP-20261115-0039',
-            orderNumber: relatedTo === 'other' ? 'ORD-20260712-0028' : selectedOrder.orderNumber,
-            productName: relatedTo === 'other' ? 'Royal Gala (1 kg)' : selectedProductName,
-            issueTypeLabel: ALL_ISSUE_LABELS[selectedIssue],
-            submittedOn: '15 Nov 2026, 9:41 AM',
-          });
+          const id = created?.id;
+          setCreated(null);
+          onNavigate?.('TrackSupportRequest', { ticketId: id });
         }}
         onContinueShopping={() => {
-          setIsSuccessModalVisible(false);
+          setCreated(null);
           onNavigate?.('Home');
         }}
       />
@@ -408,7 +562,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
       {/* ── REVIEW SUBMITTED POPUP (FIGMA SCREEN 66 MATCH) ────────────────── */}
       <ReviewSubmittedModal
         visible={isReviewModalVisible}
-        orderNumber={selectedOrder.orderNumber}
+        orderNumber={selectedOrder?.orderNumber ?? ''}
         productName="Royal Gala"
         onClose={() => setIsReviewModalVisible(false)}
         onReviewAnother={(prodId) => {

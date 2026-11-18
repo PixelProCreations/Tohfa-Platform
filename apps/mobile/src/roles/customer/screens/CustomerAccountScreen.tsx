@@ -9,6 +9,7 @@ import {
   StatusBar,
   Platform,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
@@ -20,8 +21,15 @@ import {
   profileWalletIcon,
   profileWishlistIcon,
 } from '../assets/images';
+import { displayName, formatMobileDisplay, useCustomerProfile } from '../api/profile';
+import { mapProblem } from '../api/problem';
+import { logout } from '../api/auth';
+import { useWalletBalance } from '../api/wallet';
+import { useWishlist } from '../api/wishlist';
+import { isActiveStatus, useOrders } from '../api/orders';
 
 export interface CustomerAccountScreenProps {
+  /** Overrides for the profile fields; by default they come from GET /customers/me. */
   userName?: string;
   userPhone?: string;
   userEmail?: string;
@@ -250,13 +258,13 @@ const ProfileBadgeSvg = ({ color = '#FFFFFF', size = 28 }: { color?: string; siz
  * Exact implementation of the customer account screen matching Figma & theme tokens.
  */
 export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
-  userName = 'Suresh',
-  userPhone = '+91 99944 99944',
-  userEmail = 'suresh1234567890@gmail.com',
-  walletBalance = '₹ 1,250',
-  activeOrdersCount = 'No active Orders',
-  wishlistCount = '3 items',
-  isNewUser = false,
+  userName: userNameProp,
+  userPhone: userPhoneProp,
+  userEmail: userEmailProp,
+  walletBalance: walletBalanceProp,
+  activeOrdersCount: activeOrdersCountProp,
+  wishlistCount: wishlistCountProp,
+  isNewUser: isNewUserProp,
   showReturnsAndReviews = false,
   onNavigate,
   onBack,
@@ -265,6 +273,37 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const profileQuery = useCustomerProfile();
+  // Commerce summary tiles: server wallet balance, wishlist size, active orders (flow B).
+  const wallet = useWalletBalance();
+  const wishlistQuery = useWishlist();
+  const ordersQuery = useOrders();
+  const walletBalance = walletBalanceProp ?? wallet.label;
+  const wishlistTotal = wishlistQuery.data?.items.length;
+  const wishlistCount = wishlistCountProp ?? (wishlistTotal === undefined ? '—' : `${wishlistTotal} ${wishlistTotal === 1 ? 'item' : 'items'}`);
+  const activeOrders = (ordersQuery.data?.pages.flatMap((p) => p.items) ?? []).filter((o) => isActiveStatus(o.status)).length;
+  const activeOrdersCount = activeOrdersCountProp ?? (activeOrders === 0 ? 'No active Orders' : `${activeOrders} active ${activeOrders === 1 ? 'order' : 'orders'}`);
+  const profile = profileQuery.data;
+  const userName = userNameProp ?? displayName(profile);
+  const userPhone = userPhoneProp ?? formatMobileDisplay(profile?.mobile);
+  const userEmail = userEmailProp ?? profile?.email ?? null;
+  // BR-190: a profile that still misses required fields opens Profile in "empty" mode.
+  const isNewUser = isNewUserProp ?? (profile ? !profile.profileComplete : false);
+  const profileLoading = !profile && profileQuery.isPending && userPhoneProp === undefined;
+  const profileError = !profile && profileQuery.isError ? mapProblem(profileQuery.error) : null;
+
+  const handleConfirmLogout = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+      setShowLogoutModal(false);
+      onSignOut?.();
+    }
+  };
   const bannerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 36) : 16);
@@ -298,9 +337,33 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
 
           {/* Profile Info */}
           <View style={styles.profileInfoContainer}>
-            <Text style={styles.userNameText}>{userName}</Text>
-            <Text style={styles.userPhoneText}>{userPhone}</Text>
-            <Text style={styles.userEmailText}>{userEmail}</Text>
+            {profileLoading ? (
+              <View testID="account-profile-skeleton" accessibilityLabel="Loading profile">
+                <View style={[styles.skeletonLine, { width: 140, height: 22 }]} />
+                <View style={[styles.skeletonLine, { width: 120 }]} />
+                <View style={[styles.skeletonLine, { width: 180 }]} />
+              </View>
+            ) : profileError && !profileError.silent ? (
+              <View testID="account-profile-error">
+                <Text style={styles.userPhoneText} accessibilityRole="alert">
+                  {profileError.message}
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => void profileQuery.refetch()}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry loading profile"
+                >
+                  <Text style={styles.viewProfileText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                {userName ? <Text style={styles.userNameText}>{userName}</Text> : null}
+                {userPhone ? <Text style={styles.userPhoneText}>{userPhone}</Text> : null}
+                {userEmail ? <Text style={styles.userEmailText}>{userEmail}</Text> : null}
+              </>
+            )}
 
             <TouchableOpacity
               activeOpacity={0.7}
@@ -412,7 +475,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
               <Text style={styles.menuItemSubtitle}>Add money, view balance and transaction history</Text>
             </View>
             <View style={styles.walletPill}>
-              <Text style={styles.walletPillText}>Rs: {walletBalance}</Text>
+              <Text style={styles.walletPillText}>{walletBalance}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -449,6 +512,42 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>Contact Support</Text>
               <Text style={styles.menuItemSubtitle}>Get help for Orders, payments and other issues</Text>
+            </View>
+            <ChevronRightSvg color="#9CA3AF" size={16} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+
+          {/* Row 4a: Notifications */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('CustomerNotifications')}
+            style={styles.menuItem}
+            accessibilityLabel="Notifications"
+          >
+            <View style={styles.menuIconBox}>
+              <HeadsetSvg color="#1A1A1A" size={20} />
+            </View>
+            <View style={styles.menuTextColumn}>
+              <Text style={styles.menuItemTitle}>Notifications</Text>
+              <Text style={styles.menuItemSubtitle}>Order, wallet and support updates</Text>
+            </View>
+            <ChevronRightSvg color="#9CA3AF" size={16} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+
+          {/* Row 4b: My support requests */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('CustomerSupport')}
+            style={styles.menuItem}
+            accessibilityLabel="My support requests"
+          >
+            <View style={styles.menuIconBox}>
+              <HeadsetSvg color="#1A1A1A" size={20} />
+            </View>
+            <View style={styles.menuTextColumn}>
+              <Text style={styles.menuItemTitle}>My support requests</Text>
+              <Text style={styles.menuItemSubtitle}>Track your tickets and replies</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -602,14 +701,17 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
 
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => {
-                  setShowLogoutModal(false);
-                  onSignOut?.();
-                }}
+                onPress={() => void handleConfirmLogout()}
+                disabled={signingOut}
                 style={styles.confirmLogoutButton}
                 accessibilityLabel="Log out confirm"
+                accessibilityState={{ disabled: signingOut, busy: signingOut }}
               >
-                <Text style={styles.confirmLogoutButtonText}>Log out</Text>
+                {signingOut ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.confirmLogoutButtonText}>Log out</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -667,6 +769,12 @@ const styles = StyleSheet.create({
   profileInfoContainer: {
     maxWidth: '65%',
     marginBottom: 4,
+  },
+  skeletonLine: {
+    height: 14,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    marginBottom: 8,
   },
   userNameText: {
     fontFamily: customerFonts.bold,

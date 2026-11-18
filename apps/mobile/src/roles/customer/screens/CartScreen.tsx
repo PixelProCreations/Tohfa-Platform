@@ -1,25 +1,42 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
-  Modal,
-  TextInput,
   Platform,
   Alert,
   StatusBar,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { ProductImages } from '../assets/images/products';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   customerColors,
   customerFonts,
   customerSpacing,
   customerShadow,
 } from '../theme';
+import { gradeLabel } from '../api/catalog';
+import {
+  cartLineKey,
+  cartQueryKeys,
+  cartToPutItems,
+  reReserveCart,
+  useCart,
+  useReplaceCart,
+  withLineQty,
+  type Cart,
+  type CartLine,
+} from '../api/cart';
+import { istDate, useDeliverySlots, useOrderQuote, type CheckoutInput, type DeliverySlot } from '../api/orders';
+import { defaultPickupPoint, usePickupPoints, type PickupPoint } from '../api/pickup';
+import { formatAddressLine, pickDefaultAddress, useAddresses } from '../api/addresses';
+import { mapProblem } from '../api/problem';
+import { checkoutDraftStore, useCheckoutDraftState } from '../state/checkoutDraft';
+import { CustomerDeliveryAddressModal } from '../components';
+import { canStepDown, canStepUp, formatKg, formatRupees, stepKg } from '../utils/money';
 
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
 
@@ -53,18 +70,6 @@ const ChevronDownSvg = ({ color = '#0284C7' }: { color?: string }) => (
     <Path
       d="M6 9l6 6 6-6"
       stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const CloseSvg = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M18 6L6 18M6 6l12 12"
-      stroke="#1F2937"
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -120,18 +125,6 @@ const CartFloatingSvg = () => (
 
 // ── TYPES ───────────────────────────────────────────────────────────────────
 
-export interface CartItem {
-  id: string;
-  name: string;
-  weight: string;
-  subtitle: string;
-  originalPrice: number;
-  price: number;
-  quantity: number;
-  image: any;
-  noStock?: boolean;
-}
-
 export type DeliveryState = 'home' | 'pickup' | 'customize';
 
 export interface CartScreenProps {
@@ -140,151 +133,215 @@ export interface CartScreenProps {
   onBack?: () => void;
 }
 
+const STEP = { step: '0.5', min: '0.5' };
+const PUT_DEBOUNCE_MS = 400;
+const SLOT_LABEL: Record<DeliverySlot, string> = {
+  MORNING_8_12: '8 AM - 12 PM',
+  AFTERNOON_12_4: '12 PM - 4 PM',
+  EVENING_4_8: '4 PM - 8 PM',
+};
+
+/** `hh:mm:ss` until `iso`, or null when passed / absent. */
+export function lockCountdown(iso: string | null | undefined, now: number): string | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - now;
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const s = Math.floor(ms / 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
+/**
+ * My cart (Figma 46:36486 empty, 46:38225, 46:38489 / 46:38618 / 46:38746 delivery modes).
+ * Server cart only: quantity taps are debounced into ONE `PUT /cart` with every
+ * line (optimistic, rolled back on 409); the 24 h reservation (BR-22) counts
+ * down from `lockExpiresAt`; fees come from `POST /orders/quote`. The chosen
+ * mode/warehouse/address/slot is handed to Checkout via state/checkoutDraft.
+ */
 export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, onBack }) => {
-  // ── CART ITEMS STATE ──────────────────────────────────────────────────────
-  const [items, setItems] = useState<CartItem[]>([
-    {
-      id: 'item-1',
-      name: 'Royal Gala (1 kg)',
-      weight: '1 kg',
-      subtitle: 'Sweet & mellow',
-      originalPrice: 182.0,
-      price: 160.0,
-      quantity: 1,
-      image: ProductImages.fruitApple,
-      noStock: false,
-    },
-    {
-      id: 'item-2',
-      name: 'Fuji (1 kg)',
-      weight: '1 kg',
-      subtitle: 'Extra sweet & juicy',
-      originalPrice: 160.0,
-      price: 152.0,
-      quantity: 1,
-      image: ProductImages.fruitApple,
-      noStock: false,
-    },
-    {
-      id: 'item-3',
-      name: 'Green Curly Lettuce (1 kg)',
-      weight: '1 kg',
-      subtitle: 'Extra sweet & juicy',
-      originalPrice: 145.0,
-      price: 132.0,
-      quantity: 1,
-      image: ProductImages.foryouStrawberries,
-      noStock: false,
-    },
-  ]);
+  const cartQuery = useCart();
+  const replaceCartM = useReplaceCart();
+  const qc = useQueryClient();
+  const addressesQuery = useAddresses();
+  const pickupQuery = usePickupPoints();
+  const draftState = useCheckoutDraftState();
 
-  // ── ADDRESS & FLOW STATES ─────────────────────────────────────────────────
-  const [hasSavedAddress, setHasSavedAddress] = useState(false);
+  // Local, not-yet-sent quantity edits (flushed as one PUT after PUT_DEBOUNCE_MS).
+  const [pendingCart, setPendingCart] = useState<Cart | null>(null);
+  const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [banner, setBanner] = useState<string | null>(draftState.notice);
+  const [now, setNow] = useState(() => Date.now());
+
   const [addressModalVisible, setAddressModalVisible] = useState(false);
-  const [deliveryState, setDeliveryState] = useState<DeliveryState>('home');
+  const [deliveryState, setDeliveryState] = useState<DeliveryState>(draftState.homeDeliveryDisabled ? 'pickup' : 'home');
   const [marketDropdownVisible, setMarketDropdownVisible] = useState(false);
-  const [selectedMarket, setSelectedMarket] = useState('Ooty Market');
+  const [customPointId, setCustomPointId] = useState<string | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [dayOffset, setDayOffset] = useState<0 | 1>(0);
+  const [slot, setSlot] = useState<DeliverySlot | null>(null);
 
-  // ── ADDRESS FORM STATE ────────────────────────────────────────────────────
-  const [addressForm, setAddressForm] = useState({
-    name: 'Suresh',
-    phone: '99944 99944',
-    pincode: '6411115',
-    city: 'Coimbatore',
-    state: 'Tamil Nadu',
-    locality: '123/2',
-    flat: '77',
-    landmark: 'Sylks Road, Ooty',
-    addressType: 'Home' as 'Home' | 'Office' | 'Other',
-    isDefault: true,
-  });
+  const serverCart = cartQuery.data;
+  const cart = pendingCart ?? serverCart;
+  const items: CartLine[] = cart?.items ?? [];
+  const addresses = addressesQuery.data;
+  const address = addresses?.find((a) => a.id === selectedAddressId) ?? pickDefaultAddress(addresses);
+  const points = pickupQuery.data;
+  const nearest = defaultPickupPoint(points, address?.nearestPickupPointId ?? serverCart?.warehouseId ?? null);
+  const customPoint = points?.find((p) => p.id === customPointId) ?? nearest;
+  const pickupPoint = deliveryState === 'customize' ? customPoint : nearest;
+  const warehouseId =
+    deliveryState === 'home' ? (serverCart?.warehouseId ?? nearest?.id ?? null) : (pickupPoint?.id ?? null);
+  const deliveryDate = istDate(dayOffset);
+  const slotsQuery = useDeliverySlots(deliveryState === 'home' ? warehouseId : null, deliveryDate);
 
-  // ── CALCULATIONS ──────────────────────────────────────────────────────────
-  const itemsTotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [items]
+  // Show a one-shot notice handed back by Checkout (e.g. 409 STOCK_UNAVAILABLE).
+  useEffect(() => {
+    if (draftState.notice) {
+      setBanner(draftState.notice);
+      checkoutDraftStore.setNotice(null);
+    }
+  }, [draftState.notice]);
+
+  // BR-22 countdown tick.
+  useEffect(() => {
+    if (!serverCart?.lockExpiresAt) return undefined;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [serverCart?.lockExpiresAt]);
+
+  useEffect(
+    () => () => {
+      if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    },
+    [],
   );
 
-  const originalItemsTotal = useMemo(
-    () => items.reduce((sum, item) => sum + item.originalPrice * item.quantity, 0),
-    [items]
-  );
+  const draftInput: Partial<CheckoutInput> | null =
+    warehouseId && items.length > 0
+      ? deliveryState === 'home'
+        ? {
+            fulfillmentType: 'HOME_DELIVERY',
+            warehouseId,
+            deliveryAddressId: address?.id ?? null,
+            deliveryDate,
+            ...(slot ? { deliverySlot: slot } : {}),
+            paymentMethod: 'WALLET',
+          }
+        : { fulfillmentType: 'WAREHOUSE_PICKUP', warehouseId, paymentMethod: 'WALLET' }
+      : null;
+  // Quote only once the server cart sits at that warehouse and no edit is pending.
+  const quoteQuery = useOrderQuote(pendingCart === null && serverCart?.warehouseId === warehouseId ? draftInput : null);
+  const quote = quoteQuery.data;
 
-  const deliveryFee = items.length > 0 ? 9.0 : 0;
-  const originalDeliveryFee = items.length > 0 ? 29.0 : 0;
-  const handlingFee = items.length > 0 ? 12.0 : 0;
-  const originalHandlingFee = items.length > 0 ? 15.0 : 0;
+  const countdown = lockCountdown(serverCart?.lockExpiresAt, now);
+  const lockExpired = !!serverCart?.lockExpiresAt && countdown === null;
+  const hasUnavailable = items.some((l) => l.availability === 'UNAVAILABLE');
+  const missingDelivery = deliveryState === 'home' && (!address || !slot);
+  const checkoutDisabled =
+    items.length === 0 ||
+    hasUnavailable ||
+    missingDelivery ||
+    !warehouseId ||
+    (serverCart?.status !== 'ACTIVE' && serverCart?.status !== 'LOCKED');
 
-  const grandTotal = itemsTotal + deliveryFee + handlingFee;
-  const savings =
-    originalItemsTotal -
-    itemsTotal +
-    (originalDeliveryFee - deliveryFee) +
-    (originalHandlingFee - handlingFee);
+  const showProblem = (err: unknown) => {
+    const p = mapProblem(err);
+    if (p.silent) return;
+    setBanner(p.message);
+    if (p.action === 'refresh_cart') void qc.invalidateQueries({ queryKey: cartQueryKeys.cart });
+  };
 
-  const hasOutOfStock = items.some(item => item.noStock);
-
-  // ── STEPPER HANDLERS ──────────────────────────────────────────────────────
-  const handleIncreaseQty = (id: string) => {
-    setItems(prev =>
-      prev.map(item => (item.id === id ? { ...item, quantity: item.quantity + 1 } : item))
+  const sendCart = (next: Cart) => {
+    replaceCartM.mutate(
+      { warehouseId: serverCart?.warehouseId ?? warehouseId, items: cartToPutItems(next), optimistic: next },
+      {
+        onSettled: () => setPendingCart(null),
+        onError: showProblem,
+      },
     );
   };
 
-  const handleDecreaseQty = (id: string) => {
-    setItems(prev =>
-      prev
-        .map(item => (item.id === id ? { ...item, quantity: item.quantity - 1 } : item))
-        .filter(item => item.quantity > 0)
-    );
+  // ── STEPPER HANDLERS (debounced single PUT) ──────────────────────────────
+  const changeQty = (line: CartLine, dir: 1 | -1) => {
+    if (!cart) return;
+    const key = cartLineKey(line);
+    const nextQty = dir === -1 && !canStepDown(line.qtyKg, STEP) ? '0.000' : stepKg(line.qtyKg, dir, { ...STEP, max: line.availableKg });
+    const next = withLineQty(cart, key, nextQty);
+    setPendingCart(next);
+    setBanner(null);
+    if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    pendingTimer.current = setTimeout(() => {
+      pendingTimer.current = null;
+      sendCart(next);
+    }, PUT_DEBOUNCE_MS);
   };
 
-  const handleRemoveItem = (id: string) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+  const handleRemoveItem = (line: CartLine) => {
+    if (!cart) return;
+    if (pendingTimer.current) clearTimeout(pendingTimer.current);
+    const next = withLineQty(cart, cartLineKey(line), '0.000');
+    setPendingCart(next);
+    sendCart(next);
   };
 
-  // ── SAVE ADDRESS HANDLER ──────────────────────────────────────────────────
-  const handleSaveAddress = () => {
-    setHasSavedAddress(true);
-    // Mark Royal Gala as out of stock to match Screen 3 requirement precisely
-    setItems(prev =>
-      prev.map(item =>
-        item.name.includes('Royal Gala') ? { ...item, noStock: true } : item
-      )
-    );
-    setAddressModalVisible(false);
-  };
-
-  const handleResetAddress = () => {
-    setAddressForm({
-      name: '',
-      phone: '',
-      pincode: '',
-      city: '',
-      state: '',
-      locality: '',
-      flat: '',
-      landmark: '',
-      addressType: 'Home',
-      isDefault: false,
-    });
+  const handleReReserve = async () => {
+    if (!serverCart) return;
+    try {
+      const fresh = await reReserveCart(serverCart, warehouseId);
+      qc.setQueryData(cartQueryKeys.cart, fresh);
+      setBanner(null);
+    } catch (err) {
+      showProblem(err);
+    }
   };
 
   // ── PAY & CHECKOUT HANDLER ────────────────────────────────────────────────
-  const handleCheckout = () => {
-    if (hasOutOfStock) {
-      Alert.alert(
-        'Out of Stock Item',
-        'Please remove out-of-stock items before proceeding to checkout.'
-      );
+  const handleCheckout = async () => {
+    if (checkoutDisabled || !serverCart || !warehouseId) {
+      if (hasUnavailable) Alert.alert('Out of Stock Item', 'Please remove out-of-stock items before proceeding to checkout.');
       return;
     }
-    onNavigate?.('Checkout', {
-      address: addressForm,
-      total: grandTotal,
-      itemsCount: items.length,
-    });
+    try {
+      // Stock is per warehouse: move the reservation before checking out (BR-22).
+      if (serverCart.warehouseId !== warehouseId || lockExpired) {
+        const moved = await replaceCartM.mutateAsync({ warehouseId, items: cartToPutItems(serverCart) });
+        qc.setQueryData(cartQueryKeys.cart, moved);
+      }
+    } catch (err) {
+      showProblem(err);
+      return;
+    }
+    checkoutDraftStore.setDraft(
+      deliveryState === 'home'
+        ? { fulfillmentType: 'HOME_DELIVERY', warehouseId, deliveryAddressId: address?.id ?? null, deliveryDate, deliverySlot: slot ?? undefined }
+        : { fulfillmentType: 'WAREHOUSE_PICKUP', warehouseId },
+    );
+    onNavigate?.('Checkout');
   };
+
+  const pointInfo = (p: PickupPoint | null | undefined) =>
+    p ? (
+      <View style={styles.deliveryContentTextCol}>
+        {!!p.phone && <Text style={styles.pickupPhoneHeader}>Ph: {p.phone},</Text>}
+        <Text style={styles.pickupMarketDesc}>{p.address ?? p.name}</Text>
+        <Text style={styles.pickupMarketDesc}>
+          {p.isOpenNow ? 'Open now' : 'Closed now'}
+          {typeof p.distanceKm === 'number' ? ` · ${p.distanceKm.toFixed(1)} km` : ''}
+        </Text>
+      </View>
+    ) : (
+      <View style={styles.deliveryContentTextCol}>
+        <Text style={styles.pickupMarketDesc}>{pickupQuery.isLoading ? 'Loading pickup points…' : 'No pickup point available'}</Text>
+      </View>
+    );
+
+  if (cartQuery.isLoading) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator testID="cart-loading" style={{ marginTop: 64 }} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -296,350 +353,321 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
           activeOpacity={0.7}
           onPress={() => (onGoBack ? onGoBack() : (onBack ? onBack() : onNavigate?.('Home')))}
           style={styles.backButton}
+          accessibilityLabel="Back"
         >
           <BackArrowSvg />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My cart</Text>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── TOP BANNER (Add delivery details / Saved Address) ─────────────── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setAddressModalVisible(true)}
-          style={styles.deliveryBanner}
-        >
-          <View style={styles.deliveryBannerLeft}>
-            <LocationPinSvg color="#0284C7" />
-            <Text style={styles.deliveryBannerText} numberOfLines={1}>
-              {hasSavedAddress
-                ? `${addressForm.name} | ${addressForm.locality || '123/2'}, ${addressForm.city || 'Coimbatore'}, ${addressForm.state || 'Tamil Nadu'} - ${addressForm.pincode || '6411115'}.`
-                : 'Add delivery details'}
-            </Text>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {cartQuery.isError && (
+          <View style={styles.emptyCartWrap} testID="cart-error">
+            <Text style={styles.emptyCartText}>{mapProblem(cartQuery.error).message}</Text>
+            <TouchableOpacity onPress={() => void cartQuery.refetch()}>
+              <Text style={styles.readPolicyLink}>Retry</Text>
+            </TouchableOpacity>
           </View>
-          <ChevronDownSvg color="#0284C7" />
-        </TouchableOpacity>
+        )}
 
-        {/* ── 1. REVIEW ITEMS SECTION (Exact Figma Card: Mint Header) ───────── */}
+        {!!banner && (
+          <TouchableOpacity onPress={() => setBanner(null)} style={styles.savingsPill} testID="cart-banner" accessibilityRole="alert">
+            <Text style={styles.savingsText}>{banner}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── BR-22 reservation countdown [needs design review] ── */}
+        {items.length > 0 && countdown !== null && (
+          <View style={styles.savingsPill} testID="cart-lock-countdown">
+            <Text style={styles.savingsText}>Items reserved for {countdown}</Text>
+          </View>
+        )}
+        {items.length > 0 && lockExpired && (
+          <TouchableOpacity style={styles.savingsPill} onPress={() => void handleReReserve()} testID="cart-lock-expired">
+            <Text style={styles.savingsText}>Reservation expired · Tap to reserve again</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── TOP BANNER (Add delivery details / Saved Address) ─────────────── */}
+        {deliveryState === 'home' && (
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setAddressModalVisible(true)} style={styles.deliveryBanner}>
+            <View style={styles.deliveryBannerLeft}>
+              <LocationPinSvg color="#0284C7" />
+              <Text style={styles.deliveryBannerText} numberOfLines={1}>
+                {address ? formatAddressLine(address) : 'Add delivery details'}
+              </Text>
+            </View>
+            <ChevronDownSvg color="#0284C7" />
+          </TouchableOpacity>
+        )}
+
+        {/* ── 1. REVIEW ITEMS SECTION ───────────────────────────────────────── */}
         <View style={styles.reviewItemsContainer}>
           <View style={styles.reviewItemsHeader}>
             <Text style={styles.reviewItemsTitle}>Review items</Text>
-            <Text style={styles.reviewItemsCount}>{items.length} item</Text>
+            <Text style={styles.reviewItemsCount}>
+              {items.length} {items.length === 1 ? 'item' : 'items'}
+            </Text>
           </View>
 
           <View style={styles.itemsList}>
-            {items.map((item, index) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.itemRow,
-                  index < items.length - 1 && styles.itemRowDivider,
-                ]}
-              >
-                {/* Product Thumbnail */}
-                <Image source={item.image} style={styles.itemImage} resizeMode="contain" />
+            {items.map((item, index) => {
+              const unavailable = item.availability === 'UNAVAILABLE';
+              return (
+                <View key={cartLineKey(item)} testID={`cart-line-${cartLineKey(item)}`} style={[styles.itemRow, index < items.length - 1 && styles.itemRowDivider]}>
+                  <View style={styles.itemImage} />
+                  <View style={styles.itemInfo}>
+                    <View style={styles.itemNameBadgeRow}>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      {unavailable && (
+                        <View style={styles.noStockBadge}>
+                          <Text style={styles.noStockText}>No stock</Text>
+                        </View>
+                      )}
+                      {item.availability === 'LOW_STOCK' && (
+                        <View style={styles.noStockBadge}>
+                          <Text style={styles.noStockText}>Only {formatKg(item.availableKg)} left</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.itemSubtitle}>
+                      {gradeLabel(item.grade)} · {formatRupees(item.unitPrice)}/kg
+                    </Text>
+                  </View>
 
-                {/* Details */}
-                <View style={styles.itemInfo}>
-                  <View style={styles.itemNameBadgeRow}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    {item.noStock && (
-                      <View style={styles.noStockBadge}>
-                        <Text style={styles.noStockText}>No stock</Text>
+                  <View style={styles.itemRightCol}>
+                    <View style={styles.itemPriceRow}>
+                      <Text style={styles.itemCurrentPrice}>{formatRupees(item.lineTotal)}</Text>
+                    </View>
+                    {unavailable ? (
+                      <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemoveItem(item)} style={styles.removeOutlineBtn} testID={`cart-remove-${cartLineKey(item)}`}>
+                        <TrashSvg />
+                        <Text style={styles.removeOutlineBtnText}>Remove</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <View style={styles.stepperContainer}>
+                        <TouchableOpacity activeOpacity={0.7} onPress={() => changeQty(item, -1)} style={styles.stepperAction} testID={`cart-dec-${cartLineKey(item)}`} accessibilityLabel="Decrease">
+                          <Text style={styles.stepperSign}>−</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.stepperQty}>{formatKg(item.qtyKg)}</Text>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => changeQty(item, 1)}
+                          disabled={!canStepUp(item.qtyKg, { ...STEP, max: item.availableKg })}
+                          style={styles.stepperAction}
+                          testID={`cart-inc-${cartLineKey(item)}`}
+                          accessibilityLabel="Increase"
+                        >
+                          <Text style={styles.stepperSign}>+</Text>
+                        </TouchableOpacity>
                       </View>
                     )}
                   </View>
-                  <Text style={styles.itemSubtitle}>{item.subtitle}</Text>
                 </View>
+              );
+            })}
 
-                {/* Pricing & Stepper / Remove */}
-                <View style={styles.itemRightCol}>
-                  <View style={styles.itemPriceRow}>
-                    <Text style={styles.itemOldPrice}>₹{item.originalPrice.toFixed(2)}</Text>
-                    <Text style={styles.itemCurrentPrice}>₹{item.price.toFixed(2)}</Text>
+            {items.length === 0 && !cartQuery.isError && (
+              <View style={styles.emptyCartWrap} testID="cart-empty">
+                <Text style={styles.emptyCartText}>Your cart is empty.</Text>
+                <TouchableOpacity onPress={() => onNavigate?.('Home')}>
+                  <Text style={styles.readPolicyLink}>Start shopping</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* ── 2. YOUR BILL SECTION (subtotal from the cart, fees from the quote) ── */}
+        {items.length > 0 && (
+          <View style={styles.billContainer}>
+            <View style={styles.billHeader}>
+              <Text style={styles.billHeaderTitle}>Your Bill</Text>
+            </View>
+            <View style={styles.billBody}>
+              <View style={styles.billRow}>
+                <Text style={styles.billLabel}>Items total</Text>
+                <View style={styles.billPriceCol}>
+                  <Text style={styles.billValue} testID="cart-subtotal">
+                    {formatRupees(cart?.subtotal)}
+                  </Text>
+                </View>
+              </View>
+              {quote && (
+                <>
+                  <View style={styles.billRow}>
+                    <Text style={[styles.billLabel, styles.underlinedLabel]}>Delivery Fee</Text>
+                    <View style={styles.billPriceCol}>
+                      <Text style={styles.billValue}>{formatRupees(quote.deliveryFee)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={[styles.billLabel, styles.underlinedLabel]}>Handling Fee</Text>
+                    <View style={styles.billPriceCol}>
+                      <Text style={styles.billValue}>{formatRupees(quote.handlingFee)}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.billRow}>
+                    <Text style={styles.billLabel}>GST</Text>
+                    <View style={styles.billPriceCol}>
+                      <Text style={styles.billValue}>{formatRupees(quote.gstAmount)}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
+              <View style={styles.dottedDivider} />
+              <View style={styles.billRow}>
+                <Text style={styles.grandTotalLabel}>Grand total</Text>
+                <Text style={styles.grandTotalValue} testID="cart-grand-total">
+                  {formatRupees(quote?.totalAmount ?? cart?.subtotal)}
+                </Text>
+              </View>
+              {!quote && <Text style={styles.policyText}>Delivery, handling and GST are calculated at checkout.</Text>}
+            </View>
+          </View>
+        )}
+
+        {/* ── 3. CHOOSE A DELIVERY STATES SECTION ─────────────────────────────── */}
+        {items.length > 0 && (
+          <View style={styles.deliveryStatesCard}>
+            <View style={styles.deliveryStatesHeader}>
+              <Text style={styles.deliveryStatesTitle}>Choose a delivery states</Text>
+              {nearest && (
+                <View style={styles.nearMarketHeaderRight}>
+                  <Text style={styles.nearMarketHeaderLabel}>Your Near </Text>
+                  <Text style={styles.nearMarketHeaderGreen}>{nearest.name}</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.deliveryStatesBody}>
+              <View style={styles.deliveryRadiosRow}>
+                {(
+                  [
+                    ['home', 'Home delivery'],
+                    ['pickup', 'Direct pickup'],
+                    ['customize', 'Customize'],
+                  ] as const
+                )
+                  .filter(([mode]) => !(mode === 'home' && draftState.homeDeliveryDisabled))
+                  .map(([mode, label]) => (
+                    <TouchableOpacity key={mode} activeOpacity={0.8} onPress={() => setDeliveryState(mode)} style={styles.radioOption} testID={`mode-${mode}`}>
+                      <View style={[styles.radioCircle, deliveryState === mode && styles.radioCircleSelected]}>
+                        {deliveryState === mode && <View style={styles.radioInnerDot} />}
+                      </View>
+                      <Text style={[styles.radioLabel, deliveryState === mode && styles.radioLabelSelected]}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </View>
+
+              {deliveryState === 'home' && (
+                <>
+                  <View style={styles.deliveryContentBox}>
+                    <View style={styles.deliveryContentTextCol}>
+                      {address ? (
+                        <>
+                          {!!address.contactPhone && <Text style={styles.deliveryPhoneText}>{address.contactPhone},</Text>}
+                          <Text style={styles.deliveryAddressText}>{formatAddressLine(address)},</Text>
+                          <Text style={styles.deliveryAddressText}>{address.state}.</Text>
+                        </>
+                      ) : (
+                        <Text style={styles.deliveryAddressText}>Add a delivery address to continue.</Text>
+                      )}
+                    </View>
+                    <TouchableOpacity activeOpacity={0.7} onPress={() => setAddressModalVisible(true)} style={styles.editOutlineBtn}>
+                      <EditMemoSvg />
+                      <Text style={styles.editOutlineBtnText}>{address ? 'Edit' : 'Add'}</Text>
+                    </TouchableOpacity>
                   </View>
 
-                  {item.noStock ? (
-                    <TouchableOpacity
-                      activeOpacity={0.7}
-                      onPress={() => handleRemoveItem(item.id)}
-                      style={styles.removeOutlineBtn}
-                    >
-                      <TrashSvg />
-                      <Text style={styles.removeOutlineBtnText}>Remove</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <View style={styles.stepperContainer}>
+                  {/* Delivery date + slot (GET /delivery-slots). [needs design review: no Figma] */}
+                  <View style={[styles.addressTypeRow, { marginTop: customerSpacing[12] }]}>
+                    {([0, 1] as const).map((d) => (
                       <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => handleDecreaseQty(item.id)}
-                        style={styles.stepperAction}
+                        key={d}
+                        testID={`day-${d}`}
+                        onPress={() => {
+                          setDayOffset(d);
+                          setSlot(null);
+                        }}
+                        style={[styles.inlineDropdownItem, dayOffset === d && styles.radioCircleSelected]}
                       >
-                        <Text style={styles.stepperSign}>−</Text>
+                        <Text style={styles.inlineDropdownItemName}>{d === 0 ? 'Today' : 'Tomorrow'}</Text>
                       </TouchableOpacity>
-                      <Text style={styles.stepperQty}>{item.quantity}</Text>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => handleIncreaseQty(item.id)}
-                        style={styles.stepperAction}
-                      >
-                        <Text style={styles.stepperSign}>+</Text>
-                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <View style={styles.inlineDropdownMenu} testID="slot-picker">
+                    {slotsQuery.isLoading && <ActivityIndicator />}
+                    {(slotsQuery.data ?? []).map((s) => {
+                      const full = !s.bookable;
+                      return (
+                        <TouchableOpacity
+                          key={s.slot}
+                          testID={`slot-${s.slot}`}
+                          disabled={full}
+                          onPress={() => setSlot(s.slot)}
+                          style={[styles.inlineDropdownItem, slot === s.slot && styles.radioCircleSelected, full && { opacity: 0.5 }]}
+                        >
+                          <Text style={styles.inlineDropdownItemName}>{s.label || SLOT_LABEL[s.slot]}</Text>
+                          <View style={styles.openNowBadge}>
+                            <Text style={styles.openNowBadgeText}>{full ? 'Full' : s.available !== null ? `${s.available} left` : 'Open'}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {slotsQuery.isError && <Text style={styles.pickupMarketDesc}>{mapProblem(slotsQuery.error).message}</Text>}
+                  </View>
+                </>
+              )}
+
+              {deliveryState === 'pickup' && (
+                <View style={styles.deliveryContentBox} testID="pickup-nearest">
+                  {pointInfo(nearest)}
+                  {nearest && (
+                    <View style={styles.yourNearSolidBadge}>
+                      <Text style={styles.yourNearSolidBadgeText}>{nearest.name}</Text>
                     </View>
                   )}
                 </View>
-              </View>
-            ))}
-
-            {items.length === 0 && (
-              <View style={styles.emptyCartWrap}>
-                <Text style={styles.emptyCartText}>Your cart is empty.</Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* ── 2. YOUR BILL SECTION (Cream Card with Dotted Divider) ──────────── */}
-        <View style={styles.billContainer}>
-          <View style={styles.billHeader}>
-            <Text style={styles.billHeaderTitle}>Your Bill</Text>
-          </View>
-
-          <View style={styles.billBody}>
-            <View style={styles.billRow}>
-              <Text style={styles.billLabel}>Items total</Text>
-              <View style={styles.billPriceCol}>
-                <Text style={styles.billOldPrice}>₹{originalItemsTotal.toFixed(2)}</Text>
-                <Text style={styles.billValue}>₹{itemsTotal.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.billRow}>
-              <Text style={[styles.billLabel, styles.underlinedLabel]}>Delivery Fee</Text>
-              <View style={styles.billPriceCol}>
-                <Text style={styles.billOldPrice}>₹{originalDeliveryFee.toFixed(2)}</Text>
-                <Text style={styles.billValue}>₹{deliveryFee.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            <View style={styles.billRow}>
-              <Text style={[styles.billLabel, styles.underlinedLabel]}>Handling Fee</Text>
-              <View style={styles.billPriceCol}>
-                <Text style={styles.billOldPrice}>₹{originalHandlingFee.toFixed(2)}</Text>
-                <Text style={styles.billValue}>₹{handlingFee.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            {/* Dotted Divider */}
-            <View style={styles.dottedDivider} />
-
-            <View style={styles.billRow}>
-              <Text style={styles.grandTotalLabel}>Grand total</Text>
-              <Text style={styles.grandTotalValue}>₹{grandTotal.toFixed(2)}</Text>
-            </View>
-
-            {/* Savings Pill */}
-            {savings > 0 && (
-              <View style={styles.savingsPill}>
-                <Text style={styles.savingsText}>
-                  You are saving ₹{savings.toFixed(0)} on this order
-                </Text>
-              </View>
-            )}
-          </View>
-        </View>
-
-        {/* ── 3. CHOOSE A DELIVERY STATES SECTION (BELOW YOUR BILL - IMAGES 3, 4, 5) ── */}
-        {hasSavedAddress && (
-          <View style={styles.deliveryStatesCard}>
-            {/* Header */}
-            <View style={styles.deliveryStatesHeader}>
-              <Text style={styles.deliveryStatesTitle}>Choose a delivery states</Text>
-              <View style={styles.nearMarketHeaderRight}>
-                <Text style={styles.nearMarketHeaderLabel}>Your Near </Text>
-                <Text style={styles.nearMarketHeaderGreen}>Ooty Market</Text>
-              </View>
-            </View>
-
-            {/* Body */}
-            <View style={styles.deliveryStatesBody}>
-              {/* 3 Radios */}
-              <View style={styles.deliveryRadiosRow}>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setDeliveryState('home')}
-                  style={styles.radioOption}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      deliveryState === 'home' && styles.radioCircleSelected,
-                    ]}
-                  >
-                    {deliveryState === 'home' && <View style={styles.radioInnerDot} />}
-                  </View>
-                  <Text
-                    style={[
-                      styles.radioLabel,
-                      deliveryState === 'home' && styles.radioLabelSelected,
-                    ]}
-                  >
-                    Home delivery
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setDeliveryState('pickup')}
-                  style={styles.radioOption}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      deliveryState === 'pickup' && styles.radioCircleSelected,
-                    ]}
-                  >
-                    {deliveryState === 'pickup' && <View style={styles.radioInnerDot} />}
-                  </View>
-                  <Text
-                    style={[
-                      styles.radioLabel,
-                      deliveryState === 'pickup' && styles.radioLabelSelected,
-                    ]}
-                  >
-                    Direct pickup
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  onPress={() => setDeliveryState('customize')}
-                  style={styles.radioOption}
-                >
-                  <View
-                    style={[
-                      styles.radioCircle,
-                      deliveryState === 'customize' && styles.radioCircleSelected,
-                    ]}
-                  >
-                    {deliveryState === 'customize' && <View style={styles.radioInnerDot} />}
-                  </View>
-                  <Text
-                    style={[
-                      styles.radioLabel,
-                      deliveryState === 'customize' && styles.radioLabelSelected,
-                    ]}
-                  >
-                    Customize
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* State 1: Home delivery (Image 3) */}
-              {deliveryState === 'home' && (
-                <View style={styles.deliveryContentBox}>
-                  <View style={styles.deliveryContentTextCol}>
-                    <Text style={styles.deliveryPersonName}>Suresh,</Text>
-                    <Text style={styles.deliveryPhoneText}>99944 99944,</Text>
-                    <Text style={styles.deliveryAddressText}>
-                      77, Sylks Road, Ooty – 643001,
-                    </Text>
-                    <Text style={styles.deliveryAddressText}>Tamil Nadu.</Text>
-                  </View>
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    onPress={() => setAddressModalVisible(true)}
-                    style={styles.editOutlineBtn}
-                  >
-                    <EditMemoSvg />
-                    <Text style={styles.editOutlineBtnText}>Edit</Text>
-                  </TouchableOpacity>
-                </View>
               )}
 
-              {/* State 2: Direct pickup (Image 4) */}
-              {deliveryState === 'pickup' && (
-                <View style={styles.deliveryContentBox}>
-                  <View style={styles.deliveryContentTextCol}>
-                    <Text style={styles.pickupPhoneHeader}>Ph: 99944 99944,</Text>
-                    <Text style={styles.pickupMarketDesc}>
-                      The main Ooty Municipal Market is located on Commercial Road / Upper Bazar Road, Ooty, Tamil Nadu 643001.
-                    </Text>
-                  </View>
-                  <View style={styles.yourNearSolidBadge}>
-                    <Text style={styles.yourNearSolidBadgeText}>Your near</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* State 3: Customize (Image 5) */}
               {deliveryState === 'customize' && (
                 <View style={styles.customizeContainer}>
-                  {/* Dropdown Selector */}
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => setMarketDropdownVisible(prev => !prev)}
-                    style={styles.customizeMarketDropdown}
-                  >
+                  <TouchableOpacity activeOpacity={0.85} onPress={() => setMarketDropdownVisible((prev) => !prev)} style={styles.customizeMarketDropdown} testID="market-dropdown">
                     <View style={styles.customizeDropdownLeft}>
-                      <Text style={styles.customizeMarketNameText}>{selectedMarket}</Text>
-                      <View style={styles.yourNearLightBadge}>
-                        <Text style={styles.yourNearLightBadgeText}>Your near</Text>
-                      </View>
+                      <Text style={styles.customizeMarketNameText}>{customPoint?.name ?? 'Choose a market'}</Text>
+                      {customPoint?.isNearest && (
+                        <View style={styles.yourNearLightBadge}>
+                          <Text style={styles.yourNearLightBadgeText}>Your near</Text>
+                        </View>
+                      )}
                     </View>
                     <ChevronDownSvg color={customerColors.body} />
                   </TouchableOpacity>
 
-                  {/* Inline Dropdown Options — Anchored directly under the input box */}
                   {marketDropdownVisible && (
                     <View style={styles.inlineDropdownMenu}>
-                      {[
-                        { name: 'Coonoor Market', status: 'Open now' },
-                        { name: 'Kotagiri Market', status: 'Open now' },
-                        { name: 'Gudalur Market', status: 'Open now' },
-                      ].map(market => (
+                      {(points ?? []).map((p) => (
                         <TouchableOpacity
-                          key={market.name}
+                          key={p.id}
+                          testID={`market-${p.id}`}
                           activeOpacity={0.7}
                           onPress={() => {
-                            setSelectedMarket(market.name);
+                            setCustomPointId(p.id);
                             setMarketDropdownVisible(false);
                           }}
                           style={styles.inlineDropdownItem}
                         >
-                          <Text style={styles.inlineDropdownItemName}>{market.name}</Text>
+                          <Text style={styles.inlineDropdownItemName}>{p.name}</Text>
                           <View style={styles.openNowBadge}>
-                            <Text style={styles.openNowBadgeText}>{market.status}</Text>
+                            <Text style={styles.openNowBadgeText}>{p.isOpenNow ? 'Open now' : 'Closed'}</Text>
                           </View>
                         </TouchableOpacity>
                       ))}
                     </View>
                   )}
 
-                  {/* Market info box — visible when dropdown is closed */}
-                  {!marketDropdownVisible && (
-                    <View style={[styles.deliveryContentBox, { marginTop: customerSpacing[12] }]}>
-                      <View style={styles.deliveryContentTextCol}>
-                        <Text style={styles.pickupPhoneHeader}>Ph: 99944 99944,</Text>
-                        <Text style={styles.pickupMarketDesc}>
-                          {selectedMarket === 'Coonoor Market'
-                            ? 'The Coonoor Municipal Market is located near Bedford Circle, Coonoor, Tamil Nadu 643101.'
-                            : selectedMarket === 'Kotagiri Market'
-                              ? 'The Kotagiri Weekly Market is located near Johnston Square, Kotagiri, Tamil Nadu 643217.'
-                              : selectedMarket === 'Gudalur Market'
-                                ? 'The Gudalur Town Farmers Market is located near Ooty Main Road, Gudalur, Tamil Nadu 643212.'
-                                : 'The main Ooty Municipal Market is located on Commercial Road / Upper Bazar Road, Ooty, Tamil Nadu 643001.'}
-                        </Text>
-                      </View>
-                      <View style={styles.yourNearSolidBadge}>
-                        <Text style={styles.yourNearSolidBadgeText}>Your near</Text>
-                      </View>
-                    </View>
-                  )}
+                  {!marketDropdownVisible && <View style={[styles.deliveryContentBox, { marginTop: customerSpacing[12] }]}>{pointInfo(customPoint)}</View>}
                 </View>
               )}
             </View>
@@ -649,15 +677,13 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
         {/* ── 4. RETURN / REFUND POLICY ─────────────────────────────────────── */}
         <View style={styles.policyContainer}>
           <Text style={styles.policyTitle}>Return/Refund Policy</Text>
-          <Text style={styles.policyText}>
-            Freshly sourced from local farmers, thoughtfully delivered to your home.
-          </Text>
+          <Text style={styles.policyText}>Freshly sourced from local farmers, thoughtfully delivered to your home.</Text>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() =>
               Alert.alert(
                 'Return & Refund Policy',
-                'We guarantee 100% farm-fresh quality. If any item is damaged or unscheduled, report within 24 hours for instant refund or replacement.'
+                'If any item is damaged or not fresh, raise a return from My Orders after delivery or pickup.',
               )
             }
           >
@@ -665,225 +691,53 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
           </TouchableOpacity>
         </View>
 
-        {/* Bottom padding for sticky checkout bar */}
         <View style={{ height: 110 }} />
       </ScrollView>
 
       {/* ── 5. STICKY BOTTOM CHECKOUT BAR ──────────────────────────────────── */}
-      <View style={styles.bottomBar}>
-        <View style={styles.bottomPillContainer}>
-          <Text style={styles.bottomPriceText}>₹{grandTotal.toFixed(2)}</Text>
+      {items.length > 0 && (
+        <View style={styles.bottomBar}>
+          <View style={styles.bottomPillContainer}>
+            <Text style={styles.bottomPriceText}>{formatRupees(quote?.totalAmount ?? cart?.subtotal)}</Text>
 
-          {!hasSavedAddress ? (
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => setAddressModalVisible(true)}
-              style={styles.addAddressBtn}
-            >
-              <Text style={styles.addAddressBtnText}>Add Address</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={hasOutOfStock ? 1 : 0.85}
-              onPress={handleCheckout}
-              disabled={hasOutOfStock}
-              style={[
-                styles.payCheckoutBtn,
-                hasOutOfStock && styles.payCheckoutBtnDisabled,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.payCheckoutBtnText,
-                  hasOutOfStock && styles.payCheckoutBtnTextDisabled,
-                ]}
-              >
-                Pay & Checkout
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Floating Green Cart Circle Badge */}
-        <View style={styles.floatingCartCircle}>
-          <CartFloatingSvg />
-        </View>
-      </View>
-
-      {/* ── MODAL: SCREEN 2 - ADD ADDRESS POPUP ────────────────────────────── */}
-      <Modal
-        visible={addressModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setAddressModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.addressModalCard}>
-            {/* Top Close Icon */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setAddressModalVisible(false)}
-              style={styles.modalCloseBtn}
-            >
-              <CloseSvg />
-            </TouchableOpacity>
-
-            {/* Header: Title + Reset */}
-            <View style={styles.addressModalHeader}>
-              <Text style={styles.addressModalTitle}>Add Address</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={handleResetAddress}>
-                <Text style={styles.resetText}>Reset</Text>
+            {deliveryState === 'home' && !address ? (
+              <TouchableOpacity activeOpacity={0.85} onPress={() => setAddressModalVisible(true)} style={styles.addAddressBtn} testID="cart-add-address">
+                <Text style={styles.addAddressBtnText}>Add Address</Text>
               </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.addressModalScroll}
-            >
-              {/* Contact Info Group 1 */}
-              <Text style={styles.formSectionHeader}>Contact info</Text>
-              <TextInput
-                style={styles.formInputLine}
-                placeholder="Name"
-                placeholderTextColor="#9CA3AF"
-                value={addressForm.name}
-                onChangeText={t => setAddressForm(p => ({ ...p, name: t }))}
-              />
-              <TextInput
-                style={styles.formInputLine}
-                placeholder="Phone Number (+91)"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="phone-pad"
-                value={addressForm.phone}
-                onChangeText={t => setAddressForm(p => ({ ...p, phone: t }))}
-              />
-
-              {/* Contact Info Group 2 (Address Fields) */}
-              <Text style={[styles.formSectionHeader, { marginTop: 16 }]}>
-                Contact info
-              </Text>
-
-              <View style={styles.formRow}>
-                <TextInput
-                  style={[styles.formInputLine, { flex: 1, marginRight: 12 }]}
-                  placeholder="Pincode"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  value={addressForm.pincode}
-                  onChangeText={t => setAddressForm(p => ({ ...p, pincode: t }))}
-                />
-                <TextInput
-                  style={[styles.formInputLine, { flex: 1 }]}
-                  placeholder="City"
-                  placeholderTextColor="#9CA3AF"
-                  value={addressForm.city}
-                  onChangeText={t => setAddressForm(p => ({ ...p, city: t }))}
-                />
-              </View>
-
-              <TextInput
-                style={styles.formInputLine}
-                placeholder="State"
-                placeholderTextColor="#9CA3AF"
-                value={addressForm.state}
-                onChangeText={t => setAddressForm(p => ({ ...p, state: t }))}
-              />
-              <TextInput
-                style={styles.formInputLine}
-                placeholder="Locality / Area / Street"
-                placeholderTextColor="#9CA3AF"
-                value={addressForm.locality}
-                onChangeText={t => setAddressForm(p => ({ ...p, locality: t }))}
-              />
-              <TextInput
-                style={styles.formInputLine}
-                placeholder="Flat on / Building Name"
-                placeholderTextColor="#9CA3AF"
-                value={addressForm.flat}
-                onChangeText={t => setAddressForm(p => ({ ...p, flat: t }))}
-              />
-              <TextInput
-                style={styles.formInputLine}
-                placeholder="Landmark (optional)"
-                placeholderTextColor="#9CA3AF"
-                value={addressForm.landmark}
-                onChangeText={t => setAddressForm(p => ({ ...p, landmark: t }))}
-              />
-
-              {/* Choose near market */}
-              <Text style={[styles.formSectionHeader, { marginTop: 16 }]}>
-                Choose your near market
-              </Text>
-              <View style={styles.marketSelectorBox}>
-                <View style={styles.marketSelectorLeft}>
-                  <Text style={styles.marketSelectorText}>{selectedMarket}</Text>
-                  <View style={styles.yourNearLightBadge}>
-                    <Text style={styles.yourNearLightBadgeText}>Your near</Text>
-                  </View>
-                </View>
-                <ChevronDownSvg color="#4B5563" />
-              </View>
-
-              {/* Type of Address */}
-              <Text style={[styles.formSectionHeader, { marginTop: 16 }]}>
-                Type of Address
-              </Text>
-              <View style={styles.addressTypeRow}>
-                {(['Home', 'Office', 'Other'] as const).map(type => (
-                  <TouchableOpacity
-                    key={type}
-                    activeOpacity={0.8}
-                    onPress={() => setAddressForm(p => ({ ...p, addressType: type }))}
-                    style={styles.addressTypeRadio}
-                  >
-                    <View
-                      style={[
-                        styles.radioCircleSmall,
-                        addressForm.addressType === type && styles.radioCircleSmallSelected,
-                      ]}
-                    >
-                      {addressForm.addressType === type && (
-                        <View style={styles.radioSmallInnerDot} />
-                      )}
-                    </View>
-                    <Text style={styles.addressTypeRadioText}>{type}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Mark as default address */}
+            ) : (
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() =>
-                  setAddressForm(p => ({ ...p, isDefault: !p.isDefault }))
-                }
-                style={styles.checkboxRow}
+                activeOpacity={checkoutDisabled ? 1 : 0.85}
+                onPress={() => void handleCheckout()}
+                disabled={checkoutDisabled || replaceCartM.isPending}
+                style={[styles.payCheckoutBtn, checkoutDisabled && styles.payCheckoutBtnDisabled]}
+                testID="cart-checkout"
               >
-                <View
-                  style={[
-                    styles.checkboxBox,
-                    addressForm.isDefault && styles.checkboxBoxChecked,
-                  ]}
-                >
-                  {addressForm.isDefault && (
-                    <Text style={styles.checkboxCheckmark}>✓</Text>
-                  )}
-                </View>
-                <Text style={styles.checkboxLabel}>Mark as default address</Text>
+                <Text style={[styles.payCheckoutBtnText, checkoutDisabled && styles.payCheckoutBtnTextDisabled]}>
+                  {missingDelivery ? 'Pick a delivery slot' : 'Pay & Checkout'}
+                </Text>
               </TouchableOpacity>
-
-              {/* Save Address Button */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleSaveAddress}
-                style={styles.saveAddressBtn}
-              >
-                <Text style={styles.saveAddressBtnText}>Save address</Text>
-              </TouchableOpacity>
-            </ScrollView>
+            )}
+          </View>
+          <View style={styles.floatingCartCircle}>
+            <CartFloatingSvg />
           </View>
         </View>
-      </Modal>
+      )}
+
+      {/* ── ADD ADDRESS (shared address flow, POST /customers/me/addresses) ── */}
+      <CustomerDeliveryAddressModal
+        visible={addressModalVisible}
+        initialStep="addAddress"
+        onClose={() => setAddressModalVisible(false)}
+        onSaveAddress={(saved) => {
+          setSelectedAddressId(saved.id);
+          setAddressModalVisible(false);
+        }}
+        onUseCurrentLocation={() => {
+          setAddressModalVisible(false);
+          onNavigate?.('CustomerAddAddress', { addressSource: 'current' });
+        }}
+      />
     </View>
   );
 };

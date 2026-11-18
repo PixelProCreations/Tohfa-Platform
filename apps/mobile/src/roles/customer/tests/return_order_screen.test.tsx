@@ -1,200 +1,95 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * Return order: eligible orders and lines come from the API; the request is
+ * POST /orders/{orderId}/returns { reason, items[{orderItemId, qty}], note, photoUploadIds }.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
-import renderer, { act } from 'react-test-renderer';
+import { act } from 'react-test-renderer';
+import type { QueryClient } from '@tanstack/react-query';
 
-vi.mock('react-native', () => ({
-  Alert: { alert: vi.fn() },
-  Image: 'Image',
-  Modal: 'Modal',
-  Platform: { OS: 'ios', select: vi.fn((obj: Record<string, unknown>) => obj.ios || obj.default) },
-  ScrollView: 'ScrollView',
-  StatusBar: 'StatusBar',
-  StyleSheet: {
-    create: (s: Record<string, unknown>) => s,
-  },
-  Text: 'Text',
-  TextInput: 'TextInput',
-  TouchableOpacity: 'TouchableOpacity',
-  View: 'View',
+vi.mock('react-native', async () => (await import('./helpers/rnMock')).rnMock());
+vi.mock('react-native-svg', async () => (await import('./helpers/rnMock')).svgMock());
+const support = vi.hoisted(() => ({
+  pickIssuePhotos: vi.fn(),
+  uploadIssuePhoto: vi.fn(),
 }));
+vi.mock('../api/support', () => support);
 
-vi.mock('@tohfa/mobile-ui', () => ({
-  SafeAreaView: 'SafeAreaView',
-}));
-
-vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: 'SafeAreaView',
-  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
-}));
-
-vi.mock('react-native-svg', () => ({
-  default: 'Svg',
-  Circle: 'Circle',
-  Path: 'Path',
-  Rect: 'Rect',
-}));
-
-vi.mock('../assets/images/products', () => ({
-  ProductImages: {
-    fruitApple: 101,
-    foryouLettuce: 102,
-  },
-}));
-
+import * as client from '../../../shell/api/client';
 import { ReturnOrderScreen } from '../screens/ReturnOrderScreen';
-import { ReturnSubmittedModal } from '../components/ReturnSubmittedModal';
+import { byTestId, flush, hasTestId, mockGet, newQueryClient, press, problem, renderWith, textOf } from './helpers/harness';
 
-describe('ReturnOrderScreen (Screen 67 · Return Order)', () => {
-  const mockNavigate = vi.fn();
-  const mockBack = vi.fn();
+const ORDER = {
+  id: 'o1', orderNumber: 'TOH-2026-0000001', status: 'DELIVERED', fulfillmentType: 'DELIVERY', totalAmount: '200.00', placedAt: '2026-11-10T04:00:00Z',
+  thumbnails: [], subtotal: '200.00', itemCount: 2,
+  items: [
+    { id: 'oi1', productId: 'p1', name: 'Carrot', grade: 'GRADE_1', qtyKg: '2.000', unitPrice: '69.00', lineTotal: '138.00' },
+    { id: 'oi2', productId: 'p2', name: 'Beans', grade: 'GRADE_2', qtyKg: '1.000', unitPrice: '62.00', lineTotal: '62.00' },
+  ],
+};
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('renders exact Screen 67 elements and layout', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReturnOrderScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const root = tree.root;
-    const allTexts = root.findAllByType('Text' as never).map((node) => node.props.children);
-    const flattenedTexts = allTexts.flat(Infinity).filter(Boolean);
-
-    expect(flattenedTexts).toContain('Return Order');
-    expect(flattenedTexts).toContain('Request a Return');
-    expect(flattenedTexts).toContain('Select the item and reason for return.');
-    expect(flattenedTexts).toContain('ORD-20261115-0039');
-    expect(flattenedTexts).toContain('Select product');
-    expect(flattenedTexts).toContain('Reason for return');
-    expect(flattenedTexts).toContain('Describe the issue');
-    expect(flattenedTexts).toContain('Add Photos (optional)');
-    expect(flattenedTexts).toContain('Request Return');
-  });
-
-  it('calls onBack when back arrow is pressed', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReturnOrderScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const backButton = tree.root.findByProps({ accessibilityLabel: 'Back' });
-    await act(async () => {
-      backButton.props.onPress();
-    });
-
-    expect(mockBack).toHaveBeenCalled();
-  });
-
-  it('toggles product selection and adds photos', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReturnOrderScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const fujiItem = tree.root.findByProps({
-      accessibilityLabel: 'Select product Fuji',
-    });
-    await act(async () => {
-      fujiItem.props.onPress();
-    });
-
-    const addPhotoBtn = tree.root.findByProps({ accessibilityLabel: 'Add Photo' });
-    await act(async () => {
-      addPhotoBtn.props.onPress();
-    });
-
-    const removePhotoBtns = tree.root.findAllByProps({
-      accessibilityLabel: 'Remove photo',
-    });
-    expect(removePhotoBtns.length).toBe(1);
-
-    await act(async () => {
-      removePhotoBtns[0]?.props.onPress();
-    });
-
-    const removePhotoBtnsAfter = tree.root.findAllByProps({
-      accessibilityLabel: 'Remove photo',
-    });
-    expect(removePhotoBtnsAfter.length).toBe(0);
-  });
-
-  it('opens ReturnSubmittedModal on Request Return press and tracks return request', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReturnOrderScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const submitBtn = tree.root.findByProps({ accessibilityLabel: 'Request Return' });
-    await act(async () => {
-      submitBtn.props.onPress();
-    });
-
-    const trackBtns = tree.root.findAllByProps({
-      accessibilityLabel: 'Track Return Request',
-    });
-    expect(trackBtns[0]).toBeDefined();
-
-    await act(async () => {
-      trackBtns[0]?.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith(
-      'TrackSupportRequest',
-      expect.objectContaining({
-        supportId: 'RET-20260715-0147',
-        orderNumber: 'ORD-20261115-0039',
-      })
-    );
+let qc: QueryClient;
+beforeEach(() => {
+  qc = newQueryClient();
+  client.setAccessToken('token');
+  mockGet({
+    '/orders/o1': ORDER,
+    '/orders': { items: [ORDER, { ...ORDER, id: 'o2', status: 'CONFIRMED' }], page: { nextCursor: null, hasMore: false } },
   });
 });
-
-describe('ReturnSubmittedModal Component', () => {
-  it('renders correctly and handles button callbacks', async () => {
-    const handleClose = vi.fn();
-    const handleTrack = vi.fn();
-    const handleContinue = vi.fn();
-
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReturnSubmittedModal
-          visible={true}
-          onClose={handleClose}
-          onTrackReturn={handleTrack}
-          onContinueShopping={handleContinue}
-          returnId="RET-20260715-0147"
-          orderNumber="ORD-20260715-0039"
-          productName="Fresh apples (1 kg)"
-        />
-      );
-    });
-
-    const trackBtn = tree.root.findByProps({
-      accessibilityLabel: 'Track Return Request',
-    });
-    await act(async () => {
-      trackBtn.props.onPress();
-    });
-    expect(handleClose).toHaveBeenCalled();
-    expect(handleTrack).toHaveBeenCalled();
-
-    const continueBtn = tree.root.findByProps({
-      accessibilityLabel: 'Continue Shopping',
-    });
-    await act(async () => {
-      continueBtn.props.onPress();
-    });
-    expect(handleContinue).toHaveBeenCalled();
-  });
+afterEach(() => {
+  client.setAccessToken(null);
+  vi.restoreAllMocks();
 });
 
+describe('ReturnOrderScreen', () => {
+  it('shows the order lines from the API (no sample data)', async () => {
+    const root = await renderWith(qc, <ReturnOrderScreen initialOrderId="o1" />);
+    const t = textOf(root);
+    expect(t).toContain('TOH-2026-0000001');
+    expect(t).toContain('Carrot');
+    expect(t).toContain('Beans');
+    expect(t).not.toMatch(/Fresh apples|ORD-2026|RET-2026/);
+  });
+
+  it('posts orderItemId + kg qty + reason + note + uploaded photo ids', async () => {
+    support.pickIssuePhotos.mockResolvedValue({ photos: [{ uri: 'file://a.jpg', base64: 'AA', type: 'image/jpeg', fileName: 'a.jpg' }], rejected: 0 });
+    support.uploadIssuePhoto.mockResolvedValue('upload-1');
+    const post = vi.spyOn(client.api, 'post').mockResolvedValue({
+      id: 'ret-1234567890', orderId: 'o1', status: 'PENDING', reason: 'x', note: null, photos: [], createdAt: 'x', updatedAt: null, items: [],
+    } as never);
+    const onNavigate = vi.fn();
+    const root = await renderWith(qc, <ReturnOrderScreen initialOrderId="o1" onNavigate={onNavigate} />);
+    await press(root, 'return-item-oi2'); // deselect Beans
+    await press(root, 'return-dec-oi1'); // 2 kg -> 1.5 kg
+    await act(async () => byTestId(root, 'return-note').props.onChangeText('Two were mouldy'));
+    await press(root, 'return-add-photo');
+    await flush();
+    expect(hasTestId(root, 'return-photo')).toBe(true);
+    await press(root, 'return-submit');
+    expect(post).toHaveBeenCalledWith('/orders/o1/returns', {
+      reason: 'Quality issue (damaged / spoiled)',
+      items: [{ orderItemId: 'oi1', qty: '1.500' }],
+      note: 'Two were mouldy',
+      photoUploadIds: ['upload-1'],
+    });
+    expect(textOf(root)).toContain('PENDING');
+  });
+
+  it('shows the 409 not-delivered message and 422 line errors inline', async () => {
+    vi.spyOn(client.api, 'post')
+      .mockRejectedValueOnce(problem(409, 'INVALID_STATE_TRANSITION'))
+      .mockRejectedValueOnce(problem(422, 'VALIDATION_FAILED', { errors: { 'body.items.0.qty': ['Exceeds the returnable quantity'] } }));
+    const root = await renderWith(qc, <ReturnOrderScreen initialOrderId="o1" />);
+    await press(root, 'return-submit');
+    expect(textOf(root)).toContain('only after it is delivered or picked up');
+    await press(root, 'return-submit');
+    expect(hasTestId(root, 'return-error')).toBe(true);
+  });
+
+  it('defaults to the first eligible order when none is passed', async () => {
+    const root = await renderWith(qc, <ReturnOrderScreen />);
+    await flush();
+    expect(textOf(root)).toContain('TOH-2026-0000001');
+  });
+});

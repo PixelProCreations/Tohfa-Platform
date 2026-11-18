@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   Modal,
   Platform,
   StatusBar,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
@@ -19,13 +21,36 @@ import {
   profileEmailVerified,
 } from '../assets/images';
 import { CustomerSendMoneyScreen } from './CustomerSendMoneyScreen';
+import { fetchTopupReceipt, useWallet, useWalletTransactions, type TopupMode, type WalletTransaction } from '../api/wallet';
+import { useWalletTopup, type TopupOutcome } from '../api/topup';
+import { mapProblem } from '../api/problem';
+import {
+  DEFAULT_TX_FILTERS,
+  activeFilterCount,
+  checkAmount,
+  formatInr,
+  formatInrCompact,
+  formatIstDateTime,
+  formatSignedAmount,
+  presentTransaction,
+  sanitizeAmountText,
+  shortfallToTopupText,
+  topupChips,
+  txnCodeFromId,
+  type TransactionFilters,
+  type TxTab,
+  type TxDateRange,
+} from '../api/walletMoney';
+import type { WalletTransactionType } from '../api/wallet';
 
 export interface CustomerWalletScreenProps {
-  initialBalance?: number;
   initialMode?: 'main' | 'add_money' | 'send_money';
-  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
-  onBack?: () => void;
-  onBalanceChange?: (newBalance: number) => void;
+  /** Prefill for the Add Money amount (a checkout shortfall, rounded up to whole rupees). */
+  initialAmount?: string | undefined;
+  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  onBack?: (() => void) | undefined;
+  /** Called when the user closes a successful top-up (Topup-from-checkout returns to Checkout). */
+  onTopupComplete?: (() => void) | undefined;
 }
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
@@ -157,58 +182,196 @@ const TinyTohfaLeafSvg = () => (
   </Svg>
 );
 
+const MODE_BY_METHOD: Record<'upi' | 'card' | 'netbanking', TopupMode> = {
+  upi: 'UPI',
+  card: 'CARD',
+  netbanking: 'NETBANKING',
+};
+
+const TAB_OPTIONS: Array<{ value: TxTab; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'credits', label: 'Credits' },
+  { value: 'debits', label: 'Debits' },
+  { value: 'refunds', label: 'Refunds' },
+];
+
+const TYPE_OPTIONS: Array<{ value: WalletTransactionType | undefined; label: string }> = [
+  { value: undefined, label: 'Any type' },
+  { value: 'TOPUP_DIGITAL', label: 'Top-ups' },
+  { value: 'ORDER_DEBIT', label: 'Order payments' },
+  { value: 'ORDER_REFUND', label: 'Refunds' },
+  { value: 'TRANSFER_OUT', label: 'Sent' },
+  { value: 'TRANSFER_IN', label: 'Received' },
+];
+
+const RANGE_OPTIONS: Array<{ value: TxDateRange; label: string }> = [
+  { value: 'all', label: 'All time' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: 'month', label: 'This month' },
+];
+
+function amountErrorText(reason: 'empty' | 'invalid' | 'below_min' | 'above_max', limits?: { min: string; max: string } | null): string | null {
+  switch (reason) {
+    case 'empty':
+      return null;
+    case 'invalid':
+      return 'Enter a valid amount (up to 2 decimals).';
+    case 'below_min':
+      return limits ? `Minimum top-up is ${formatInrCompact(limits.min)}.` : 'Amount is too low.';
+    case 'above_max':
+      return limits ? `Maximum top-up is ${formatInrCompact(limits.max)}.` : 'Amount is too high.';
+  }
+}
+
+function TxIcon({ visual }: { visual: ReturnType<typeof presentTransaction>['visual'] }) {
+  if (visual === 'order') return <CartIconSvg color="#DC2626" size={18} />;
+  if (visual === 'refund') return <RefundIconSvg color="#2563EB" size={18} />;
+  if (visual === 'transfer_out') return <SendPaperPlaneSvg color="#DC2626" size={18} />;
+  return <WalletIconSvg color="#2E7D32" size={18} />;
+}
+
+const TX_ICON_BG: Record<ReturnType<typeof presentTransaction>['visual'], string> = {
+  topup: '#EDF8EE',
+  order: '#FFEBEE',
+  refund: '#E3F2FD',
+  transfer_in: '#EDF8EE',
+  transfer_out: '#FFEBEE',
+  other: '#F3F4F6',
+};
+
+function TransactionRow({ tx }: { tx: WalletTransaction }) {
+  const p = presentTransaction(tx);
+  return (
+    <View style={styles.txRow} accessibilityLabel={`${p.title} ${tx.txnCode ?? txnCodeFromId(tx.id)}`}>
+      <View style={[styles.txIconBox, { backgroundColor: TX_ICON_BG[p.visual] }]}>
+        <TxIcon visual={p.visual} />
+      </View>
+      <View style={styles.txDetailsCol}>
+        <Text style={styles.txTitle}>{p.title}</Text>
+        {tx.orderNumber ? <Text style={styles.txOrderRef}>{tx.orderNumber}</Text> : null}
+        <Text style={styles.txDate}>{formatIstDateTime(tx.performedAt)}</Text>
+        <Text style={styles.txOrderRef}>{tx.txnCode ?? txnCodeFromId(tx.id)}</Text>
+      </View>
+      <View style={styles.txRightCol}>
+        <Text style={[styles.txAmount, { color: p.credit ? '#1A1A1A' : '#DC2626' }]}>{formatSignedAmount(tx.amount)}</Text>
+        <View style={styles.successPill}>
+          <Text style={styles.successPillText}>Success</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
-  initialBalance = 1250,
   initialMode = 'main',
+  initialAmount,
   onNavigate,
   onBack,
-  onBalanceChange,
+  onTopupComplete,
 }) => {
   const insets = useSafeAreaInsets();
-  const [balance, setBalance] = useState<number>(initialBalance);
-
-  useEffect(() => {
-    setBalance(initialBalance);
-  }, [initialBalance]);
+  const walletQuery = useWallet();
+  const wallet = walletQuery.data;
+  const [filters, setFilters] = useState<TransactionFilters>(DEFAULT_TX_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const txQuery = useWalletTransactions(filters);
+  const topup = useWalletTopup();
 
   const [viewMode, setViewMode] = useState<'main' | 'add_money' | 'send_money'>(initialMode);
+  const [amountInput, setAmountInput] = useState<string>(shortfallToTopupText(initialAmount));
+  const [selectedMethod, setSelectedMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
+  const [outcome, setOutcome] = useState<TopupOutcome | null>(null);
+  const [topupError, setTopupError] = useState<string | null>(null);
+  const [waitSeconds, setWaitSeconds] = useState<number>(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
-  const [amountInput, setAmountInput] = useState<string>('');
-  const [selectedMethod, setSelectedMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [lastAddedAmount, setLastAddedAmount] = useState<number>(0);
 
-  const quickAmounts = [500, 1000, 2000, 5000];
-  const parsedAmount = parseInt(amountInput, 10) || 0;
+  useEffect(() => {
+    if (waitSeconds <= 0) return undefined;
+    const id = setInterval(() => setWaitSeconds((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [waitSeconds > 0]);
 
-  const handleSelectQuickAmount = (val: number) => {
-    setAmountInput(String(val));
+  const limits = wallet?.topupLimits ?? null;
+  const frozen = wallet !== undefined && wallet.status !== 'ACTIVE';
+  const amountCheck = checkAmount(amountInput, limits);
+  const parsedAmount = amountCheck.ok ? amountCheck.amount : null;
+  const amountError = amountCheck.ok ? null : amountErrorText(amountCheck.reason, limits);
+  const chips = topupChips(limits);
+  const processing = topup.isPending;
+  const canPay = parsedAmount !== null && !processing && waitSeconds === 0 && !frozen;
+
+  const transactions: WalletTransaction[] = (txQuery.data?.pages ?? []).flatMap((pg) => pg.items);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([walletQuery.refetch(), txQuery.refetch()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [walletQuery, txQuery]);
+
+  const handlePay = async () => {
+    if (parsedAmount === null || !canPay) return;
+    setTopupError(null);
+    try {
+      const result = await topup.mutateAsync({ amount: parsedAmount, mode: MODE_BY_METHOD[selectedMethod] });
+      if (result.status === 'cancelled') {
+        setTopupError('Payment cancelled. No money was added.');
+        return;
+      }
+      if (result.status === 'unavailable') {
+        setTopupError('Online payments are not available right now. Please try again later.');
+        return;
+      }
+      setOutcome(result);
+    } catch (err) {
+      const e = mapProblem(err);
+      if (e.silent) return;
+      setTopupError(e.message);
+      if (e.action === 'wait' && e.retryAfterSeconds !== null) setWaitSeconds(e.retryAfterSeconds);
+    }
   };
 
-  const handleConfirmAddMoney = () => {
-    if (parsedAmount <= 0) return;
-    setLastAddedAmount(parsedAmount);
-    setBalance((prev) => {
-      const updated = prev + parsedAmount;
-      onBalanceChange?.(updated);
-      return updated;
-    });
-    setShowSuccessModal(true);
+  const handleCheckAgain = async () => {
+    if (outcome === null || outcome.status !== 'pending') return;
+    setChecking(true);
+    try {
+      const receipt = await fetchTopupReceipt(outcome.intent.topupId);
+      void walletQuery.refetch();
+      if (receipt.status === 'SUCCESS') setOutcome({ status: 'success', intent: outcome.intent, receipt });
+      else if (receipt.status === 'FAILED') setOutcome({ status: 'failed', intent: outcome.intent, receipt, reason: 'server' });
+      else setOutcome({ status: 'pending', intent: outcome.intent, receipt });
+    } catch {
+      // keep the pending state; the user can check again
+    } finally {
+      setChecking(false);
+    }
   };
 
   const handleModalClose = () => {
-    setShowSuccessModal(false);
-    setViewMode('main');
-    setAmountInput('');
+    const wasSuccess = outcome?.status === 'success';
+    setOutcome(null);
+    void walletQuery.refetch();
+    if (wasSuccess) {
+      setAmountInput('');
+      setViewMode('main');
+      void txQuery.refetch();
+      onTopupComplete?.();
+    } else if (outcome?.status === 'pending') {
+      setViewMode('main');
+    }
   };
 
   if (viewMode === 'send_money') {
     return (
       <CustomerSendMoneyScreen
-        walletBalance={balance}
         onBack={() => {
           if (initialMode === 'send_money' && onBack) {
             onBack();
@@ -217,10 +380,11 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
           }
         }}
         onNavigate={onNavigate}
-        onSendSuccess={(amt) => setBalance((prev) => Math.max(0, prev - amt))}
       />
     );
   }
+
+  const filterCount = activeFilterCount(filters);
 
   return (
     <View style={styles.container}>
@@ -232,7 +396,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => {
-              if (viewMode === 'add_money') {
+              if (viewMode === 'add_money' && initialMode !== 'add_money') {
                 setViewMode('main');
               } else if (onBack) {
                 onBack();
@@ -245,7 +409,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
           >
             <BackArrowSvg color="#1A1A1A" size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My wallet</Text>
+          <Text style={styles.headerTitle}>{viewMode === 'add_money' ? 'Add money' : 'My wallet'}</Text>
         </View>
       </View>
 
@@ -253,8 +417,9 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void handleRefresh()} />}
       >
-        {/* ── TOP WALLET POUCH CARD WITH CASH (Matching Image 2) ─────────────────── */}
+        {/* ── TOP WALLET POUCH CARD WITH CASH ─────────────────────────────────── */}
         <View style={styles.walletCardWrap}>
           <Image
             source={walletPouchCard}
@@ -264,24 +429,36 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
           <View style={styles.walletBalanceOverlay}>
             <TinyTohfaLeafSvg />
             <Text style={styles.walletBalanceLabel}>Wallet Balance</Text>
-            <Text style={styles.walletBalanceValue}>
-              ₹ {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </Text>
+            {walletQuery.isLoading ? (
+              <ActivityIndicator accessibilityLabel="Loading balance" />
+            ) : (
+              <Text style={styles.walletBalanceValue}>{formatInr(wallet?.balance)}</Text>
+            )}
           </View>
         </View>
 
-        {/* Wallet ID Subtitle (Matching Image 2) */}
-        <Text style={styles.walletIdText}>
-          Wallet ID: <Text style={styles.walletIdBold}>TOHFA123456789</Text>
-        </Text>
+        {walletQuery.isError && wallet === undefined ? (
+          <View style={extra.banner} accessibilityRole="alert">
+            <Text style={extra.bannerText}>{mapProblem(walletQuery.error).message}</Text>
+            <TouchableOpacity onPress={() => void walletQuery.refetch()} accessibilityLabel="Retry wallet">
+              <Text style={extra.bannerAction}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
-        {/* ── VIEW 1: MAIN WALLET VIEW (Screen 81 in Image 2) ─────────────────── */}
+        {frozen ? (
+          <View style={extra.banner} accessibilityRole="alert">
+            <Text style={extra.bannerText}>Your wallet is on hold. Adding or sending money is unavailable. Please contact support.</Text>
+          </View>
+        ) : null}
+
+        {/* ── VIEW 1: MAIN WALLET VIEW ────────────────────────────────────────── */}
         {viewMode === 'main' ? (
           <>
-            {/* Action Buttons (Matching Image 2) */}
             <View style={styles.actionButtonsWrap}>
               <TouchableOpacity
                 activeOpacity={0.8}
+                disabled={frozen}
                 onPress={() => {
                   if (onNavigate) {
                     onNavigate('CustomerSendMoney');
@@ -289,7 +466,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                     setViewMode('send_money');
                   }
                 }}
-                style={styles.sendMoneyBtn}
+                style={[styles.sendMoneyBtn, frozen && extra.disabled]}
                 accessibilityLabel="Send Money"
               >
                 <SendPaperPlaneSvg color="#2E7D32" size={18} />
@@ -298,8 +475,9 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
 
               <TouchableOpacity
                 activeOpacity={0.8}
+                disabled={frozen}
                 onPress={() => setViewMode('add_money')}
-                style={styles.addMoneyMainBtn}
+                style={[styles.addMoneyMainBtn, frozen && extra.disabled]}
                 accessibilityLabel="Add Money"
               >
                 <PlusSvg color="#FFFFFF" size={16} />
@@ -307,89 +485,62 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Recent Transactions Section Header with Filter */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Recent Transactions</Text>
-              <TouchableOpacity style={styles.filterPill} activeOpacity={0.7} accessibilityLabel="Filter">
+              <TouchableOpacity
+                style={styles.filterPill}
+                activeOpacity={0.7}
+                accessibilityLabel="Filter"
+                onPress={() => setFilterOpen(true)}
+              >
                 <FilterSvg size={13} color="#2E7D32" />
-                <Text style={styles.filterPillText}>Filter</Text>
+                <Text style={styles.filterPillText}>{filterCount > 0 ? `Filter (${filterCount})` : 'Filter'}</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Transactions List (Matching Image 2) */}
             <View style={styles.transactionsList}>
-              {/* Row 1: Added to Wallet */}
-              <View style={styles.txRow}>
-                <View style={[styles.txIconBox, { backgroundColor: '#EDF8EE' }]}>
-                  <WalletIconSvg color="#2E7D32" size={18} />
+              {txQuery.isLoading ? (
+                <View style={extra.centerBox}>
+                  <ActivityIndicator accessibilityLabel="Loading transactions" />
                 </View>
-                <View style={styles.txDetailsCol}>
-                  <Text style={styles.txTitle}>Added to Wallet</Text>
-                  <Text style={styles.txDate}>12 Nov 2026, 10:24 Am</Text>
+              ) : txQuery.isError && transactions.length === 0 ? (
+                <View style={extra.centerBox} accessibilityRole="alert">
+                  <Text style={extra.stateText}>{mapProblem(txQuery.error).message}</Text>
+                  <TouchableOpacity onPress={() => void txQuery.refetch()} accessibilityLabel="Retry transactions">
+                    <Text style={extra.bannerAction}>Retry</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: '#1A1A1A' }]}>+ ₹ 1,000.00</Text>
-                  <View style={styles.successPill}>
-                    <Text style={styles.successPillText}>Success</Text>
-                  </View>
+              ) : transactions.length === 0 ? (
+                <View style={extra.centerBox}>
+                  <Text style={extra.stateText}>
+                    {filterCount > 0 ? 'No transactions match these filters.' : 'No transactions yet'}
+                  </Text>
+                  {filterCount > 0 ? (
+                    <TouchableOpacity onPress={() => setFilters(DEFAULT_TX_FILTERS)} accessibilityLabel="Clear filters">
+                      <Text style={extra.bannerAction}>Clear filters</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 2: Order Payment */}
-              <View style={styles.txRow}>
-                <View style={[styles.txIconBox, { backgroundColor: '#FFEBEE' }]}>
-                  <CartIconSvg color="#DC2626" size={18} />
-                </View>
-                <View style={styles.txDetailsCol}>
-                  <Text style={styles.txTitle}>Order Payment</Text>
-                  <Text style={styles.txOrderRef}>ORD-20261115-0039</Text>
-                  <Text style={styles.txDate}>12 Nov 2026, 10:24 Am</Text>
-                </View>
-                <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: '#DC2626' }]}>- ₹ 360.00</Text>
-                  <View style={styles.successPill}>
-                    <Text style={styles.successPillText}>Success</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 3: Order Refund */}
-              <View style={styles.txRow}>
-                <View style={[styles.txIconBox, { backgroundColor: '#E3F2FD' }]}>
-                  <RefundIconSvg color="#2563EB" size={18} />
-                </View>
-                <View style={styles.txDetailsCol}>
-                  <Text style={styles.txTitle}>Order Refund</Text>
-                  <Text style={styles.txOrderRef}>ORD-20261115-0039</Text>
-                  <Text style={styles.txDate}>10 Nov 2026, 10:24 Am</Text>
-                </View>
-                <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: '#1A1A1A' }]}>+ ₹ 390.00</Text>
-                  <View style={styles.successPill}>
-                    <Text style={styles.successPillText}>Success</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 4: Added to Wallet */}
-              <View style={styles.txRow}>
-                <View style={[styles.txIconBox, { backgroundColor: '#EDF8EE' }]}>
-                  <WalletIconSvg color="#2E7D32" size={18} />
-                </View>
-                <View style={styles.txDetailsCol}>
-                  <Text style={styles.txTitle}>Added to Wallet</Text>
-                  <Text style={styles.txDate}>10 Nov 2026, 10:24 Am</Text>
-                </View>
-                <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: '#1A1A1A' }]}>+ ₹ 500.00</Text>
-                  <View style={styles.successPill}>
-                    <Text style={styles.successPillText}>Success</Text>
-                  </View>
-                </View>
-              </View>
+              ) : (
+                <>
+                  {transactions.map((tx, i) => (
+                    <React.Fragment key={tx.id}>
+                      <TransactionRow tx={tx} />
+                      {i < transactions.length - 1 ? <View style={styles.divider} /> : null}
+                    </React.Fragment>
+                  ))}
+                  {txQuery.hasNextPage ? (
+                    <TouchableOpacity
+                      style={extra.loadMore}
+                      disabled={txQuery.isFetchingNextPage}
+                      onPress={() => void txQuery.fetchNextPage()}
+                      accessibilityLabel="Load more transactions"
+                    >
+                      {txQuery.isFetchingNextPage ? <ActivityIndicator /> : <Text style={extra.bannerAction}>Load more</Text>}
+                    </TouchableOpacity>
+                  ) : null}
+                </>
+              )}
             </View>
           </>
         ) : (
@@ -401,34 +552,39 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               <TextInput
                 style={styles.amountInput}
                 placeholder=""
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
                 value={amountInput}
-                onChangeText={setAmountInput}
+                onChangeText={(text) => {
+                  setTopupError(null);
+                  setAmountInput(sanitizeAmountText(text));
+                }}
                 autoFocus={true}
+                editable={!processing}
+                accessibilityLabel="Amount"
               />
             </View>
+            {amountError !== null ? <Text style={extra.fieldError}>{amountError}</Text> : null}
+            {limits ? (
+              <Text style={extra.hint}>
+                Limits: {formatInrCompact(limits.min)} - {formatInrCompact(limits.max)} per top-up
+              </Text>
+            ) : null}
 
-            {/* Quick Select Amount */}
             <Text style={[styles.inputLabel, { marginTop: 20 }]}>Quick Select Amount</Text>
             <View style={styles.quickSelectRow}>
-              {quickAmounts.map(val => {
-                const isSelected = parsedAmount === val;
+              {chips.map((val) => {
+                const isSelected = parsedAmount === `${val}.00`;
                 return (
                   <TouchableOpacity
                     key={val}
                     activeOpacity={0.7}
-                    onPress={() => handleSelectQuickAmount(val)}
-                    style={[
-                      styles.quickAmountPill,
-                      isSelected && styles.quickAmountPillSelected,
-                    ]}
+                    onPress={() => {
+                      setTopupError(null);
+                      setAmountInput(String(val));
+                    }}
+                    style={[styles.quickAmountPill, isSelected && styles.quickAmountPillSelected]}
                   >
-                    <Text
-                      style={[
-                        styles.quickAmountText,
-                        isSelected && styles.quickAmountTextSelected,
-                      ]}
-                    >
+                    <Text style={[styles.quickAmountText, isSelected && styles.quickAmountTextSelected]}>
                       ₹ {val.toLocaleString('en-IN')}
                     </Text>
                   </TouchableOpacity>
@@ -436,14 +592,13 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               })}
             </View>
 
-            {/* Choose Payment Method */}
             <Text style={[styles.inputLabel, { marginTop: 24 }]}>Choose Payment Method</Text>
 
-            {/* UPI */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('upi')}
               style={styles.paymentMethodRow}
+              accessibilityLabel="UPI"
             >
               <View style={styles.methodIconBox}>
                 <UpiSvg size={22} />
@@ -457,11 +612,11 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Debit / Credit Card */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('card')}
               style={styles.paymentMethodRow}
+              accessibilityLabel="Debit / Credit Card"
             >
               <View style={styles.methodIconBox}>
                 <CardSvg size={22} />
@@ -475,11 +630,11 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Net Banking */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('netbanking')}
               style={styles.paymentMethodRow}
+              accessibilityLabel="Net Banking"
             >
               <View style={styles.methodIconBox}>
                 <BankSvg size={22} />
@@ -493,25 +648,33 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Submit Add Money Button */}
+            {topupError !== null ? (
+              <Text style={extra.fieldError} accessibilityRole="alert">
+                {topupError}
+              </Text>
+            ) : null}
+
             <TouchableOpacity
               activeOpacity={0.8}
-              onPress={handleConfirmAddMoney}
-              disabled={parsedAmount <= 0}
-              style={[
-                styles.addMoneySubmitBtn,
-                parsedAmount > 0 ? styles.addMoneySubmitBtnActive : styles.addMoneySubmitBtnDisabled,
-              ]}
-              accessibilityLabel={`Add ₹${parsedAmount} to Wallet`}
+              onPress={() => void handlePay()}
+              disabled={!canPay}
+              style={[styles.addMoneySubmitBtn, canPay ? styles.addMoneySubmitBtnActive : styles.addMoneySubmitBtnDisabled]}
+              accessibilityLabel="Add to Wallet"
             >
-              <Text
-                style={[
-                  styles.addMoneySubmitBtnText,
-                  parsedAmount > 0 ? styles.addMoneySubmitBtnTextActive : styles.addMoneySubmitBtnTextDisabled,
-                ]}
-              >
-                + Add ₹ {parsedAmount} to Wallet
-              </Text>
+              {processing ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text
+                  style={[
+                    styles.addMoneySubmitBtnText,
+                    canPay ? styles.addMoneySubmitBtnTextActive : styles.addMoneySubmitBtnTextDisabled,
+                  ]}
+                >
+                  {waitSeconds > 0
+                    ? `Try again in ${waitSeconds}s`
+                    : `+ Add ${parsedAmount === null ? '' : formatInrCompact(parsedAmount)} to Wallet`}
+                </Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -519,16 +682,83 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* ── MODAL: SCREEN 72A MONEY ADDED SUCCESSFULLY! ─────────────────────── */}
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleModalClose}
-      >
+      {/* ── MODAL: FILTER ───────────────────────────────────────────────────── */}
+      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
+        <View style={extra.sheetBackdrop}>
+          <View style={extra.sheet}>
+            <View style={extra.sheetHeader}>
+              <Text style={styles.sectionTitle}>Filter transactions</Text>
+              <TouchableOpacity onPress={() => setFilterOpen(false)} accessibilityLabel="Close filters">
+                <CloseSvg size={18} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Direction</Text>
+            <View style={extra.chipRow}>
+              {TAB_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  onPress={() => setFilters((f) => ({ ...f, tab: o.value }))}
+                  style={[extra.chip, filters.tab === o.value && extra.chipActive]}
+                  accessibilityLabel={`Direction ${o.label}`}
+                >
+                  <Text style={[extra.chipText, filters.tab === o.value && extra.chipTextActive]}>{o.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Type</Text>
+            <View style={extra.chipRow}>
+              {TYPE_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.label}
+                  onPress={() => setFilters((f) => ({ ...f, type: o.value }))}
+                  style={[extra.chip, filters.type === o.value && extra.chipActive]}
+                  accessibilityLabel={`Type ${o.label}`}
+                >
+                  <Text style={[extra.chipText, filters.type === o.value && extra.chipTextActive]}>{o.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Date</Text>
+            <View style={extra.chipRow}>
+              {RANGE_OPTIONS.map((o) => (
+                <TouchableOpacity
+                  key={o.value}
+                  onPress={() => setFilters((f) => ({ ...f, range: o.value }))}
+                  style={[extra.chip, filters.range === o.value && extra.chipActive]}
+                  accessibilityLabel={`Date ${o.label}`}
+                >
+                  <Text style={[extra.chipText, filters.range === o.value && extra.chipTextActive]}>{o.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={extra.sheetActions}>
+              <TouchableOpacity
+                onPress={() => setFilters(DEFAULT_TX_FILTERS)}
+                style={[styles.sendMoneyBtn, { flex: 1 }]}
+                accessibilityLabel="Reset filters"
+              >
+                <Text style={styles.sendMoneyBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setFilterOpen(false)}
+                style={[styles.addMoneyMainBtn, { flex: 1 }]}
+                accessibilityLabel="Apply filters"
+              >
+                <Text style={styles.addMoneyMainBtnText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL: TOP-UP RESULT ────────────────────────────────────────────── */}
+      <Modal visible={outcome !== null} transparent={true} animationType="fade" onRequestClose={handleModalClose}>
         <View style={styles.modalBackdrop}>
           <View style={styles.successModalCard}>
-            {/* Close X */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={handleModalClose}
@@ -538,44 +768,64 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               <CloseSvg size={18} color="#6B7280" />
             </TouchableOpacity>
 
-            {/* Success Illustration */}
-            <Image
-              source={profileEmailVerified}
-              style={styles.modalSuccessIllustration}
-              resizeMode="contain"
-            />
+            {outcome?.status === 'success' ? (
+              <>
+                <Image source={profileEmailVerified} style={styles.modalSuccessIllustration} resizeMode="contain" />
+                <Text style={styles.modalTitle}>Money added successfully!</Text>
+                <Text style={styles.modalSubtitle}>{formatInr(outcome.receipt.amount)} has been added to your TOHFA Wallet.</Text>
+                <View style={styles.summaryMetricsCard}>
+                  <View style={styles.summaryMetricItem}>
+                    <Text style={styles.metricLabel}>Added Amount</Text>
+                    <Text style={styles.metricValue}>{formatInr(outcome.receipt.amount)}</Text>
+                  </View>
+                  <View style={styles.summaryMetricItem}>
+                    <Text style={styles.metricLabel}>Wallet Balance</Text>
+                    <Text style={styles.metricValue}>{formatInr(outcome.receipt.balanceAfter)}</Text>
+                  </View>
+                  <View style={styles.summaryMetricItem}>
+                    <Text style={styles.metricLabel}>Transaction ID</Text>
+                    <Text style={styles.metricValue}>
+                      {outcome.receipt.transactionId ? txnCodeFromId(outcome.receipt.transactionId) : '—'}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity activeOpacity={0.8} onPress={handleModalClose} style={styles.viewWalletBtn} accessibilityLabel="View Wallet">
+                  <Text style={styles.viewWalletBtnText}>{onTopupComplete ? 'Continue' : 'View Wallet'}</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
 
-            {/* Title */}
-            <Text style={styles.modalTitle}>Money added successfully!</Text>
-            <Text style={styles.modalSubtitle}>
-              ₹{lastAddedAmount.toLocaleString('en-IN')} has been added to your TOHFA Wallet.
-            </Text>
+            {outcome?.status === 'pending' ? (
+              <>
+                <Text style={styles.modalTitle}>Confirming your payment</Text>
+                <Text style={styles.modalSubtitle}>
+                  We have not received the bank's confirmation for {formatInr(outcome.intent.amount)} yet. If it was paid, your wallet will update shortly. You will not be charged twice.
+                </Text>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  disabled={checking}
+                  onPress={() => void handleCheckAgain()}
+                  style={styles.viewWalletBtn}
+                  accessibilityLabel="Check status"
+                >
+                  {checking ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.viewWalletBtnText}>Check status</Text>}
+                </TouchableOpacity>
+              </>
+            ) : null}
 
-            {/* Summary Metrics Row */}
-            <View style={styles.summaryMetricsCard}>
-              <View style={styles.summaryMetricItem}>
-                <Text style={styles.metricLabel}>Added Amount</Text>
-                <Text style={styles.metricValue}>₹{lastAddedAmount.toLocaleString('en-IN')}</Text>
-              </View>
-              <View style={styles.summaryMetricItem}>
-                <Text style={styles.metricLabel}>Wallet Balance</Text>
-                <Text style={styles.metricValue}>₹{balance.toLocaleString('en-IN')}</Text>
-              </View>
-              <View style={styles.summaryMetricItem}>
-                <Text style={styles.metricLabel}>Transaction ID</Text>
-                <Text style={styles.metricValue}>WLT829456</Text>
-              </View>
-            </View>
-
-            {/* View Wallet Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleModalClose}
-              style={styles.viewWalletBtn}
-              accessibilityLabel="View Wallet"
-            >
-              <Text style={styles.viewWalletBtnText}>View Wallet</Text>
-            </TouchableOpacity>
+            {outcome?.status === 'failed' ? (
+              <>
+                <Text style={styles.modalTitle}>Payment failed</Text>
+                <Text style={styles.modalSubtitle}>
+                  {outcome.description && outcome.description.length > 0
+                    ? outcome.description
+                    : 'The payment did not go through. No money was added to your wallet.'}
+                </Text>
+                <TouchableOpacity activeOpacity={0.8} onPress={handleModalClose} style={styles.viewWalletBtn} accessibilityLabel="Try again">
+                  <Text style={styles.viewWalletBtnText}>Try again</Text>
+                </TouchableOpacity>
+              </>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -1001,4 +1251,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+});
+
+const extra = StyleSheet.create({
+  banner: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  bannerText: { flex: 1, fontSize: 12, color: '#B91C1C' },
+  bannerAction: { fontSize: 13, fontWeight: '700', color: '#2E7D32' },
+  disabled: { opacity: 0.45 },
+  centerBox: { alignItems: 'center', paddingVertical: 28, gap: 8 },
+  stateText: { fontSize: 13, color: '#6B7280', textAlign: 'center' },
+  loadMore: { alignItems: 'center', paddingVertical: 14 },
+  fieldError: { fontSize: 12, color: '#DC2626', marginTop: 6 },
+  hint: { fontSize: 11, color: '#6B7280', marginTop: 6 },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 32 },
+  sheetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 6 },
+  chipActive: { borderColor: '#2E7D32', backgroundColor: '#E8F5E9' },
+  chipText: { fontSize: 12, color: '#1A1A1A' },
+  chipTextActive: { color: '#2E7D32', fontWeight: '700' },
+  sheetActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
 });

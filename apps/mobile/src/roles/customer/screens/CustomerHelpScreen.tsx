@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
@@ -18,10 +19,12 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { groupHelpArticles, searchHelpGroups, useHelpArticles } from '../api/help';
+import { mapProblem } from '../api/problem';
 
 export interface CustomerHelpScreenProps {
-  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
-  onBack?: () => void;
+  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  onBack?: (() => void) | undefined;
 }
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
@@ -161,183 +164,16 @@ const UserOutlineSvg = ({ color = '#2E7D32', size = 22 }: { color?: string | und
   </Svg>
 );
 
-// ── FAQ DATA SPEC (EXACT FIGMA SCREENS) ────────────────────────────────────────
+// ── CATEGORY ICONS (by name; admin-managed categories fall back to the leaf) ────
 
-interface FaqItem {
-  id: string;
-  q: string;
-  a: string;
+function categoryIcon(category: string, color: string): React.ReactNode {
+  const c = category.toLowerCase();
+  if (/order|deliver/.test(c)) return <PackageOutlineSvg color={color} />;
+  if (/pay|wallet|money/.test(c)) return <WalletOutlineSvg color={color} />;
+  if (/return|refund/.test(c)) return <ReturnOutlineSvg color={color} />;
+  if (/account|profile|login/.test(c)) return <UserOutlineSvg color={color} />;
+  return <LeafOutlineSvg color={color} />;
 }
-
-interface FaqCategory {
-  id: string;
-  title: string;
-  icon: (color?: string) => React.ReactNode;
-  items: FaqItem[];
-}
-
-const FAQ_CATEGORIES: FaqCategory[] = [
-  {
-    id: 'orders_delivery',
-    title: 'Orders & Delivery',
-    icon: (color) => <PackageOutlineSvg color={color || '#2E7D32'} size={22} />,
-    items: [
-      {
-        id: 'od_1',
-        q: '1. How can I track my order?',
-        a: 'You can track your order from My Orders. Select your order to view its current status, estimated delivery details and order updates.',
-      },
-      {
-        id: 'od_2',
-        q: '2. How do I know if my order is confirmed?',
-        a: 'Once your order is successfully placed, you will receive an order confirmation with your Order ID and payment details.',
-      },
-      {
-        id: 'od_3',
-        q: '3. Can I change my delivery address after placing an order?',
-        a: 'Address changes may be possible before your order is processed. Contact our support team as soon as possible to check whether the address can be updated.',
-      },
-      {
-        id: 'od_4',
-        q: '4. How can I check my estimated delivery date?',
-        a: 'Open My Orders, select your order and check the estimated delivery information. Delivery timelines depend on your location and product availability.',
-      },
-      {
-        id: 'od_5',
-        q: '5. Can I cancel my order?',
-        a: 'You can request cancellation from the order details page if your order is still eligible for cancellation. Once processing or dispatch has started, cancellation may not be available.',
-      },
-    ],
-  },
-  {
-    id: 'payments_wallet',
-    title: 'Payments & Wallet',
-    icon: (color) => <WalletOutlineSvg color={color || '#2E7D32'} size={22} />,
-    items: [
-      {
-        id: 'pw_1',
-        q: '1. How can I add money to my TOHFA Wallet?',
-        a: 'Go to My Wallet, tap Add Money, enter the amount and complete the payment.',
-      },
-      {
-        id: 'pw_2',
-        q: '2. Which payment methods are supported?',
-        a: 'You can pay using the payment options available at checkout, such as UPI, cards and net banking.',
-      },
-      {
-        id: 'pw_3',
-        q: '3. How can I check my wallet transaction history?',
-        a: 'Open My Wallet and select Transaction History to view all credits, debits and refunds.',
-      },
-      {
-        id: 'pw_4',
-        q: '4. How long does a refund take to reach my wallet?',
-        a: 'Eligible refunds are credited according to the refund policy. Check your wallet for the updated balance.',
-      },
-      {
-        id: 'pw_5',
-        q: '5. What should I do if money is deducted but my order fails?',
-        a: 'Check your transaction history first. If the amount is not refunded, contact TOHFA Support with your payment details.',
-      },
-    ],
-  },
-  {
-    id: 'returns_refunds',
-    title: 'Returns & Refunds',
-    icon: (color) => <ReturnOutlineSvg color={color || '#2E7D32'} size={22} />,
-    items: [
-      {
-        id: 'rr_1',
-        q: '1. How can I return a product?',
-        a: 'Go to My Orders, select the order and tap Return Order to submit a request.',
-      },
-      {
-        id: 'rr_2',
-        q: '2. Which products are eligible for return?',
-        a: "Only products that meet TOHFA Market's return policy are eligible for return or replacement.",
-      },
-      {
-        id: 'rr_3',
-        q: '3. How can I check my return request status?',
-        a: 'Open your order and tap Track Request to view the latest return status.',
-      },
-      {
-        id: 'rr_4',
-        q: '4. How long does it take to receive a refund?',
-        a: 'Refund processing time depends on the payment method and return approval status.',
-      },
-      {
-        id: 'rr_5',
-        q: '5. What should I do if I receive damaged or poor-quality products?',
-        a: 'Raise a return request through My Orders and upload clear photos as evidence.',
-      },
-    ],
-  },
-  {
-    id: 'products_quality',
-    title: 'Products & Quality',
-    icon: (color) => <LeafOutlineSvg color={color || '#2E7D32'} size={22} />,
-    items: [
-      {
-        id: 'pq_1',
-        q: '1. How can I check product details?',
-        a: 'Select a product to view its description, origin, price, quantity and freshness details.',
-      },
-      {
-        id: 'pq_2',
-        q: '2. Are TOHFA Market products sourced from local farmers?',
-        a: 'Yes, products are sourced from participating farmers across the Nilgiris region.',
-      },
-      {
-        id: 'pq_3',
-        q: '3. How can I identify organic products?',
-        a: 'Check the product details for available organic and quality certifications or labels.',
-      },
-      {
-        id: 'pq_4',
-        q: '4. What should I do if I receive a poor-quality product?',
-        a: 'Go to My Orders, select the product and raise a Product Support or Return Request.',
-      },
-      {
-        id: 'pq_5',
-        q: '5. How can I check product availability?',
-        a: 'Product availability is updated based on farmer supply and your delivery or pickup location.',
-      },
-    ],
-  },
-  {
-    id: 'account_profile',
-    title: 'Account & Profile',
-    icon: (color) => <UserOutlineSvg color={color || '#2E7D32'} size={22} />,
-    items: [
-      {
-        id: 'ap_1',
-        q: '1. How can I update my profile details?',
-        a: 'Go to My Profile, select Edit Profile, update your details and tap Save Changes.',
-      },
-      {
-        id: 'ap_2',
-        q: '2. How can I change my registered email address?',
-        a: 'Open Edit Profile, select your email address, enter the new email and complete OTP verification.',
-      },
-      {
-        id: 'ap_3',
-        q: '3. How can I update my delivery address?',
-        a: 'Go to My Addresses, select Add New Address or edit an existing address and save it.',
-      },
-      {
-        id: 'ap_4',
-        q: '4. How can I change my profile picture?',
-        a: 'Open Edit Profile, tap the profile photo icon and upload or capture a new picture.',
-      },
-      {
-        id: 'ap_5',
-        q: '5. How can I delete or deactivate my account?',
-        a: 'Contact TOHFA Support to request account deactivation or deletion and follow the verification process.',
-      },
-    ],
-  },
-];
 
 export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
   onNavigate,
@@ -345,53 +181,19 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  const query = useHelpArticles();
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
-  // By default in Figma Image 1, "Orders & Delivery" is open
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    orders_delivery: true,
-  });
-  // In Image 1, question 1 of Orders & Delivery is open with its answer
-  const [expandedQuestions, setExpandedQuestions] = useState<Record<string, boolean>>({
-    od_1: true,
-  });
+  // undefined = default (first category and its first question open, as in Figma)
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedQuestions, setExpandedQuestions] = useState<Record<string, boolean>>({});
 
-  const toggleCategory = (categoryId: string) => {
-    setExpandedCategories((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
-    }));
-  };
-
-  const toggleQuestion = (questionId: string) => {
-    setExpandedQuestions((prev) => ({
-      ...prev,
-      [questionId]: !prev[questionId],
-    }));
-  };
-
-  // Filter categories and questions when searching
-  const filteredCategories = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return FAQ_CATEGORIES;
-
-    return FAQ_CATEGORIES.map((cat) => {
-      const catMatch = cat.title.toLowerCase().includes(q);
-      const matchedItems = cat.items.filter(
-        (item) => item.q.toLowerCase().includes(q) || item.a.toLowerCase().includes(q),
-      );
-
-      if (catMatch || matchedItems.length > 0) {
-        return {
-          ...cat,
-          items: catMatch ? cat.items : matchedItems,
-        };
-      }
-      return null;
-    }).filter(Boolean) as FaqCategory[];
-  }, [searchQuery]);
+  const groups = useMemo(() => (query.data ? groupHelpArticles(query.data) : []), [query.data]);
+  const filtered = useMemo(() => searchHelpGroups(groups, searchQuery), [groups, searchQuery]);
+  const searching = searchQuery.trim().length > 0;
+  const contact = query.data?.contact;
 
   return (
     <View style={styles.container}>
@@ -426,78 +228,99 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            accessibilityLabel="Search help"
           />
           <SearchSvg color="#6B7280" size={20} />
         </View>
 
-        {/* ── FAQ CATEGORIES ACCORDION ────────────────────────────────────────── */}
-        <View style={styles.accordionContainer}>
-          {filteredCategories.map((category) => {
-            // When user searches, auto-expand categories
-            const isCategoryExpanded =
-              searchQuery.trim().length > 0 || !!expandedCategories[category.id];
+        {query.isLoading ? (
+          <ActivityIndicator accessibilityLabel="Loading help" style={{ marginTop: 32 }} />
+        ) : query.isError ? (
+          <View style={{ alignItems: 'center', marginTop: 32, gap: 8 }} accessibilityRole="alert">
+            <Text style={styles.answerText}>{mapProblem(query.error).message}</Text>
+            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel="Retry help">
+              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filtered.length === 0 ? (
+          <Text style={[styles.answerText, { textAlign: 'center', marginTop: 32 }]}>
+            {searching ? 'No matching questions found.' : 'Help articles are not available yet.'}
+          </Text>
+        ) : (
+          /* ── FAQ CATEGORIES ACCORDION ──────────────────────────────────────── */
+          <View style={styles.accordionContainer}>
+            {filtered.map((group, groupIndex) => {
+              const isCategoryExpanded = searching || (expandedCategories[group.category] ?? groupIndex === 0);
 
-            return (
-              <View key={category.id} style={styles.categoryBlock}>
-                {/* Category Header Row */}
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => toggleCategory(category.id)}
-                  style={styles.categoryHeaderRow}
-                  accessibilityLabel={category.title}
-                >
-                  <View style={styles.categoryIconWrap}>
-                    {category.icon(customerColors.brand)}
-                  </View>
-                  <Text style={styles.categoryTitle}>{category.title}</Text>
-                  {isCategoryExpanded ? (
-                    <ChevronDownSvg color="#1A2E1A" size={18} />
-                  ) : (
-                    <ChevronRightSvg color="#1A2E1A" size={18} />
-                  )}
-                </TouchableOpacity>
+              return (
+                <View key={group.category} style={styles.categoryBlock}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() =>
+                      setExpandedCategories((prev) => ({ ...prev, [group.category]: !isCategoryExpanded }))
+                    }
+                    style={styles.categoryHeaderRow}
+                    accessibilityLabel={group.category}
+                  >
+                    <View style={styles.categoryIconWrap}>{categoryIcon(group.category, customerColors.brand)}</View>
+                    <Text style={styles.categoryTitle}>{group.category}</Text>
+                    {isCategoryExpanded ? (
+                      <ChevronDownSvg color="#1A2E1A" size={18} />
+                    ) : (
+                      <ChevronRightSvg color="#1A2E1A" size={18} />
+                    )}
+                  </TouchableOpacity>
 
-                {/* Expanded Questions for this category */}
-                {isCategoryExpanded && (
-                  <View style={styles.questionsContainer}>
-                    {category.items.map((item) => {
-                      const isQuestionExpanded =
-                        searchQuery.trim().length > 0 || !!expandedQuestions[item.id];
+                  {isCategoryExpanded && (
+                    <View style={styles.questionsContainer}>
+                      {group.articles.map((item, itemIndex) => {
+                        const isQuestionExpanded =
+                          searching || (expandedQuestions[item.id] ?? (groupIndex === 0 && itemIndex === 0));
+                        const label = `${itemIndex + 1}. ${item.title}`;
 
-                      return (
-                        <View key={item.id} style={styles.questionBlock}>
-                          <TouchableOpacity
-                            activeOpacity={0.7}
-                            onPress={() => toggleQuestion(item.id)}
-                            style={styles.questionHeaderRow}
-                            accessibilityLabel={item.q}
-                          >
-                            <Text style={styles.questionText}>{item.q}</Text>
-                            {isQuestionExpanded ? (
-                              <ChevronDownSvg color="#1A2E1A" size={16} />
-                            ) : (
-                              <ChevronUpSvg color="#1A2E1A" size={16} />
+                        return (
+                          <View key={item.id} style={styles.questionBlock}>
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              onPress={() => setExpandedQuestions((prev) => ({ ...prev, [item.id]: !isQuestionExpanded }))}
+                              style={styles.questionHeaderRow}
+                              accessibilityLabel={label}
+                            >
+                              <Text style={styles.questionText}>{label}</Text>
+                              {isQuestionExpanded ? (
+                                <ChevronDownSvg color="#1A2E1A" size={16} />
+                              ) : (
+                                <ChevronUpSvg color="#1A2E1A" size={16} />
+                              )}
+                            </TouchableOpacity>
+
+                            {isQuestionExpanded && (
+                              <View style={styles.answerWrap}>
+                                <Text style={styles.answerText}>{item.body}</Text>
+                              </View>
                             )}
-                          </TouchableOpacity>
+                            <View style={styles.questionDivider} />
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
 
-                          {/* Answer text */}
-                          {isQuestionExpanded && (
-                            <View style={styles.answerWrap}>
-                              <Text style={styles.answerText}>{item.a}</Text>
-                            </View>
-                          )}
-                          <View style={styles.questionDivider} />
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
+                  <View style={styles.categoryDivider} />
+                </View>
+              );
+            })}
+          </View>
+        )}
 
-                {/* Category Bottom Divider */}
-                <View style={styles.categoryDivider} />
-              </View>
-            );
-          })}
+        {/* ── STILL NEED HELP? ──────────────────────────────────────────────── */}
+        <View style={{ marginTop: 20, gap: 6 }}>
+          <Text style={styles.categoryTitle}>Still need help?</Text>
+          {contact?.phone ? <Text style={styles.answerText}>Call: {contact.phone}</Text> : null}
+          {contact?.email ? <Text style={styles.answerText}>Email: {contact.email}</Text> : null}
+          <TouchableOpacity onPress={() => onNavigate?.('ContactSupport')} accessibilityLabel="Contact Support">
+            <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Contact Support</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 60 }} />
@@ -505,6 +328,7 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

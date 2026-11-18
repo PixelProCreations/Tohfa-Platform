@@ -9,21 +9,22 @@ import {
   Animated,
   StatusBar,
   Modal,
-  TextInput,
   Platform,
+  Linking,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
-  customerShadow,
 } from '../theme';
-import { CustomerFloatingNav, type CustomerActiveTab, CustomerDeliveryAddressModal, type AddressData } from '../components';
+import { NotificationBell } from '../components/NotificationBell';
+import { CustomerFloatingNav, type CustomerActiveTab, CustomerDeliveryAddressModal } from '../components';
+import { ServiceAreaRequestCard, prefillFromAddress } from '../components/ServiceAreaRequestFlow';
+import { useAddresses, pickDefaultAddress, formatAddressShort } from '../api/addresses';
 import dashboardBannerHarvest from '../assets/images/dashboard_banner_harvest.png';
 import bannerFarmFreshVegetables from '../assets/images/banner_farm_fresh_vegetables.png';
 import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
-import flyingDeliveryBag from '../assets/images/flying_delivery_bag.png';
-import { CategoryImages, ProductImages, SectionBadges } from '../assets/images/products';
+import { ProductImages } from '../assets/images/products';
 
 interface HomeScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
@@ -106,17 +107,6 @@ const DetailedEggIcon = () => (
   </Svg>
 );
 
-const HeartSvg = ({ filled = false }: { filled?: boolean }) => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-      fill={filled ? '#EF4444' : 'none'}
-      stroke={filled ? '#EF4444' : '#9CA3AF'}
-      strokeWidth={1.6}
-    />
-  </Svg>
-);
-
 const TopBarAvatarSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={1.8} />
@@ -148,310 +138,70 @@ const TopBarHeartSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size
 );
 
 
-// Product Card interface
-interface ProductCardData {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice: number;
-  unit: string;
-  rating: number;
-  emoji: string;
-  image?: any;
-  status?: 'normal' | 'comingTomorrow' | 'unsalable';
-}
-
-// ── FULL PRODUCT CATALOG BY SECTION (EXACT FIGMA EXTRACTED IMAGES) ──────────
-
-const FOR_YOU_ITEMS: ProductCardData[] = [
-  { id: 'fy1', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍉', image: ProductImages.foryouWatermelon },
-  { id: 'fy2', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.foryouLettuce },
-  { id: 'fy3', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍓', image: ProductImages.foryouStrawberries },
-  { id: 'fy4', name: 'Fresh Tomatoes', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍅', image: ProductImages.foryouTomatoes },
-  { id: 'fy5', name: 'Sweet Mango', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🥭', image: ProductImages.foryouMango },
-  { id: 'fy6', name: 'Brinjal', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍆', image: ProductImages.foryouBrinjal },
-  { id: 'fy7', name: 'Sweet Corn', price: 60, originalPrice: 86, unit: 'piece', rating: 4.7, emoji: '🌽', image: ProductImages.foryouSweetCorn },
-  { id: 'fy8', name: 'Fresh Kiwi', price: 60, originalPrice: 86, unit: 'kg', rating: 4.8, emoji: '🥝', image: ProductImages.foryouKiwi },
-  { id: 'fy9', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥦', image: ProductImages.foryouBroccoli },
-  { id: 'fy10', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥕', image: ProductImages.foryouCarrot },
-];
-
-const VEGETABLE_ITEMS: ProductCardData[] = [
-  { id: 'veg1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥔', image: ProductImages.vegPotato, status: 'comingTomorrow' },
-  { id: 'veg2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥕', image: ProductImages.vegCarrot },
-  { id: 'veg3', name: 'Beetroot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.vegBeetroot },
-  { id: 'veg4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🥦', image: ProductImages.vegBroccoli },
-  { id: 'veg5', name: 'Cauliflower', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🥬', image: ProductImages.vegCauliflower },
-  { id: 'veg6', name: 'Pumpkin', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🎃', image: ProductImages.vegPumpkin },
-];
-
-const FRUIT_ITEMS: ProductCardData[] = [
-  { id: 'fr1', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍎', image: ProductImages.fruitApple, status: 'unsalable' },
-  { id: 'fr2', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍊', image: ProductImages.fruitOrange },
-  { id: 'fr3', name: 'Banana Robusta', price: 60, originalPrice: 86, unit: 'dozen', rating: 4.8, emoji: '🍌', image: ProductImages.fruitBanana },
-  { id: 'fr4', name: 'Pomegranate', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🍎', image: ProductImages.fruitPomegranate },
-  { id: 'fr5', name: 'Grapes', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍇', image: ProductImages.fruitGrapes },
-];
-
-const DRY_FRUITS_ITEMS: ProductCardData[] = [
-  { id: 'df1', name: 'Jumbo Figs', price: 60, originalPrice: 86, unit: 'g', rating: 4.5, emoji: '🌰', image: ProductImages.dryfruitFig },
-  { id: 'df2', name: 'Raisin Indian Bold', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥣', image: ProductImages.dryfruitRaisinBold },
-  { id: 'df3', name: 'Raisin Munakka', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥣', image: ProductImages.dryfruitRaisinMunakka },
-  { id: 'df4', name: 'Whole Cashews', price: 60, originalPrice: 86, unit: 'g', rating: 4.7, emoji: '🥜', image: ProductImages.dryfruitCashew },
-  { id: 'df5', name: 'Iranian Pistachio', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥜', image: ProductImages.dryfruitPistachio },
-  { id: 'df6', name: 'California Almonds', price: 60, originalPrice: 86, unit: 'g', rating: 4.8, emoji: '🥜', image: ProductImages.dryfruitAlmond },
-  { id: 'df7', name: 'Walnut Kernels', price: 60, originalPrice: 86, unit: 'g', rating: 4.7, emoji: '🥣', image: ProductImages.dryfruitWalnut },
-];
-
-const DAIRY_ITEMS: ProductCardData[] = [
-  { id: 'da1', name: 'Milk', price: 60, originalPrice: 86, unit: 'L', rating: 4.5, emoji: '🥛', image: ProductImages.dairyMilk },
-  { id: 'da2', name: 'Eggs', price: 60, originalPrice: 86, unit: 'piece', rating: 4.5, emoji: '🥚', image: ProductImages.dairyEggs },
-  { id: 'da3', name: 'Curd (Dahi)', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥣', image: ProductImages.dairyCurd },
-  { id: 'da4', name: 'Spiced Buttermilk', price: 60, originalPrice: 86, unit: 'L', rating: 4.7, emoji: '🥛', image: ProductImages.dairyButtermilk },
-  { id: 'da5', name: 'White Butter', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🧈', image: ProductImages.dairyButter },
-  { id: 'da6', name: 'Desi Cow Ghee', price: 60, originalPrice: 86, unit: 'g', rating: 4.9, emoji: '🍯', image: ProductImages.dairyGhee },
-  { id: 'da7', name: 'Fresh Paneer', price: 60, originalPrice: 86, unit: 'g', rating: 4.7, emoji: '🧀', image: ProductImages.dairyPaneer },
-  { id: 'da8', name: 'Artisan Cheese', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🧀', image: ProductImages.dairyCheese },
-  { id: 'da9', name: 'Fresh Cream', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥛', image: ProductImages.dairyFreshCream },
-];
-
-const GRAIN_ITEMS: ProductCardData[] = [
-  { id: 'gr1', name: 'Rice (raw)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍚', image: ProductImages.grainRawRice },
-  { id: 'gr2', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainBrownRice },
-  { id: 'gr3', name: 'Wheat', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainWheat },
-  { id: 'gr4', name: 'Ragi (Finger millet)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌾', image: ProductImages.grainRagi },
-  { id: 'gr5', name: 'Little millet (samai)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainLittleMillet },
-  { id: 'gr6', name: 'Foxtail millet (thinai)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainFoxtailMillet },
-  { id: 'gr7', name: 'Barnyard millet', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌾', image: ProductImages.grainBarnyardMillet },
-  { id: 'gr8', name: 'Kodo millet (varagu)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainKodoMillet },
-  { id: 'gr9', name: 'Pearl millet (bajra)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainPearlMillet },
-  { id: 'gr10', name: 'Sorghum', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌾', image: ProductImages.grainSorghum },
-  { id: 'gr11', name: 'Maize', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌽', image: ProductImages.grainMaize },
-  { id: 'gr12', name: 'Oats', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥣', image: ProductImages.grainOats },
-];
-
-const FRESH_COMBOS_ITEMS: ProductCardData[] = [
-  { id: 'fc1', name: 'ABC Combo', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥗', image: ProductImages.comboAbc },
-  { id: 'fc2', name: 'Baingan Bharta', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🍆', image: ProductImages.comboBainganBharta },
-  { id: 'fc3', name: 'Beat the Heat', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥒', image: ProductImages.comboBeatHeat },
-  { id: 'fc4', name: 'Oil Combo', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🍾', image: ProductImages.comboOil },
-  { id: 'fc5', name: 'Flour Combo', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🥡', image: ProductImages.comboFlour },
-];
-
-const SPREADS_ITEMS: ProductCardData[] = [
-  { id: 'sp1', name: 'Basil Pesto', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadBasilPesto },
-  { id: 'sp2', name: 'Beetroot Hummus', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadBeetrootHummus },
-  { id: 'sp3', name: 'Chilli Mango Dressing', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadChilliMango },
-  { id: 'sp4', name: 'Garlic Hummus', price: 60, originalPrice: 86, unit: 'portion', rating: 4.5, emoji: '🥣', image: ProductImages.spreadGarlicHummus },
-  { id: 'sp5', name: 'Guacamole', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadGuacamole },
-  { id: 'sp6', name: 'Honey Mustard', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadHoneyMustard },
-  { id: 'sp7', name: 'Thai Dressing', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadThaiDressing },
-  { id: 'sp8', name: 'Vinaigrette Salad Dressing', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadVinaigrette },
-];
-
-const SPICES_ITEMS: ProductCardData[] = [
-  { id: 'sc1', name: 'Black pepper', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🧂', image: ProductImages.spiceBlackPepper },
-  { id: 'sc2', name: 'Cardamom', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🧂', image: ProductImages.spiceCardamom },
-  { id: 'sc3', name: 'Cloves', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧂', image: ProductImages.spiceCloves },
-  { id: 'sc4', name: 'Cinnamon', price: 60, originalPrice: 86, unit: 'pack', rating: 4.7, emoji: '🧂', image: ProductImages.spiceCinnamon },
-  { id: 'sc5', name: 'Turmeric', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🧂', image: ProductImages.spiceTurmeric },
-  { id: 'sc6', name: 'Ginger fresh', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🧂', image: ProductImages.spiceGingerFresh },
-  { id: 'sc7', name: 'Dry ginger', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧂', image: ProductImages.spiceDryGinger },
-  { id: 'sc8', name: 'Dry red chilli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌶️', image: ProductImages.spiceDryRedChilli },
-  { id: 'sc9', name: 'Coriander seeds', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🧂', image: ProductImages.spiceCorianderSeeds },
-  { id: 'sc10', name: 'Cumin', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🧂', image: ProductImages.spiceCumin },
-  { id: 'sc11', name: 'Mustard seeds', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🧂', image: ProductImages.spiceMustardSeeds },
-];
-
-const SOAKED_ITEMS: ProductCardData[] = [
-  { id: 'so1', name: 'Soaked afghan Figs', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedFig },
-  { id: 'so2', name: 'Soaked Afghan Munakka', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedMunakka },
-  { id: 'so3', name: 'Soaked Black Chana', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedBlackChana },
-  { id: 'so4', name: 'Soaked Walnuts', price: 60, originalPrice: 86, unit: 'portion', rating: 4.7, emoji: '🥄', image: ProductImages.soakedWalnuts },
-  { id: 'so5', name: 'Soaked Jeera', price: 60, originalPrice: 86, unit: 'portion', rating: 4.5, emoji: '🥄', image: ProductImages.soakedJeera },
-];
-
-const BREADS_ITEMS: ProductCardData[] = [
-  { id: 'br1', name: 'Milk Bread', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🍞', image: ProductImages.breadMilk },
-  { id: 'br2', name: 'Multigrain Loaf', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥖', image: ProductImages.breadMultigrain },
-  { id: 'br3', name: 'Sandwich Bread', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.5, emoji: '🍞', image: ProductImages.breadSandwich },
-  { id: 'br4', name: 'Sourdough Loaf', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.7, emoji: '🍞', image: ProductImages.breadSourdough },
-];
-
-const FLOUR_ITEMS: ProductCardData[] = [
-  { id: 'fl1', name: 'Whole Wheat Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥡', image: ProductImages.flourWheat },
-  { id: 'fl2', name: 'Ragi Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥡', image: ProductImages.flourRagi },
-  { id: 'fl3', name: 'Rice Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥡', image: ProductImages.flourRice },
-  { id: 'fl4', name: 'Maize Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.5, emoji: '🥡', image: ProductImages.flourMaize },
-  { id: 'fl5', name: 'Foxtail Millet Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.5, emoji: '🥡', image: ProductImages.flourFoxtail },
-];
-
-const EXOTIC_ITEMS: ProductCardData[] = [
-  { id: 'ex1', name: 'Baby corn', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🌽', image: ProductImages.exoticBabycorn },
-  { id: 'ex2', name: 'Cabbage Purple', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥬', image: ProductImages.exoticCabbagePurple },
-  { id: 'ex3', name: 'Fresh Celery', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.7, emoji: '🌿', image: ProductImages.exoticCelery },
-  { id: 'ex4', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'pack', rating: 4.7, emoji: '🍅', image: ProductImages.exoticCherryTomato },
-  { id: 'ex5', name: 'Thai Chilli', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🌶️', image: ProductImages.exoticChilliThai },
-  { id: 'ex6', name: 'Thai Ginger', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🧄', image: ProductImages.exoticGingerThai },
-  { id: 'ex7', name: 'Fresh Rosemary', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.exoticRosemary },
-];
-
-const SWEET_NATURE_ITEMS: ProductCardData[] = [
-  { id: 'sn1', name: 'Natural Honey', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🍯', image: ProductImages.sweetHoney },
-  { id: 'sn2', name: 'Forest Honey', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🍯', image: ProductImages.sweetForestHoney },
-  { id: 'sn3', name: 'Palm Jaggery', price: 60, originalPrice: 86, unit: 'g', rating: 4.8, emoji: '🪵', image: ProductImages.sweetPalmJaggery },
-  { id: 'sn4', name: 'Country Jaggery', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🪵', image: ProductImages.sweetCountryJaggery },
-  { id: 'sn5', name: 'Cane Jaggery', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🪵', image: ProductImages.sweetCaneJaggery },
-];
-
-const HERBS_GREENS_ITEMS: ProductCardData[] = [
-  { id: 'hg1', name: 'Thyme', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbThyme },
-  { id: 'hg2', name: 'Coriander leaves', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌱', image: ProductImages.herbCoriander },
-  { id: 'hg3', name: 'Mint leaves', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🍃', image: ProductImages.herbMint },
-  { id: 'hg4', name: 'Spring Onion', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌱', image: ProductImages.herbSpringOnion },
-  { id: 'hg5', name: 'Spinach (Palak)', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.7, emoji: '🥬', image: ProductImages.herbSpinach },
-  { id: 'hg6', name: 'Lettuce', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🥬', image: ProductImages.herbLettuce },
-  { id: 'hg7', name: 'Celery', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbCelery },
-  { id: 'hg8', name: 'Parsley', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbParsley },
-  { id: 'hg9', name: 'Amaranth', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌱', image: ProductImages.herbAmaranth },
-  { id: 'hg10', name: 'Kale', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.7, emoji: '🥬', image: ProductImages.herbKale },
-  { id: 'hg11', name: 'Rosemary', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbRosemary },
-];
-
-const EVERYDAY_KITCHEN_ITEMS: ProductCardData[] = [
-  { id: 'ek1', name: 'Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGarlicPaste },
-  { id: 'ek2', name: 'Ginger & Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerGarlicPaste },
-  { id: 'ek3', name: 'Ginger Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerPaste },
-  { id: 'ek4', name: 'Onion Tomato Gravy', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🥫', image: ProductImages.kitchenOnionTomatoGravy },
-  { id: 'ek5', name: 'Tomato Gravy', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenTomatoGravy },
-  { id: 'ek6', name: 'Tomato Puree', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenTomatoPuree },
-  { id: 'ek7', name: 'Onion Tomato Masala', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenOnionTomatoMasala },
-];
-
-const TEA_COFFEE_ITEMS: ProductCardData[] = [
-  { id: 'tc1', name: 'Nilgiri Green Tea', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍵', image: ProductImages.teaNilgiriGreen },
-  { id: 'tc2', name: 'Nilgiri Black Tea', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '☕', image: ProductImages.teaNilgiriBlack },
-  { id: 'tc3', name: 'Orthodox Tea', price: 60, originalPrice: 86, unit: 'dozen', rating: 4.6, emoji: '🍵', image: ProductImages.teaOrthodox },
-  { id: 'tc4', name: 'Arabica Coffee Beans', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '☕', image: ProductImages.coffeeArabicaBeans },
-  { id: 'tc5', name: 'Robusta Coffee Beans', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '☕', image: ProductImages.coffeeRobustaBeans },
-  { id: 'tc6', name: 'Organic Arabica Beans', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '☕', image: ProductImages.coffeeOrganicBeans },
-  { id: 'tc7', name: 'Instant Coffee', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '☕', image: ProductImages.coffeeInstant },
-  { id: 'tc8', name: 'Masala Tea Blend', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍵', image: ProductImages.teaMasalaBlend },
-  { id: 'tc9', name: 'Green Tea Powder', price: 60, originalPrice: 86, unit: 'piece', rating: 4.6, emoji: '🍵', image: ProductImages.teaGreenPowder },
-];
-
-const FRESH_JUICES_ITEMS: ProductCardData[] = [
-  { id: 'fj1', name: 'ABC Juice', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.6, emoji: '🥤', image: ProductImages.juiceAbc },
-  { id: 'fj2', name: 'Coconut Water', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.6, emoji: '🥥', image: ProductImages.juiceCoconutWater },
-  { id: 'fj3', name: 'PAM Juice', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.7, emoji: '🥤', image: ProductImages.juicePam },
-  { id: 'fj4', name: 'Pineapple Cold-Pressed', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.8, emoji: '🍍', image: ProductImages.juicePineapple },
-  { id: 'fj5', name: 'Watermelon Fresh', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.6, emoji: '🍉', image: ProductImages.juiceWatermelon },
-];
-
-const NATURES_OILS_ITEMS: ProductCardData[] = [
-  { id: 'no1', name: 'Cold-Pressed Groundnut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🫒', image: ProductImages.oilGroundnut },
-  { id: 'no2', name: 'Coconut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🥥', image: ProductImages.oilCoconut },
-  { id: 'no3', name: 'Sesame Gingelly Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.7, emoji: '🫒', image: ProductImages.oilSesame },
-  { id: 'no4', name: 'Pure Sunflower Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🌻', image: ProductImages.oilSunflower },
-  { id: 'no5', name: 'Mustard Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.5, emoji: '🫒', image: ProductImages.oilMustard },
-];
-
-const FLOWERS_ITEMS: ProductCardData[] = [
-  { id: 'flw1', name: 'Rose', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌹', image: ProductImages.flowerRose },
-  { id: 'flw2', name: 'Jasmine', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🌸', image: ProductImages.flowerJasmine },
-  { id: 'flw3', name: 'Marigold Garland', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌼', image: ProductImages.flowerMarigold },
-  { id: 'flw4', name: 'Chrysanthemum', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌺', image: ProductImages.flowerChrysanthemum },
-  { id: 'flw5', name: 'Carnation', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌸', image: ProductImages.flowerCarnation },
-  { id: 'flw6', name: 'Gerbera', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌼', image: ProductImages.flowerGerbera },
-  { id: 'flw7', name: 'Aster', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌸', image: ProductImages.flowerAster },
-  { id: 'flw8', name: 'Seasonal Blossom', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '💐', image: ProductImages.flowerSeasonal },
-];
-
-interface CategoryCircleItem {
-  id: string;
-  label: string;
-  image?: any;
-  emoji?: string;
-}
-
-const CATEGORY_CIRCLES: CategoryCircleItem[] = [
-  { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables, emoji: '🥦' },
-  { id: 'c2', label: 'Fruit', image: CategoryImages.fruit, emoji: '🍎' },
-  { id: 'c3', label: 'Dairy', image: CategoryImages.dairy, emoji: '🥛' },
-  { id: 'c4', label: 'Grains', image: CategoryImages.grains, emoji: '🌾' },
-  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits, emoji: '🥜' },
-  { id: 'c6', label: 'Fresh Combos', image: CategoryImages.freshCombos, emoji: '🥗' },
-  { id: 'c7', label: 'Breads', image: CategoryImages.breads, emoji: '🍞' },
-  { id: 'c8', label: 'Fresh Juices', image: CategoryImages.freshJuices, emoji: '🧃' },
-  { id: 'c9', label: 'Everyday Kitchen', image: CategoryImages.everydayKitchen, emoji: '🥣' },
-  { id: 'c10', label: 'Rare & Exotic', image: CategoryImages.rareExotic, emoji: '🌽' },
-  { id: 'c11', label: 'Flour', image: CategoryImages.flour, emoji: '🥡' },
-  { id: 'c12', label: 'Sweet Nature', image: CategoryImages.sweetNature, emoji: '🍯' },
-  { id: 'c13', label: 'Herbs & Greens', image: CategoryImages.herbsGreens, emoji: '🌿' },
-  { id: 'c14', label: 'Spices', image: CategoryImages.spices, emoji: '🧂' },
-  { id: 'c15', label: 'Soaked', image: CategoryImages.soaked, emoji: '🥄' },
-  { id: 'c16', label: 'Tea & Coffee', image: CategoryImages.teaCoffee, emoji: '☕' },
-  { id: 'c17', label: 'Spreads', image: CategoryImages.spreads, emoji: '🥣' },
-  { id: 'c18', label: 'Flowers', image: CategoryImages.flowers, emoji: '🌸' },
-];
-
 import {
   ProductDetailsModal,
   RatingsReviewsModal,
-  FullProductDetailsModal,
   CartToast,
   ModalCloseCrossSvg,
-  type ProductModalData,
-  type VarietyItem,
 } from './ProductModals';
-import { orderStore } from '../state/orderState';
+import { useCatalogHome, productKey, type Category, type Product } from '../api/catalog';
+import { cartLineCount, useCart } from '../api/cart';
+import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
+import { useWalletBalance } from '../api/wallet';
+import { ProductCard } from '../components/ProductCard';
+
+/** Banner deeplink: `/categories/{id}`, `/products/{id}`, an http(s) URL, or null. */
+export function resolveHomeDeeplink(deeplink: string | null | undefined): { screen: string; params?: Record<string, unknown> } | { url: string } | null {
+  if (!deeplink) return null;
+  const cat = /^\/categories\/([^/?#]+)/.exec(deeplink);
+  if (cat) return { screen: 'ProductGrid', params: { categoryId: cat[1] } };
+  const prod = /^\/products\/([^/?#]+)/.exec(deeplink);
+  if (prod) return { screen: 'ProductDetail', params: { productId: prod[1] } };
+  if (/^https?:\/\//.test(deeplink)) return { url: deeplink };
+  return null;
+}
 
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
-  const [isLoadingBuffer, setIsLoadingBuffer] = useState(true);
   const [activeTab, setActiveTab] = useState<CustomerActiveTab>('home');
   const [searchQuery, setSearchQuery] = useState('');
-  const [cartCount, setCartCount] = useState(2);
-  const [cartTotal, setCartTotal] = useState(312.0);
-  const [showToast, setShowToast] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showDoorstepModal, setShowDoorstepModal] = useState(false);
-  const [hasRequestedArea, setHasRequestedArea] = useState(false);
-  const [doorstepArea, setDoorstepArea] = useState('');
-  const [doorstepCity, setDoorstepCity] = useState('');
-  const [currentDeliveryAddress, setCurrentDeliveryAddress] = useState('110, Rajeshwari Nagar, Coimbatore');
+  // Delivery address chip + unserved card: default address from the API (BR-160/BR-171).
+  const addressesQuery = useAddresses();
+  const defaultAddress = pickDefaultAddress(addressesQuery.data);
+  const currentDeliveryAddress = defaultAddress ? formatAddressShort(defaultAddress) : 'Add a delivery address';
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliveryModalStep, setDeliveryModalStep] = useState<'delivery' | 'addAddress'>('delivery');
 
+  // Server data: catalog home (rails, categories, banners), cart bar, wishlist hearts, wallet.
+  const homeQuery = useCatalogHome();
+  const cartQuery = useCart();
+  const wishlistKeys = useWishlistKeys();
+  const toggleWishlist = useToggleWishlist();
+  const wallet = useWalletBalance();
+  const cart = cartQuery.data;
+  const cartCount = cartLineCount(cart);
+  const isLoadingBuffer = homeQuery.isLoading;
+  const home = homeQuery.data;
+  const featured = home?.featured ?? [];
+  const sections = (home?.sections ?? []).filter((s) => s.items.length > 0);
+  const homeCategories: Category[] = home?.categories ?? [];
+  const heroBanners = home?.heroBanners ?? [];
+  const catalogEmpty = !!home && featured.length === 0 && sections.length === 0;
+
   const scrollY = useRef(new Animated.Value(0)).current;
 
-  const handleSaveAddress = (addr: AddressData) => {
-    const full = [addr.flat, addr.locality, addr.city, addr.pincode].filter(Boolean).join(', ');
-    if (full) {
-      setCurrentDeliveryAddress(full);
-    }
+  // The address list query is invalidated by the create mutation; the unserved card follows it.
+  const handleSaveAddress = () => {
     setShowDeliveryModal(false);
   };
-  const [selectedProductForModal, setSelectedProductForModal] = useState<ProductModalData | null>(null);
-  const [selectedProductForReviews, setSelectedProductForReviews] = useState<ProductModalData | null>(null);
-  const [fullDetailProduct, setFullDetailProduct] = useState<{
-    variety: VarietyItem;
-    parent: ProductModalData;
-  } | null>(null);
+  const [selectedProductForModal, setSelectedProductForModal] = useState<Product | null>(null);
+  const [selectedProductForReviews, setSelectedProductForReviews] = useState<Product | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const [, setOrderStoreTick] = useState(0);
 
   useEffect(() => {
-    return orderStore.subscribe(() => {
-      setOrderStoreTick(t => t + 1);
-    });
-  }, []);
-
-  useEffect(() => {
-    Animated.loop(
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
           toValue: 1.06,
@@ -464,20 +214,10 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           useNativeDriver: true,
         }),
       ])
-    ).start();
-
-    const timer = setTimeout(() => {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 350,
-        useNativeDriver: true,
-      }).start(() => {
-        setIsLoadingBuffer(false);
-      });
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, []);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulseAnim]);
 
   const handleTabChange = (tab: CustomerActiveTab) => {
     setActiveTab(tab);
@@ -490,93 +230,30 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     }
   };
 
-  const toggleFavorite = (id: string) => {
-    setFavorites(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    );
+  const openBanner = (deeplink: string | null) => {
+    const target = resolveHomeDeeplink(deeplink);
+    if (!target) return;
+    if ('url' in target) {
+      void Linking.openURL(target.url);
+    } else {
+      onNavigate?.(target.screen, target.params);
+    }
   };
 
-  // Reusable Product Card Component matching exact Figma dimensions (width 142, height 168, title below)
-  const renderProductCard = (item: ProductCardData) => {
-    const isFav = favorites.includes(item.id);
-    const isComingTomorrow = item.status === 'comingTomorrow';
-    const isUnsalable = item.status === 'unsalable';
-
-    const isOrdered = orderStore.isOrdered(item.name);
+  // Shared server-driven product card (components/ProductCard.tsx); key = `${id}:${grade}`.
+  const renderProductCard = (item: Product) => {
+    const key = productKey(item);
+    const isFav = wishlistKeys.has(key);
     return (
-      <View key={item.id} style={styles.productCardContainer}>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => setSelectedProductForModal(item)}
-          style={[
-            styles.productCard,
-            customerShadow.subtle,
-            isOrdered && styles.productCardOrdered,
-            isComingTomorrow && styles.cardComingTomorrow,
-            isUnsalable && styles.cardUnsalable,
-          ]}
-        >
-          {/* Top Card Row: Star Rating on Left, Heart on Right */}
-          <View style={styles.cardHeaderRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setSelectedProductForReviews(item)}
-              style={styles.ratingBadge}
-            >
-              <Text style={styles.starIcon}>★ </Text>
-              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => toggleFavorite(item.id)}
-              style={styles.heartButton}
-              accessibilityLabel="Add to favorites"
-            >
-              <HeartSvg filled={isFav} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Center Product Graphic (Real extracted clean Figma photo) */}
-          <View style={styles.cardImageCenter}>
-            {item.image ? (
-              <Image
-                source={item.image}
-                style={[
-                  styles.productCardImage,
-                  isUnsalable && { opacity: 0.6 }
-                ]}
-                resizeMode="contain"
-              />
-            ) : (
-              <Text style={styles.productEmoji}>{item.emoji}</Text>
-            )}
-
-            {/* Exact "Coming tomorrow" Badge over product image (Matching User Image 4) */}
-            {isOrdered && (
-              <View style={styles.comingTomorrowBadge}>
-                <Text style={styles.comingTomorrowText}>Coming tomorrow</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Bottom Pricing & Unit */}
-          <View style={styles.cardPriceRow}>
-            <Text style={[styles.priceBold, isUnsalable && { color: '#4B5563' }]}>₹ {item.price}</Text>
-            <Text style={[styles.priceStrikethrough, isUnsalable && { color: '#6B7280' }]}>₹ {item.originalPrice}</Text>
-            <Text style={[styles.unitText, isUnsalable && { color: '#4B5563' }]}>{item.unit}</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Product Name placed OUTSIDE below the card */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => setSelectedProductForModal(item)}
-        >
-          <Text style={styles.cardProductName} numberOfLines={1}>
-            {item.name}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <ProductCard
+        key={key}
+        product={item}
+        variant="rail"
+        wishlisted={isFav}
+        onPress={() => setSelectedProductForModal(item)}
+        onPressRating={() => setSelectedProductForReviews(item)}
+        onToggleWishlist={() => toggleWishlist.mutate({ productId: item.id, grade: item.grade, add: !isFav, product: item })}
+      />
     );
   };
 
@@ -654,12 +331,19 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             </View>
             <View style={styles.stickyProfileTexts}>
               <Text style={styles.stickyUserName}>Hi, Meena</Text>
-              <Text style={styles.stickyUserLocation}>110, Coimbatore</Text>
+              <Text style={styles.stickyUserLocation} numberOfLines={1}>{currentDeliveryAddress}</Text>
             </View>
           </TouchableOpacity>
 
           {/* Right action circular buttons: Wallet & Wishlist */}
           <View style={styles.stickyRightActions}>
+            <NotificationBell
+              onPress={() => onNavigate?.('CustomerNotifications')}
+              color="#FFFFFF"
+              size={18}
+              style={styles.stickyCircleBtn}
+              testID="home-notification-bell-sticky"
+            />
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setShowWalletModal(true)}
@@ -708,6 +392,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 accessibilityLabel="Open Profile"
               />
               <View style={styles.topRightActions}>
+                <NotificationBell
+                  onPress={() => onNavigate?.('CustomerNotifications')}
+                  color="#FFFFFF"
+                  size={20}
+                  style={styles.circleTouchTarget}
+                  testID="home-notification-bell"
+                />
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => onNavigate?.('CustomerWallet')}
@@ -726,7 +417,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <View style={styles.categoriesTouchRow}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => onNavigate?.('Search', { query: 'Just Arrived' })}
+                onPress={() => onNavigate?.('ProductGrid', { sort: 'just_arrived', title: 'Just arrived' })}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Just Arrived"
               />
@@ -748,7 +439,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
         {/* ── 2. LOADING BUFFER WHEN OPENING (FIGMA IMAGE 2: 254 x 130 HUG) ─── */}
         {isLoadingBuffer && (
-          <Animated.View style={[styles.loadingBufferBox, { opacity: fadeAnim }]}>
+          <Animated.View style={styles.loadingBufferBox} testID="home-loading">
             <View style={styles.cardsRow}>
               <View style={styles.sideCard}>
                 <DetailedCeleryHerbIcon />
@@ -768,343 +459,120 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         {!isLoadingBuffer && (
           <View style={styles.catalogSectionsWrap}>
             {/* ── SECTION 2: WE'RE NOT IN YOUR AREA YET CARD (FIGMA EXACT) ───── */}
-            <View style={[styles.areaRequestCard, customerShadow.subtle]}>
-              <View style={styles.areaRequestLeft}>
-                <Text style={styles.areaRequestTitle}>We're not in your area yet</Text>
-                <Text style={styles.areaRequestSubtitle}>
-                  Request your apartment and we'll let you know when we lanuch nearby.
-                </Text>
-                {hasRequestedArea ? (
-                  <View style={styles.requestDoneButton}>
-                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Circle cx={12} cy={12} r={10} fill="#FFFFFF" />
-                      <Path
-                        d="M8 12.5l2.5 2.5 5.5-5.5"
-                        stroke="#00C853"
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.requestDoneText}>We've got your request</Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => setShowDoorstepModal(true)}
-                    style={styles.requestNowButton}
-                  >
-                    <Text style={styles.requestNowText}>Request now</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              <View style={styles.areaRequestRight}>
-                <Image
-                  source={flyingDeliveryBag}
-                  style={styles.areaRequestBagImage}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
+            {/* Shown only when the default address pincode is unserved (components/ServiceAreaRequestFlow.tsx). */}
+            <ServiceAreaRequestCard
+              pincode={defaultAddress?.pincode}
+              prefill={prefillFromAddress(defaultAddress)}
+            />
 
-            {/* ── SECTION 3: FRESH FINDS FOR YOU (CATEGORY CIRCLES) ─────────── */}
-            <View style={styles.sectionWrap}>
-              <Text style={styles.sectionEditorialTitle}>Fresh Finds for You</Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.categoryCirclesRow}
-              >
-                {CATEGORY_CIRCLES.map((cat) => (
+            {/* ── SECTION 3: FRESH FINDS FOR YOU (CATEGORY CIRCLES, GET /catalog/home categories) ── */}
+            {homeCategories.length > 0 && (
+              <View style={styles.sectionWrap}>
+                <Text style={styles.sectionEditorialTitle}>Fresh Finds for You</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoryCirclesRow}
+                >
+                  {homeCategories.map((cat) => (
+                    <TouchableOpacity
+                      key={cat.id}
+                      testID={`home-category-${cat.id}`}
+                      activeOpacity={0.75}
+                      onPress={() => onNavigate?.('ProductGrid', { categoryId: cat.id, title: cat.name })}
+                      style={styles.categoryCircleItem}
+                    >
+                      <View style={styles.categoryCircleOuter}>
+                        {cat.imageUrl ? (
+                          <Image
+                            source={{ uri: cat.imageUrl }}
+                            style={styles.categoryCircleImg}
+                            resizeMode="cover"
+                          />
+                        ) : null}
+                      </View>
+                      <Text style={styles.categoryCircleLabel}>{cat.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ── SECTION 4: PROMO BANNERS (heroBanners, BR-152; static art when none is live) ── */}
+            {heroBanners.length > 0 ? (
+              <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
+                {heroBanners.map((b) => (
                   <TouchableOpacity
-                    key={cat.id}
-                    activeOpacity={0.75}
-                    onPress={() => onNavigate?.('Search', { query: cat.label })}
-                    style={styles.categoryCircleItem}
+                    key={b.id}
+                    activeOpacity={0.9}
+                    style={styles.promoBannerWrap}
+                    onPress={() => openBanner(b.deeplink)}
+                    disabled={!b.deeplink}
+                    accessibilityLabel={b.title ?? 'Banner'}
+                    testID={`home-banner-${b.id}`}
                   >
-                    <View style={styles.categoryCircleOuter}>
-                      {cat.image ? (
-                        <Image
-                          source={cat.image}
-                          style={styles.categoryCircleImg}
-                          resizeMode="cover"
-                        />
-                      ) : null}
-                    </View>
-                    <Text style={styles.categoryCircleLabel}>{cat.label}</Text>
+                    <Image source={{ uri: b.imageUrl }} style={styles.promoBannerImage} resizeMode="cover" />
                   </TouchableOpacity>
                 ))}
               </ScrollView>
-            </View>
+            ) : (
+              <View style={styles.promoBannerWrap}>
+                <Image
+                  source={bannerFarmFreshVegetables}
+                  style={styles.promoBannerImage}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
 
-            {/* ── SECTION 4: PROMO BANNER (FARM FRESH VEGETABLES) ──────────── */}
-            <View style={styles.promoBannerWrap}>
-              <Image
-                source={bannerFarmFreshVegetables}
-                style={styles.promoBannerImage}
-                resizeMode="cover"
-              />
-            </View>
+            {homeQuery.isError && (
+              <View style={styles.sectionWrap} testID="home-error">
+                <Text style={styles.sectionEditorialTitle}>Couldn't load the market</Text>
+                <TouchableOpacity activeOpacity={0.85} onPress={() => void homeQuery.refetch()} style={styles.profileActionBtn}>
+                  <Text style={styles.profileActionText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-            {/* ── SECTION 5: "FOR YOU" CAROUSEL (390 x 210 HUG) ─────────────── */}
-            <View style={[styles.sectionWrap, styles.forYouSectionWrap]}>
-              {renderSectionHeader('For you')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FOR_YOU_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('foryou')}
-              </ScrollView>
-            </View>
+            {catalogEmpty && (
+              <View style={styles.sectionWrap} testID="home-empty">
+                <Text style={styles.sectionEditorialTitle}>No produce available right now</Text>
+                <TouchableOpacity activeOpacity={0.85} onPress={() => void homeQuery.refetch()} style={styles.profileActionBtn}>
+                  <Text style={styles.profileActionText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
-            {/* ── SECTION 6: "VEGETABLES" CAROUSEL ───────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Vegetables', SectionBadges.vegetables, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {VEGETABLE_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('veg')}
-              </ScrollView>
-            </View>
+            {/* ── SECTION 5: "FOR YOU" CAROUSEL (featured) ───────────────────── */}
+            {featured.length > 0 && (
+              <View style={[styles.sectionWrap, styles.forYouSectionWrap]}>
+                {renderSectionHeader('For you')}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.cardsHorizontalScroll}
+                >
+                  {featured.map(renderProductCard)}
+                  {renderComingSoonCard('foryou')}
+                </ScrollView>
+              </View>
+            )}
 
-            {/* ── SECTION 7: "FRUITS" CAROUSEL ───────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Fruits', SectionBadges.fruits, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FRUIT_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('fruit')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 8: "DRY FRUITS & NUTS" CAROUSEL ────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Dry fruits & Nuts', SectionBadges.dryFruits, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {DRY_FRUITS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('dryfruit')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 9: "DAIRY" CAROUSEL ────────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Dairy', SectionBadges.dairy, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {DAIRY_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('dairy')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 10: "GRAINS" CAROUSEL ──────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Grains', SectionBadges.grains, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {GRAIN_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('grain')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 11: "FRESH COMBOS" CAROUSEL ────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Fresh Combos', SectionBadges.freshCombos, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FRESH_COMBOS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('combo')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 12: "TEA & COFFEE" CAROUSEL ────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Tea & Coffee', SectionBadges.teaCoffee, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {TEA_COFFEE_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('tea')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 13: "SPREADS" CAROUSEL ─────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Spreads', SectionBadges.spreads, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {SPREADS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('spread')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 14: "SPICES" CAROUSEL ──────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Spices', SectionBadges.spices, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {SPICES_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('spice')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 15: "SOAKED" CAROUSEL ──────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Soaked', SectionBadges.soaked, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {SOAKED_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('soaked')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 16: "BREADS" CAROUSEL ──────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Breads', SectionBadges.breads, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {BREADS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('bread')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 17: "FLOUR" CAROUSEL ───────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Flour', SectionBadges.flour, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FLOUR_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('flour')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 18: "RARE & EXOTIC" CAROUSEL ───────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Exotics', SectionBadges.exotics, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {EXOTIC_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('exotic')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 19: "SWEET NATURE" CAROUSEL ────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Sweet Nature', SectionBadges.sweetNature, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {SWEET_NATURE_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('sweet')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 20: "HERBS & GREENS" CAROUSEL ──────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Herbs & Greens', SectionBadges.herbsGreens, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {HERBS_GREENS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('herbs')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 21: "EVERYDAY KITCHEN" CAROUSEL ────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Everyday kitchen', SectionBadges.everydayKitchen, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {EVERYDAY_KITCHEN_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('kitchen')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 22: "FRESH JUICES" CAROUSEL ────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Fresh Juices', SectionBadges.freshJuices, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FRESH_JUICES_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('juice')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 23: "NATURE'S OILS" CAROUSEL ───────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader("Nature's Oils", SectionBadges.naturesOils, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {NATURES_OILS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('oil')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 24: "FLOWERS" CAROUSEL ─────────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Flowers', SectionBadges.flowers, 'left')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FLOWERS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('flower')}
-              </ScrollView>
-            </View>
+            {/* ── ADMIN-CURATED RAILS (sections, BR-152) ─────────────────────── */}
+            {sections.map((section) => (
+              <View key={section.id} style={styles.sectionWrap} testID={`home-section-${section.id}`}>
+                {renderSectionHeader(section.title)}
+                {!!section.subtitle && <Text style={styles.footerSubtitle}>{section.subtitle}</Text>}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.cardsHorizontalScroll}
+                >
+                  {section.items.map(renderProductCard)}
+                  {renderComingSoonCard(section.id)}
+                </ScrollView>
+              </View>
+            ))}
 
             {/* ── 24. FOOTER BRANDING CARD (EXACT FIGMA SPEC: IMAGE 5) ──────── */}
             <View style={styles.footerBrandingCard}>
@@ -1214,7 +682,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
             <Text style={styles.walletTitle}>TOHFA Fresh Wallet</Text>
-            <Text style={styles.walletBalance}>₹1,250.00</Text>
+            <Text style={styles.walletBalance}>{wallet.isLoading ? '…' : wallet.label}</Text>
             <Text style={styles.walletSubtitle}>Available balance for 1-click organic checkout</Text>
             <TouchableOpacity
               activeOpacity={0.85}
@@ -1227,137 +695,35 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         </View>
       </Modal>
 
-      {/* ── TELL US YOUR DOORSTEP MODAL (EXACT FIGMA SPEC: 300 x 242 HUG - IMAGE 1) ── */}
-      <Modal visible={showDoorstepModal} transparent={true} animationType="fade">
-        <View style={styles.doorstepModalBackdrop}>
-          <View style={styles.doorstepModalCard}>
-            {/* Top Right Circular Close Button (overlapping corner) */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setShowDoorstepModal(false)}
-              style={styles.doorstepCloseBtn}
-              accessibilityLabel="Close"
-            >
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M18 6L6 18M6 6l12 12"
-                  stroke="#2563EB"
-                  strokeWidth={2.4}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-
-            {/* Title in handwritten/comic editorial font */}
-            <Text style={styles.doorstepTitle}>Tell us your doorstep</Text>
-
-            {/* Subtitle */}
-            <Text style={styles.doorstepSubtitle}>
-              We're growing our delivery network. Tell us where you'd like to receive fresh farm produce.
-            </Text>
-
-            {/* Input 1: Area / Locality */}
-            <TextInput
-              style={styles.doorstepUnderlineInput}
-              placeholder="Area / Locality"
-              placeholderTextColor="#9CA3AF"
-              value={doorstepArea}
-              onChangeText={setDoorstepArea}
-            />
-
-            {/* Input 2: City */}
-            <TextInput
-              style={[styles.doorstepUnderlineInput, { marginBottom: 20 }]}
-              placeholder="City"
-              placeholderTextColor="#9CA3AF"
-              value={doorstepCity}
-              onChangeText={setDoorstepCity}
-            />
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => {
-                setShowDoorstepModal(false);
-                setHasRequestedArea(true);
-              }}
-              style={styles.doorstepSubmitBtn}
-            >
-              <Text style={styles.doorstepSubmitText}>Submit</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── PRODUCT DETAILS MODAL (Varieties / Simple Stepper Modal) ──────── */}
+      {/* ── ADD-TO-CART POPUP (grades as varieties, POST /cart/items) ─────── */}
       <ProductDetailsModal
         visible={!!selectedProductForModal}
         product={selectedProductForModal}
         onClose={() => setSelectedProductForModal(null)}
-        onSelectVarietyProduct={(variety, parent) => {
+        onOpenProduct={(productId, grade) => {
           setSelectedProductForModal(null);
-          onNavigate?.('ProductDetail', {
-            productId: variety?.id || parent?.id || 'prod_1',
-            product: {
-              ...parent,
-              ...variety,
-              id: variety?.id || parent?.id,
-              name: variety?.name
-                ? (parent?.name?.toLowerCase().includes('apple') ? 'Royal gala Applie' : variety.name)
-                : parent?.name,
-              price: variety?.price || parent?.price,
-              image: variety?.image || parent?.image,
-            },
-          });
-        }}
-        onAddToCart={(_item, qty, priceTotal) => {
-          setCartCount(prev => prev + (qty || 1));
-          if (priceTotal) {
-            setCartTotal(prev => prev + priceTotal);
-          }
-          setShowToast(true);
+          onNavigate?.('ProductDetail', { productId, grade });
         }}
       />
 
-      {/* ── FULL PRODUCT DETAILS MODAL (Screen 3 & 4 with info & reviews) ──── */}
-      <FullProductDetailsModal
-        visible={!!fullDetailProduct}
-        product={fullDetailProduct?.variety || null}
-        parentProduct={fullDetailProduct?.parent || null}
-        onClose={() => setFullDetailProduct(null)}
-        onAddToCart={(_item, qty) => {
-          setCartCount(prev => prev + (qty || 1));
-          setShowToast(true);
-        }}
-        onBuyNow={(_item, qty) => {
-          setFullDetailProduct(null);
-          onNavigate?.('Checkout', { total: _item?.price || 120, itemsCount: qty || 1 });
-        }}
-        onOpenCart={() => {
-          setFullDetailProduct(null);
-          onNavigate?.('Cart');
-        }}
-      />
-
-      {/* ── RATINGS & REVIEWS MODAL (Reviews popup from card star badge) ─────── */}
+      {/* ── RATINGS & REVIEWS MODAL (GET /catalog/products/{id}/reviews) ───── */}
       <RatingsReviewsModal
         visible={!!selectedProductForReviews}
-        product={selectedProductForReviews}
+        productId={selectedProductForReviews?.id ?? null}
+        grade={selectedProductForReviews?.grade}
         onClose={() => setSelectedProductForReviews(null)}
         onWriteReview={() => {
           setSelectedProductForReviews(null);
-          onNavigate?.('ReviewFeedback');
+          onNavigate?.('OrderHistory');
         }}
       />
 
-      {/* ── FLOATING CART TOAST (Screen 5) ─────────────────────────────────── */}
+      {/* ── CART BAR (server cart: line count + subtotal; hidden when empty) ── */}
       <CartToast
-        visible={showToast}
+        visible={cartCount > 0}
         itemCount={cartCount}
-        totalPrice={cartTotal}
+        totalPrice={cart?.subtotal ?? '0.00'}
         onViewCart={() => {
-          setShowToast(false);
           onNavigate?.('Cart');
         }}
       />
@@ -1369,8 +735,8 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         onClose={() => setShowDeliveryModal(false)}
         onSaveAddress={handleSaveAddress}
         onUseCurrentLocation={() => {
-          setCurrentDeliveryAddress('110, Rajeshwari Nagar, Coimbatore');
           setShowDeliveryModal(false);
+          onNavigate?.('CustomerAddAddress', { addressSource: 'current' });
         }}
         onSelectManualLocation={() => {
           setDeliveryModalStep('addAddress');
@@ -1570,76 +936,6 @@ const styles = StyleSheet.create({
   // ── 3. FULL CATALOG SECTIONS ──────────────────────────────────────────────
   catalogSectionsWrap: {
     paddingTop: 16,
-  },
-
-  // Section 2: "We're not in your area yet" Card (Exact Figma Spec)
-  areaRequestCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginTop: 14,
-    marginBottom: 20,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  areaRequestLeft: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  areaRequestTitle: {
-    fontFamily: customerFonts.editorial,
-    fontSize: 19,
-    color: '#1F2937',
-    marginBottom: 4,
-  },
-  areaRequestSubtitle: {
-    fontFamily: customerFonts.regular,
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  requestNowButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#1E3D29',
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  requestNowText: {
-    fontFamily: customerFonts.bold,
-    fontSize: 12,
-    color: '#FFFFFF',
-  },
-  requestDoneButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: '#00C853',
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  requestDoneText: {
-    fontFamily: customerFonts.bold,
-    fontSize: 12,
-    color: '#FFFFFF',
-  },
-  areaRequestRight: {
-    width: 94,
-    height: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  areaRequestBagImage: {
-    width: 90,
-    height: 84,
   },
 
   // Section 3: "Fresh Finds for You" Category Circles
@@ -2102,84 +1398,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: customerFonts.bold,
     fontSize: 14,
-  },
-  // ── TELL US YOUR DOORSTEP MODAL (EXACT FIGMA SPEC: 300 x 242 HUG - IMAGE 1)
-  doorstepModalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  doorstepModalCard: {
-    width: 300,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 22,
-    position: 'relative',
-    elevation: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-  },
-  doorstepCloseBtn: {
-    position: 'absolute',
-    top: -12,
-    right: -12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#3B82F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    zIndex: 10,
-  },
-  doorstepTitle: {
-    fontFamily: customerFonts.editorial,
-    fontSize: 20,
-    color: '#1F2937',
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  doorstepSubtitle: {
-    fontFamily: customerFonts.regular,
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 6,
-  },
-  doorstepUnderlineInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 6,
-    fontSize: 13,
-    color: '#1F2937',
-    fontFamily: customerFonts.regular,
-    marginBottom: 10,
-  },
-  doorstepSubmitBtn: {
-    height: 44,
-    backgroundColor: '#2D6A4F',
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doorstepSubmitText: {
-    fontFamily: customerFonts.bold,
-    fontSize: 14,
-    color: '#FFFFFF',
-    letterSpacing: 0.2,
   },
 });

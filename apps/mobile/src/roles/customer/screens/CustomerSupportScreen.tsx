@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -16,10 +18,12 @@ import {
   customerRadius,
   customerSpacing,
 } from '../theme';
+import { useSupportTickets, formatSupportDateTime, type SupportTab, type TicketStatus } from '../api/support';
+import { mapProblem } from '../api/problem';
 
 export interface CustomerSupportScreenProps {
-  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
-  onBack?: () => void;
+  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  onBack?: (() => void) | undefined;
 }
 
 const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
@@ -65,71 +69,45 @@ const ChevronRightSvg = ({ color = '#2E7D32', size = 12 }: { color?: string; siz
   </Svg>
 );
 
+const TABS: Array<{ id: SupportTab; label: string }> = [
+  { id: 'ALL', label: 'All' },
+  { id: 'OPEN', label: 'Open' },
+  { id: 'IN_REVIEW', label: 'In Review' },
+  { id: 'RESOLVED', label: 'Resolved' },
+  { id: 'CANCELLED', label: 'Cancelled' },
+];
+
+const STATUS_LABEL: Record<TicketStatus, string> = {
+  OPEN: 'Open',
+  IN_PROGRESS: 'In Review',
+  RESOLVED: 'Resolved',
+  CLOSED: 'Resolved',
+  CANCELLED: 'Cancelled',
+};
+
 export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
   onNavigate,
   onBack,
 }) => {
   const insets = useSafeAreaInsets();
-  const [selectedTab, setSelectedTab] = useState<'All' | 'Open' | 'In Review' | 'Resolved'>('Open');
+  const [selectedTab, setSelectedTab] = useState<SupportTab>('ALL');
+  const [refreshing, setRefreshing] = useState(false);
+  const query = useSupportTickets(selectedTab);
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const filterTabs: Array<{ id: 'All' | 'Open' | 'In Review' | 'Resolved'; label: string }> = [
-    { id: 'All', label: 'All (5)' },
-    { id: 'Open', label: 'Open (2)' },
-    { id: 'In Review', label: 'In Review (1)' },
-    { id: 'Resolved', label: 'Resolved (2)' },
-  ];
+  const tickets = (query.data?.pages ?? []).flatMap((pg) => pg.items);
 
-  const tickets = [
-    {
-      id: 'SUP-20261115-0039-1',
-      ticketNumber: 'SUP-20261115-0039',
-      orderNumber: 'ORD-20261115-0039',
-      topic: 'Product Support',
-      date: '15 Nov 2026, 9:41 AM',
-      status: 'Open',
-    },
-    {
-      id: 'SUP-20261115-0039-2',
-      ticketNumber: 'SUP-20261115-0039',
-      orderNumber: 'ORD-20261115-0039',
-      topic: 'Product Support',
-      date: '15 Nov 2026, 9:41 AM',
-      status: 'Open',
-    },
-    {
-      id: 'SUP-20261110-0012',
-      ticketNumber: 'SUP-20261110-0012',
-      orderNumber: 'ORD-20261110-0012',
-      topic: 'Delivery Delay Support',
-      date: '10 Nov 2026, 2:15 PM',
-      status: 'In Review',
-    },
-    {
-      id: 'SUP-20261028-0081',
-      ticketNumber: 'SUP-20261028-0081',
-      orderNumber: 'ORD-20261028-0081',
-      topic: 'Refund Assistance',
-      date: '28 Oct 2026, 11:30 AM',
-      status: 'Resolved',
-    },
-    {
-      id: 'SUP-20261020-0044',
-      ticketNumber: 'SUP-20261020-0044',
-      orderNumber: 'ORD-20261020-0044',
-      topic: 'Payment Query',
-      date: '20 Oct 2026, 4:00 PM',
-      status: 'Resolved',
-    },
-  ];
-
-  const filteredTickets = tickets.filter(t => {
-    if (selectedTab === 'All') return true;
-    return t.status === selectedTab;
-  });
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await query.refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -146,14 +124,23 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Contact Support</Text>
+          <Text style={styles.headerTitle}>My requests</Text>
         </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => onNavigate?.('ContactSupport')}
+          accessibilityLabel="New request"
+          style={{ marginLeft: 'auto' }}
+        >
+          <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>+ New request</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {/* ── FILTER PILL TABS ────────────────────────────────────────────────── */}
         <ScrollView
@@ -161,7 +148,7 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsRow}
         >
-          {filterTabs.map(tab => {
+          {TABS.map(tab => {
             const isActive = selectedTab === tab.id;
             return (
               <TouchableOpacity
@@ -169,6 +156,7 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
                 activeOpacity={0.7}
                 onPress={() => setSelectedTab(tab.id)}
                 style={[styles.tabPill, isActive && styles.tabPillActive]}
+                accessibilityLabel={`Tab ${tab.label}`}
               >
                 <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
                   {tab.label}
@@ -179,33 +167,61 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
         </ScrollView>
 
         {/* ── TICKETS LIST ────────────────────────────────────────────────────── */}
-        <View style={styles.ticketList}>
-          {filteredTickets.map(ticket => (
-            <TouchableOpacity
-              key={ticket.id}
-              activeOpacity={0.8}
-              onPress={() => {}}
-              style={styles.ticketCard}
-            >
-              <View style={styles.ticketHeaderRow}>
-                <Text style={styles.ticketNumberText}>{ticket.ticketNumber}</Text>
-                <View style={styles.statusBadge}>
-                  <Text style={styles.statusBadgeText}>{ticket.status}</Text>
-                  <ChevronRightSvg size={11} color={customerColors.brand} />
-                </View>
-              </View>
-
-              <View style={styles.ticketBodyRow}>
-                <HeadsetSvg size={15} color={customerColors.brand} />
-                <Text style={styles.ticketBodyText}>
-                  {ticket.orderNumber} - {ticket.topic}
-                </Text>
-              </View>
-
-              <Text style={styles.ticketDateText}>{ticket.date}</Text>
+        {query.isLoading ? (
+          <ActivityIndicator accessibilityLabel="Loading requests" style={{ marginTop: 32 }} />
+        ) : query.isError && tickets.length === 0 ? (
+          <View style={{ alignItems: 'center', marginTop: 32, gap: 8 }} accessibilityRole="alert">
+            <Text style={styles.ticketBodyText}>{mapProblem(query.error).message}</Text>
+            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel="Retry requests">
+              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Retry</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ) : tickets.length === 0 ? (
+          <Text style={[styles.ticketBodyText, { textAlign: 'center', marginTop: 32 }]}>
+            No requests here yet
+          </Text>
+        ) : (
+          <View style={styles.ticketList}>
+            {tickets.map(ticket => (
+              <TouchableOpacity
+                key={ticket.id}
+                activeOpacity={0.8}
+                onPress={() => onNavigate?.('TrackSupportRequest', { ticketId: ticket.id })}
+                style={styles.ticketCard}
+                accessibilityLabel={`Request ${ticket.ticketNumber}`}
+              >
+                <View style={styles.ticketHeaderRow}>
+                  <Text style={styles.ticketNumberText}>{ticket.ticketNumber}</Text>
+                  <View style={styles.statusBadge}>
+                    <Text style={styles.statusBadgeText}>{STATUS_LABEL[ticket.status] ?? ticket.status}</Text>
+                    <ChevronRightSvg size={11} color={customerColors.brand} />
+                  </View>
+                </View>
+
+                <View style={styles.ticketBodyRow}>
+                  <HeadsetSvg size={15} color={customerColors.brand} />
+                  <Text style={styles.ticketBodyText}>{ticket.subject}</Text>
+                </View>
+
+                <Text style={styles.ticketDateText}>{formatSupportDateTime(ticket.createdAt)}</Text>
+              </TouchableOpacity>
+            ))}
+            {query.hasNextPage ? (
+              <TouchableOpacity
+                onPress={() => void query.fetchNextPage()}
+                disabled={query.isFetchingNextPage}
+                accessibilityLabel="Load more requests"
+                style={{ alignItems: 'center', paddingVertical: 12 }}
+              >
+                {query.isFetchingNextPage ? (
+                  <ActivityIndicator />
+                ) : (
+                  <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Load more</Text>
+                )}
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>

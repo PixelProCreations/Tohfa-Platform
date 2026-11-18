@@ -27,6 +27,27 @@ vi.mock('react-native', () => ({
   Modal: (props: any) => (props.visible ? React.createElement('Modal', props, props.children) : null),
 }));
 
+vi.mock('../api/legal', async (orig) => {
+  const actual = await orig<typeof import('../api/legal')>();
+  return {
+    ...actual,
+    useLegal: () => ({
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+      data: {
+        title: 'Doc',
+        version: 1,
+        language: 'en',
+        lastUpdated: '2026-11-12T00:00:00Z',
+        body: '# 1. Introduction\n\n- Full name\n',
+      },
+    }),
+  };
+});
+vi.mock('../api/profile', () => ({ deleteCustomerAccount: vi.fn() }));
+vi.mock('../api/auth', () => ({ logout: vi.fn() }));
+
 vi.mock('react-native-safe-area-context', () => ({
   SafeAreaView: 'SafeAreaView',
   useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
@@ -64,16 +85,9 @@ vi.mock('../assets/images/products', () => ({
   SectionBadges: {},
 }));
 
-import { OrderHistoryScreen } from '../screens/OrderHistoryScreen';
-import { CustomerWalletScreen } from '../screens/CustomerWalletScreen';
-import { CustomerSendMoneyScreen } from '../screens/CustomerSendMoneyScreen';
-import { CustomerSupportScreen } from '../screens/CustomerSupportScreen';
-import { CustomerHelpScreen } from '../screens/CustomerHelpScreen';
-import { CustomerNotificationsScreen } from '../screens/CustomerNotificationsScreen';
 import { CustomerAccountSettingsScreen } from '../screens/CustomerAccountSettingsScreen';
 import { CustomerPrivacyPolicyScreen } from '../screens/CustomerPrivacyPolicyScreen';
 import { CustomerTermsScreen } from '../screens/CustomerTermsScreen';
-import { SearchScreen } from '../screens/SearchScreen';
 
 describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', () => {
   const mockNavigate = vi.fn();
@@ -83,183 +97,7 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     vi.clearAllMocks();
   });
 
-  it('renders OrderHistoryScreen with search bar, recent orders, and dates', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <OrderHistoryScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('My Orders');
-    expect(json).toContain('Resent Orders');
-    expect(json).toContain('Royal Gala');
-    expect(json).toContain('ORD-20261105-0039');
-    expect(json).toContain('Arrive Tomorrow');
-    expect(json).toContain('Fresh Carrot');
-    expect(json).toContain('Cauliflower');
-    expect(json).toContain('View details');
-  });
-
-  it('renders CustomerWalletScreen with balance card, Add Money button, and recent transactions', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerWalletScreen initialBalance={1250} onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('My wallet');
-    expect(json).toContain('Wallet Balance');
-    expect(json).toContain('1,250.00');
-    expect(json).toContain('Add Money');
-    expect(json).toContain('Recent Transactions');
-    expect(json).toContain('Added to Wallet');
-    expect(json).toContain('Order Payment');
-    expect(json).toContain('Order Refund');
-  });
-
-  it('CustomerWalletScreen switches to Add Money view and shows quick select pills', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerWalletScreen initialBalance={1250} onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    // Find and press + Add Money button
-    const addMoneyBtn = tree.root.findByProps({ accessibilityLabel: 'Add Money' });
-    await act(async () => {
-      addMoneyBtn.props.onPress();
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Enter Amount');
-    expect(json).toContain('Quick Select Amount');
-    expect(json).toContain('Choose Payment Method');
-    expect(json).toContain('UPI');
-    expect(json).toContain('Debit / Credit Card');
-    expect(json).toContain('Net Banking');
-  });
-
-  it('CustomerWalletScreen navigates to Send Money when Send Money button is pressed', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerWalletScreen initialBalance={1250} onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const sendMoneyBtn = tree.root.findByProps({ accessibilityLabel: 'Send Money' });
-    await act(async () => {
-      sendMoneyBtn.props.onPress();
-    });
-
-    expect(mockNavigate).toHaveBeenCalledWith('CustomerSendMoney');
-  });
-
-  it('renders CustomerSendMoneyScreen with From balance, recipient input, and amount', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerSendMoneyScreen walletBalance={1250} onBack={mockBack} onNavigate={mockNavigate} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Send Money');
-    expect(json).toContain('TOHFA Wallet');
-    expect(json).toContain('1,250.00');
-    expect(json).toContain('Mobile Number');
-    expect(json).toContain('Wallet ID');
-    expect(json).toContain('Ramesh Kumar');
-    expect(json).toContain('Amount');
-  });
-
-  it('renders CustomerSupportScreen with filter tabs and tickets', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerSupportScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Contact Support');
-    expect(json).toContain('Open (2)');
-    expect(json).toContain('All (5)');
-    expect(json).toContain('SUP-20261115-0039');
-    expect(json).toContain('Product Support');
-  });
-
-  it('renders CustomerHelpScreen with search bar and FAQ categories', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerHelpScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Help & FAQs');
-    expect(json).toContain('Orders & Delivery');
-    expect(json).toContain('Payments & Wallet');
-    expect(json).toContain('Returns & Refunds');
-    expect(json).toContain('Products & Quality');
-    expect(json).toContain('Account & Profile');
-    // Default open question in Orders & Delivery
-    expect(json).toContain('1. How can I track my order?');
-    expect(json).toContain('You can track your order from My Orders');
-  });
-
-  it('CustomerHelpScreen expands another category and toggles questions', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerHelpScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    // Expand Payments & Wallet category
-    const paymentsCategoryBtn = tree.root.findByProps({ accessibilityLabel: 'Payments & Wallet' });
-    await act(async () => {
-      paymentsCategoryBtn.props.onPress();
-    });
-
-    let json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('1. How can I add money to my TOHFA Wallet?');
-
-    // Toggle question 1 of Payments & Wallet to show its answer
-    const q1Btn = tree.root.findByProps({ accessibilityLabel: '1. How can I add money to my TOHFA Wallet?' });
-    await act(async () => {
-      q1Btn.props.onPress();
-    });
-
-    json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Go to My Wallet, tap Add Money, enter the amount and complete the payment.');
-  });
-
-  it('renders CustomerNotificationsScreen with Today, Yesterday, and Earlier sections', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <CustomerNotificationsScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Notifications');
-    expect(json).toContain('Today');
-    expect(json).toContain('Order Shipped');
-    expect(json).toContain('Wallet Top-up Successful');
-    expect(json).toContain('Rate Your Purchase');
-    expect(json).toContain('Yesterday');
-    expect(json).toContain('Order Out for Delivery');
-    expect(json).toContain('Earlier');
-    expect(json).toContain('Return Request Updated');
-  });
+  // OrderHistoryScreen / SearchScreen are server-driven now: see orders_screens.test.tsx and catalog_screens.test.tsx.
 
   it('renders CustomerAccountSettingsScreen and navigates to Privacy Policy and Terms', async () => {
     let tree: any;
@@ -291,7 +129,7 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     expect(mockNavigate).toHaveBeenCalledWith('CustomerTerms');
   });
 
-  it('renders CustomerPrivacyPolicyScreen with all sections and metadata', async () => {
+  it('renders CustomerPrivacyPolicyScreen header and API-driven body (BR-172)', async () => {
     let tree: any;
     await act(async () => {
       tree = renderer.create(
@@ -304,19 +142,10 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     expect(json).toContain('TOHFA Market');
     expect(json).toContain('Last Updated: 12/11/2026');
     expect(json).toContain('1. Introduction');
-    expect(json).toContain('2. Information We Collect');
-    expect(json).toContain('2.1 Personal Information');
-    expect(json).toContain('2.2 Address Information');
-    expect(json).toContain('2.3 Location Information');
-    expect(json).toContain('3. How We Use Your Information');
-    expect(json).toContain('4. Payment Information');
-    expect(json).toContain('5. Sharing of Information');
-    expect(json).toContain('6. Notifications and Communication Preferences');
-    expect(json).toContain('7. Data Storage and Security');
-    expect(json).toContain('8. Data Retention');
+    expect(json).toContain('Full name');
   });
 
-  it('renders CustomerTermsScreen with all sections and metadata', async () => {
+  it('renders CustomerTermsScreen header and API-driven body (BR-172)', async () => {
     let tree: any;
     await act(async () => {
       tree = renderer.create(
@@ -326,92 +155,9 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
 
     const json = JSON.stringify(tree.toJSON());
     expect(json).toContain('Terms and condition');
-    expect(json).toContain('Terms & Conditions');
     expect(json).toContain('TOHFA Market');
     expect(json).toContain('Last Updated: 12/11/2026');
     expect(json).toContain('1. Introduction');
-    expect(json).toContain('2. Eligibility and Account Registration');
-    expect(json).toContain('3. Account Information');
-    expect(json).toContain('4. Products and Availability');
-  });
-
-  it('renders SearchScreen with Back button, Fresh Finds header, categories, and handles back press', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <SearchScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const root = tree.root;
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Fresh Finds for You');
-    expect(json).toContain('Vegetables');
-    expect(json).toContain('Fruit');
-    expect(json).toContain('Recent searches');
-
-    // Find and press the back button
-    const backBtn = root.findByProps({ accessibilityLabel: 'Go back' });
-    expect(backBtn).toBeDefined();
-    await act(async () => {
-      backBtn.props.onPress();
-    });
-    expect(mockBack).toHaveBeenCalled();
-  });
-
-  it('SearchScreen filters products when typing into search input', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <SearchScreen onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    const root = tree.root;
-    const textInput = root.findByType('TextInput');
-    expect(textInput).toBeDefined();
-
-    // Type "Tomato" into search
-    await act(async () => {
-      textInput.props.onChangeText('Tomato');
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Tomato');
-    expect(json).toContain('Red Tomato');
-  });
-
-  it('SearchScreen displays banner collections when initialQuery is provided', async () => {
-    let tree: any;
-    await act(async () => {
-      tree = renderer.create(
-        <SearchScreen initialQuery="Just Arrived" onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    let json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Just Arrived');
-    expect(json).toContain('Cherry Tomato');
-
-    await act(async () => {
-      tree = renderer.create(
-        <SearchScreen initialQuery="Pesticide Free" onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Pesticide Free');
-    expect(json).toContain('Broccoli');
-
-    await act(async () => {
-      tree = renderer.create(
-        <SearchScreen initialQuery="Seasonal Favs" onNavigate={mockNavigate} onBack={mockBack} />
-      );
-    });
-
-    json = JSON.stringify(tree.toJSON());
-    expect(json).toContain('Seasonal Favs');
-    expect(json).toContain('Watermelon');
   });
 });
 

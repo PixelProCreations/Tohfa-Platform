@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
@@ -21,23 +22,70 @@ import {
   customerLoginBranchTopLeft,
   customerLoginRightLeaves,
 } from '../assets/images';
+import { isValidCustomerMobile, sendCustomerLoginOtp } from '../api/auth';
+import { mapProblem } from '../api/problem';
+
+/** Challenge handed to CustomerOtp (BR-153: `POST /auth/customer/otp/send`). */
+export interface CustomerOtpRouteParams {
+  mobile: string;
+  challengeId: string;
+  expiresAt: string;
+  resendAvailableAt?: string | undefined;
+  attemptsRemaining: number;
+}
 
 interface CustomerLoginScreenProps {
   onNavigate: (
     screen: 'CustomerOtp' | 'RoleSelection' | 'CustomerWelcome',
-    params?: { mobile?: string }
+    params?: CustomerOtpRouteParams
   ) => void;
 }
 
 export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavigate }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
+  const inFlight = useRef(false);
 
   const cleanPhone = phoneNumber.replace(/\D/g, '');
+  const mobileValid = cleanPhone.length === 10 && isValidCustomerMobile(cleanPhone);
+  const showMobileHint = cleanPhone.length === 10 && !mobileValid;
+  const canSubmit = mobileValid && agreed && !submitting;
 
-  const handleNext = () => {
-    const targetPhone = cleanPhone.length === 10 ? cleanPhone : '9090202033';
-    onNavigate('CustomerOtp', { mobile: targetPhone });
+  const handlePhoneChange = (text: string) => {
+    setPhoneNumber(text);
+    setError(null);
+    setCanRetry(false);
+  };
+
+  const handleNext = async () => {
+    if (!canSubmit || inFlight.current) return;
+    inFlight.current = true;
+    setSubmitting(true);
+    setError(null);
+    setCanRetry(false);
+    try {
+      const challenge = await sendCustomerLoginOtp(cleanPhone);
+      onNavigate('CustomerOtp', {
+        mobile: cleanPhone,
+        challengeId: challenge.challengeId,
+        expiresAt: challenge.expiresAt,
+        resendAvailableAt: challenge.resendAvailableAt,
+        attemptsRemaining: challenge.attemptsRemaining,
+      });
+    } catch (err) {
+      const problem = mapProblem(err);
+      if (!problem.silent) {
+        // 422 field error, 429 wait (message carries the seconds), 502/offline retry.
+        setError(problem.fieldErrors['mobile'] ?? problem.message);
+        setCanRetry(problem.action === 'retry');
+      }
+    } finally {
+      inFlight.current = false;
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -80,11 +128,18 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
               keyboardType="phone-pad"
               maxLength={10}
               value={phoneNumber}
-              onChangeText={setPhoneNumber}
+              onChangeText={handlePhoneChange}
               textAlign="center"
               autoFocus={false}
+              editable={!submitting}
+              accessibilityLabel="Phone number"
             />
             <View style={styles.underline} />
+            {showMobileHint ? (
+              <Text style={styles.errorText} testID="customer-login-mobile-hint">
+                Enter a valid 10-digit mobile number starting with 6-9
+              </Text>
+            ) : null}
           </View>
 
           {/* Terms Agreement Checkbox with green border matching Figma */}
@@ -103,15 +158,39 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
             </Text>
           </TouchableOpacity>
 
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText} testID="customer-login-error" accessibilityRole="alert">
+                {error}
+              </Text>
+              {canRetry ? (
+                <TouchableOpacity
+                  onPress={() => void handleNext()}
+                  accessibilityRole="link"
+                  accessibilityLabel="Try again"
+                  testID="customer-login-retry"
+                >
+                  <Text style={styles.retryText}>Try again</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
           {/* Circular Action Button */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={handleNext}
-            style={styles.circularButton}
+            onPress={() => void handleNext()}
+            disabled={!canSubmit}
+            style={[styles.circularButton, !canSubmit && styles.circularButtonDisabled]}
             accessibilityRole="button"
             accessibilityLabel="Continue to PIN Verification"
+            accessibilityState={{ disabled: !canSubmit, busy: submitting }}
           >
-            <ArrowRightFigmaIcon size={20} color="#FFFFFF" />
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <ArrowRightFigmaIcon size={20} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -223,6 +302,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1F2937',
   },
+  errorBox: {
+    alignItems: 'center',
+    marginTop: -16,
+    marginBottom: 16,
+    maxWidth: 290,
+  },
+  errorText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  retryText: {
+    fontFamily: customerFonts.semibold,
+    fontSize: 13,
+    color: customerColors.brand,
+    marginTop: 6,
+  },
   circularButton: {
     width: 44,
     height: 44,
@@ -235,5 +334,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+  },
+  circularButtonDisabled: {
+    opacity: 0.45,
   },
 });

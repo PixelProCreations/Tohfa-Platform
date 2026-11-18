@@ -1,11 +1,14 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+/**
+ * Wallet-only checkout. See the CheckoutScreen docblock below for the flow.
+ */
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
   Alert,
   Platform,
@@ -16,19 +19,31 @@ import {
   Easing,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { ProductImages } from '../assets/images/products';
-import { tohfaMarketLogo, pickupQrCode, divQrCode } from '../assets/images';
-import { orderStore } from '../state/orderState';
+import { useQueryClient } from '@tanstack/react-query';
+import { ApiError, NetworkError } from '../../../shell/api/client';
+import { tohfaMarketLogo } from '../assets/images';
 import { ModalCloseCrossSvg } from './ProductModals';
 import {
   customerFonts,
 } from '../theme';
+import { cartQueryKeys, reReserveCart, useCart } from '../api/cart';
 import {
-  SbiLogo,
-  HdfcLogo,
-  IciciLogo,
-  YesBankLogo,
-} from './ChooseBankScreen';
+  checkoutFingerprint,
+  isCheckoutInputComplete,
+  isPickupFulfillment,
+  orderIdempotencyKeys,
+  useOrderQuote,
+  usePlaceOrder,
+  type CheckoutInput,
+  type Order,
+} from '../api/orders';
+import { useWalletBalance } from '../api/wallet';
+import { formatAddressLine, useAddresses } from '../api/addresses';
+import { usePickupPoints } from '../api/pickup';
+import { mapProblem } from '../api/problem';
+import { checkoutDraftStore, draftToInput, useCheckoutDraftState } from '../state/checkoutDraft';
+import { PickupQrCode } from '../components/PickupQrCode';
+import { formatKg, formatRupees, subtractMoney } from '../utils/money';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -247,36 +262,6 @@ const CardHeaderSvg = () => (
   </Svg>
 );
 
-const PhoneSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x="5" y="2" width="14" height="20" rx="2" stroke="#4B5563" strokeWidth={1.8} />
-    <Circle cx="12" cy="18" r="1" fill="#4B5563" />
-  </Svg>
-);
-
-const CreditCardSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x="2" y="5" width="20" height="14" rx="2" stroke="#4B5563" strokeWidth={1.8} />
-    <Path d="M2 10h20" stroke="#4B5563" strokeWidth={1.8} />
-    <Circle cx="6" cy="15" r="1" fill="#4B5563" />
-    <Circle cx="10" cy="15" r="1" fill="#4B5563" />
-  </Svg>
-);
-
-const CashSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x="2" y="6" width="20" height="12" rx="2" stroke="#4B5563" strokeWidth={1.8} />
-    <Circle cx="12" cy="12" r="3" stroke="#4B5563" strokeWidth={1.8} />
-    <Path d="M6 12h.01M18 12h.01" stroke="#4B5563" strokeWidth={2} strokeLinecap="round" />
-  </Svg>
-);
-
-const BankSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M3 21h18M3 10h18M4 10V21M8 10V21M12 10V21M16 10V21M20 10V21M12 3L2 8h20L12 3z" stroke="#4B5563" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-  </Svg>
-);
-
 const WalletSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path d="M20 12V8H6a2 2 0 01-2-2V4a2 2 0 012-2h14v6" stroke="#4B5563" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
@@ -299,190 +284,185 @@ const CartFloatingSvg = () => (
   </Svg>
 );
 
-const EyeHideSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"
-      stroke="#6B7280"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-// ── UPI APP BADGES ──────────────────────────────────────────────────────────
-
-const OtherUpiIcon = () => (
-  <View style={styles.upiIconCircle}>
-    <Text style={styles.otherUpiText}>UPI</Text>
-  </View>
-);
-
-const GPayIcon = () => (
-  <View style={styles.upiIconCircle}>
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#FFFFFF" />
-      <Path d="M17.5 12.2c0-.4-.04-.8-.1-1.2H12v2.3h3.1c-.13.7-.54 1.4-1.14 1.8v1.5h1.84c1.08-1 1.7-2.5 1.7-4.4z" fill="#4285F4" />
-      <Path d="M12 17.8c1.57 0 2.88-.52 3.84-1.4l-1.84-1.5c-.52.35-1.18.55-2 .55-1.53 0-2.83-1.03-3.3-2.42H6.8v1.5c1 1.98 3.03 3.27 5.2 3.27z" fill="#34A853" />
-      <Path d="M8.7 13.03c-.12-.35-.19-.73-.19-1.12 0-.39.07-.77.19-1.12V9.29H6.8c-.42.84-.66 1.79-.66 2.8 0 1.01.24 1.96.66 2.8l1.9-1.86z" fill="#FBBC05" />
-      <Path d="M12 6.18c.85 0 1.62.3 2.22.86l1.66-1.66C14.88 4.45 13.57 4 12 4 9.83 4 7.8 5.29 6.8 7.27l1.9 1.48c.47-1.39 1.77-2.42 3.3-2.42z" fill="#EA4335" />
-    </Svg>
-  </View>
-);
-
-const BhimIcon = () => (
-  <View style={styles.upiIconCircle}>
-    <Svg width={22} height={22} viewBox="0 0 24 24">
-      <Path d="M12 2L4 12l8 10 8-10L12 2z" fill="#FF9933" />
-      <Path d="M12 2L4 12h16L12 2z" fill="#138808" />
-      <Circle cx="12" cy="12" r="3" fill="#000080" />
-    </Svg>
-  </View>
-);
-
-const PaytmIcon = () => (
-  <View style={styles.upiIconCircle}>
-    <Text style={styles.paytmText}>Paytm</Text>
-  </View>
-);
-
-// ── POPULAR & ALL INDIAN BANKS ──────────────────────────────────────────────
-
-interface PopularBank {
-  id: string;
-  name: string;
-  shortName: string;
-  renderLogo: (size?: number | undefined) => React.ReactNode;
-}
-
-const POPULAR_BANKS: PopularBank[] = [
-  { id: 'sbi', name: 'State Bank of India', shortName: 'SBI', renderLogo: s => <SbiLogo size={s} /> },
-  { id: 'hdfc', name: 'HDFC Bank', shortName: 'HDFC', renderLogo: s => <HdfcLogo size={s} /> },
-  { id: 'icici', name: 'ICICI Netbanking', shortName: 'ICICI', renderLogo: s => <IciciLogo size={s} /> },
-  { id: 'yes', name: 'YES Bank', shortName: 'YES Bank', renderLogo: s => <YesBankLogo size={s} /> },
-];
-
-// ── TYPES ───────────────────────────────────────────────────────────────────
-
-export type PaymentMethod = 'upi' | 'card' | 'cod' | 'netbanking' | 'wallets';
-
 export interface CheckoutScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onGoBack?: () => void;
+  /** Unused: the draft comes from state/checkoutDraft (no totals in nav params). */
   params?: Record<string, unknown>;
 }
 
-export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
-  onNavigate,
-  onGoBack,
-  params,
-}) => {
-  // ── STATE ─────────────────────────────────────────────────────────────────
-  const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
-  const [selectedUpiApp, setSelectedUpiApp] = useState<string | null>(null);
+const SLOT_LABEL: Record<string, string> = {
+  MORNING_8_12: '8 AM - 12 PM',
+  AFTERNOON_12_4: '12 PM - 4 PM',
+  EVENING_4_8: '4 PM - 8 PM',
+};
 
-  // Card details (initially empty per Image 2 left)
-  const [cardNumber, setCardNumber] = useState('');
-  const [cardExpiry, setCardExpiry] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
+function formatPlacedAt(iso: string | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+}
 
-  // Net banking state (Image 4 & Image 5)
-  const [selectedBank, setSelectedBank] = useState<string | null>(
-    (params?.selectedBank as string) || null
-  );
+/**
+ * Pay & checkout (Figma 46:38924, wallet popup 46:40084, success 46:40202,
+ * pickup code 46:40610). WALLET ONLY (BR-17): no UPI/card/COD/net banking here;
+ * money is added from the wallet top-up (Razorpay) flow.
+ *  - Totals: POST /orders/quote on entry and whenever the draft changes; the
+ *    shown total is `quote.totalAmount`, the same pricing path as checkout.
+ *  - Place: POST /orders with ONE Idempotency-Key per attempt (same payload ->
+ *    same key, so a retry after a timeout or a top-up can never double-debit).
+ *  - Errors: 402 WALLET_INSUFFICIENT -> shortfall + Add money (Topup); 409
+ *    STOCK_UNAVAILABLE / INSUFFICIENT_ALLOCATION -> back to cart; CART_LOCK_EXPIRED
+ *    -> re-reserve + re-quote; SLOT_FULL -> back to the slot picker; 501 -> pickup only.
+ */
+export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGoBack }) => {
+  const qc = useQueryClient();
+  const { draft } = useCheckoutDraftState();
+  const input = draftToInput(draft);
+  const [order, setOrder] = useState<Order | null>(null);
+  // Once placed, the cart is converted: stop quoting it.
+  const quoteQuery = useOrderQuote(order ? null : input);
+  const quote = quoteQuery.data;
+  const wallet = useWalletBalance();
+  const cartQuery = useCart();
+  const addressesQuery = useAddresses(draft?.fulfillmentType === 'HOME_DELIVERY');
+  const pickupQuery = usePickupPoints();
+  const placeOrderM = usePlaceOrder();
 
-  useEffect(() => {
-    if (params?.selectedBank) {
-      setSelectedBank(params.selectedBank as string);
-      setSelectedMethod('netbanking');
-      if (params?.autoProceed) {
-        handleProceedToPay();
-      }
-    }
-  }, [params?.selectedBank, params?.autoProceed]);
-
-  // ── POPUP MODALS STATE ───────────────────────────────────────────────────
-  // Screen 2: Pay with Wallet modal
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [walletOtp, setWalletOtp] = useState('');
-
-  // Screen 3: Order Success Modal with Confetti
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  // Screen 4: Pickup Code / QR Modal
   const [showPickupModal, setShowPickupModal] = useState(false);
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const [shortfall, setShortfall] = useState<string | null>(null);
+  const [networkRetry, setNetworkRetry] = useState(false);
 
-  // Address and total passed from CartScreen
-  const total = typeof params?.total === 'number' ? params.total : 465.0;
-  const itemsCount = typeof params?.itemsCount === 'number' ? params.itemsCount : 3;
+  const isPickup = draft?.fulfillmentType === 'WAREHOUSE_PICKUP';
+  const address = addressesQuery.data?.find((a) => a.id === draft?.deliveryAddressId);
+  const point = pickupQuery.data?.find((p) => p.id === draft?.warehouseId);
+  const quoteShortfall = quote && !quote.walletSufficient ? quote.shortfall : null;
+  const effectiveShortfall = shortfall ?? quoteShortfall;
+  const balanceLabel = quote ? formatRupees(quote.walletBalance) : wallet.label;
+  const total = quote?.totalAmount ?? null;
+  const ready = !!quote && !quote.lockExpired && quote.walletSufficient && !placeOrderM.isPending;
 
-  // ── ENABLE "PROCEED TO PAY" LOGIC ─────────────────────────────────────────
-  const isPaymentReady = useMemo(() => {
-    if (!selectedMethod) return false;
-    if (selectedMethod === 'upi') {
-      return !!selectedUpiApp;
-    }
-    if (selectedMethod === 'card') {
-      return cardNumber.trim().length > 0;
-    }
-    if (selectedMethod === 'netbanking') {
-      return !!selectedBank;
-    }
-    if (selectedMethod === 'cod') {
-      return true;
-    }
-    if (selectedMethod === 'wallets') {
-      return true;
-    }
-    return false;
-  }, [selectedMethod, selectedUpiApp, cardNumber, selectedBank]);
+  // A quote that reports an expired lock: re-reserve (PUT cart) and re-quote (BR-22).
+  useEffect(() => {
+    if (!quote?.lockExpired || !cartQuery.data) return;
+    void reReserveCart(cartQuery.data, draft?.warehouseId)
+      .then((fresh) => {
+        qc.setQueryData(cartQueryKeys.cart, fresh);
+        void quoteQuery.refetch();
+      })
+      .catch((err: unknown) => setErrorText(mapProblem(err).message));
+  }, [quote?.lockExpired]);
 
-  // ── HANDLE PROCEED TO PAY ─────────────────────────────────────────────────
-  const handleProceedToPay = () => {
-    if (!isPaymentReady) return;
+  const backToCart = (message: string | null) => {
+    checkoutDraftStore.setNotice(message);
+    void qc.invalidateQueries({ queryKey: cartQueryKeys.cart });
+    if (onGoBack) onGoBack();
+    else onNavigate?.('Cart');
+  };
 
-    // Record ordered products so they show "Coming tomorrow" and green shading on Home screen
-    orderStore.addOrderedItems([
-      'Royal Gala',
-      'Fuji',
-      'Green Curly Lettuce',
-      'Red Tomato',
-      'Fresh Tomatoes',
-      'Watermelon',
-    ]);
+  const goTopup = () => {
+    onNavigate?.('Topup', effectiveShortfall ? { shortfall: effectiveShortfall } : undefined);
+  };
 
-    if (selectedMethod === 'wallets') {
-      // 2nd screen: Show "Pay with Wallet" popup modal
-      setShowWalletModal(true);
+  const handleError = async (err: unknown, inp: CheckoutInput): Promise<void> => {
+    if (err instanceof NetworkError) {
+      // Keep the key: a replay is safe and returns the original order if it was created.
+      setNetworkRetry(true);
+      setErrorText('We could not confirm your order. Check My Orders before retrying.');
       return;
     }
-
-    // For all other methods (UPI, Card, COD, Netbanking):
-    // Show 3rd screen popup directly with colored flying confetti animation!
-    setShowSuccessModal(true);
+    const p = mapProblem(err);
+    if (p.silent) return;
+    const code = err instanceof ApiError ? (err.code as string) : '';
+    if (code === 'IDEMPOTENCY_KEY_REUSED') orderIdempotencyKeys.reset();
+    if (p.action === 'topup' || code === 'WALLET_INSUFFICIENT') {
+      setShortfall(err instanceof ApiError ? (err.walletShortfall?.shortfall ?? null) : null);
+      setErrorText(p.message);
+      setShowWalletModal(false);
+      return;
+    }
+    if (code === 'CART_LOCK_EXPIRED' && cartQuery.data) {
+      try {
+        const fresh = await reReserveCart(cartQuery.data, inp.warehouseId);
+        qc.setQueryData(cartQueryKeys.cart, fresh);
+        void quoteQuery.refetch();
+        setErrorText('Your reservation was renewed. Please confirm again.');
+      } catch (e) {
+        setErrorText(mapProblem(e).message);
+      }
+      return;
+    }
+    if (p.action === 'refresh_cart') {
+      setShowWalletModal(false);
+      backToCart(p.message);
+      return;
+    }
+    if (p.action === 'choose_slot' || code === 'SLOT_FULL') {
+      checkoutDraftStore.patchDraft({ deliverySlot: undefined });
+      setShowWalletModal(false);
+      backToCart(p.message);
+      return;
+    }
+    if (err instanceof ApiError && err.status === 501) {
+      checkoutDraftStore.setHomeDeliveryDisabled(true);
+      setShowWalletModal(false);
+      backToCart('Home delivery is not available right now. Please choose a pickup point.');
+      return;
+    }
+    if (err instanceof ApiError && err.status === 404 && !isPickup) {
+      setShowWalletModal(false);
+      backToCart('That address is no longer available. Please pick another.');
+      return;
+    }
+    setErrorText(p.message);
   };
 
-  const handleWalletConfirmPayment = () => {
-    orderStore.addOrderedItems([
-      'Royal Gala',
-      'Fuji',
-      'Green Curly Lettuce',
-      'Red Tomato',
-      'Fresh Tomatoes',
-      'Watermelon',
-    ]);
-    setShowWalletModal(false);
-    // Proceed to 3rd screen (Order success modal with flying paper animation)
-    setShowSuccessModal(true);
+  const handleConfirmPayment = async () => {
+    if (!input || !isCheckoutInputComplete(input) || placeOrderM.isPending) return;
+    const key = orderIdempotencyKeys.keyFor(checkoutFingerprint(input));
+    setErrorText(null);
+    setNetworkRetry(false);
+    try {
+      const placed = await placeOrderM.mutateAsync({ input, idempotencyKey: key });
+      orderIdempotencyKeys.reset();
+      setOrder(placed);
+      setShowWalletModal(false);
+      setShowSuccessModal(true);
+    } catch (err) {
+      await handleError(err, input);
+    }
   };
 
-  // Helper to autofill demo card details (for quick verification of Image 2 right)
-  const autofillDemoCard = () => {
-    setCardNumber('9876 9876 5432 5432');
-    setCardExpiry('05/36');
-    setCardCvv('•••');
-  };
+  // Quote failures (SLOT_FULL, 501, 404 address...) use the same recovery as checkout.
+  useEffect(() => {
+    if (quoteQuery.error && !order && input && isCheckoutInputComplete(input)) void handleError(quoteQuery.error, input);
+  }, [quoteQuery.error]);
+
+  const orderIsPickup = isPickupFulfillment(order?.fulfillmentType) || (!order?.fulfillmentType && isPickup);
+  const orderPoint = pickupQuery.data?.find((p) => p.id === order?.warehouseId) ?? point;
+
+  if (!draft && !order) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.backButton} accessibilityLabel="Back">
+            <BackArrowSvg />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Pay & Checkout</Text>
+        </View>
+        <View style={styles.policyContainer} testID="checkout-no-draft">
+          <Text style={styles.policyTitle}>Choose how to receive your order</Text>
+          <TouchableOpacity onPress={() => onNavigate?.('Cart')}>
+            <Text style={styles.readPolicyLink}>Go to cart</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -490,842 +470,425 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
 
       {/* ── TOP HEADER (Back Button + Editorial Title) ──────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))}
-          style={styles.backButton}
-        >
+        <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.backButton} accessibilityLabel="Back">
           <BackArrowSvg />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Pay & Checkout</Text>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── 1. DELIVERY ADDRESS CARD ──────────────────────────────────────── */}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* ── 1. DELIVERY ADDRESS / PICKUP POINT CARD ───────────────────────── */}
         <View style={styles.addressCard}>
           <View style={styles.addressCardHeader}>
             <View style={styles.addressCardHeaderLeft}>
               <LocationPinSvg color="#16A34A" />
-              <Text style={styles.addressCardTitle}>Delivery Address</Text>
-              <View style={styles.homeBadge}>
-                <Text style={styles.homeBadgeText}>Home</Text>
-              </View>
+              <Text style={styles.addressCardTitle}>{isPickup ? 'Pickup point' : 'Delivery Address'}</Text>
+              {!isPickup && address && (
+                <View style={styles.homeBadge}>
+                  <Text style={styles.homeBadgeText}>{address.label === 'HOME' ? 'Home' : address.label === 'OFFICE' ? 'Office' : 'Other'}</Text>
+                </View>
+              )}
             </View>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))}
-            >
+            <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} accessibilityLabel="Change">
               <EditPencilSvg />
             </TouchableOpacity>
           </View>
-
           <View style={styles.addressCardBody}>
-            <Text style={styles.addressLine}>Suresh,</Text>
-            <Text style={styles.addressLine}>
-              77, Sylks Road, Ooty – 643001, Tamil Nadu.
-            </Text>
-            <Text style={styles.addressPhone}>Phone: 99944 99944</Text>
+            {isPickup ? (
+              <>
+                <Text style={styles.addressLine}>{point?.name ?? ''}</Text>
+                {!!point?.address && <Text style={styles.addressLine}>{point.address}</Text>}
+                {!!point?.phone && <Text style={styles.addressPhone}>Phone: {point.phone}</Text>}
+              </>
+            ) : (
+              <>
+                {address && <Text style={styles.addressLine}>{formatAddressLine(address)}, {address.state}.</Text>}
+                {!!address?.contactPhone && <Text style={styles.addressPhone}>Phone: {address.contactPhone}</Text>}
+                {!!draft?.deliveryDate && (
+                  <Text style={styles.addressPhone} testID="checkout-slot">
+                    {draft.deliveryDate} · {draft.deliverySlot ? SLOT_LABEL[draft.deliverySlot] : ''}
+                  </Text>
+                )}
+              </>
+            )}
           </View>
         </View>
 
         {/* ── 2. CART SUMMARY FLOATING DARK PILL ────────────────────────────── */}
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))}
-          style={styles.darkCartPill}
-        >
+        <TouchableOpacity activeOpacity={0.9} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.darkCartPill}>
           <View style={styles.darkCartLeft}>
-            <View style={styles.cartThumbnailCircle}>
-              <Image
-                source={ProductImages.fruitApple}
-                style={styles.cartThumbnailImage}
-                resizeMode="contain"
-              />
-            </View>
+            <View style={styles.cartThumbnailCircle} />
             <View style={styles.darkCartTexts}>
-              <Text style={styles.darkCartTitle}>{itemsCount} items in your cart</Text>
+              <Text style={styles.darkCartTitle}>{quote ? `${quote.itemCount} ${quote.itemCount === 1 ? 'item' : 'items'} in your cart` : 'Your cart'}</Text>
               <Text style={styles.darkCartViewLink}>View cart</Text>
             </View>
           </View>
-          <Text style={styles.darkCartTotal}>₹{total.toFixed(2)}</Text>
+          <Text style={styles.darkCartTotal}>{formatRupees(quote?.subtotal)}</Text>
         </TouchableOpacity>
 
-        {/* ── 3. PAYMENT METHOD CARD ────────────────────────────────────────── */}
+        {/* ── 3. ORDER SUMMARY (POST /orders/quote) ─────────────────────────── */}
         <View style={styles.paymentCard}>
-          {/* Header */}
+          <View style={styles.paymentCardHeader}>
+            <CardHeaderSvg />
+            <Text style={styles.paymentCardTitle}>Order summary</Text>
+          </View>
+          {quoteQuery.isLoading ? (
+            <ActivityIndicator testID="quote-loading" style={{ margin: 16 }} />
+          ) : quote ? (
+            <View style={styles.orderItemsBlock}>
+              {quote.lines.map((l) => (
+                <View key={l.id} style={styles.orderItemRow}>
+                  <View>
+                    <Text style={styles.orderItemName}>{l.name}</Text>
+                    <Text style={styles.orderItemSub}>
+                      {formatKg(l.qtyKg)} × {formatRupees(l.unitPrice)} / kg
+                    </Text>
+                  </View>
+                  <Text style={styles.orderItemPrice}>{formatRupees(l.lineTotal)}</Text>
+                </View>
+              ))}
+              <View style={styles.dottedDivider} />
+              {(
+                [
+                  ['Items total', quote.subtotal],
+                  ['Delivery fee', quote.deliveryFee],
+                  ['Handling fee', quote.handlingFee],
+                  ['GST', quote.gstAmount],
+                ] as const
+              ).map(([label, value]) => (
+                <View key={label} style={styles.orderItemRow}>
+                  <Text style={styles.orderItemSub}>{label}</Text>
+                  <Text style={styles.orderItemPrice}>{formatRupees(value)}</Text>
+                </View>
+              ))}
+              <View style={styles.totalPaidRow}>
+                <Text style={styles.totalPaidLabel}>To pay</Text>
+                <Text style={styles.totalPaidAmount} testID="checkout-total">
+                  {formatRupees(quote.totalAmount)}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <TouchableOpacity onPress={() => void quoteQuery.refetch()} testID="quote-retry">
+              <Text style={styles.orderItemSub}>{errorText ?? "Couldn't price your order. Tap to retry."}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── 4. PAYMENT METHOD: TOHFA WALLET ONLY (BR-17) ──────────────────── */}
+        <View style={styles.paymentCard}>
           <View style={styles.paymentCardHeader}>
             <CardHeaderSvg />
             <Text style={styles.paymentCardTitle}>Payment Method</Text>
           </View>
-
-          {/* Body List */}
           <View style={styles.paymentList}>
-            {/* ── OPTION 1: UPI ── */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedMethod('upi');
-              }}
-              style={[
-                styles.methodRow,
-                selectedMethod === 'upi' && styles.methodRowSelected,
-              ]}
-            >
-              <View style={styles.methodLeft}>
-                <PhoneSvg />
-                <Text style={styles.methodLabel}>UPI</Text>
-              </View>
-              <View
-                style={[
-                  styles.radioCircle,
-                  selectedMethod === 'upi' && styles.radioCircleSelected,
-                ]}
-              >
-                {selectedMethod === 'upi' && <View style={styles.radioInnerDot} />}
-              </View>
-            </TouchableOpacity>
-
-            {/* UPI Expanded Sub-section */}
-            {selectedMethod === 'upi' && (
-              <View style={styles.subSectionBox}>
-                <Text style={styles.subSectionTitle}>UPI Apps</Text>
-                <View style={styles.upiAppsRow}>
-                  {/* Other */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedUpiApp('Other')}
-                    style={[
-                      styles.upiAppBtn,
-                      selectedUpiApp === 'Other' && styles.upiAppBtnSelected,
-                    ]}
-                  >
-                    <OtherUpiIcon />
-                    <Text style={styles.upiAppLabel}>Other</Text>
-                  </TouchableOpacity>
-
-                  {/* GPay */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedUpiApp('GPay')}
-                    style={[
-                      styles.upiAppBtn,
-                      selectedUpiApp === 'GPay' && styles.upiAppBtnSelected,
-                    ]}
-                  >
-                    <GPayIcon />
-                    <Text style={styles.upiAppLabel}>GPay</Text>
-                  </TouchableOpacity>
-
-                  {/* BHIM App */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedUpiApp('BHIM')}
-                    style={[
-                      styles.upiAppBtn,
-                      selectedUpiApp === 'BHIM' && styles.upiAppBtnSelected,
-                    ]}
-                  >
-                    <BhimIcon />
-                    <Text style={styles.upiAppLabel}>BHIM App</Text>
-                  </TouchableOpacity>
-
-                  {/* Paytm */}
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => setSelectedUpiApp('Paytm')}
-                    style={[
-                      styles.upiAppBtn,
-                      selectedUpiApp === 'Paytm' && styles.upiAppBtnSelected,
-                    ]}
-                  >
-                    <PaytmIcon />
-                    <Text style={styles.upiAppLabel}>Paytm</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* ── OPTION 2: Credit/Debit Card (Image 2) ── */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedMethod('card');
-              }}
-              style={[
-                styles.methodRow,
-                selectedMethod === 'card' && styles.methodRowSelected,
-              ]}
-            >
-              <View style={styles.methodLeft}>
-                <CreditCardSvg />
-                <Text style={styles.methodLabel}>Credit/Debit Card</Text>
-              </View>
-              <View
-                style={[
-                  styles.radioCircle,
-                  selectedMethod === 'card' && styles.radioCircleSelected,
-                ]}
-              >
-                {selectedMethod === 'card' && <View style={styles.radioInnerDot} />}
-              </View>
-            </TouchableOpacity>
-
-            {/* Credit/Debit Card Expanded Sub-section: Enter card details */}
-            {selectedMethod === 'card' && (
-              <View style={styles.subSectionBox}>
-                <View style={styles.subSectionHeaderRow}>
-                  <Text style={styles.subSectionTitle}>Enter card details</Text>
-                  {!cardNumber && (
-                    <TouchableOpacity onPress={autofillDemoCard} activeOpacity={0.7}>
-                      <Text style={styles.autofillHint}>Demo Autofill</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Card Number Input with Eye Hide Icon */}
-                <View style={styles.cardInputRow}>
-                  <TextInput
-                    style={styles.cardNumberInput}
-                    value={cardNumber}
-                    onChangeText={setCardNumber}
-                    placeholder="Enter card Number"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                  />
-                  <TouchableOpacity activeOpacity={0.7}>
-                    <EyeHideSvg />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Expiry & CVV Row */}
-                <View style={styles.cardDetailRow}>
-                  <TextInput
-                    style={[styles.cardSmallInput, { flex: 1, marginRight: 16 }]}
-                    value={cardExpiry}
-                    onChangeText={setCardExpiry}
-                    placeholder="MM/YY"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                  />
-                  <TextInput
-                    style={[styles.cardSmallInput, { flex: 1 }]}
-                    value={cardCvv}
-                    onChangeText={setCardCvv}
-                    placeholder="CVV"
-                    placeholderTextColor="#9CA3AF"
-                    keyboardType="numeric"
-                    secureTextEntry
-                  />
-                </View>
-              </View>
-            )}
-
-            {/* ── OPTION 3: Cash on Delivery or Shop (Image 3) ── */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedMethod('cod');
-              }}
-              style={[
-                styles.methodRow,
-                selectedMethod === 'cod' && styles.methodRowSelected,
-              ]}
-            >
-              <View style={styles.methodLeft}>
-                <CashSvg />
-                <Text style={styles.methodLabel}>Cash on Delivery or Shop</Text>
-              </View>
-              <View
-                style={[
-                  styles.radioCircle,
-                  selectedMethod === 'cod' && styles.radioCircleSelected,
-                ]}
-              >
-                {selectedMethod === 'cod' && <View style={styles.radioInnerDot} />}
-              </View>
-            </TouchableOpacity>
-
-            {/* ── OPTION 4: Net banking (Image 4 & Image 5) ── */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedMethod('netbanking');
-              }}
-              style={[
-                styles.methodRow,
-                selectedMethod === 'netbanking' && styles.methodRowSelected,
-              ]}
-            >
-              <View style={styles.methodLeft}>
-                <BankSvg />
-                <Text style={styles.methodLabel}>Net banking</Text>
-              </View>
-              <View
-                style={[
-                  styles.radioCircle,
-                  selectedMethod === 'netbanking' && styles.radioCircleSelected,
-                ]}
-              >
-                {selectedMethod === 'netbanking' && <View style={styles.radioInnerDot} />}
-              </View>
-            </TouchableOpacity>
-
-            {/* Net banking Expanded Sub-section: Popular Banks + Other Bank button */}
-            {selectedMethod === 'netbanking' && (
-              <View style={styles.subSectionBox}>
-                {/* Header row: "UPI Apps" on Left, "Other Bank" on Right */}
-                <View style={styles.subSectionHeaderRow}>
-                  <Text style={styles.subSectionTitle}>UPI Apps</Text>
-                  <TouchableOpacity
-                    onPress={() =>
-                      onNavigate?.('ChooseBank', {
-                        ...params,
-                        selectedBank,
-                        total,
-                        itemsCount,
-                      })
-                    }
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.otherBankLink}>Other Bank</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Popular 4 Banks (SBI, HDFC, ICICI, YES Bank) with exact logos */}
-                <View style={styles.popularBanksRow}>
-                  {POPULAR_BANKS.map(bank => {
-                    const isSelected = selectedBank === bank.name || selectedBank === bank.shortName;
-                    return (
-                      <TouchableOpacity
-                        key={bank.id}
-                        activeOpacity={0.8}
-                        onPress={() => setSelectedBank(bank.name)}
-                        style={[
-                          styles.popularBankCard,
-                          isSelected && styles.popularBankCardSelected,
-                        ]}
-                      >
-                        <View style={styles.bankLogoCircle}>
-                          {bank.renderLogo(34)}
-                        </View>
-                        <Text style={styles.popularBankName}>{bank.shortName}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
-
-            {/* ── OPTION 5: Wallets (Image 2) ── */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                setSelectedMethod('wallets');
-                // Open 2nd screen: Pay with Wallet popup modal
-                setShowWalletModal(true);
-              }}
-              style={[
-                styles.methodRow,
-                selectedMethod === 'wallets' && styles.methodRowSelected,
-              ]}
-            >
+            <View style={[styles.methodRow, styles.methodRowSelected]} testID="wallet-method">
               <View style={styles.methodLeft}>
                 <WalletSvg />
-                <Text style={styles.methodLabel}>Wallets</Text>
+                <Text style={styles.methodLabel}>Pay with TOHFA Wallet · {balanceLabel}</Text>
               </View>
-              <View
-                style={[
-                  styles.radioCircle,
-                  selectedMethod === 'wallets' && styles.radioCircleSelected,
-                ]}
-              >
-                {selectedMethod === 'wallets' && <View style={styles.radioInnerDot} />}
+              <View style={[styles.radioCircle, styles.radioCircleSelected]}>
+                <View style={styles.radioInnerDot} />
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
+          {!!effectiveShortfall && (
+            <View style={styles.walletBalanceAfterBanner} testID="checkout-shortfall">
+              <Text style={styles.walletBalanceAfterLabel}>Short by {formatRupees(effectiveShortfall)}</Text>
+              <TouchableOpacity onPress={goTopup} testID="checkout-add-money" style={styles.walletConfirmBtn}>
+                <Text style={styles.walletConfirmBtnText}>Add money</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
-        {/* ── 4. RETURN / REFUND POLICY ─────────────────────────────────────── */}
+        {!!errorText && !effectiveShortfall && (
+          <View style={styles.policyContainer} testID="checkout-error">
+            <Text style={styles.policyText}>{errorText}</Text>
+            {networkRetry && (
+              <TouchableOpacity onPress={() => void handleConfirmPayment()} testID="checkout-retry">
+                <Text style={styles.readPolicyLink}>Retry payment</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* ── 5. RETURN / REFUND POLICY ─────────────────────────────────────── */}
         <View style={styles.policyContainer}>
           <Text style={styles.policyTitle}>Return/Refund Policy</Text>
-          <Text style={styles.policyText}>
-            Freshly sourced from local farmers, thoughtfully delivered to your home.
-          </Text>
+          <Text style={styles.policyText}>Freshly sourced from local farmers, thoughtfully delivered to your home.</Text>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() =>
-              Alert.alert(
-                'Return & Refund Policy',
-                'We guarantee 100% farm-fresh quality. If any item is damaged or unscheduled, report within 24 hours for instant refund or replacement.'
-              )
+              Alert.alert('Return & Refund Policy', 'If any item is damaged or not fresh, raise a return from My Orders after delivery or pickup.')
             }
           >
             <Text style={styles.readPolicyLink}>Read policy</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Extra bottom padding for sticky checkout bar */}
         <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* ── 5. STICKY BOTTOM CHECKOUT BAR ──────────────────────────────────── */}
+      {/* ── 6. STICKY BOTTOM BAR ───────────────────────────────────────────── */}
       <View style={styles.bottomBar}>
         <View style={styles.bottomPillContainer}>
-          <Text style={styles.bottomPriceText}>₹{total.toFixed(2)}</Text>
-
-          <TouchableOpacity
-            activeOpacity={isPaymentReady ? 0.85 : 1}
-            onPress={handleProceedToPay}
-            disabled={!isPaymentReady}
-            style={[
-              styles.proceedToPayBtn,
-              isPaymentReady ? styles.proceedToPayBtnActive : styles.proceedToPayBtnDisabled,
-            ]}
-          >
-            <Text
-              style={[
-                styles.proceedToPayBtnText,
-                isPaymentReady ? styles.proceedToPayBtnTextActive : styles.proceedToPayBtnTextDisabled,
-              ]}
+          <Text style={styles.bottomPriceText}>{formatRupees(total)}</Text>
+          {effectiveShortfall ? (
+            <TouchableOpacity activeOpacity={0.85} onPress={goTopup} style={[styles.proceedToPayBtn, styles.proceedToPayBtnActive]} testID="checkout-topup-cta">
+              <Text style={[styles.proceedToPayBtnText, styles.proceedToPayBtnTextActive]}>Add money</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={ready ? 0.85 : 1}
+              onPress={() => setShowWalletModal(true)}
+              disabled={!ready}
+              style={[styles.proceedToPayBtn, ready ? styles.proceedToPayBtnActive : styles.proceedToPayBtnDisabled]}
+              testID="checkout-proceed"
             >
-              Proceed to Pay
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.proceedToPayBtnText, ready ? styles.proceedToPayBtnTextActive : styles.proceedToPayBtnTextDisabled]}>Pay & place order</Text>
+            </TouchableOpacity>
+          )}
         </View>
-
-        {/* Floating Green Cart Circle Badge */}
-        <TouchableOpacity
-          style={styles.floatingCartCircle}
-          onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))}
-          activeOpacity={0.85}
-        >
+        <TouchableOpacity style={styles.floatingCartCircle} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} activeOpacity={0.85}>
           <CartFloatingSvg />
         </TouchableOpacity>
       </View>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          2ND SCREEN: PAY WITH WALLET POPUP MODAL (Exact Image 2)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showWalletModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowWalletModal(false)}
-      >
+      {/* ═══ PAY WITH WALLET POPUP (46:40084): no OTP, the quote is the source ═══ */}
+      <Modal visible={showWalletModal} transparent animationType="fade" onRequestClose={() => setShowWalletModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.walletModalCard}>
-            {/* Top Close Button ✕ (Exact Figma Image 1 left) */}
-            <TouchableOpacity
-              style={styles.modalCloseCircle}
-              onPress={() => setShowWalletModal(false)}
-              activeOpacity={0.7}
-              accessibilityLabel="Close"
-            >
+            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowWalletModal(false)} activeOpacity={0.7} accessibilityLabel="Close">
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
-
-            {/* Header: Green Wallet Icon + Title */}
             <View style={styles.walletHeaderRow}>
               <View style={styles.walletIconHeader}>
                 <WalletSvg />
               </View>
               <Text style={styles.walletModalTitle}>Pay with Wallet</Text>
             </View>
-
-            {/* Top Light Green Banner: Order ID & Amount */}
-            <View style={styles.walletOrderBanner}>
-              <View style={styles.walletOrderBannerLeft}>
-                <View style={styles.walletOrderCartIcon}>
-                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M3 3h2l2 12h11l2-8H6"
-                      stroke="#16A34A"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Circle cx="9" cy="20" r="1.5" fill="#16A34A" />
-                    <Circle cx="17" cy="20" r="1.5" fill="#16A34A" />
-                  </Svg>
-                </View>
-                <View>
-                  <Text style={styles.walletOrderId}>Order ID: #TOH123456</Text>
-                  <Text style={styles.walletOrderLabel}>Order Payment</Text>
-                </View>
-              </View>
-              <Text style={styles.walletOrderPrice}>₹{total.toFixed(2)}</Text>
-            </View>
-
-            {/* Balance Summary Card */}
             <View style={styles.walletSummaryCard}>
-              {/* Row 1: TOHFA Wallet Balance */}
               <View style={styles.walletBalanceRow}>
                 <View style={styles.walletBalanceLeft}>
                   <WalletSvg />
                   <Text style={styles.walletBalanceLabel}>TOHFA Wallet Balance</Text>
                 </View>
-                <Text style={styles.walletBalanceVal}>₹2,580.00</Text>
+                <Text style={styles.walletBalanceVal} testID="wallet-modal-balance">
+                  {balanceLabel}
+                </Text>
               </View>
-
               <View style={styles.walletDivider} />
-
-              {/* Row 2: Payment Amount */}
               <View style={styles.walletBalanceRow}>
                 <Text style={styles.walletAmountLabel}>Payment Amount</Text>
-                <Text style={styles.walletAmountVal}>₹{total.toFixed(2)}</Text>
+                <Text style={styles.walletAmountVal}>{formatRupees(total)}</Text>
               </View>
-
-              {/* Row 3: Balance after Payment */}
-              <View style={styles.walletBalanceAfterBanner}>
-                <Text style={styles.walletBalanceAfterLabel}>Balance after Payment</Text>
-                <Text style={styles.walletBalanceAfterVal}>₹{(2580 - total).toFixed(2)}</Text>
-              </View>
+              {quote && (
+                <View style={styles.walletBalanceAfterBanner}>
+                  <Text style={styles.walletBalanceAfterLabel}>Balance after Payment</Text>
+                  <Text style={styles.walletBalanceAfterVal}>{formatRupees(subtractMoney(quote.walletBalance, quote.totalAmount))}</Text>
+                </View>
+              )}
             </View>
-
-            {/* Sub-section: Enter OTP */}
-            <View style={styles.walletOtpSection}>
-              <View style={styles.walletOtpHeader}>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Rect x="4" y="11" width="16" height="11" rx="2" stroke="#1F2937" strokeWidth="2" />
-                  <Path d="M7 11V7a5 5 0 0110 0v4" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
-                </Svg>
-                <Text style={styles.walletOtpTitle}>Enter OTP</Text>
-              </View>
-              <Text style={styles.walletOtpSubtitle}>
-                Enter the OTP sent to your registered mobile number to complete the payment.
+            {!!errorText && (
+              <Text style={styles.walletOrderLabel} testID="wallet-modal-error">
+                {errorText}
               </Text>
-
-              {/* OTP Input with Phone Icon & Eye */}
-              <View style={styles.walletOtpInputBox}>
-                <PhoneSvg />
-                <TextInput
-                  style={styles.walletOtpInput}
-                  value={walletOtp}
-                  onChangeText={setWalletOtp}
-                  placeholder="Enter OTP"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  maxLength={6}
-                />
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => setWalletOtp('1234')}
-                >
-                  <EyeHideSvg />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Buttons Row: Cancel & Confirm Payment */}
+            )}
             <View style={styles.walletActionRow}>
-              <TouchableOpacity
-                style={styles.walletCancelBtn}
-                onPress={() => setShowWalletModal(false)}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity style={styles.walletCancelBtn} onPress={() => setShowWalletModal(false)} activeOpacity={0.7}>
                 <Text style={styles.walletCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.walletConfirmBtn}
-                onPress={handleWalletConfirmPayment}
+                onPress={() => void handleConfirmPayment()}
+                disabled={placeOrderM.isPending}
                 activeOpacity={0.85}
+                testID="wallet-confirm"
               >
-                <Text style={styles.walletConfirmBtnText}>Confirm Payment</Text>
+                {placeOrderM.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.walletConfirmBtnText}>Confirm Payment</Text>}
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          3RD SCREEN: ORDER SUCCESS MODAL WITH FLYING CONFETTI (Exact Image 3)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowSuccessModal(false)}
-      >
+      {/* ═══ ORDER SUCCESS (46:40202) ═══ */}
+      <Modal visible={showSuccessModal && !!order} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.successModalCard}>
-            {/* Top Close Button ✕ (Exact Figma Image 1 left) */}
-            <TouchableOpacity
-              style={styles.modalCloseCircle}
-              onPress={() => setShowSuccessModal(false)}
-              activeOpacity={0.7}
-              accessibilityLabel="Close"
-            >
+          <View style={styles.successModalCard} testID="order-success">
+            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowSuccessModal(false)} activeOpacity={0.7} accessibilityLabel="Close">
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
-
-            <ScrollView
-              style={{ maxHeight: SCREEN_HEIGHT * 0.82 }}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* TOHFA Logo & Association Header */}
+            <ScrollView style={{ maxHeight: SCREEN_HEIGHT * 0.82 }} showsVerticalScrollIndicator={false}>
               <View style={styles.successLogoHeader}>
-                <Image
-                  source={tohfaMarketLogo}
-                  style={styles.successLogoImage}
-                  resizeMode="contain"
-                />
-                <Text style={styles.associationSubtitle}>
-                  Nilgiris Horticulture Organic Farmers Association
-                </Text>
+                <Image source={tohfaMarketLogo} style={styles.successLogoImage} resizeMode="contain" />
               </View>
-
-              {/* Dotted Divider */}
               <View style={styles.dottedDivider} />
-
-              {/* Order Meta details */}
               <View style={styles.orderMetaBlock}>
                 <View style={styles.orderMetaRow}>
                   <Text style={styles.orderMetaLabel}>Order ID</Text>
-                  <Text style={styles.orderMetaValBold}>ORD-20260712-0028</Text>
-                </View>
-                <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>Order Date</Text>
-                  <Text style={styles.orderMetaValBold}>12 Jul 2026, 6:15 PM</Text>
-                </View>
-                <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>Payment method</Text>
-                  <Text style={styles.orderMetaValBold}>
-                    {selectedMethod === 'wallets'
-                      ? 'Paid via Wallet'
-                      : selectedMethod === 'upi'
-                      ? (selectedUpiApp || 'GPay')
-                      : selectedMethod === 'card'
-                      ? 'Credit/Debit Card'
-                      : selectedMethod === 'cod'
-                      ? 'Cash on Delivery'
-                      : 'Net Banking'}
+                  <Text style={styles.orderMetaValBold} testID="success-order-number">
+                    {order?.orderNumber}
                   </Text>
                 </View>
                 <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>Pickup location</Text>
-                  <Text style={styles.orderMetaValBold}>Ooty Market</Text>
+                  <Text style={styles.orderMetaLabel}>Order Date</Text>
+                  <Text style={styles.orderMetaValBold}>{formatPlacedAt(order?.placedAt)}</Text>
+                </View>
+                <View style={styles.orderMetaRow}>
+                  <Text style={styles.orderMetaLabel}>Payment method</Text>
+                  <Text style={styles.orderMetaValBold}>{order?.paymentMethodLabel ?? 'Wallet'}</Text>
+                </View>
+                <View style={styles.orderMetaRow}>
+                  <Text style={styles.orderMetaLabel}>{orderIsPickup ? 'Pickup location' : 'Delivery'}</Text>
+                  <Text style={styles.orderMetaValBold}>
+                    {orderIsPickup ? (orderPoint?.name ?? '') : `${order?.deliveryDate ?? ''} ${order?.deliverySlot ? SLOT_LABEL[order.deliverySlot] : ''}`}
+                  </Text>
                 </View>
               </View>
 
-              {/* Items List Breakdown */}
               <View style={styles.orderItemsBlock}>
-                {/* Item 1 */}
-                <View style={styles.orderItemRow}>
-                  <View>
-                    <Text style={styles.orderItemName}>Royal Gala</Text>
-                    <Text style={styles.orderItemSub}>1 kg × Rs. 160 / kg</Text>
+                {(order?.items ?? []).map((it) => (
+                  <View key={it.id} style={styles.orderItemRow}>
+                    <View>
+                      <Text style={styles.orderItemName}>{it.name}</Text>
+                      <Text style={styles.orderItemSub}>
+                        {formatKg(it.qtyKg)} × {formatRupees(it.unitPrice)} / kg
+                      </Text>
+                    </View>
+                    <Text style={styles.orderItemPrice}>{formatRupees(it.lineTotal)}</Text>
                   </View>
-                  <Text style={styles.orderItemPrice}>Rs. 160.00</Text>
-                </View>
-
-                {/* Item 2 */}
-                <View style={styles.orderItemRow}>
-                  <View>
-                    <Text style={styles.orderItemName}>Fuji</Text>
-                    <Text style={styles.orderItemSub}>1 kg × Rs. 152 / kg</Text>
-                  </View>
-                  <Text style={styles.orderItemPrice}>Rs. 152.00</Text>
-                </View>
-
-                {/* Item 3 */}
-                <View style={styles.orderItemRow}>
-                  <View>
-                    <Text style={styles.orderItemName}>Green Curly Lettuce</Text>
-                    <Text style={styles.orderItemSub}>1 kg × Rs. 132 / kg</Text>
-                  </View>
-                  <Text style={styles.orderItemPrice}>Rs. 132.00</Text>
-                </View>
+                ))}
               </View>
 
-              {/* Dotted Divider */}
               <View style={styles.dottedDivider} />
 
-              {/* 5-Step Order Progress Tracker */}
               <Text style={styles.orderProgressHeading}>Order progress</Text>
               <View style={styles.progressTracker}>
-                {/* Step 1 */}
-                <View style={styles.trackerStepRow}>
-                  <View style={styles.trackerLeftCol}>
-                    <Text style={styles.trackerNumber}>1</Text>
-                    <View style={[styles.trackerLine, styles.trackerLineActive]} />
-                  </View>
-                  <View style={styles.trackerTextCol}>
-                    <View style={styles.trackerTitleRow}>
-                      <Text style={styles.trackerTitle}>Order progress</Text>
-                      <View style={styles.completedBadge}>
-                        <Text style={styles.completedBadgeText}>Completed</Text>
-                      </View>
+                {[
+                  { title: 'Payment', sub: 'Your wallet payment was successful.', state: 'done' },
+                  { title: 'Order confirmed', sub: 'Your order has been accepted.', state: 'done' },
+                  { title: 'Preparing your order', sub: 'Your items are being collected and packed.', state: 'active' },
+                  orderIsPickup
+                    ? { title: 'Ready for pickup', sub: "We'll notify you when your order is ready.", state: 'todo' }
+                    : { title: 'On the way', sub: "We'll notify you when it is dispatched.", state: 'todo' },
+                  orderIsPickup
+                    ? { title: 'Order collected', sub: 'Your order has been handed over.', state: 'todo' }
+                    : { title: 'Delivered', sub: order?.otpRequired ? 'Share the delivery OTP sent to you at handover.' : 'Your order has been delivered.', state: 'todo' },
+                ].map((step, i, all) => (
+                  <View key={step.title} style={styles.trackerStepRow}>
+                    <View style={styles.trackerLeftCol}>
+                      <Text style={styles.trackerNumber}>{i + 1}</Text>
+                      {i < all.length - 1 && <View style={[styles.trackerLine, step.state === 'done' && styles.trackerLineActive]} />}
                     </View>
-                    <Text style={styles.trackerSubtitle}>Your payment was successful.</Text>
-                  </View>
-                </View>
-
-                {/* Step 2 */}
-                <View style={styles.trackerStepRow}>
-                  <View style={styles.trackerLeftCol}>
-                    <Text style={styles.trackerNumber}>2</Text>
-                    <View style={[styles.trackerLine, styles.trackerLineActive]} />
-                  </View>
-                  <View style={styles.trackerTextCol}>
-                    <View style={styles.trackerTitleRow}>
-                      <Text style={styles.trackerTitle}>Order confirmed</Text>
-                      <View style={styles.completedBadge}>
-                        <Text style={styles.completedBadgeText}>Completed</Text>
+                    <View style={styles.trackerTextCol}>
+                      <View style={styles.trackerTitleRow}>
+                        <Text style={styles.trackerTitle}>{step.title}</Text>
+                        {step.state === 'done' && (
+                          <View style={styles.completedBadge}>
+                            <Text style={styles.completedBadgeText}>Completed</Text>
+                          </View>
+                        )}
+                        {step.state === 'active' && (
+                          <View style={styles.inProgressBadge}>
+                            <Text style={styles.inProgressBadgeText}>In progress</Text>
+                          </View>
+                        )}
                       </View>
+                      <Text style={styles.trackerSubtitle}>{step.sub}</Text>
                     </View>
-                    <Text style={styles.trackerSubtitle}>Your order has been accepted.</Text>
                   </View>
-                </View>
-
-                {/* Step 3 */}
-                <View style={styles.trackerStepRow}>
-                  <View style={styles.trackerLeftCol}>
-                    <Text style={styles.trackerNumber}>3</Text>
-                    <View style={styles.trackerLine} />
-                  </View>
-                  <View style={styles.trackerTextCol}>
-                    <View style={styles.trackerTitleRow}>
-                      <Text style={styles.trackerTitle}>Preparing your order</Text>
-                      <View style={styles.inProgressBadge}>
-                        <Text style={styles.inProgressBadgeText}>In progress</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.trackerSubtitle}>Your items are being collected and packed.</Text>
-                  </View>
-                </View>
-
-                {/* Step 4 */}
-                <View style={styles.trackerStepRow}>
-                  <View style={styles.trackerLeftCol}>
-                    <Text style={styles.trackerNumber}>4</Text>
-                    <View style={styles.trackerLine} />
-                  </View>
-                  <View style={styles.trackerTextCol}>
-                    <Text style={styles.trackerTitle}>Ready for pickup</Text>
-                    <Text style={styles.trackerSubtitle}>We'll notify you when your order is ready.</Text>
-                  </View>
-                </View>
-
-                {/* Step 5 */}
-                <View style={styles.trackerStepRow}>
-                  <View style={styles.trackerLeftCol}>
-                    <Text style={styles.trackerNumber}>5</Text>
-                  </View>
-                  <View style={styles.trackerTextCol}>
-                    <Text style={styles.trackerTitle}>Order collected</Text>
-                    <Text style={styles.trackerSubtitle}>Your order has been handed over.</Text>
-                  </View>
-                </View>
+                ))}
               </View>
 
-              {/* Total Paid & Payment Method Pill */}
               <View style={styles.totalPaidRow}>
                 <Text style={styles.totalPaidLabel}>Total paid</Text>
-                <Text style={styles.totalPaidAmount}>Rs. {total.toFixed(0)}</Text>
-              </View>
-
-              <View style={styles.paidMethodBanner}>
-                <WalletSvg />
-                <Text style={styles.paidMethodText}>
-                  {selectedMethod === 'wallets'
-                    ? 'Paid via Wallet'
-                    : selectedMethod === 'upi'
-                    ? `Paid via ${selectedUpiApp || 'UPI'}`
-                    : selectedMethod === 'card'
-                    ? 'Paid via Credit/Debit Card'
-                    : selectedMethod === 'cod'
-                    ? 'Cash on Delivery or Shop'
-                    : 'Paid via Net Banking'}
+                <Text style={styles.totalPaidAmount} testID="success-total">
+                  {formatRupees(order?.totalAmount)}
                 </Text>
               </View>
+              <View style={styles.paidMethodBanner}>
+                <WalletSvg />
+                <Text style={styles.paidMethodText}>Paid via {order?.paymentMethodLabel ?? 'Wallet'}</Text>
+              </View>
 
-              {/* Solid Green Button: Check Pickup code */}
-              <TouchableOpacity
-                style={styles.checkPickupBtn}
-                onPress={() => {
-                  setShowSuccessModal(false);
-                  setShowPickupModal(true);
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.checkPickupBtnText}>Check Pickup code</Text>
-              </TouchableOpacity>
+              {orderIsPickup && !!order?.pickupCode ? (
+                <TouchableOpacity
+                  style={styles.checkPickupBtn}
+                  onPress={() => {
+                    setShowSuccessModal(false);
+                    setShowPickupModal(true);
+                  }}
+                  activeOpacity={0.85}
+                  testID="success-check-pickup"
+                >
+                  <Text style={styles.checkPickupBtnText}>Check Pickup code</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.checkPickupBtn}
+                  onPress={() => {
+                    setShowSuccessModal(false);
+                    checkoutDraftStore.setDraft(null);
+                    if (order) onNavigate?.('OrderTracking', { orderId: order.id });
+                  }}
+                  activeOpacity={0.85}
+                  testID="success-view-order"
+                >
+                  <Text style={styles.checkPickupBtnText}>View order</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
-
-          {/* Confetti Flying OVER the Popup from Left Center and Right Center */}
           <ConfettiOverlay />
         </View>
       </Modal>
 
-      {/* ═══════════════════════════════════════════════════════════════════════
-          4TH SCREEN: PICKUP CODE & QR CODE MODAL (Exact Image 4)
-          ═══════════════════════════════════════════════════════════════════════ */}
-      <Modal
-        visible={showPickupModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPickupModal(false)}
-      >
+      {/* ═══ PICKUP CODE + QR (46:40610): QR = pickupQr.payload (no OTP) ═══ */}
+      <Modal visible={showPickupModal && !!order} transparent animationType="fade" onRequestClose={() => setShowPickupModal(false)}>
         <View style={styles.modalOverlay}>
-          <View style={styles.pickupModalCard}>
-            {/* Top Close Button ✕ (Exact Figma Image 1 left) */}
-            <TouchableOpacity
-              style={styles.modalCloseCircle}
-              onPress={() => setShowPickupModal(false)}
-              activeOpacity={0.7}
-              accessibilityLabel="Close"
-            >
+          <View style={styles.pickupModalCard} testID="pickup-code-modal">
+            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowPickupModal(false)} activeOpacity={0.7} accessibilityLabel="Close">
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
-
-            {/* TOHFA Logo & Association Header */}
             <View style={styles.successLogoHeader}>
-              <Image
-                source={tohfaMarketLogo}
-                style={styles.successLogoImage}
-                resizeMode="contain"
-              />
-              <Text style={styles.associationSubtitle}>
-                Nilgiris Horticulture Organic Farmers Association
-              </Text>
+              <Image source={tohfaMarketLogo} style={styles.successLogoImage} resizeMode="contain" />
             </View>
-
-            {/* Dotted Divider */}
             <View style={styles.dottedDivider} />
-
-            {/* Exact Crisp QR Code from div(1).png (Image 3) */}
             <View style={styles.qrCodeContainer}>
-              <Image
-                source={divQrCode || pickupQrCode}
-                style={{ width: 190, height: 190 }}
-                resizeMode="contain"
-              />
+              <PickupQrCode payload={order?.pickupQr?.payload} size={190} />
             </View>
-
-            {/* OR READ OUT THIS CODE */}
             <Text style={styles.orReadOutText}>OR READ OUT THIS CODE</Text>
-            <Text style={styles.pickupCodeNumber}>PICKUP-0039</Text>
-
-            {/* Order Summary Pill */}
+            <Text style={styles.pickupCodeNumber} testID="pickup-code">
+              {order?.pickupCode}
+            </Text>
             <View style={styles.pickupSummaryPill}>
               <View>
-                <Text style={styles.pickupOrderIdText}>ORD-20260715-0039</Text>
-                <Text style={styles.pickupItemsLocationText}>{itemsCount} items · Ooty Market</Text>
+                <Text style={styles.pickupOrderIdText}>{order?.orderNumber}</Text>
+                <Text style={styles.pickupItemsLocationText}>
+                  {order?.itemCount ?? order?.items.length ?? 0} items{orderPoint ? ` · ${orderPoint.name}` : ''}
+                </Text>
               </View>
-              <Text style={styles.pickupPriceText}>Rs. {total.toFixed(0)}</Text>
+              <Text style={styles.pickupPriceText}>{formatRupees(order?.totalAmount)}</Text>
             </View>
-
-            {/* Continue Shopping Button (Navigates to Home Page) */}
             <TouchableOpacity
               style={styles.continueShoppingBtn}
               onPress={() => {
                 setShowPickupModal(false);
+                checkoutDraftStore.setDraft(null);
+                if (order) onNavigate?.('OrderTracking', { orderId: order.id });
+              }}
+              activeOpacity={0.85}
+              testID="pickup-view-order"
+            >
+              <Text style={styles.continueShoppingBtnText}>View order</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.continueShoppingBtn}
+              onPress={() => {
+                setShowPickupModal(false);
+                checkoutDraftStore.setDraft(null);
                 onNavigate?.('Home');
               }}
               activeOpacity={0.85}
@@ -1333,8 +896,6 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
               <Text style={styles.continueShoppingBtnText}>Continue shopping</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Confetti Flying OVER the Popup from Left Center and Right Center */}
           <ConfettiOverlay />
         </View>
       </Modal>

@@ -16,10 +16,12 @@ import { getApps } from '@react-native-firebase/app';
 import {
   AuthorizationStatus,
   deleteToken,
+  getInitialNotification,
   getMessaging,
   getToken,
   hasPermission,
   onMessage,
+  onNotificationOpenedApp,
   onTokenRefresh,
   requestPermission,
 } from '@react-native-firebase/messaging';
@@ -42,6 +44,31 @@ export interface PushMessagingProvider {
   deleteToken(): Promise<void>;
   onTokenRefresh(listener: (token: string) => void): () => void;
   onForegroundMessage(listener: (message: PushMessage) => void): () => void;
+  /**
+   * The user tapped a push: fires once for the notification that cold-started
+   * the app (getInitialNotification) and for every tap while backgrounded
+   * (onNotificationOpenedApp). Optional so test fakes need not implement it.
+   */
+  onNotificationOpened?(listener: (message: PushMessage) => void): () => void;
+}
+
+interface RawRemoteMessage {
+  messageId?: string | undefined;
+  notification?: { title?: string | undefined; body?: string | undefined } | undefined;
+  data?: Record<string, unknown> | undefined;
+}
+
+function toPushMessage(message: RawRemoteMessage): PushMessage {
+  const data: Record<string, string> = {};
+  for (const [k, v] of Object.entries(message.data ?? {})) {
+    data[k] = typeof v === 'string' ? v : JSON.stringify(v);
+  }
+  return {
+    messageId: message.messageId,
+    title: message.notification?.title,
+    body: message.notification?.body,
+    data,
+  };
 }
 
 function isAuthorized(status: number): boolean {
@@ -92,17 +119,21 @@ export const firebasePushProvider: PushMessagingProvider = {
   },
 
   onForegroundMessage(listener) {
-    return onMessage(getMessaging(), (message) => {
-      const data: Record<string, string> = {};
-      for (const [k, v] of Object.entries(message.data ?? {})) {
-        data[k] = typeof v === 'string' ? v : JSON.stringify(v);
-      }
-      listener({
-        messageId: message.messageId,
-        title: message.notification?.title,
-        body: message.notification?.body,
-        data,
-      });
-    });
+    return onMessage(getMessaging(), (message) => listener(toPushMessage(message)));
+  },
+
+  onNotificationOpened(listener) {
+    const messaging = getMessaging();
+    let active = true;
+    void getInitialNotification(messaging)
+      .then((message) => {
+        if (active && message) listener(toPushMessage(message));
+      })
+      .catch(() => undefined);
+    const off = onNotificationOpenedApp(messaging, (message) => listener(toPushMessage(message)));
+    return () => {
+      active = false;
+      off();
+    };
   },
 };

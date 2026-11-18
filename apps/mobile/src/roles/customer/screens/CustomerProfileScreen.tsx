@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -27,6 +28,32 @@ import {
   satelliteMapCoimbatore,
   profileEmailVerified,
 } from '../assets/images';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  displayName,
+  formatMobileDisplay,
+  genderFromApi,
+  genderToApi,
+  profileQueryKeys,
+  requestEmailOtp,
+  useCustomerProfile,
+  useUpdateCustomerProfile,
+  validateAge,
+  verifyEmailOtp,
+  type CustomerProfile,
+  type UpdateCustomerProfileInput,
+} from '../api/profile';
+import {
+  isValidPincode,
+  pickDefaultAddress,
+  toApiAddress,
+  useAddresses,
+  useCreateAddress,
+  useUpdateAddress,
+  type CustomerAddress,
+} from '../api/addresses';
+import { mapProblem } from '../api/problem';
+import { setLocale } from '../../../i18n/customer';
 
 export type ProfileScreenMode = 'empty' | 'view' | 'edit';
 
@@ -51,6 +78,77 @@ export interface CustomerProfileScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
   onSave?: (data: CustomerProfileData) => void;
+}
+
+/** Email OTP length: `system_config.otp_length` is not exposed to mobile; default 6, API accepts 4..8. */
+export const EMAIL_OTP_LENGTH = 6;
+const EMAIL_OTP_PATTERN = /^[0-9]{4,8}$/;
+/** Local resend cooldown (the email OTP answer carries no `resendAvailableAt`); 429 overrides it. */
+const EMAIL_RESEND_COOLDOWN_S = 60;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_UNAVAILABLE_MESSAGE = "Email verification isn't available right now";
+
+const EMPTY_FORM: CustomerProfileData = {
+  name: '',
+  phone: '',
+  phoneVerified: false,
+  email: '',
+  emailVerified: false,
+  age: '',
+  language: '',
+  gender: '',
+  address: '',
+  city: '',
+  pincode: '',
+  state: '',
+};
+
+const joinParts = (parts: Array<string | null | undefined>) =>
+  parts
+    .map((p) => (p ?? '').trim())
+    .filter(Boolean)
+    .join(', ');
+
+/** Server profile + default address -> form values (age is digits only; view mode prefixes "Age"). */
+export function profileToForm(
+  profile: CustomerProfile | undefined,
+  address: CustomerAddress | undefined,
+  overrides?: Partial<CustomerProfileData>,
+): CustomerProfileData {
+  const g = genderFromApi(profile?.gender);
+  return {
+    ...EMPTY_FORM,
+    ...(profile
+      ? {
+          name: displayName(profile),
+          phone: formatMobileDisplay(profile.mobile),
+          phoneVerified: Boolean(profile.mobile),
+          email: profile.email ?? '',
+          emailVerified: Boolean(profile.email) && profile.emailVerified,
+          age: profile.age != null ? String(profile.age) : '',
+          language: profile.preferredLocale === 'ta' ? 'Tamil' : 'English',
+          gender: g === 'other' || g == null ? '' : g,
+        }
+      : {}),
+    ...(address
+      ? {
+          address: joinParts([address.line1, address.line2]),
+          city: address.city,
+          pincode: address.pincode,
+          state: address.state,
+        }
+      : {}),
+    ...(overrides ?? {}),
+  };
+}
+
+/** `suresh@gmail.com` -> `sure**@gmail.com`. */
+export function maskEmail(email: string): string {
+  const at = email.indexOf('@');
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const keep = Math.min(4, Math.max(1, local.length - 1));
+  return `${local.slice(0, keep)}${'*'.repeat(Math.max(1, local.length - keep))}${email.slice(at)}`;
 }
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
@@ -152,33 +250,66 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  // Form State
-  const [formData, setFormData] = useState<CustomerProfileData>({
-    name: initialData?.name || (initialMode === 'empty' ? '' : 'Arun Kumar'),
-    phone: initialData?.phone || (initialMode === 'empty' ? '' : '+91 99944 99944'),
-    phoneVerified: initialData?.phoneVerified ?? (initialMode !== 'empty'),
-    email: initialData?.email || (initialMode === 'empty' ? '' : 'suresh12345@gmail.com'),
-    emailVerified: initialData?.emailVerified ?? false,
-    age: initialData?.age || (initialMode === 'empty' ? '' : 'Age 30'),
-    language: initialData?.language || (initialMode === 'empty' ? '' : 'English'),
-    gender: initialData?.gender || (initialMode === 'empty' ? '' : 'male'),
-    address: initialData?.address || (initialMode === 'empty' ? '' : '12, Tea Garden Road, Ooty, Nilgiris - 643001.'),
-    city: initialData?.city || (initialMode === 'empty' ? '' : 'Ooty'),
-    pincode: initialData?.pincode || (initialMode === 'empty' ? '' : '643001'),
-    state: initialData?.state || (initialMode === 'empty' ? '' : 'Tamil Nadu, India'),
-  });
+  const queryClient = useQueryClient();
+  const profileQuery = useCustomerProfile();
+  const addressesQuery = useAddresses();
+  const updateProfile = useUpdateCustomerProfile();
+  const updateAddress = useUpdateAddress();
+  const createAddress = useCreateAddress();
+  const profile = profileQuery.data;
+  const defaultAddress = pickDefaultAddress(addressesQuery.data);
 
-  // Email Verification Flow State
+  // Form state: mirrors the server (profile + default address) until the user edits.
+  const baseline = useMemo(
+    () => profileToForm(profile, defaultAddress, initialData),
+    [profile, defaultAddress, initialData],
+  );
+  const [formData, setFormData] = useState<CustomerProfileData>(baseline);
+  const [dirty, setDirty] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!dirty) setFormData(baseline);
+  }, [baseline, dirty]);
+
+  const updateForm = (fn: (prev: CustomerProfileData) => CustomerProfileData) => {
+    setDirty(true);
+    setFormData(fn);
+  };
+
+  // Email Verification Flow State (BR-160)
   const [showEmailOtpModal, setShowEmailOtpModal] = useState(false);
-  const [emailOtpPin, setEmailOtpPin] = useState(['', '', '', '']);
+  const [emailOtpPin, setEmailOtpPin] = useState<string[]>(() => Array(EMAIL_OTP_LENGTH).fill(''));
   const [showEmailVerifiedSuccess, setShowEmailVerifiedSuccess] = useState(false);
+  const [otpEmail, setOtpEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [emailUnavailable, setEmailUnavailable] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const id = setTimeout(() => setResendIn((n) => (n > 0 ? n - 1 : 0)), 1000);
+    return () => clearTimeout(id);
+  }, [resendIn]);
 
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
 
+  const resetEdits = () => {
+    setDirty(false);
+    setFieldErrors({});
+    setSaveError(null);
+  };
+
   const handleHeaderBack = () => {
     if (mode === 'edit' && initialMode !== 'edit') {
+      resetEdits();
       setMode('view');
     } else if (onBack) {
       onBack();
@@ -187,20 +318,187 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
     }
   };
 
-  const handleSaveProfile = () => {
-    onSave?.(formData);
-    setMode('view');
+  const handleSaveProfile = async () => {
+    if (saving) return;
+    const errs: Record<string, string> = {};
+    const name = formData.name.trim();
+    if (!name) errs.name = 'Please enter your name';
+    else if (name.length > 120) errs.name = 'Name must be 120 characters or fewer.';
+    const age = validateAge(formData.age);
+    if (age.error) errs.age = age.error;
+
+    const addressText = formData.address.trim();
+    const city = formData.city.trim();
+    const pincode = formData.pincode.trim();
+    const state = formData.state.replace(/,?\s*India$/i, '').trim() || 'Tamil Nadu';
+    const addressChanged =
+      addressText !== baseline.address.trim() ||
+      city !== baseline.city.trim() ||
+      pincode !== baseline.pincode.trim() ||
+      (formData.state.trim() !== '' && state !== baseline.state.trim());
+    const wantsAddress = addressChanged && (addressText !== '' || city !== '' || pincode !== '');
+    if (wantsAddress) {
+      if (!addressText) errs.address = 'Please enter your address';
+      if (!city) errs.city = 'Please enter your city';
+      if (!isValidPincode(pincode)) errs.pincode = 'Enter a valid 6-digit pincode';
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+
+    const patch: UpdateCustomerProfileInput = {};
+    if (name !== displayName(profile)) patch.fullName = name;
+    if (age.value !== (profile?.age ?? null)) patch.age = age.value;
+    if (formData.gender) {
+      const g = genderToApi(formData.gender);
+      if (g !== (profile?.gender ?? null)) patch.gender = g;
+    }
+    if (formData.language) {
+      const locale = formData.language === 'Tamil' ? 'ta' : 'en';
+      if (locale !== profile?.preferredLocale) patch.preferredLocale = locale;
+    }
+
+    setSaving(true);
+    setFieldErrors({});
+    setSaveError(null);
+    try {
+      if (Object.keys(patch).length > 0) {
+        const saved = await updateProfile.mutateAsync(patch);
+        if (patch.preferredLocale) setLocale(saved.preferredLocale ?? patch.preferredLocale);
+      }
+      if (wantsAddress) {
+        const line1 = addressText.slice(0, 200);
+        if (defaultAddress) {
+          await updateAddress.mutateAsync({
+            id: defaultAddress.id,
+            input: { line1, line2: null, city: city.slice(0, 100), pincode, state },
+          });
+        } else {
+          await createAddress.mutateAsync(
+            toApiAddress({ flat: line1, city, pincode, state, type: 'Home', isDefault: true }),
+          );
+        }
+      }
+      onSave?.(formData);
+      setDirty(false);
+      setMode('view');
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      const fe = p.fieldErrors;
+      const mapped: Record<string, string> = {};
+      if (fe.fullName) mapped.name = fe.fullName;
+      if (fe.age) mapped.age = fe.age;
+      if (fe.gender) mapped.gender = fe.gender;
+      if (fe.line1) mapped.address = fe.line1;
+      if (fe.city) mapped.city = fe.city;
+      if (fe.pincode) mapped.pincode = fe.pincode;
+      setFieldErrors(mapped);
+      setSaveError(p.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleVerifyEmailSubmit = () => {
-    setShowEmailOtpModal(false);
-    setShowEmailVerifiedSuccess(true);
+  const applyEmailError = (err: unknown, target: 'email' | 'otp') => {
+    const p = mapProblem(err);
+    if (p.silent) return;
+    if (p.code === 'EMAIL_NOT_CONFIGURED' || p.status === 501) {
+      setEmailUnavailable(true);
+      setShowEmailOtpModal(false);
+      setEmailError(EMAIL_UNAVAILABLE_MESSAGE);
+      return;
+    }
+    if (p.action === 'wait' && p.retryAfterSeconds) setResendIn(p.retryAfterSeconds);
+    const msg = p.fieldErrors.email ?? p.fieldErrors.code ?? p.message;
+    if (target === 'email') setEmailError(msg);
+    else setOtpError(msg);
+  };
+
+  const sendEmailOtp = async (email: string, target: 'email' | 'otp') => {
+    setSendingOtp(true);
+    try {
+      await requestEmailOtp(email);
+      setOtpEmail(email);
+      setEmailOtpPin(Array(EMAIL_OTP_LENGTH).fill(''));
+      setOtpError(null);
+      setEmailError(null);
+      setResendIn(EMAIL_RESEND_COOLDOWN_S);
+      setShowEmailOtpModal(true);
+    } catch (err) {
+      applyEmailError(err, target);
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyNow = () => {
+    if (sendingOtp || emailUnavailable) return;
+    const email = formData.email.trim();
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+      setEmailError('Please enter a valid email address');
+      return;
+    }
+    void sendEmailOtp(email, 'email');
+  };
+
+  const handleResendOtp = () => {
+    if (resendIn > 0 || sendingOtp || !otpEmail) return;
+    void sendEmailOtp(otpEmail, 'otp');
+  };
+
+  const otpCode = emailOtpPin.join('');
+  const otpReady = EMAIL_OTP_PATTERN.test(otpCode);
+
+  const handleVerifyEmailSubmit = async () => {
+    if (!otpReady || verifyingOtp) return;
+    setVerifyingOtp(true);
+    setOtpError(null);
+    try {
+      const updated = await verifyEmailOtp({ email: otpEmail, code: otpCode });
+      queryClient.setQueryData(profileQueryKeys.me, updated);
+      setShowEmailOtpModal(false);
+      setShowEmailVerifiedSuccess(true);
+    } catch (err) {
+      setEmailOtpPin(Array(EMAIL_OTP_LENGTH).fill(''));
+      applyEmailError(err, 'otp');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, val: string) => {
+    const digits = val.replace(/[^0-9]/g, '');
+    setOtpError(null);
+    setEmailOtpPin((prev) => {
+      const next = [...prev];
+      if (digits.length > 1) {
+        // Pasted code: spread across the boxes.
+        digits
+          .slice(0, EMAIL_OTP_LENGTH - index)
+          .split('')
+          .forEach((d, i) => {
+            next[index + i] = d;
+          });
+      } else {
+        next[index] = digits;
+      }
+      return next;
+    });
   };
 
   const handleContinueAfterVerification = () => {
     setShowEmailVerifiedSuccess(false);
-    setFormData(prev => ({ ...prev, emailVerified: true }));
+    setFormData((prev) => ({ ...prev, email: otpEmail || prev.email, emailVerified: true }));
   };
+
+  const emailMatchesVerified =
+    Boolean(profile?.emailVerified) && formData.email.trim() !== '' && formData.email.trim() === (profile?.email ?? '');
+  const emailVerifiedNow = emailMatchesVerified || (formData.emailVerified === true && !dirty);
+  const showVerifyNow = Boolean(formData.email.trim()) && !emailVerifiedNow && !emailUnavailable;
+  const loadingProfile = !profile && profileQuery.isPending && !initialData;
+  const profileError = !profile && profileQuery.isError ? mapProblem(profileQuery.error) : null;
 
   const isEditable = mode === 'edit' || mode === 'empty';
 
@@ -258,6 +556,26 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
           {mode === 'edit' ? 'Update your details' : 'your profile details'}
         </Text>
 
+        {loadingProfile ? (
+          <View style={styles.stateBox} testID="profile-loading">
+            <ActivityIndicator color={customerColors.brand} />
+          </View>
+        ) : profileError && !profileError.silent && !initialData ? (
+          <View style={styles.stateBox} testID="profile-error">
+            <Text style={styles.fieldErrorText} accessibilityRole="alert">
+              {profileError.message}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => void profileQuery.refetch()}
+              accessibilityRole="button"
+              accessibilityLabel="Retry"
+            >
+              <Text style={styles.openMapBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+        <>
         {/* ── SECTION 1: PERSONAL DETAILS ────────────────────────────────────── */}
         <Text style={styles.sectionHeadingUnderlined}>Personal details</Text>
 
@@ -268,7 +586,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               <TextInput
                 style={styles.inputField}
                 value={formData.name}
-                onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
+                onChangeText={text => updateForm(prev => ({ ...prev, name: text }))}
                 placeholder="Please enter your name"
                 placeholderTextColor={customerColors.muted}
                 textAlign="center"
@@ -279,24 +597,21 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               </Text>
             )}
           </View>
+          {fieldErrors.name ? (
+            <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="profile-name-error">
+              {fieldErrors.name}
+            </Text>
+          ) : null}
 
           {/* 2. Number */}
           <View style={styles.fieldRowWithTrailing}>
-            {isEditable ? (
-              <TextInput
-                style={[styles.inputField, { flex: 1 }]}
-                value={formData.phone}
-                onChangeText={text => setFormData(prev => ({ ...prev, phone: text }))}
-                placeholder="Please enter your Number"
-                placeholderTextColor={customerColors.muted}
-                keyboardType="phone-pad"
-                textAlign="center"
-              />
-            ) : (
-              <Text style={[styles.displayFieldText, { flex: 1 }]}>
-                {formData.phone || 'Please enter your Number'}
-              </Text>
-            )}
+            {/* Mobile is the sign-in identity (BR-33): always read-only. */}
+            <Text
+              style={[styles.displayFieldText, { flex: 1 }, !formData.phone && styles.placeholderText]}
+              accessibilityLabel="Mobile number"
+            >
+              {formData.phone || 'Please enter your Number'}
+            </Text>
             {formData.phoneVerified && (
               <View style={styles.trailingIcon}>
                 <CheckCircleSvg size={16} />
@@ -310,7 +625,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               <TextInput
                 style={[styles.inputField, { flex: 1 }]}
                 value={formData.email}
-                onChangeText={text => setFormData(prev => ({ ...prev, email: text }))}
+                onChangeText={text => updateForm(prev => ({ ...prev, email: text }))}
                 placeholder="Please enter your email"
                 placeholderTextColor={customerColors.muted}
                 keyboardType="email-address"
@@ -323,21 +638,33 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               </Text>
             )}
 
-            {formData.email && !formData.emailVerified ? (
+            {showVerifyNow ? (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setShowEmailOtpModal(true)}
+                onPress={handleVerifyNow}
+                disabled={sendingOtp}
                 style={styles.verifyBadge}
                 accessibilityLabel="Verify now"
+                accessibilityState={{ disabled: sendingOtp, busy: sendingOtp }}
               >
-                <Text style={styles.verifyBadgeText}>Verify now &gt;</Text>
+                {sendingOtp ? (
+                  <ActivityIndicator size="small" color={customerColors.heading} />
+                ) : (
+                  <Text style={styles.verifyBadgeText}>Verify now &gt;</Text>
+                )}
               </TouchableOpacity>
-            ) : formData.emailVerified ? (
+            ) : emailVerifiedNow ? (
               <View style={styles.trailingIcon}>
                 <CheckCircleSvg size={16} />
               </View>
             ) : null}
           </View>
+
+          {emailError ? (
+            <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="email-error">
+              {emailError}
+            </Text>
+          ) : null}
 
           {/* 4. Age */}
           <View style={styles.fieldRow}>
@@ -345,30 +672,38 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               <TextInput
                 style={styles.inputField}
                 value={formData.age}
-                onChangeText={text => setFormData(prev => ({ ...prev, age: text }))}
+                onChangeText={text => updateForm(prev => ({ ...prev, age: text.replace(/[^0-9]/g, '') }))}
+                keyboardType="number-pad"
+                maxLength={3}
                 placeholder="Please enter your Age"
                 placeholderTextColor={customerColors.muted}
                 textAlign="center"
               />
             ) : (
               <Text style={styles.displayFieldText}>
-                {formData.age || 'Please enter your Age'}
+                {formData.age ? `Age ${formData.age}` : 'Please enter your Age'}
               </Text>
             )}
           </View>
+          {fieldErrors.age ? (
+            <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="profile-age-error">
+              {fieldErrors.age}
+            </Text>
+          ) : null}
 
           {/* 5. Language Dropdown */}
           <TouchableOpacity
             activeOpacity={isEditable ? 0.7 : 1}
             onPress={() => {
               if (isEditable) {
-                setFormData(prev => ({
+                updateForm(prev => ({
                   ...prev,
-                  language: prev.language === 'English' ? 'Tamil' : 'English',
+                  language: prev.language === 'Tamil' ? 'English' : 'Tamil',
                 }));
               }
             }}
             style={styles.dropdownFieldRow}
+            accessibilityLabel="Language"
           >
             <Text
               style={[
@@ -386,7 +721,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             {/* Male */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => isEditable && setFormData(prev => ({ ...prev, gender: 'male' }))}
+              onPress={() => isEditable && updateForm(prev => ({ ...prev, gender: 'male' }))}
               style={[
                 styles.genderChip,
                 formData.gender === 'male' && styles.genderChipSelected,
@@ -409,7 +744,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             {/* Female */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => isEditable && setFormData(prev => ({ ...prev, gender: 'female' }))}
+              onPress={() => isEditable && updateForm(prev => ({ ...prev, gender: 'female' }))}
               style={[
                 styles.genderChip,
                 formData.gender === 'female' && styles.genderChipSelected,
@@ -432,7 +767,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             {/* Prefer not to say */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => isEditable && setFormData(prev => ({ ...prev, gender: 'prefer_not_to_say' }))}
+              onPress={() => isEditable && updateForm(prev => ({ ...prev, gender: 'prefer_not_to_say' }))}
               style={[
                 styles.genderChip,
                 formData.gender === 'prefer_not_to_say' && styles.genderChipSelected,
@@ -447,6 +782,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               )}
             </TouchableOpacity>
           </View>
+          {fieldErrors.gender ? <Text style={styles.fieldErrorText}>{fieldErrors.gender}</Text> : null}
         </View>
 
         {/* ── SECTION 2: ADDRESS DETAILS ────────────────────────────────────── */}
@@ -459,7 +795,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               <TextInput
                 style={styles.inputField}
                 value={formData.address}
-                onChangeText={text => setFormData(prev => ({ ...prev, address: text }))}
+                onChangeText={text => updateForm(prev => ({ ...prev, address: text }))}
                 placeholder="Please enter your address"
                 placeholderTextColor={customerColors.muted}
                 textAlign="center"
@@ -470,30 +806,33 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               </Text>
             )}
           </View>
+          {fieldErrors.address ? <Text style={styles.fieldErrorText}>{fieldErrors.address}</Text> : null}
 
-          {/* 2. City Dropdown */}
-          <TouchableOpacity
-            activeOpacity={isEditable ? 0.7 : 1}
-            onPress={() => {
-              if (isEditable) {
-                setFormData(prev => ({
-                  ...prev,
-                  city: prev.city === 'Ooty' ? 'Coimbatore' : 'Ooty',
-                }));
-              }
-            }}
-            style={styles.dropdownFieldRow}
-          >
-            <Text
-              style={[
-                styles.displayFieldText,
-                !formData.city && styles.placeholderText,
-              ]}
-            >
-              {formData.city || 'Select city'}
-            </Text>
+          {/* 2. City */}
+          <View style={styles.dropdownFieldRow}>
+            {isEditable ? (
+              <TextInput
+                style={[styles.inputField, { flex: 1 }]}
+                value={formData.city}
+                onChangeText={text => updateForm(prev => ({ ...prev, city: text }))}
+                placeholder="Select city"
+                placeholderTextColor={customerColors.muted}
+                maxLength={100}
+                textAlign="center"
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.displayFieldText,
+                  !formData.city && styles.placeholderText,
+                ]}
+              >
+                {formData.city || 'Select city'}
+              </Text>
+            )}
             <ChevronDownSvg color={customerColors.heading} size={14} />
-          </TouchableOpacity>
+          </View>
+          {fieldErrors.city ? <Text style={styles.fieldErrorText}>{fieldErrors.city}</Text> : null}
 
           {/* 3. Pincode */}
           <View style={styles.fieldRow}>
@@ -501,7 +840,8 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               <TextInput
                 style={styles.inputField}
                 value={formData.pincode}
-                onChangeText={text => setFormData(prev => ({ ...prev, pincode: text }))}
+                onChangeText={text => updateForm(prev => ({ ...prev, pincode: text.replace(/[^0-9]/g, '') }))}
+                maxLength={6}
                 placeholder="Please enter your pincode"
                 placeholderTextColor={customerColors.muted}
                 keyboardType="numeric"
@@ -513,15 +853,20 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               </Text>
             )}
           </View>
+          {fieldErrors.pincode ? (
+            <Text style={styles.fieldErrorText} testID="profile-pincode-error">
+              {fieldErrors.pincode}
+            </Text>
+          ) : null}
 
           {/* 4. State Dropdown */}
           <TouchableOpacity
             activeOpacity={isEditable ? 0.7 : 1}
             onPress={() => {
               if (isEditable) {
-                setFormData(prev => ({
+                updateForm(prev => ({
                   ...prev,
-                  state: 'Tamil Nadu, India',
+                  state: prev.state || 'Tamil Nadu',
                 }));
               }
             }}
@@ -588,15 +933,28 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
         ) : null}
 
         {/* ── BOTTOM ACTION BUTTON (IN EDIT / EMPTY MODE) ─────────────────────── */}
+        {isEditable && saveError ? (
+          <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="profile-save-error">
+            {saveError}
+          </Text>
+        ) : null}
         {isEditable && (
           <TouchableOpacity
             activeOpacity={0.85}
-            onPress={handleSaveProfile}
+            onPress={() => void handleSaveProfile()}
+            disabled={saving}
             style={styles.saveChangesButton}
             accessibilityLabel="Save Changes"
+            accessibilityState={{ disabled: saving, busy: saving }}
           >
-            <Text style={styles.saveChangesText}>✔ Save Changes</Text>
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" testID="profile-saving" />
+            ) : (
+              <Text style={styles.saveChangesText}>✔ Save Changes</Text>
+            )}
           </TouchableOpacity>
+        )}
+        </>
         )}
 
         <View style={{ height: 40 }} />
@@ -620,47 +978,75 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             />
 
             <Text style={styles.otpEditorialTitle}>
-              Please enter 4-digit PIN Sent to
+              {`Please enter ${EMAIL_OTP_LENGTH}-digit PIN Sent to`}
             </Text>
             <View style={styles.emailEditRow}>
               <Text style={styles.otpMaskedEmail}>
-                Sure***********@gmail.com
+                {maskEmail(otpEmail)}
               </Text>
-              <TouchableOpacity onPress={() => setShowEmailOtpModal(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowEmailOtpModal(false);
+                  if (mode === 'view') setMode('edit');
+                }}
+                accessibilityLabel="Edit email"
+              >
                 <Text style={styles.otpEditText}>• Edit</Text>
               </TouchableOpacity>
             </View>
 
-            {/* 4 Digit PIN Boxes */}
+            {/* PIN Boxes (EMAIL_OTP_LENGTH) */}
             <View style={styles.pinBoxesRow}>
-              {[0, 1, 2, 3].map(index => (
+              {emailOtpPin.map((digit, index) => (
                 <TextInput
                   key={index}
                   style={styles.pinInput}
                   keyboardType="numeric"
-                  maxLength={1}
-                  value={emailOtpPin[index]}
-                  onChangeText={val => {
-                    const next = [...emailOtpPin];
-                    next[index] = val;
-                    setEmailOtpPin(next);
-                  }}
+                  maxLength={index === 0 ? EMAIL_OTP_LENGTH : 1}
+                  value={digit}
+                  onChangeText={val => handleOtpChange(index, val)}
+                  accessibilityLabel={`PIN digit ${index + 1}`}
+                  textContentType="oneTimeCode"
                   textAlign="center"
                 />
               ))}
             </View>
 
+            {otpError ? (
+              <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="email-otp-error">
+                {otpError}
+              </Text>
+            ) : null}
+
             <Text style={styles.resendTimerText}>
-              Didn't receive the PIN? <Text style={{ color: customerColors.muted }}>Resend in 28s</Text>
+              Didn't receive the PIN?{' '}
+              {resendIn > 0 ? (
+                <Text style={{ color: customerColors.muted }}>{`Resend in ${resendIn}s`}</Text>
+              ) : (
+                <Text
+                  style={{ color: customerColors.brand }}
+                  onPress={handleResendOtp}
+                  accessibilityRole="button"
+                  accessibilityLabel="Resend PIN"
+                >
+                  Resend
+                </Text>
+              )}
             </Text>
 
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={handleVerifyEmailSubmit}
-              style={styles.modalPrimaryBtn}
+              onPress={() => void handleVerifyEmailSubmit()}
+              disabled={!otpReady || verifyingOtp}
+              style={[styles.modalPrimaryBtn, (!otpReady || verifyingOtp) && { opacity: 0.6 }]}
               accessibilityLabel="Continue"
+              accessibilityState={{ disabled: !otpReady || verifyingOtp, busy: verifyingOtp }}
             >
-              <Text style={styles.modalPrimaryBtnText}>Continue</Text>
+              {verifyingOtp ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.modalPrimaryBtnText}>Continue</Text>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -821,6 +1207,20 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     color: customerColors.muted,
+  },
+  fieldErrorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontFamily: customerFonts.regular,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  stateBox: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   trailingIcon: {
     position: 'absolute',
@@ -1064,11 +1464,11 @@ const styles = StyleSheet.create({
   },
   pinBoxesRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     marginVertical: 24,
   },
   pinInput: {
-    width: 44,
+    width: 36,
     height: 44,
     borderBottomWidth: 2,
     borderBottomColor: '#D1D5DB',

@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Modal,
   Alert,
+  ActivityIndicator,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -26,14 +27,15 @@ import {
   ChevronDownSvg,
   CameraPlusSvg,
 } from '../components/ContactSupportIcons';
-import {
-  SAMPLE_ORDERS,
-  SAMPLE_REVIEW_ITEMS,
-  RETURN_REASONS,
-  type OrderOption,
-  type ReturnReasonOption,
-  type ReviewItem,
-} from '../components/contactSupportData';
+import { RETURN_REASONS, type ReturnReasonOption } from '../components/contactSupportData';
+import { ApiError } from '../../../shell/api/client';
+import { gradeLabel } from '../api/catalog';
+import { isReturnEligible, useOrder, useOrders, type OrderSummary } from '../api/orders';
+import { RETURN_MAX_PHOTOS, useCreateReturn, type CustomerReturnRequest } from '../api/returns';
+import { pickIssuePhotos, uploadIssuePhoto } from '../api/support';
+import { mapProblem } from '../api/problem';
+import { canStepDown, canStepUp, formatKg, formatRupees, stepKg, type Quantity } from '../utils/money';
+import { formatIstDate } from '../utils/orderFormat';
 import { ReturnSubmittedModal } from '../components/ReturnSubmittedModal';
 
 export interface ReturnOrderScreenProps {
@@ -70,183 +72,228 @@ const CheckboxSquareSvg = ({ checked }: { checked: boolean }) => (
   </Svg>
 );
 
-export function ReturnOrderScreen({
-  onNavigate,
-  onBack,
-  initialOrderId = 'ord_1',
-}: ReturnOrderScreenProps): React.JSX.Element {
+interface ReturnPhoto {
+  key: string;
+  uri: string;
+  uploadId: string | null;
+  progress: number;
+  failed: boolean;
+}
+
+const QTY_STEP = { step: '0.5', min: '0.5' };
+
+/**
+ * Return order (Figma 46:42764 / 46:42834). Server-driven:
+ *  - eligible orders = own DELIVERED / PICKED_UP orders (GET /orders);
+ *  - lines = Order.items (orderItemId) with a kg quantity (default the full line);
+ *  - photos (<= 5): ISSUE_PHOTO signed uploads, sent as photoUploadIds (BR-204);
+ *  - POST /orders/{orderId}/returns { reason, items, note, photoUploadIds }.
+ */
+export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: ReturnOrderScreenProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const [selectedOrderId, setSelectedOrderId] = useState<string>(initialOrderId);
+  const ordersQuery = useOrders();
+  const eligibleOrders: OrderSummary[] = (ordersQuery.data?.pages.flatMap((p) => p.items) ?? []).filter((o) => isReturnEligible(o.status));
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialOrderId ?? null);
+  const effectiveOrderId = selectedOrderId ?? eligibleOrders[0]?.id ?? null;
+  const orderQuery = useOrder(effectiveOrderId);
+  const order = orderQuery.data;
   const [showOrderPicker, setShowOrderPicker] = useState<boolean>(false);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>(['prod_1']);
-  const defaultReason: ReturnReasonOption = RETURN_REASONS[0] ?? {
-    id: 'quality',
-    label: 'Quality issue (damaged / spoiled)',
-  };
+  /** orderItemId -> qty (kg) for the selected lines. */
+  const [selected, setSelected] = useState<Record<string, Quantity>>({});
+  const defaultReason: ReturnReasonOption = RETURN_REASONS[0] ?? { id: 'quality', label: 'Quality issue (damaged / spoiled)' };
   const [selectedReason, setSelectedReason] = useState<ReturnReasonOption>(defaultReason);
   const [showReasonPicker, setShowReasonPicker] = useState<boolean>(false);
   const [description, setDescription] = useState<string>('');
-  const [photos, setPhotos] = useState<number[]>([]);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+  const [photos, setPhotos] = useState<ReturnPhoto[]>([]);
+  const [created, setCreated] = useState<CustomerReturnRequest | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const createReturn = useCreateReturn();
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const fallbackOrder: OrderOption = {
-    id: 'ord_1',
-    orderNumber: 'ORD-20261115-0039',
-    dateStr: '15 Jul 2026',
-    itemCount: 3,
-  };
-  const selectedOrder: OrderOption =
-    SAMPLE_ORDERS.find((o) => o.id === selectedOrderId) ?? SAMPLE_ORDERS[0] ?? fallbackOrder;
+  // Default: every line selected at its full quantity once the order loads.
+  React.useEffect(() => {
+    if (!order) return;
+    setSelected(Object.fromEntries(order.items.map((it) => [it.id, it.qtyKg])));
+    setFieldErrors({});
+  }, [order]);
 
-  const toggleProduct = (productId: string) => {
-    setSelectedProductIds((prev) => {
-      if (prev.includes(productId)) {
-        if (prev.length === 1) return prev; // Keep at least one
-        return prev.filter((id) => id !== productId);
-      }
-      return [...prev, productId];
+  const toggleProduct = (itemId: string, fullQty: Quantity) => {
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (next[itemId] !== undefined) delete next[itemId];
+      else next[itemId] = fullQty;
+      return next;
     });
   };
 
-  const fallbackProduct: ReviewItem = {
-    id: 'prod_1',
-    name: 'Fresh apples',
-    weight: '(1 kg)',
-    image: 0,
-    rating: 5,
+  const stepQty = (itemId: string, fullQty: Quantity, dir: 1 | -1) => {
+    setSelected((prev) => ({ ...prev, [itemId]: stepKg(prev[itemId] ?? fullQty, dir, { ...QTY_STEP, max: fullQty }) }));
   };
 
-  const handleAddPhoto = () => {
-    if (photos.length >= 5) {
-      Alert.alert('Limit Reached', 'You can add up to 5 photos.');
+  const handleAddPhoto = async () => {
+    const room = RETURN_MAX_PHOTOS - photos.length;
+    if (room <= 0) {
+      Alert.alert('Limit Reached', `You can add up to ${RETURN_MAX_PHOTOS} photos.`);
       return;
     }
-    const sampleImage = SAMPLE_REVIEW_ITEMS[0]?.image ?? 0;
-    setPhotos((prev) => [...prev, sampleImage]);
+    const picked = await pickIssuePhotos(room);
+    for (const photo of picked.photos) {
+      const key = `${photo.uri}-${Date.now()}-${Math.random()}`;
+      setPhotos((prev) => [...prev, { key, uri: photo.uri, uploadId: null, progress: 0, failed: false }]);
+      try {
+        const uploadId = await uploadIssuePhoto(photo, (pct) =>
+          setPhotos((prev) => prev.map((p) => (p.key === key ? { ...p, progress: pct } : p))),
+        );
+        setPhotos((prev) => prev.map((p) => (p.key === key ? { ...p, uploadId, progress: 100 } : p)));
+      } catch {
+        setPhotos((prev) => prev.map((p) => (p.key === key ? { ...p, failed: true } : p)));
+      }
+    }
   };
 
-  const handleRemovePhoto = (index: number) => {
-    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  const handleRemovePhoto = (key: string) => {
+    setPhotos((prev) => prev.filter((p) => p.key !== key));
   };
 
-  const handleSubmit = () => {
-    if (selectedProductIds.length === 0) {
+  const uploading = photos.some((p) => !p.uploadId && !p.failed);
+  const lines = order ? order.items.filter((it) => selected[it.id] !== undefined) : [];
+
+  const handleSubmit = async () => {
+    if (!order) return;
+    if (lines.length === 0) {
       Alert.alert('Select Product', 'Please select at least one product to return.');
       return;
     }
-    setShowSuccessModal(true);
+    setError(null);
+    setFieldErrors({});
+    try {
+      const res = await createReturn.mutateAsync({
+        orderId: order.id,
+        input: {
+          reason: selectedReason.label,
+          items: lines.map((it) => ({ orderItemId: it.id, qty: selected[it.id] ?? it.qtyKg })),
+          note: description,
+          photoUploadIds: photos.flatMap((p) => (p.uploadId ? [p.uploadId] : [])),
+        },
+      });
+      setCreated(res);
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      setFieldErrors(p.fieldErrors ?? {});
+      setError(
+        err instanceof ApiError && err.code === 'INVALID_STATE_TRANSITION'
+          ? 'This order can be returned only after it is delivered or picked up.'
+          : p.message,
+      );
+    }
   };
 
-  const primaryProduct: ReviewItem =
-    SAMPLE_REVIEW_ITEMS.find((p) => p.id === selectedProductIds[0]) ??
-    SAMPLE_REVIEW_ITEMS[0] ??
-    fallbackProduct;
+  const fieldError = (index: number) => fieldErrors[`body.items.${index}.qty`] ?? fieldErrors[`items.${index}.qty`];
+  const first = lines[0];
+  const firstThumb = order?.thumbnails?.find((t) => t.productName === first?.name)?.imageUrl;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onBack}
-            style={styles.circleIconButton}
-            accessibilityLabel="Back"
-          >
+          <TouchableOpacity activeOpacity={0.7} onPress={onBack} style={styles.circleIconButton} accessibilityLabel="Back">
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Return Order</Text>
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── TOP BANNER ────────────────────────────────────────────────────── */}
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.banner}>
           <View style={styles.bannerTextColumn}>
             <Text style={styles.bannerTitle}>Request a Return</Text>
-            <Text style={styles.bannerSubtitle}>
-              Select the item and reason for return.
-            </Text>
+            <Text style={styles.bannerSubtitle}>Select the item and reason for return.</Text>
           </View>
           <View style={styles.bannerImageWrapper}>
             <ReturnBoxIllustrationSvg size={58} />
           </View>
         </View>
 
-        {/* ── SELECT ORDER CARD ─────────────────────────────────────────────── */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setShowOrderPicker(true)}
-          style={styles.orderCard}
-          accessibilityLabel="Select Order"
-        >
+        {/* ── SELECT ORDER CARD (eligible orders only) ────────────────────── */}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowOrderPicker(true)} style={styles.orderCard} accessibilityLabel="Select Order" testID="return-order-card">
           <View style={styles.orderIconBox}>
             <ShoppingBagSvg color="#1E7E34" size={20} />
           </View>
           <View style={styles.orderInfoColumn}>
-            <Text style={styles.orderIdText}>{selectedOrder.orderNumber}</Text>
-            <Text style={styles.orderMetaText}>
-              {selectedOrder.dateStr} · {selectedOrder.itemCount} items
-            </Text>
+            <Text style={styles.orderIdText}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? 'Loading…' : 'No returnable orders')}</Text>
+            {order && (
+              <Text style={styles.orderMetaText}>
+                {formatIstDate(order.placedAt)} · {order.items.length} items
+              </Text>
+            )}
           </View>
           <ChevronDownSvg color="#6B7280" size={16} />
         </TouchableOpacity>
 
-        {/* ── SELECT PRODUCT SECTION ───────────────────────────────────────── */}
+        {orderQuery.isLoading && <ActivityIndicator testID="return-loading" />}
+
+        {/* ── SELECT PRODUCT (order lines, kg quantity) ─────────────────────── */}
         <Text style={styles.sectionTitle}>Select product</Text>
         <View style={styles.productsList}>
-          {SAMPLE_REVIEW_ITEMS.map((product) => {
-            const isSelected = selectedProductIds.includes(product.id);
+          {(order?.items ?? []).map((item, index) => {
+            const isSelected = selected[item.id] !== undefined;
+            const qty = selected[item.id] ?? item.qtyKg;
+            const thumb = order?.thumbnails?.find((t) => t.productName === item.name)?.imageUrl;
+            const err = fieldError(lines.findIndex((l) => l.id === item.id));
             return (
-              <TouchableOpacity
-                key={product.id}
-                activeOpacity={0.8}
-                onPress={() => toggleProduct(product.id)}
-                style={[
-                  styles.productCard,
-                  isSelected && styles.productCardSelected,
-                ]}
-                accessibilityLabel={`Select product ${product.name}`}
-              >
-                <Image
-                  source={product.image}
-                  style={styles.productImage}
-                  resizeMode="contain"
-                />
-                <View style={styles.productTextColumn}>
-                  <Text style={styles.productNameText}>
-                    {product.name}{' '}
-                    <Text style={styles.productWeightText}>{product.weight}</Text>
+              <View key={item.id}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => toggleProduct(item.id, item.qtyKg)}
+                  style={[styles.productCard, isSelected && styles.productCardSelected]}
+                  accessibilityLabel={`Select product ${item.name}`}
+                  testID={`return-item-${item.id}`}
+                >
+                  {thumb ? <Image source={{ uri: thumb }} style={styles.productImage} resizeMode="contain" /> : <View style={styles.productImage} />}
+                  <View style={styles.productTextColumn}>
+                    <Text style={styles.productNameText}>
+                      {item.name} <Text style={styles.productWeightText}>({gradeLabel(item.grade)} · {formatKg(item.qtyKg)})</Text>
+                    </Text>
+                  </View>
+                  <CheckboxSquareSvg checked={isSelected} />
+                </TouchableOpacity>
+                {/* Return quantity (kg) [needs design review] */}
+                {isSelected && (
+                  <View style={styles.photosRow}>
+                    <Text style={styles.productWeightText}>Return qty</Text>
+                    <TouchableOpacity onPress={() => stepQty(item.id, item.qtyKg, -1)} disabled={!canStepDown(qty, QTY_STEP)} testID={`return-dec-${item.id}`} accessibilityLabel="Decrease quantity">
+                      <Text style={styles.reasonSelectorText}> − </Text>
+                    </TouchableOpacity>
+                    <Text style={styles.reasonSelectorText}>{formatKg(qty)}</Text>
+                    <TouchableOpacity onPress={() => stepQty(item.id, item.qtyKg, 1)} disabled={!canStepUp(qty, { ...QTY_STEP, max: item.qtyKg })} accessibilityLabel="Increase quantity">
+                      <Text style={styles.reasonSelectorText}> + </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {!!err && (
+                  <Text style={styles.charCounter} testID={`return-item-error-${index}`}>
+                    {err}
                   </Text>
-                </View>
-                <CheckboxSquareSvg checked={isSelected} />
-              </TouchableOpacity>
+                )}
+              </View>
             );
           })}
         </View>
 
-        {/* ── REASON FOR RETURN SECTION ────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Reason for return</Text>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setShowReasonPicker(true)}
-          style={styles.reasonSelector}
-          accessibilityLabel="Reason for return selector"
-        >
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowReasonPicker(true)} style={styles.reasonSelector} accessibilityLabel="Reason for return selector">
           <Text style={styles.reasonSelectorText}>{selectedReason.label}</Text>
           <ChevronDownSvg color="#6B7280" size={16} />
         </TouchableOpacity>
+        {!!(fieldErrors['body.reason'] ?? fieldErrors['reason']) && <Text style={styles.charCounter}>{fieldErrors['body.reason'] ?? fieldErrors['reason']}</Text>}
 
-        {/* ── DESCRIBE THE ISSUE SECTION ──────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Describe the issue</Text>
         <View style={styles.inputContainer}>
           <TextInput
@@ -257,94 +304,76 @@ export function ReturnOrderScreen({
             multiline
             maxLength={500}
             style={styles.textArea}
+            testID="return-note"
           />
           <Text style={styles.charCounter}>{description.length}/500</Text>
         </View>
 
-        {/* ── ADD PHOTOS (OPTIONAL) SECTION ───────────────────────────────── */}
+        {/* ── PHOTOS (<= 5, ISSUE_PHOTO uploads) ─────────────────────────────── */}
         <Text style={styles.sectionTitle}>Add Photos (optional)</Text>
         <View style={styles.photosRow}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleAddPhoto}
-            style={styles.addPhotoButton}
-            accessibilityLabel="Add Photo"
-          >
-            <CameraPlusSvg />
-          </TouchableOpacity>
-
-          {photos.map((img, idx) => (
-            <View key={idx} style={styles.photoThumbnailWrapper}>
-              <Image source={img} style={styles.photoThumbnail} resizeMode="cover" />
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => handleRemovePhoto(idx)}
-                style={styles.photoRemoveBadge}
-                accessibilityLabel="Remove photo"
-              >
+          {photos.length < RETURN_MAX_PHOTOS && (
+            <TouchableOpacity activeOpacity={0.7} onPress={() => void handleAddPhoto()} style={styles.addPhotoButton} accessibilityLabel="Add Photo" testID="return-add-photo">
+              <CameraPlusSvg />
+            </TouchableOpacity>
+          )}
+          {photos.map((photo) => (
+            <View key={photo.key} style={styles.photoThumbnailWrapper} testID="return-photo">
+              <Image source={{ uri: photo.uri }} style={[styles.photoThumbnail, !photo.uploadId && { opacity: 0.5 }]} resizeMode="cover" />
+              {!photo.uploadId && !photo.failed && <ActivityIndicator style={{ position: 'absolute', top: 20, left: 20 }} />}
+              {photo.failed && <Text style={styles.photoRemoveText}>!</Text>}
+              <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemovePhoto(photo.key)} style={styles.photoRemoveBadge} accessibilityLabel="Remove photo">
                 <Text style={styles.photoRemoveText}>✕</Text>
               </TouchableOpacity>
             </View>
           ))}
         </View>
 
-        {/* ── SUBMIT BUTTON ────────────────────────────────────────────────── */}
+        {!!error && (
+          <Text style={styles.charCounter} accessibilityRole="alert" testID="return-error">
+            {error}
+          </Text>
+        )}
+
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={handleSubmit}
-          style={styles.submitButton}
+          onPress={() => void handleSubmit()}
+          disabled={!order || uploading || createReturn.isPending}
+          style={[styles.submitButton, (!order || uploading) && { opacity: 0.6 }]}
           accessibilityLabel="Request Return"
+          testID="return-submit"
         >
-          <Text style={styles.submitButtonText}>Request Return</Text>
+          {createReturn.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Request Return</Text>}
         </TouchableOpacity>
       </ScrollView>
 
-      {/* ── ORDER PICKER MODAL ──────────────────────────────────────────────── */}
-      <Modal
-        visible={showOrderPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowOrderPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.pickerBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowOrderPicker(false)}
-        >
+      <Modal visible={showOrderPicker} transparent animationType="fade" onRequestClose={() => setShowOrderPicker(false)}>
+        <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setShowOrderPicker(false)}>
           <View style={styles.pickerDialog}>
             <Text style={styles.pickerTitle}>Select Order</Text>
-            {SAMPLE_ORDERS.map((order) => {
-              const active = order.id === selectedOrderId;
+            {eligibleOrders.length === 0 && <Text style={styles.pickerItemSub}>Orders can be returned after delivery or pickup.</Text>}
+            {eligibleOrders.map((o) => {
+              const active = o.id === effectiveOrderId;
               return (
                 <TouchableOpacity
-                  key={order.id}
+                  key={o.id}
                   activeOpacity={0.7}
                   onPress={() => {
-                    setSelectedOrderId(order.id);
+                    setSelectedOrderId(o.id);
                     setShowOrderPicker(false);
                   }}
                   style={[styles.pickerItem, active && styles.pickerItemActive]}
                 >
                   <View style={styles.pickerItemLeft}>
-                    <ShoppingBagSvg
-                      color={active ? '#1E7E34' : '#6B7280'}
-                      size={18}
-                    />
+                    <ShoppingBagSvg color={active ? '#1E7E34' : '#6B7280'} size={18} />
                     <View style={styles.pickerItemTexts}>
-                      <Text
-                        style={[
-                          styles.pickerItemTitle,
-                          active && styles.pickerItemTitleActive,
-                        ]}
-                      >
-                        {order.orderNumber}
-                      </Text>
+                      <Text style={[styles.pickerItemTitle, active && styles.pickerItemTitleActive]}>{o.orderNumber}</Text>
                       <Text style={styles.pickerItemSub}>
-                        {order.dateStr} · {order.itemCount} items
+                        {formatIstDate(o.placedAt)} · {o.itemCount ?? 0} items
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.pickerItemAmount}>{order.itemCount} items</Text>
+                  <Text style={styles.pickerItemAmount}>{formatRupees(o.totalAmount)}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -352,18 +381,8 @@ export function ReturnOrderScreen({
         </TouchableOpacity>
       </Modal>
 
-      {/* ── REASON PICKER MODAL ─────────────────────────────────────────────── */}
-      <Modal
-        visible={showReasonPicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowReasonPicker(false)}
-      >
-        <TouchableOpacity
-          style={styles.pickerBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowReasonPicker(false)}
-        >
+      <Modal visible={showReasonPicker} transparent animationType="fade" onRequestClose={() => setShowReasonPicker(false)}>
+        <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setShowReasonPicker(false)}>
           <View style={styles.pickerDialog}>
             <Text style={styles.pickerTitle}>Reason for Return</Text>
             {RETURN_REASONS.map((reason) => {
@@ -378,14 +397,7 @@ export function ReturnOrderScreen({
                   }}
                   style={[styles.pickerItem, active && styles.pickerItemActive]}
                 >
-                  <Text
-                    style={[
-                      styles.pickerItemTitle,
-                      active && styles.pickerItemTitleActive,
-                    ]}
-                  >
-                    {reason.label}
-                  </Text>
+                  <Text style={[styles.pickerItemTitle, active && styles.pickerItemTitleActive]}>{reason.label}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -393,26 +405,20 @@ export function ReturnOrderScreen({
         </TouchableOpacity>
       </Modal>
 
-      {/* ── RETURN SUBMITTED POPUP MODAL ───────────────────────────────────── */}
+      {/* Return created: track it on the order (returns have no tracking screen yet) [needs design review] */}
       <ReturnSubmittedModal
-        visible={showSuccessModal}
-        onClose={() => setShowSuccessModal(false)}
-        returnId="RET-20260715-0147"
-        orderNumber={selectedOrder.orderNumber}
-        productName={`${primaryProduct.name} ${primaryProduct.weight}`}
-        productImage={primaryProduct.image}
+        visible={!!created}
+        onClose={() => setCreated(null)}
+        returnId={created ? `${created.id.slice(0, 8).toUpperCase()} · ${created.status}` : ''}
+        orderNumber={order?.orderNumber ?? ''}
+        productName={first ? `${first.name} (${formatKg(selected[first.id] ?? first.qtyKg)})` : ''}
+        productImage={firstThumb ? { uri: firstThumb } : undefined}
         onTrackReturn={() => {
-          setShowSuccessModal(false);
-          onNavigate?.('TrackSupportRequest', {
-            supportId: 'RET-20260715-0147',
-            orderNumber: selectedOrder.orderNumber,
-            productName: `${primaryProduct.name} ${primaryProduct.weight}`,
-            issueTypeLabel: selectedReason.label,
-            submittedOn: '15 Jul 2026, 9:41 AM',
-          });
+          setCreated(null);
+          if (order) onNavigate?.('OrderTracking', { orderId: order.id });
         }}
         onContinueShopping={() => {
-          setShowSuccessModal(false);
+          setCreated(null);
           onNavigate?.('Home');
         }}
       />

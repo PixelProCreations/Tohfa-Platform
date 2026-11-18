@@ -4,10 +4,11 @@
  * float; the wallet is never credited client-side (only the server's
  * Razorpay `payment.captured` webhook credits it).
  */
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import type { Money } from '@tohfa/shared-types';
 import { api } from '../../../shell/api/client';
 import { createIdempotencyKeyCache } from '../../../shell/api/idempotency';
+import { buildTransactionQuery, formatInr, type TransactionFilters } from './walletMoney';
 
 export const walletQueryKeys = {
   wallet: ['wallet'] as const,
@@ -79,6 +80,91 @@ export const useWallet = () =>
   useQuery({
     queryKey: walletQueryKeys.wallet,
     queryFn: ({ signal }) => fetchWallet(signal),
+  });
+
+/**
+ * Single source of the wallet balance for every screen (Home, Account,
+ * Checkout, Wallet). `label` is `₹ 1,250.00`, or `—` while loading/failed.
+ */
+export function useWalletBalance(): {
+  balance: Money | null;
+  label: string;
+  isLoading: boolean;
+  isError: boolean;
+  refetch: () => void;
+} {
+  const q = useWallet();
+  const balance = q.data?.balance ?? null;
+  return {
+    balance,
+    label: formatInr(balance),
+    isLoading: q.isLoading,
+    isError: q.isError,
+    refetch: () => void q.refetch(),
+  };
+}
+
+// ── Ledger ──────────────────────────────────────────────────────────────────
+
+export type WalletTransactionType =
+  | 'TOPUP_CASH'
+  | 'TOPUP_DIGITAL'
+  | 'ORDER_DEBIT'
+  | 'ORDER_REFUND'
+  | 'PAYOUT_DEBIT'
+  | 'SALE_CREDIT'
+  | 'SUBSCRIPTION_DEBIT'
+  | 'ADJUSTMENT'
+  | 'TRANSFER_OUT'
+  | 'TRANSFER_IN';
+
+/** `WalletTransaction`: `amount` is signed (negative = debit). */
+export interface WalletTransaction {
+  id: string;
+  walletId: string;
+  txnType: WalletTransactionType;
+  amount: Money;
+  balanceAfter: Money;
+  refType: string | null;
+  refId: string | null;
+  performedAt: string;
+  remarks: string | null;
+  txnCode?: string;
+  orderNumber?: string | null;
+  status: 'COMPLETED';
+}
+
+export interface PageMeta {
+  nextCursor: string | null;
+  hasMore: boolean;
+  total?: number;
+}
+
+export interface TransactionsPage {
+  items: WalletTransaction[];
+  page: PageMeta;
+}
+
+export function fetchTransactions(
+  filters: TransactionFilters,
+  cursor: string | undefined,
+  signal?: AbortSignal,
+): Promise<TransactionsPage> {
+  const query: Record<string, string> = { limit: '20', ...buildTransactionQuery(filters) };
+  if (cursor !== undefined) query['cursor'] = cursor;
+  const qs = Object.entries(query)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join('&');
+  const path = `/wallets/me/transactions?${qs}`;
+  return signal === undefined ? api.get<TransactionsPage>(path) : api.get<TransactionsPage>(path, signal);
+}
+
+export const useWalletTransactions = (filters: TransactionFilters) =>
+  useInfiniteQuery({
+    queryKey: [...walletQueryKeys.wallet, 'transactions', filters] as const,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) => fetchTransactions(filters, pageParam, signal),
+    getNextPageParam: (last) => (last.page.hasMore && last.page.nextCursor ? last.page.nextCursor : undefined),
   });
 
 /**

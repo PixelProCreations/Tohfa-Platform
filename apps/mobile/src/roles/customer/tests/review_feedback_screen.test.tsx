@@ -1,147 +1,87 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+/**
+ * Review & feedback: one review per order (POST /orders/{id}/review) with
+ * orderItemId line ratings and the API tag enum; 409 duplicate is handled.
+ */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
-import renderer, { act } from 'react-test-renderer';
+import { act } from 'react-test-renderer';
+import type { QueryClient } from '@tanstack/react-query';
 
-vi.mock('react-native', () => ({
-  Alert: { alert: vi.fn() },
-  Image: 'Image',
-  Modal: 'Modal',
-  Platform: {
-    OS: 'android',
-    select: (obj: Record<string, unknown>) => obj['android'] ?? obj['default'],
-  },
-  ScrollView: 'ScrollView',
-  StatusBar: 'StatusBar',
-  StyleSheet: {
-    create: (s: Record<string, unknown>) => s,
-  },
-  Text: 'Text',
-  TextInput: 'TextInput',
-  TouchableOpacity: 'TouchableOpacity',
-  View: 'View',
-}));
+vi.mock('react-native', async () => (await import('./helpers/rnMock')).rnMock());
+vi.mock('react-native-svg', async () => (await import('./helpers/rnMock')).svgMock());
 
-vi.mock('@tohfa/mobile-ui', () => ({
-  SafeAreaView: 'SafeAreaView',
-}));
+import * as client from '../../../shell/api/client';
+import { ReviewFeedbackScreen, REVIEW_TAG_OPTIONS } from '../screens/ReviewFeedbackScreen';
+import { REVIEW_TAGS } from '../api/reviews';
+import { byTestId, hasTestId, mockGet, newQueryClient, press, problem, renderWith, textOf } from './helpers/harness';
 
-vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: 'SafeAreaView',
-  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
-}));
+const ORDER = {
+  id: 'o1', orderNumber: 'TOH-2026-0000001', status: 'PICKED_UP', fulfillmentType: 'PICKUP', totalAmount: '138.00', placedAt: '2026-11-10T04:00:00Z',
+  thumbnails: [], subtotal: '138.00', itemCount: 1,
+  items: [{ id: 'oi1', productId: 'p1', name: 'Carrot', grade: 'GRADE_1', qtyKg: '2.000', unitPrice: '69.00', lineTotal: '138.00' }],
+};
+const REVIEW = { id: 'r1', orderId: 'o1', rating: 4, tags: ['FRESHNESS'], comment: 'Crisp', items: [{ orderItemId: 'oi1', productId: 'p1', name: 'Carrot', grade: 'GRADE_1', rating: 5, comment: null }], createdAt: 'x' };
 
-vi.mock('react-native-svg', () => ({
-  default: 'Svg',
-  Circle: 'Circle',
-  Path: 'Path',
-  Rect: 'Rect',
-}));
-
-vi.mock('../assets/images/products', () => ({
-  ProductImages: {
-    fruitApple: 101,
-    foryouLettuce: 102,
-  },
-}));
-
-import { ReviewFeedbackScreen } from '../screens/ReviewFeedbackScreen';
-
-describe('ReviewFeedbackScreen (Screen 65 · Write a Review & Feedback)', () => {
-  const mockBack = vi.fn();
-  const mockNavigate = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('renders exact Screen 65 design without any Related to tabs', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReviewFeedbackScreen onBack={mockBack} onNavigate={mockNavigate} />
-      );
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-
-    // Header
-    expect(json).toContain('Review & Feedback');
-
-    // DOES NOT contain "Related to"
-    expect(json).not.toContain('Related to');
-    expect(json).not.toContain('My Order');
-
-    // Banner
-    expect(json).toContain('Share your experience');
-    expect(json).toContain('Tell other about the product quality, freshness and your overall experience.');
-
-    // Select order card
-    expect(json).toContain('ORD-20261115-0039');
-    expect(json).toContain('15 Jul 2026 · 3 items');
-
-    // Review your items
-    expect(json).toContain('Review your items');
-    expect(json).toContain('Fresh apples');
-    expect(json).toContain('Excellent');
-    expect(json).toContain('Fuji');
-    expect(json).toContain('Green Curly Lettuce');
-    expect(json).toContain('Tap to rate');
-
-    // Overall rating
-    expect(json).toContain('Overall rating');
-    expect(json).toContain('0.0');
-
-    // Your Review
-    expect(json).toContain('Your Review');
-    expect(json).toContain('Describe your issue or question...');
-    expect(json).toContain('0/500');
-
-    // What did you like?
-    expect(json).toContain('What did you like?');
-    expect(json).toContain('Product quality');
-    expect(json).toContain('Packaging');
-    expect(json).toContain('Delivery / Pickup');
-    expect(json).toContain('Communication');
-
-    // Submit button
-    expect(json).toContain('Submit Review');
-  });
-
-  it('calls onBack when header back button is pressed', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(<ReviewFeedbackScreen onBack={mockBack} />);
-    });
-
-    const backBtn = tree.root.findByProps({ accessibilityLabel: 'Go back' });
-    await act(async () => {
-      backBtn.props.onPress();
-    });
-
-    expect(mockBack).toHaveBeenCalled();
-  });
-
-  it('opens Screen 66 Thank You popup modal on Submit Review', async () => {
-    let tree!: renderer.ReactTestRenderer;
-    await act(async () => {
-      tree = renderer.create(
-        <ReviewFeedbackScreen onBack={mockBack} onNavigate={mockNavigate} />
-      );
-    });
-
-    const submitBtn = tree.root.findByProps({ accessibilityLabel: 'Submit Review' });
-    await act(async () => {
-      submitBtn.props.onPress();
-    });
-
-    const json = JSON.stringify(tree.toJSON());
-
-    // Modal popup appears (Screen 66)
-    expect(json).toContain('Thank you for your review!');
-    expect(json).toContain('Reviewed');
-    expect(json).toContain('Write Review');
-    expect(json).toContain('Review Another Product');
-    expect(json).toContain('Continue Shopping');
+let qc: QueryClient;
+let reviewRoute: unknown;
+beforeEach(() => {
+  qc = newQueryClient();
+  client.setAccessToken('token');
+  reviewRoute = problem(404, 'NOT_FOUND');
+  mockGet({
+    '/orders/o1/review': () => reviewRoute,
+    '/orders/o1': ORDER,
+    '/orders': { items: [ORDER], page: { nextCursor: null, hasMore: false } },
   });
 });
+afterEach(() => {
+  client.setAccessToken(null);
+  vi.restoreAllMocks();
+});
 
+describe('ReviewFeedbackScreen', () => {
+  it('maps every chip onto the API tag vocabulary', () => {
+    expect(REVIEW_TAG_OPTIONS.map((o) => o.tag).sort()).toEqual([...REVIEW_TAGS].sort());
+  });
+
+  it('renders the order lines from the API (no sample data)', async () => {
+    const root = await renderWith(qc, <ReviewFeedbackScreen orderId="o1" />);
+    expect(textOf(root)).toContain('TOH-2026-0000001');
+    expect(textOf(root)).toContain('Carrot');
+    expect(textOf(root)).not.toMatch(/Royal Gala|Fresh apples|ORD-2026/);
+  });
+
+  it('submits rating, enum tags, comment and orderItemId line ratings', async () => {
+    const post = vi.spyOn(client.api, 'post').mockResolvedValue(REVIEW as never);
+    const root = await renderWith(qc, <ReviewFeedbackScreen orderId="o1" />);
+    await press(root, 'item-star-oi1-5');
+    await press(root, 'overall-star-4');
+    await press(root, 'tag-FRESHNESS');
+    await press(root, 'tag-PACKAGING');
+    await act(async () => byTestId(root, 'review-comment').props.onChangeText('Crisp and fresh'));
+    await press(root, 'review-submit');
+    expect(post).toHaveBeenCalledWith('/orders/o1/review', {
+      rating: 4,
+      tags: ['FRESHNESS', 'PACKAGING'],
+      comment: 'Crisp and fresh',
+      items: [{ orderItemId: 'oi1', rating: 5 }],
+    });
+    expect(textOf(root)).toContain('has been submitted successfully');
+  });
+
+  it('a 409 duplicate shows "already reviewed"', async () => {
+    vi.spyOn(client.api, 'post').mockRejectedValue(problem(409, 'CONFLICT'));
+    const root = await renderWith(qc, <ReviewFeedbackScreen orderId="o1" />);
+    await press(root, 'overall-star-5');
+    await press(root, 'review-submit');
+    expect(textOf(root)).toContain('already reviewed');
+  });
+
+  it('an existing review is shown read-only (no submit)', async () => {
+    reviewRoute = REVIEW;
+    const root = await renderWith(qc, <ReviewFeedbackScreen orderId="o1" />);
+    expect(hasTestId(root, 'review-submit')).toBe(false);
+    expect(textOf(root)).toContain('Your review');
+    expect(byTestId(root, 'review-comment').props.value).toBe('Crisp');
+  });
+});

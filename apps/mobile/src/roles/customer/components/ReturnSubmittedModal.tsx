@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  type ImageSourcePropType,
   Modal,
   View,
   Text,
@@ -9,7 +10,6 @@ import {
   ScrollView,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { ProductImages } from '../assets/images/products';
 import { ReturnTicketSvg } from './ContactSupportIcons';
 
 export interface ReturnSubmittedModalProps {
@@ -18,7 +18,8 @@ export interface ReturnSubmittedModalProps {
   returnId?: string;
   orderNumber?: string;
   productName?: string;
-  productImage?: number;
+  /** Remote thumbnail (`{ uri }`); omitted -> an empty thumbnail box. */
+  productImage?: ImageSourcePropType | undefined;
   onTrackReturn?: () => void;
   onContinueShopping?: () => void;
 }
@@ -56,7 +57,7 @@ export function ReturnSubmittedModal({
   returnId = 'RET-20260715-0147',
   orderNumber = 'ORD-20260715-0039',
   productName = 'Fresh apples (1 kg)',
-  productImage = ProductImages.fruitApple,
+  productImage,
   onTrackReturn,
   onContinueShopping,
 }: ReturnSubmittedModalProps): React.JSX.Element {
@@ -108,11 +109,11 @@ export function ReturnSubmittedModal({
 
             {/* Product Summary Row */}
             <View style={styles.productCard}>
-              <Image
-                source={productImage}
-                style={styles.productThumbnail}
-                resizeMode="cover"
-              />
+              {productImage ? (
+                <Image source={productImage} style={styles.productThumbnail} resizeMode="cover" />
+              ) : (
+                <View style={styles.productThumbnail} />
+              )}
               <View style={styles.productInfoColumn}>
                 <Text style={styles.productLabel}>Product</Text>
                 <Text style={styles.productName}>{productName}</Text>

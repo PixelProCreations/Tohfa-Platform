@@ -1,4 +1,10 @@
-import React from 'react';
+/**
+ * Notifications centre (Figma 46:43983), backed by GET /notifications.
+ * Today / Yesterday / Earlier are IST calendar days of `createdAt`; the red dot
+ * is `readAt === null`; tapping marks the row read (optimistic) and deep-links
+ * via notificationTarget(data). See ../api/notifications.ts.
+ */
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +13,10 @@ import {
   TouchableOpacity,
   Platform,
   StatusBar,
+  RefreshControl,
+  ActivityIndicator,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
@@ -15,10 +25,26 @@ import {
   customerFonts,
   customerSpacing,
 } from '../theme';
+import {
+  formatNotificationTime,
+  groupByIstDay,
+  notificationKind,
+  notificationTarget,
+  useMarkAllRead,
+  useMarkRead,
+  useNotifications,
+  type NotificationItem,
+  type NotificationKind,
+  type NotificationSectionKey,
+} from '../api/notifications';
+import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerNotificationsScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
+  /** Injectable clock for tests. */
+  now?: () => Date;
 }
 
 const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
@@ -80,18 +106,6 @@ const WalletSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: nu
   </Svg>
 );
 
-const StarSvg = ({ color = '#F59E0B', size = 18 }: { color?: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-      stroke={color}
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
 const TruckSvg = ({ color = '#9333EA', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={1} y={3} width={15} height={13} rx={1} stroke={color} strokeWidth={1.8} />
@@ -133,14 +147,157 @@ const ReturnSvg = ({ color = '#DC2626', size = 18 }: { color?: string; size?: nu
   </Svg>
 );
 
+const SupportSvg = ({ color = '#D97706', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+interface KindVisual {
+  bg: string;
+  color: string;
+  Icon: React.FC<{ color?: string; size?: number }>;
+}
+
+const KIND_VISUALS: Record<NotificationKind, KindVisual> = {
+  order: { bg: '#EDF8EE', color: '#2E7D32', Icon: PackageSvg },
+  order_dispatched: { bg: '#F3E8FF', color: '#9333EA', Icon: TruckSvg },
+  wallet: { bg: '#EDF8EE', color: '#2E7D32', Icon: WalletSvg },
+  wallet_credit: { bg: '#EDF8EE', color: '#2E7D32', Icon: WalletSvg },
+  wallet_debit: { bg: '#FEF3C7', color: '#D97706', Icon: WalletSvg },
+  support: { bg: '#FEF3C7', color: '#D97706', Icon: SupportSvg },
+  return: { bg: '#FEE2E2', color: '#DC2626', Icon: ReturnSvg },
+  general: { bg: '#EDF8EE', color: '#2E7D32', Icon: LeafSvg },
+};
+
+const SECTION_LABEL_KEYS = {
+  today: 'customer.notifications.today',
+  yesterday: 'customer.notifications.yesterday',
+  earlier: 'customer.notifications.earlier',
+} as const satisfies Record<NotificationSectionKey, string>;
+
+const LOAD_MORE_THRESHOLD_PX = 240;
+
+const NotificationRow = ({
+  item,
+  now,
+  onPress,
+}: {
+  item: NotificationItem;
+  now: Date;
+  onPress: (item: NotificationItem) => void;
+}) => {
+  const visual = KIND_VISUALS[notificationKind(item.data)];
+  const unread = item.readAt === null;
+  const title = item.title ?? item.body;
+  const showBody = item.title !== null && item.title !== '';
+  return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      style={styles.notificationRow}
+      onPress={() => onPress(item)}
+      testID={`notification-row-${item.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={unread ? `${title}, ${t('customer.notifications.unread')}` : title}
+    >
+      <View style={[styles.iconBox, { backgroundColor: visual.bg }]}>
+        <visual.Icon size={18} color={visual.color} />
+      </View>
+      <View style={styles.textCol}>
+        <Text style={styles.notifTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {showBody && (
+          <Text style={styles.notifDesc} numberOfLines={2}>
+            {item.body}
+          </Text>
+        )}
+      </View>
+      <View style={styles.rightCol}>
+        <View style={styles.timeRow}>
+          <Text style={styles.timeText}>{formatNotificationTime(item.createdAt, now)}</Text>
+          {unread && <View style={styles.unreadDot} testID={`notification-unread-${item.id}`} />}
+        </View>
+        <ChevronRightSvg color="#9CA3AF" size={15} />
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const SkeletonRows = () => (
+  <View testID="notifications-skeleton">
+    <View style={[styles.skeletonBar, { width: 70, marginBottom: 14 }]} />
+    {[0, 1, 2, 3, 4].map((i) => (
+      <View key={i} style={styles.notificationRow}>
+        <View style={[styles.iconBox, styles.skeletonBlock]} />
+        <View style={styles.textCol}>
+          <View style={[styles.skeletonBar, { width: '55%' }]} />
+          <View style={[styles.skeletonBar, { width: '85%', marginTop: 6 }]} />
+        </View>
+      </View>
+    ))}
+  </View>
+);
+
 export const CustomerNotificationsScreen: React.FC<CustomerNotificationsScreenProps> = ({
   onNavigate,
   onBack,
+  now: nowProp,
 }) => {
   const insets = useSafeAreaInsets();
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
+
+  const query = useNotifications();
+  const markRead = useMarkRead();
+  const markAll = useMarkAllRead();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const { items, unreadCount, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } = query;
+  const now = nowProp ? nowProp() : new Date();
+  const sections = groupByIstDay(items, now);
+  const hasUnread = unreadCount > 0 || items.some((n) => n.readAt === null);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
+
+  const loadMore = useCallback(() => {
+    if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - LOAD_MORE_THRESHOLD_PX) loadMore();
+    },
+    [loadMore],
+  );
+
+  const onRowPress = useCallback(
+    (item: NotificationItem) => {
+      if (item.readAt === null) markRead.mutate(item.id);
+      const target = notificationTarget(item.data);
+      if (target) onNavigate?.(target.screen, target.params);
+    },
+    [markRead, onNavigate],
+  );
+
+  const showSkeleton = query.isPending;
+  const showError = query.isError && items.length === 0;
+  const showEmpty = query.isSuccess && items.length === 0;
 
   return (
     <View style={styles.container}>
@@ -153,144 +310,82 @@ export const CustomerNotificationsScreen: React.FC<CustomerNotificationsScreenPr
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccount'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.notifications.back')}
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerTitle}>{t('customer.notifications.title')}</Text>
         </View>
+        {hasUnread && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => markAll.mutate()}
+            disabled={markAll.isPending}
+            testID="notifications-mark-all"
+            accessibilityRole="button"
+          >
+            <Text style={styles.markAllText}>{t('customer.notifications.markAllRead')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={200}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[customerColors.primary]} />
+        }
       >
-        {/* ── SECTION 1: TODAY ────────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>Today</Text>
-        <View style={styles.groupContainer}>
-          {/* Row 1 */}
-          <TouchableOpacity activeOpacity={0.7} style={styles.notificationRow}>
-            <View style={[styles.iconBox, { backgroundColor: '#EDF8EE' }]}>
-              <PackageSvg size={18} color="#2E7D32" />
-            </View>
-            <View style={styles.textCol}>
-              <Text style={styles.notifTitle}>Order Shipped</Text>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                Your order ORD-20261115-39 has been Shippedand its way to you.
-              </Text>
-            </View>
-            <View style={styles.rightCol}>
-              <View style={styles.timeRow}>
-                <Text style={styles.timeText}>10:24 AM</Text>
-                <View style={styles.unreadDot} />
-              </View>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
-            </View>
-          </TouchableOpacity>
-          <View style={styles.divider} />
+        {showSkeleton && <SkeletonRows />}
 
-          {/* Row 2 */}
-          <TouchableOpacity activeOpacity={0.7} style={styles.notificationRow}>
-            <View style={[styles.iconBox, { backgroundColor: '#EDF8EE' }]}>
-              <WalletSvg size={18} color="#2E7D32" />
-            </View>
-            <View style={styles.textCol}>
-              <Text style={styles.notifTitle}>Wallet Top-up Successful</Text>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                ₹1,000 has been added to your TOHFA Market app Wallet
-              </Text>
-            </View>
-            <View style={styles.rightCol}>
-              <View style={styles.timeRow}>
-                <Text style={styles.timeText}>09:10 AM</Text>
-                <View style={styles.unreadDot} />
-              </View>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
-            </View>
-          </TouchableOpacity>
-          <View style={styles.divider} />
+        {showError && (
+          <View style={styles.stateBox} testID="notifications-error">
+            <Text style={styles.stateTitle}>{t('customer.notifications.errorTitle')}</Text>
+            <Text style={styles.stateBody}>{mapProblem(query.error).message}</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.retryButton}
+              onPress={() => void refetch()}
+              testID="notifications-retry"
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryText}>{t('customer.notifications.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-          {/* Row 3 */}
-          <TouchableOpacity activeOpacity={0.7} style={styles.notificationRow}>
-            <View style={[styles.iconBox, { backgroundColor: '#FEF3C7' }]}>
-              <StarSvg size={18} color="#D97706" />
-            </View>
-            <View style={styles.textCol}>
-              <Text style={styles.notifTitle}>Rate Your Purchase</Text>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                ₹1,000 has been added to your TOHFA Market app Wallet
-              </Text>
-            </View>
-            <View style={styles.rightCol}>
-              <View style={styles.timeRow}>
-                <Text style={styles.timeText}>08:32 AM</Text>
-                <View style={styles.unreadDot} />
-              </View>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── SECTION 2: YESTERDAY ────────────────────────────────────────────── */}
-        <Text style={[styles.sectionHeader, { marginTop: 22 }]}>Yesterday</Text>
-        <View style={styles.groupContainer}>
-          {/* Row 4 */}
-          <TouchableOpacity activeOpacity={0.7} style={styles.notificationRow}>
-            <View style={[styles.iconBox, { backgroundColor: '#F3E8FF' }]}>
-              <TruckSvg size={18} color="#9333EA" />
-            </View>
-            <View style={styles.textCol}>
-              <Text style={styles.notifTitle}>Order Out for Delivery</Text>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                Your Order ORD-20261115-0076 is out for delivery.
-              </Text>
-            </View>
-            <View style={styles.rightCol}>
-              <Text style={styles.timeText}>10:24 AM</Text>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
-            </View>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-
-          {/* Row 5 */}
-          <TouchableOpacity activeOpacity={0.7} style={styles.notificationRow}>
-            <View style={[styles.iconBox, { backgroundColor: '#EDF8EE' }]}>
+        {showEmpty && (
+          <View style={styles.stateBox} testID="notifications-empty">
+            <View style={[styles.iconBox, { backgroundColor: '#EDF8EE', marginBottom: 12 }]}>
               <LeafSvg size={18} color="#2E7D32" />
             </View>
-            <View style={styles.textCol}>
-              <Text style={styles.notifTitle}>New Organic Arrivals</Text>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                Fresh organic fruits from Nilgiris are now available! Check them out.
-              </Text>
-            </View>
-            <View style={styles.rightCol}>
-              <Text style={styles.timeText}>09:10 AM</Text>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
-            </View>
-          </TouchableOpacity>
-        </View>
+            <Text style={styles.stateTitle}>{t('customer.notifications.emptyTitle')}</Text>
+            <Text style={styles.stateBody}>{t('customer.notifications.emptyBody')}</Text>
+          </View>
+        )}
 
-        {/* ── SECTION 3: EARLIER ──────────────────────────────────────────────── */}
-        <Text style={[styles.sectionHeader, { marginTop: 22 }]}>Earlier</Text>
-        <View style={styles.groupContainer}>
-          {/* Row 6 */}
-          <TouchableOpacity activeOpacity={0.7} style={styles.notificationRow}>
-            <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
-              <ReturnSvg size={18} color="#DC2626" />
+        {sections.map((section, sectionIndex) => (
+          <View key={section.key} testID={`notifications-section-${section.key}`}>
+            <Text style={[styles.sectionHeader, sectionIndex > 0 && { marginTop: 22 }]}>
+              {t(SECTION_LABEL_KEYS[section.key])}
+            </Text>
+            <View style={styles.groupContainer}>
+              {section.items.map((item, i) => (
+                <React.Fragment key={item.id}>
+                  {i > 0 && <View style={styles.divider} />}
+                  <NotificationRow item={item} now={now} onPress={onRowPress} />
+                </React.Fragment>
+              ))}
             </View>
-            <View style={styles.textCol}>
-              <Text style={styles.notifTitle}>Return Request Updated</Text>
-              <Text style={styles.notifDesc} numberOfLines={2}>
-                Your return request for ORD-20261029-0068 has been approved.
-              </Text>
-            </View>
-            <View style={styles.rightCol}>
-              <Text style={styles.timeText}>31 Oct 2026</Text>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
-            </View>
-          </TouchableOpacity>
-        </View>
+          </View>
+        ))}
+
+        {isFetchingNextPage && (
+          <ActivityIndicator style={styles.footerSpinner} color={customerColors.primary} testID="notifications-loading-more" />
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -306,6 +401,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 12,
@@ -401,5 +497,53 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0',
     marginLeft: 50,
   },
+  markAllText: {
+    fontSize: 12,
+    color: customerColors.primary,
+    fontFamily: customerFonts.semibold,
+    fontWeight: '600',
+  },
+  stateBox: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  stateTitle: {
+    fontSize: 16,
+    color: customerColors.heading,
+    fontFamily: customerFonts.editorial,
+    textAlign: 'center',
+  },
+  stateBody: {
+    fontSize: 12,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 17,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: customerColors.primary,
+  },
+  retryText: {
+    fontSize: 13,
+    color: customerColors.primary,
+    fontFamily: customerFonts.semibold,
+  },
+  skeletonBlock: {
+    backgroundColor: '#F0F0F0',
+  },
+  skeletonBar: {
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F0F0F0',
+  },
+  footerSpinner: {
+    marginTop: 16,
+  },
 });
-

@@ -46,6 +46,13 @@ vi.mock('@react-native-firebase/app', () => createFirebaseAppMock());
 vi.mock('@react-native-firebase/messaging', () => createFirebaseMessagingMock());
 vi.mock('react-native-image-picker', () => createImagePickerMock());
 vi.mock('@react-native-community/geolocation', () => createGeolocationMock());
+/** react-native-qrcode-svg renders through react-native-svg; tests only assert the encoded value. */
+vi.mock('react-native-qrcode-svg', async () => {
+  const React = await import('react');
+  return {
+    default: (props: { value?: string }) => React.createElement('QRCode', { testID: 'pickup-qr', value: props.value }),
+  };
+});
 
 /**
  * `react-native` itself, mocked globally, for a completely different reason

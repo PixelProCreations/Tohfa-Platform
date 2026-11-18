@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import {
   customerColors,
@@ -18,6 +19,15 @@ import {
 } from '../theme';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
+import {
+  genderFromApi,
+  genderToApi,
+  useCustomerProfile,
+  useUpdateCustomerProfile,
+  validateAge,
+  type UpdateCustomerProfileInput,
+} from '../api/profile';
+import { mapProblem } from '../api/problem';
 
 interface CustomerProfileAgeGenderScreenProps {
   onNavigate: (screen: 'CustomerProfilePreferences' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerProfileName') => void;
@@ -33,8 +43,50 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
     { id: 'unspecified', label: 'Prefer not to say', emoji: '' },
   ];
 
-  const handleNext = () => {
-    onNavigate('CustomerProfilePreferences');
+  const [ageError, setAgeError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const profile = useCustomerProfile();
+  const update = useUpdateCustomerProfile();
+  const saving = update.isPending;
+
+  // Prefill from a saved profile (re-entering onboarding).
+  useEffect(() => {
+    if (prefilled || !profile.data) return;
+    setPrefilled(true);
+    if (profile.data.age != null) setAge((cur) => (cur === '' ? String(profile.data.age) : cur));
+    const g = genderFromApi(profile.data.gender);
+    const uiGender = g === 'prefer_not_to_say' ? 'unspecified' : g;
+    if (uiGender && uiGender !== 'other') setSelectedGender((cur) => cur ?? uiGender);
+  }, [prefilled, profile.data]);
+
+  const handleNext = async () => {
+    if (saving) return;
+    const parsed = validateAge(age);
+    if (parsed.error) {
+      setAgeError(parsed.error);
+      return;
+    }
+    setAgeError(null);
+    setError(null);
+    const body: UpdateCustomerProfileInput = {};
+    if (parsed.value != null) body.age = parsed.value;
+    const gender = genderToApi(selectedGender);
+    if (gender) body.gender = gender;
+    // PATCH requires at least one property: nothing entered -> just move on.
+    if (Object.keys(body).length === 0) {
+      onNavigate('CustomerProfilePreferences');
+      return;
+    }
+    try {
+      await update.mutateAsync(body);
+      onNavigate('CustomerProfilePreferences');
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      if (p.fieldErrors.age) setAgeError(p.fieldErrors.age);
+      setError(p.fieldErrors.gender ?? (p.fieldErrors.age ? null : p.message));
+    }
   };
 
   const handleSkip = () => {
@@ -85,10 +137,26 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
                 keyboardType="number-pad"
                 maxLength={3}
                 value={age}
-                onChangeText={setAge}
+                onChangeText={(v) => {
+                  setAge(v.replace(/[^0-9]/g, ''));
+                  if (ageError) setAgeError(null);
+                }}
+                editable={!saving}
+                accessibilityLabel="Your age"
                 textAlign="center"
               />
-              <View style={[styles.ageUnderline, age.trim().length > 0 && styles.ageUnderlineActive]} />
+              <View
+                style={[
+                  styles.ageUnderline,
+                  age.trim().length > 0 && styles.ageUnderlineActive,
+                  ageError ? styles.underlineError : null,
+                ]}
+              />
+              {ageError ? (
+                <Text style={styles.errorText} accessibilityRole="alert" testID="age-error">
+                  {ageError}
+                </Text>
+              ) : null}
             </View>
           </View>
 
@@ -105,6 +173,9 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
                     activeOpacity={0.8}
                     onPress={() => setSelectedGender(isSelected ? null : g.id)}
                     style={styles.genderItemWrap}
+                    accessibilityRole="button"
+                    accessibilityLabel={g.label}
+                    accessibilityState={{ selected: isSelected }}
                   >
                     <View style={styles.genderItemContent}>
                       {g.emoji ? <Text style={styles.genderEmoji}>{g.emoji}</Text> : null}
@@ -128,9 +199,16 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
 
           {/* ── BOTTOM CENTERED CIRCULAR ACTION BUTTON ──────────────────────── */}
           <View style={styles.buttonContainer}>
+            {error ? (
+              <Text style={[styles.errorText, styles.formError]} accessibilityRole="alert" testID="age-gender-error">
+                {error}
+              </Text>
+            ) : null}
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleNext}
+              disabled={saving}
+              accessibilityState={{ disabled: saving, busy: saving }}
               style={[
                 styles.circularButton,
                 styles.circularButtonActive,
@@ -139,7 +217,11 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
               accessibilityRole="button"
               accessibilityLabel="Next Step"
             >
-              <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" testID="age-gender-saving" />
+              ) : (
+                <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -149,6 +231,19 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
 };
 
 const styles = StyleSheet.create({
+  underlineError: {
+    backgroundColor: '#DC2626',
+  },
+  errorText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 13,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  formError: {
+    marginBottom: 12,
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',

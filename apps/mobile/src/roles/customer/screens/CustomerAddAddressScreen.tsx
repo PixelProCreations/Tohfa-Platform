@@ -1,4 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+/**
+ * Find location / map (Figma 46:34561) + "Location added" (46:34607). BR-160/BR-171.
+ *
+ * Real device location (permission -> GPS fix) with graceful denial to manual
+ * entry; serviceability by lat/lng; the pin travels into the address form. The
+ * map itself is still the static image (no geocoding backend yet).
+ */
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,8 +27,14 @@ import {
   customerSpacing,
 } from '../theme';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
-import { CustomerDeliveryAddressModal, type AddressData } from '../components';
+import { CustomerDeliveryAddressModal, type AddressSaveResult } from '../components/CustomerDeliveryAddressModal';
+import { ServiceAreaRequestModal, prefillFromAddress } from '../components/ServiceAreaRequestFlow';
+import { formatAddressLine, type CustomerAddress } from '../api/addresses';
+import { useServiceability } from '../api/serviceability';
+import { locateDevice, openAppSettings, type Coords } from '../utils/deviceLocation';
 import satelliteMapCoimbatore from '../assets/images/satellite_map_coimbatore.jpg';
+
+type LocatePhase = 'idle' | 'locating' | 'located' | 'denied' | 'blocked' | 'failed';
 
 interface CustomerAddAddressScreenProps {
   initialSource?: 'current' | 'manual' | undefined;
@@ -94,50 +107,88 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
   initialSource = 'current',
   onNavigate,
 }) => {
-  const [isFetchingLocation, setIsFetchingLocation] = useState(initialSource === 'current');
+  const [phase, setPhase] = useState<LocatePhase>('idle');
+  const [coords, setCoords] = useState<Coords | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
+  const [savedServiceable, setSavedServiceable] = useState<boolean | null>(null);
+  const isFetchingLocation = phase === 'locating';
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
 
   // Spinning animation for the "Fetching your location" loader
   const spinValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (isFetchingLocation) {
-      Animated.loop(
-        Animated.timing(spinValue, {
-          toValue: 1,
-          duration: 1100,
-          easing: Easing.linear,
-          useNativeDriver: true,
-        })
-      ).start();
-
-      const timer = setTimeout(() => {
-        setIsFetchingLocation(false);
-      }, 1400);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isFetchingLocation]);
+    if (!isFetchingLocation) return undefined;
+    const loop = Animated.loop(
+      Animated.timing(spinValue, {
+        toValue: 1,
+        duration: 1100,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isFetchingLocation, spinValue]);
 
   const spin = spinValue.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  const [showAddressModal, setShowAddressModal] = useState(false);
+  const handleUseCurrentLocation = useCallback(async () => {
+    setPhase('locating');
+    const result = await locateDevice(true);
+    if (!mounted.current) return;
+    if (result.coords) {
+      setCoords(result.coords);
+      setPhase('located');
+    } else {
+      setPhase(result.outcome === 'blocked' ? 'blocked' : result.outcome === 'denied' ? 'denied' : 'failed');
+    }
+  }, []);
 
-  const handleUseCurrentLocation = () => {
-    setIsFetchingLocation(true);
-  };
+  useEffect(() => {
+    if (initialSource === 'current') void handleUseCurrentLocation();
+  }, [initialSource, handleUseCurrentLocation]);
+
+  const serviceability = useServiceability({ lat: coords?.lat, lng: coords?.lng }, coords !== null);
 
   const handleAddAddressDetails = () => {
     setShowAddressModal(true);
   };
 
-  const handleSaveAddress = (_address: AddressData) => {
+  const handleSaveAddress = (address: CustomerAddress, result: AddressSaveResult) => {
     setShowAddressModal(false);
+    setSavedAddress(address);
+    setSavedServiceable(result.serviceable);
+  };
+
+  const proceed = () => {
+    setSavedAddress(null);
     onNavigate('CustomerLoadingMarket');
   };
+
+  const sheetTitle = coords ? 'Your current location' : 'Enter your address';
+  const sheetLine = (() => {
+    if (phase === 'denied') return 'Location permission was denied. Enter your address manually.';
+    if (phase === 'blocked') return 'Location access is turned off. Enable it in Settings or enter your address manually.';
+    if (phase === 'failed') return "We couldn't find your location. Try again or enter your address manually.";
+    if (!coords) return 'Search or add your address details to check delivery.';
+    if (serviceability.isLoading) return 'Checking delivery availability…';
+    if (serviceability.isError) return "Couldn't check delivery right now. You can still add your address.";
+    if (serviceability.data?.serviceable === false) return "We don't deliver here yet. You can request your area after saving.";
+    if (serviceability.data?.serviceable) return 'Great news! We deliver fresh produce to this area.';
+    return '';
+  })();
 
   return (
     <View style={styles.container}>
@@ -181,13 +232,18 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            returnKeyType="next"
+            onSubmitEditing={handleAddAddressDetails}
+            testID="add-address-search"
           />
         </View>
 
         {/* Floating "Use current location" Pill Button */}
         <TouchableOpacity
+          testID="use-current-location"
           activeOpacity={0.85}
-          onPress={handleUseCurrentLocation}
+          onPress={() => void handleUseCurrentLocation()}
+          disabled={isFetchingLocation}
           style={[styles.useCurrentLocButton, customerShadow.raised]}
           accessibilityRole="button"
           accessibilityLabel="Use current location"
@@ -206,14 +262,27 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
             <GreenPinIcon />
           </View>
           <View style={styles.addressTextWrap}>
-            <Text style={styles.cityName}>Coimbatore</Text>
-            <Text style={styles.addressLine}>
-              110, Rajeshwari Nager, Coimbatore, Tamil Nadu
+            <Text style={styles.cityName}>{sheetTitle}</Text>
+            <Text testID="add-address-status" style={styles.addressLine}>
+              {sheetLine}
             </Text>
           </View>
         </View>
 
+        {phase === 'blocked' ? (
+          <TouchableOpacity
+            testID="open-settings"
+            activeOpacity={0.85}
+            onPress={openAppSettings}
+            style={styles.settingsLink}
+            accessibilityRole="button"
+          >
+            <Text style={styles.settingsLinkText}>Open Settings</Text>
+          </TouchableOpacity>
+        ) : null}
+
         <TouchableOpacity
+          testID="add-address-details"
           activeOpacity={0.85}
           onPress={handleAddAddressDetails}
           style={styles.submitButton}
@@ -268,6 +337,41 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
         initialStep="addAddress"
         onClose={() => setShowAddressModal(false)}
         onSaveAddress={handleSaveAddress}
+        coords={coords}
+        initialValues={searchQuery.trim() ? { area: searchQuery.trim() } : undefined}
+      />
+
+      {/* ── LOCATION ADDED (Figma 46:34607) ─────────────────────────────────── */}
+      <Modal visible={savedAddress !== null && savedServiceable !== false} transparent={true} animationType="fade">
+        <View style={styles.bufferBackdrop}>
+          <View testID="location-added" style={styles.bufferCard}>
+            <View style={styles.addedBadge}>
+              <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
+                <Path d="M20 6L9 17l-5-5" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </View>
+            <Text style={styles.bufferTitle}>Location added</Text>
+            <Text style={styles.bufferSubtitle}>{savedAddress ? formatAddressLine(savedAddress) : ''}</Text>
+            <TouchableOpacity
+              testID="location-added-continue"
+              activeOpacity={0.85}
+              onPress={proceed}
+              style={[styles.submitButton, styles.addedContinue]}
+              accessibilityRole="button"
+            >
+              <Text style={styles.submitButtonText}>Continue</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── UNSERVED AREA -> REQUEST AREA (Figma 46:34706 / 46:34925 / 46:35103) ── */}
+      <ServiceAreaRequestModal
+        visible={savedAddress !== null && savedServiceable === false}
+        initialStep="unserved"
+        prefill={prefillFromAddress(savedAddress ?? undefined)}
+        onClose={proceed}
+        onContinue={proceed}
       />
     </View>
   );
@@ -277,6 +381,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  settingsLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    marginBottom: 6,
+  },
+  settingsLinkText: {
+    fontFamily: customerFonts.semibold,
+    fontSize: 13,
+    color: '#2E7D32',
+  },
+  addedBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#2E7D32',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  addedContinue: {
+    alignSelf: 'stretch',
+    marginTop: 16,
   },
   headerBar: {
     flexDirection: 'row',

@@ -10,6 +10,7 @@ import {
   Platform,
   StatusBar,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -22,6 +23,16 @@ import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 import branchLeavesTopLeft from '../assets/images/branch_leaves_top_left.png';
 import { profileEmailVerified } from '../assets/images';
+import {
+  CUSTOMER_OTP_LENGTH,
+  isValidCustomerOtp,
+  renderOtpState,
+  sendCustomerLoginOtp,
+  verifyCustomerLoginOtp,
+  type CustomerPostLoginRoute,
+} from '../api/auth';
+import { mapProblem } from '../api/problem';
+import { getLocale } from '../../../i18n/customer';
 
 const GreenFloatingLeaf = () => (
   <View style={styles.floatingLeafBottomRight} pointerEvents="none">
@@ -41,61 +52,169 @@ const GreenFloatingLeaf = () => (
   </View>
 );
 
+const EMPTY_PIN: string[] = Array.from({ length: CUSTOMER_OTP_LENGTH }, () => '');
+const PIN_INDEXES = EMPTY_PIN.map((_, i) => i);
+
 interface CustomerOtpScreenProps {
-  mobile?: string;
-  onNavigate: (screen: 'CustomerProfileName' | 'CustomerLogin' | 'CustomerMain' | string, params?: { mobile?: string }) => void;
+  /** 10-digit mobile the challenge was sent to (from CustomerLogin). */
+  mobile: string;
+  challengeId: string;
+  expiresAt?: string | undefined;
+  resendAvailableAt?: string | undefined;
+  attemptsRemaining?: number | undefined;
+  onNavigate: (screen: CustomerPostLoginRoute | 'CustomerLogin', params?: Record<string, unknown>) => void;
+}
+
+interface ChallengeState {
+  challengeId: string;
+  resendAvailableAt: string | undefined;
+  attemptsRemaining: number | undefined;
 }
 
 export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
-  mobile = '9090202033',
+  mobile,
+  challengeId,
+  resendAvailableAt,
+  attemptsRemaining,
   onNavigate,
 }) => {
-  const [pin, setPin] = useState(['', '', '', '']);
-  const [timerSeconds, setTimerSeconds] = useState(28);
-  const [showVerifiedModal, setShowVerifiedModal] = useState(false);
-  const inputRefs = useRef<Array<any>>([]);
+  const [challenge, setChallenge] = useState<ChallengeState>({
+    challengeId,
+    resendAvailableAt,
+    attemptsRemaining,
+  });
+  const [pin, setPin] = useState<string[]>(EMPTY_PIN);
+  const [now, setNow] = useState(() => Date.now());
+  const [verifying, setVerifying] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [canRetry, setCanRetry] = useState(false);
+  const [needsResend, setNeedsResend] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [verifiedRoute, setVerifiedRoute] = useState<CustomerPostLoginRoute | null>(null);
+  const inputRefs = useRef<Array<React.ElementRef<typeof TextInput> | null>>([]);
+  const inFlight = useRef(false);
+
+  const otpState = renderOtpState({
+    resendAvailableAt: challenge.resendAvailableAt,
+    attemptsRemaining: locked ? 0 : challenge.attemptsRemaining,
+    now,
+  });
+  const secondsLeft = otpState.secondsUntilResend;
 
   useEffect(() => {
-    if (timerSeconds <= 0) return;
-    const interval = setInterval(() => {
-      setTimerSeconds(prev => prev - 1);
-    }, 1000);
-
+    if (secondsLeft <= 0) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
-  }, [timerSeconds]);
+  }, [secondsLeft]);
 
-  const handlePinChange = (text: string, index: number) => {
-    const cleanText = text.replace(/[^0-9]/g, '');
-    const newPin = [...pin];
-    newPin[index] = cleanText.slice(-1);
-    setPin(newPin);
-
-    // Auto advance focus to next input slot
-    if (cleanText && index < 3) {
-      inputRefs.current[index + 1]?.focus();
-    } else if (cleanText && index === 3) {
-      setTimeout(() => {
-        setShowVerifiedModal(true);
-      }, 300);
+  const verify = async (code: string) => {
+    if (inFlight.current || locked || !isValidCustomerOtp(code)) return;
+    inFlight.current = true;
+    setVerifying(true);
+    setError(null);
+    setCanRetry(false);
+    try {
+      const result = await verifyCustomerLoginOtp({
+        mobile,
+        challengeId: challenge.challengeId,
+        otp: code,
+        preferredLocale: getLocale(),
+      });
+      setVerifiedRoute(result.route);
+    } catch (err) {
+      const problem = mapProblem(err);
+      if (problem.silent) return;
+      setError(problem.message);
+      if (problem.action === 'retry') {
+        // Offline/timeout/5xx: keep the digits so "Try again" resubmits them.
+        setCanRetry(true);
+        return;
+      }
+      // OTP_INVALID 400 = expired/replayed/foreign challenge: only a new code helps.
+      const challengeDead =
+        problem.action === 'resend_otp' || (problem.code === 'OTP_INVALID' && problem.status === 400);
+      if (problem.code === 'OTP_LOCKED') setLocked(true);
+      setNeedsResend(challengeDead);
+      setPin(EMPTY_PIN);
+      if (problem.code !== 'OTP_LOCKED') inputRefs.current[0]?.focus();
+    } finally {
+      inFlight.current = false;
+      setVerifying(false);
     }
   };
 
-  const handleKeyPress = (e: any, index: number) => {
+  const handlePinChange = (text: string, index: number) => {
+    const digits = text.replace(/[^0-9]/g, '');
+    let newPin: string[];
+    if (digits.length >= CUSTOMER_OTP_LENGTH) {
+      // Pasted / autofilled full code.
+      newPin = digits.slice(0, CUSTOMER_OTP_LENGTH).split('');
+    } else {
+      newPin = [...pin];
+      newPin[index] = digits.slice(-1);
+    }
+    setPin(newPin);
+    if (error && !locked) setError(null);
+
+    const code = newPin.join('');
+    if (code.length === CUSTOMER_OTP_LENGTH) {
+      void verify(code);
+    } else if (digits && index < CUSTOMER_OTP_LENGTH - 1) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleKeyPress = (e: { nativeEvent: { key: string } }, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !pin[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   const handleNext = () => {
-    // Show Screen 7: Phone number Verified popup modal
-    setShowVerifiedModal(true);
+    void verify(pin.join(''));
+  };
+
+  const handleResend = async () => {
+    if (!otpState.canResend || resending || verifying) return;
+    setResending(true);
+    setError(null);
+    setCanRetry(false);
+    try {
+      const next = await sendCustomerLoginOtp(mobile);
+      setChallenge({
+        challengeId: next.challengeId,
+        resendAvailableAt: next.resendAvailableAt,
+        attemptsRemaining: next.attemptsRemaining,
+      });
+      setNow(Date.now());
+      setLocked(false);
+      setNeedsResend(false);
+      setPin(EMPTY_PIN);
+      inputRefs.current[0]?.focus();
+    } catch (err) {
+      const problem = mapProblem(err);
+      if (problem.silent) return;
+      setError(problem.message);
+      if (problem.action === 'wait' && problem.retryAfterSeconds !== null) {
+        const until = Date.now() + problem.retryAfterSeconds * 1000;
+        setChallenge(prev => ({ ...prev, resendAvailableAt: new Date(until).toISOString() }));
+        setNow(Date.now());
+      }
+    } finally {
+      setResending(false);
+    }
   };
 
   const handleContinue = () => {
-    setShowVerifiedModal(false);
-    // Proceed to Screen 8 & 9: Personal details ("What should we call you?")
-    onNavigate('CustomerProfileName', { mobile });
+    if (!verifiedRoute) return;
+    const route = verifiedRoute;
+    setVerifiedRoute(null);
+    onNavigate(route);
   };
+
+  const pinComplete = isValidCustomerOtp(pin.join(''));
+  const canSubmit = pinComplete && !verifying && !locked;
 
   return (
     <View style={styles.container}>
@@ -117,20 +236,24 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
       >
         {/* Main Card (389 x 243 Hug from Figma) */}
         <View style={styles.card}>
-          <Text style={styles.title}>Please enter 4-digit PIN Sent to</Text>
+          <Text style={styles.title}>Please enter 6-digit PIN Sent to</Text>
 
           {/* Mobile number with Edit link */}
           <View style={styles.phoneEditRow}>
             <Text style={styles.phoneText}>+91 {mobile}</Text>
             <Text style={styles.bullet}> • </Text>
-            <TouchableOpacity onPress={() => onNavigate('CustomerLogin')}>
+            <TouchableOpacity
+              onPress={() => onNavigate('CustomerLogin')}
+              accessibilityRole="link"
+              testID="customer-otp-edit"
+            >
               <Text style={styles.editText}>Edit</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 4 PIN Underline Input Slots */}
+          {/* 6 PIN Underline Input Slots (BR-32: the customer OTP is 6 digits) */}
           <View style={styles.pinRow}>
-            {[0, 1, 2, 3].map((index) => {
+            {PIN_INDEXES.map((index) => {
               const isFilled = (pin[index] || '').length > 0;
               return (
                 <View key={index} style={styles.pinBox}>
@@ -140,12 +263,15 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
                     }}
                     style={styles.pinInput}
                     keyboardType="number-pad"
-                    maxLength={1}
+                    maxLength={index === 0 ? CUSTOMER_OTP_LENGTH : 1}
                     value={pin[index]}
                     onChangeText={text => handlePinChange(text, index)}
                     onKeyPress={e => handleKeyPress(e, index)}
                     textAlign="center"
                     autoFocus={index === 0}
+                    editable={!locked && !verifying}
+                    textContentType={index === 0 ? 'oneTimeCode' : 'none'}
+                    accessibilityLabel={`PIN digit ${index + 1}`}
                   />
                   <View
                     style={[
@@ -158,29 +284,68 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
             })}
           </View>
 
-          {/* Resend Timer Text */}
+          {error ? (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText} testID="customer-otp-error" accessibilityRole="alert">
+                {error}
+              </Text>
+              {canRetry ? (
+                <TouchableOpacity onPress={handleNext} accessibilityRole="link" testID="customer-otp-retry">
+                  <Text style={styles.linkText}>Try again</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Resend: cooldown from the server's resendAvailableAt */}
           <View style={styles.resendRow}>
-            <Text style={styles.resendText}>
-              Didn't receive the PIN? Resend in{' '}
-              <Text style={styles.timerHighlight}>{timerSeconds}s</Text>
-            </Text>
+            {secondsLeft > 0 && !locked ? (
+              <Text style={styles.resendText} testID="customer-otp-timer">
+                Didn't receive the PIN? Resend in{' '}
+                <Text style={styles.timerHighlight}>{secondsLeft}s</Text>
+              </Text>
+            ) : (
+              <TouchableOpacity
+                onPress={() => void handleResend()}
+                disabled={resending || verifying}
+                accessibilityRole="button"
+                accessibilityLabel="Resend PIN"
+                testID="customer-otp-resend"
+              >
+                <Text style={styles.resendText}>
+                  {needsResend || locked ? 'Request a new PIN. ' : "Didn't receive the PIN? "}
+                  <Text style={styles.timerHighlight}>{resending ? 'Sending...' : 'Resend'}</Text>
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Circular Action Button - Green in Figma */}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleNext}
-            style={[styles.circularButton, styles.circularButtonActive, customerShadow.raised]}
+            disabled={!canSubmit}
+            style={[
+              styles.circularButton,
+              styles.circularButtonActive,
+              customerShadow.raised,
+              !canSubmit && styles.circularButtonDisabled,
+            ]}
             accessibilityRole="button"
             accessibilityLabel="Verify PIN"
+            accessibilityState={{ disabled: !canSubmit, busy: verifying }}
           >
-            <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+            {verifying ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
       {/* ── PHONE NUMBER VERIFIED POPUP MODAL (FIGMA PARITY) ────────────────── */}
-      <Modal visible={showVerifiedModal} transparent={true} animationType="fade">
+      <Modal visible={verifiedRoute !== null} transparent={true} animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.verifiedCard}>
             {/* Top Right Close Button */}
@@ -212,6 +377,8 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
               activeOpacity={0.85}
               onPress={handleContinue}
               style={styles.continueButton}
+              accessibilityRole="button"
+              testID="customer-otp-continue"
             >
               <Text style={styles.continueButtonText}>Continue</Text>
             </TouchableOpacity>
@@ -288,9 +455,9 @@ const styles = StyleSheet.create({
   pinRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
+    gap: 10,
     width: '100%',
-    maxWidth: 280,
+    maxWidth: 300,
     marginBottom: 20,
   },
   pinBox: {
@@ -299,7 +466,7 @@ const styles = StyleSheet.create({
   },
   pinInput: {
     width: '100%',
-    fontSize: 24,
+    fontSize: 22,
     fontFamily: customerFonts.bold,
     color: customerColors.body,
     paddingVertical: 8,
@@ -336,6 +503,28 @@ const styles = StyleSheet.create({
   },
   circularButtonActive: {
     backgroundColor: customerColors.brand,
+  },
+  circularButtonDisabled: {
+    opacity: 0.45,
+  },
+  errorBox: {
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 16,
+    maxWidth: 300,
+  },
+  errorText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#DC2626',
+    textAlign: 'center',
+  },
+  linkText: {
+    fontFamily: customerFonts.semibold,
+    fontSize: 13,
+    color: customerColors.brand,
+    marginTop: 6,
   },
   arrowText: {
     color: '#FFFFFF',
@@ -401,8 +590,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   verifiedEnvelopeImage: {
-    width: 84,
-    height: 74,
+    width: 100,
+    height: 68,
   },
   envelopeBackdrop: {
     width: 80,

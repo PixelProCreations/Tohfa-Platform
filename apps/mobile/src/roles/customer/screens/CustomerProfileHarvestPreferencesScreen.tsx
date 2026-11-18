@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Platform,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import {
@@ -17,6 +18,14 @@ import {
 } from '../theme';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
+import {
+  buildHarvestPreferences,
+  parseHarvestPreferences,
+  slugifyPreference,
+  useCustomerProfile,
+  useUpdateCustomerProfile,
+} from '../api/profile';
+import { mapProblem } from '../api/problem';
 
 interface CustomerProfileHarvestPreferencesScreenProps {
   onNavigate: (screen: 'CustomerPermissions' | 'CustomerLoadingMarket' | 'CustomerMain') => void;
@@ -254,8 +263,46 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
 
   const hasSelections = selectedEatingStyles.length > 0 || selectedMatters.length > 0;
 
-  const handleNext = () => {
-    onNavigate('CustomerPermissions');
+  const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const profile = useCustomerProfile();
+  const update = useUpdateCustomerProfile();
+  const saving = update.isPending;
+
+  // Prefill from saved `harvestPreferences` (slugs, see api/profile.ts prefix convention).
+  useEffect(() => {
+    if (prefilled || !profile.data) return;
+    setPrefilled(true);
+    const saved = parseHarvestPreferences(profile.data.harvestPreferences);
+    const pick = (ids: string[], slugs: string[]) => ids.filter((id) => slugs.includes(slugifyPreference(id)));
+    const eatIds = pick([...eatingStylesCol1, ...eatingStylesCol2].map((i) => i.id), saved.eatingStyles);
+    const careIds = pick([...mattersCol1, ...mattersCol2].map((i) => i.id), saved.matters);
+    if (eatIds.length) setSelectedEatingStyles((cur) => (cur.length ? cur : eatIds));
+    if (careIds.length) setSelectedMatters((cur) => (cur.length ? cur : careIds));
+  }, [prefilled, profile.data]);
+
+  const handleNext = async () => {
+    if (saving) return;
+    setError(null);
+    const saved = profile.data?.harvestPreferences ?? [];
+    // Keep any un-prefixed values another client stored; one API array carries both groups.
+    const next = [
+      ...buildHarvestPreferences(selectedEatingStyles, selectedMatters),
+      ...parseHarvestPreferences(saved).other,
+    ].slice(0, 20);
+    const unchanged = next.length === saved.length && next.every((v) => saved.includes(v));
+    if (unchanged) {
+      onNavigate('CustomerPermissions');
+      return;
+    }
+    try {
+      await update.mutateAsync({ harvestPreferences: next });
+      onNavigate('CustomerPermissions');
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      setError(p.fieldErrors.harvestPreferences ?? p.message);
+    }
   };
 
   const handleSkip = () => {
@@ -274,6 +321,9 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
         activeOpacity={0.7}
         onPress={onPress}
         style={styles.itemWrapper}
+        accessibilityRole="button"
+        accessibilityLabel={item.label}
+        accessibilityState={{ selected: isSelected }}
       >
         <View style={styles.itemContent}>
           <View style={styles.itemIconWrap}>
@@ -393,9 +443,16 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
 
         {/* ── BOTTOM ACTION BUTTON: GREY WHEN 0 SELECTIONS, SOLID GREEN WHEN CLICKED ── */}
         <View style={styles.buttonContainer}>
+          {error ? (
+            <Text style={styles.errorText} accessibilityRole="alert" testID="preferences-error">
+              {error}
+            </Text>
+          ) : null}
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleNext}
+            disabled={saving}
+            accessibilityState={{ disabled: saving, busy: saving }}
             style={[
               styles.circularButton,
               hasSelections ? styles.circularButtonActive : styles.circularButtonDisabled,
@@ -404,7 +461,11 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
             accessibilityRole="button"
             accessibilityLabel="Proceed to permissions"
           >
-            <ArrowRightFigmaIcon size={24} color={hasSelections ? '#FFFFFF' : '#9CA3AF'} />
+            {saving ? (
+              <ActivityIndicator color={hasSelections ? '#FFFFFF' : '#9CA3AF'} testID="preferences-saving" />
+            ) : (
+              <ArrowRightFigmaIcon size={24} color={hasSelections ? '#FFFFFF' : '#9CA3AF'} />
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -413,6 +474,13 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
 };
 
 const styles = StyleSheet.create({
+  errorText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 13,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',

@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   Platform,
+  ActivityIndicator,
   StatusBar,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,152 +26,203 @@ import {
   StarSvg,
   CheckboxSvg,
 } from '../components/ContactSupportIcons';
-import {
-  SAMPLE_ORDERS,
-  SAMPLE_REVIEW_ITEMS,
-  REVIEW_ASPECTS,
-} from '../components/contactSupportData';
-import type { OrderOption, ReviewItem } from '../components/contactSupportData';
+import { ApiError } from '../../../shell/api/client';
+import { isReviewEligible, useOrder, useOrders, type OrderSummary } from '../api/orders';
+import { useCreateOrderReview, useOrderReview, type OrderReview, type ReviewTag } from '../api/reviews';
+import { mapProblem } from '../api/problem';
+import { formatKg } from '../utils/money';
+import { formatIstDate } from '../utils/orderFormat';
 import { ReviewSubmittedModal } from '../components/ReviewSubmittedModal';
 
 export interface ReviewFeedbackScreenProps {
+  /** Order uuid to review; when absent the first eligible order is preselected. */
+  orderId?: string | undefined;
   onBack?: () => void;
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
 }
 
-export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
-  onBack,
-  onNavigate,
-}) => {
+/** The existing chips mapped onto the API tag vocabulary (CreateOrderReviewRequest.tags). */
+export const REVIEW_TAG_OPTIONS: { tag: ReviewTag; label: string }[] = [
+  { tag: 'QUALITY', label: 'Product quality' },
+  { tag: 'FRESHNESS', label: 'Freshness' },
+  { tag: 'PACKAGING', label: 'Packaging' },
+  { tag: 'DELIVERY', label: 'Delivery / Pickup' },
+  { tag: 'VALUE_FOR_MONEY', label: 'Value for money' },
+  { tag: 'TASTE', label: 'Taste' },
+  { tag: 'SERVICE', label: 'Service' },
+];
+
+const ratingLabel = (r: number) => (r >= 4 ? 'Excellent' : r >= 3 ? 'Good' : 'Average');
+
+/**
+ * Review & feedback (Figma 46:42514 / 46:42631). One review per ORDER
+ * (POST /orders/{id}/review): overall rating, tags, comment and per-line ratings
+ * keyed by orderItemId. Only DELIVERED / PICKED_UP orders are offered; an order
+ * already reviewed shows the existing review read-only.
+ */
+export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orderId: initialOrderId, onBack, onNavigate }) => {
   const insets = useSafeAreaInsets();
-  const [selectedOrder, setSelectedOrder] = useState<OrderOption>(SAMPLE_ORDERS[0]!);
+  const ordersQuery = useOrders();
+  const eligibleOrders: OrderSummary[] = (ordersQuery.data?.pages.flatMap((p) => p.items) ?? []).filter((o) => isReviewEligible(o.status));
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(initialOrderId ?? null);
+  const effectiveOrderId = selectedOrderId ?? eligibleOrders[0]?.id ?? null;
+  const orderQuery = useOrder(effectiveOrderId);
+  const order = orderQuery.data;
+  const existingQuery = useOrderReview(effectiveOrderId);
+  const existing = existingQuery.data ?? null;
+  const createReview = useCreateOrderReview();
+
   const [showOrderPicker, setShowOrderPicker] = useState<boolean>(false);
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(SAMPLE_REVIEW_ITEMS);
-  const [activeReviewProductId, setActiveReviewProductId] = useState<string>('prod_1');
+  const [itemRatings, setItemRatings] = useState<Record<string, number>>({});
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
   const [overallRating, setOverallRating] = useState<number>(0);
   const [reviewText, setReviewText] = useState<string>('');
-  const [selectedAspects, setSelectedAspects] = useState<string[]>([]);
-  const [isSuccessModalVisible, setIsSuccessModalVisible] = useState<boolean>(false);
+  const [selectedTags, setSelectedTags] = useState<ReviewTag[]>([]);
+  const [submitted, setSubmitted] = useState<OrderReview | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [commentError, setCommentError] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    setItemRatings({});
+    setOverallRating(0);
+    setSelectedTags([]);
+    setReviewText('');
+    setError(null);
+    setCommentError(null);
+  }, [effectiveOrderId]);
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const toggleAspect = (aspectId: string) => {
-    setSelectedAspects((prev) =>
-      prev.includes(aspectId) ? prev.filter((id) => id !== aspectId) : [...prev, aspectId],
-    );
+  const readOnly = !!existing;
+  const shownOverall = existing?.rating ?? overallRating;
+  const ratingFor = (orderItemId: string) => existing?.items.find((i) => i.orderItemId === orderItemId)?.rating ?? itemRatings[orderItemId] ?? 0;
+  const tagChecked = (tag: ReviewTag) => (existing ? existing.tags.includes(tag) : selectedTags.includes(tag));
+
+  const toggleTag = (tag: ReviewTag) => {
+    if (readOnly) return;
+    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
-  const handleRateItem = (itemId: string, rating: number) => {
-    setActiveReviewProductId(itemId);
-    setReviewItems((prev) =>
-      prev.map((item) =>
-        item.id === itemId
-          ? {
-            ...item,
-            rating,
-            statusLabel: rating >= 4 ? 'Excellent' : rating >= 3 ? 'Good' : 'Average',
-          }
-          : item,
-      ),
-    );
+  const handleSubmit = async () => {
+    if (!order || readOnly) return;
+    if (overallRating < 1) {
+      setError('Please give an overall rating.');
+      return;
+    }
+    setError(null);
+    setCommentError(null);
+    try {
+      const review = await createReview.mutateAsync({
+        orderId: order.id,
+        input: {
+          rating: overallRating,
+          tags: selectedTags,
+          comment: reviewText,
+          items: Object.entries(itemRatings).map(([orderItemId, rating]) => ({ orderItemId, rating })),
+        },
+      });
+      setSubmitted(review);
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      const code = err instanceof ApiError ? (err.code as string) : '';
+      if (code === 'CONFLICT') {
+        setError('You have already reviewed this order.');
+        void existingQuery.refetch();
+        return;
+      }
+      if (code === 'INVALID_STATE_TRANSITION') {
+        setError('You can review an order after it is delivered or picked up.');
+        return;
+      }
+      const fe = p.fieldErrors ?? {};
+      const c = fe['body.comment'] ?? fe['comment'];
+      if (c) setCommentError(c);
+      setError(p.message);
+    }
   };
 
-  const activeProduct = reviewItems.find((p) => p.id === activeReviewProductId);
-  const activeProductName = activeProduct?.name ?? 'Royal Gala';
+  const thumbFor = (name: string) => order?.thumbnails?.find((t) => t.productName === name)?.imageUrl;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
-          <TouchableOpacity
-            style={styles.circleIconButton}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
-          >
+          <TouchableOpacity style={styles.circleIconButton} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Go back">
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Review & Feedback</Text>
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── BANNER CARD ───────────────────────────────────────────────────── */}
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.bannerCard}>
           <View style={styles.bannerTextColumn}>
-            <Text style={styles.bannerTitle}>Share your experience</Text>
-            <Text style={styles.bannerSubtitle}>
-              Tell other about the product quality, freshness and your overall experience.
-            </Text>
+            <Text style={styles.bannerTitle}>{readOnly ? 'Your review' : 'Share your experience'}</Text>
+            <Text style={styles.bannerSubtitle}>Tell others about the product quality, freshness and your overall experience.</Text>
           </View>
           <View style={styles.bannerIllustration}>
             <ProduceCrateSvg size={68} />
           </View>
         </View>
 
-        {/* ── SELECT ORDER CARD ─────────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.orderCard}
-          activeOpacity={0.7}
-          onPress={() => setShowOrderPicker(true)}
-          accessibilityLabel="Select order"
-        >
+        <TouchableOpacity style={styles.orderCard} activeOpacity={0.7} onPress={() => setShowOrderPicker(true)} accessibilityLabel="Select order" testID="review-order-card">
           <View style={styles.orderIconBadge}>
             <ShoppingBagSvg color="#2E7D32" size={20} />
           </View>
           <View style={styles.orderTextColumn}>
-            <Text style={styles.orderNumber}>{selectedOrder.orderNumber}</Text>
-            <Text style={styles.orderSubtitle}>
-              {`${selectedOrder.dateStr} · ${selectedOrder.itemCount} items`}
-            </Text>
+            <Text style={styles.orderNumber}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? 'Loading…' : 'No orders to review yet')}</Text>
+            {order && <Text style={styles.orderSubtitle}>{`${formatIstDate(order.placedAt)} · ${order.items.length} items`}</Text>}
           </View>
           <ChevronDownSvg color="#4B5563" size={20} />
         </TouchableOpacity>
 
-        {/* ── REVIEW YOUR ITEMS SECTION ─────────────────────────────────────── */}
+        {(orderQuery.isLoading || existingQuery.isLoading) && <ActivityIndicator testID="review-loading" />}
+
         <Text style={styles.sectionTitle}>Review your items</Text>
         <View style={styles.reviewItemsContainer}>
-          {reviewItems.map((item) => {
-            const isActive = activeReviewProductId === item.id;
+          {(order?.items ?? []).map((item) => {
+            const isActive = activeItemId === item.id;
+            const rating = ratingFor(item.id);
+            const thumb = thumbFor(item.name);
             return (
               <TouchableOpacity
                 key={item.id}
                 style={[styles.reviewItemCard, isActive && styles.reviewItemCardActive]}
                 activeOpacity={0.8}
-                onPress={() => setActiveReviewProductId(item.id)}
+                onPress={() => setActiveItemId(item.id)}
                 accessibilityLabel={`Review ${item.name}`}
               >
-                <Image source={item.image} style={styles.reviewThumb} resizeMode="contain" />
+                {thumb ? <Image source={{ uri: thumb }} style={styles.reviewThumb} resizeMode="contain" /> : <View style={styles.reviewThumb} />}
                 <View style={styles.reviewInfoCol}>
                   <Text style={styles.reviewItemName}>
-                    {item.name} <Text style={styles.reviewItemWeight}>{item.weight}</Text>
+                    {item.name} <Text style={styles.reviewItemWeight}>({formatKg(item.qtyKg)})</Text>
                   </Text>
                   <View style={styles.starsRow}>
                     {[1, 2, 3, 4, 5].map((star) => (
                       <TouchableOpacity
                         key={star}
+                        disabled={readOnly}
                         hitSlop={{ top: 6, bottom: 6, left: 3, right: 3 }}
-                        onPress={() => handleRateItem(item.id, star)}
+                        onPress={() => {
+                          setActiveItemId(item.id);
+                          setItemRatings((prev) => ({ ...prev, [item.id]: star }));
+                        }}
                         accessibilityLabel={`Rate ${item.name} ${star} stars`}
+                        testID={`item-star-${item.id}-${star}`}
                       >
-                        <StarSvg filled={star <= item.rating} size={15} />
+                        <StarSvg filled={star <= rating} size={15} />
                       </TouchableOpacity>
                     ))}
                   </View>
                 </View>
-
-                {item.rating > 0 ? (
+                {rating > 0 ? (
                   <View style={styles.excellentBadge}>
-                    <Text style={styles.excellentBadgeText}>{item.statusLabel || 'Excellent'}</Text>
+                    <Text style={styles.excellentBadgeText}>{ratingLabel(rating)}</Text>
                   </View>
                 ) : (
                   <Text style={styles.tapToRateText}>Tap to rate</Text>
@@ -180,127 +232,129 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
           })}
         </View>
 
-        {/* ── OVERALL RATING SECTION ────────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Overall rating</Text>
         <View style={styles.overallRatingRow}>
           <View style={styles.overallStars}>
             {[1, 2, 3, 4, 5].map((star) => (
               <TouchableOpacity
                 key={star}
+                disabled={readOnly}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                 onPress={() => setOverallRating(star)}
                 accessibilityLabel={`Rate overall ${star} stars`}
+                testID={`overall-star-${star}`}
               >
-                <StarSvg filled={star <= overallRating} size={30} />
+                <StarSvg filled={star <= shownOverall} size={30} />
               </TouchableOpacity>
             ))}
           </View>
-          <View
-            style={[
-              styles.scoreBadge,
-              overallRating > 0 ? styles.scoreBadgePositive : styles.scoreBadgeZero,
-            ]}
-          >
-            <Text
-              style={[
-                styles.scoreText,
-                overallRating > 0 ? styles.scoreTextPositive : styles.scoreTextZero,
-              ]}
-            >
-              {overallRating > 0 ? `${overallRating}.0` : '0.0'}
-            </Text>
+          <View style={[styles.scoreBadge, shownOverall > 0 ? styles.scoreBadgePositive : styles.scoreBadgeZero]}>
+            <Text style={[styles.scoreText, shownOverall > 0 ? styles.scoreTextPositive : styles.scoreTextZero]}>{`${shownOverall}.0`}</Text>
           </View>
         </View>
 
-        {/* ── YOUR REVIEW SECTION ───────────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Your Review</Text>
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.textInput}
-            placeholder="Describe your issue or question..."
+            placeholder="Tell us about the freshness and quality..."
             placeholderTextColor="#9CA3AF"
             multiline
-            maxLength={500}
-            value={reviewText}
+            maxLength={1000}
+            editable={!readOnly}
+            value={existing ? (existing.comment ?? '') : reviewText}
             onChangeText={setReviewText}
+            testID="review-comment"
           />
-          <Text style={styles.charCounter}>{`${reviewText.length}/500`}</Text>
+          <Text style={styles.charCounter}>{`${(existing?.comment ?? reviewText).length}/1000`}</Text>
         </View>
+        {!!commentError && (
+          <Text style={styles.charCounter} testID="review-comment-error">
+            {commentError}
+          </Text>
+        )}
 
-        {/* ── WHAT DID YOU LIKE SECTION ─────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>What did you like?</Text>
         <View style={styles.aspectsGrid}>
-          {REVIEW_ASPECTS.map((aspect) => {
-            const isChecked = selectedAspects.includes(aspect.id);
+          {REVIEW_TAG_OPTIONS.map(({ tag, label }) => {
+            const isChecked = tagChecked(tag);
             return (
               <TouchableOpacity
-                key={aspect.id}
+                key={tag}
                 style={[styles.aspectCard, isChecked && styles.aspectCardChecked]}
                 activeOpacity={0.8}
-                onPress={() => toggleAspect(aspect.id)}
-                accessibilityLabel={aspect.label}
+                onPress={() => toggleTag(tag)}
+                accessibilityLabel={label}
+                testID={`tag-${tag}`}
               >
                 <CheckboxSvg checked={isChecked} size={18} />
-                <Text style={[styles.aspectLabel, isChecked && styles.aspectLabelChecked]}>
-                  {aspect.label}
-                </Text>
+                <Text style={[styles.aspectLabel, isChecked && styles.aspectLabelChecked]}>{label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* ── SUBMIT REVIEW BUTTON ──────────────────────────────────────────── */}
-        <TouchableOpacity
-          style={styles.submitButton}
-          activeOpacity={0.85}
-          onPress={() => setIsSuccessModalVisible(true)}
-          accessibilityLabel="Submit Review"
-        >
-          <Text style={styles.submitButtonText}>Submit Review</Text>
-        </TouchableOpacity>
+        {!!error && (
+          <Text style={styles.charCounter} accessibilityRole="alert" testID="review-error">
+            {error}
+          </Text>
+        )}
+
+        {!readOnly && (
+          <TouchableOpacity
+            style={[styles.submitButton, (!order || createReview.isPending) && { opacity: 0.6 }]}
+            activeOpacity={0.85}
+            disabled={!order || createReview.isPending}
+            onPress={() => void handleSubmit()}
+            accessibilityLabel="Submit Review"
+            testID="review-submit"
+          >
+            {createReview.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Submit Review</Text>}
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
-      {/* ── ORDER SELECTION MODAL ─────────────────────────────────────────── */}
       <Modal visible={showOrderPicker} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowOrderPicker(false)}
-        >
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOrderPicker(false)}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select an Order</Text>
-            {SAMPLE_ORDERS.map((ord) => (
+            {eligibleOrders.length === 0 && <Text style={styles.orderSubtitle}>Orders can be reviewed after delivery or pickup.</Text>}
+            {eligibleOrders.map((ord) => (
               <TouchableOpacity
                 key={ord.id}
-                style={[
-                  styles.modalOrderItem,
-                  selectedOrder.id === ord.id && styles.modalOrderItemActive,
-                ]}
+                style={[styles.modalOrderItem, effectiveOrderId === ord.id && styles.modalOrderItemActive]}
                 onPress={() => {
-                  setSelectedOrder(ord);
+                  setSelectedOrderId(ord.id);
                   setShowOrderPicker(false);
                 }}
               >
                 <Text style={styles.orderNumber}>{ord.orderNumber}</Text>
-                <Text style={styles.orderSubtitle}>{`${ord.dateStr} · ${ord.itemCount} items`}</Text>
+                <Text style={styles.orderSubtitle}>{`${formatIstDate(ord.placedAt)} · ${ord.itemCount ?? 0} items`}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </TouchableOpacity>
       </Modal>
 
-      {/* ── REVIEW SUBMITTED POPUP (FIGMA SCREEN 66 MATCH) ────────────────── */}
       <ReviewSubmittedModal
-        visible={isSuccessModalVisible}
-        orderNumber={selectedOrder.orderNumber}
-        productName={activeProductName}
-        onClose={() => setIsSuccessModalVisible(false)}
-        onReviewAnother={(prodId) => {
-          setIsSuccessModalVisible(false);
-          setActiveReviewProductId(prodId);
+        visible={!!submitted}
+        orderNumber={order?.orderNumber ?? ''}
+        productName={order?.items[0]?.name ?? ''}
+        products={(order?.items ?? []).map((it) => ({
+          id: it.id,
+          name: it.name,
+          weight: `(${formatKg(it.qtyKg)})`,
+          imageUri: thumbFor(it.name),
+          reviewed: true,
+          rating: submitted?.items.find((i) => i.orderItemId === it.id)?.rating ?? submitted?.rating ?? 0,
+        }))}
+        onClose={() => setSubmitted(null)}
+        onReviewAnother={() => {
+          setSubmitted(null);
+          onNavigate?.('OrderHistory');
         }}
         onContinueShopping={() => {
-          setIsSuccessModalVisible(false);
+          setSubmitted(null);
           onNavigate?.('Home');
         }}
       />

@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Image,
+  ActivityIndicator,
+  RefreshControl,
   TouchableOpacity,
   TextInput,
   Platform,
@@ -19,7 +21,10 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { ProductImages } from '../assets/images/products';
+import { isActiveStatus, useOrders, type OrderSummary } from '../api/orders';
+import { mapProblem } from '../api/problem';
+import { formatRupees } from '../utils/money';
+import { activeOrderBadge, formatIstDate, orderStatusLabel } from '../utils/orderFormat';
 
 export interface OrderHistoryScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
@@ -72,66 +77,70 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const group1Orders = [
-    {
-      id: 'ord-1',
-      title: 'Royal Gala',
-      orderNumber: 'ORD-20261105-0039',
-      date: '06/11/2026',
-      badge: 'Arrive Tomorrow',
-      image: ProductImages.fruitApple,
-    },
-    {
-      id: 'ord-2',
-      title: 'Red Tomato',
-      orderNumber: 'ORD-20261105-0039',
-      date: '06/11/2026',
-      badge: 'Arrive Tomorrow',
-      image: ProductImages.foryouTomatoes,
-    },
-    {
-      id: 'ord-3',
-      title: 'Yellow Cherry Tomato',
-      orderNumber: 'ORD-20261105-0039',
-      date: '06/11/2026',
-      badge: 'Arrive Tomorrow',
-      image: ProductImages.foryouTomatoes,
-    },
-  ];
+  // GET /orders (cursor paged, newest first). Rows are per ORDER (BR-195 thumbnails).
+  const ordersQuery = useOrders();
+  const orders: OrderSummary[] = useMemo(() => ordersQuery.data?.pages.flatMap((p) => p.items) ?? [], [ordersQuery.data]);
+  const q = searchQuery.trim().toLowerCase();
+  const matches = (o: OrderSummary) =>
+    q.length === 0 ||
+    o.orderNumber.toLowerCase().includes(q) ||
+    (o.thumbnails ?? []).some((t) => t.productName.toLowerCase().includes(q));
+  const filtered = orders.filter(matches);
+  const upcoming = filtered.filter((o) => isActiveStatus(o.status));
+  const past = filtered.filter((o) => !isActiveStatus(o.status));
 
-  const group2Orders = [
-    {
-      id: 'ord-4',
-      title: 'Fresh Carrot',
-      orderNumber: 'ORD-20261023-0856',
-      actionText: 'View details',
-      image: ProductImages.vegCarrot,
-    },
-    {
-      id: 'ord-5',
-      title: 'Cabbage',
-      orderNumber: 'ORD-20261023-0856',
-      actionText: 'View details',
-      image: ProductImages.foryouLettuce,
-    },
-    {
-      id: 'ord-6',
-      title: 'Cauliflower',
-      orderNumber: 'ORD-20261023-0856',
-      actionText: 'View details',
-      image: ProductImages.vegCauliflower,
-    },
-  ];
+  /** Consecutive orders on the same IST day share one date header. */
+  const groupByDay = (list: OrderSummary[]) => {
+    const groups: { day: string; items: OrderSummary[] }[] = [];
+    for (const o of list) {
+      const day = formatIstDate(o.placedAt);
+      const last = groups[groups.length - 1];
+      if (last && last.day === day) last.items.push(o);
+      else groups.push({ day, items: [o] });
+    }
+    return groups;
+  };
 
-  const filteredGroup1 = group1Orders.filter(o =>
-    o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const rowTitle = (o: OrderSummary) => {
+    const first = o.thumbnails?.[0]?.productName;
+    const extra = (o.itemCount ?? 0) - 1;
+    if (!first) return `${o.itemCount ?? 0} ${(o.itemCount ?? 0) === 1 ? 'item' : 'items'}`;
+    return extra > 0 ? `${first} +${extra} more` : first;
+  };
 
-  const filteredGroup2 = group2Orders.filter(o =>
-    o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const renderRow = (item: OrderSummary, active: boolean) => {
+    const thumb = item.thumbnails?.[0]?.imageUrl;
+    return (
+      <TouchableOpacity
+        key={item.id}
+        testID={`order-row-${item.id}`}
+        activeOpacity={0.7}
+        onPress={() => onNavigate?.('OrderTracking', { orderId: item.id })}
+        style={styles.orderRow}
+        accessibilityLabel={item.orderNumber}
+      >
+        {thumb ? <Image source={{ uri: thumb }} style={styles.productThumb} resizeMode="contain" /> : <View style={styles.productThumb} />}
+        <View style={styles.orderInfoCol}>
+          <Text style={styles.productName} numberOfLines={1}>{rowTitle(item)}</Text>
+          <Text style={styles.orderNumber}>{item.orderNumber} · {formatRupees(item.totalAmount)}</Text>
+        </View>
+        {active ? (
+          <View style={styles.orderRightCol}>
+            {!!item.deliveryDate && <Text style={styles.deliveryDate}>{formatIstDate(item.deliveryDate)}</Text>}
+            <View style={styles.arrivePill}>
+              <Text style={styles.arrivePillText}>{activeOrderBadge(item)}</Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.viewDetailsRow}>
+            <Text style={styles.viewDetailsText}>{item.status === 'CANCELLED' || item.status === 'RETURNED' ? orderStatusLabel(item.status) : 'View details'}</Text>
+            <ChevronRightSvg color={customerColors.body} size={13} />
+          </View>
+        )}
+        {active && <ChevronRightSvg color="#9CA3AF" size={15} />}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -156,6 +165,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={ordersQuery.isRefetching} onRefresh={() => void ordersQuery.refetch()} />}
       >
         {/* ── SEARCH BAR ──────────────────────────────────────────────────────── */}
         <View style={[styles.searchBox, customerShadow.subtle]}>
@@ -169,59 +179,45 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
           <SearchSvg color={customerColors.muted} size={18} />
         </View>
 
-        {/* ── SECTION TITLE: RESENT ORDERS ────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Resent Orders</Text>
-
-        {/* ── GROUP 1: 05/11/2026 ──────────────────────────────────────────────── */}
-        <Text style={styles.dateHeader}>05/11/2026</Text>
-        <View style={styles.ordersList}>
-          {filteredGroup1.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.7}
-              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber, order: item })}
-              style={styles.orderRow}
-              accessibilityLabel={item.title}
-            >
-              <Image source={item.image} style={styles.productThumb} resizeMode="contain" />
-              <View style={styles.orderInfoCol}>
-                <Text style={styles.productName}>{item.title}</Text>
-                <Text style={styles.orderNumber}>{item.orderNumber}</Text>
-              </View>
-              <View style={styles.orderRightCol}>
-                <Text style={styles.deliveryDate}>{item.date}</Text>
-                <View style={styles.arrivePill}>
-                  <Text style={styles.arrivePillText}>{item.badge}</Text>
-                </View>
-              </View>
-              <ChevronRightSvg color="#9CA3AF" size={15} />
+        {ordersQuery.isLoading ? (
+          <ActivityIndicator testID="orders-loading" style={{ marginTop: 32 }} />
+        ) : ordersQuery.isError ? (
+          <View style={styles.ordersList} testID="orders-error">
+            <Text style={styles.productName}>{mapProblem(ordersQuery.error).message}</Text>
+            <TouchableOpacity onPress={() => void ordersQuery.refetch()}>
+              <Text style={styles.viewDetailsText}>Retry</Text>
             </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── GROUP 2: 23/10/2026 ──────────────────────────────────────────────── */}
-        <Text style={[styles.dateHeader, { marginTop: customerSpacing.lg }]}>23/10/2026</Text>
-        <View style={styles.ordersList}>
-          {filteredGroup2.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.7}
-              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber, order: item })}
-              style={styles.orderRow}
-              accessibilityLabel={item.title}
-            >
-              <Image source={item.image} style={styles.productThumb} resizeMode="contain" />
-              <View style={styles.orderInfoCol}>
-                <Text style={styles.productName}>{item.title}</Text>
-                <Text style={styles.orderNumber}>{item.orderNumber}</Text>
-              </View>
-              <View style={styles.viewDetailsRow}>
-                <Text style={styles.viewDetailsText}>{item.actionText}</Text>
-                <ChevronRightSvg color={customerColors.body} size={13} />
-              </View>
+          </View>
+        ) : orders.length === 0 ? (
+          <View style={styles.ordersList} testID="orders-empty">
+            <Text style={styles.sectionTitle}>No orders yet</Text>
+            <TouchableOpacity onPress={() => onNavigate?.('Home')}>
+              <Text style={styles.viewDetailsText}>Start shopping</Text>
             </TouchableOpacity>
-          ))}
-        </View>
+          </View>
+        ) : (
+          <>
+            {upcoming.length > 0 && <Text style={styles.sectionTitle}>Recent Orders</Text>}
+            {groupByDay(upcoming).map((g) => (
+              <React.Fragment key={`u-${g.day}`}>
+                <Text style={styles.dateHeader}>{g.day}</Text>
+                <View style={styles.ordersList}>{g.items.map((o) => renderRow(o, true))}</View>
+              </React.Fragment>
+            ))}
+            {past.length > 0 && <Text style={[styles.sectionTitle, { marginTop: customerSpacing.lg }]}>Past Orders</Text>}
+            {groupByDay(past).map((g) => (
+              <React.Fragment key={`p-${g.day}`}>
+                <Text style={styles.dateHeader}>{g.day}</Text>
+                <View style={styles.ordersList}>{g.items.map((o) => renderRow(o, false))}</View>
+              </React.Fragment>
+            ))}
+            {ordersQuery.hasNextPage && (
+              <TouchableOpacity onPress={() => void ordersQuery.fetchNextPage()} testID="orders-more">
+                <Text style={styles.viewDetailsText}>{ordersQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>

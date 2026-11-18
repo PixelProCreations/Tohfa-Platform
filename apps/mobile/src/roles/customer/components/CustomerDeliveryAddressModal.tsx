@@ -1,3 +1,12 @@
+/**
+ * "Where should we deliver?" chooser + Add Address form (BR-160, Figma 46:34483).
+ *
+ * Save = validate -> `GET /serviceability` (pincode + map pin) -> `POST
+ * /customers/me/addresses` (UI -> API mapping lives in api/addresses.ts
+ * `toApiAddress`). The created `CustomerAddress` and the serviceability verdict
+ * go back to the caller, which shows "Location added" or starts the unserved /
+ * request-area flow (components/ServiceAreaRequestFlow.tsx).
+ */
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -10,33 +19,145 @@ import {
   Platform,
   ScrollView,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   customerFonts,
 } from '../theme';
+import {
+  isValidPincode,
+  normalizeContactPhone,
+  toApiAddress,
+  useCreateAddress,
+  type CustomerAddress,
+  type UiAddressFields,
+} from '../api/addresses';
+import {
+  checkServiceability,
+  serviceabilityQueryKeys,
+  usePickupPoints,
+  type Serviceability,
+  type ServiceabilityQuery,
+} from '../api/serviceability';
+import { mapProblem } from '../api/problem';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-export interface AddressData {
-  pincode: string;
-  city: string;
-  state: string;
-  locality: string;
-  flat: string;
-  landmark?: string;
-  type: 'Home' | 'Office' | 'Other';
-  isDefault: boolean;
+/** UI form values (mapped to the API by `toApiAddress`). Kept under its old name for existing imports. */
+export type AddressData = UiAddressFields;
+
+export interface AddressSaveResult {
+  /** `null` when the serviceability check itself failed (unknown). */
+  serviceable: boolean | null;
+  serviceability?: Serviceability | undefined;
+}
+
+type FormField =
+  | 'pincode'
+  | 'city'
+  | 'state'
+  | 'area'
+  | 'locality'
+  | 'street'
+  | 'flat'
+  | 'building'
+  | 'landmark'
+  | 'contactPhone'
+  | 'nearestPickupPointId';
+export type AddressFormErrors = Partial<Record<FormField, string>>;
+
+/** API field (problem `errors[].field`, prefix-stripped) -> form field. */
+const API_FIELD_TO_FORM: Record<string, FormField> = {
+  line1: 'flat',
+  line2: 'area',
+  city: 'city',
+  state: 'state',
+  pincode: 'pincode',
+  landmark: 'landmark',
+  contactPhone: 'contactPhone',
+  nearestPickupPointId: 'nearestPickupPointId',
+};
+
+export function mapAddressFieldErrors(fieldErrors: Record<string, string>): AddressFormErrors {
+  const out: AddressFormErrors = {};
+  for (const [k, msg] of Object.entries(fieldErrors)) {
+    const key = API_FIELD_TO_FORM[k.replace(/^body\./, '')];
+    if (key && !out[key]) out[key] = msg;
+  }
+  return out;
+}
+
+export function validateAddressForm(f: UiAddressFields): AddressFormErrors {
+  const e: AddressFormErrors = {};
+  if (!isValidPincode(f.pincode)) e.pincode = 'Enter a valid 6-digit pincode';
+  if (!f.city.trim()) e.city = 'Enter your city';
+  if (!f.flat.trim()) e.flat = 'Enter flat / door no';
+  if ((f.contactPhone ?? '').trim() && !normalizeContactPhone(f.contactPhone)) {
+    e.contactPhone = 'Enter a valid phone number';
+  }
+  return e;
 }
 
 export interface CustomerDeliveryAddressModalProps {
   visible: boolean;
   initialStep?: 'delivery' | 'addAddress';
   onClose: () => void;
-  onSaveAddress: (address: AddressData) => void;
+  /** Called with the address the API created and whether its area is served. */
+  onSaveAddress: (address: CustomerAddress, result: AddressSaveResult) => void;
   onUseCurrentLocation?: () => void;
   onSelectManualLocation?: () => void;
+  /** Prefill (e.g. from the map screen). */
+  initialValues?: Partial<UiAddressFields> | undefined;
+  /** Map pin; sent as lat/lng and used to rank nearby markets. */
+  coords?: { lat: number; lng: number } | null | undefined;
 }
+
+const NearestMarketPicker: React.FC<{
+  lat?: number | undefined;
+  lng?: number | undefined;
+  value: string | null;
+  onChange: (id: string | null) => void;
+  error?: string | undefined;
+}> = ({ lat, lng, value, onChange, error }) => {
+  const points = usePickupPoints(lat, lng);
+  const items = (points.data ?? []).slice(0, 5);
+  return (
+    <View testID="nearest-market-picker">
+      <Text style={styles.typeOfAddressHeading}>Nearest market</Text>
+      {points.isLoading ? (
+        <ActivityIndicator color="#2E7D32" />
+      ) : points.isError ? (
+        <Text style={styles.helperText}>Couldn't load nearby markets. We'll pick the closest one for you.</Text>
+      ) : items.length === 0 ? (
+        <Text style={styles.helperText}>No markets found nearby yet.</Text>
+      ) : (
+        items.map((p) => {
+          const selected = value === p.id;
+          return (
+            <TouchableOpacity
+              key={p.id}
+              testID={`market-${p.id}`}
+              activeOpacity={0.8}
+              onPress={() => onChange(selected ? null : p.id)}
+              style={styles.marketRow}
+            >
+              <View style={[styles.radioCircle, selected && styles.radioCircleActive]}>
+                {selected && <View style={styles.radioDot} />}
+              </View>
+              <Text style={[styles.radioLabel, selected && styles.radioLabelActive]} numberOfLines={1}>
+                {p.name}
+                {typeof p.distanceKm === 'number' ? ` · ${p.distanceKm.toFixed(1)} km` : ''}
+              </Text>
+            </TouchableOpacity>
+          );
+        })
+      )}
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+};
 
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
 
@@ -97,52 +218,149 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
   onSaveAddress,
   onUseCurrentLocation,
   onSelectManualLocation,
+  initialValues,
+  coords,
 }) => {
+  const qc = useQueryClient();
+  const createAddress = useCreateAddress();
   const [step, setStep] = useState<'delivery' | 'addAddress'>(initialStep ?? 'delivery');
 
-  // Form states matching Figma exact fields
+  // Form states (Figma 46:34483)
   const [pincode, setPincode] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
+  const [area, setArea] = useState('');
   const [locality, setLocality] = useState('');
+  const [street, setStreet] = useState('');
   const [flat, setFlat] = useState('');
+  const [building, setBuilding] = useState('');
   const [landmark, setLandmark] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [nearestPickupPointId, setNearestPickupPointId] = useState<string | null>(null);
   const [addressType, setAddressType] = useState<'Home' | 'Office' | 'Other'>('Home');
   const [isDefault, setIsDefault] = useState(false);
+  const [errors, setErrors] = useState<AddressFormErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleReset = () => {
+    setPincode(initialValues?.pincode ?? '');
+    setCity(initialValues?.city ?? '');
+    setState(initialValues?.state ?? '');
+    setArea(initialValues?.area ?? '');
+    setLocality(initialValues?.locality ?? '');
+    setStreet(initialValues?.street ?? '');
+    setFlat(initialValues?.flat ?? '');
+    setBuilding(initialValues?.building ?? '');
+    setLandmark(initialValues?.landmark ?? '');
+    setContactPhone(initialValues?.contactPhone ?? '');
+    setNearestPickupPointId(initialValues?.nearestPickupPointId ?? null);
+    setAddressType(initialValues?.type === 'Office' || initialValues?.type === 'Other' ? initialValues.type : 'Home');
+    setIsDefault(initialValues?.isDefault === true);
+    setErrors({});
+    setFormError(null);
+  };
 
   useEffect(() => {
     if (visible) {
       setStep(initialStep);
+      handleReset();
     }
+    // Re-seed the form only when the modal opens.
   }, [visible, initialStep]);
 
-  const handleReset = () => {
-    setPincode('');
-    setCity('');
-    setState('');
-    setLocality('');
-    setFlat('');
-    setLandmark('');
-    setAddressType('Home');
-    setIsDefault(false);
+  const clearError = (field: FormField) => {
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
-  const handleSave = () => {
-    onSaveAddress({
-      pincode: pincode.trim(),
-      city: city.trim(),
-      state: state.trim(),
-      locality: locality.trim(),
-      flat: flat.trim(),
-      landmark: landmark.trim(),
+  const handleSave = async () => {
+    if (saving) return;
+    const fields: UiAddressFields = {
+      pincode,
+      city,
+      state,
+      area,
+      locality,
+      street,
+      flat,
+      building,
+      landmark,
+      contactPhone,
       type: addressType,
       isDefault,
-    });
-    handleReset();
-    onClose();
+      lat: coords?.lat ?? initialValues?.lat ?? null,
+      lng: coords?.lng ?? initialValues?.lng ?? null,
+      nearestPickupPointId,
+    };
+    const v = validateAddressForm(fields);
+    setErrors(v);
+    setFormError(null);
+    if (Object.keys(v).length > 0) return;
+
+    setSaving(true);
+    try {
+      // Serviceability first: its verdict decides the follow-up screen and it
+      // supplies the nearest market when the customer did not pick one.
+      let serviceability: Serviceability | undefined;
+      const q: ServiceabilityQuery = { pincode: pincode.trim() };
+      if (typeof fields.lat === 'number' && typeof fields.lng === 'number') {
+        q.lat = fields.lat;
+        q.lng = fields.lng;
+      }
+      try {
+        serviceability = await qc.fetchQuery({
+          queryKey: serviceabilityQueryKeys.check(q),
+          queryFn: ({ signal }) => checkServiceability(q, signal),
+          staleTime: 60_000,
+        });
+      } catch {
+        serviceability = undefined; // unknown: still save the address
+      }
+      const created = await createAddress.mutateAsync(
+        toApiAddress({
+          ...fields,
+          nearestPickupPointId: nearestPickupPointId ?? serviceability?.nearestPickupPointId ?? null,
+        }),
+      );
+      onSaveAddress(created, { serviceable: serviceability ? serviceability.serviceable : null, serviceability });
+      onClose();
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      const mapped = mapAddressFieldErrors(p.fieldErrors);
+      setErrors(mapped);
+      setFormError(p.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!visible) return null;
+
+  const field = (
+    name: FormField,
+    placeholder: string,
+    value: string,
+    onChange: (s: string) => void,
+    extra?: Partial<React.ComponentProps<typeof TextInput>>,
+  ) => (
+    <View style={styles.fieldWrap}>
+      <TextInput
+        testID={`address-${name}`}
+        style={[styles.underlineInput, errors[name] ? styles.underlineInputError : null]}
+        placeholder={placeholder}
+        placeholderTextColor="#9CA3AF"
+        value={value}
+        onChangeText={(s) => {
+          onChange(s);
+          clearError(name);
+        }}
+        editable={!saving}
+        {...extra}
+      />
+      {errors[name] ? <Text style={styles.fieldError}>{errors[name]}</Text> : null}
+    </View>
+  );
 
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
@@ -263,60 +481,39 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               {/* Row 1: Pincode and City side by side */}
               <View style={styles.inputRowDouble}>
                 <View style={styles.halfInputWrap}>
-                  <TextInput
-                    style={styles.underlineInput}
-                    placeholder="Pincode"
-                    placeholderTextColor="#9CA3AF"
-                    value={pincode}
-                    onChangeText={setPincode}
-                    keyboardType="numeric"
-                  />
+                  {field('pincode', 'Pincode', pincode, (s) => setPincode(s.replace(/\D/g, '').slice(0, 6)), {
+                    keyboardType: 'numeric',
+                    maxLength: 6,
+                  })}
                 </View>
-                <View style={styles.halfInputWrap}>
-                  <TextInput
-                    style={styles.underlineInput}
-                    placeholder="City"
-                    placeholderTextColor="#9CA3AF"
-                    value={city}
-                    onChangeText={setCity}
-                  />
-                </View>
+                <View style={styles.halfInputWrap}>{field('city', 'City', city, setCity)}</View>
               </View>
 
-              {/* State */}
-              <TextInput
-                style={styles.underlineInput}
-                placeholder="State"
-                placeholderTextColor="#9CA3AF"
-                value={state}
-                onChangeText={setState}
-              />
+              {field('state', 'State', state, setState)}
+              {field('area', 'Area', area, setArea)}
+              {field('locality', 'Locality', locality, setLocality)}
+              {field('street', 'Street', street, setStreet)}
 
-              {/* Locality / Area / Street */}
-              <TextInput
-                style={styles.underlineInput}
-                placeholder="Locality / Area / Street"
-                placeholderTextColor="#9CA3AF"
-                value={locality}
-                onChangeText={setLocality}
-              />
+              <View style={styles.inputRowDouble}>
+                <View style={styles.halfInputWrap}>{field('flat', 'Flat / Door no', flat, setFlat)}</View>
+                <View style={styles.halfInputWrap}>{field('building', 'Building name', building, setBuilding)}</View>
+              </View>
 
-              {/* Flat on / Building Name */}
-              <TextInput
-                style={styles.underlineInput}
-                placeholder="Flat on / Building Name"
-                placeholderTextColor="#9CA3AF"
-                value={flat}
-                onChangeText={setFlat}
-              />
+              {field('landmark', 'Landmark (optional)', landmark, setLandmark)}
+              {field('contactPhone', 'Contact number (optional)', contactPhone, setContactPhone, {
+                keyboardType: 'phone-pad',
+                maxLength: 16,
+              })}
 
-              {/* Landmark (optional) */}
-              <TextInput
-                style={styles.underlineInput}
-                placeholder="Landmark (optional)"
-                placeholderTextColor="#9CA3AF"
-                value={landmark}
-                onChangeText={setLandmark}
+              <NearestMarketPicker
+                lat={coords?.lat ?? initialValues?.lat ?? undefined}
+                lng={coords?.lng ?? initialValues?.lng ?? undefined}
+                value={nearestPickupPointId}
+                onChange={(id) => {
+                  setNearestPickupPointId(id);
+                  clearError('nearestPickupPointId');
+                }}
+                error={errors.nearestPickupPointId}
               />
 
               {/* Type of Address */}
@@ -356,12 +553,26 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               </TouchableOpacity>
 
               {/* Save Address Button */}
+              {formError ? (
+                <Text testID="address-form-error" style={styles.formError}>
+                  {formError}
+                </Text>
+              ) : null}
+
               <TouchableOpacity
+                testID="address-save"
                 activeOpacity={0.85}
-                onPress={handleSave}
-                style={styles.saveAddressBtn}
+                onPress={() => void handleSave()}
+                disabled={saving}
+                style={[styles.saveAddressBtn, saving && styles.saveAddressBtnDisabled]}
+                accessibilityRole="button"
+                accessibilityState={{ busy: saving, disabled: saving }}
               >
-                <Text style={styles.saveAddressBtnText}>Save address</Text>
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveAddressBtnText}>Save address</Text>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -621,6 +832,41 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.bold,
     fontSize: 15,
     color: '#FFFFFF',
+  },
+  saveAddressBtnDisabled: {
+    opacity: 0.7,
+  },
+  fieldWrap: {
+    width: '100%',
+  },
+  underlineInputError: {
+    borderBottomColor: '#DC2626',
+  },
+  fieldError: {
+    fontFamily: customerFonts.regular,
+    fontSize: 11,
+    color: '#DC2626',
+    marginTop: -4,
+    marginBottom: 6,
+  },
+  formError: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  helperText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  marketRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
   },
 });
 
