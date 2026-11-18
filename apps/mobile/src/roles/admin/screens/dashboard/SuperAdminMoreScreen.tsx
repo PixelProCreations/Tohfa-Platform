@@ -353,7 +353,7 @@ export function SuperAdminMoreScreen({
         },
         {
           id: 'customers',
-          label: 'Customers',
+          label: 'Customer Management',
           icon: <CustomersIcon />,
           actionKey: 'customers',
         },

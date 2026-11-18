@@ -488,7 +488,7 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
         },
         {
           id: 'customers',
-          label: 'Customers',
+          label: 'Customer Management',
           icon: <CustomersGroupIcon />,
         },
         {
@@ -609,7 +609,7 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
       { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },
       { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
       { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
-      { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
+      { id: 'customers', label: 'Customer Management', icon: <CustomersIcon /> },
       {
         id: 'reports',
         label: 'Reports',

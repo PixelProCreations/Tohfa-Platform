@@ -109,6 +109,7 @@ import { AdminCertVerificationScreen } from '../certifications/AdminCertVerifica
 import { AdminComplianceTiersScreen } from '../certifications/AdminComplianceTiersScreen';
 import { ProduceControlFlow } from '../produce';
 import { InputsPestManagementFlow } from '../inputs';
+import { CustomerManagementFlow } from './CustomerManagementFlow';
 import { CustomersFlow } from '../warehouse/customers/CustomersFlow';
 import { OrdersFlow } from '../warehouse/orders/OrdersFlow';
 import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
@@ -862,8 +863,7 @@ export function SuperAdminDashboardScreen({
 
   if (activeSubScreen === 'customers') {
     return (
-      <CustomersFlow
-        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+      <CustomerManagementFlow
         can={can}
         onBack={() => setActiveSubScreen(null)}
       />

@@ -1,8 +1,13 @@
 rootProject.name = 'in.tohfa.mobile'
 
 def getPackagePath(String packageName) {
-    def proc = ['node', '--print', "require.resolve('${packageName}/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir)
+    def mobileDir = new File(rootDir, '..').getAbsolutePath().replace('\\', '/')
+    def script = "require.resolve('${packageName}/package.json', { paths: [require.resolve('react-native/package.json', { paths: ['${mobileDir}'] })] })"
+    def proc = ['node', '--print', script].execute(null, rootDir)
     proc.waitFor()
+    if (proc.exitValue() != 0) {
+        throw new GradleException("Failed to find ${packageName}: " + proc.err.text.trim())
+    }
     return new File(proc.in.text.trim()).parentFile
 }
 
