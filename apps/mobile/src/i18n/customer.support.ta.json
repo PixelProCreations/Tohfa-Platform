@@ -16,7 +16,6 @@
   "customer.support.tab.inReview": "மதிப்பாய்வில்",
   "customer.support.tab.resolved": "தீர்க்கப்பட்டது",
   "customer.support.tab.cancelled": "ரத்து செய்யப்பட்டது",
-
   "customer.contact.title": "தொடர்பு கொள்ள",
   "customer.contact.back": "பின்னே",
   "customer.contact.myRequests": "என் கோரிக்கைகள்",
@@ -26,13 +25,11 @@
   "customer.contact.banner.product.subtitle": "புத்துணர்ச்சி, பேக்கேஜிங் அல்லது தரம் பற்றி எங்களுக்குத் தெரிவிக்கவும்.",
   "customer.contact.banner.other.title": "நாங்கள் எவ்வாறு உதவலாம்?",
   "customer.contact.banner.other.subtitle": "கணக்கு, கட்டணங்கள், ஆப் கருத்துக்கள் அல்லது பொதுவான கேள்விகள்.",
-
   "customer.contact.relatedTo": "இது எதைப்பற்றியது?",
   "customer.contact.relatedToA11y": "{{label}} பற்றியது",
   "customer.contact.related.order": "ஆர்டர்",
   "customer.contact.related.product": "பொருள்",
   "customer.contact.related.other": "மற்றவை",
-
   "customer.contact.selectOrder": "ஆர்டரைத் தேர்ந்தெடுக்கவும்",
   "customer.contact.selectOrderA11y": "ஆர்டரைத் தேர்வுசெய்",
   "customer.contact.selectOrderModal": "ஒரு ஆர்டரைத் தேர்வு செய்யவும்",
@@ -41,10 +38,8 @@
   "customer.contact.ordersRetryA11y": "ஆர்டர்களை மீண்டும் ஏற்றவும்",
   "customer.contact.noOrders": "சமீபத்திய ஆர்டர்கள் எதுவும் இல்லை",
   "customer.contact.itemCount": "{{count}} பொருட்கள்",
-
   "customer.contact.selectProduct": "பொருளைத் தேர்ந்தெடுக்கவும்",
   "customer.contact.selectProductA11y": "{{name}} தேர்ந்தெடுக்கவும்",
-
   "customer.contact.issueType": "என்ன பிரச்சினை?",
   "customer.contact.issue.product_support": "பொருள் உதவி",
   "customer.contact.issue.order_status": "ஆர்டர் நிலை",
@@ -65,11 +60,9 @@
   "customer.contact.issue.policies.sublabel": "திருப்பி அளிப்பு & விதிமுறைகள்",
   "customer.contact.issue.report_concern": "கவலை தெரிவிக்கவும்",
   "customer.contact.issue.other": "மற்றவை",
-
   "customer.contact.tellMore": "கூடுதல் விவரங்கள்",
   "customer.contact.descriptionPlaceholder": "உங்கள் பிரச்சினை அல்லது கேள்வியை விரிவாக விவரிக்கவும்...",
   "customer.contact.descriptionA11y": "பிரச்சினை விளக்கம்",
-
   "customer.contact.addPhotos": "படங்களைச் சேர்க்கவும் (விருப்பத்தேர்வு)",
   "customer.contact.addPhotoA11y": "படம் சேர்க்கவும்",
   "customer.contact.photosHelper": "பிரச்சினையைப் புரிந்துகொள்ள {{max}} படங்கள் வரை பதிவேற்றலாம்.",
@@ -81,13 +74,11 @@
   "customer.contact.photoRetryA11y": "படத்தை மீண்டும் பதிவேற்றவும்",
   "customer.contact.removePhotoA11y": "படத்தை நீக்கு",
   "customer.contact.retry": "மீண்டும் முயற்சி",
-
   "customer.contact.hint.orderRequired": "தொடர ஒரு ஆர்டரைத் தேர்ந்தெடுக்கவும்.",
   "customer.contact.hint.photosUploading": "படங்கள் பதிவேற்றம் முடியும் வரை காத்திருக்கவும்.",
   "customer.contact.cta.send": "ஆதரவுக்கு அனுப்பு",
   "customer.contact.cta.submit": "கோரிக்கையைச் சமர்ப்பி",
-  "customer.contact.submitUnsure": "கோரிக்கை உறுதிப்படுத்தப்படவில்லை ({{message}}). மீண்டும் சமர்ப்பிக்கும் முன் என் கோரிக்கைகளைச் சரிபார்க்கவும்.",
-
+  "customer.contact.submitUnsure": "கோரிக்கை உறுதிப்படுத்தப்படவில்லை ({{message}}). மாற்றமின்றி மீண்டும் சமர்ப்பிக்கலாம் (நகல் கோரிக்கை உருவாகாது), அல்லது என் கோரிக்கைகளைச் சரிபார்க்கவும்.",
   "customer.contact.returnReason.wrong_item": "தவறான பொருள் வழங்கப்பட்டது",
   "customer.contact.returnReason.quality": "குறைந்த தரம் / புத்துணர்ச்சி இன்மை",
   "customer.contact.returnReason.damaged_pkg": "சேதமடைந்த பேக்கேஜிங்",
@@ -95,13 +86,11 @@
   "customer.contact.returnReason.mismatch": "பொருள் பொருந்தவில்லை",
   "customer.contact.returnReason.not_described": "விவரிக்கப்பட்டபடி இல்லை",
   "customer.contact.returnReason.other": "வேறு காரணம்",
-
   "customer.contact.aspect.quality": "தரம்",
   "customer.contact.aspect.delivery": "டெலிவரி",
   "customer.contact.aspect.packaging": "பேக்கேஜிங்",
   "customer.contact.aspect.communication": "தொடர்பு",
   "customer.contact.aspect.other": "மற்றவை",
-
   "customer.contact.submitted.close": "மூடு",
   "customer.contact.submitted.title": "கோரிக்கை சமர்ப்பிக்கப்பட்டது!",
   "customer.contact.submitted.subtitle": "உங்கள் ஆதரவு கோரிக்கை பதிவு செய்யப்பட்டுள்ளது. எங்கள் வாடிக்கையாளர் சேவைக் குழு விரைவில் மதிப்பாய்வு செய்யும்.",
@@ -121,7 +110,6 @@
   "customer.contact.submitted.step3.desc": "புதுப்பிப்புகளை ஆப் மூலம் நேரடியாகப் பெறுவீர்கள்.",
   "customer.contact.submitted.track": "கோரிக்கையைக் கண்காணிக்கவும்",
   "customer.contact.submitted.continue": "ஷாப்பிங்கைத் தொடரவும்",
-
   "customer.track.title": "கோரிக்கையைக் கண்காணிக்கவும்",
   "customer.track.back": "பின்னே",
   "customer.track.loading": "விவரங்கள் ஏற்றப்படுகின்றன...",
@@ -152,5 +140,17 @@
   "customer.track.na": "இல்லை",
   "customer.track.pending": "நிலுவையில்",
   "customer.track.redacted": "மறைக்கப்பட்டது",
-  "customer.track.noneSelected": "எதுவும் தேர்ந்தெடுக்கப்படவில்லை"
+  "customer.track.noneSelected": "எதுவும் தேர்ந்தெடுக்கப்படவில்லை",
+  "customer.contact.na": "பொருந்தாது",
+  "customer.track.step.received.title": "கோரிக்கை பெறப்பட்டது",
+  "customer.track.step.received.done": "கோரிக்கை பெறப்பட்டு பதிவு செய்யப்பட்டது",
+  "customer.track.step.received.pending": "உறுதிப்படுத்தலுக்காக காத்திருக்கிறது",
+  "customer.track.step.review.title": "ஆய்வில் உள்ளது",
+  "customer.track.step.review.done": "ஆதரவு முகவரால் மதிப்பாய்வு செய்யப்பட்டது",
+  "customer.track.step.review.pending": "ஆதரவுக் குழுவின் மதிப்பாய்வு நிலுவையில் உள்ளது",
+  "customer.track.step.resolution.title": "தீர்வு",
+  "customer.track.step.resolution.done": "பிரச்சனை தீர்க்கப்பட்டது",
+  "customer.track.step.resolution.pending": "தீர்வு காணும் பணி நடைபெறுகிறது",
+  "customer.track.step.cancelled.title": "ரத்து செய்யப்பட்டது",
+  "customer.track.step.cancelled.done": "கோரிக்கை ரத்து செய்யப்பட்டது"
 }

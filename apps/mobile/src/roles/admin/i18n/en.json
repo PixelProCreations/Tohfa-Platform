@@ -3088,5 +3088,11 @@
   "transfers.summary.lineQty": "Received {{qty}} of {{sent}}",
   "transfers.summary.done": "Done",
   "transfers.inspection.lineBatchMeta": "{{batch}} · {{grade}} · sent {{qty}}",
-  "transfers.summary.receiptNoteValue": "Receipt note: {{note}}"
+  "transfers.summary.receiptNoteValue": "Receipt note: {{note}}",
+  "inventory.movementDetail.field.recordedBy": "Recorded by",
+  "inventory.movementDetail.field.approvedBy": "Approved by",
+  "stockAdj.detail.requestedBy": "Requested by",
+  "stockAdj.detail.approvedBy": "Approved by",
+  "billing.detail.buyerGstin": "Customer GSTIN",
+  "warehouseAdmin.swa.noEditNoteRole": "Sub Warehouse Admins cannot be edited from the app. Only a TOHFA Admin or a Farmer Admin can deactivate one."
 }

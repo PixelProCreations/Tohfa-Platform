@@ -39,12 +39,12 @@ const GreenFloatingLeaf = () => (
     <Svg width={52} height={68} viewBox="0 0 52 68" fill="none">
       <Path
         d="M6 62C12 38 30 12 48 6C52 26 42 52 18 65C12 68 8 66 6 62z"
-        fill="#4CAF50"
+        fill={customerColors.legacy.greenMid}
         opacity={0.85}
       />
       <Path
         d="M6 62C18 46 32 30 48 6"
-        stroke="#81C784"
+        stroke={customerColors.palette.green.sprout}
         strokeWidth={1.8}
         strokeLinecap="round"
       />
@@ -355,9 +355,9 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
             accessibilityState={{ disabled: !canSubmit, busy: verifying }}
           >
             {verifying ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={customerColors.white} />
             ) : (
-              <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+              <ArrowRightFigmaIcon size={24} color={customerColors.white} />
             )}
           </TouchableOpacity>
         </View>
@@ -411,7 +411,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     position: 'relative',
   },
   branchTopLeft: {
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   bullet: {
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     fontSize: 14,
   },
   editText: {
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   pinUnderline: {
     width: '100%',
     height: 1.5,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral400,
   },
   pinUnderlineFilled: {
     backgroundColor: customerColors.brand,
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   resendText: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   timerHighlight: {
     color: customerColors.brand,
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     textAlign: 'center',
   },
   linkText: {
@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   arrowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 26,
     lineHeight: 28,
     fontWeight: '700',
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
   homeIndicator: {
     width: 134,
     height: 5,
-    backgroundColor: '#000000',
+    backgroundColor: customerColors.neutral.black,
     borderRadius: 2.5,
     alignSelf: 'center',
     marginBottom: 8,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
   // ── MODAL STYLES (MATCHING FIGMA EXACTLY) ─────────────────────────────────
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: customerColors.overlay.scrim50,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
   verifiedCard: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -585,11 +585,11 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: customerColors.white,
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -598,7 +598,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     fontWeight: '700',
     lineHeight: 15,
   },
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   envelopeBackdrop: {
     width: 80,
     height: 60,
-    backgroundColor: '#4CAF50',
+    backgroundColor: customerColors.legacy.greenMid,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -626,17 +626,17 @@ const styles = StyleSheet.create({
     top: -12,
     width: 52,
     height: 40,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E8F5E9',
+    borderColor: customerColors.shared.primaryLight,
   },
   envelopeFlap: {
     position: 'absolute',
     bottom: 0,
     width: 80,
     height: 38,
-    backgroundColor: '#388E3C',
+    backgroundColor: customerColors.palette.green.meadow,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
   },
@@ -646,15 +646,15 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: customerColors.white,
     zIndex: 5,
   },
   checkmarkIcon: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 16,
     fontWeight: '900',
     lineHeight: 18,
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.editorial,
     fontSize: 22,
     lineHeight: 28,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 13,
     lineHeight: 19,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginBottom: 24,
     paddingHorizontal: 6,
@@ -687,6 +687,6 @@ const styles = StyleSheet.create({
   continueButtonText: {
     fontFamily: customerFonts.bold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 });

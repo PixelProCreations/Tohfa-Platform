@@ -73,6 +73,10 @@ export interface InvoiceLineDto {
 
 /** docs/openapi.yaml InvoiceDetail. */
 export interface InvoiceDetailDto extends InvoiceDto {
+  /** BR-128: the customer's name, else the order's walk-in name; null for a farmer-side invoice. */
+  buyerName?: string | null;
+  /** BR-128: the customer's GSTIN as stored; null when none, for a walk-in and a farmer-side invoice. */
+  buyerGstin?: string | null;
   placeOfSupply?: string | null;
   cgst?: Money;
   sgst?: Money;

@@ -1,7 +1,7 @@
 /**
  * Customer support tickets (docs/openapi.yaml `Support Tickets`):
  *   GET  /support/tickets?page&limit&status   -> CustomerTicketList (offset paging)
- *   POST /support/tickets                      -> CustomerTicketDetail (no Idempotency-Key)
+ *   POST /support/tickets                      -> CustomerTicketDetail (optional Idempotency-Key, BR-212)
  *   GET  /support/tickets/{id}                 -> CustomerTicketDetail
  *   POST /support/tickets/{id}/cancel          -> CustomerTicketDetail (OPEN only, else 409 TICKET_NOT_OPEN)
  *   POST /support/tickets/{id}/messages        -> CustomerTicketMessage (409 when CLOSED)
@@ -11,6 +11,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { api, ApiError } from '../../../shell/api/client';
+import { createIdempotencyKeyCache } from '../../../shell/api/idempotency';
 import { uploadSignedFile } from '../../../shell/uploads/signedUpload';
 import {
   base64ToBytes,
@@ -18,6 +19,7 @@ import {
   mergeTicketPages,
   shouldPoll,
   statusesForTab,
+  supportTicketFingerprint,
   type CreateCustomerTicketRequest,
   type CustomerTicketDetail,
   type CustomerTicketList,
@@ -87,14 +89,32 @@ export function useSupportTicket(ticketId: string | undefined) {
   });
 }
 
+/** POST /support/tickets with the attempt's Idempotency-Key (BR-212). */
+export function createSupportTicket(body: CreateCustomerTicketRequest, idempotencyKey: string): Promise<CustomerTicketDetail> {
+  return api.post<CustomerTicketDetail>('/support/tickets', body, idempotencyKey, { timeoutMs: 15000 });
+}
+
+/**
+ * One Idempotency-Key per submit attempt: a retry of the same body (e.g. after
+ * a lost response) reuses the key, so the server replays the original ticket
+ * instead of creating a second one; an edited body gets a new key (via the
+ * fingerprint), and the key is dropped after success.
+ */
+export const supportTicketIdempotencyKeys = createIdempotencyKeyCache();
+
 export function useCreateSupportTicket() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateCustomerTicketRequest) =>
-      api.post<CustomerTicketDetail>('/support/tickets', body, undefined, { timeoutMs: 15000 }),
+      createSupportTicket(body, supportTicketIdempotencyKeys.keyFor(supportTicketFingerprint(body))),
     onSuccess: (ticket) => {
+      supportTicketIdempotencyKeys.reset();
       qc.setQueryData(supportQueryKeys.ticket(ticket.id), ticket);
       void qc.invalidateQueries({ queryKey: supportQueryKeys.ticketLists });
+    },
+    onError: (err) => {
+      // Same key, different body: start a fresh attempt on the next submit.
+      if (err instanceof ApiError && err.code === 'IDEMPOTENCY_KEY_REUSED') supportTicketIdempotencyKeys.reset();
     },
   });
 }

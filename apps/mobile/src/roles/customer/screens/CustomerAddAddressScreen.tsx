@@ -42,13 +42,35 @@ interface CustomerAddAddressScreenProps {
   onNavigate: (screen: 'CustomerLoadingMarket' | 'CustomerPermissions' | 'CustomerMain') => void;
 }
 
+interface GeocodeFeature {
+  id: string;
+  place_name: string;
+  center: [number, number];
+}
+
+/** Mapbox geocoding JSON is untyped: keep only features with a usable [lng, lat] centre. */
+function isGeocodeFeature(f: unknown): f is GeocodeFeature {
+  if (!f || typeof f !== 'object') return false;
+  const o = f as { id?: unknown; place_name?: unknown; center?: unknown };
+  return (
+    typeof o.id === 'string' &&
+    typeof o.place_name === 'string' &&
+    Array.isArray(o.center) &&
+    o.center.length === 2 &&
+    typeof o.center[0] === 'number' &&
+    typeof o.center[1] === 'number' &&
+    Number.isFinite(o.center[0]) &&
+    Number.isFinite(o.center[1])
+  );
+}
+
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
 
 const BackArrowIcon = () => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M12 19l-7-7 7-7"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={2.2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -60,7 +82,7 @@ const SearchIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35"
-      stroke="#9CA3AF"
+      stroke={customerColors.neutral.neutral500}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -70,14 +92,14 @@ const SearchIcon = () => (
 
 const CrosshairTargetIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={7} stroke="#2E7D32" strokeWidth={2} />
+    <Circle cx={12} cy={12} r={7} stroke={customerColors.primary} strokeWidth={2} />
     <Path
       d="M12 2v3M12 19v3M2 12h3M19 12h3"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
     />
-    <Circle cx={12} cy={12} r={2.5} fill="#2E7D32" />
+    <Circle cx={12} cy={12} r={2.5} fill={customerColors.primary} />
   </Svg>
 );
 
@@ -85,9 +107,9 @@ const RedMapPin = () => (
   <Svg width={36} height={44} viewBox="0 0 24 30" fill="none">
     <Path
       d="M12 0C5.37 0 0 5.37 0 12c0 9 12 18 12 18s12-9 12-18c0-6.63-5.37-12-12-12z"
-      fill="#EF4444"
+      fill={customerColors.legacy.red}
     />
-    <Circle cx={12} cy={11} r={4.5} fill="#FFFFFF" />
+    <Circle cx={12} cy={11} r={4.5} fill={customerColors.white} />
   </Svg>
 );
 
@@ -95,12 +117,12 @@ const GreenPinIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7z"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Circle cx={12} cy={9} r={2.5} fill="#2E7D32" />
+    <Circle cx={12} cy={9} r={2.5} fill={customerColors.primary} />
   </Svg>
 );
 
@@ -196,11 +218,15 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
         setSuggestions([]);
         return;
       }
-      const data = await res.json();
-      const features = (data.features || []).map((f: any) => ({
+      const data: unknown = await res.json();
+      const rawFeatures: unknown[] =
+        data && typeof data === 'object' && Array.isArray((data as { features?: unknown }).features)
+          ? (data as { features: unknown[] }).features
+          : [];
+      const features = rawFeatures.filter(isGeocodeFeature).map((f) => ({
         id: f.id,
         place_name: f.place_name,
-        center: f.center as [number, number],
+        center: f.center,
       }));
       setSuggestions(features);
     } catch {
@@ -316,7 +342,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           <TextInput
             style={styles.searchInput}
             placeholder={t('customer.address.add.search')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             value={searchQuery}
             onChangeText={handleSearchChange}
             returnKeyType="search"
@@ -324,7 +350,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
             testID="add-address-search"
           />
           {isSearching && (
-            <ActivityIndicator size="small" color="#2E7D32" style={{ marginRight: 8 }} />
+            <ActivityIndicator size="small" color={customerColors.primary} style={{ marginRight: 8 }} />
           )}
         </View>
 
@@ -416,7 +442,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
                     cx="25"
                     cy="25"
                     r="20"
-                    stroke="#E5E7EB"
+                    stroke={customerColors.neutral.neutral300}
                     strokeWidth="3.5"
                     fill="none"
                   />
@@ -424,7 +450,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
                     cx="25"
                     cy="25"
                     r="20"
-                    stroke="#2E7D32"
+                    stroke={customerColors.primary}
                     strokeWidth="3.5"
                     strokeDasharray="30 80"
                     strokeLinecap="round"
@@ -456,7 +482,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           <View testID="location-added" style={styles.bufferCard}>
             <View style={styles.addedBadge}>
               <Svg width={28} height={28} viewBox="0 0 24 24" fill="none">
-                <Path d="M20 6L9 17l-5-5" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M20 6L9 17l-5-5" stroke={customerColors.white} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
             <Text style={styles.bufferTitle}>{t('customer.address.add.added')}</Text>
@@ -489,7 +515,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   settingsLink: {
     alignSelf: 'flex-start',
@@ -499,13 +525,13 @@ const styles = StyleSheet.create({
   settingsLinkText: {
     fontFamily: customerFonts.semibold,
     fontSize: 13,
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   addedBadge: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -520,9 +546,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing[20],
     paddingTop: Platform.OS === 'android' ? 24 : 16,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
     zIndex: 10,
   },
   backButton: {
@@ -532,13 +558,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     fontWeight: '700',
   },
   mapContainer: {
     flex: 1,
     position: 'relative',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   mapImage: {
     width: '100%',
@@ -567,11 +593,11 @@ const styles = StyleSheet.create({
     right: 20,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -583,7 +609,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontFamily: customerFonts.regular,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   useCurrentLocButton: {
     position: 'absolute',
@@ -591,13 +617,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#DCFCE7',
-    shadowColor: '#000',
+    borderColor: customerColors.legacy.greenTint,
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -607,7 +633,7 @@ const styles = StyleSheet.create({
   useCurrentLocText: {
     fontFamily: customerFonts.semibold,
     fontSize: 13,
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
     marginLeft: 8,
   },
   suggestionsDropdown: {
@@ -615,14 +641,14 @@ const styles = StyleSheet.create({
     top: 70,
     left: 20,
     right: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     paddingVertical: 6,
     zIndex: 20,
     maxHeight: 220,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
+    borderColor: customerColors.neutral.neutral300,
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -634,7 +660,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   suggestionIconWrap: {
     marginRight: 10,
@@ -643,16 +669,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   bottomSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 22,
     paddingTop: 20,
     paddingBottom: 28,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -661,7 +687,7 @@ const styles = StyleSheet.create({
   deliveringLabel: {
     fontFamily: customerFonts.bold,
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     letterSpacing: 0.8,
     marginBottom: 12,
   },
@@ -674,7 +700,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -685,7 +711,7 @@ const styles = StyleSheet.create({
   cityName: {
     fontFamily: customerFonts.editorial,
     fontSize: 19,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     fontWeight: '700',
     marginBottom: 3,
   },
@@ -693,7 +719,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 12.5,
     lineHeight: 18,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   submitButton: {
     width: '100%',
@@ -706,7 +732,7 @@ const styles = StyleSheet.create({
   submitButtonText: {
     fontFamily: customerFonts.bold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: customerColors.white,
     letterSpacing: 0.3,
   },
 
@@ -720,17 +746,17 @@ const styles = StyleSheet.create({
   },
   bufferCard: {
     width: 300,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 6,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
   },
   spinnerContainer: {
     marginBottom: 16,
@@ -738,7 +764,7 @@ const styles = StyleSheet.create({
   bufferTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 21,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -746,7 +772,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 12,
     lineHeight: 18,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
   },
 });

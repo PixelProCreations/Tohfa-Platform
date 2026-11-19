@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { tokens } from '@tohfa/design-tokens';
+import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { InvoiceDetailResponse, InvoiceSeller } from '../invoices.schema.js';
 
 export interface RenderPdfOptions {
@@ -136,7 +137,7 @@ export function renderInvoicePdf(options: RenderPdfOptions): Promise<Buffer> {
       };
 
       addSummaryRow('Taxable Subtotal:', invoice.taxableAmount, currentY + 10);
-      if (parseFloat(invoice.igst) > 0) {
+      if (toPaise(parseMoney(invoice.igst)) > 0) {
         addSummaryRow('IGST (Inter-state):', invoice.igst, currentY + 26);
       } else {
         addSummaryRow('CGST (Central Tax):', invoice.cgst, currentY + 26);

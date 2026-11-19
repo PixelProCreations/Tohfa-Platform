@@ -10,6 +10,8 @@ import { t } from '../../../i18n/customer';
 import { gradeLabel, productKey, SELLABLE_GRADES, useProducts, type Product, type ProductSort, type SellableGrade } from '../api/catalog';
 import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
 import { CatalogNotice, ProductCard, quickAddQty, useCatalogAddToCart } from '../components/ProductCard';
+import { cartLineCount, useCart } from '../api/cart';
+import { CartToast } from './ProductModals';
 import { customerColors } from '../theme';
 
 const SORTS: readonly Exclude<ProductSort, 'just_arrived'>[] = ['PRICE_ASC', 'PRICE_DESC', 'NAME_ASC', 'NEWEST'];
@@ -29,12 +31,23 @@ export function ProductGridScreen({ categoryId, sort: initialSort, title, onNavi
   const wishlistKeys = useWishlistKeys();
   const toggleWishlist = useToggleWishlist();
   const { addItem, pendingKey, blockedKeys, notice, clearNotice } = useCatalogAddToCart();
+  const cartQuery = useCart();
+  const cart = cartQuery.data;
+  const cartCount = cartLineCount(cart);
 
   // BR-16 / S-48 defence in depth: a REJECT row must never render.
   const items = useMemo(
     () => (query.data?.pages.flatMap((p) => p.items) ?? []).filter((p) => (p.grade as string) !== 'REJECT'),
     [query.data],
   );
+
+  const cartThumbnails = useMemo(() => {
+    if (!cart?.items || cart.items.length === 0) return [];
+    return cart.items.slice(0, 2).map((ci) => {
+      const matched = items.find((p) => p.id === ci.productId);
+      return matched?.photos?.[0] ? { uri: matched.photos[0] } : null;
+    });
+  }, [cart?.items, items]);
 
   const heading = title ?? (initialSort === 'just_arrived' ? t('catalog.grid.justArrived') : t('catalog.grid.title'));
 
@@ -123,25 +136,33 @@ export function ProductGridScreen({ categoryId, sort: initialSort, title, onNavi
         />
       )}
       <CatalogNotice message={notice} onDismiss={clearNotice} />
+      <CartToast
+        visible={cartCount > 0}
+        itemCount={cartCount}
+        totalPrice={cart?.subtotal ?? '0.00'}
+        thumbnails={cartThumbnails}
+        hasFab={false}
+        onViewCart={() => onNavigate?.('Cart')}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: customerColors.white },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   back: { paddingRight: 12 },
   backText: { fontSize: 28, color: customerColors.heading },
   title: { fontSize: 18, fontWeight: '700', color: customerColors.heading },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 8, paddingBottom: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: '#D1D5DB' },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: customerColors.neutral.neutral400 },
   chipActive: { backgroundColor: customerColors.primary, borderColor: customerColors.primary },
   chipText: { fontSize: 12, color: customerColors.heading },
-  chipTextActive: { color: '#FFFFFF' },
+  chipTextActive: { color: customerColors.white },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   message: { fontSize: 14, color: customerColors.heading, textAlign: 'center' },
   retry: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, backgroundColor: customerColors.primary },
-  retryText: { color: '#FFFFFF', fontWeight: '600' },
+  retryText: { color: customerColors.white, fontWeight: '600' },
   list: { paddingHorizontal: 12, paddingBottom: 24 },
   cell: { flex: 1 / 2, padding: 4 },
   footer: { marginVertical: 16 },

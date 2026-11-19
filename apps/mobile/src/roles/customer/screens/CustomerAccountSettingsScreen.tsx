@@ -14,6 +14,7 @@ import Svg, { Path } from 'react-native-svg';
 import {
   customerFonts,
   customerSpacing,
+  customerColors,
 } from '../theme';
 import { deleteCustomerAccount } from '../api/profile';
 import { logout } from '../api/auth';
@@ -30,7 +31,7 @@ export interface CustomerAccountSettingsScreenProps {
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string | undefined; size?: number | undefined }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string | undefined; size?: number | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -42,7 +43,7 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string | undef
   </Svg>
 );
 
-const BookOpenSvg = ({ color = '#1A2E1A', size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
+const BookOpenSvg = ({ color = customerColors.heading, size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2V3zM22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7V3z"
@@ -54,7 +55,7 @@ const BookOpenSvg = ({ color = '#1A2E1A', size = 22 }: { color?: string | undefi
   </Svg>
 );
 
-const DocumentScrollSvg = ({ color = '#1A2E1A', size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
+const DocumentScrollSvg = ({ color = customerColors.heading, size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
@@ -73,7 +74,7 @@ const DocumentScrollSvg = ({ color = '#1A2E1A', size = 22 }: { color?: string | 
   </Svg>
 );
 
-const ChevronRightSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string | undefined; size?: number | undefined }) => (
+const ChevronRightSvg = ({ color = customerColors.heading, size = 18 }: { color?: string | undefined; size?: number | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 18L15 12L9 6"
@@ -85,7 +86,7 @@ const ChevronRightSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string | un
   </Svg>
 );
 
-const TrashSvg = ({ color = '#B42318', size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
+const TrashSvg = ({ color = customerColors.palette.red.brick, size = 22 }: { color?: string | undefined; size?: number | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6"
@@ -155,7 +156,7 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
             style={styles.circleIconButton}
             accessibilityLabel={t('customer.account.settings.back')}
           >
-            <BackArrowSvg color="#1A2E1A" size={18} />
+            <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('customer.account.settings.title')}</Text>
         </View>
@@ -172,13 +173,13 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
           accessibilityLabel={t('customer.account.settings.privacy')}
         >
           <View style={styles.iconWrap}>
-            <BookOpenSvg color="#1A2E1A" size={22} />
+            <BookOpenSvg color={customerColors.heading} size={22} />
           </View>
           <View style={styles.textWrap}>
             <Text style={styles.rowTitle}>{t('customer.account.settings.privacy')}</Text>
             <Text style={styles.rowSubtitle}>{t('customer.account.settings.privacySub')}</Text>
           </View>
-          <ChevronRightSvg color="#1A2E1A" size={18} />
+          <ChevronRightSvg color={customerColors.heading} size={18} />
         </TouchableOpacity>
         <View style={styles.rowDivider} />
 
@@ -190,13 +191,13 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
           accessibilityLabel={t('customer.account.settings.terms')}
         >
           <View style={styles.iconWrap}>
-            <DocumentScrollSvg color="#1A2E1A" size={22} />
+            <DocumentScrollSvg color={customerColors.heading} size={22} />
           </View>
           <View style={styles.textWrap}>
             <Text style={styles.rowTitle}>{t('customer.account.settings.terms')}</Text>
             <Text style={styles.rowSubtitle}>{t('customer.account.settings.termsSub')}</Text>
           </View>
-          <ChevronRightSvg color="#1A2E1A" size={18} />
+          <ChevronRightSvg color={customerColors.heading} size={18} />
         </TouchableOpacity>
         <View style={styles.rowDivider} />
 
@@ -211,13 +212,13 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
           accessibilityLabel={t('customer.account.settings.delete')}
         >
           <View style={styles.iconWrap}>
-            <TrashSvg color="#B42318" size={22} />
+            <TrashSvg color={customerColors.palette.red.brick} size={22} />
           </View>
           <View style={styles.textWrap}>
             <Text style={[styles.rowTitle, styles.dangerText]}>{t('customer.account.settings.delete')}</Text>
             <Text style={styles.rowSubtitle}>{t('customer.account.settings.deleteSub')}</Text>
           </View>
-          <ChevronRightSvg color="#B42318" size={18} />
+          <ChevronRightSvg color={customerColors.palette.red.brick} size={18} />
         </TouchableOpacity>
         <View style={styles.rowDivider} />
       </View>
@@ -247,7 +248,7 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
                 style={[styles.modalBtn, styles.modalDelete]}
                 accessibilityLabel={t('customer.account.settings.deleteConfirm')}
               >
-                {deleting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalDeleteText}>{t('customer.account.settings.deleteConfirm')}</Text>}
+                {deleting ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.modalDeleteText}>{t('customer.account.settings.deleteConfirm')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -260,7 +261,7 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -280,20 +281,20 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1.2,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerTitle: {
     fontSize: 24,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     fontWeight: '400',
   },
   headerBottomDivider: {
     height: 1,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: customerColors.palette.grey.smoke,
   },
   content: {
     paddingHorizontal: customerSpacing.base,
@@ -316,50 +317,50 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.semibold,
     marginBottom: 4,
   },
   rowSubtitle: {
     fontSize: 12.5,
     fontWeight: '400',
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     fontFamily: customerFonts.regular,
   },
   rowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   dangerText: {
-    color: '#B42318',
+    color: customerColors.palette.red.brick,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     padding: 20,
   },
   modalTitle: {
     fontSize: 18,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     marginBottom: 8,
   },
   modalBody: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     fontFamily: customerFonts.regular,
   },
   modalError: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#B42318',
+    color: customerColors.palette.red.brick,
     fontFamily: customerFonts.regular,
     marginTop: 12,
   },
@@ -377,22 +378,22 @@ const styles = StyleSheet.create({
   },
   modalCancel: {
     borderWidth: 1.2,
-    borderColor: '#1A2E1A',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.heading,
+    backgroundColor: customerColors.white,
   },
   modalCancelText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.semibold,
   },
   modalDelete: {
-    backgroundColor: '#B42318',
+    backgroundColor: customerColors.palette.red.brick,
   },
   modalDeleteText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontFamily: customerFonts.semibold,
   },
 });

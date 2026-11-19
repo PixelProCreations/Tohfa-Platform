@@ -33,6 +33,7 @@ import {
   txnCodeFromId,
 } from '../api/walletMoney';
 import { t } from '../../../i18n/customer';
+import { customerColors } from '../theme';
 
 export interface CustomerSendMoneyScreenProps {
   onBack?: (() => void) | undefined;
@@ -41,7 +42,7 @@ export interface CustomerSendMoneyScreenProps {
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
 
-const BackArrowSvg = ({ color = '#1A1A1A', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.legacy.nearBlack, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -53,7 +54,7 @@ const BackArrowSvg = ({ color = '#1A1A1A', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const WalletBookSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?: number }) => (
+const WalletBookSvg = ({ color = customerColors.primary, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"
@@ -66,7 +67,7 @@ const WalletBookSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?
   </Svg>
 );
 
-const PhoneCallSvg = ({ color = '#676767', size = 18 }: { color?: string; size?: number }) => (
+const PhoneCallSvg = ({ color = customerColors.muted, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
@@ -78,7 +79,7 @@ const PhoneCallSvg = ({ color = '#676767', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const WalletIdCardSvg = ({ color = '#676767', size = 18 }: { color?: string; size?: number }) => (
+const WalletIdCardSvg = ({ color = customerColors.muted, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={5} width={18} height={14} rx={3} stroke={color} strokeWidth={1.8} />
     <Path d="M3 10h18" stroke={color} strokeWidth={1.8} />
@@ -88,10 +89,10 @@ const WalletIdCardSvg = ({ color = '#676767', size = 18 }: { color?: string; siz
 
 const GreenCheckmarkSvg = ({ size = 18 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} fill="#2E7D32" />
+    <Circle cx={12} cy={12} r={10} fill={customerColors.primary} />
     <Path
       d="M8 12.5l2.5 2.5 5.5-5.5"
-      stroke="#FFFFFF"
+      stroke={customerColors.white}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -99,7 +100,7 @@ const GreenCheckmarkSvg = ({ size = 18 }: { size?: number }) => (
   </Svg>
 );
 
-const SendPaperPlaneSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size?: number }) => (
+const SendPaperPlaneSvg = ({ color = customerColors.white, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"
@@ -111,7 +112,7 @@ const SendPaperPlaneSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; s
   </Svg>
 );
 
-const CloseCrossSvg = ({ color = '#676767', size = 16 }: { color?: string; size?: number }) => (
+const CloseCrossSvg = ({ color = customerColors.muted, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
@@ -123,7 +124,7 @@ const CloseCrossSvg = ({ color = '#676767', size = 16 }: { color?: string; size?
   </Svg>
 );
 
-const ReceiptDocSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?: number }) => (
+const ReceiptDocSvg = ({ color = customerColors.primary, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
@@ -134,7 +135,7 @@ const ReceiptDocSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?
   </Svg>
 );
 
-const CalendarSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?: number }) => (
+const CalendarSvg = ({ color = customerColors.primary, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={4} width={18} height={18} rx={2} stroke={color} strokeWidth={1.8} />
     <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
@@ -144,18 +145,18 @@ const CalendarSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?: 
 const CelebrationPlaneSvg = () => (
   <View style={styles.planeCircle}>
     <Svg width={36} height={36} viewBox="0 0 48 48" fill="none">
-      <Circle cx={24} cy={24} r={22} fill="#DCFCE7" />
+      <Circle cx={24} cy={24} r={22} fill={customerColors.legacy.greenTint} />
       <Path
         d="M36 12L19 27M36 12L25 36l-5-9-9-4 25-11z"
-        stroke="#2E7D32"
+        stroke={customerColors.primary}
         strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
-        fill="#EDF8EE"
+        fill={customerColors.legacy.greenWash}
       />
-      <Circle cx={12} cy={16} r={2} fill="#F59E0B" />
-      <Circle cx={36} cy={34} r={2.5} fill="#3B82F6" />
-      <Circle cx={14} cy={32} r={1.5} fill="#10B981" />
+      <Circle cx={12} cy={16} r={2} fill={customerColors.legacy.amber} />
+      <Circle cx={36} cy={34} r={2.5} fill={customerColors.palette.blue.bright} />
+      <Circle cx={14} cy={32} r={1.5} fill={customerColors.palette.green.emeraldBright} />
     </Svg>
   </View>
 );
@@ -289,7 +290,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
           style={styles.circleIconButton}
           accessibilityLabel={t('customer.wallet.back')}
         >
-          <BackArrowSvg color="#1A1A1A" size={18} />
+          <BackArrowSvg color={customerColors.legacy.nearBlack} size={18} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('customer.wallet.sendMoney')}</Text>
       </View>
@@ -304,7 +305,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         <Text style={styles.fieldLabel}>{t('customer.wallet.send.from')}</Text>
         <View style={styles.fromCard}>
           <View style={styles.fromIconBox}>
-            <WalletBookSvg color="#2E7D32" size={20} />
+            <WalletBookSvg color={customerColors.primary} size={20} />
           </View>
           <View style={styles.fromTextWrap}>
             <Text style={styles.fromTitle}>{t('customer.wallet.send.walletName')}</Text>
@@ -315,12 +316,12 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         {/* ── RECIPIENT (mobile number only: the API has no wallet-id / directory lookup) ─────── */}
         <Text style={[styles.fieldLabel, { marginTop: 18 }]}>{t('customer.wallet.send.mobileLabel')}</Text>
         <View style={styles.inputWrap}>
-          <PhoneCallSvg color="#676767" size={18} />
+          <PhoneCallSvg color={customerColors.muted} size={18} />
           <TextInput
             style={styles.textInput}
             value={mobileInput}
             placeholder={t('customer.wallet.send.mobilePlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             keyboardType="phone-pad"
             maxLength={16}
             accessibilityLabel={t('customer.wallet.send.mobileA11y')}
@@ -341,14 +342,14 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             {lookup.isPending ? (
               <ActivityIndicator />
             ) : (
-              <Text style={{ color: canVerify ? '#2E7D32' : '#9CA3AF', fontWeight: '700', fontSize: 13 }}>
+              <Text style={{ color: canVerify ? customerColors.primary : customerColors.neutral.neutral500, fontWeight: '700', fontSize: 13 }}>
                 {waitSeconds > 0 ? `${waitSeconds}s` : t('customer.wallet.send.verify')}
               </Text>
             )}
           </TouchableOpacity>
         </View>
         {lookupError !== null ? (
-          <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 6 }} accessibilityRole="alert">
+          <Text style={{ color: customerColors.shared.error, fontSize: 12, marginTop: 6 }} accessibilityRole="alert">
             {lookupError}
           </Text>
         ) : null}
@@ -356,8 +357,8 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         {/* ── VERIFIED RECIPIENT BADGE (masked by the API) ────────────────────── */}
         {recipient !== null ? (
           <View style={styles.verifiedCard}>
-            <View style={[styles.avatarCircle, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.avatarText, { color: '#15803D' }]}>{initialsOf(recipient.displayName)}</Text>
+            <View style={[styles.avatarCircle, { backgroundColor: customerColors.legacy.greenTint }]}>
+              <Text style={[styles.avatarText, { color: customerColors.legacy.greenDeep }]}>{initialsOf(recipient.displayName)}</Text>
             </View>
             <View style={styles.verifiedTextWrap}>
               <Text style={styles.verifiedName}>{recipient.displayName}</Text>
@@ -380,13 +381,13 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             }}
             keyboardType="decimal-pad"
             placeholder="0.00"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             accessibilityLabel={t('customer.wallet.topup.amountLabel')}
           />
         </View>
         <View style={styles.amountUnderline} />
         {tooMuch ? (
-          <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 6 }}>
+          <Text style={{ color: customerColors.shared.error, fontSize: 12, marginTop: 6 }}>
             {t('customer.wallet.send.error.exceedsBalance')}
           </Text>
         ) : null}
@@ -396,24 +397,24 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         <TextInput
           style={styles.noteInput}
           placeholder={t('customer.wallet.send.notePlaceholder')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={customerColors.neutral.neutral500}
           value={noteInput}
           onChangeText={setNoteInput}
           maxLength={100}
           accessibilityLabel={t('customer.wallet.send.noteA11y')}
         />
         <View style={styles.noteUnderline} />
-        <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'right', marginTop: 4 }}>{noteInput.length}/100</Text>
+        <Text style={{ fontSize: 11, color: customerColors.neutral.neutral500, textAlign: 'right', marginTop: 4 }}>{noteInput.length}/100</Text>
 
         {sendError !== null && !showPaymentDetailsModal ? (
           <View style={{ marginTop: 12 }} accessibilityRole="alert">
-            <Text style={{ color: '#DC2626', fontSize: 12 }}>{sendError.message}</Text>
+            <Text style={{ color: customerColors.shared.error, fontSize: 12 }}>{sendError.message}</Text>
             {sendError.shortfall !== undefined ? (
               <TouchableOpacity
                 onPress={() => onNavigate?.('Topup', { shortfall: sendError.shortfall })}
                 accessibilityLabel={t('customer.wallet.send.addMoney')}
               >
-                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>{t('customer.wallet.send.addMoney')}</Text>
+                <Text style={{ color: customerColors.primary, fontWeight: '700', marginTop: 6 }}>{t('customer.wallet.send.addMoney')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -430,7 +431,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
           style={[styles.sendMoneyMainBtn, !canSend && styles.sendMoneyMainBtnDisabled]}
           accessibilityLabel={t('customer.wallet.sendMoney')}
         >
-          <SendPaperPlaneSvg color={canSend ? '#FFFFFF' : '#9CA3AF'} size={18} />
+          <SendPaperPlaneSvg color={canSend ? customerColors.white : customerColors.neutral.neutral500} size={18} />
           <Text style={[styles.sendMoneyMainBtnText, !canSend && styles.sendMoneyMainBtnTextDisabled]}>
             {t('customer.wallet.sendMoney')}
           </Text>
@@ -442,10 +443,10 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
           <ActivityIndicator accessibilityLabel={t('customer.wallet.send.loadingTransfers')} />
         ) : history.isError ? (
           <TouchableOpacity onPress={() => void history.refetch()} accessibilityLabel={t('customer.wallet.send.retryTransfers')}>
-            <Text style={{ color: '#2E7D32', fontWeight: '700' }}>{t('customer.wallet.send.loadError')}</Text>
+            <Text style={{ color: customerColors.primary, fontWeight: '700' }}>{t('customer.wallet.send.loadError')}</Text>
           </TouchableOpacity>
         ) : transfers.length === 0 ? (
-          <Text style={{ color: '#6B7280', fontSize: 13 }}>{t('customer.wallet.send.empty')}</Text>
+          <Text style={{ color: customerColors.neutral.neutral600, fontSize: 13 }}>{t('customer.wallet.send.empty')}</Text>
         ) : (
           <>
             {transfers.map((tr) => (
@@ -458,14 +459,14 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                   </Text>
                   <Text style={styles.summaryItemLabel}>{formatIstDateTime(tr.createdAt)}</Text>
                 </View>
-                <Text style={[styles.summaryItemValueBold, { color: tr.direction === 'SENT' ? '#DC2626' : '#15803D' }]}>
+                <Text style={[styles.summaryItemValueBold, { color: tr.direction === 'SENT' ? customerColors.shared.error : customerColors.legacy.greenDeep }]}>
                   {tr.direction === 'SENT' ? '-' : '+'} {formatInr(tr.amount)}
                 </Text>
               </View>
             ))}
             {history.hasNextPage ? (
               <TouchableOpacity onPress={() => void history.fetchNextPage()} accessibilityLabel={t('customer.wallet.send.loadMoreA11y')}>
-                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 8 }}>{t('customer.wallet.tx.loadMore')}</Text>
+                <Text style={{ color: customerColors.primary, fontWeight: '700', marginTop: 8 }}>{t('customer.wallet.tx.loadMore')}</Text>
               </TouchableOpacity>
             ) : null}
           </>
@@ -482,13 +483,13 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               style={styles.modalCloseBtn}
               accessibilityLabel={t('customer.wallet.close')}
             >
-              <CloseCrossSvg color="#676767" size={14} />
+              <CloseCrossSvg color={customerColors.muted} size={14} />
             </TouchableOpacity>
 
             {recipient !== null ? (
               <View style={styles.modalRecipientBadge}>
-                <View style={[styles.avatarCircle, { backgroundColor: '#DCFCE7' }]}>
-                  <Text style={[styles.avatarText, { color: '#15803D' }]}>{initialsOf(recipient.displayName)}</Text>
+                <View style={[styles.avatarCircle, { backgroundColor: customerColors.legacy.greenTint }]}>
+                  <Text style={[styles.avatarText, { color: customerColors.legacy.greenDeep }]}>{initialsOf(recipient.displayName)}</Text>
                 </View>
                 <View style={styles.verifiedTextWrap}>
                   <Text style={styles.verifiedName}>{recipient.displayName}</Text>
@@ -517,7 +518,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
 
             {sendError !== null ? (
               <View style={{ marginTop: 10 }} accessibilityRole="alert">
-                <Text style={{ color: '#DC2626', fontSize: 12 }}>{sendError.message}</Text>
+                <Text style={{ color: customerColors.shared.error, fontSize: 12 }}>{sendError.message}</Text>
                 {sendError.shortfall !== undefined ? (
                   <TouchableOpacity
                     onPress={() => {
@@ -526,7 +527,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                     }}
                     accessibilityLabel={t('customer.wallet.send.addMoney')}
                   >
-                    <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>{t('customer.wallet.send.addMoney')}</Text>
+                    <Text style={{ color: customerColors.primary, fontWeight: '700', marginTop: 6 }}>{t('customer.wallet.send.addMoney')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -540,7 +541,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               accessibilityLabel={t('customer.wallet.send.confirm')}
             >
               {send.isPending ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={customerColors.white} />
               ) : (
                 <Text style={styles.confirmTransferBtnText}>
                   {sendError?.retryable ? t('customer.wallet.send.retryTransfer') : t('customer.wallet.send.confirm')}
@@ -561,7 +562,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               style={styles.modalCloseBtn}
               accessibilityLabel={t('customer.wallet.close')}
             >
-              <CloseCrossSvg color="#676767" size={14} />
+              <CloseCrossSvg color={customerColors.muted} size={14} />
             </TouchableOpacity>
 
             <CelebrationPlaneSvg />
@@ -579,7 +580,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                 <View style={styles.successSummaryCard}>
                   <View style={styles.summaryItemRow}>
                     <View style={styles.summaryItemLeft}>
-                      <ReceiptDocSvg color="#2E7D32" size={15} />
+                      <ReceiptDocSvg color={customerColors.primary} size={15} />
                       <Text style={styles.summaryItemLabel}>{t('customer.wallet.result.transactionId')}</Text>
                     </View>
                     <Text style={styles.summaryItemValueBold}>{txnCodeFromId(done.id)}</Text>
@@ -587,7 +588,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
 
                   <View style={styles.summaryItemRow}>
                     <View style={styles.summaryItemLeft}>
-                      <CalendarSvg color="#2E7D32" size={15} />
+                      <CalendarSvg color={customerColors.primary} size={15} />
                       <Text style={styles.summaryItemLabel}>{t('customer.wallet.send.dateTime')}</Text>
                     </View>
                     <Text style={styles.summaryItemValue}>{formatIstDateTime(done.createdAt)}</Text>
@@ -595,7 +596,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
 
                   <View style={styles.summaryItemRow}>
                     <View style={styles.summaryItemLeft}>
-                      <WalletIdCardSvg color="#2E7D32" size={15} />
+                      <WalletIdCardSvg color={customerColors.primary} size={15} />
                       <Text style={styles.summaryItemLabel}>{t('customer.wallet.send.updatedBalance')}</Text>
                     </View>
                     <Text style={styles.summaryItemValueBold}>{formatInr(done.balanceAfter)}</Text>
@@ -622,24 +623,24 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   circleIconButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -647,7 +648,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   scrollView: {
     flex: 1,
@@ -660,7 +661,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#676767',
+    color: customerColors.muted,
     marginBottom: 6,
   },
 
@@ -668,17 +669,17 @@ const styles = StyleSheet.create({
   fromCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     padding: 12,
   },
   fromIconBox: {
     width: 38,
     height: 38,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -689,12 +690,12 @@ const styles = StyleSheet.create({
   fromTitle: {
     fontSize: 14.5,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginBottom: 2,
   },
   fromSubtitle: {
     fontSize: 12.5,
-    color: '#676767',
+    color: customerColors.muted,
   },
 
   // Tabs
@@ -711,21 +712,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
     gap: 8,
   },
   tabButtonActive: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#EDF8EE',
+    borderColor: customerColors.primary,
+    backgroundColor: customerColors.legacy.greenWash,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#676767',
+    color: customerColors.muted,
   },
   tabTextActive: {
-    color: '#2E7D32',
+    color: customerColors.primary,
     fontWeight: '600',
   },
 
@@ -734,9 +735,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     height: 48,
     paddingHorizontal: 12,
     gap: 8,
@@ -744,7 +745,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     paddingVertical: 0,
   },
   rightIconPress: {
@@ -755,12 +756,12 @@ const styles = StyleSheet.create({
   verifiedCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EDF8EE',
+    backgroundColor: customerColors.legacy.greenWash,
     borderRadius: 10,
     padding: 10,
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#C6F6D5',
+    borderColor: customerColors.palette.green.mintSoft,
   },
   avatarCircle: {
     width: 34,
@@ -780,12 +781,12 @@ const styles = StyleSheet.create({
   verifiedName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginBottom: 2,
   },
   verifiedDetail: {
     fontSize: 11.5,
-    color: '#676767',
+    color: customerColors.muted,
   },
 
   // Amount
@@ -797,31 +798,31 @@ const styles = StyleSheet.create({
   rupeeSymbol: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
     fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     paddingVertical: 2,
   },
   amountUnderline: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginTop: 6,
   },
 
   // Note
   noteInput: {
     fontSize: 13,
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     paddingVertical: 6,
   },
   noteUnderline: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginTop: 4,
   },
 
@@ -830,28 +831,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     height: 50,
     borderRadius: 25,
     marginTop: 32,
     gap: 8,
   },
   sendMoneyMainBtnDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral400,
   },
   sendMoneyMainBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   sendMoneyMainBtnTextDisabled: {
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
 
   // Contacts Modal
   contactsModalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   contactsSearchRow: {
     flexDirection: 'row',
@@ -863,7 +864,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     borderRadius: 10,
     height: 42,
     paddingHorizontal: 12,
@@ -872,13 +873,13 @@ const styles = StyleSheet.create({
   contactsSearchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     paddingVertical: 0,
   },
   contactsSectionHeading: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     paddingHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
@@ -892,7 +893,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   contactAvatar: {
     width: 38,
@@ -912,18 +913,18 @@ const styles = StyleSheet.create({
   contactName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginBottom: 2,
   },
   contactPhone: {
     fontSize: 12,
-    color: '#676767',
+    color: customerColors.muted,
   },
 
   // Modal Backdrop & Cards
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: customerColors.overlay.scrim50,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -931,7 +932,7 @@ const styles = StyleSheet.create({
   paymentModalCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 18,
     padding: 20,
     position: 'relative',
@@ -943,7 +944,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -951,17 +952,17 @@ const styles = StyleSheet.create({
   modalRecipientBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EDF8EE',
+    backgroundColor: customerColors.legacy.greenWash,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#C6F6D5',
+    borderColor: customerColors.palette.green.mintSoft,
     marginTop: 12,
   },
   modalSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginTop: 16,
     marginBottom: 10,
   },
@@ -972,32 +973,32 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 13,
-    color: '#676767',
+    color: customerColors.muted,
   },
   detailValue: {
     fontSize: 13,
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     fontWeight: '500',
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
     paddingTop: 8,
     marginTop: 4,
   },
   totalLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   totalValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   modalDivider: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginVertical: 14,
   },
   otpHeaderRow: {
@@ -1009,11 +1010,11 @@ const styles = StyleSheet.create({
   otpHeading: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   otpSubtext: {
     fontSize: 11.5,
-    color: '#676767',
+    color: customerColors.muted,
     lineHeight: 16,
     marginBottom: 10,
   },
@@ -1021,7 +1022,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 8,
     height: 44,
     paddingHorizontal: 12,
@@ -1030,11 +1031,11 @@ const styles = StyleSheet.create({
   otpInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     paddingVertical: 0,
   },
   confirmTransferBtn: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     height: 46,
     borderRadius: 23,
     alignItems: 'center',
@@ -1044,14 +1045,14 @@ const styles = StyleSheet.create({
   confirmTransferBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 
   // Success Modal
   successModalCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 18,
     padding: 22,
     alignItems: 'center',
@@ -1069,25 +1070,25 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     textAlign: 'center',
     marginBottom: 8,
   },
   successSubtext: {
     fontSize: 13,
-    color: '#676767',
+    color: customerColors.muted,
     textAlign: 'center',
     lineHeight: 19,
   },
   boldText: {
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   successSummaryCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
     padding: 12,
     width: '100%',
     marginTop: 16,
@@ -1105,20 +1106,20 @@ const styles = StyleSheet.create({
   },
   summaryItemLabel: {
     fontSize: 12,
-    color: '#676767',
+    color: customerColors.muted,
   },
   summaryItemValue: {
     fontSize: 12,
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   summaryItemValueBold: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   closeOutlineBtn: {
     borderWidth: 1,
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
     height: 44,
     borderRadius: 22,
     width: '100%',
@@ -1129,6 +1130,6 @@ const styles = StyleSheet.create({
   closeOutlineBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 });

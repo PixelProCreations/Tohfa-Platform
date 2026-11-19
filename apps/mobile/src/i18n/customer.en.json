@@ -125,5 +125,10 @@
   "customer.wishlist.loadError": "Couldn't load wishlist. Please try again.",
   "customer.wishlist.empty": "Your Wishlist is Empty",
   "customer.wishlist.emptyBody": "Explore more and shortlist some items to find them easily anytime.",
-  "customer.wishlist.explore": "Explore Products"
+  "customer.wishlist.explore": "Explore Products",
+  "customer.onboarding.welcome.getStarted": "Get Started",
+  "customer.home.a11y.latestHarvest": "Latest harvest",
+  "customer.home.a11y.freshDrops": "Fresh drops",
+  "customer.home.a11y.recentOrders": "Recent orders",
+  "catalog.grid.latestHarvest": "Latest Harvest"
 }

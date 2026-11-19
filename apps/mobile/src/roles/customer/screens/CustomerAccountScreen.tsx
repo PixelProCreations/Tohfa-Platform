@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { customerFonts } from '../theme';
+import { customerFonts, customerColors } from '../theme';
 import {
   tohfaMarketLogo,
   profileAdsBanner,
@@ -47,7 +47,7 @@ export interface CustomerAccountScreenProps {
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -59,7 +59,7 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?:
   </Svg>
 );
 
-const ChevronRightSvg = ({ color = '#9CA3AF', size = 16 }: { color?: string; size?: number }) => (
+const ChevronRightSvg = ({ color = customerColors.neutral.neutral500, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 18L15 12L9 6"
@@ -71,7 +71,7 @@ const ChevronRightSvg = ({ color = '#9CA3AF', size = 16 }: { color?: string; siz
   </Svg>
 );
 
-const PackageSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const PackageSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M16.5 9.4L7.55 4.24M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
@@ -90,7 +90,7 @@ const PackageSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: n
   </Svg>
 );
 
-const WalletSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const WalletSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"
@@ -110,7 +110,7 @@ const WalletSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: nu
   </Svg>
 );
 
-const SettingsSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const SettingsSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={1.8} />
     <Path
@@ -123,7 +123,7 @@ const SettingsSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: 
   </Svg>
 );
 
-const HeadsetSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const HeadsetSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 18v-6a9 9 0 0118 0v6"
@@ -142,7 +142,19 @@ const HeadsetSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: n
   </Svg>
 );
 
-const StarSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const BellSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const StarSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
@@ -154,7 +166,7 @@ const StarSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: numb
   </Svg>
 );
 
-const ReturnsSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const ReturnsSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M4 8l8-4 8 4v8l-8 4-8-4V8z"
@@ -179,7 +191,7 @@ const ReturnsSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: n
   </Svg>
 );
 
-const HelpSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+const HelpSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={1.8} />
     <Path
@@ -192,7 +204,7 @@ const HelpSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: numb
   </Svg>
 );
 
-const LogoutSvg = ({ color = '#DC2626', size = 20 }: { color?: string; size?: number }) => (
+const LogoutSvg = ({ color = customerColors.shared.error, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"
@@ -213,40 +225,40 @@ const LogoutSvg = ({ color = '#DC2626', size = 20 }: { color?: string; size?: nu
 
 const CloseCircleSvg = ({ size = 24 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} fill="#F3F4F6" />
-    <Path d="M15 9l-6 6M9 9l6 6" stroke="#4B5563" strokeWidth={1.6} strokeLinecap="round" />
+    <Circle cx={12} cy={12} r={10} fill={customerColors.neutral.neutral100} />
+    <Path d="M15 9l-6 6M9 9l6 6" stroke={customerColors.neutral.neutral700} strokeWidth={1.6} strokeLinecap="round" />
   </Svg>
 );
 
 const LogOutDoorIllustrationSvg = ({ size = 76 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 80 80" fill="none">
-    <Circle cx={40} cy={40} r={34} fill="#E9F7E9" />
+    <Circle cx={40} cy={40} r={34} fill={customerColors.selected} />
     <Path
       d="M24 45c-4-1-7-5-6-9 4 0 7 3 7 7l-1 2z"
-      fill="#22C55E"
+      fill={customerColors.palette.green.bright}
     />
     <Path
       d="M26 38c-3-3-3-8 1-9 1 4 0 7-1 9z"
-      fill="#4ADE80"
+      fill={customerColors.palette.green.lightBright}
     />
-    <Rect x={30} y={20} width={24} height={40} rx={3} stroke="#15803D" strokeWidth={2.5} fill="#FFFFFF" />
+    <Rect x={30} y={20} width={24} height={40} rx={3} stroke={customerColors.legacy.greenDeep} strokeWidth={2.5} fill={customerColors.white} />
     <Path
       d="M30 20l15 6v28l-15 6V20z"
-      fill="#22C55E"
-      stroke="#16A34A"
+      fill={customerColors.palette.green.bright}
+      stroke={customerColors.shared.success}
       strokeWidth={1.5}
     />
-    <Circle cx={41} cy={40} r={1.6} fill="#FFFFFF" />
+    <Circle cx={41} cy={40} r={1.6} fill={customerColors.white} />
     <Path
       d="M60 22l4-2M63 27l4 1M60 32l3 2"
-      stroke="#16A34A"
+      stroke={customerColors.shared.success}
       strokeWidth={2}
       strokeLinecap="round"
     />
   </Svg>
 );
 
-const ProfileBadgeSvg = ({ color = '#FFFFFF', size = 28 }: { color?: string; size?: number }) => (
+const ProfileBadgeSvg = ({ color = customerColors.white, size = 28 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={2} />
     <Circle cx={12} cy={9} r={3.5} stroke={color} strokeWidth={1.8} />
@@ -305,10 +317,11 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
       onSignOut?.();
     }
   };
-  const bannerTopPadding = insets.top > 0
-    ? insets.top + 8
-    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 36) : 16);
-  const bannerHeight = Math.round(225 + (insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0)));
+  const statusBarHeight = Platform.OS === 'android'
+    ? (StatusBar.currentHeight ?? 24)
+    : (insets.top > 0 ? insets.top : 20);
+  const bannerTopPadding = statusBarHeight + 8;
+  const bannerHeight = Math.round(statusBarHeight + 175);
 
   return (
     <View style={styles.safeArea}>
@@ -320,67 +333,69 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* ── TOP BANNER SECTION WITH SCENIC BACKGROUND ────────────────────────── */}
-        <View style={[styles.bannerWrapper, { height: bannerHeight, paddingTop: bannerTopPadding }]}>
+        <View style={[styles.bannerWrapper, { height: bannerHeight }]}>
           <Image
             source={profileAdsBanner}
             style={styles.bannerBackgroundImage}
             resizeMode="cover"
           />
-          {/* Back Button */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onBack || (() => onNavigate?.('Home'))}
-            style={styles.backButton}
-            accessibilityLabel={t('customer.account.home.back')}
-          >
-            <BackArrowSvg color="#1A1A1A" size={18} />
-          </TouchableOpacity>
-
-          {/* Profile Info */}
-          <View style={styles.profileInfoContainer}>
-            {profileLoading ? (
-              <View testID="account-profile-skeleton" accessibilityLabel={t('customer.account.home.loadingProfile')}>
-                <View style={[styles.skeletonLine, { width: 140, height: 22 }]} />
-                <View style={[styles.skeletonLine, { width: 120 }]} />
-                <View style={[styles.skeletonLine, { width: 180 }]} />
-              </View>
-            ) : profileError && !profileError.silent ? (
-              <View testID="account-profile-error">
-                <Text style={styles.userPhoneText} accessibilityRole="alert">
-                  {profileError.message}
-                </Text>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => void profileQuery.refetch()}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('customer.account.home.retryA11y')}
-                >
-                  <Text style={styles.viewProfileText}>{t('customer.account.home.retry')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                {userName ? <Text style={styles.userNameText}>{userName}</Text> : null}
-                {userPhone ? <Text style={styles.userPhoneText}>{userPhone}</Text> : null}
-                {userEmail ? <Text style={styles.userEmailText}>{userEmail}</Text> : null}
-              </>
-            )}
-
+          <View style={[styles.bannerOverlay, { paddingTop: bannerTopPadding }]}>
+            {/* Back Button */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={
-                onViewProfile ||
-                (() =>
-                  onNavigate?.('CustomerProfile', {
-                    mode: isNewUser ? 'empty' : 'view',
-                  }))
-              }
-              style={styles.viewProfileRow}
-              accessibilityLabel={t('customer.account.home.viewProfile')}
+              onPress={onBack || (() => onNavigate?.('Home'))}
+              style={styles.backButton}
+              accessibilityLabel={t('customer.account.home.back')}
             >
-              <Text style={styles.viewProfileText}>{t('customer.account.home.viewProfile')}</Text>
-              <ChevronRightSvg color="#4B5563" size={13} />
+              <BackArrowSvg color={customerColors.neutral.neutral900} size={18} />
             </TouchableOpacity>
+
+            {/* Profile Info */}
+            <View style={styles.profileInfoContainer}>
+              {profileLoading ? (
+                <View testID="account-profile-skeleton" accessibilityLabel={t('customer.account.home.loadingProfile')}>
+                  <View style={[styles.skeletonLine, { width: 140, height: 22 }]} />
+                  <View style={[styles.skeletonLine, { width: 120 }]} />
+                  <View style={[styles.skeletonLine, { width: 180 }]} />
+                </View>
+              ) : profileError && !profileError.silent ? (
+                <View testID="account-profile-error">
+                  <Text style={styles.userPhoneText} accessibilityRole="alert">
+                    {profileError.message}
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    onPress={() => void profileQuery.refetch()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('customer.account.home.retryA11y')}
+                  >
+                    <Text style={styles.viewProfileText}>{t('customer.account.home.retry')}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <>
+                  {userName ? <Text style={styles.userNameText}>{userName}</Text> : null}
+                  {userPhone ? <Text style={styles.userPhoneText}>{userPhone}</Text> : null}
+                  {userEmail ? <Text style={styles.userEmailText}>{userEmail}</Text> : null}
+                </>
+              )}
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={
+                  onViewProfile ||
+                  (() =>
+                    onNavigate?.('CustomerProfile', {
+                      mode: isNewUser ? 'empty' : 'view',
+                    }))
+                }
+                style={styles.viewProfileRow}
+                accessibilityLabel={t('customer.account.home.viewProfile')}
+              >
+                <Text style={styles.viewProfileText}>{t('customer.account.home.viewProfile')}</Text>
+                <ChevronRightSvg color={customerColors.palette.green.fern} size={13} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -451,13 +466,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.myOrders')}
           >
             <View style={styles.menuIconBox}>
-              <PackageSvg color="#1A1A1A" size={20} />
+              <PackageSvg color={customerColors.legacy.nearBlack} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>{t('customer.account.home.myOrders')}</Text>
               <Text style={styles.menuItemSubtitle}>{t('customer.account.home.myOrdersSub')}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
           <View style={styles.divider} />
 
@@ -469,7 +484,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.myWallet')}
           >
             <View style={styles.menuIconBox}>
-              <WalletSvg color="#1A1A1A" size={20} />
+              <WalletSvg color={customerColors.legacy.nearBlack} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>{t('customer.account.home.myWallet')}</Text>
@@ -478,7 +493,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             <View style={styles.walletPill}>
               <Text style={styles.walletPillText}>{walletBalance}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
           <View style={styles.divider} />
 
@@ -490,13 +505,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.settings')}
           >
             <View style={styles.menuIconBox}>
-              <SettingsSvg color="#1A1A1A" size={20} />
+              <SettingsSvg color={customerColors.legacy.nearBlack} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>{t('customer.account.home.settings')}</Text>
               <Text style={styles.menuItemSubtitle}>{t('customer.account.home.settingsSub')}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
           <View style={styles.divider} />
 
@@ -508,13 +523,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.contactSupport')}
           >
             <View style={styles.menuIconBox}>
-              <HeadsetSvg color="#1A1A1A" size={20} />
+              <HeadsetSvg color={customerColors.legacy.nearBlack} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>{t('customer.account.home.contactSupport')}</Text>
               <Text style={styles.menuItemSubtitle}>{t('customer.account.home.contactSupportSub')}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
           <View style={styles.divider} />
 
@@ -526,31 +541,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.notifications')}
           >
             <View style={styles.menuIconBox}>
-              <HeadsetSvg color="#1A1A1A" size={20} />
+              <BellSvg color={customerColors.legacy.nearBlack} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>{t('customer.account.home.notifications')}</Text>
               <Text style={styles.menuItemSubtitle}>{t('customer.account.home.notificationsSub')}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-
-          {/* Row 4b: My support requests */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('CustomerSupport')}
-            style={styles.menuItem}
-            accessibilityLabel={t('customer.account.home.myRequests')}
-          >
-            <View style={styles.menuIconBox}>
-              <HeadsetSvg color="#1A1A1A" size={20} />
-            </View>
-            <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>{t('customer.account.home.myRequests')}</Text>
-              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.myRequestsSub')}</Text>
-            </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
           <View style={styles.divider} />
 
@@ -564,13 +561,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 accessibilityLabel={t('customer.account.home.returns')}
               >
                 <View style={styles.menuIconBox}>
-                  <ReturnsSvg color="#1A1A1A" size={20} />
+                  <ReturnsSvg color={customerColors.legacy.nearBlack} size={20} />
                 </View>
                 <View style={styles.menuTextColumn}>
                   <Text style={styles.menuItemTitle}>{t('customer.account.home.returns')}</Text>
                   <Text style={styles.menuItemSubtitle}>{t('customer.account.home.returnsSub')}</Text>
                 </View>
-                <ChevronRightSvg color="#9CA3AF" size={16} />
+                <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
               </TouchableOpacity>
               <View style={styles.divider} />
 
@@ -581,13 +578,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 accessibilityLabel={t('customer.account.home.review')}
               >
                 <View style={styles.menuIconBox}>
-                  <StarSvg color="#1A1A1A" size={20} />
+                  <StarSvg color={customerColors.legacy.nearBlack} size={20} />
                 </View>
                 <View style={styles.menuTextColumn}>
                   <Text style={styles.menuItemTitle}>{t('customer.account.home.review')}</Text>
                   <Text style={styles.menuItemSubtitle}>{t('customer.account.home.reviewSub')}</Text>
                 </View>
-                <ChevronRightSvg color="#9CA3AF" size={16} />
+                <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
               </TouchableOpacity>
               <View style={styles.divider} />
             </>
@@ -601,13 +598,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.help')}
           >
             <View style={styles.menuIconBox}>
-              <HelpSvg color="#1A1A1A" size={20} />
+              <HelpSvg color={customerColors.legacy.nearBlack} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>{t('customer.account.home.help')}</Text>
               <Text style={styles.menuItemSubtitle}>{t('customer.account.home.helpSub')}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
           <View style={styles.divider} />
 
@@ -619,13 +616,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel={t('customer.account.home.logout')}
           >
             <View style={[styles.menuIconBox, styles.logoutIconBox]}>
-              <LogoutSvg color="#DC2626" size={20} />
+              <LogoutSvg color={customerColors.shared.error} size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={[styles.menuItemTitle, styles.logoutText]}>{t('customer.account.home.logout')}</Text>
               <Text style={styles.menuItemSubtitle}>{t('customer.account.home.logoutSub')}</Text>
             </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
+            <ChevronRightSvg color={customerColors.neutral.neutral500} size={16} />
           </TouchableOpacity>
         </View>
 
@@ -653,7 +650,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           style={styles.floatingProfileButton}
           accessibilityLabel={t('customer.account.home.profileShortcut')}
         >
-          <ProfileBadgeSvg color="#FFFFFF" size={26} />
+          <ProfileBadgeSvg color={customerColors.white} size={26} />
         </TouchableOpacity>
       </View>
 
@@ -709,7 +706,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 accessibilityState={{ disabled: signingOut, busy: signingOut }}
               >
                 {signingOut ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={customerColors.white} />
                 ) : (
                   <Text style={styles.confirmLogoutButtonText}>{t('customer.account.home.logoutConfirm')}</Text>
                 )}
@@ -725,11 +722,11 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   scrollContent: {
     paddingBottom: 24,
@@ -741,10 +738,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
     overflow: 'hidden',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    justifyContent: 'space-between',
-    backgroundColor: '#EBF8E7',
+    backgroundColor: customerColors.palette.green.dew,
     position: 'relative',
   },
   bannerBackgroundImage: {
@@ -755,46 +749,63 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '100%',
     height: '100%',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  bannerOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 18,
+    justifyContent: 'space-between',
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#1A1A1A',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: customerColors.white,
+    elevation: 3,
+    shadowColor: customerColors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   // ── HEADER & PROFILE STYLES ───────────────────────────────────────────────
   profileInfoContainer: {
-    maxWidth: '65%',
-    marginBottom: 4,
+    maxWidth: '75%',
+    marginBottom: 2,
   },
   skeletonLine: {
     height: 14,
     borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: customerColors.overlay.white60,
     marginBottom: 8,
   },
   userNameText: {
     fontFamily: customerFonts.bold,
     fontWeight: '700',
     fontSize: 24,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     letterSpacing: -0.2,
     lineHeight: 30,
   },
   userPhoneText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
-    color: '#1A1A1A',
+    color: customerColors.neutral.neutral800,
     marginTop: 4,
   },
   userEmailText: {
     fontSize: 12.5,
     fontWeight: '400',
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     marginTop: 2,
   },
   viewProfileRow: {
@@ -804,9 +815,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   viewProfileText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#4B5563',
+    color: customerColors.palette.green.fern,
   },
 
   // ── 3 SUMMARY CARDS ROW ────────────────────────────────────────────────────
@@ -818,7 +829,7 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#EDF7ED',
+    backgroundColor: customerColors.palette.green.cloud,
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 6,
@@ -833,18 +844,18 @@ const styles = StyleSheet.create({
   summaryCardSubtitle: {
     fontSize: 10.5,
     fontWeight: '500',
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     textAlign: 'center',
   },
   walletBalanceSubtitle: {
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
     fontWeight: '700',
     fontSize: 12,
   },
   summaryCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginTop: 3,
     textAlign: 'center',
   },
@@ -863,13 +874,13 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
   logoutIconBox: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: customerColors.palette.red.blush,
   },
   menuTextColumn: {
     flex: 1,
@@ -877,19 +888,19 @@ const styles = StyleSheet.create({
   menuItemTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
   },
   logoutText: {
-    color: '#DC2626',
+    color: customerColors.shared.error,
   },
   menuItemSubtitle: {
     fontSize: 11.5,
     fontWeight: '400',
-    color: '#5F5E5A',
+    color: customerColors.palette.grey.warmMuted,
     marginTop: 2,
   },
   walletPill: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: customerColors.legacy.greenTint,
     paddingHorizontal: 9,
     paddingVertical: 3.5,
     borderRadius: 12,
@@ -898,11 +909,11 @@ const styles = StyleSheet.create({
   walletPillText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     marginLeft: 54,
   },
 
@@ -920,7 +931,7 @@ const styles = StyleSheet.create({
   footerCopyright: {
     fontSize: 10.5,
     fontWeight: '400',
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -935,11 +946,11 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#1E6B35',
+    backgroundColor: customerColors.palette.green.fern,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 4,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 4,
@@ -948,14 +959,14 @@ const styles = StyleSheet.create({
   // ── LOGOUT MODAL STYLES ────────────────────────────────────────────────────
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 28,
   },
   logoutModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     paddingTop: 24,
     paddingBottom: 22,
@@ -963,7 +974,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     elevation: 8,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -986,14 +997,14 @@ const styles = StyleSheet.create({
   logoutModalTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#1A1A1A',
+    color: customerColors.legacy.nearBlack,
     marginBottom: 8,
     textAlign: 'center',
   },
   logoutModalSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#5F5E5A',
+    color: customerColors.palette.grey.warmMuted,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 22,
@@ -1010,27 +1021,27 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 24,
     borderWidth: 1.2,
-    borderColor: '#1E6B35',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.palette.green.fern,
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   cancelModalButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1E6B35',
+    color: customerColors.palette.green.fern,
   },
   confirmLogoutButton: {
     flex: 1,
     height: 42,
     borderRadius: 24,
-    backgroundColor: '#DC2626',
+    backgroundColor: customerColors.shared.error,
     justifyContent: 'center',
     alignItems: 'center',
   },
   confirmLogoutButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 });

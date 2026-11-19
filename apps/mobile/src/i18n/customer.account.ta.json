@@ -190,5 +190,6 @@
   "customer.onboarding.loading.titleLine2": "உங்கள் வீட்டிற்கு",
   "customer.onboarding.welcome.getStarted": "தொடங்குங்கள்",
   "customer.onboarding.welcome.next": "அடுத்த படி",
-  "customer.onboarding.welcome.slide": "ஸ்லைடு {{number}}"
+  "customer.onboarding.welcome.slide": "ஸ்லைடு {{number}}",
+  "customer.account.filter.clear": "வடிப்பானை நீக்கு"
 }

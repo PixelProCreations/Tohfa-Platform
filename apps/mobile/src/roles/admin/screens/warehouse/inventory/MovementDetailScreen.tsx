@@ -2,16 +2,17 @@
  * Movement Detail (design M3-16, route M3S15): one stock ledger row.
  *
  * Opened from a Stock Ledger row (GET /admin/stock-ledger,
- * inventory.stock_ledger.view_own). There is no per-id ledger read, so the
- * flow hands this screen the row the user tapped (movementParam) and the
- * screen asks the server for nothing. Without a row (a deep link) it shows
- * "not found".
+ * inventory.stock_ledger.view_own). The flow hands this screen the row the
+ * user tapped (movementParam) and the screen asks the server for nothing.
+ * GET /admin/stock-ledger/{id} exists in the API but is not wired yet, so
+ * without a row (a deep link) it shows "not found".
  *
  * Read-only by design: the ledger is append-only (BR-37). The fields are the
- * ones the row carries (movementDetailRows); the movement code, the
- * from / to warehouse pair and the performer's name are not in the API and
- * are not drawn. The sample timeline, photo and voucher of the old design
- * screens had no data behind them and are gone.
+ * ones the row carries (movementDetailRows), including the recorder's and the
+ * adjustment approver's names (BR-130); the movement code and the from / to
+ * warehouse pair are not in the API and are not drawn. The sample timeline,
+ * photo and voucher of the old design screens had no data behind them and are
+ * gone.
  */
 import React from 'react';
 import { ScrollView } from 'react-native';

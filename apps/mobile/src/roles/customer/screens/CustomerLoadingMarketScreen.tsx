@@ -29,35 +29,35 @@ const DetailedCeleryHerbIcon = () => (
     {/* Central and side stems */}
     <Path
       d="M18 31V16M18 24C14 20 10 19 8 16M18 21C22 18 26 17 28 14"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={1.8}
       strokeLinecap="round"
     />
     {/* Top ruffled leaf cluster */}
     <Path
       d="M18 16C16 13 14 10 15 7C17 5 19 6 18 9C20 6 23 7 22 10C21 13 19 14 18 16Z"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={1.6}
       strokeLinejoin="round"
-      fill="#C8E6C9"
+      fill={customerColors.palette.green.leafTint}
       fillOpacity={0.6}
     />
     {/* Left leaf cluster */}
     <Path
       d="M8 16C6 14 5 11 7 9C9 8 10 10 10 12C11 9 14 10 13 13C12 15 10 16 8 16Z"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={1.5}
       strokeLinejoin="round"
-      fill="#C8E6C9"
+      fill={customerColors.palette.green.leafTint}
       fillOpacity={0.5}
     />
     {/* Right leaf cluster */}
     <Path
       d="M28 14C30 12 31 9 29 7C27 6 26 8 26 10C25 7 22 8 23 11C24 13 26 14 28 14Z"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={1.5}
       strokeLinejoin="round"
-      fill="#C8E6C9"
+      fill={customerColors.palette.green.leafTint}
       fillOpacity={0.5}
     />
   </Svg>
@@ -67,30 +67,30 @@ const DetailedCeleryHerbIcon = () => (
 const DetailedOrangeWithSliceIcon = () => (
   <Svg width={46} height={46} viewBox="0 0 46 46" fill="none">
     {/* Orange body */}
-    <Circle cx={19} cy={26} r={14} stroke="#2E7D32" strokeWidth={2.2} />
+    <Circle cx={19} cy={26} r={14} stroke={customerColors.primary} strokeWidth={2.2} />
     {/* Leaf at top */}
     <Path
       d="M19 12C20 8 24 6 28 7C28 11 25 14 21 13"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      fill="#81C784"
+      fill={customerColors.palette.green.sprout}
     />
-    <Path d="M21 13L25 9.5" stroke="#2E7D32" strokeWidth={1.4} strokeLinecap="round" />
+    <Path d="M21 13L25 9.5" stroke={customerColors.primary} strokeWidth={1.4} strokeLinecap="round" />
 
     {/* Sliced citrus wedge on right */}
     <Path
       d="M25 21C33 22 38 27 37 35C30 36 24 31 25 21Z"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2.2}
       strokeLinejoin="round"
-      fill="#E8F5E9"
+      fill={customerColors.shared.primaryLight}
     />
     {/* Pulp segment lines inside wedge */}
     <Path
       d="M27 24C31 25 35 29 34 33M28 27L32 30M30 25L33 28"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={1.5}
       strokeLinecap="round"
     />
@@ -102,7 +102,7 @@ const DetailedEggIcon = () => (
   <Svg width={36} height={36} viewBox="0 0 36 36" fill="none">
     <Path
       d="M18 5C13 5 9 12 9 20C9 26 13 31 18 31C23 31 27 26 27 20C27 12 23 5 18 5Z"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -197,7 +197,7 @@ export const CustomerLoadingMarketScreen: React.FC<CustomerLoadingMarketScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     alignItems: 'center',
     justifyContent: 'center',
     paddingBottom: 40,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   decorativeLine: {
     width: 36,
     height: 2,
-    backgroundColor: '#4CAF50',
+    backgroundColor: customerColors.legacy.greenMid,
     marginHorizontal: 12,
     borderRadius: 1,
   },
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 18,
-    backgroundColor: 'rgba(232, 245, 233, 0.45)',
+    backgroundColor: customerColors.overlay.mintVeil45,
     alignItems: 'center',
     justifyContent: 'center',
     opacity: 0.35,
@@ -271,10 +271,10 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2E7D32',
+    shadowColor: customerColors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontFamily: customerFonts.regular,
     fontSize: 16,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     textAlign: 'center',
     letterSpacing: 0.2,
   },

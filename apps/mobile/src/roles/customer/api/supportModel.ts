@@ -64,6 +64,22 @@ export interface CreateCustomerTicketRequest {
   photoUploadIds?: string[];
 }
 
+/**
+ * Stable fingerprint of a create-ticket body, for its Idempotency-Key (BR-212):
+ * the same body (a retry of the same submit) maps to the same key, while any
+ * edit changes the fingerprint and so gets a fresh key. Fields are listed in a
+ * fixed order so the result does not depend on how the body object was built.
+ */
+export function supportTicketFingerprint(body: CreateCustomerTicketRequest): string {
+  return JSON.stringify([
+    body.category ?? null,
+    body.subject,
+    body.description,
+    body.orderId ?? null,
+    body.photoUploadIds ?? [],
+  ]);
+}
+
 /** API limits (CreateCustomerTicketRequest / messages body). */
 export const MAX_TICKET_PHOTOS = 5;
 export const SUBJECT_MAX = 250;
@@ -231,8 +247,8 @@ export function deriveTimeline(ticket: Pick<CustomerTicketDetail, 'status' | 'cr
 }
 
 /** Thread newest first (the "Request Updates" list). */
-export function sortMessagesNewestFirst(messages: readonly CustomerTicketMessage[]): CustomerTicketMessage[] {
-  return [...messages].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+export function sortMessagesNewestFirst(messages: readonly CustomerTicketMessage[] | undefined): CustomerTicketMessage[] {
+  return [...(messages ?? [])].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 }
 
 /** Composer is hidden for terminal tickets the API refuses or that make no sense to reply to. */

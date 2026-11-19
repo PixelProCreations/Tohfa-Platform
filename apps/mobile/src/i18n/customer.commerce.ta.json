@@ -80,7 +80,7 @@
   "customer.cart.screen.mode.home": "வீட்டு டெலிவரி",
   "customer.cart.screen.mode.pickup": "நேரடி பிக்-அப்",
   "customer.cart.screen.mode.title": "டெலிவரி முறையைத் தேர்ந்தெடுக்கவும்",
-  "customer.cart.screen.mode.yourNear": "உங்களுக்கு அருகில் ",
+  "customer.cart.screen.mode.yourNear": "அருகில்: ",
   "customer.cart.screen.noStock": "இருப்பு இல்லை",
   "customer.cart.screen.onlyLeft": "{{qty}} மட்டுமே உள்ளது",
   "customer.cart.screen.oos.body": "செக்அவுட்டுக்கு முன் இருப்பு இல்லாத பொருட்களை நீக்கவும்.",

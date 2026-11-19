@@ -166,6 +166,10 @@ export interface InvoiceTaxRow {
 export interface InvoiceDetailView extends InvoiceRow {
   /** The order uuid the invoice names (Invoice.orderId), or null; never shown, only matched (invoiceOrderContext). */
   orderId: string | null;
+  /** InvoiceDetail.buyerName (BR-128); null when the server sent none. */
+  buyerName: string | null;
+  /** InvoiceDetail.buyerGstin (BR-128); null when none is stored. */
+  buyerGstin: string | null;
   placeOfSupply: string | null;
   gstApplicable: boolean;
   gstInclusive: boolean;

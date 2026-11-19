@@ -26,6 +26,7 @@ import { tohfaMarketLogo } from '../assets/images';
 import { ModalCloseCrossSvg } from './ProductModals';
 import {
   customerFonts,
+  customerColors,
 } from '../theme';
 import { cartQueryKeys, reReserveCart, useCart } from '../api/cart';
 import {
@@ -66,16 +67,16 @@ interface ConfettiPiece {
 }
 
 const CONFETTI_COLORS = [
-  '#EF4444', // Red
-  '#F59E0B', // Amber / Gold
-  '#10B981', // Emerald green
-  '#3B82F6', // Blue
-  '#8B5CF6', // Purple
-  '#EC4899', // Pink
-  '#06B6D4', // Cyan
-  '#F97316', // Orange
-  '#14B8A6', // Teal
-  '#E11D48', // Crimson
+  customerColors.legacy.red, // Red
+  customerColors.legacy.amber, // Amber / Gold
+  customerColors.palette.green.emeraldBright, // Emerald green
+  customerColors.palette.blue.bright, // Blue
+  customerColors.palette.purple.iris, // Purple
+  customerColors.palette.purple.pink, // Pink
+  customerColors.palette.blue.cyan, // Cyan
+  customerColors.palette.orange.bright, // Orange
+  customerColors.palette.blue.teal, // Teal
+  customerColors.palette.red.raspberry, // Crimson
 ];
 
 const TOTAL_CONFETTI = 88;
@@ -113,7 +114,7 @@ const GENERATED_PIECES: ConfettiPiece[] = Array.from({ length: TOTAL_CONFETTI })
     peakY,
     endY,
     size,
-    color: (CONFETTI_COLORS[i % CONFETTI_COLORS.length] || '#10B981') as string,
+    color: (CONFETTI_COLORS[i % CONFETTI_COLORS.length] || customerColors.palette.green.emeraldBright) as string,
     rotation: Math.floor(Math.random() * 360),
     delay: (i % 22) * 16,
     duration: 2200 + (i % 10) * 180,
@@ -216,7 +217,7 @@ const BackArrowSvg = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -224,7 +225,7 @@ const BackArrowSvg = () => (
   </Svg>
 );
 
-const LocationPinSvg = ({ color = '#16A34A' }: { color?: string }) => (
+const LocationPinSvg = ({ color = customerColors.shared.success }: { color?: string }) => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 21C16 16.5 19 12.2 19 8.5C19 4.9 15.9 2 12 2C8.1 2 5 4.9 5 8.5C5 12.2 8 16.5 12 21Z"
@@ -241,14 +242,14 @@ const EditPencilSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <Path
       d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -258,16 +259,16 @@ const EditPencilSvg = () => (
 
 const CardHeaderSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x="2" y="5" width="20" height="14" rx="2" stroke="#16A34A" strokeWidth={2} />
-    <Path d="M2 10h20" stroke="#16A34A" strokeWidth={2} />
+    <Rect x="2" y="5" width="20" height="14" rx="2" stroke={customerColors.shared.success} strokeWidth={2} />
+    <Path d="M2 10h20" stroke={customerColors.shared.success} strokeWidth={2} />
   </Svg>
 );
 
 const WalletSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M20 12V8H6a2 2 0 01-2-2V4a2 2 0 012-2h14v6" stroke="#4B5563" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M4 6v14a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" stroke="#4B5563" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx="16" cy="14" r="1.5" fill="#4B5563" />
+    <Path d="M20 12V8H6a2 2 0 01-2-2V4a2 2 0 012-2h14v6" stroke={customerColors.neutral.neutral700} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M4 6v14a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" stroke={customerColors.neutral.neutral700} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="16" cy="14" r="1.5" fill={customerColors.neutral.neutral700} />
   </Svg>
 );
 
@@ -275,13 +276,13 @@ const CartFloatingSvg = () => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Path
       d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
-      stroke="#FFFFFF"
+      stroke={customerColors.white}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Circle cx="9" cy="21" r="1.5" fill="#FFFFFF" />
-    <Circle cx="18" cy="21" r="1.5" fill="#FFFFFF" />
+    <Circle cx="9" cy="21" r="1.5" fill={customerColors.white} />
+    <Circle cx="18" cy="21" r="1.5" fill={customerColors.white} />
   </Svg>
 );
 
@@ -482,7 +483,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         <View style={styles.addressCard}>
           <View style={styles.addressCardHeader}>
             <View style={styles.addressCardHeaderLeft}>
-              <LocationPinSvg color="#16A34A" />
+              <LocationPinSvg color={customerColors.shared.success} />
               <Text style={styles.addressCardTitle}>{isPickup ? t('customer.checkout.screen.pickupPoint') : t('customer.checkout.screen.deliveryAddress')}</Text>
               {!isPickup && address && (
                 <View style={styles.homeBadge}>
@@ -661,7 +662,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         <View style={styles.modalOverlay}>
           <View style={styles.walletModalCard}>
             <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowWalletModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
-              <ModalCloseCrossSvg size={13} color="#1F2937" />
+              <ModalCloseCrossSvg size={13} color={customerColors.neutral.neutral900} />
             </TouchableOpacity>
             <View style={styles.walletHeaderRow}>
               <View style={styles.walletIconHeader}>
@@ -707,7 +708,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 activeOpacity={0.85}
                 testID="wallet-confirm"
               >
-                {placeOrderM.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.modal.confirm')}</Text>}
+                {placeOrderM.isPending ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.modal.confirm')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -719,7 +720,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         <View style={styles.modalOverlay}>
           <View style={styles.successModalCard} testID="order-success">
             <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowSuccessModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
-              <ModalCloseCrossSvg size={13} color="#1F2937" />
+              <ModalCloseCrossSvg size={13} color={customerColors.neutral.neutral900} />
             </TouchableOpacity>
             <ScrollView style={{ maxHeight: SCREEN_HEIGHT * 0.82 }} showsVerticalScrollIndicator={false}>
               <View style={styles.successLogoHeader}>
@@ -851,7 +852,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         <View style={styles.modalOverlay}>
           <View style={styles.pickupModalCard} testID="pickup-code-modal">
             <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowPickupModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
-              <ModalCloseCrossSvg size={13} color="#1F2937" />
+              <ModalCloseCrossSvg size={13} color={customerColors.neutral.neutral900} />
             </TouchableOpacity>
             <View style={styles.successLogoHeader}>
               <Image source={tohfaMarketLogo} style={styles.successLogoImage} resizeMode="contain" />
@@ -868,7 +869,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <View>
                 <Text style={styles.pickupOrderIdText}>{order?.orderNumber}</Text>
                 <Text style={styles.pickupItemsLocationText}>
-                  {t('customer.cart.screen.itemMany', { count: order?.itemCount ?? order?.items.length ?? 0 })}{orderPoint ? ` · ${orderPoint.name}` : ''}
+                  {t('customer.cart.screen.itemMany', { count: order?.itemCount ?? (order?.items ?? []).length })}{orderPoint ? ` · ${orderPoint.name}` : ''}
                 </Text>
               </View>
               <Text style={styles.pickupPriceText}>{formatRupees(order?.totalAmount)}</Text>
@@ -907,7 +908,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF9F6',
+    backgroundColor: customerColors.palette.warm.offWhite,
   },
   header: {
     flexDirection: 'row',
@@ -915,14 +916,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 16 : 14,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -930,7 +931,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   scrollView: {
     flex: 1,
@@ -942,10 +943,10 @@ const styles = StyleSheet.create({
 
   // ── 1. DELIVERY ADDRESS CARD ──────────────────────────────────────────────
   addressCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     padding: 14,
     marginBottom: 14,
   },
@@ -963,10 +964,10 @@ const styles = StyleSheet.create({
   addressCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   homeBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
@@ -974,20 +975,20 @@ const styles = StyleSheet.create({
   homeBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#16A34A',
+    color: customerColors.shared.success,
   },
   addressCardBody: {
     paddingLeft: 4,
   },
   addressLine: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 18,
   },
   addressPhone: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginTop: 4,
   },
 
@@ -996,7 +997,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#374151',
+    backgroundColor: customerColors.neutral.neutral800,
     borderRadius: 24,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1011,7 +1012,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -1024,24 +1025,24 @@ const styles = StyleSheet.create({
   darkCartTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   darkCartViewLink: {
     fontSize: 11,
-    color: '#D1D5DB',
+    color: customerColors.neutral.neutral400,
   },
   darkCartTotal: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 
   // ── 3. PAYMENT METHOD CARD ────────────────────────────────────────────────
   paymentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     overflow: 'hidden',
     marginBottom: 16,
   },
@@ -1049,14 +1050,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FEF7EE',
+    backgroundColor: customerColors.palette.amber.peachWash,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   paymentCardTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   paymentList: {
     paddingHorizontal: 12,
@@ -1066,14 +1067,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     marginBottom: 8,
   },
   methodRowSelected: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
   },
   methodLeft: {
     flexDirection: 'row',
@@ -1083,36 +1084,36 @@ const styles = StyleSheet.create({
   methodLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   radioCircle: {
     width: 18,
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: '#9CA3AF',
+    borderColor: customerColors.neutral.neutral500,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleSelected: {
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
   },
   radioInnerDot: {
     width: 9,
     height: 9,
     borderRadius: 4.5,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
   },
 
   // ── EXPANDED SUB-SECTIONS ─────────────────────────────────────────────────
   subSectionBox: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 8,
     padding: 12,
     marginTop: -4,
     marginBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   subSectionHeaderRow: {
     flexDirection: 'row',
@@ -1123,17 +1124,17 @@ const styles = StyleSheet.create({
   subSectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   autofillHint: {
     fontSize: 11,
-    color: '#16A34A',
+    color: customerColors.shared.success,
     fontWeight: '600',
   },
   otherBankLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#16A34A',
+    color: customerColors.shared.success,
   },
   upiAppsRow: {
     flexDirection: 'row',
@@ -1147,13 +1148,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   upiAppBtnSelected: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
   },
   upiIconCircle: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -1161,7 +1162,7 @@ const styles = StyleSheet.create({
   otherUpiText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   paytmText: {
     fontSize: 9,
@@ -1170,7 +1171,7 @@ const styles = StyleSheet.create({
   },
   upiAppLabel: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
 
   // Popular banks row (Image 4)
@@ -1185,13 +1186,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginHorizontal: 3,
     borderRadius: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
   },
   popularBankCardSelected: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#16A34A',
+    backgroundColor: customerColors.shared.primaryLight,
+    borderColor: customerColors.shared.success,
   },
   bankLogoCircle: {
     width: 32,
@@ -1208,20 +1209,20 @@ const styles = StyleSheet.create({
   popularBankName: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
   },
 
   // Other bank search & list (Image 1 & 5)
   otherBanksContainer: {
     marginTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
     paddingTop: 10,
   },
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'android' ? 2 : 6,
@@ -1230,7 +1231,7 @@ const styles = StyleSheet.create({
   searchBarInput: {
     flex: 1,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginLeft: 8,
     paddingVertical: 2,
   },
@@ -1244,14 +1245,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F9FAFB',
+    borderBottomColor: customerColors.neutral.neutral50,
   },
   bankListItemRowSelected: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 6,
   },
   bankInlineProceedBtn: {
-    backgroundColor: '#2D7A47',
+    backgroundColor: customerColors.legacy.greenForest,
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
@@ -1261,7 +1262,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   bankInlineProceedBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: 'bold',
     fontSize: 13,
     letterSpacing: 0.5,
@@ -1284,7 +1285,7 @@ const styles = StyleSheet.create({
   },
   bankItemName: {
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     fontWeight: '500',
   },
   radioCircleSmall: {
@@ -1292,7 +1293,7 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#9CA3AF',
+    borderColor: customerColors.neutral.neutral500,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1300,7 +1301,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
   },
 
   // Card details inputs (Image 2)
@@ -1309,14 +1310,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingBottom: 4,
     marginBottom: 12,
   },
   cardNumberInput: {
     flex: 1,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     paddingVertical: 2,
   },
   cardDetailRow: {
@@ -1325,9 +1326,9 @@ const styles = StyleSheet.create({
   },
   cardSmallInput: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     paddingVertical: 2,
   },
 
@@ -1339,19 +1340,19 @@ const styles = StyleSheet.create({
   policyTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 4,
   },
   policyText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     lineHeight: 18,
     marginBottom: 6,
   },
   readPolicyLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 
   // ── 5. STICKY BOTTOM CHECKOUT BAR ─────────────────────────────────────────
@@ -1366,24 +1367,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'android' ? 16 : 24,
     paddingTop: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: customerColors.overlay.white95,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
   },
   bottomPillContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     paddingLeft: 16,
     paddingRight: 4,
     paddingVertical: 4,
     marginRight: 12,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1392,7 +1393,7 @@ const styles = StyleSheet.create({
   bottomPriceText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   proceedToPayBtn: {
     paddingHorizontal: 20,
@@ -1400,29 +1401,29 @@ const styles = StyleSheet.create({
     borderRadius: 24,
   },
   proceedToPayBtnActive: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
   },
   proceedToPayBtnDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral400,
   },
   proceedToPayBtnText: {
     fontSize: 13,
     fontWeight: '700',
   },
   proceedToPayBtnTextActive: {
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   proceedToPayBtnTextDisabled: {
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
   floatingCartCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 5,
@@ -1434,7 +1435,7 @@ const styles = StyleSheet.create({
   // ═══════════════════════════════════════════════════════════════════════════
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: customerColors.overlay.scrim55,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -1446,12 +1447,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000000',
+    borderColor: customerColors.neutral.neutral300,
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -1461,16 +1462,16 @@ const styles = StyleSheet.create({
   modalCloseText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
   },
 
   // ── 2ND SCREEN: PAY WITH WALLET STYLES ────────────────────────────────────
   walletModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
@@ -1486,20 +1487,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   walletModalTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   walletOrderBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 14,
     padding: 14,
     marginBottom: 14,
@@ -1513,29 +1514,29 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   walletOrderId: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   walletOrderLabel: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   walletOrderPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   walletSummaryCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     padding: 14,
     marginBottom: 16,
   },
@@ -1553,32 +1554,32 @@ const styles = StyleSheet.create({
   walletBalanceLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   walletBalanceVal: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#16A34A',
+    color: customerColors.shared.success,
   },
   walletDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     marginVertical: 8,
   },
   walletAmountLabel: {
     fontSize: 13,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   walletAmountVal: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   walletBalanceAfterBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -1587,12 +1588,12 @@ const styles = StyleSheet.create({
   walletBalanceAfterLabel: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
   },
   walletBalanceAfterVal: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
   },
   walletOtpSection: {
     marginBottom: 18,
@@ -1606,11 +1607,11 @@ const styles = StyleSheet.create({
   walletOtpTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   walletOtpSubtitle: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     lineHeight: 16,
     marginBottom: 10,
   },
@@ -1618,16 +1619,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'android' ? 4 : 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   walletOtpInput: {
     flex: 1,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginLeft: 8,
     paddingVertical: 2,
   },
@@ -1640,37 +1641,37 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1.5,
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   walletCancelBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   walletConfirmBtn: {
     flex: 1.3,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   walletConfirmBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 
   // ── 3RD SCREEN: ORDER SUCCESS MODAL STYLES ────────────────────────────────
   successModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 18,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 18,
@@ -1687,7 +1688,7 @@ const styles = StyleSheet.create({
   },
   associationSubtitle: {
     fontSize: 10,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginTop: 4,
     paddingHorizontal: 10,
@@ -1695,7 +1696,7 @@ const styles = StyleSheet.create({
   dottedDivider: {
     borderStyle: 'dashed',
     borderWidth: 0.8,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     marginVertical: 12,
   },
   orderMetaBlock: {
@@ -1708,12 +1709,12 @@ const styles = StyleSheet.create({
   },
   orderMetaLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   orderMetaValBold: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   orderItemsBlock: {
     marginBottom: 4,
@@ -1727,22 +1728,22 @@ const styles = StyleSheet.create({
   orderItemName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   orderItemSub: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 1,
   },
   orderItemPrice: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   orderProgressHeading: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 10,
   },
   progressTracker: {
@@ -1761,16 +1762,16 @@ const styles = StyleSheet.create({
   trackerNumber: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   trackerLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginTop: 4,
   },
   trackerLineActive: {
-    backgroundColor: '#16A34A',
+    backgroundColor: customerColors.shared.success,
   },
   trackerTextCol: {
     flex: 1,
@@ -1784,15 +1785,15 @@ const styles = StyleSheet.create({
   trackerTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   trackerSubtitle: {
     fontSize: 10.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
   completedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: customerColors.legacy.greenTint,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
@@ -1800,10 +1801,10 @@ const styles = StyleSheet.create({
   completedBadgeText: {
     fontSize: 9.5,
     fontWeight: 'bold',
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
   },
   inProgressBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: customerColors.palette.amber.paleTint,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 8,
@@ -1811,7 +1812,7 @@ const styles = StyleSheet.create({
   inProgressBadgeText: {
     fontSize: 9.5,
     fontWeight: 'bold',
-    color: '#B45309',
+    color: customerColors.palette.amber.bronze,
   },
   totalPaidRow: {
     flexDirection: 'row',
@@ -1823,18 +1824,18 @@ const styles = StyleSheet.create({
   totalPaidLabel: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   totalPaidAmount: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#16A34A',
+    color: customerColors.shared.success,
   },
   paidMethodBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1843,12 +1844,12 @@ const styles = StyleSheet.create({
   paidMethodText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
   },
   checkPickupBtn: {
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 4,
@@ -1856,17 +1857,17 @@ const styles = StyleSheet.create({
   checkPickupBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 
   // ── 4TH SCREEN: PICKUP CODE & QR MODAL STYLES ─────────────────────────────
   pickupModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 20,
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.25,
     shadowRadius: 18,
@@ -1875,9 +1876,9 @@ const styles = StyleSheet.create({
   qrCodeContainer: {
     marginVertical: 14,
     padding: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -1887,13 +1888,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     fontWeight: '600',
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 4,
   },
   pickupCodeNumber: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
     letterSpacing: 1.5,
     marginVertical: 8,
   },
@@ -1902,7 +1903,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -1911,23 +1912,23 @@ const styles = StyleSheet.create({
   pickupOrderIdText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   pickupItemsLocationText: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     marginTop: 2,
   },
   pickupPriceText: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   continueShoppingBtn: {
     width: '100%',
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 4,
@@ -1935,6 +1936,6 @@ const styles = StyleSheet.create({
   continueShoppingBtnText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 });

@@ -17,7 +17,7 @@ import { catalogQueryKeys, type PackUnit, type Product, type SellableGrade } fro
 import { cartQueryKeys, useAddToCart } from '../api/cart';
 import { mapProblem } from '../api/problem';
 import { clampKg, formatRupees, type Quantity } from '../utils/money';
-import { customerFonts } from '../theme';
+import { customerFonts, customerColors } from '../theme';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,8 +58,8 @@ export const HeartSvg = ({ filled = false, size = 18 }: { filled?: boolean; size
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-      fill={filled ? '#EF4444' : 'none'}
-      stroke={filled ? '#EF4444' : '#9CA3AF'}
+      fill={filled ? customerColors.legacy.red : 'none'}
+      stroke={filled ? customerColors.legacy.red : customerColors.neutral.neutral500}
       strokeWidth={1.5}
     />
   </Svg>
@@ -244,7 +244,7 @@ export function ProductCard({
                 accessibilityLabel={t('catalog.card.addA11y', { name: displayName })}
                 accessibilityState={{ disabled: adding || addDisabled || greyed, busy: adding }}
               >
-                {adding ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.addBtnText}>+</Text>}
+                {adding ? <ActivityIndicator size="small" color={customerColors.white} /> : <Text style={styles.addBtnText}>+</Text>}
               </TouchableOpacity>
             )}
           </View>
@@ -269,14 +269,14 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     height: 168,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 18,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
     justifyContent: 'space-between',
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -287,12 +287,12 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   cardComingTomorrow: {
-    backgroundColor: '#A8C4A7',
-    borderColor: '#97B896',
+    backgroundColor: customerColors.palette.green.sage,
+    borderColor: customerColors.palette.green.sageDeep,
   },
   cardUnsalable: {
-    backgroundColor: '#D1D5DB',
-    borderColor: '#CBD5E1',
+    backgroundColor: customerColors.neutral.neutral400,
+    borderColor: customerColors.palette.slate.line,
   },
   headerRow: {
     flexDirection: 'row',
@@ -306,12 +306,12 @@ const styles = StyleSheet.create({
   },
   starIcon: {
     fontSize: 11,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
   },
   ratingText: {
     fontFamily: customerFonts.bold,
     fontSize: 11,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   smallText: {
     fontSize: 9,
@@ -339,13 +339,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   imagePlaceholder: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     borderRadius: 12,
   },
   comingTomorrowBadge: {
     position: 'absolute',
     zIndex: 10,
-    backgroundColor: '#1E7E34',
+    backgroundColor: customerColors.legacy.greenDark,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   comingTomorrowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 10.5,
     fontFamily: customerFonts.bold,
   },
@@ -366,7 +366,7 @@ const styles = StyleSheet.create({
   priceBold: {
     fontFamily: customerFonts.bold,
     fontSize: 13,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginRight: 6,
   },
   priceBoldCompact: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   priceStrike: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginRight: 'auto',
   },
@@ -386,22 +386,22 @@ const styles = StyleSheet.create({
   unitText: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   addBtn: {
     marginLeft: 6,
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addBtnDisabled: {
-    backgroundColor: '#9CA3AF',
+    backgroundColor: customerColors.neutral.neutral500,
   },
   addBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontFamily: customerFonts.bold,
     fontSize: 16,
     lineHeight: 18,
@@ -409,12 +409,12 @@ const styles = StyleSheet.create({
   unavailableText: {
     fontFamily: customerFonts.regular,
     fontSize: 10,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   name: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     marginTop: 6,
     textAlign: 'center',
     width: '100%',
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 96,
-    backgroundColor: '#111827',
+    backgroundColor: customerColors.neutral.neutral950,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   noticeText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontFamily: customerFonts.regular,
     fontSize: 13,
     textAlign: 'center',

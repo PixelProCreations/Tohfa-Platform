@@ -55,7 +55,7 @@ export interface OrderTrackingScreenProps {
 }
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -67,7 +67,7 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const ModalCloseCrossSvg = ({ size = 14, color = '#1F2937' }: { size?: number; color?: string }) => (
+const ModalCloseCrossSvg = ({ size = 14, color = customerColors.neutral.neutral900 }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
@@ -79,7 +79,7 @@ const ModalCloseCrossSvg = ({ size = 14, color = '#1F2937' }: { size?: number; c
   </Svg>
 );
 
-const ShareNodesSvg = ({ color = '#2E7D32', size = 22 }: { color?: string; size?: number }) => (
+const ShareNodesSvg = ({ color = customerColors.primary, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx="18" cy="5" r="3" stroke={color} strokeWidth={2} />
     <Circle cx="6" cy="12" r="3" stroke={color} strokeWidth={2} />
@@ -93,7 +93,7 @@ const ShareNodesSvg = ({ color = '#2E7D32', size = 22 }: { color?: string; size?
   </Svg>
 );
 
-const DownloadTraySvg = ({ color = '#2E7D32', size = 22 }: { color?: string; size?: number }) => (
+const DownloadTraySvg = ({ color = customerColors.primary, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 4v12m0 0l-4-4m4 4l4-4M4 18h16"
@@ -105,7 +105,7 @@ const DownloadTraySvg = ({ color = '#2E7D32', size = 22 }: { color?: string; siz
   </Svg>
 );
 
-const HeadsetSupportSvg = ({ color = '#2E7D32', size = 22 }: { color?: string; size?: number }) => (
+const HeadsetSupportSvg = ({ color = customerColors.primary, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M4 14v-3a8 8 0 0116 0v3M4 14a2 2 0 002 2h1a1 1 0 001-1v-4a1 1 0 00-1-1H6a2 2 0 00-2 2zm16 0a2 2 0 01-2 2h-1a1 1 0 01-1-1v-4a1 1 0 011-1h1a2 2 0 012 2zm-8 4v2m-3 0h6"
@@ -117,7 +117,7 @@ const HeadsetSupportSvg = ({ color = '#2E7D32', size = 22 }: { color?: string; s
   </Svg>
 );
 
-const StarReviewSvg = ({ color = '#F59E0B', size = 22 }: { color?: string; size?: number }) => (
+const StarReviewSvg = ({ color = customerColors.legacy.amber, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
@@ -129,7 +129,7 @@ const StarReviewSvg = ({ color = '#F59E0B', size = 22 }: { color?: string; size?
   </Svg>
 );
 
-const PackageBoxSvg = ({ color = '#D97706', size = 22 }: { color?: string; size?: number }) => (
+const PackageBoxSvg = ({ color = customerColors.shared.warning, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2l9 5-9 5-9-5 9-5zm0 10l9-5v10l-9 5-9-5V7l9 5z"
@@ -142,7 +142,7 @@ const PackageBoxSvg = ({ color = '#D97706', size = 22 }: { color?: string; size?
   </Svg>
 );
 
-const CartActionSvg = ({ color = '#2E7D32', size = 22 }: { color?: string; size?: number }) => (
+const CartActionSvg = ({ color = customerColors.primary, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 3h2l2 12h11l2-8H6"
@@ -173,8 +173,8 @@ const TelegramSvg = () => (
 );
 
 const MessageSvg = () => (
-  <View style={[styles.socialIconCircle, { backgroundColor: '#2E7D32' }]}>
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="#FFFFFF">
+  <View style={[styles.socialIconCircle, { backgroundColor: customerColors.primary }]}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill={customerColors.white}>
       <Path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z" />
     </Svg>
   </View>
@@ -189,8 +189,8 @@ const EmailSvg = () => (
 );
 
 const MoreSvg = () => (
-  <View style={[styles.socialIconCircle, { backgroundColor: '#E5E7EB' }]}>
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="#4B5563">
+  <View style={[styles.socialIconCircle, { backgroundColor: customerColors.neutral.neutral300 }]}>
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill={customerColors.neutral.neutral700}>
       <Circle cx="5" cy="12" r="2" />
       <Circle cx="12" cy="12" r="2" />
       <Circle cx="19" cy="12" r="2" />
@@ -598,7 +598,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>{t('customer.orders.tracking.actions')}</Text>
         <View style={styles.actionsGrid}>
           <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => onNavigate?.('ContactSupport', { orderId: order.id, orderNumber: order.orderNumber })}>
-            <HeadsetSupportSvg color="#2E7D32" size={22} />
+            <HeadsetSupportSvg color={customerColors.primary} size={22} />
             <Text style={styles.actionLabel}>{t('customer.orders.tracking.contactSupport')}</Text>
           </TouchableOpacity>
 
@@ -609,25 +609,25 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
               testID="action-review"
               onPress={() => onNavigate?.('ReviewFeedback', { orderId: order.id })}
             >
-              <StarReviewSvg color="#F59E0B" size={22} />
+              <StarReviewSvg color={customerColors.legacy.amber} size={22} />
               <Text style={styles.actionLabel}>{reviewQuery.data ? t('customer.orders.tracking.yourReview', { rating: reviewQuery.data.rating }) : t('customer.orders.tracking.writeReview')}</Text>
             </TouchableOpacity>
           )}
 
           {isReturnEligible(status) && (
             <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} testID="action-return" onPress={() => onNavigate?.('ReturnOrder', { orderId: order.id })}>
-              <PackageBoxSvg color="#D97706" size={22} />
+              <PackageBoxSvg color={customerColors.shared.warning} size={22} />
               <Text style={styles.actionLabel}>{t('customer.orders.tracking.returnOrder')}</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} testID="action-reorder" disabled={reorderM.isPending} onPress={() => void handleReorder()}>
-            {reorderM.isPending ? <ActivityIndicator /> : <CartActionSvg color="#2E7D32" size={22} />}
+            {reorderM.isPending ? <ActivityIndicator /> : <CartActionSvg color={customerColors.primary} size={22} />}
             <Text style={styles.actionLabel}>{t('customer.orders.tracking.buyAgain')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => setShowShareModal(true)}>
-            <ShareNodesSvg color="#2E7D32" size={22} />
+            <ShareNodesSvg color={customerColors.primary} size={22} />
             <Text style={styles.actionLabel}>{t('customer.orders.tracking.shareOrder')}</Text>
           </TouchableOpacity>
 
@@ -638,7 +638,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
             testID="action-invoice"
             onPress={() => setShowInvoiceModal(true)}
           >
-            <DownloadTraySvg color="#2E7D32" size={22} />
+            <DownloadTraySvg color={customerColors.primary} size={22} />
             <Text style={styles.actionLabel}>{order.invoiceId ? t('customer.orders.tracking.downloadInvoice') : t('customer.orders.tracking.invoiceNotReady')}</Text>
           </TouchableOpacity>
         </View>
@@ -674,10 +674,10 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
           <View style={styles.modalCardContainer}>
             <View style={styles.shareModalCard}>
               <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowShareModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <ModalCloseCrossSvg size={14} color="#1F2937" />
+                <ModalCloseCrossSvg size={14} color={customerColors.neutral.neutral900} />
               </TouchableOpacity>
               <View style={styles.largeIconCircle}>
-                <ShareNodesSvg color="#2E7D32" size={30} />
+                <ShareNodesSvg color={customerColors.primary} size={30} />
               </View>
               <Text style={styles.modalEditorialTitle}>{t('customer.orders.tracking.shareOrder')}</Text>
               <Text style={styles.modalSubtitle}>{t('customer.orders.tracking.shareSub')}</Text>
@@ -753,16 +753,16 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
           <View style={styles.modalCardContainer}>
             <View style={styles.downloadInvoiceModalCard} testID="invoice-modal">
               <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowInvoiceModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <ModalCloseCrossSvg size={14} color="#1F2937" />
+                <ModalCloseCrossSvg size={14} color={customerColors.neutral.neutral900} />
               </TouchableOpacity>
               <View style={styles.largeIconCircle}>
-                <DownloadTraySvg color="#2E7D32" size={30} />
+                <DownloadTraySvg color={customerColors.primary} size={30} />
               </View>
               <Text style={styles.modalEditorialTitle}>{t('customer.orders.tracking.downloadInvoice')}</Text>
               <Text style={styles.modalSubtitle}>{t('customer.orders.tracking.downloadSub')}</Text>
               <View style={styles.orderIdBannerCard}>
                 <View style={styles.orderBagCircle}>
-                  <CartActionSvg color="#2E7D32" size={18} />
+                  <CartActionSvg color={customerColors.primary} size={18} />
                 </View>
                 <View>
                   <Text style={styles.orderIdBannerTitle}>{t('customer.orders.tracking.orderIdLine', { id: order.orderNumber })}</Text>
@@ -789,7 +789,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                 >
                   <View style={styles.miniInvoiceHeader}>
                     <View>
-                      <Text style={styles.miniInvoiceBrand}>TOHFA Market</Text>
+                      <Text style={styles.miniInvoiceBrand}>{invoice.seller.legalName || t('customer.orders.tracking.sellerFallbackName')}</Text>
                       {!!invoice.buyerName && <Text style={styles.miniInvoiceMeta}>{invoice.buyerName}</Text>}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
@@ -815,7 +815,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity style={styles.downloadPdfBtn} activeOpacity={0.85} onPress={() => void handleDownloadInvoice()} disabled={downloading} testID="invoice-download">
-                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.downloadPdf')}</Text>}
+                {downloading ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.downloadPdf')}</Text>}
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.closeBtnOutlined}
@@ -835,13 +835,13 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         </View>
       </Modal>
 
-      {/* ═══ VIEW INVOICE (46:41607): InvoiceDetail; seller GSTIN/legal name not in the API ═══ */}
+      {/* ═══ VIEW INVOICE (46:41607): InvoiceDetail, incl. BR-211 seller block ═══ */}
       <Modal visible={showFullInvoiceModal} transparent animationType="fade" onRequestClose={() => setShowFullInvoiceModal(false)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.invoiceModalCard} testID="invoice-full">
               <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowFullInvoiceModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <ModalCloseCrossSvg size={14} color="#1F2937" />
+                <ModalCloseCrossSvg size={14} color={customerColors.neutral.neutral900} />
               </TouchableOpacity>
               <Text style={styles.invoiceModalTitle}>{t('customer.orders.tracking.invoice')}</Text>
               <ScrollView style={styles.invoiceDocScrollView} contentContainerStyle={styles.invoiceDocScrollContent} showsVerticalScrollIndicator={false}>
@@ -850,9 +850,11 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                     <View style={styles.invHeaderBox}>
                       <View style={styles.invBrandCol}>
                         <View style={styles.invLogoRow}>
-                          <Text style={styles.invBrandTohfa}>TOHFA </Text>
-                          <Text style={styles.invBrandMarket}>Market</Text>
+                          <Text style={styles.invBrandTohfa}>{invoice.seller.legalName || t('customer.orders.tracking.sellerFallbackName')}</Text>
                         </View>
+                        {!!invoice.seller.address && <Text style={styles.invMetaText}>{invoice.seller.address}</Text>}
+                        {!!invoice.seller.gstin && <Text style={styles.invMetaText}>{t('customer.orders.tracking.gstin', { value: invoice.seller.gstin })}</Text>}
+                        {!!invoice.seller.stateCode && <Text style={styles.invMetaText}>{t('customer.orders.tracking.sellerStateCode', { value: invoice.seller.stateCode })}</Text>}
                         {!!invoice.placeOfSupply && <Text style={styles.invMetaText}>{t('customer.orders.tracking.placeOfSupply', { value: invoice.placeOfSupply })}</Text>}
                       </View>
                       <View style={styles.invTaxCol}>
@@ -924,7 +926,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                 )}
               </ScrollView>
               <TouchableOpacity style={styles.downloadPdfBtn} activeOpacity={0.85} onPress={() => void handleDownloadInvoice()} disabled={downloading} testID="invoice-full-download">
-                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.downloadPdf')}</Text>}
+                {downloading ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.downloadPdf')}</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={styles.closeBtnOutlined} activeOpacity={0.85} onPress={() => setShowFullInvoiceModal(false)}>
                 <Text style={styles.closeBtnOutlinedText}>{t('customer.common.close')}</Text>
@@ -940,7 +942,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
           <View style={styles.modalCardContainer}>
             <View style={styles.qrModalCard} testID="qr-modal">
               <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowQrModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <ModalCloseCrossSvg size={14} color="#1F2937" />
+                <ModalCloseCrossSvg size={14} color={customerColors.neutral.neutral900} />
               </TouchableOpacity>
               <Text style={styles.modalEditorialTitle}>{t('customer.orders.tracking.qrTitle')}</Text>
               <Text style={styles.modalSubtitle}>{t('customer.orders.tracking.qrSub')}</Text>
@@ -995,7 +997,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1003,7 +1005,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -1015,14 +1017,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
   },
   scrollView: {
@@ -1036,9 +1038,9 @@ const styles = StyleSheet.create({
   // Top Product Card
   topProductCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: customerColors.palette.grey.smoke,
     borderRadius: 16,
     padding: 14,
     alignItems: 'center',
@@ -1049,7 +1051,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 12,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: customerColors.palette.grey.paper,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1069,13 +1071,13 @@ const styles = StyleSheet.create({
   productTitleText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     flex: 1,
   },
   productPriceText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   productMetaRow: {
     flexDirection: 'row',
@@ -1085,19 +1087,19 @@ const styles = StyleSheet.create({
   starRatingText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
   },
   reviewsCountText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   bagWeightText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   productTaglineText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
 
@@ -1110,7 +1112,7 @@ const styles = StyleSheet.create({
   },
   deliveryStatesLabel: {
     fontSize: 18,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
   },
   deliveryStatesRight: {
@@ -1119,10 +1121,10 @@ const styles = StyleSheet.create({
   },
   deliveryDateText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   arriveTomorrowPill: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 2,
@@ -1130,12 +1132,12 @@ const styles = StyleSheet.create({
   arriveTomorrowPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 
   dashedDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     borderStyle: 'dashed',
     marginVertical: 14,
   },
@@ -1143,7 +1145,7 @@ const styles = StyleSheet.create({
   // Order Summary
   sectionHeaderTitle: {
     fontSize: 19,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     marginBottom: 10,
   },
@@ -1157,11 +1159,11 @@ const styles = StyleSheet.create({
   },
   summaryKey: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   summaryVal: {
     fontSize: 13,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontWeight: '500',
   },
   pickupCodeRow: {
@@ -1171,7 +1173,7 @@ const styles = StyleSheet.create({
   viewQrLink: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
     textDecorationLine: 'underline',
   },
   addressValCol: {
@@ -1180,12 +1182,12 @@ const styles = StyleSheet.create({
   },
   addressPhoneText: {
     fontSize: 12,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontWeight: '600',
   },
   addressBodyText: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     textAlign: 'right',
     lineHeight: 16,
   },
@@ -1202,17 +1204,17 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   itemUnitRate: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
   itemAmount: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
 
   totalPaidRow: {
@@ -1224,12 +1226,12 @@ const styles = StyleSheet.create({
   totalPaidLabel: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   totalPaidAmount: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 
   // Timeline Stepper
@@ -1249,23 +1251,23 @@ const styles = StyleSheet.create({
   stepNumber: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   stepNumberMuted: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
   timelineLineActive: {
     width: 2,
     flex: 1,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     marginTop: 4,
   },
   timelineLineMuted: {
     width: 2,
     flex: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginTop: 4,
   },
   timelineRightCol: {
@@ -1279,38 +1281,38 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   stepTitleMuted: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
   completedPill: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
   completedPillText: {
     fontSize: 10,
-    color: '#2E7D32',
+    color: customerColors.primary,
     fontWeight: '600',
   },
   inProgressPill: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: customerColors.palette.amber.paleTint,
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 1,
   },
   inProgressPillText: {
     fontSize: 10,
-    color: '#D97706',
+    color: customerColors.shared.warning,
     fontWeight: '600',
   },
   stepSubtitle: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
 
@@ -1323,9 +1325,9 @@ const styles = StyleSheet.create({
   },
   actionCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 8,
@@ -1334,7 +1336,7 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     fontSize: 12,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontWeight: '500',
     marginTop: 8,
     textAlign: 'center',
@@ -1352,7 +1354,7 @@ const styles = StyleSheet.create({
   forYouCard: {
     width: 130,
     height: 150,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     borderRadius: 16,
     padding: 10,
     justifyContent: 'space-between',
@@ -1368,11 +1370,11 @@ const styles = StyleSheet.create({
   },
   forYouStar: {
     fontSize: 12,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
   },
   forYouRatingText: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     fontWeight: '600',
   },
   forYouHeartBtn: {
@@ -1395,20 +1397,20 @@ const styles = StyleSheet.create({
   forYouPriceBold: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   forYouPriceStrike: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
   },
   forYouUnitText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   forYouProductName: {
     fontSize: 12,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontWeight: '500',
     marginTop: 6,
     textAlign: 'center',
@@ -1417,7 +1419,7 @@ const styles = StyleSheet.create({
   // ── MODAL COMMON STYLES ──────────────────────────────────────────────────
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: customerColors.overlay.scrim55,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -1434,14 +1436,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 30,
     elevation: 6,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -1450,7 +1452,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
@@ -1458,13 +1460,13 @@ const styles = StyleSheet.create({
   },
   modalEditorialTitle: {
     fontSize: 22,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     textAlign: 'center',
   },
   modalSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 14,
@@ -1472,15 +1474,15 @@ const styles = StyleSheet.create({
 
   // ── POPUP 1: SHARE ORDER DETAILS STYLES ──────────────────────────────────
   shareModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 18,
     position: 'relative',
   },
   receiptContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     paddingHorizontal: 14,
@@ -1495,7 +1497,7 @@ const styles = StyleSheet.create({
   },
   receiptOrderDetailsHeader: {
     fontSize: 15,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     textAlign: 'center',
     marginBottom: 8,
@@ -1508,26 +1510,26 @@ const styles = StyleSheet.create({
   },
   receiptKey: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   receiptVal: {
     fontSize: 12,
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   receiptValBold: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   receiptTotalPaid: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   receiptPickupBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 8,
     padding: 8,
     gap: 8,
@@ -1535,12 +1537,12 @@ const styles = StyleSheet.create({
   },
   receiptPickupSub: {
     fontSize: 10,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   receiptPickupTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   receiptItemsList: {
     gap: 6,
@@ -1557,13 +1559,13 @@ const styles = StyleSheet.create({
   },
   receiptItemTitle: {
     fontSize: 12,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     flex: 1,
   },
   receiptItemPrice: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   scallopEdgeContainer: {
     flexDirection: 'row',
@@ -1575,14 +1577,14 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     marginBottom: -8,
   },
   shareOptionsHeader: {
     fontSize: 15,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     marginTop: 12,
     marginBottom: 8,
@@ -1606,12 +1608,12 @@ const styles = StyleSheet.create({
   },
   socialBtnLabel: {
     fontSize: 10,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
 
   // ── POPUP 2A: DOWNLOAD INVOICE STYLES (MATCHING 1ST SCREEN) ─────────────
   downloadInvoiceModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 18,
     position: 'relative',
@@ -1620,7 +1622,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
     padding: 10,
     gap: 12,
@@ -1630,30 +1632,30 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
   orderIdBannerTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   orderIdBannerSub: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   invoiceSectionTitle: {
     fontSize: 16,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     textAlign: 'center',
     marginBottom: 8,
   },
   miniInvoicePreview: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: customerColors.palette.warm.cream,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 8,
     padding: 10,
     marginBottom: 14,
@@ -1662,27 +1664,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
     paddingBottom: 6,
     marginBottom: 6,
   },
   miniInvoiceBrand: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   miniInvoiceMeta: {
     fontSize: 8,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   miniInvoiceInvNo: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   miniInvoiceTableHead: {
     flexDirection: 'row',
-    backgroundColor: '#2D6A4F',
+    backgroundColor: customerColors.legacy.greenPine,
     paddingVertical: 3,
     paddingHorizontal: 4,
     borderRadius: 2,
@@ -1691,7 +1693,7 @@ const styles = StyleSheet.create({
   miniInvoiceColHead: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
     flex: 1,
   },
   miniInvoiceRow: {
@@ -1701,13 +1703,13 @@ const styles = StyleSheet.create({
   },
   miniInvoiceCell: {
     fontSize: 8,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     flex: 1,
   },
 
   // ── POPUP 2B: FULL INVOICE VIEW STYLES (MATCHING 2ND SCREEN) ─────────────
   invoiceModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 18,
     position: 'relative',
@@ -1715,7 +1717,7 @@ const styles = StyleSheet.create({
   },
   invoiceModalTitle: {
     fontSize: 24,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     textAlign: 'center',
     marginBottom: 10,
@@ -1728,12 +1730,12 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   invoiceDocumentCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 6,
     padding: 10,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -1742,9 +1744,9 @@ const styles = StyleSheet.create({
   invHeaderBox: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#FDFBF7',
+    backgroundColor: customerColors.palette.warm.eggshell,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     padding: 8,
     borderRadius: 4,
     marginBottom: 10,
@@ -1761,17 +1763,11 @@ const styles = StyleSheet.create({
   invBrandTohfa: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#1B4332',
-  },
-  invBrandMarket: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#B45309',
-    fontStyle: 'italic',
+    color: customerColors.palette.green.deepForest,
   },
   invMetaText: {
     fontSize: 8,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 11,
   },
   invTaxCol: {
@@ -1781,25 +1777,25 @@ const styles = StyleSheet.create({
   invTaxInvoiceTitle: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 2,
   },
   invTaxMeta: {
     fontSize: 8,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 11,
   },
   invAddressTable: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 4,
     marginBottom: 10,
   },
   invAddressColLeft: {
     flex: 1,
     borderRightWidth: 1,
-    borderRightColor: '#E5E7EB',
+    borderRightColor: customerColors.neutral.neutral300,
     padding: 6,
   },
   invAddressColRight: {
@@ -1809,36 +1805,36 @@ const styles = StyleSheet.create({
   invAddressHead: {
     fontSize: 8,
     fontWeight: '800',
-    color: '#1B4332',
+    color: customerColors.palette.green.deepForest,
     marginBottom: 3,
   },
   invCustomerBold: {
     fontSize: 8.5,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     lineHeight: 11,
   },
   invAddressLine: {
     fontSize: 8,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 11,
   },
   invOrderItemsHeader: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#1B4332',
+    color: customerColors.palette.green.deepForest,
     marginBottom: 4,
   },
   invItemsTable: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 10,
   },
   invItemsTableHead: {
     flexDirection: 'row',
-    backgroundColor: '#1E5128',
+    backgroundColor: customerColors.palette.green.hunter,
     paddingVertical: 4,
     paddingHorizontal: 6,
     alignItems: 'center',
@@ -1846,19 +1842,19 @@ const styles = StyleSheet.create({
   invTh: {
     fontSize: 8,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   invItemRow: {
     flexDirection: 'row',
     paddingVertical: 4,
     paddingHorizontal: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
     alignItems: 'center',
   },
   invTd: {
     fontSize: 8,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
   },
   invSubtotalBlock: {
     alignItems: 'flex-end',
@@ -1873,35 +1869,35 @@ const styles = StyleSheet.create({
   },
   invSubtotalKey: {
     fontSize: 8,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   invSubtotalVal: {
     fontSize: 8,
     fontWeight: '600',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     minWidth: 46,
     textAlign: 'right',
   },
   invSubtotalDivider: {
     width: 140,
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginVertical: 3,
   },
   invGrandTotalKey: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#1B4332',
+    color: customerColors.palette.green.deepForest,
   },
   invGrandTotalVal: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#1B4332',
+    color: customerColors.palette.green.deepForest,
     minWidth: 46,
     textAlign: 'right',
   },
   invPaymentBox: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 4,
     padding: 6,
     marginBottom: 8,
@@ -1909,7 +1905,7 @@ const styles = StyleSheet.create({
   invPaymentHeading: {
     fontSize: 8,
     fontWeight: '800',
-    color: '#1B4332',
+    color: customerColors.palette.green.deepForest,
     marginBottom: 2,
   },
   invPaymentRow: {
@@ -1919,18 +1915,18 @@ const styles = StyleSheet.create({
   },
   invPaymentText: {
     fontSize: 7.5,
-    color: '#2E7D32',
+    color: customerColors.primary,
     fontWeight: '600',
   },
   invDisclaimerText: {
     fontSize: 7,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     lineHeight: 9.5,
     marginBottom: 6,
   },
   invThankYouText: {
     fontSize: 7.5,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     textAlign: 'center',
     lineHeight: 10,
     marginBottom: 6,
@@ -1939,15 +1935,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
     paddingTop: 4,
   },
   invFooterMeta: {
     fontSize: 7,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
   downloadPdfBtn: {
-    backgroundColor: '#2D6A4F',
+    backgroundColor: customerColors.legacy.greenPine,
     height: 46,
     borderRadius: 23,
     justifyContent: 'center',
@@ -1955,14 +1951,14 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   downloadPdfBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: '700',
     fontSize: 14,
   },
   closeBtnOutlined: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1.2,
-    borderColor: '#2D6A4F',
+    borderColor: customerColors.legacy.greenPine,
     height: 46,
     borderRadius: 23,
     justifyContent: 'center',
@@ -1970,14 +1966,14 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   closeBtnOutlinedText: {
-    color: '#2D6A4F',
+    color: customerColors.legacy.greenPine,
     fontWeight: '700',
     fontSize: 14,
   },
   invoiceInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 12,
     padding: 10,
     gap: 8,
@@ -1987,25 +1983,25 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 1.2,
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   infoIconText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   invoiceInfoText: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     flex: 1,
     lineHeight: 15,
   },
 
   // ── POPUP 3: PICKUP QR CODE MODAL ────────────────────────────────────────
   qrModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 20,
     alignItems: 'center',
@@ -2013,10 +2009,10 @@ const styles = StyleSheet.create({
   },
   qrImageFrame: {
     padding: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     marginVertical: 12,
   },
   qrImage: {
@@ -2024,7 +2020,7 @@ const styles = StyleSheet.create({
     height: 180,
   },
   pickupCodeBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
@@ -2033,12 +2029,12 @@ const styles = StyleSheet.create({
   pickupCodeText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
     letterSpacing: 1,
   },
   qrOrderSubtitle: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 6,
   },
 });

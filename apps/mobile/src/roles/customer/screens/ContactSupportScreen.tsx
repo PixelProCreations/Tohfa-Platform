@@ -91,7 +91,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   const insets = useSafeAreaInsets();
   // The old in-screen 'review' tab (demo SAMPLE_REVIEW_ITEMS, fake submit) is gone: order reviews
   // live in ReviewFeedbackScreen (POST /orders/{id}/review). A stale 'review' param opens 'order'.
-  const [relatedTo, setRelatedTo] = useState<SupportCategory>(
+  const [relatedTo, setRelatedTo] = useState<RelatedCategory>(
     initialTab === undefined || initialTab === 'review' ? 'order' : initialTab,
   );
   const ordersQuery = useSupportOrders();
@@ -178,7 +178,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
     ctaButtonText = t('customer.contact.cta.submit');
   }
 
-  const handleSelectRelated = (tabId: SupportCategory) => {
+  const handleSelectRelated = (tabId: RelatedCategory) => {
     setRelatedTo(tabId);
     setSubmitError(null);
     if (tabId === 'product') {
@@ -217,7 +217,8 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
     } catch (err) {
       const e = mapProblem(err);
       if (e.silent) return;
-      // POST /support/tickets has no Idempotency-Key: after a lost response the ticket may exist.
+      // After a lost response the ticket may exist. Resubmitting the unchanged form reuses the
+      // attempt's Idempotency-Key (BR-212), so the server replays that ticket instead of duplicating it.
       const unsure = err instanceof NetworkError;
       setSubmitError(unsure ? t('customer.contact.submitUnsure', { message: e.message }) : e.message);
     }
@@ -289,7 +290,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                 activeOpacity={0.8}
                 accessibilityLabel={t('customer.contact.relatedToA11y', { label: tab.label })}
               >
-                <IconComp color={isSelected ? '#2E7D32' : '#6B7280'} size={18} />
+                <IconComp color={isSelected ? customerColors.primary : customerColors.neutral.neutral600} size={18} />
                 <Text style={[styles.relatedTabText, isSelected && styles.relatedTabTextSelected]}>
                   {tab.label}
                 </Text>
@@ -306,7 +307,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
               <ActivityIndicator accessibilityLabel={t('customer.contact.ordersLoading')} />
             ) : ordersQuery.isError ? (
               <TouchableOpacity onPress={() => void ordersQuery.refetch()} accessibilityLabel={t('customer.contact.ordersRetryA11y')}>
-                <Text style={{ color: '#DC2626' }}>{t('customer.contact.ordersError')}</Text>
+                <Text style={{ color: customerColors.shared.error }}>{t('customer.contact.ordersError')}</Text>
               </TouchableOpacity>
             ) : selectedOrder === null ? (
               <Text style={styles.orderSubtitle}>{t('customer.contact.noOrders')}</Text>
@@ -318,7 +319,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                 accessibilityLabel={t('customer.contact.selectOrderA11y')}
               >
                 <View style={styles.orderIconBadge}>
-                  <ShoppingBagSvg color="#2E7D32" size={20} />
+                  <ShoppingBagSvg color={customerColors.primary} size={20} />
                 </View>
                 <View style={styles.orderTextColumn}>
                   <Text style={styles.orderNumber}>{selectedOrder.orderNumber}</Text>
@@ -326,7 +327,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                     {`${formatSupportDate(selectedOrder.placedAt)}${selectedOrder.itemCount !== null ? ` · ${t('customer.contact.itemCount', { count: selectedOrder.itemCount })}` : ''}`}
                   </Text>
                 </View>
-                <ChevronDownSvg color="#4B5563" size={20} />
+                <ChevronDownSvg color={customerColors.neutral.neutral700} size={20} />
               </TouchableOpacity>
             )}
           </>
@@ -374,7 +375,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                     accessibilityLabel={issue.label}
                   >
                     <View style={styles.issueCardLeft}>
-                      <IconComp color={isSelected ? '#2E7D32' : '#6B7280'} size={18} />
+                      <IconComp color={isSelected ? customerColors.primary : customerColors.neutral.neutral600} size={18} />
                       <View style={styles.issueLabelCol}>
                         <Text style={[styles.issueCardLabel, isSelected && styles.issueCardLabelSelected]} numberOfLines={2}>
                           {issue.label}
@@ -396,7 +397,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
               <TextInput
                 style={styles.textInput}
                 placeholder={t('customer.contact.descriptionPlaceholder')}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={customerColors.neutral.neutral500}
                 multiline
                 maxLength={DESCRIPTION_MAX}
                 value={description}
@@ -424,7 +425,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                     <View key={p.key} style={styles.photoThumbnailContainer}>
                       <Image source={{ uri: p.photo.uri }} style={styles.photoThumbnail} />
                       {p.status === 'uploading' ? (
-                        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.6)' }}>
+                        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: customerColors.overlay.white60 }}>
                           <ActivityIndicator accessibilityLabel={t('customer.contact.photoUploading')} />
                           <Text style={{ fontSize: 10 }}>{`${Math.round(p.progress)}%`}</Text>
                         </View>
@@ -435,7 +436,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                           accessibilityLabel={t('customer.contact.photoRetryA11y')}
                           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(220,38,38,0.7)' }}
                         >
-                          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>{t('customer.contact.retry')}</Text>
+                          <Text style={{ color: customerColors.white, fontSize: 10, fontWeight: '700' }}>{t('customer.contact.retry')}</Text>
                         </TouchableOpacity>
                       ) : null}
                       <TouchableOpacity
@@ -450,18 +451,18 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                   ))}
                 </View>
                 <Text style={styles.photosHelperText}>{t('customer.contact.photosHelper', { max: MAX_TICKET_PHOTOS })}</Text>
-                {photoNotice !== null ? <Text style={{ color: '#DC2626', fontSize: 12 }}>{photoNotice}</Text> : null}
+                {photoNotice !== null ? <Text style={{ color: customerColors.shared.error, fontSize: 12 }}>{photoNotice}</Text> : null}
               </>
             )}
         </>
 
         {submitError !== null ? (
-          <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }} accessibilityRole="alert">
+          <Text style={{ color: customerColors.shared.error, fontSize: 12, marginTop: 8 }} accessibilityRole="alert">
             {submitError}
           </Text>
         ) : null}
         {draftHint !== null ? (
-          <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 8 }}>{draftHint}</Text>
+          <Text style={{ color: customerColors.neutral.neutral600, fontSize: 12, marginTop: 8 }}>{draftHint}</Text>
         ) : null}
 
         {/* ── SUBMIT / SEND TO SUPPORT BUTTON ────────────────────────────────── */}
@@ -473,7 +474,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
           accessibilityLabel={ctaButtonText}
         >
           {createTicket.isPending ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={customerColors.white} />
           ) : (
             <Text style={styles.sendButtonText}>{ctaButtonText}</Text>
           )}
@@ -534,7 +535,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: customerSpacing.base,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -563,7 +564,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -576,7 +577,7 @@ const styles = StyleSheet.create({
 
   /* Banner */
   bannerCard: {
-    backgroundColor: '#F0F8EE',
+    backgroundColor: customerColors.palette.green.paleMint,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 16,
@@ -630,8 +631,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
@@ -654,9 +655,9 @@ const styles = StyleSheet.create({
   /* Select Order Card */
   orderCard: {
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -667,7 +668,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E9F7E9',
+    backgroundColor: customerColors.selected,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -694,9 +695,9 @@ const styles = StyleSheet.create({
   },
   productCard: {
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -735,9 +736,9 @@ const styles = StyleSheet.create({
   issueCard: {
     width: '48.2%',
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingHorizontal: 10,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -779,7 +780,7 @@ const styles = StyleSheet.create({
   /* Tell us more */
   inputContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingBottom: 8,
     marginBottom: 20,
   },
@@ -813,8 +814,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#34D399',
-    backgroundColor: '#F0FDF4',
+    borderColor: customerColors.palette.green.emeraldLight,
+    backgroundColor: customerColors.shared.successLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -830,7 +831,7 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
   },
   photoRemoveBadge: {
     position: 'absolute',
@@ -839,13 +840,13 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOpacity: 0.1,
     shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
@@ -867,7 +868,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOpacity: 0.1,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 2 },
@@ -875,7 +876,7 @@ const styles = StyleSheet.create({
   sendButtonText: {
     fontSize: 16,
     fontFamily: customerFonts.bold,
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 
   /* Modal */
@@ -888,7 +889,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     padding: 20,
   },
@@ -901,9 +902,9 @@ const styles = StyleSheet.create({
   modalOrderItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   modalOrderItemActive: {
-    backgroundColor: '#F0F8EE',
+    backgroundColor: customerColors.palette.green.paleMint,
   },
 });

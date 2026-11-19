@@ -1,5 +1,5 @@
 import type { Executor } from "../../db/pool.js";
-import type { InvoiceType, InvoiceStatus, Money } from "@tohfa/shared-types";
+import { parseMoney, toPaise, type InvoiceType, type InvoiceStatus, type Money } from "@tohfa/shared-types";
 import type { InvoiceSeller, InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
 
 export interface InvoiceDbRow {
@@ -272,7 +272,7 @@ export const invoicesRepo: InvoicesRepo = {
       });
     }
 
-    const isGstApplicable = input.invoiceType === "SALE_B2B" || parseFloat(invoice.taxable_amount) > 0;
+    const isGstApplicable = input.invoiceType === "SALE_B2B" || toPaise(parseMoney(invoice.taxable_amount)) > 0;
 
     return {
       id: invoice.id,
@@ -336,7 +336,7 @@ export const invoicesRepo: InvoicesRepo = {
       total: row.total as Money,
     }));
 
-    const isGstApplicable = invoice.invoice_type === "SALE_B2B" || parseFloat(invoice.taxable_amount) > 0;
+    const isGstApplicable = invoice.invoice_type === "SALE_B2B" || toPaise(parseMoney(invoice.taxable_amount)) > 0;
 
     return {
       id: invoice.id,
@@ -401,7 +401,7 @@ export const invoicesRepo: InvoicesRepo = {
       issueDate: r.issue_date,
       taxableAmount: r.taxable_amount as Money,
       totalAmount: r.total_amount as Money,
-      gstApplicable: r.invoice_type === "SALE_B2B" || parseFloat(r.taxable_amount) > 0,
+      gstApplicable: r.invoice_type === "SALE_B2B" || toPaise(parseMoney(r.taxable_amount)) > 0,
       status: r.status,
       pdfUrl: "/v1/invoices/" + r.id + "/download",
     }));

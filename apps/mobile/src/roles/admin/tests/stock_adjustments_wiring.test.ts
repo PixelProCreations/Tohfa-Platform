@@ -58,8 +58,10 @@ describe('stock count and adjustment screens are live', () => {
     // Called before the loading / not-found return, so the hook order never changes.
     expect(DETAIL).toMatch(/const warehouseName = useInventoryWarehouseName\(scope, can, detail\.item\?\.warehouseId\);\s*\n[\s\S]*if \(adjustment === undefined\)/);
     expect(DETAIL).toMatch(/warehouseName === undefined \? undefined : \{ label: t\('stockShared\.field\.warehouse'\), value: warehouseName \}/);
-    // Requested By / Approved By stay hidden: the DTO carries only user uuids.
-    expect(DETAIL).not.toMatch(/createdBy|approvedBy/);
+    // Requested By / Approved By are the server's names (BR-130), never a raw user uuid.
+    expect(DETAIL).not.toMatch(/adjustment\.(createdBy|approvedBy)\b(?!Name)/);
+    expect(DETAIL).toMatch(/adjustment\.createdByName === undefined \? undefined : \{ label: t\('stockAdj\.detail\.requestedBy'\)/);
+    expect(DETAIL).toMatch(/adjustment\.approvedByName === undefined \? undefined : \{ label: t\('stockAdj\.detail\.approvedBy'\)/);
   });
 
   it('BR-107: Raise adjustment is drawn only from canRaiseAdjustment and opens the raised adjustment', () => {

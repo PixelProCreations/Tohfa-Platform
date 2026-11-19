@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
-import { customerFonts, customerShadow } from '../theme';
+import { customerFonts, customerShadow, customerColors } from '../theme';
 import {
   serviceabilityQueryKeys,
   useCreateServiceAreaRequest,
@@ -97,14 +97,14 @@ export function findAreaRequest(
 
 const CheckCircle = () => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} fill="#FFFFFF" />
-    <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke="#00C853" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx={12} cy={12} r={10} fill={customerColors.white} />
+    <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke={customerColors.palette.green.vivid} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const CloseIcon = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-    <Path d="M18 6L6 18M6 6l12 12" stroke="#2563EB" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M18 6L6 18M6 6l12 12" stroke={customerColors.shared.info} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -195,7 +195,7 @@ export const ServiceAreaRequestModal: React.FC<ServiceAreaRequestModalProps> = (
         testID={`area-request-${field}`}
         style={styles.underlineInput}
         placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
+        placeholderTextColor={customerColors.neutral.neutral500}
         value={value}
         onChangeText={(s) => {
           onChange(s);
@@ -252,7 +252,7 @@ export const ServiceAreaRequestModal: React.FC<ServiceAreaRequestModalProps> = (
                 disabled={submitting}
                 style={[styles.primaryBtn, submitting && styles.btnDisabled]}
               >
-                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>{t('customer.serviceArea.form.submit')}</Text>}
+                {submitting ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.primaryText}>{t('customer.serviceArea.form.submit')}</Text>}
               </TouchableOpacity>
             </View>
           ) : (
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     marginHorizontal: 16,
     marginTop: 14,
     marginBottom: 20,
@@ -339,51 +339,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
   },
   areaLeft: { flex: 1, paddingRight: 10 },
-  areaTitle: { fontFamily: customerFonts.editorial, fontSize: 19, color: '#1F2937', marginBottom: 4 },
-  areaSubtitle: { fontFamily: customerFonts.regular, fontSize: 12, lineHeight: 17, color: '#6B7280', marginBottom: 12 },
+  areaTitle: { fontFamily: customerFonts.editorial, fontSize: 19, color: customerColors.neutral.neutral900, marginBottom: 4 },
+  areaSubtitle: { fontFamily: customerFonts.regular, fontSize: 12, lineHeight: 17, color: customerColors.neutral.neutral600, marginBottom: 12 },
   requestNowButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#1E3D29',
+    backgroundColor: customerColors.palette.green.pineDark,
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,
   },
-  requestNowText: { fontFamily: customerFonts.bold, fontSize: 12, color: '#FFFFFF' },
+  requestNowText: { fontFamily: customerFonts.bold, fontSize: 12, color: customerColors.white },
   requestDoneButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: '#00C853',
+    backgroundColor: customerColors.palette.green.vivid,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
   },
-  requestDoneText: { fontFamily: customerFonts.bold, fontSize: 12, color: '#FFFFFF' },
+  requestDoneText: { fontFamily: customerFonts.bold, fontSize: 12, color: customerColors.white },
   areaRight: { width: 94, height: 88, alignItems: 'center', justifyContent: 'center' },
   areaBagImage: { width: 90, height: 84 },
 
   // Sheet (moved from HomeScreen "Tell us your doorstep" modal)
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   card: {
     width: 300,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     paddingHorizontal: 22,
     paddingTop: 22,
     paddingBottom: 22,
     position: 'relative',
     elevation: 8,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.16,
     shadowRadius: 12,
@@ -395,62 +395,62 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1.5,
-    borderColor: '#3B82F6',
+    borderColor: customerColors.palette.blue.bright,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
     zIndex: 10,
   },
   heroImage: { width: 110, height: 96, alignSelf: 'center', marginBottom: 8 },
-  title: { fontFamily: customerFonts.editorial, fontSize: 20, color: '#1F2937', textAlign: 'center', marginBottom: 6 },
+  title: { fontFamily: customerFonts.editorial, fontSize: 20, color: customerColors.neutral.neutral900, textAlign: 'center', marginBottom: 6 },
   subtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
     lineHeight: 16,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginBottom: 16,
     paddingHorizontal: 6,
   },
   underlineInput: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingVertical: 6,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     fontFamily: customerFonts.regular,
     marginBottom: 10,
   },
-  fieldError: { fontFamily: customerFonts.regular, fontSize: 11, color: '#DC2626', marginTop: -6, marginBottom: 8 },
-  formError: { fontFamily: customerFonts.regular, fontSize: 12, color: '#DC2626', textAlign: 'center', marginBottom: 10 },
+  fieldError: { fontFamily: customerFonts.regular, fontSize: 11, color: customerColors.shared.error, marginTop: -6, marginBottom: 8 },
+  formError: { fontFamily: customerFonts.regular, fontSize: 12, color: customerColors.shared.error, textAlign: 'center', marginBottom: 10 },
   primaryBtn: {
     height: 44,
-    backgroundColor: '#2D6A4F',
+    backgroundColor: customerColors.legacy.greenPine,
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
   },
   btnDisabled: { opacity: 0.7 },
-  primaryText: { fontFamily: customerFonts.bold, fontSize: 14, color: '#FFFFFF', letterSpacing: 0.2 },
+  primaryText: { fontFamily: customerFonts.bold, fontSize: 14, color: customerColors.white, letterSpacing: 0.2 },
   secondaryBtn: { height: 40, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
-  secondaryText: { fontFamily: customerFonts.semibold, fontSize: 13, color: '#2D6A4F' },
+  secondaryText: { fontFamily: customerFonts.semibold, fontSize: 13, color: customerColors.legacy.greenPine },
   doneBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     alignSelf: 'center',
-    backgroundColor: '#00C853',
+    backgroundColor: customerColors.palette.green.vivid,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
     marginBottom: 12,
   },
-  doneText: { fontFamily: customerFonts.bold, fontSize: 13, color: '#FFFFFF' },
+  doneText: { fontFamily: customerFonts.bold, fontSize: 13, color: customerColors.white },
 });

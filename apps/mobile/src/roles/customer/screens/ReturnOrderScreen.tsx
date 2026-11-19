@@ -49,10 +49,10 @@ const CheckboxSquareSvg = ({ checked }: { checked: boolean }) => (
   <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
     {checked ? (
       <>
-        <Rect width={20} height={20} rx={4} fill="#1E7E34" />
+        <Rect width={20} height={20} rx={4} fill={customerColors.legacy.greenDark} />
         <Path
           d="M6 10l3 3 5-6"
-          stroke="#FFFFFF"
+          stroke={customerColors.white}
           strokeWidth={2}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -65,9 +65,9 @@ const CheckboxSquareSvg = ({ checked }: { checked: boolean }) => (
         width={18}
         height={18}
         rx={3}
-        stroke="#D1D5DB"
+        stroke={customerColors.neutral.neutral400}
         strokeWidth={1.5}
-        fill="#FFFFFF"
+        fill={customerColors.white}
       />
     )}
   </Svg>
@@ -225,7 +225,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
         {/* ── SELECT ORDER CARD (eligible orders only) ────────────────────── */}
         <TouchableOpacity activeOpacity={0.8} onPress={() => setShowOrderPicker(true)} style={styles.orderCard} accessibilityLabel={t('customer.orders.return.selectOrderA11y')} testID="return-order-card">
           <View style={styles.orderIconBox}>
-            <ShoppingBagSvg color="#1E7E34" size={20} />
+            <ShoppingBagSvg color={customerColors.legacy.greenDark} size={20} />
           </View>
           <View style={styles.orderInfoColumn}>
             <Text style={styles.orderIdText}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? t('customer.orders.return.loading') : t('customer.orders.return.noReturnable'))}</Text>
@@ -235,7 +235,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
               </Text>
             )}
           </View>
-          <ChevronDownSvg color="#6B7280" size={16} />
+          <ChevronDownSvg color={customerColors.neutral.neutral600} size={16} />
         </TouchableOpacity>
 
         {orderQuery.isLoading && <ActivityIndicator testID="return-loading" />}
@@ -291,7 +291,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
         <Text style={styles.sectionTitle}>{t('customer.orders.return.reasonTitle')}</Text>
         <TouchableOpacity activeOpacity={0.8} onPress={() => setShowReasonPicker(true)} style={styles.reasonSelector} accessibilityLabel={t('customer.orders.return.reasonSelectorA11y')}>
           <Text style={styles.reasonSelectorText}>{selectedReason.label}</Text>
-          <ChevronDownSvg color="#6B7280" size={16} />
+          <ChevronDownSvg color={customerColors.neutral.neutral600} size={16} />
         </TouchableOpacity>
         {!!(fieldErrors['body.reason'] ?? fieldErrors['reason']) && <Text style={styles.charCounter}>{fieldErrors['body.reason'] ?? fieldErrors['reason']}</Text>}
 
@@ -301,7 +301,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
             value={description}
             onChangeText={setDescription}
             placeholder={t('customer.orders.return.describePlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             multiline
             maxLength={500}
             style={styles.textArea}
@@ -344,7 +344,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
           accessibilityLabel={t('customer.orders.return.submit')}
           testID="return-submit"
         >
-          {createReturn.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>{t('customer.orders.return.submit')}</Text>}
+          {createReturn.isPending ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.submitButtonText}>{t('customer.orders.return.submit')}</Text>}
         </TouchableOpacity>
       </ScrollView>
 
@@ -366,7 +366,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
                   style={[styles.pickerItem, active && styles.pickerItemActive]}
                 >
                   <View style={styles.pickerItemLeft}>
-                    <ShoppingBagSvg color={active ? '#1E7E34' : '#6B7280'} size={18} />
+                    <ShoppingBagSvg color={active ? customerColors.legacy.greenDark : customerColors.neutral.neutral600} size={18} />
                     <View style={styles.pickerItemTexts}>
                       <Text style={[styles.pickerItemTitle, active && styles.pickerItemTitleActive]}>{o.orderNumber}</Text>
                       <Text style={styles.pickerItemSub}>
@@ -430,14 +430,14 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: customerSpacing.base,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#EFF9F0',
+    backgroundColor: customerColors.palette.green.mistLight,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -484,12 +484,12 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 4,
   },
   bannerSubtitle: {
     fontSize: 12,
-    color: '#5E6F5E',
+    color: customerColors.palette.green.greyGreen,
     lineHeight: 16,
   },
   bannerImageWrapper: {
@@ -501,9 +501,9 @@ const styles = StyleSheet.create({
   orderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
     padding: 12,
     marginBottom: 18,
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E8F8EE',
+    backgroundColor: customerColors.palette.green.frost,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -523,17 +523,17 @@ const styles = StyleSheet.create({
   orderIdText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 2,
   },
   orderMetaText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 10,
   },
   productsList: {
@@ -542,16 +542,16 @@ const styles = StyleSheet.create({
   productCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 10,
     padding: 12,
     marginBottom: 8,
   },
   productCardSelected: {
-    backgroundColor: '#EFF9F0',
-    borderColor: '#1E7E34',
+    backgroundColor: customerColors.palette.green.mistLight,
+    borderColor: customerColors.legacy.greenDark,
   },
   productImage: {
     width: 36,
@@ -564,20 +564,20 @@ const styles = StyleSheet.create({
   productNameText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   productWeightText: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   reasonSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -585,23 +585,23 @@ const styles = StyleSheet.create({
   },
   reasonSelectorText: {
     fontSize: 13,
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   inputContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingBottom: 8,
     marginBottom: 18,
   },
   textArea: {
     fontSize: 13,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     minHeight: 36,
     paddingVertical: 4,
   },
   charCounter: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textAlign: 'right',
     marginTop: 2,
   },
@@ -616,8 +616,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#1E7E34',
-    backgroundColor: '#EFF9F0',
+    borderColor: customerColors.legacy.greenDark,
+    backgroundColor: customerColors.palette.green.mistLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -646,25 +646,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   photoRemoveText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 9,
     fontWeight: '700',
   },
   submitButton: {
-    backgroundColor: '#1E7E34',
+    backgroundColor: customerColors.legacy.greenDark,
     paddingVertical: 14,
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   submitButtonText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 15,
     fontWeight: '700',
   },
   pickerBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -672,14 +672,14 @@ const styles = StyleSheet.create({
   pickerDialog: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     padding: 16,
   },
   pickerTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 12,
     textAlign: 'center',
   },
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickerItemActive: {
-    backgroundColor: '#EFF9F0',
+    backgroundColor: customerColors.palette.green.mistLight,
   },
   pickerItemLeft: {
     flexDirection: 'row',
@@ -705,21 +705,21 @@ const styles = StyleSheet.create({
   },
   pickerItemTitle: {
     fontSize: 13,
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   pickerItemTitleActive: {
     fontWeight: '700',
-    color: '#1E7E34',
+    color: customerColors.legacy.greenDark,
   },
   pickerItemSub: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
   pickerItemAmount: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
 });
 

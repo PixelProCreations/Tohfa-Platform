@@ -1,4 +1,4 @@
-import { GenericProblemCode } from '@tohfa/shared-types';
+import { fromPaise, GenericProblemCode, parseMoney, toPaise } from '@tohfa/shared-types';
 import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import {
@@ -32,15 +32,17 @@ export function serializeProduct(row: RawCatalogProductRow): ProductView {
     ? [row.photo_url]
     : [productImageUrl(row.icon_key, row.crop_id)];
 
-  const priceP = toPaise(Number(row.price_per_kg).toFixed(2));
-  const mrp = toPaise(row.compare_at_price == null ? null : Number(row.compare_at_price).toFixed(2));
+  // Money stays exact: pg numeric(12,2) text -> Money -> integer paise. No Number() on money (CLAUDE.md §2.2).
+  const price = parseMoney(row.price_per_kg);
+  const priceP = toPaise(price);
+  const mrp = row.compare_at_price == null ? null : toPaise(parseMoney(row.compare_at_price));
 
   return {
     id: row.crop_id,
     name: row.name,
     categoryId: row.category_id,
     grade: row.grade,
-    pricePerKg: Number(row.price_per_kg).toFixed(2),
+    pricePerKg: price,
     availableQty: Number(row.available_qty).toFixed(3),
     unit: 'kg',
     photos,
@@ -53,7 +55,7 @@ export function serializeProduct(row: RawCatalogProductRow): ProductView {
     farmingType: (row.farming_type as ProductView['farmingType']) ?? null,
     packSize: row.pack_size === null || row.pack_size === undefined ? null : Number(row.pack_size).toString(),
     packUnit: (row.pack_unit as ProductView['packUnit']) ?? null,
-    compareAtPrice: mrp === null ? null : (mrp / 100).toFixed(2),
+    compareAtPrice: mrp === null ? null : fromPaise(mrp),
     discountPercent: discountPercent(priceP, mrp),
     isComingSoon: row.is_coming_soon ?? false,
     comingTomorrow: row.coming_tomorrow ?? false,
@@ -82,13 +84,6 @@ export function serializeVariants(rows: RawCatalogProductRow[]): ProductVariantV
     });
   }
   return [...byGrade.values()].sort((a, b) => a.grade.localeCompare(b.grade));
-}
-
-/** Rupee decimal string -> integer paise (no float arithmetic on the displayed value). */
-function toPaise(rupees: string | null | undefined): number | null {
-  if (rupees === null || rupees === undefined) return null;
-  const [whole = '0', frac = ''] = rupees.split('.');
-  return Number(whole) * 100 + Number((frac + '00').slice(0, 2));
 }
 
 /** BR-181: floor((mrp - price) / mrp * 100) in integer paise; null unless MRP > price. */

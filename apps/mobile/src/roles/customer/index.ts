@@ -3,7 +3,7 @@
  *
  * Single export surface for Customer role:
  * - Customer & Admin-compatible Theme Tokens (Colors, Type, Radius, Shadows, Spacing, Layout)
- * - Customer UI Components (Buttons, Inputs, Chips, Headers, Alerts, Progress Bars, BottomNav)
+ * - Customer UI Components (floating nav, delivery-address modal, icons)
  * - Customer Screens
  * - Customer Main Application Entry Point
  */

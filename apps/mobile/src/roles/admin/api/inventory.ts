@@ -82,10 +82,14 @@ export interface StockLedgerEntryDto {
   balanceAfterKg: QuantityKg;
   refType?: string | null;
   refId?: string | null;
-  /** A user uuid only; the spec carries no name. */
+  /** The recorder's user uuid; the name is `createdByName`. */
   performedBy?: string | null;
   performedAt: string;
   remarks?: string | null;
+  /** BR-130: `users.full_name` of `performedBy`; null when the row has no recorder or the user is gone. */
+  createdByName?: string | null;
+  /** BR-130: the approver's name for a row an approved stock adjustment inserted; null for every other row. */
+  approvedByName?: string | null;
 }
 
 /** docs/openapi.yaml `Allocation`. */

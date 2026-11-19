@@ -24,7 +24,7 @@ interface CustomerFloatingNavProps {
 
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
 
-const HomeSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) => (
+const HomeSvg = ({ color = customerColors.white, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6h-4v6H4a1 1 0 01-1-1v-9.5z"
@@ -36,14 +36,14 @@ const HomeSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: numb
   </Svg>
 );
 
-const SearchSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) => (
+const SearchSvg = ({ color = customerColors.white, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={11} cy={11} r={7} stroke={color} strokeWidth={2} />
     <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
-const CartSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) => (
+const CartSvg = ({ color = customerColors.white, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
@@ -57,7 +57,7 @@ const CartSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: numb
   </Svg>
 );
 
-const ProfileSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: number }) => (
+const ProfileSvg = ({ color = customerColors.white, size = 22 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={2} />
     <Circle cx={12} cy={9} r={3.5} stroke={color} strokeWidth={1.8} />
@@ -65,7 +65,7 @@ const ProfileSvg = ({ color = '#FFFFFF', size = 22 }: { color?: string; size?: n
   </Svg>
 );
 
-const CloseSvg = ({ color = '#FFFFFF', size = 20 }: { color?: string; size?: number }) => (
+const CloseSvg = ({ color = customerColors.white, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
@@ -117,19 +117,19 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
 
   const renderActiveFabIcon = () => {
     if (isOpen || isSearchActive) {
-      return <CloseSvg color="#FFFFFF" size={22} />;
+      return <CloseSvg color={customerColors.white} size={22} />;
     }
     switch (activeTab) {
       case 'home':
-        return <HomeSvg color="#FFFFFF" size={24} />;
+        return <HomeSvg color={customerColors.white} size={24} />;
       case 'search':
-        return <SearchSvg color="#FFFFFF" size={22} />;
+        return <SearchSvg color={customerColors.white} size={22} />;
       case 'cart':
-        return <CartSvg color="#FFFFFF" size={22} />;
+        return <CartSvg color={customerColors.white} size={22} />;
       case 'profile':
-        return <ProfileSvg color="#FFFFFF" size={24} />;
+        return <ProfileSvg color={customerColors.white} size={24} />;
       default:
-        return <HomeSvg color="#FFFFFF" size={24} />;
+        return <HomeSvg color={customerColors.white} size={24} />;
     }
   };
 
@@ -139,11 +139,11 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
       {isSearchActive && (
         <View style={styles.searchBarRow}>
           <View style={[styles.searchPill, customerShadow.raised]}>
-            <SearchSvg color="#9CA3AF" size={18} />
+            <SearchSvg color={customerColors.neutral.neutral500} size={18} />
             <TextInput
               style={styles.searchInput}
               placeholder={t('customer.search.placeholder')}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={customerColors.neutral.neutral500}
               value={searchQuery}
               onChangeText={onSearchChange}
               onSubmitEditing={onSearchSubmit}
@@ -152,7 +152,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => onSearchChange?.('')} style={styles.clearBtn}>
-                <CloseSvg color="#9CA3AF" size={14} />
+                <CloseSvg color={customerColors.neutral.neutral500} size={14} />
               </TouchableOpacity>
             )}
           </View>
@@ -174,7 +174,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
             accessibilityLabel={t('customer.nav.profile')}
           >
             <ProfileSvg
-              color={activeTab === 'profile' ? '#FFFFFF' : '#1F2937'}
+              color={activeTab === 'profile' ? customerColors.white : customerColors.neutral.neutral900}
               size={22}
             />
           </TouchableOpacity>
@@ -191,7 +191,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
             accessibilityLabel={t('customer.nav.cart')}
           >
             <CartSvg
-              color={activeTab === 'cart' ? '#FFFFFF' : '#1F2937'}
+              color={activeTab === 'cart' ? customerColors.white : customerColors.neutral.neutral900}
               size={20}
             />
             {cartBadgeCount > 0 && (
@@ -213,7 +213,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
             accessibilityLabel={t('customer.nav.search')}
           >
             <SearchSvg
-              color={activeTab === 'search' ? '#FFFFFF' : '#1F2937'}
+              color={activeTab === 'search' ? customerColors.white : customerColors.neutral.neutral900}
               size={20}
             />
           </TouchableOpacity>
@@ -230,7 +230,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
               ]}
               accessibilityLabel={t('customer.nav.home')}
             >
-              <HomeSvg color="#FFFFFF" size={22} />
+              <HomeSvg color={customerColors.white} size={22} />
             </TouchableOpacity>
           )}
         </View>
@@ -276,9 +276,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -2,
     right: -2,
-    backgroundColor: '#EF4444',
+    backgroundColor: customerColors.legacy.red,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cartBadgeText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 10,
     fontFamily: customerFonts.bold,
   },
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     height: 52,
     borderRadius: 26,
     paddingHorizontal: 16,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontFamily: customerFonts.regular,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     paddingVertical: 0,
   },
   clearBtn: {

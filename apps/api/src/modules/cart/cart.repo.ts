@@ -125,6 +125,7 @@ export interface CartRepo {
       lineTotal: string;
       allocationId: string;
       reservedUntil: Date;
+      mode?: 'add' | 'set';
     },
   ): Promise<{ id: string; qtyKg: string; unitPrice: string }>;
 
@@ -396,6 +397,12 @@ export const cartRepo: CartRepo = {
     // On a merge the line total is provisional (EXCLUDED.line_total, the added quantity's figure);
     // the service recomputes it from the merged quantity in integer paise and calls setLineTotal
     // in the same transaction, while this statement's row lock is still held. No money maths in SQL.
+    const mode = params.mode ?? 'add';
+    const updateQtySql =
+      mode === 'set'
+        ? 'EXCLUDED.qty_kg'
+        : `CASE WHEN cart_items.status = 'HELD' THEN cart_items.qty_kg + EXCLUDED.qty_kg ELSE EXCLUDED.qty_kg END`;
+
     const res = await db.query<{ id: string; qtyKg: string; unitPrice: string }>(
       `INSERT INTO cart_items (
          cart_id, crop_id, grade, qty_kg, unit_price, line_total,
@@ -404,7 +411,7 @@ export const cartRepo: CartRepo = {
        VALUES ($1, $2, $3, $4::numeric, $5::numeric, $6::numeric, $7, $8, 'HELD')
        ON CONFLICT (cart_id, crop_id, grade)
        DO UPDATE SET
-         qty_kg = cart_items.qty_kg + EXCLUDED.qty_kg,
+         qty_kg = ${updateQtySql},
          unit_price = EXCLUDED.unit_price,
          line_total = EXCLUDED.line_total,
          allocation_id = EXCLUDED.allocation_id,

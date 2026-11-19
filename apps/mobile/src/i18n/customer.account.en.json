@@ -190,5 +190,6 @@
   "customer.onboarding.loading.titleLine2": "Your Home",
   "customer.onboarding.welcome.getStarted": "Get Started",
   "customer.onboarding.welcome.next": "Next Step",
-  "customer.onboarding.welcome.slide": "Slide {{number}}"
+  "customer.onboarding.welcome.slide": "Slide {{number}}",
+  "customer.account.filter.clear": "Clear filter"
 }

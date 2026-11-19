@@ -13,6 +13,7 @@ import Svg, { Path } from 'react-native-svg';
 import {
   customerFonts,
   customerSpacing,
+  customerColors,
 } from '../theme';
 import { useLegal, parseMarkdown } from '../api/legal';
 import { getLocale, t } from '../../../i18n/customer';
@@ -23,7 +24,7 @@ export interface CustomerPrivacyPolicyScreenProps {
   onBack?: () => void;
 }
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string | undefined; size?: number | undefined }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string | undefined; size?: number | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -59,7 +60,7 @@ export const CustomerPrivacyPolicyScreen: React.FC<CustomerPrivacyPolicyScreenPr
             style={styles.circleIconButton}
             accessibilityLabel={t('customer.legal.back')}
           >
-            <BackArrowSvg color="#1A2E1A" size={18} />
+            <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('customer.legal.privacy.title')}</Text>
         </View>
@@ -91,7 +92,7 @@ export const CustomerPrivacyPolicyScreen: React.FC<CustomerPrivacyPolicyScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -111,20 +112,20 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1.2,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerTitle: {
     fontSize: 24,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     fontWeight: '400',
   },
   headerBottomDivider: {
     height: 1,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: customerColors.palette.grey.smoke,
   },
   scrollView: {
     flex: 1,

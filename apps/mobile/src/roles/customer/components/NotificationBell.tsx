@@ -12,6 +12,7 @@ import Svg, { Path } from 'react-native-svg';
 import { QueryClientContext } from '@tanstack/react-query';
 import { useUnreadCount } from '../api/notifications';
 import { t } from '../../../i18n/customer';
+import { customerColors } from '../theme';
 
 export interface NotificationBellProps {
   onPress: () => void;
@@ -43,7 +44,7 @@ interface BellViewProps extends NotificationBellProps {
   count: number;
 }
 
-export function NotificationBellView({ onPress, color = '#1A2E1A', size = 22, style, testID, count }: BellViewProps) {
+export function NotificationBellView({ onPress, color = customerColors.heading, size = 22, style, testID, count }: BellViewProps) {
   const badge = formatBadgeCount(count);
   return (
     <TouchableOpacity
@@ -92,14 +93,14 @@ const styles = StyleSheet.create({
     height: 16,
     paddingHorizontal: 3,
     borderRadius: 8,
-    backgroundColor: '#EF4444',
+    backgroundColor: customerColors.legacy.red,
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 9,
     fontWeight: '700',
     lineHeight: 11,

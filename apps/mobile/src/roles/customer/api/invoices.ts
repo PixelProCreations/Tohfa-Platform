@@ -42,7 +42,19 @@ export interface InvoiceLine {
   total?: Money;
 }
 
+/**
+ * BR-211: TOHFA as the seller (BR-16b: never the farmer), from system_config
+ * invoice_seller_* keys. Every field is an empty string until the real values are configured.
+ */
+export interface InvoiceSeller {
+  legalName: string;
+  gstin: string;
+  address: string;
+  stateCode: string;
+}
+
 export interface InvoiceDetail extends Invoice {
+  seller: InvoiceSeller;
   buyerName: string | null;
   buyerGstin: string | null;
   placeOfSupply?: string | null;

@@ -174,13 +174,13 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
 
         <TouchableOpacity style={styles.orderCard} activeOpacity={0.7} onPress={() => setShowOrderPicker(true)} accessibilityLabel={t('customer.orders.review.selectOrderA11y')} testID="review-order-card">
           <View style={styles.orderIconBadge}>
-            <ShoppingBagSvg color="#2E7D32" size={20} />
+            <ShoppingBagSvg color={customerColors.primary} size={20} />
           </View>
           <View style={styles.orderTextColumn}>
             <Text style={styles.orderNumber}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? t('customer.orders.review.loading') : t('customer.orders.review.noOrders'))}</Text>
             {order && <Text style={styles.orderSubtitle}>{t('customer.orders.review.itemsLine', { date: formatIstDate(order.placedAt), count: order.items.length })}</Text>}
           </View>
-          <ChevronDownSvg color="#4B5563" size={20} />
+          <ChevronDownSvg color={customerColors.neutral.neutral700} size={20} />
         </TouchableOpacity>
 
         {(orderQuery.isLoading || existingQuery.isLoading) && <ActivityIndicator testID="review-loading" />}
@@ -260,7 +260,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
           <TextInput
             style={styles.textInput}
             placeholder={t('customer.orders.review.placeholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             multiline
             maxLength={1000}
             editable={!readOnly}
@@ -312,7 +312,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
             accessibilityLabel={t('customer.orders.review.submit')}
             testID="review-submit"
           >
-            {createReview.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>{t('customer.orders.review.submit')}</Text>}
+            {createReview.isPending ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.submitButtonText}>{t('customer.orders.review.submit')}</Text>}
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -370,7 +370,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: customerSpacing.base,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
 
   /* Banner Card */
   bannerCard: {
-    backgroundColor: '#F0F8EE',
+    backgroundColor: customerColors.palette.green.paleMint,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 18,
@@ -428,11 +428,11 @@ const styles = StyleSheet.create({
   bannerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   bannerSubtitle: {
     fontSize: 13,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     marginTop: 4,
     lineHeight: 18,
   },
@@ -446,9 +446,9 @@ const styles = StyleSheet.create({
   /* Select Order */
   orderCard: {
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingHorizontal: 14,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E9F7E9',
+    backgroundColor: customerColors.selected,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -470,11 +470,11 @@ const styles = StyleSheet.create({
   orderNumber: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   orderSubtitle: {
     fontSize: 12.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
 
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginBottom: 10,
     marginTop: 6,
   },
@@ -494,17 +494,17 @@ const styles = StyleSheet.create({
   },
   reviewItemCard: {
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
   reviewItemCardActive: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#F0F8EE',
+    borderColor: customerColors.primary,
+    backgroundColor: customerColors.palette.green.paleMint,
   },
   reviewThumb: {
     width: 38,
@@ -518,18 +518,18 @@ const styles = StyleSheet.create({
   reviewItemName: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   reviewItemWeight: {
     fontWeight: '400',
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
   },
   starsRow: {
     flexDirection: 'row',
     gap: 2,
   },
   excellentBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -537,11 +537,11 @@ const styles = StyleSheet.create({
   excellentBadgeText: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   tapToRateText: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
 
   /* Overall Rating */
@@ -561,39 +561,39 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   scoreBadgeZero: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: customerColors.palette.red.blush,
   },
   scoreBadgePositive: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
   },
   scoreText: {
     fontSize: 13,
     fontWeight: '700',
   },
   scoreTextZero: {
-    color: '#EF4444',
+    color: customerColors.legacy.red,
   },
   scoreTextPositive: {
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 
   /* Your Review */
   inputContainer: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingBottom: 8,
     marginBottom: 22,
   },
   textInput: {
     fontSize: 14,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     minHeight: 46,
     textAlignVertical: 'top',
     padding: 0,
   },
   charCounter: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textAlign: 'right',
     marginTop: 4,
   },
@@ -608,9 +608,9 @@ const styles = StyleSheet.create({
   aspectCard: {
     width: '48.2%',
     borderWidth: 1.2,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     paddingHorizontal: 12,
     paddingVertical: 12,
     flexDirection: 'row',
@@ -618,30 +618,30 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   aspectCardChecked: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#F0F8EE',
+    borderColor: customerColors.primary,
+    backgroundColor: customerColors.palette.green.paleMint,
   },
   aspectLabel: {
     fontSize: 12.5,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     fontWeight: '500',
     flexShrink: 1,
   },
   aspectLabelChecked: {
-    color: '#2E7D32',
+    color: customerColors.primary,
     fontWeight: '700',
   },
 
   /* Submit Button */
   submitButton: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     borderRadius: 28,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
   },
   submitButtonText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -649,13 +649,13 @@ const styles = StyleSheet.create({
   /* Order Picker Modal */
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: customerColors.overlay.scrim50,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     padding: 20,
     width: '100%',
@@ -664,16 +664,16 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 16,
   },
   modalOrderItem: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   modalOrderItemActive: {
-    backgroundColor: '#F0F8EE',
+    backgroundColor: customerColors.palette.green.paleMint,
     borderRadius: 8,
     paddingHorizontal: 8,
   },

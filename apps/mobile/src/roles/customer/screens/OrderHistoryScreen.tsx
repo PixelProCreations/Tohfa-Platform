@@ -32,7 +32,7 @@ export interface OrderHistoryScreenProps {
   onBack?: () => void;
 }
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -44,14 +44,14 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const SearchSvg = ({ color = '#9CA3AF', size = 18 }: { color?: string; size?: number }) => (
+const SearchSvg = ({ color = customerColors.neutral.neutral500, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={11} cy={11} r={8} stroke={color} strokeWidth={1.8} />
     <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
   </Svg>
 );
 
-const ChevronRightSvg = ({ color = '#9CA3AF', size = 15 }: { color?: string; size?: number }) => (
+const ChevronRightSvg = ({ color = customerColors.neutral.neutral500, size = 15 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 18L15 12L9 6"
@@ -141,7 +141,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
             <ChevronRightSvg color={customerColors.body} size={13} />
           </View>
         )}
-        {active && <ChevronRightSvg color="#9CA3AF" size={15} />}
+        {active && <ChevronRightSvg color={customerColors.neutral.neutral500} size={15} />}
       </TouchableOpacity>
     );
   };
@@ -232,7 +232,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -252,14 +252,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
   },
   scrollView: {
@@ -272,10 +272,10 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: customerRadius.pill,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     paddingHorizontal: 16,
     height: 44,
   },
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
     marginTop: 20,
     marginBottom: 12,
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
   },
   arrivePill: {
-    backgroundColor: '#EDF8EE',
+    backgroundColor: customerColors.legacy.greenWash,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: customerRadius.pill,

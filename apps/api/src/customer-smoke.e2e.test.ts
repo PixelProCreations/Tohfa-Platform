@@ -79,8 +79,15 @@ describeIfDatabase('customer backend smoke', () => {
     custTok = verify.body.accessToken;
     customerId = (await pool.query(
       `SELECT c.id FROM customers c JOIN users u ON u.id = c.user_id WHERE u.mobile = $1`, [mobile])).rows[0]!.id;
-    // Fund the new wallet so checkout can pay (the ledger tests do the same by SQL).
-    await pool.query(`UPDATE wallets SET balance = 5000 WHERE customer_id = $1`, [customerId]);
+    // Fund the new wallet so checkout can pay. wallets.balance is a trigger-maintained cache of the
+    // append-only ledger (CLAUDE.md §2.3), so credit via a wallet_transactions row; the triggers
+    // compute balance_after (the 0 here is overwritten) and update wallets.balance.
+    const funded = await pool.query(
+      `INSERT INTO wallet_transactions (wallet_id, idempotency_key, direction, type, amount, balance_after, ref_type, ref_id, remarks)
+       SELECT w.id, 'smoke-seed-' || w.id, 'CREDIT', 'TOPUP_DIGITAL', 5000.00, 0, 'TOPUP', gen_random_uuid(), 'Smoke seed 5000'
+         FROM wallets w WHERE w.customer_id = $1`,
+      [customerId]);
+    expect(funded.rowCount).toBe(1);
 
     const named = await request(app).patch('/v1/customers/me').set(c()).send({ fullName: 'Smoke Customer' });
     expect(named.status, JSON.stringify(named.body)).toBe(200);

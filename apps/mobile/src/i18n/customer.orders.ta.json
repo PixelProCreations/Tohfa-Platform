@@ -218,5 +218,7 @@
   "customer.orders.tracking.viewQr": "QR பார்",
   "customer.orders.tracking.wallet": "வாலட்",
   "customer.orders.tracking.writeReview": "மதிப்புரை & கருத்து எழுது",
-  "customer.orders.tracking.yourReview": "உங்கள் மதிப்புரை: {{rating}} ★"
+  "customer.orders.tracking.yourReview": "உங்கள் மதிப்புரை: {{rating}} ★",
+  "customer.orders.tracking.sellerFallbackName": "TOHFA Market",
+  "customer.orders.tracking.sellerStateCode": "மாநிலக் குறியீடு: {{value}}"
 }

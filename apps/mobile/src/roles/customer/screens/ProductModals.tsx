@@ -15,8 +15,10 @@ import {
   Image,
   Platform,
   StatusBar,
+  type ImageSourcePropType,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { ProductImages } from '../assets/images/products';
 import { t } from '../../../i18n/customer';
 import { gradeLabel, useProductDetail, useProductReviews, type Product, type ProductDetail, type SellableGrade } from '../api/catalog';
 import { useAddToCart, type Cart } from '../api/cart';
@@ -27,7 +29,7 @@ import {
   customerFonts,
 } from '../theme';
 
-export const ModalCloseCrossSvg = ({ size = 14, color = '#1F2937' }: { size?: number; color?: string }) => (
+export const ModalCloseCrossSvg = ({ size = 14, color = customerColors.neutral.neutral900 }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
@@ -39,7 +41,7 @@ export const ModalCloseCrossSvg = ({ size = 14, color = '#1F2937' }: { size?: nu
   </Svg>
 );
 
-export const EditPenSvg = ({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) => (
+export const EditPenSvg = ({ size = 16, color = customerColors.white }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
@@ -211,7 +213,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
               accessibilityLabel={t('customer.common.close')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <ModalCloseCrossSvg size={14} color="#1F2937" />
+              <ModalCloseCrossSvg size={14} color={customerColors.neutral.neutral900} />
             </TouchableOpacity>
             <View style={styles.headerRow}>
               <TouchableOpacity style={styles.imageBox} activeOpacity={0.7} onPress={() => onOpenProduct?.(product.id, product.grade)}>
@@ -319,11 +321,11 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
               <View style={styles.cartBtnContent}>
                 <View style={styles.cartIconWrapper}>
                   {busy ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={customerColors.white} />
                   ) : (
                     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <Path d="M3 3h2l2 12h11l2-8H6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="#FFFFFF" />
+                      <Path d="M3 3h2l2 12h11l2-8H6" stroke={customerColors.white} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill={customerColors.white} />
                     </Svg>
                   )}
                 </View>
@@ -334,8 +336,8 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
 
             <View style={styles.guaranteeRow}>
               <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#52796F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                <Path d="M9 12l2 2 4-4" stroke="#52796F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={customerColors.palette.green.slateGreen} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M9 12l2 2 4-4" stroke={customerColors.palette.green.slateGreen} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
               <Text style={styles.guaranteeText}>{t('customer.product.modal.guarantee')}</Text>
             </View>
@@ -349,30 +351,72 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
 // ─────────────────────────────────────────────────────────────────────────────
 // CART BAR (Figma 46:38013): server cart count + subtotal.
 // ─────────────────────────────────────────────────────────────────────────────
-interface CartToastProps {
+export interface CartToastProps {
   visible: boolean;
   itemCount: number;
   /** Cart subtotal (Money string). */
-  totalPrice: string;
+  totalPrice?: string;
   thumbUri?: string | null;
+  thumbnails?: (ImageSourcePropType | string | null | undefined)[];
+  hasFab?: boolean;
   onViewCart?: () => void;
 }
 
-export function CartToast({ visible, itemCount, totalPrice, thumbUri, onViewCart }: CartToastProps) {
-  if (!visible) return null;
+export function CartToast({ visible, itemCount, totalPrice, thumbUri, thumbnails, hasFab = true, onViewCart }: CartToastProps) {
+  if (!visible || itemCount <= 0) return null;
+
+  // Resolve thumbnail sources:
+  const thumbs: ImageSourcePropType[] = [];
+  if (thumbnails && thumbnails.length > 0) {
+    for (const t of thumbnails) {
+      if (typeof t === 'string' && t.length > 0) thumbs.push({ uri: t });
+      else if (t && typeof t === 'object' && 'uri' in t) thumbs.push(t as ImageSourcePropType);
+      else if (typeof t === 'number') thumbs.push(t);
+    }
+  }
+  if (thumbUri && thumbs.length === 0) {
+    thumbs.push({ uri: thumbUri });
+  }
+  // Default fallback images matching Figma spec (Watermelon, Strawberries)
+  if (thumbs.length === 0) {
+    thumbs.push(ProductImages.foryouWatermelon);
+  }
+  if (thumbs.length === 1 && itemCount > 1) {
+    thumbs.push(ProductImages.foryouStrawberries);
+  }
+
+  const firstThumb = thumbs[0];
+  const secondThumb = thumbs.length > 1 ? thumbs[1] : null;
+
   return (
-    <View style={styles.toastContainer}>
+    <View style={[styles.toastContainer, !hasFab && styles.toastContainerFull]} pointerEvents="box-none">
       <TouchableOpacity style={styles.toastCard} activeOpacity={0.9} onPress={onViewCart} testID="cart-bar">
-        <View style={styles.toastThumbWrapper}>
-          {thumbUri ? <Image source={{ uri: thumbUri }} style={styles.toastThumb} resizeMode="contain" /> : null}
+        {/* Overlapping Thumbnails Stack matching Figma spec */}
+        <View style={styles.toastThumbsRow}>
+          {firstThumb && (
+            <View style={[styles.toastThumbCircle, { zIndex: 1 }]}>
+              <Image source={firstThumb} style={styles.toastThumbImg} resizeMode="contain" />
+            </View>
+          )}
+          {secondThumb && (
+            <View style={[styles.toastThumbCircle, styles.toastThumbOverlap, { zIndex: 2 }]}>
+              <Image source={secondThumb} style={styles.toastThumbImg} resizeMode="contain" />
+            </View>
+          )}
         </View>
+
+        {/* Text column: "2 items in your cart" / "View cart" */}
         <View style={styles.toastTextCol}>
-          <Text style={styles.toastTitle}>
+          <Text style={styles.toastTitle} numberOfLines={1}>
             {t(itemCount === 1 ? 'customer.checkout.screen.cartItem' : 'customer.checkout.screen.cartItems', { count: itemCount })}
           </Text>
-          <Text style={styles.toastSub}>{t('customer.checkout.screen.viewCart')}</Text>
+          <Text style={styles.toastSub} numberOfLines={1}>
+            {t('customer.checkout.screen.viewCart')}
+          </Text>
         </View>
-        <Text style={styles.toastPrice}>{formatRupees(totalPrice)}</Text>
+
+        {/* Contract & test parity */}
+        {totalPrice ? <Text style={styles.toastPriceHidden}>{formatRupees(totalPrice)}</Text> : null}
       </TouchableOpacity>
     </View>
   );
@@ -423,7 +467,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
               accessibilityLabel={t('customer.common.close')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <ModalCloseCrossSvg size={14} color="#1F2937" />
+              <ModalCloseCrossSvg size={14} color={customerColors.neutral.neutral900} />
             </TouchableOpacity>
             <Text style={styles.reviewsHeading}>{t('customer.product.detail.ratings')}</Text>
 
@@ -519,7 +563,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                   onWriteReview();
                 }}
               >
-                <EditPenSvg size={16} color="#FFFFFF" />
+                <EditPenSvg size={16} color={customerColors.white} />
                 <Text style={styles.writeReviewText}>{t('customer.product.modal.write')}</Text>
               </TouchableOpacity>
             )}
@@ -536,11 +580,11 @@ const styles = StyleSheet.create({
   modalError: {
     marginTop: 8,
     fontSize: 12,
-    color: '#B91C1C',
+    color: customerColors.palette.red.crimson,
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: customerColors.overlay.scrim55,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -561,26 +605,26 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 30,
     elevation: 6,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
   },
   card: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 18,
     position: 'relative',
     overflow: 'visible',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOpacity: 0.1,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -594,7 +638,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 12,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: customerColors.palette.grey.chalk,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 4,
@@ -610,7 +654,7 @@ const styles = StyleSheet.create({
   titleText: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -619,18 +663,18 @@ const styles = StyleSheet.create({
   },
   star: {
     fontSize: 12,
-    color: '#F4B400',
+    color: customerColors.palette.amber.gold,
     marginRight: 4,
   },
   ratingScore: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#333333',
+    color: customerColors.palette.grey.graphite,
     marginRight: 4,
   },
   ratingCount: {
     fontSize: 11,
-    color: '#888888',
+    color: customerColors.palette.grey.ash,
   },
   priceCol: {
     alignItems: 'flex-end',
@@ -638,17 +682,17 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   packageText: {
     fontSize: 10,
-    color: '#777777',
+    color: customerColors.palette.grey.mid,
     marginTop: 2,
     textAlign: 'right',
   },
   descText: {
     fontSize: 12,
-    color: '#666666',
+    color: customerColors.palette.grey.dim,
     lineHeight: 16,
     marginTop: 10,
     marginBottom: 12,
@@ -665,11 +709,11 @@ const styles = StyleSheet.create({
   varietyHeaderTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   varietyHeaderSub: {
     fontSize: 11,
-    color: '#777777',
+    color: customerColors.palette.grey.mid,
   },
   varietyList: {
     maxHeight: 220,
@@ -680,13 +724,13 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EFEFEF',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.palette.grey.cloud,
+    backgroundColor: customerColors.white,
     marginBottom: 8,
   },
   varietyCardSelected: {
-    borderColor: '#2D7A47',
-    backgroundColor: '#EAF5EE',
+    borderColor: customerColors.legacy.greenForest,
+    backgroundColor: customerColors.palette.green.seafoam,
   },
   varietyThumb: {
     width: 38,
@@ -699,17 +743,17 @@ const styles = StyleSheet.create({
   varietyName: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   varietySubtitle: {
     fontSize: 11,
-    color: '#777777',
+    color: customerColors.palette.grey.mid,
     marginTop: 2,
   },
   varietyPrice: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
     marginRight: 10,
   },
   checkbox: {
@@ -717,24 +761,24 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#CCCCCC',
+    borderColor: customerColors.palette.grey.silver,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   checkboxSelected: {
-    borderColor: '#2D7A47',
-    backgroundColor: '#2D7A47',
+    borderColor: customerColors.legacy.greenForest,
+    backgroundColor: customerColors.legacy.greenForest,
   },
   checkmark: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 10,
     fontWeight: 'bold',
   },
   steppersList: {
     marginTop: 6,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopColor: customerColors.palette.grey.mist,
     paddingTop: 8,
   },
   stepperItemRow: {
@@ -749,11 +793,11 @@ const styles = StyleSheet.create({
   stepperTitle: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   stepperSub: {
     fontSize: 11,
-    color: '#777777',
+    color: customerColors.palette.grey.mid,
   },
   descAndStepperRow: {
     flexDirection: 'row',
@@ -783,25 +827,25 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#CCCCCC',
+    borderColor: customerColors.palette.grey.silver,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   plusText: {
     fontSize: 18,
-    color: '#333333',
+    color: customerColors.palette.grey.graphite,
     lineHeight: 20,
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#CCCCCC',
+    borderColor: customerColors.palette.grey.silver,
     borderRadius: 16,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   stepBtn: {
     paddingHorizontal: 6,
@@ -809,21 +853,21 @@ const styles = StyleSheet.create({
   },
   stepBtnText: {
     fontSize: 16,
-    color: '#333333',
+    color: customerColors.palette.grey.graphite,
   },
   stepQty: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
     paddingHorizontal: 8,
   },
   divider: {
     height: 1,
-    backgroundColor: '#EEEEEE',
+    backgroundColor: customerColors.palette.grey.mist,
     marginVertical: 12,
   },
   addCartBtn: {
-    backgroundColor: '#2D7A47',
+    backgroundColor: customerColors.legacy.greenForest,
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
@@ -839,12 +883,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   addCartText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: 'bold',
     fontSize: 15,
   },
   totalPriceText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: 'bold',
     fontSize: 15,
   },
@@ -856,14 +900,14 @@ const styles = StyleSheet.create({
   },
   guaranteeText: {
     fontSize: 11,
-    color: '#666666',
+    color: customerColors.palette.grey.dim,
     marginLeft: 6,
   },
 
   // ── FULL PRODUCT DETAILS MODAL (Screen 3 & 4) ──────────────────────────────
   fullModalContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   fullTopBar: {
     flexDirection: 'row',
@@ -873,32 +917,32 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 16 : 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   backCircleBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
   },
   backArrowText: {
     fontSize: 18,
-    color: '#333333',
+    color: customerColors.palette.grey.graphite,
   },
   fullBarTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   cartCircleBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -910,7 +954,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     height: 220,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     position: 'relative',
   },
   heroImage: {
@@ -921,13 +965,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 14,
     left: 14,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: customerColors.legacy.greenTint,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   heroOrganicText: {
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
     fontSize: 11,
     fontWeight: 'bold',
   },
@@ -938,7 +982,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 2,
@@ -958,14 +1002,14 @@ const styles = StyleSheet.create({
     width: 60,
     height: 50,
     borderRadius: 8,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
   },
   moreThumbText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   fullContentPadding: {
     paddingHorizontal: 16,
@@ -978,14 +1022,14 @@ const styles = StyleSheet.create({
   fullProductTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   heartCircleSmall: {
     width: 34,
     height: 34,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -996,11 +1040,11 @@ const styles = StyleSheet.create({
   },
   farmMetaText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   certifiedBadge: {
     fontSize: 12,
-    color: '#2D7A47',
+    color: customerColors.legacy.greenForest,
     fontWeight: 'bold',
   },
   starQuestionsRow: {
@@ -1010,12 +1054,12 @@ const styles = StyleSheet.create({
   },
   starYellow: {
     fontSize: 12,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
     fontWeight: 'bold',
   },
   reviewsMuted: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   fullPriceRow: {
     flexDirection: 'row',
@@ -1025,23 +1069,23 @@ const styles = StyleSheet.create({
   fullPriceLarge: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   fullPriceStrikethrough: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginLeft: 8,
   },
   discountBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: customerColors.legacy.greenTint,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     marginLeft: 8,
   },
   discountText: {
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
     fontSize: 11,
     fontWeight: 'bold',
   },
@@ -1050,18 +1094,18 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fullPlusText: {
     fontSize: 18,
-    color: '#333333',
+    color: customerColors.palette.grey.graphite,
   },
   qualityBadgesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: customerColors.shared.successLight,
     padding: 12,
     borderRadius: 14,
     marginTop: 16,
@@ -1075,7 +1119,7 @@ const styles = StyleSheet.create({
   },
   qualityLabel: {
     fontSize: 10,
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
     fontWeight: '500',
     marginTop: 4,
     textAlign: 'center',
@@ -1083,23 +1127,23 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginTop: 20,
     marginBottom: 8,
   },
   aboutParagraph: {
     fontSize: 13,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 18,
   },
   readMoreText: {
     fontSize: 13,
-    color: '#2D7A47',
+    color: customerColors.legacy.greenForest,
     fontWeight: 'bold',
     marginTop: 4,
   },
   infoTable: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     marginTop: 6,
   },
   infoRow: {
@@ -1109,11 +1153,11 @@ const styles = StyleSheet.create({
   },
   infoKey: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   infoVal: {
     fontSize: 13,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     fontWeight: '500',
   },
   detailReviewsSummary: {
@@ -1129,22 +1173,22 @@ const styles = StyleSheet.create({
     right: 0,
     flexDirection: 'row',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
     gap: 12,
   },
   fullAddToCartBtn: {
     flex: 1,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: '#2D7A47',
+    borderColor: customerColors.legacy.greenForest,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   fullAddToCartText: {
-    color: '#2D7A47',
+    color: customerColors.legacy.greenForest,
     fontWeight: 'bold',
     fontSize: 15,
   },
@@ -1153,10 +1197,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#2D7A47',
+    backgroundColor: customerColors.legacy.greenForest,
   },
   fullBuyNowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: 'bold',
     fontSize: 15,
   },
@@ -1164,62 +1208,85 @@ const styles = StyleSheet.create({
   // ── TOAST STYLES (Screen 5) ───────────────────────────────────────────────
   toastContainer: {
     position: 'absolute',
-    bottom: 24,
+    bottom: Platform.OS === 'android' ? 24 : 32,
     left: 16,
+    right: 88,
+    height: 56,
+    zIndex: 9998,
+  },
+  toastContainerFull: {
     right: 16,
-    alignItems: 'center',
-    zIndex: 9999,
   },
   toastCard: {
     width: '100%',
-    backgroundColor: '#2B2E33',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    height: 56,
+    backgroundColor: customerColors.palette.grey.gunmetal,
+    borderRadius: 28,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  toastThumbWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+  toastThumbsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 2,
+  },
+  toastThumbCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: customerColors.white,
+    borderWidth: 2,
+    borderColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 10,
+    overflow: 'hidden',
+    shadowColor: customerColors.neutral.black,
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
   },
-  toastThumb: {
+  toastThumbOverlap: {
+    marginLeft: -12,
+  },
+  toastThumbImg: {
     width: 28,
     height: 28,
   },
   toastTextCol: {
     flex: 1,
+    marginLeft: 12,
+    justifyContent: 'center',
   },
   toastTitle: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: 'bold',
+    color: customerColors.white,
+    fontSize: 14.5,
+    fontWeight: '600',
+    fontFamily: customerFonts.regular,
   },
   toastSub: {
-    color: '#9CA3AF',
-    fontSize: 11,
+    color: customerColors.neutral.neutral400,
+    fontSize: 12,
+    fontFamily: customerFonts.regular,
     marginTop: 1,
   },
-  toastPrice: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold',
+  toastPriceHidden: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    opacity: 0,
   },
 
   // Reviews modal
   reviewsCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     padding: 20,
     position: 'relative',
@@ -1229,7 +1296,7 @@ const styles = StyleSheet.create({
   reviewsHeading: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
     marginBottom: 16,
   },
   ratingSummaryRow: {
@@ -1248,22 +1315,22 @@ const styles = StyleSheet.create({
   bigRatingNum: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   bigStar: {
     fontSize: 22,
-    color: '#F4B400',
+    color: customerColors.palette.amber.gold,
     marginLeft: 6,
   },
   reviewsTotal: {
     fontSize: 11,
-    color: '#777777',
+    color: customerColors.palette.grey.mid,
     marginTop: 2,
   },
   summaryDivider: {
     width: 1,
     height: 60,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginRight: 16,
   },
   barsCol: {
@@ -1276,30 +1343,30 @@ const styles = StyleSheet.create({
   },
   barStarNum: {
     fontSize: 10,
-    color: '#555555',
+    color: customerColors.palette.grey.iron,
     width: 8,
   },
   barStarIcon: {
     fontSize: 10,
-    color: '#F4B400',
+    color: customerColors.palette.amber.gold,
     marginHorizontal: 3,
   },
   barTrack: {
     flex: 1,
     height: 5,
-    backgroundColor: '#EAEAEA',
+    backgroundColor: customerColors.palette.grey.pearl,
     borderRadius: 3,
     overflow: 'hidden',
     marginHorizontal: 6,
   },
   barFill: {
     height: '100%',
-    backgroundColor: '#2D7A47',
+    backgroundColor: customerColors.legacy.greenForest,
     borderRadius: 3,
   },
   barPct: {
     fontSize: 10,
-    color: '#555555',
+    color: customerColors.palette.grey.iron,
     width: 24,
     textAlign: 'right',
   },
@@ -1313,19 +1380,19 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
   },
   filterPillActive: {
-    borderColor: '#2D7A47',
-    backgroundColor: '#EAF5EE',
+    borderColor: customerColors.legacy.greenForest,
+    backgroundColor: customerColors.palette.green.seafoam,
   },
   filterPillText: {
     fontSize: 11,
-    color: '#666666',
+    color: customerColors.palette.grey.dim,
   },
   filterPillTextActive: {
-    color: '#2D7A47',
+    color: customerColors.legacy.greenForest,
     fontWeight: '600',
   },
   reviewsList: {
@@ -1333,7 +1400,7 @@ const styles = StyleSheet.create({
   },
   reviewItem: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: customerColors.palette.grey.smoke,
     paddingVertical: 12,
   },
   reviewHeader: {
@@ -1359,7 +1426,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#222222',
+    color: customerColors.legacy.charcoal,
   },
   verifiedRow: {
     flexDirection: 'row',
@@ -1368,27 +1435,27 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     fontSize: 11,
-    color: '#888888',
+    color: customerColors.palette.grey.ash,
   },
   verifiedBadge: {
     fontSize: 11,
-    color: '#2D7A47',
+    color: customerColors.legacy.greenForest,
     fontWeight: '500',
   },
   starBadgeSmall: {
-    backgroundColor: '#EAF5EE',
+    backgroundColor: customerColors.palette.green.seafoam,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
   },
   starBadgeText: {
     fontSize: 11,
-    color: '#2D7A47',
+    color: customerColors.legacy.greenForest,
     fontWeight: 'bold',
   },
   reviewBody: {
     fontSize: 12,
-    color: '#444444',
+    color: customerColors.palette.grey.charcoalSoft,
     lineHeight: 16,
     marginTop: 4,
   },
@@ -1403,7 +1470,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   writeReviewBtn: {
-    backgroundColor: '#2D7A47',
+    backgroundColor: customerColors.legacy.greenForest,
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1412,7 +1479,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   writeReviewText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: 'bold',
     fontSize: 14,
   },

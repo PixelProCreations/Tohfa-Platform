@@ -93,7 +93,11 @@ import {
   validateTicketDraft,
   canCancel,
   canReply,
+  createSupportTicket,
+  supportTicketFingerprint,
+  supportTicketIdempotencyKeys,
 } from '../api/support';
+import { api } from '../../../shell/api/client';
 import { groupHelpArticles, searchHelpGroups } from '../api/help';
 import { groupByIstDay, notificationTarget, markOneRead, markAllRead } from '../api/notifications';
 
@@ -194,6 +198,31 @@ describe('support model helpers', () => {
     const steps = deriveTimeline({ status: 'IN_PROGRESS', createdAt: 'a', updatedAt: 'b', resolvedAt: null });
     expect(steps.map((s) => s.state)).toEqual(['done', 'current', 'pending']);
     expect(deriveTimeline({ status: 'CANCELLED', createdAt: 'a', updatedAt: 'b', resolvedAt: null }).map((s) => s.key)).toEqual(['received', 'cancelled']);
+  });
+});
+
+describe('BR-212: create-ticket Idempotency-Key', () => {
+  const body = { category: 'OTHER' as const, subject: 'Other', description: 'Need help' };
+  beforeEach(() => supportTicketIdempotencyKeys.reset());
+  it('BR-212: same body reuses the key on retry; an edit or a success starts a new one', () => {
+    const k1 = supportTicketIdempotencyKeys.keyFor(supportTicketFingerprint(body));
+    expect(supportTicketIdempotencyKeys.keyFor(supportTicketFingerprint({ ...body }))).toBe(k1);
+    const k2 = supportTicketIdempotencyKeys.keyFor(supportTicketFingerprint({ ...body, description: 'Need more help' }));
+    expect(k2).not.toBe(k1);
+    supportTicketIdempotencyKeys.reset();
+    expect(supportTicketIdempotencyKeys.keyFor(supportTicketFingerprint({ ...body, description: 'Need more help' }))).not.toBe(k2);
+  });
+  it('BR-212: fingerprint ignores field order but not photo ids or order', () => {
+    const reordered = { description: 'Need help', subject: 'Other', category: 'OTHER' as const };
+    expect(supportTicketFingerprint(reordered)).toBe(supportTicketFingerprint(body));
+    expect(supportTicketFingerprint({ ...body, photoUploadIds: ['u1'] })).not.toBe(supportTicketFingerprint(body));
+    expect(supportTicketFingerprint({ ...body, orderId: 'o1' })).not.toBe(supportTicketFingerprint(body));
+  });
+  it('BR-212: POST /support/tickets sends the Idempotency-Key', async () => {
+    const post = vi.spyOn(api, 'post').mockResolvedValueOnce(ticket() as any);
+    await createSupportTicket(body, 'key-1');
+    expect(post).toHaveBeenCalledWith('/support/tickets', body, 'key-1', { timeoutMs: 15000 });
+    post.mockRestore();
   });
 });
 
@@ -323,7 +352,7 @@ describe('ContactSupportScreen', () => {
     await press(tree, 'Retry photo upload');
     expect(tree.root.findByProps({ accessibilityLabel: 'Submit Request' }).props.disabled).toBe(false);
   });
-  it('maps 422 and network errors (check My requests before resending)', async () => {
+  it('maps 422 and network errors (resend is safe, or check My requests)', async () => {
     const { NetworkError } = await import('../../../shell/api/client');
     h.create.mutateAsync.mockRejectedValueOnce(problem(422, 'VALIDATION_FAILED', { errors: { 'body.description': ['bad'] } }));
     const tree = await mount(<ContactSupportScreen />);

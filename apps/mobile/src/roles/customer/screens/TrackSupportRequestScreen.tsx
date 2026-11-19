@@ -42,7 +42,7 @@ import {
   type TimelineStepKey,
 } from '../api/support';
 import { mapProblem } from '../api/problem';
-import { t } from '../../../i18n/customer';
+import { t, type TranslationKey } from '../../../i18n/customer';
 
 export interface TrackSupportRequestScreenProps {
   ticketId?: string | undefined;
@@ -50,16 +50,20 @@ export interface TrackSupportRequestScreenProps {
   onNavigate?: ((screen: string, params?: Record<string, unknown> | undefined) => void) | undefined;
 }
 
-const STEP_COPY: Record<TimelineStepKey, { title: string; done: string; pending: string }> = {
-  received: { title: 'received.title', done: 'received.done', pending: '' },
-  review: { title: 'review.title', done: 'review.done', pending: 'review.pending' },
-  resolution: { title: 'resolution.title', done: 'resolution.done', pending: 'resolution.pending' },
-  cancelled: { title: 'cancelled.title', done: 'cancelled.done', pending: '' },
+/** Full catalogue keys so a missing translation is a type error, not a raw key on screen. */
+const STEP_COPY: Record<TimelineStepKey, { title: TranslationKey; done: TranslationKey; pending: TranslationKey | null }> = {
+  received: { title: 'customer.track.step.received.title', done: 'customer.track.step.received.done', pending: null },
+  review: { title: 'customer.track.step.review.title', done: 'customer.track.step.review.done', pending: 'customer.track.step.review.pending' },
+  resolution: {
+    title: 'customer.track.step.resolution.title',
+    done: 'customer.track.step.resolution.done',
+    pending: 'customer.track.step.resolution.pending',
+  },
+  cancelled: { title: 'customer.track.step.cancelled.title', done: 'customer.track.step.cancelled.done', pending: null },
 };
 
-/** Resolve a STEP_COPY entry to text at render time (an empty entry stays empty). */
-const stepText = (entry: string): string =>
-  entry === '' ? '' : t(`customer.track.step.${entry}` as 'customer.track.step.received.title');
+/** Resolve a STEP_COPY entry to text at render time. */
+const stepText = (key: TranslationKey): string => t(key);
 
 export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps> = ({
   ticketId,
@@ -179,7 +183,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
             {/* ── SUPPORT ID CARD ─────────────────────────────────────────────── */}
             <View style={styles.supportIdCard}>
               <View style={styles.supportIdLeft}>
-                <TicketSvg color="#2E7D32" size={24} />
+                <TicketSvg color={customerColors.primary} size={24} />
                 <View style={styles.supportIdTextCol}>
                   <Text style={styles.supportIdLabel}>{t('customer.track.supportId')}</Text>
                   <Text style={styles.supportIdValue}>{ticket.ticketNumber}</Text>
@@ -234,7 +238,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                         <Text style={styles.stepPending}>{t('customer.track.pending')}</Text>
                       ) : null}
                       <Text style={step.state === 'pending' ? styles.stepDescriptionMuted : styles.stepDescription}>
-                        {stepText(step.state === 'pending' || step.state === 'current' ? copy.pending || copy.done : copy.done)}
+                        {stepText(step.state === 'pending' || step.state === 'current' ? copy.pending ?? copy.done : copy.done)}
                       </Text>
                     </View>
                   </View>
@@ -255,7 +259,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                     <View style={[styles.updateCard, m.sender === 'SUPPORT' ? styles.updateCardActive : styles.updateCardNeutral]}>
                       <View style={styles.updateCardHeader}>
                         <View style={styles.updateHeaderLeft}>
-                          <HeadsetSvg color={m.sender === 'SUPPORT' ? '#2E7D32' : '#4B5563'} size={18} />
+                          <HeadsetSvg color={m.sender === 'SUPPORT' ? customerColors.primary : customerColors.neutral.neutral700} size={18} />
                           <Text style={styles.updateTeamTitle}>{m.sender === 'SUPPORT' ? t('customer.track.supportTeam') : t('customer.track.you')}</Text>
                         </View>
                         <Text style={styles.updateTimestamp}>{formatSupportDateTime(m.createdAt)}</Text>
@@ -273,14 +277,14 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                 <TextInput
                   style={{
                     borderWidth: 1,
-                    borderColor: '#E5E7EB',
+                    borderColor: customerColors.neutral.neutral300,
                     borderRadius: 12,
                     padding: 12,
                     minHeight: 70,
                     textAlignVertical: 'top',
                   }}
                   placeholder={t('customer.track.replyPlaceholder')}
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={customerColors.neutral.neutral500}
                   value={replyText}
                   onChangeText={setReplyText}
                   maxLength={MESSAGE_MAX}
@@ -288,23 +292,23 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                   accessibilityLabel={t('customer.track.replyA11y')}
                 />
                 <TouchableOpacity
-                  style={[styles.cancelButton, { marginTop: 10, borderColor: customerColors.brand, backgroundColor: replyText.trim() === '' ? '#F3F4F6' : '#2E7D32' }]}
+                  style={[styles.cancelButton, { marginTop: 10, borderColor: customerColors.brand, backgroundColor: replyText.trim() === '' ? customerColors.neutral.neutral100 : customerColors.primary }]}
                   activeOpacity={0.8}
                   disabled={replyText.trim() === '' || reply.isPending}
                   onPress={() => void doReply()}
                   accessibilityLabel={t('customer.track.sendReply')}
                 >
                   {reply.isPending ? (
-                    <ActivityIndicator color="#FFFFFF" />
+                    <ActivityIndicator color={customerColors.white} />
                   ) : (
-                    <Text style={[styles.cancelButtonText, { color: replyText.trim() === '' ? '#9CA3AF' : '#FFFFFF' }]}>{t('customer.track.sendReply')}</Text>
+                    <Text style={[styles.cancelButtonText, { color: replyText.trim() === '' ? customerColors.neutral.neutral500 : customerColors.white }]}>{t('customer.track.sendReply')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
             ) : null}
 
             {actionError !== null ? (
-              <Text style={{ color: '#DC2626', fontSize: 12, marginBottom: 10 }} accessibilityRole="alert">
+              <Text style={{ color: customerColors.shared.error, fontSize: 12, marginBottom: 10 }} accessibilityRole="alert">
                 {actionError}
               </Text>
             ) : null}
@@ -337,7 +341,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -354,7 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: customerSpacing.base,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -366,7 +370,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -379,7 +383,7 @@ const styles = StyleSheet.create({
 
   /* Support ID Card */
   supportIdCard: {
-    backgroundColor: '#EAF6E9',
+    backgroundColor: customerColors.palette.green.successWash,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -395,19 +399,19 @@ const styles = StyleSheet.create({
   },
   supportIdLabel: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   supportIdValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
 
   /* Section Title */
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     marginBottom: 12,
     marginTop: 6,
   },
@@ -424,12 +428,12 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 14,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
 
   /* Request Status Timeline */
@@ -455,10 +459,10 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   connectorGreen: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
   },
   connectorGray: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   stepContent: {
     flex: 1,
@@ -467,27 +471,27 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   stepTimestamp: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
   stepPending: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
   stepDescription: {
     fontSize: 12.5,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 18,
     marginTop: 4,
   },
   stepDescriptionMuted: {
     fontSize: 12.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     lineHeight: 18,
     marginTop: 4,
   },
@@ -504,7 +508,7 @@ const styles = StyleSheet.create({
     top: 22,
     bottom: 22,
     width: 2,
-    backgroundColor: '#A7D7A9',
+    backgroundColor: customerColors.palette.green.pastel,
   },
   updateRow: {
     flexDirection: 'row',
@@ -515,7 +519,7 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 6,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     zIndex: 1,
   },
   updateCard: {
@@ -525,12 +529,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   updateCardActive: {
-    backgroundColor: '#EAF6E9',
+    backgroundColor: customerColors.palette.green.successWash,
   },
   updateCardNeutral: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
   },
   updateCardHeader: {
     flexDirection: 'row',
@@ -546,35 +550,35 @@ const styles = StyleSheet.create({
   updateTeamTitle: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   updateTimestamp: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   updateMessage: {
     fontSize: 12.5,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     lineHeight: 18,
   },
 
   /* Cancel Button */
   cancelButton: {
     borderWidth: 1.5,
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
     borderRadius: 28,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   cancelButtonDisabled: {
-    borderColor: '#9CA3AF',
+    borderColor: customerColors.neutral.neutral500,
   },
   cancelButtonText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 });
 

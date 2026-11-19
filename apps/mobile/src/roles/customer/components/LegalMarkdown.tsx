@@ -3,7 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import type { MarkdownBlock } from '../api/legal';
 import { formatLegalDate } from '../api/legal';
-import { customerFonts } from '../theme';
+import { customerFonts, customerColors } from '../theme';
 
 import { t } from '../../../i18n/customer';
 export const LegalMarkdown: React.FC<{ blocks: MarkdownBlock[] }> = ({ blocks }) => (
@@ -66,7 +66,7 @@ export const LegalMeta: React.FC<{ title: string; lastUpdated?: string | undefin
 
 export const LegalLoading: React.FC = () => (
   <View style={styles.centered} accessibilityLabel={t('customer.legal.loading')}>
-    <ActivityIndicator color="#1A2E1A" />
+    <ActivityIndicator color={customerColors.heading} />
   </View>
 );
 
@@ -80,16 +80,16 @@ export const LegalError: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (
 );
 
 const styles = StyleSheet.create({
-  documentMainTitle: { fontSize: 16, fontWeight: '700', color: '#1A2E1A', fontFamily: customerFonts.bold, marginBottom: 16 },
+  documentMainTitle: { fontSize: 16, fontWeight: '700', color: customerColors.heading, fontFamily: customerFonts.bold, marginBottom: 16 },
   metadataRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  brandTitle: { fontSize: 15, fontWeight: '600', color: '#1A2E1A', fontFamily: customerFonts.semibold },
-  lastUpdatedText: { fontSize: 12, color: '#6B7280', fontFamily: customerFonts.regular },
-  sectionHeader: { fontSize: 14, fontWeight: '700', color: '#1A2E1A', fontFamily: customerFonts.bold, marginTop: 20, marginBottom: 8 },
-  subHeader: { fontSize: 13, fontWeight: '700', color: '#1A2E1A', fontFamily: customerFonts.bold, marginBottom: 6 },
-  subSectionHeader: { fontSize: 13, fontWeight: '700', color: '#1A2E1A', fontFamily: customerFonts.bold, marginTop: 14, marginBottom: 6 },
-  bodyParagraph: { fontSize: 12.5, lineHeight: 18, color: '#6B7280', fontFamily: customerFonts.regular, marginBottom: 10 },
-  bulletItem: { fontSize: 12.5, lineHeight: 19, color: '#6B7280', fontFamily: customerFonts.regular, marginBottom: 3, paddingLeft: 4 },
+  brandTitle: { fontSize: 15, fontWeight: '600', color: customerColors.heading, fontFamily: customerFonts.semibold },
+  lastUpdatedText: { fontSize: 12, color: customerColors.neutral.neutral600, fontFamily: customerFonts.regular },
+  sectionHeader: { fontSize: 14, fontWeight: '700', color: customerColors.heading, fontFamily: customerFonts.bold, marginTop: 20, marginBottom: 8 },
+  subHeader: { fontSize: 13, fontWeight: '700', color: customerColors.heading, fontFamily: customerFonts.bold, marginBottom: 6 },
+  subSectionHeader: { fontSize: 13, fontWeight: '700', color: customerColors.heading, fontFamily: customerFonts.bold, marginTop: 14, marginBottom: 6 },
+  bodyParagraph: { fontSize: 12.5, lineHeight: 18, color: customerColors.neutral.neutral600, fontFamily: customerFonts.regular, marginBottom: 10 },
+  bulletItem: { fontSize: 12.5, lineHeight: 19, color: customerColors.neutral.neutral600, fontFamily: customerFonts.regular, marginBottom: 3, paddingLeft: 4 },
   centered: { paddingVertical: 40, alignItems: 'center' },
-  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, borderWidth: 1.2, borderColor: '#1A2E1A' },
-  retryText: { fontSize: 13, fontWeight: '600', color: '#1A2E1A', fontFamily: customerFonts.semibold },
+  retryBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, borderWidth: 1.2, borderColor: customerColors.heading },
+  retryText: { fontSize: 13, fontWeight: '600', color: customerColors.heading, fontFamily: customerFonts.semibold },
 });

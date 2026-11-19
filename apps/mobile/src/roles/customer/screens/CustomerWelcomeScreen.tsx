@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Image,
   TouchableOpacity,
@@ -9,6 +10,8 @@ import {
   BackHandler,
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { customerFonts, customerColors } from '../theme';
+import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 import customerSplashClean from '../assets/images/customer_splash_clean.png';
 import customerWelcomeSlide1Full from '../assets/images/customer_welcome_slide1_full.png';
@@ -194,15 +197,19 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                   accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 3 })}
                 />
               </View>
-              {/* Full bottom touch target over 'Get Started →' button */}
+              {/* Sharp native vector 'Get Started →' button */}
               <TouchableOpacity
-                activeOpacity={0.7}
+                activeOpacity={0.85}
                 onPress={handleNext}
-                style={styles.slide2GetStartedTouch}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                style={styles.slide2GetStartedButton}
                 accessibilityRole="button"
-                accessibilityLabel={t('customer.onboarding.welcome.getStarted')}
-              />
+                accessibilityLabel={t('customer.onboarding.getStarted') || 'Get Started'}
+              >
+                <Text style={styles.slide2GetStartedText}>
+                  {t('customer.onboarding.getStarted') || 'Get Started'}
+                </Text>
+                <ArrowRightFigmaIcon size={20} color={customerColors.white} strokeWidth={2.4} />
+              </TouchableOpacity>
             </View>
           )}
         </Animated.View>
@@ -214,7 +221,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
 
   // ── SPLASH SCREEN STYLES ──────────────────────────────────────────────────
@@ -224,7 +231,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -237,19 +244,19 @@ const styles = StyleSheet.create({
   // ── ONBOARDING SCREEN STYLES ──────────────────────────────────────────────
   onboardingContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'space-between',
   },
   slideFullWhite: {
     flex: 1,
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     position: 'relative',
   },
   slideFullIvory: {
     flex: 1,
     justifyContent: 'space-between',
-    backgroundColor: '#F4F5F0',
+    backgroundColor: customerColors.palette.warm.parchment,
     position: 'relative',
   },
   slide0ExactImage: {
@@ -277,13 +284,31 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
   },
-  slide2GetStartedTouch: {
+  slide2GetStartedButton: {
     position: 'absolute',
-    bottom: 24,
-    left: 0,
-    right: 0,
-    height: 140,
+    bottom: 32,
+    left: 20,
+    right: 20,
+    height: 56,
+    backgroundColor: customerColors.primary,
+    borderRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    elevation: 3,
+    shadowColor: customerColors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
     zIndex: 999,
+  },
+  slide2GetStartedText: {
+    fontFamily: customerFonts.semibold,
+    fontSize: 16,
+    color: customerColors.white,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   slide2DotsRow: {
     position: 'absolute',

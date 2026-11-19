@@ -53,7 +53,7 @@ const GreenBellIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -65,12 +65,12 @@ const GreenPinIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7z"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Circle cx={12} cy={9} r={2.5} stroke="#2E7D32" strokeWidth={1.8} />
+    <Circle cx={12} cy={9} r={2.5} stroke={customerColors.primary} strokeWidth={1.8} />
   </Svg>
 );
 
@@ -229,7 +229,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
         accessibilityLabel={t('customer.account.permissions.continueA11y')}
         accessibilityState={{ busy: requesting }}
       >
-        {requesting ? <ActivityIndicator color="#FFFFFF" /> : <ArrowRightFigmaIcon size={24} color="#FFFFFF" />}
+        {requesting ? <ActivityIndicator color={customerColors.white} /> : <ArrowRightFigmaIcon size={24} color={customerColors.white} />}
       </TouchableOpacity>
 
       {/* ── WHERE SHOULD WE DELIVER / ADD ADDRESS MODALS ── */}
@@ -271,20 +271,20 @@ const styles = StyleSheet.create({
   permissionStatus: {
     fontFamily: customerFonts.regular,
     fontSize: 11.5,
-    color: '#B45309',
+    color: customerColors.palette.amber.bronze,
   },
   permissionStatusOn: {
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   permissionSettingsLink: {
     fontFamily: customerFonts.semibold,
     fontSize: 11.5,
-    color: '#2E7D32',
+    color: customerColors.primary,
     textDecorationLine: 'underline',
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     position: 'relative',
   },
   topBar: {
@@ -301,13 +301,13 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeIcon: {
     fontSize: 14,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     fontWeight: '700',
   },
   skipButton: {
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   heroWrap: {
     width: '100%',
     height: 230,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   preTitle: {
     fontFamily: customerFonts.bold,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     letterSpacing: 1.2,
     marginBottom: 4,
   },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 13,
     lineHeight: 19,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginBottom: 20,
   },
   permissionCard: {
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -378,18 +378,18 @@ const styles = StyleSheet.create({
   permissionTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 2,
   },
   permissionDesc: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
     lineHeight: 17,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     marginVertical: 14,
     width: '100%',
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   arrowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 26,
     lineHeight: 28,
     fontWeight: '700',
@@ -422,14 +422,14 @@ const styles = StyleSheet.create({
   },
   notificationDialogCard: {
     width: 300,
-    backgroundColor: '#334155',
+    backgroundColor: customerColors.palette.slate.dark,
     borderRadius: 18,
     padding: 20,
     alignItems: 'center',
   },
   locationDialogCard: {
     width: 300,
-    backgroundColor: '#334155',
+    backgroundColor: customerColors.palette.slate.dark,
     borderRadius: 18,
     padding: 20,
     alignItems: 'center',
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   dialogTitle: {
     fontFamily: customerFonts.regular,
     fontSize: 14,
-    color: '#F8FAFC',
+    color: customerColors.palette.slate.snow,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 18,
@@ -448,11 +448,11 @@ const styles = StyleSheet.create({
   },
   dialogTitleBold: {
     fontFamily: customerFonts.bold,
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   dialogPrimaryBtn: {
     width: '100%',
-    backgroundColor: '#BAE6FD',
+    backgroundColor: customerColors.palette.blue.skyTint,
     paddingVertical: 11,
     borderRadius: 8,
     alignItems: 'center',
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   dialogBtnText: {
     fontFamily: customerFonts.bold,
     fontSize: 12,
-    color: '#0F172A',
+    color: customerColors.palette.slate.night,
     letterSpacing: 0.5,
   },
 
@@ -480,16 +480,16 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#1E293B',
+    backgroundColor: customerColors.palette.slate.charcoal,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#475569',
+    borderColor: customerColors.palette.slate.steel,
     marginBottom: 6,
     position: 'relative',
   },
   locationCircleActive: {
-    borderColor: '#38BDF8',
+    borderColor: customerColors.palette.blue.skyLight,
     borderWidth: 2.5,
   },
   selectedCheckBadge: {
@@ -499,13 +499,13 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#38BDF8',
+    backgroundColor: customerColors.palette.blue.skyLight,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
   },
   selectedCheckIcon: {
-    color: '#0F172A',
+    color: customerColors.palette.slate.night,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: '100%',
     width: 1,
-    backgroundColor: '#334155',
+    backgroundColor: customerColors.palette.slate.dark,
   },
   radarRing: {
     position: 'absolute',
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: customerColors.palette.slate.dark,
   },
   radarDotCenter: {
     alignItems: 'center',
@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
     left: 4,
     right: 8,
     height: 3,
-    backgroundColor: '#F59E0B',
+    backgroundColor: customerColors.legacy.amber,
     transform: [{ rotate: '15deg' }],
   },
   roadLine2: {
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
     left: 10,
     right: 4,
     height: 2.5,
-    backgroundColor: '#38BDF8',
+    backgroundColor: customerColors.palette.blue.skyLight,
     transform: [{ rotate: '-10deg' }],
   },
   roadLine3: {
@@ -556,22 +556,22 @@ const styles = StyleSheet.create({
     bottom: 6,
     left: 34,
     width: 2.5,
-    backgroundColor: '#94A3B8',
+    backgroundColor: customerColors.palette.slate.mist,
   },
   locationChoiceLabel: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#94A3B8',
+    color: customerColors.palette.slate.mist,
   },
   locationChoiceLabelActive: {
-    color: '#F8FAFC',
+    color: customerColors.palette.slate.snow,
     fontFamily: customerFonts.semibold,
   },
 
   // ── WHERE SHOULD WE DELIVER DIALOG (300 x 216 Hug) ───────────────────────
   deliverySheetCard: {
     width: 300,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 18,
     padding: 18,
     position: 'relative',
@@ -584,21 +584,21 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
   },
   sheetCloseText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     fontWeight: '700',
   },
   deliverySheetTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 4,
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 11,
     lineHeight: 16,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginBottom: 16,
     paddingHorizontal: 6,
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   currentLocationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 12,
     padding: 12,
     marginBottom: 10,
@@ -623,17 +623,17 @@ const styles = StyleSheet.create({
   manualLocationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     padding: 12,
   },
   locationPinCircleGreen: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -653,18 +653,18 @@ const styles = StyleSheet.create({
   deliveryOptionTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 2,
   },
   deliveryOptionDesc: {
     fontFamily: customerFonts.regular,
     fontSize: 10.5,
     lineHeight: 14,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   chevronIcon: {
     fontSize: 20,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     marginLeft: 6,
   },
 });

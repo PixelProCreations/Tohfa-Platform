@@ -25,6 +25,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   customerFonts,
+  customerColors,
 } from '../theme';
 import {
   isValidPincode,
@@ -128,7 +129,7 @@ const NearestMarketPicker: React.FC<{
     <View testID="nearest-market-picker">
       <Text style={styles.typeOfAddressHeading}>{t('customer.address.form.market.title')}</Text>
       {points.isLoading ? (
-        <ActivityIndicator color="#2E7D32" />
+        <ActivityIndicator color={customerColors.primary} />
       ) : points.isError ? (
         <Text style={styles.helperText}>{t('customer.address.form.market.error')}</Text>
       ) : items.length === 0 ? (
@@ -162,7 +163,7 @@ const NearestMarketPicker: React.FC<{
 
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
 
-const PinIcon = ({ color = '#1F2937' }: { color?: string }) => (
+const PinIcon = ({ color = customerColors.neutral.neutral900 }: { color?: string }) => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7z"
@@ -180,7 +181,7 @@ const ChevronRightIcon = () => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 5l7 7-7 7"
-      stroke="#374151"
+      stroke={customerColors.neutral.neutral800}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -192,7 +193,7 @@ const CloseCrossIcon = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
-      stroke="#374151"
+      stroke={customerColors.neutral.neutral800}
       strokeWidth={2.2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -204,7 +205,7 @@ const CheckmarkIcon = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
     <Path
       d="M20 6L9 17l-5-5"
-      stroke="#FFFFFF"
+      stroke={customerColors.white}
       strokeWidth={3}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -350,7 +351,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
         testID={`address-${name}`}
         style={[styles.underlineInput, errors[name] ? styles.underlineInputError : null]}
         placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
+        placeholderTextColor={customerColors.neutral.neutral500}
         value={value}
         onChangeText={(s) => {
           onChange(s);
@@ -399,7 +400,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               style={styles.currentLocationOption}
             >
               <View style={styles.greenPinBadge}>
-                <PinIcon color="#1F2937" />
+                <PinIcon color={customerColors.neutral.neutral900} />
               </View>
               <View style={styles.optionTextCol}>
                 <Text style={styles.currentLocationTitle}>{t('customer.address.form.delivery.useCurrent')}</Text>
@@ -415,7 +416,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               style={styles.standardOption}
             >
               <View style={styles.whitePinBadge}>
-                <PinIcon color="#1F2937" />
+                <PinIcon color={customerColors.neutral.neutral900} />
               </View>
               <View style={styles.optionTextCol}>
                 <Text style={styles.standardOptionTitle}>{t('customer.address.add.title')}</Text>
@@ -436,7 +437,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               style={styles.standardOption}
             >
               <View style={styles.whitePinBadge}>
-                <PinIcon color="#1F2937" />
+                <PinIcon color={customerColors.neutral.neutral900} />
               </View>
               <View style={styles.optionTextCol}>
                 <Text style={styles.standardOptionTitle}>{t('customer.address.form.delivery.manual')}</Text>
@@ -566,7 +567,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                 accessibilityState={{ busy: saving, disabled: saving }}
               >
                 {saving ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <ActivityIndicator color={customerColors.white} />
                 ) : (
                   <Text style={styles.saveAddressBtnText}>{t('customer.address.form.save')}</Text>
                 )}
@@ -582,14 +583,14 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
 const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
   },
   cardContainer: {
     width: Math.min(SCREEN_WIDTH - 36, 350),
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -597,7 +598,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: customerColors.neutral.black,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.15,
         shadowRadius: 16,
@@ -618,15 +619,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 20,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: customerColors.neutral.black,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
@@ -639,20 +640,20 @@ const styles = StyleSheet.create({
   deliveryTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 6,
   },
   deliverySubtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 12.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     lineHeight: 18,
     marginBottom: 16,
   },
   currentLocationOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EAF7EC',
+    backgroundColor: customerColors.palette.green.haze,
     borderRadius: 14,
     padding: 12,
     marginBottom: 12,
@@ -673,21 +674,21 @@ const styles = StyleSheet.create({
   currentLocationTitle: {
     fontFamily: customerFonts.semibold,
     fontSize: 13.5,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 2,
   },
   currentLocationDesc: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     lineHeight: 15,
   },
   standardOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
@@ -696,7 +697,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 10,
@@ -704,7 +705,7 @@ const styles = StyleSheet.create({
   standardOptionTitle: {
     fontFamily: customerFonts.semibold,
     fontSize: 13.5,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
 
   // ── Add Address Screen Styles ──────────────────────────────────────────────
@@ -718,12 +719,12 @@ const styles = StyleSheet.create({
   addAddressTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   resetText: {
     fontFamily: customerFonts.semibold,
     fontSize: 13.5,
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   formScrollContent: {
     paddingBottom: 8,
@@ -739,9 +740,9 @@ const styles = StyleSheet.create({
   underlineInput: {
     fontFamily: customerFonts.regular,
     fontSize: 13.5,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingVertical: 10,
     paddingHorizontal: 0,
     marginBottom: 8,
@@ -749,7 +750,7 @@ const styles = StyleSheet.create({
   typeOfAddressHeading: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginTop: 14,
     marginBottom: 10,
   },
@@ -769,27 +770,27 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleActive: {
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
   },
   radioDot: {
     width: 9,
     height: 9,
     borderRadius: 4.5,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
   },
   radioLabel: {
     fontFamily: customerFonts.regular,
     fontSize: 13.5,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   radioLabelActive: {
     fontFamily: customerFonts.semibold,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   checkboxRow: {
     flexDirection: 'row',
@@ -803,22 +804,22 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral400,
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxBoxActive: {
-    backgroundColor: '#2E7D32',
-    borderColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
+    borderColor: customerColors.primary,
   },
   checkboxLabel: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   saveAddressBtn: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     borderRadius: 24,
     height: 46,
     justifyContent: 'center',
@@ -828,7 +829,7 @@ const styles = StyleSheet.create({
   saveAddressBtnText: {
     fontFamily: customerFonts.bold,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   saveAddressBtnDisabled: {
     opacity: 0.7,
@@ -837,26 +838,26 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   underlineInputError: {
-    borderBottomColor: '#DC2626',
+    borderBottomColor: customerColors.shared.error,
   },
   fieldError: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     marginTop: -4,
     marginBottom: 6,
   },
   formError: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     textAlign: 'center',
     marginBottom: 10,
   },
   helperText: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginBottom: 8,
   },
   marketRow: {

@@ -15,12 +15,13 @@ import {
 } from './ContactSupportIcons';
 import Svg, { Path } from 'react-native-svg';
 import { t } from '../../../i18n/customer';
+import { customerColors } from '../theme';
 
 const ModalCloseSvg = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
-      stroke="#4B5563"
+      stroke={customerColors.neutral.neutral700}
       strokeWidth={2.5}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -90,7 +91,7 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
             {/* Order ID Banner */}
             <View style={styles.orderCard}>
               <View style={styles.orderIconBadge}>
-                <ShoppingBagSvg color="#2E7D32" size={18} />
+                <ShoppingBagSvg color={customerColors.primary} size={18} />
               </View>
               <View style={styles.orderTextCol}>
                 <Text style={styles.orderLabel}>{t('customer.orders.review.modal.orderId')}</Text>
@@ -167,7 +168,7 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: customerColors.overlay.scrim55,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -177,13 +178,13 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 380,
     maxHeight: '90%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 22,
     position: 'relative',
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
@@ -196,12 +197,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
   },
   scrollView: {
     width: '100%',
@@ -216,13 +217,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     textAlign: 'center',
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 12.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 18,
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     width: '100%',
-    backgroundColor: '#EAF6E9',
+    backgroundColor: customerColors.palette.green.successWash,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -252,12 +253,12 @@ const styles = StyleSheet.create({
   },
   orderLabel: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   orderValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   productsList: {
     width: '100%',
@@ -281,18 +282,18 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   productWeight: {
     fontWeight: '400',
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   starsRow: {
     flexDirection: 'row',
     gap: 2,
   },
   reviewedBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 12,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -300,11 +301,11 @@ const styles = StyleSheet.create({
   reviewedText: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   writeReviewButton: {
     borderWidth: 1,
-    borderColor: '#6B7280',
+    borderColor: customerColors.neutral.neutral600,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 4,
@@ -312,11 +313,11 @@ const styles = StyleSheet.create({
   writeReviewText: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
   },
   primaryButton: {
     width: '100%',
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
@@ -326,22 +327,22 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   secondaryButton: {
     width: '100%',
     borderWidth: 1.5,
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   secondaryButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 });
 

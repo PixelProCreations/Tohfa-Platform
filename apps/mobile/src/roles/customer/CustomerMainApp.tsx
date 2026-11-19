@@ -7,7 +7,6 @@ import { queryClient } from '../../shell/api/queryClient';
 import { onForegroundPush, onPushOpened, registerPushForSession } from '../../shell/notifications/push';
 import { notificationTarget } from './api/notifications';
 import { getLocale } from '../../i18n/customer';
-import { CategoriesScreen } from './screens/CategoriesScreen';
 import { ProductGridScreen } from './screens/ProductGridScreen';
 import { ProductDetailScreen } from './screens/ProductDetailScreen';
 import type { ProductSort, SellableGrade } from './api/catalog';
@@ -52,7 +51,6 @@ import { WishlistScreen } from './screens/WishlistScreen';
 
 type ScreenName =
   | 'Home'
-  | 'Categories'
   | 'ProductGrid'
   | 'ProductDetail'
   | 'Search'
@@ -86,7 +84,7 @@ interface NavigationParams {
   product?: any;
   shortfall?: string | undefined;
   orderId?: string | undefined;
-  mode?: 'empty' | 'view' | 'edit' | undefined;
+  mode?: 'empty' | 'view' | 'edit' | 'create' | undefined;
   isNewUser?: boolean | undefined;
   supportId?: string | undefined;
   orderNumber?: string | undefined;
@@ -202,9 +200,6 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           {currentScreen === 'Home' && (
             <HomeScreen onNavigate={(s, p) => navigate(s, p)} />
           )}
-          {currentScreen === 'Categories' && (
-            <CategoriesScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
-          )}
 
           {currentScreen === 'ProductGrid' && (
             <ProductGridScreen
@@ -307,7 +302,11 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'CustomerProfile' && (
             <CustomerProfileScreen
-              initialMode={navParams.mode || (navParams.isNewUser ? 'empty' : 'view')}
+              initialMode={
+                navParams.mode && navParams.mode !== 'create'
+                  ? navParams.mode
+                  : (navParams.isNewUser ? 'empty' : 'view')
+              }
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />
@@ -365,11 +364,18 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'ContactSupport' && (
-            <ContactSupportScreen
-              initialTab={navParams.initialTab}
-              onNavigate={(s, p) => navigate(s, p)}
-              onBack={goBack}
-            />
+            navParams.mode === 'create' || navParams.orderId ? (
+              <ContactSupportScreen
+                initialTab={navParams.initialTab}
+                onNavigate={(s, p) => navigate(s, p)}
+                onBack={goBack}
+              />
+            ) : (
+              <CustomerSupportScreen
+                onNavigate={(s, p) => navigate(s, p)}
+                onBack={goBack}
+              />
+            )
           )}
 
           {currentScreen === 'ReviewFeedback' && (

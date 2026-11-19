@@ -38,22 +38,22 @@ const SaladBowlIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 11c0 4.97 4.03 9 9 9s9-4.03 9-9H3z"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <Path
       d="M12 4c-1.5 2-2 4-2 6h4c0-2-.5-4-2-6z"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
-      fill="#81C784"
+      fill={customerColors.palette.green.sprout}
     />
     <Path
       d="M7 6c.5 1.5 1.5 3 3 4"
-      stroke="#4CAF50"
+      stroke={customerColors.legacy.greenMid}
       strokeWidth={1.8}
       strokeLinecap="round"
     />
@@ -64,15 +64,15 @@ const ShieldCheckIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 3L4 6v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V6l-8-3z"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
-      fill="#E8F5E9"
+      fill={customerColors.shared.primaryLight}
     />
     <Path
       d="M9 12l2 2 4-4"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -84,13 +84,13 @@ const VegetarianIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 14v7M10 21h4"
-      stroke="#558B2F"
+      stroke={customerColors.palette.green.olive}
       strokeWidth={2.5}
       strokeLinecap="round"
     />
     <Path
       d="M12 4a4.5 4.5 0 00-4.24 3A4.5 4.5 0 005.5 14h13a4.5 4.5 0 00-2.26-7A4.5 4.5 0 0012 4z"
-      fill="#4CAF50"
+      fill={customerColors.legacy.greenMid}
     />
   </Svg>
 );
@@ -99,11 +99,11 @@ const NonVegIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12c0 4-3.5 7-8 7s-7-3-7-7 3.5-7 7-7c3 0 5.5 1.5 6.5 4"
-      stroke="#FF7043"
+      stroke={customerColors.palette.orange.coral}
       strokeWidth={2.5}
       strokeLinecap="round"
     />
-    <Circle cx={14} cy={12} r={3} fill="#FFA726" />
+    <Circle cx={14} cy={12} r={3} fill={customerColors.palette.orange.tangerine} />
   </Svg>
 );
 
@@ -111,7 +111,7 @@ const EggetarianIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 3C8.5 3 6 8 6 13.5 6 17.5 8.7 21 12 21s6-3.5 6-7.5C18 8 15.5 3 12 3z"
-      fill="#E08A38"
+      fill={customerColors.palette.orange.pumpkin}
     />
   </Svg>
 );
@@ -120,11 +120,11 @@ const VeganIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M6 18c0-7 6-12 12-12 0 7-6 12-12 12z"
-      fill="#43A047"
+      fill={customerColors.palette.green.grass}
     />
     <Path
       d="M6 18c3-3 6-5 9-6"
-      stroke="#C8E6C9"
+      stroke={customerColors.palette.green.leafTint}
       strokeWidth={1.5}
       strokeLinecap="round"
     />
@@ -133,10 +133,10 @@ const VeganIcon = () => (
 
 const GlutenFreeIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M4 20l16-16" stroke="#FBC02D" strokeWidth={2} strokeLinecap="round" />
+    <Path d="M4 20l16-16" stroke={customerColors.palette.amber.sun} strokeWidth={2} strokeLinecap="round" />
     <Path
       d="M10 8c1-2 3-2 4-1M13 11c1-2 3-2 4-1M7 11c1-2 3-2 4-1M10 14c1-2 3-2 4-1M7 17c1-2 3-2 4-1"
-      stroke="#FBC02D"
+      stroke={customerColors.palette.amber.sun}
       strokeWidth={2}
       strokeLinecap="round"
     />
@@ -147,9 +147,9 @@ const KetoIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 3C9 3 7 7 7 12a5 5 0 0010 0c0-5-2-9-5-9z"
-      fill="#7CB342"
+      fill={customerColors.palette.green.limeLeaf}
     />
-    <Circle cx={12} cy={13} r={3} fill="#6D4C41" />
+    <Circle cx={12} cy={13} r={3} fill={customerColors.palette.brown.cocoa} />
   </Svg>
 );
 
@@ -157,18 +157,18 @@ const HighProteinIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M8 7a6 6 0 018.5 8.5L14 18l-4-4L8 7z"
-      fill="#A1887F"
+      fill={customerColors.palette.brown.taupe}
     />
-    <Circle cx={7} cy={17} r={2} fill="#D7CCC8" />
+    <Circle cx={7} cy={17} r={2} fill={customerColors.palette.brown.sand} />
   </Svg>
 );
 
 const OrganicIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={13} r={7} fill="#E53935" />
+    <Circle cx={12} cy={13} r={7} fill={customerColors.palette.red.tomato} />
     <Path
       d="M12 3v3M10 5l4 2M14 5l-4 2"
-      stroke="#43A047"
+      stroke={customerColors.palette.green.grass}
       strokeWidth={2}
       strokeLinecap="round"
     />
@@ -179,35 +179,35 @@ const PesticideFreeIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M10 3h4M12 3v5l5 9a2 2 0 01-1.7 3H8.7A2 2 0 017 17l5-9V3"
-      stroke="#1976D2"
+      stroke={customerColors.palette.blue.material}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Line x1={4} y1={4} x2={20} y2={20} stroke="#D32F2F" strokeWidth={2} strokeLinecap="round" />
+    <Line x1={4} y1={4} x2={20} y2={20} stroke={customerColors.palette.red.cherry} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
 const NoAdditivesIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={9} stroke="#E53935" strokeWidth={2} />
-    <Line x1={5.6} y1={5.6} x2={18.4} y2={18.4} stroke="#E53935" strokeWidth={2} strokeLinecap="round" />
+    <Circle cx={12} cy={12} r={9} stroke={customerColors.palette.red.tomato} strokeWidth={2} />
+    <Line x1={5.6} y1={5.6} x2={18.4} y2={18.4} stroke={customerColors.palette.red.tomato} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
 const HormoneFreeIcon = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={9} stroke="#E53935" strokeWidth={2} />
-    <Line x1={5.6} y1={5.6} x2={18.4} y2={18.4} stroke="#E53935" strokeWidth={2} strokeLinecap="round" />
+    <Circle cx={12} cy={12} r={9} stroke={customerColors.palette.red.tomato} strokeWidth={2} />
+    <Line x1={5.6} y1={5.6} x2={18.4} y2={18.4} stroke={customerColors.palette.red.tomato} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
 const GreenCheckBadge = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} stroke="#2E7D32" strokeWidth={2} />
+    <Circle cx={12} cy={12} r={10} stroke={customerColors.primary} strokeWidth={2} />
     <Path
       d="M8 12.5l2.5 2.5 5.5-5.5"
-      stroke="#2E7D32"
+      stroke={customerColors.primary}
       strokeWidth={2.2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -463,9 +463,9 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
             accessibilityLabel={t('customer.account.setup.harvest.proceedA11y')}
           >
             {saving ? (
-              <ActivityIndicator color={hasSelections ? '#FFFFFF' : '#9CA3AF'} testID="preferences-saving" />
+              <ActivityIndicator color={hasSelections ? customerColors.white : customerColors.neutral.neutral500} testID="preferences-saving" />
             ) : (
-              <ArrowRightFigmaIcon size={24} color={hasSelections ? '#FFFFFF' : '#9CA3AF'} />
+              <ArrowRightFigmaIcon size={24} color={hasSelections ? customerColors.white : customerColors.neutral.neutral500} />
             )}
           </TouchableOpacity>
         </View>
@@ -478,13 +478,13 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     textAlign: 'center',
     marginBottom: 12,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -530,14 +530,14 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.editorial,
     fontSize: 26,
     lineHeight: 34,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     textAlign: 'center',
   },
   subtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
     lineHeight: 19,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginTop: 6,
     paddingHorizontal: 16,
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -565,12 +565,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   sectionSubtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 1,
   },
   twoColumnGrid: {
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   itemLabel: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     flex: 1,
   },
   itemLabelActive: {
@@ -610,12 +610,12 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 18,
     lineHeight: 20,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     marginLeft: 4,
   },
   itemUnderline: {
     height: 1.5,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     width: '100%',
     marginTop: 4,
   },
@@ -637,13 +637,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   circularButtonDisabled: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   circularButtonActive: {
     backgroundColor: customerColors.brand,
   },
   arrowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 26,
     lineHeight: 28,
     fontWeight: '700',

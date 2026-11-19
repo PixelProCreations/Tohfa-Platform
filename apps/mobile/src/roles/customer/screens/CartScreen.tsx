@@ -45,7 +45,7 @@ const BackArrowSvg = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -53,7 +53,7 @@ const BackArrowSvg = () => (
   </Svg>
 );
 
-const LocationPinSvg = ({ color = '#0284C7' }: { color?: string }) => (
+const LocationPinSvg = ({ color = customerColors.palette.blue.sky }: { color?: string }) => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 21C16 16.5 19 12.2 19 8.5C19 4.9 15.9 2 12 2C8.1 2 5 4.9 5 8.5C5 12.2 8 16.5 12 21Z"
@@ -66,7 +66,7 @@ const LocationPinSvg = ({ color = '#0284C7' }: { color?: string }) => (
   </Svg>
 );
 
-const ChevronDownSvg = ({ color = '#0284C7' }: { color?: string }) => (
+const ChevronDownSvg = ({ color = customerColors.palette.blue.sky }: { color?: string }) => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
     <Path
       d="M6 9l6 6 6-6"
@@ -82,12 +82,12 @@ const TrashSvg = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
-      stroke="#EF4444"
+      stroke={customerColors.legacy.red}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Path d="M10 11v6M14 11v6" stroke="#EF4444" strokeWidth={1.8} strokeLinecap="round" />
+    <Path d="M10 11v6M14 11v6" stroke={customerColors.legacy.red} strokeWidth={1.8} strokeLinecap="round" />
   </Svg>
 );
 
@@ -95,14 +95,14 @@ const EditMemoSvg = () => (
   <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
     <Path
       d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
     <Path
       d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"
-      stroke="#1F2937"
+      stroke={customerColors.neutral.neutral900}
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -114,13 +114,13 @@ const CartFloatingSvg = () => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
     <Path
       d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
-      stroke="#FFFFFF"
+      stroke={customerColors.white}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    <Circle cx={10} cy={20} r={1.5} fill="#FFFFFF" />
-    <Circle cx={18} cy={20} r={1.5} fill="#FFFFFF" />
+    <Circle cx={10} cy={20} r={1.5} fill={customerColors.white} />
+    <Circle cx={18} cy={20} r={1.5} fill={customerColors.white} />
   </Svg>
 );
 
@@ -266,7 +266,12 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
   const changeQty = (line: CartLine, dir: 1 | -1) => {
     if (!cart) return;
     const key = cartLineKey(line);
-    const nextQty = dir === -1 && !canStepDown(line.qtyKg, STEP) ? '0.000' : stepKg(line.qtyKg, dir, { ...STEP, max: line.availableKg });
+    const currentLine = cart.items.find((l) => cartLineKey(l) === key) ?? line;
+    if (dir === -1 && !canStepDown(currentLine.qtyKg, STEP)) {
+      handleRemoveItem(currentLine);
+      return;
+    }
+    const nextQty = stepKg(currentLine.qtyKg, dir, { ...STEP, max: currentLine.availableKg });
     const next = withLineQty(cart, key, nextQty);
     setPendingCart(next);
     setBanner(null);
@@ -393,12 +398,12 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
         {deliveryState === 'home' && (
           <TouchableOpacity activeOpacity={0.8} onPress={() => setAddressModalVisible(true)} style={styles.deliveryBanner}>
             <View style={styles.deliveryBannerLeft}>
-              <LocationPinSvg color="#0284C7" />
+              <LocationPinSvg color={customerColors.palette.blue.sky} />
               <Text style={styles.deliveryBannerText} numberOfLines={1}>
                 {address ? formatAddressLine(address) : t('customer.cart.screen.addDetails')}
               </Text>
             </View>
-            <ChevronDownSvg color="#0284C7" />
+            <ChevronDownSvg color={customerColors.palette.blue.sky} />
           </TouchableOpacity>
         )}
 
@@ -446,21 +451,32 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                         <Text style={styles.removeOutlineBtnText}>{t('customer.cart.screen.remove')}</Text>
                       </TouchableOpacity>
                     ) : (
-                      <View style={styles.stepperContainer}>
-                        <TouchableOpacity activeOpacity={0.7} onPress={() => changeQty(item, -1)} style={styles.stepperAction} testID={`cart-dec-${cartLineKey(item)}`} accessibilityLabel={t('customer.cart.screen.decrease')}>
-                          <Text style={styles.stepperSign}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.stepperQty}>{formatKg(item.qtyKg)}</Text>
+                      <View style={styles.itemActionRow}>
                         <TouchableOpacity
                           activeOpacity={0.7}
-                          onPress={() => changeQty(item, 1)}
-                          disabled={!canStepUp(item.qtyKg, { ...STEP, max: item.availableKg })}
-                          style={styles.stepperAction}
-                          testID={`cart-inc-${cartLineKey(item)}`}
-                          accessibilityLabel={t('customer.cart.screen.increase')}
+                          onPress={() => handleRemoveItem(item)}
+                          style={styles.deleteIconButton}
+                          testID={`cart-remove-${cartLineKey(item)}`}
+                          accessibilityLabel={t('customer.cart.screen.remove')}
                         >
-                          <Text style={styles.stepperSign}>+</Text>
+                          <TrashSvg />
                         </TouchableOpacity>
+                        <View style={styles.stepperContainer}>
+                          <TouchableOpacity activeOpacity={0.7} onPress={() => changeQty(item, -1)} style={styles.stepperAction} testID={`cart-dec-${cartLineKey(item)}`} accessibilityLabel={t('customer.cart.screen.decrease')}>
+                            <Text style={styles.stepperSign}>−</Text>
+                          </TouchableOpacity>
+                          <Text style={styles.stepperQty}>{formatKg(item.qtyKg)}</Text>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => changeQty(item, 1)}
+                            disabled={!canStepUp(item.qtyKg, { ...STEP, max: item.availableKg })}
+                            style={styles.stepperAction}
+                            testID={`cart-inc-${cartLineKey(item)}`}
+                            accessibilityLabel={t('customer.cart.screen.increase')}
+                          >
+                            <Text style={styles.stepperSign}>+</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
                     )}
                   </View>
@@ -536,7 +552,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
               {nearest && (
                 <View style={styles.nearMarketHeaderRight}>
                   <Text style={styles.nearMarketHeaderLabel}>{t('customer.cart.screen.mode.yourNear')}</Text>
-                  <Text style={styles.nearMarketHeaderGreen}>{nearest.name}</Text>
+                  <Text style={styles.nearMarketHeaderGreen} numberOfLines={1}>{nearest.name}</Text>
                 </View>
               )}
             </View>
@@ -556,7 +572,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                       <View style={[styles.radioCircle, deliveryState === mode && styles.radioCircleSelected]}>
                         {deliveryState === mode && <View style={styles.radioInnerDot} />}
                       </View>
-                      <Text style={[styles.radioLabel, deliveryState === mode && styles.radioLabelSelected]}>{t(`customer.cart.screen.${label}`)}</Text>
+                      <Text style={[styles.radioLabel, deliveryState === mode && styles.radioLabelSelected]} numberOfLines={1}>{t(`customer.cart.screen.${label}`)}</Text>
                     </TouchableOpacity>
                   ))}
               </View>
@@ -746,7 +762,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF9F6',
+    backgroundColor: customerColors.palette.warm.offWhite,
   },
   header: {
     flexDirection: 'row',
@@ -754,14 +770,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 16 : 14,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
@@ -769,7 +785,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   scrollView: {
     flex: 1,
@@ -784,10 +800,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F0F9FF',
+    backgroundColor: customerColors.palette.blue.skyWash,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#BAE6FD',
+    borderColor: customerColors.palette.blue.skyTint,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 16,
@@ -800,7 +816,7 @@ const styles = StyleSheet.create({
   },
   deliveryBannerText: {
     fontSize: 12,
-    color: '#0369A1',
+    color: customerColors.palette.blue.skyDeep,
     fontWeight: '500',
     marginLeft: 8,
     flex: 1,
@@ -808,10 +824,10 @@ const styles = StyleSheet.create({
 
   // ── 1. REVIEW ITEMS SECTION ───────────────────────────────────────────────
   reviewItemsContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     overflow: 'hidden',
     marginBottom: 16,
   },
@@ -819,18 +835,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   reviewItemsTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   reviewItemsCount: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     fontWeight: '500',
   },
   itemsList: {
@@ -844,7 +860,7 @@ const styles = StyleSheet.create({
   },
   itemRowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   itemImage: {
     width: 44,
@@ -865,14 +881,14 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   itemSubtitle: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
   noStockBadge: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: customerColors.palette.red.blush,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -880,7 +896,7 @@ const styles = StyleSheet.create({
   noStockText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#EF4444',
+    color: customerColors.legacy.red,
   },
   itemRightCol: {
     alignItems: 'flex-end',
@@ -892,36 +908,51 @@ const styles = StyleSheet.create({
   },
   itemOldPrice: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginRight: 4,
   },
   itemCurrentPrice: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
+  },
+  itemActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteIconButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: customerColors.shared.errorLight,
+    borderWidth: 1,
+    borderColor: customerColors.palette.red.blush,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   removeOutlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   removeOutlineBtnText: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
   },
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 14,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -934,13 +965,13 @@ const styles = StyleSheet.create({
   },
   stepperSign: {
     fontSize: 14,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     fontWeight: '600',
   },
   stepperQty: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     paddingHorizontal: 6,
   },
   emptyCartWrap: {
@@ -949,27 +980,27 @@ const styles = StyleSheet.create({
   },
   emptyCartText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
 
   // ── 2. YOUR BILL SECTION ──────────────────────────────────────────────────
   billContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     overflow: 'hidden',
     marginBottom: 16,
   },
   billHeader: {
-    backgroundColor: '#FEF7EE',
+    backgroundColor: customerColors.palette.amber.peachWash,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   billHeaderTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   billBody: {
     paddingHorizontal: 14,
@@ -983,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   billLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   underlinedLabel: {
     textDecorationLine: 'underline',
@@ -994,33 +1025,33 @@ const styles = StyleSheet.create({
   },
   billOldPrice: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginRight: 6,
   },
   billValue: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   dottedDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     borderStyle: 'dashed',
     marginVertical: 6,
   },
   grandTotalLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   grandTotalValue: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   savingsPill: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     borderRadius: 6,
     paddingVertical: 6,
     alignItems: 'center',
@@ -1029,15 +1060,15 @@ const styles = StyleSheet.create({
   savingsText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 
   // ── 3. CHOOSE A DELIVERY STATES SECTION (IMAGES 3, 4, 5) ───────────────────
   deliveryStatesCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     overflow: 'hidden',
     marginBottom: 16,
   },
@@ -1045,27 +1076,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FEF7EE',
+    backgroundColor: customerColors.palette.amber.peachWash,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    gap: 8,
   },
   deliveryStatesTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
+    flexShrink: 0,
   },
   nearMarketHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
+    justifyContent: 'flex-end',
+    gap: 2,
   },
   nearMarketHeaderLabel: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
+    flexShrink: 0,
   },
   nearMarketHeaderGreen: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#16A34A',
+    color: customerColors.shared.success,
+    flexShrink: 1,
   },
   deliveryStatesBody: {
     paddingHorizontal: 14,
@@ -1076,44 +1114,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
+    gap: 4,
   },
   radioOption: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 17,
+    height: 17,
+    borderRadius: 8.5,
     borderWidth: 1.5,
-    borderColor: '#9CA3AF',
+    borderColor: customerColors.neutral.neutral500,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 5,
   },
   radioCircleSelected: {
     borderColor: customerColors.brand,
   },
   radioInnerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: customerColors.brand,
   },
   radioLabel: {
-    fontSize: 14,
+    fontSize: 12.5,
     color: customerColors.muted,
     fontFamily: customerFonts.regular,
   },
   radioLabelSelected: {
     color: customerColors.body,
     fontFamily: customerFonts.regular,
+    fontWeight: '600',
   },
   deliveryContentBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     borderRadius: 8,
     padding: 12,
   },
@@ -1124,17 +1165,17 @@ const styles = StyleSheet.create({
   deliveryPersonName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     lineHeight: 18,
   },
   deliveryPhoneText: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 18,
   },
   deliveryAddressText: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 18,
   },
   editOutlineBtn: {
@@ -1142,30 +1183,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   editOutlineBtnText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   pickupPhoneHeader: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 4,
   },
   pickupMarketDesc: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 18,
   },
   yourNearSolidBadge: {
-    backgroundColor: '#1E6F38',
+    backgroundColor: customerColors.palette.green.basil,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
@@ -1173,7 +1214,7 @@ const styles = StyleSheet.create({
   yourNearSolidBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   customizeContainer: {
     marginTop: 4,
@@ -1185,7 +1226,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     borderRadius: 10,
     paddingHorizontal: customerSpacing[16],
     paddingVertical: 12,
@@ -1214,7 +1255,7 @@ const styles = StyleSheet.create({
   },
   inlineDropdownMenu: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 12,
     backgroundColor: customerColors.surface,
     marginTop: 6,
@@ -1228,11 +1269,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   inlineDropdownItemName: {
     fontSize: 15,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     fontFamily: customerFonts.regular,
   },
   openNowBadge: {
@@ -1255,19 +1296,19 @@ const styles = StyleSheet.create({
   policyTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 15,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 4,
   },
   policyText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     lineHeight: 18,
     marginBottom: 6,
   },
   readPolicyLink: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
 
   // ── 5. STICKY BOTTOM CHECKOUT BAR ─────────────────────────────────────────
@@ -1282,24 +1323,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: Platform.OS === 'android' ? 16 : 24,
     paddingTop: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: customerColors.overlay.white95,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
   },
   bottomPillContainer: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 30,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     paddingLeft: 16,
     paddingRight: 4,
     paddingVertical: 4,
     marginRight: 12,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -1308,44 +1349,44 @@ const styles = StyleSheet.create({
   bottomPriceText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   addAddressBtn: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 24,
   },
   addAddressBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 13,
     fontWeight: '700',
   },
   payCheckoutBtn: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 24,
   },
   payCheckoutBtnDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral400,
   },
   payCheckoutBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 13,
     fontWeight: '700',
   },
   payCheckoutBtnTextDisabled: {
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
   floatingCartCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 5,
@@ -1355,7 +1396,7 @@ const styles = StyleSheet.create({
   // ── MODAL: SCREEN 2 - ADD ADDRESS ─────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -1363,13 +1404,13 @@ const styles = StyleSheet.create({
   addressModalCard: {
     width: '100%',
     maxHeight: '90%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingTop: 16,
     paddingBottom: 20,
     position: 'relative',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
@@ -1382,9 +1423,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 10,
@@ -1399,12 +1440,12 @@ const styles = StyleSheet.create({
   addressModalTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   resetText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2E7D32',
+    color: customerColors.primary,
   },
   addressModalScroll: {
     paddingBottom: 10,
@@ -1412,14 +1453,14 @@ const styles = StyleSheet.create({
   formSectionHeader: {
     fontFamily: customerFonts.editorial,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 6,
   },
   formInputLine: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     paddingVertical: 6,
     marginBottom: 8,
   },
@@ -1431,7 +1472,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1445,7 +1486,7 @@ const styles = StyleSheet.create({
   marketSelectorText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   addressTypeRow: {
     flexDirection: 'row',
@@ -1462,23 +1503,23 @@ const styles = StyleSheet.create({
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#9CA3AF',
+    borderColor: customerColors.neutral.neutral500,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 6,
   },
   radioCircleSmallSelected: {
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
   },
   radioSmallInnerDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
   },
   addressTypeRadioText: {
     fontSize: 13,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   checkboxRow: {
     flexDirection: 'row',
@@ -1490,33 +1531,33 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#9CA3AF',
+    borderColor: customerColors.neutral.neutral500,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   checkboxBoxChecked: {
-    backgroundColor: '#2E7D32',
-    borderColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
+    borderColor: customerColors.primary,
   },
   checkboxCheckmark: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 11,
     fontWeight: '700',
   },
   checkboxLabel: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   saveAddressBtn: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   saveAddressBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 14,
     fontWeight: '700',
   },

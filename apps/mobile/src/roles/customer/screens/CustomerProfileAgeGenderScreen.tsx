@@ -134,7 +134,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
               <TextInput
                 style={styles.ageInput}
                 placeholder=""
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={customerColors.neutral.neutral500}
                 keyboardType="number-pad"
                 maxLength={3}
                 value={age}
@@ -219,9 +219,9 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
               accessibilityLabel={t('customer.account.setup.age.next')}
             >
               {saving ? (
-                <ActivityIndicator color="#FFFFFF" testID="age-gender-saving" />
+                <ActivityIndicator color={customerColors.white} testID="age-gender-saving" />
               ) : (
-                <ArrowRightFigmaIcon size={24} color="#FFFFFF" />
+                <ArrowRightFigmaIcon size={24} color={customerColors.white} />
               )}
             </TouchableOpacity>
           </View>
@@ -233,12 +233,12 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
 
 const styles = StyleSheet.create({
   underlineError: {
-    backgroundColor: '#DC2626',
+    backgroundColor: customerColors.shared.error,
   },
   errorText: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.brand,
   },
   progressSegmentInactive: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   skipButton: {
     paddingVertical: 6,
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.editorial,
     fontSize: 27,
     lineHeight: 34,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     textAlign: 'center',
     marginBottom: 24,
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
   ageUnderline: {
     height: 1.5,
     width: '100%',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   ageUnderlineActive: {
     backgroundColor: customerColors.brand,
@@ -349,7 +349,7 @@ const styles = StyleSheet.create({
   genderLabel: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     flexShrink: 1,
   },
   genderLabelActive: {
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 16,
     lineHeight: 18,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     marginLeft: 4,
   },
   checkCircle: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   itemUnderline: {
     height: 1.5,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     width: '100%',
     marginTop: 4,
   },
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.brand,
   },
   arrowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 26,
     lineHeight: 28,
     fontWeight: '700',

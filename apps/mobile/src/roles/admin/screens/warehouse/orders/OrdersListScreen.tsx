@@ -11,10 +11,12 @@
  *     warehouses the host passes (held by the flow).
  * The server returns only in-scope orders (CLAUDE.md 2.1).
  *
- * A row shows the order number and item count: the list carries no customer
- * name (BR-101), and the detail is not fetched per row; the name is on the
- * detail. The search box narrows the rows already loaded by order number (the
- * API has no search). The filter button is gone: the filters screen is not
+ * A row shows the order number and item count. The search box narrows the
+ * rows already loaded by order number. Not wired yet although the API has
+ * them: the server search GET /admin/orders?q= (order number or buyer name,
+ * BR-127) and the row's customerName / customerMobileMasked / packedAt /
+ * readyAt (AdminOrderSummary); OrderSummaryDto and ListAdminOrdersParams do
+ * not declare them yet. The filter button is gone: the filters screen is not
  * wired to any request. `status` (from a dashboard tile) is the server filter.
  *
  * Gates: the rows open the detail, which gates its own actions.

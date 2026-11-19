@@ -12,6 +12,7 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ReturnTicketSvg } from './ContactSupportIcons';
 import { t } from '../../../i18n/customer';
+import { customerColors } from '../theme';
 
 export interface ReturnSubmittedModalProps {
   visible: boolean;
@@ -27,10 +28,10 @@ export interface ReturnSubmittedModalProps {
 
 const CloseSvg = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={11} fill="#F3F4F6" />
+    <Circle cx={12} cy={12} r={11} fill={customerColors.neutral.neutral100} />
     <Path
       d="M8 8l8 8M16 8l-8 8"
-      stroke="#4B5563"
+      stroke={customerColors.neutral.neutral700}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -40,11 +41,11 @@ const CloseSvg = () => (
 
 const SuccessCheckSvg = () => (
   <Svg width={64} height={64} viewBox="0 0 64 64" fill="none">
-    <Circle cx={32} cy={32} r={30} fill="#E8F8EE" />
-    <Circle cx={32} cy={32} r={20} fill="#2E7D32" />
+    <Circle cx={32} cy={32} r={30} fill={customerColors.palette.green.frost} />
+    <Circle cx={32} cy={32} r={20} fill={customerColors.primary} />
     <Path
       d="M26 32l4 4 8-8"
-      stroke="#FFFFFF"
+      stroke={customerColors.white}
       strokeWidth={3}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -99,7 +100,7 @@ export function ReturnSubmittedModal({
             {/* Return Request ID Pill Card */}
             <View style={styles.returnIdCard}>
               <View style={styles.ticketIconBox}>
-                <ReturnTicketSvg color="#2E7D32" size={20} />
+                <ReturnTicketSvg color={customerColors.primary} size={20} />
               </View>
               <View style={styles.returnIdColumn}>
                 <Text style={styles.returnIdLabel}>{t('customer.orders.return.modal.returnId')}</Text>
@@ -170,7 +171,7 @@ export function ReturnSubmittedModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    backgroundColor: customerColors.overlay.scrim55,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
   dialogCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
@@ -207,14 +208,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     textAlign: 'center',
     marginBottom: 8,
     letterSpacing: -0.2,
   },
   subtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 18,
@@ -223,9 +224,9 @@ const styles = StyleSheet.create({
   returnIdCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F8EE',
+    backgroundColor: customerColors.palette.green.frost,
     borderWidth: 1,
-    borderColor: '#C6E7D0',
+    borderColor: customerColors.palette.green.mintBorder,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -240,18 +241,18 @@ const styles = StyleSheet.create({
   },
   returnIdLabel: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     marginBottom: 2,
   },
   returnIdValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   productCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: customerColors.palette.grey.snow,
     borderRadius: 10,
     padding: 10,
     width: '100%',
@@ -261,26 +262,26 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 8,
     marginRight: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
   },
   productInfoColumn: {
     flex: 1,
   },
   productLabel: {
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     marginBottom: 2,
   },
   productName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   dashedDivider: {
     width: '100%',
     height: 1,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderStyle: 'dashed',
     marginVertical: 14,
   },
@@ -296,44 +297,44 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginBottom: 2,
   },
   metaValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
   },
   metaDivider: {
     width: 1,
     height: 28,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginHorizontal: 14,
   },
   trackButton: {
     width: '100%',
-    backgroundColor: '#1E7E34',
+    backgroundColor: customerColors.legacy.greenDark,
     paddingVertical: 13,
     borderRadius: 24,
     alignItems: 'center',
     marginBottom: 10,
   },
   trackButtonText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 14,
     fontWeight: '700',
   },
   continueButton: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1.2,
-    borderColor: '#1E7E34',
+    borderColor: customerColors.legacy.greenDark,
     paddingVertical: 12,
     borderRadius: 24,
     alignItems: 'center',
   },
   continueButtonText: {
-    color: '#1E7E34',
+    color: customerColors.legacy.greenDark,
     fontSize: 14,
     fontWeight: '700',
   },

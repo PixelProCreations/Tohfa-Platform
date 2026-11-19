@@ -459,6 +459,15 @@ describe('orders and purchases', () => {
 // ─── Wallet ──────────────────────────────────────────────────────────────────
 
 describe('wallet', () => {
+  it('BR-129: Total Credited / Total Used come from the summary, absent when not a valid amount', () => {
+    const view = toCustomerWallet(wallet({ totalCredited: m('3000.00'), totalUsed: m('1749.90') }), NOW);
+    expect(view.totalCreditedLabel).toBe('₹3,000');
+    expect(view.totalUsedLabel).toBe('₹1,749.90');
+    const bare = toCustomerWallet(wallet({}), NOW);
+    expect(bare).not.toHaveProperty('totalCreditedLabel');
+    expect(bare).not.toHaveProperty('totalUsedLabel');
+  });
+
   it('maps the summary status and count', () => {
     const view = toCustomerWallet(wallet({ status: 'FROZEN', transactionCount: 4 }), NOW);
     expect(view.status).toBe('frozen');

@@ -2,12 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { t } from '../../../i18n/customer';
+import { customerColors } from '../theme';
 
 const ModalCloseSvg = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
     <Path
       d="M18 6L6 18M6 6l12 12"
-      stroke="#4B5563"
+      stroke={customerColors.neutral.neutral700}
       strokeWidth={2.5}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -17,14 +18,14 @@ const ModalCloseSvg = () => (
 
 const DocumentCheckSvg = () => (
   <Svg width={46} height={46} viewBox="0 0 48 48" fill="none">
-    <Rect x={10} y={6} width={28} height={36} rx={4} stroke="#2E7D32" strokeWidth={2.5} />
-    <Path d="M16 14h16M16 20h16M16 26h10" stroke="#2E7D32" strokeWidth={2.5} strokeLinecap="round" />
-    <Circle cx={36} cy={34} r={8} fill="#EAF6E9" stroke="#2E7D32" strokeWidth={2.5} />
-    <Path d="M33 34l2 2 4-4" stroke="#2E7D32" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    <Rect x={10} y={6} width={28} height={36} rx={4} stroke={customerColors.primary} strokeWidth={2.5} />
+    <Path d="M16 14h16M16 20h16M16 26h10" stroke={customerColors.primary} strokeWidth={2.5} strokeLinecap="round" />
+    <Circle cx={36} cy={34} r={8} fill={customerColors.palette.green.successWash} stroke={customerColors.primary} strokeWidth={2.5} />
+    <Path d="M33 34l2 2 4-4" stroke={customerColors.primary} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-const TicketSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?: number }) => (
+const TicketSvg = ({ color = customerColors.primary, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M2 9a3 3 0 013-3h14a3 3 0 013 3v2a2 2 0 000 4v2a3 3 0 01-3 3H5a3 3 0 01-3-3v-2a2 2 0 000-4V9z"
@@ -38,14 +39,14 @@ const TicketSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?: nu
 
 const CheckCircleSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} fill="#2E7D32" stroke="#2E7D32" strokeWidth={1.5} />
-    <Path d="M8 12l2.5 2.5L16 9" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx={12} cy={12} r={10} fill={customerColors.primary} stroke={customerColors.primary} strokeWidth={1.5} />
+    <Path d="M8 12l2.5 2.5L16 9" stroke={customerColors.white} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 const DashedCircleSvg = ({ size = 20 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={9} stroke="#6B7280" strokeWidth={1.8} strokeDasharray="3 3" />
+    <Circle cx={12} cy={12} r={9} stroke={customerColors.neutral.neutral600} strokeWidth={1.8} strokeDasharray="3 3" />
   </Svg>
 );
 
@@ -105,7 +106,7 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
             {/* Support ID Card */}
             <View style={styles.supportIdCard}>
               <View style={styles.supportIdLeft}>
-                <TicketSvg color="#2E7D32" size={22} />
+                <TicketSvg color={customerColors.primary} size={22} />
                 <View style={styles.supportIdTextCol}>
                   <Text style={styles.supportIdLabel}>{t('customer.contact.submitted.supportId')}</Text>
                   <Text style={styles.supportIdValue}>{supportId}</Text>
@@ -213,7 +214,7 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: customerColors.overlay.scrim50,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     width: '94%',
     maxWidth: 390,
     maxHeight: '88%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 24,
@@ -245,13 +246,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOpacity: 0.15,
     shadowRadius: 3,
     shadowOffset: { width: 0, height: 2 },
@@ -261,7 +262,7 @@ const styles = StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 38,
-    backgroundColor: '#EAF6E9',
+    backgroundColor: customerColors.palette.green.successWash,
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
@@ -270,20 +271,20 @@ const styles = StyleSheet.create({
   popupTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A2E1A',
+    color: customerColors.heading,
     textAlign: 'center',
     marginBottom: 6,
   },
   popupSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 14,
     paddingHorizontal: 8,
   },
   supportIdCard: {
-    backgroundColor: '#EAF6E9',
+    backgroundColor: customerColors.palette.green.successWash,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -302,29 +303,29 @@ const styles = StyleSheet.create({
   },
   supportIdLabel: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   supportIdValue: {
     fontSize: 14.5,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginTop: 1,
   },
   openBadge: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
   openBadgeText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 12,
     fontWeight: '700',
   },
   summaryTitle: {
     fontSize: 15.5,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginBottom: 8,
   },
   summaryRow: {
@@ -334,23 +335,23 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   summaryValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   dashedDivider: {
     borderBottomWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     borderStyle: 'dashed',
     marginVertical: 14,
   },
   nextStepsTitle: {
     fontSize: 15.5,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginBottom: 12,
   },
   timelineList: {
@@ -369,7 +370,7 @@ const styles = StyleSheet.create({
   timelineConnector: {
     width: 1.5,
     height: 22,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral400,
     marginVertical: 2,
   },
   timelineRightCol: {
@@ -379,38 +380,38 @@ const styles = StyleSheet.create({
   timelineStepTitle: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   timelineStepDesc: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
     lineHeight: 16,
   },
   trackRequestButton: {
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2E7D32',
+    backgroundColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 10,
   },
   trackRequestButtonText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 15,
     fontWeight: '700',
   },
   continueShoppingButton: {
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1.5,
-    borderColor: '#2E7D32',
+    borderColor: customerColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   continueShoppingButtonText: {
-    color: '#2E7D32',
+    color: customerColors.primary,
     fontSize: 15,
     fontWeight: '700',
   },

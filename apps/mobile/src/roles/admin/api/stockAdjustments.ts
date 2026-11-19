@@ -47,7 +47,10 @@ export const ADJUSTMENT_REASON_MAX = 500;
 /** Reason length the server accepts on reject (trimmed). */
 export const REJECT_REASON_MAX = 500;
 
-/** One adjustment (list, detail, create, approve, reject). User fields are uuids only. */
+/**
+ * One adjustment (list, detail, create, approve, reject). User fields are
+ * uuids; `createdByName` / `approvedByName` name two of them (BR-130).
+ */
 export interface StockAdjustmentDto {
   id: string;
   batchId: string;
@@ -61,8 +64,12 @@ export interface StockAdjustmentDto {
   reason: string;
   status: StockAdjustmentStatus;
   createdBy: string;
+  /** BR-130: `users.full_name` of `createdBy`; null only if the user row is gone. */
+  createdByName?: string | null;
   createdAt: string;
   approvedBy: string | null;
+  /** BR-130: `users.full_name` of `approvedBy`; null while not approved. */
+  approvedByName?: string | null;
   approvedAt: string | null;
   rejectedBy: string | null;
   rejectedAt: string | null;

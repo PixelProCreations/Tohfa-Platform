@@ -54,6 +54,8 @@ export const deleteCustomerAccount = (): Promise<void> => api.delete<void>('/cus
 export interface EmailOtpChallenge {
   email: string;
   expiresAt: string;
+  /** Digits in the emailed code (system_config otp_length, 4..8); the client must not assume 6. */
+  codeLength: number;
 }
 export const requestEmailOtp = (email: string): Promise<EmailOtpChallenge> =>
   api.post<EmailOtpChallenge>('/customers/me/email/otp', { email }, undefined, { timeoutMs: 15000 });

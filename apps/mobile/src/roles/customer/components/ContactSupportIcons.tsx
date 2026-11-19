@@ -1,7 +1,8 @@
 import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { customerColors } from '../theme';
 
-export const BackArrowSvg: React.FC<{ color?: string; size?: number }> = ({ color = '#1A2E1A', size = 18 }) => (
+export const BackArrowSvg: React.FC<{ color?: string; size?: number }> = ({ color = customerColors.heading, size = 18 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -30,13 +31,13 @@ export const SupportAgentSvg: React.FC<{ size?: number }> = ({ size = 68 }) => (
   </Svg>
 );
 
-export const BoxSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const BoxSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const CartSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const CartSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={9} cy={20} r={1.2} stroke={color} strokeWidth={1.8} />
     <Circle cx={19} cy={20} r={1.2} stroke={color} strokeWidth={1.8} />
@@ -44,7 +45,7 @@ export const CartSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size
   </Svg>
 );
 
-export const GridSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const GridSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={3} width={7} height={7} rx={1.5} stroke={color} strokeWidth={1.8} />
     <Rect x={14} y={3} width={7} height={7} rx={1.5} stroke={color} strokeWidth={1.8} />
@@ -53,20 +54,20 @@ export const GridSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size
   </Svg>
 );
 
-export const ShoppingBagSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?: number }) => (
+export const ShoppingBagSvg = ({ color = customerColors.primary, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M16 10a4 4 0 01-8 0" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const ChevronDownSvg = ({ color = '#4B5563', size = 18 }: { color?: string; size?: number }) => (
+export const ChevronDownSvg = ({ color = customerColors.neutral.neutral700, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const TruckSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const TruckSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={1} y={3} width={15} height={13} rx={1} stroke={color} strokeWidth={1.8} />
     <Path d="M16 8h4l3 4v4h-7V8z" stroke={color} strokeWidth={1.8} strokeLinejoin="round" />
@@ -75,20 +76,20 @@ export const TruckSvg = ({ color = '#6B7280', size = 18 }: { color?: string; siz
   </Svg>
 );
 
-export const CreditCardSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const CreditCardSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={2} y={5} width={20} height={14} rx={2} stroke={color} strokeWidth={1.8} />
     <Path d="M2 10h20M6 15h4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
   </Svg>
 );
 
-export const RepeatSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const RepeatSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M17 1l4 4-4 4M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 01-4 4H3" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const MapPinSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const MapPinSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx={12} cy={10} r={3} stroke={color} strokeWidth={1.8} />
@@ -97,13 +98,13 @@ export const MapPinSvg = ({ color = '#6B7280', size = 18 }: { color?: string; si
 
 export const CameraPlusSvg = () => (
   <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-    <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="#059669" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx={12} cy={13} r={3.5} stroke="#059669" strokeWidth={1.8} />
-    <Path d="M19 4v3M17.5 5.5h3" stroke="#059669" strokeWidth={1.8} strokeLinecap="round" />
+    <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke={customerColors.palette.green.emerald} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx={12} cy={13} r={3.5} stroke={customerColors.palette.green.emerald} strokeWidth={1.8} />
+    <Path d="M19 4v3M17.5 5.5h3" stroke={customerColors.palette.green.emerald} strokeWidth={1.8} strokeLinecap="round" />
   </Svg>
 );
 
-export const QualitySvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const QualitySvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={9} r={6} stroke={color} strokeWidth={1.8} />
     <Path d="M8 14.5L5 22l7-3.5 7 3.5-3-7.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
@@ -111,28 +112,28 @@ export const QualitySvg = ({ color = '#6B7280', size = 18 }: { color?: string; s
   </Svg>
 );
 
-export const DamagedSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const DamagedSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={4} y={3} width={16} height={18} rx={2} stroke={color} strokeWidth={1.8} />
     <Path d="M12 3v5l2 2-3 3 2 3-1 5" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const WrongItemSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const WrongItemSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M17 14.5l4 4M21 14.5l-4 4" stroke={color} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
-export const MissingItemSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const MissingItemSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M3.3 7L12 12l8.7-5M12 22V12" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const ScaleSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const ScaleSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={4} width={18} height={16} rx={3} stroke={color} strokeWidth={1.8} />
     <Circle cx={12} cy={9} r={3} stroke={color} strokeWidth={1.8} />
@@ -143,65 +144,65 @@ export const ScaleSvg = ({ color = '#6B7280', size = 18 }: { color?: string; siz
 
 export const CheckCircleSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={10} fill="#2E7D32" stroke="#2E7D32" strokeWidth={1.5} />
-    <Path d="M8 12l2.5 2.5L16 9" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx={12} cy={12} r={10} fill={customerColors.primary} stroke={customerColors.primary} strokeWidth={1.5} />
+    <Path d="M8 12l2.5 2.5L16 9" stroke={customerColors.white} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
 export const EmptyCircleSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={8.5} stroke="#D1D5DB" strokeWidth={1.5} />
+    <Circle cx={12} cy={12} r={8.5} stroke={customerColors.neutral.neutral400} strokeWidth={1.5} />
   </Svg>
 );
 
 export const RadioSelectedSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={8.5} stroke="#2E7D32" strokeWidth={2} />
-    <Circle cx={12} cy={12} r={4.5} fill="#2E7D32" />
+    <Circle cx={12} cy={12} r={8.5} stroke={customerColors.primary} strokeWidth={2} />
+    <Circle cx={12} cy={12} r={4.5} fill={customerColors.primary} />
   </Svg>
 );
 
 export const CloseSmallSvg = () => (
   <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-    <Path d="M18 6L6 18M6 6l12 12" stroke="#4B5563" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M18 6L6 18M6 6l12 12" stroke={customerColors.neutral.neutral700} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const UserSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const UserSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx={12} cy={7} r={4} stroke={color} strokeWidth={1.8} />
   </Svg>
 );
 
-export const BellSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const BellSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const GearSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const GearSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={1.8} />
     <Path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const ShieldCheckSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const ShieldCheckSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
-export const InfoCircleSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const InfoCircleSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={1.8} />
     <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
-export const TicketSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?: number }) => (
+export const TicketSvg = ({ color = customerColors.primary, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M2 9a3 3 0 013-3h14a3 3 0 013 3v2a2 2 0 000 4v2a3 3 0 01-3 3H5a3 3 0 01-3-3v-2a2 2 0 000-4V9z"
@@ -213,7 +214,7 @@ export const TicketSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; si
   </Svg>
 );
 
-export const DashedCircleSvg = ({ size = 20, color = '#9CA3AF' }: { size?: number; color?: string }) => (
+export const DashedCircleSvg = ({ size = 20, color = customerColors.neutral.neutral500 }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.8} strokeDasharray="3 3" />
   </Svg>
@@ -221,12 +222,12 @@ export const DashedCircleSvg = ({ size = 20, color = '#9CA3AF' }: { size?: numbe
 
 export const ActiveStepSvg = ({ size = 20 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={12} r={9} stroke="#2E7D32" strokeWidth={2} />
-    <Circle cx={12} cy={12} r={5} fill="#2E7D32" />
+    <Circle cx={12} cy={12} r={9} stroke={customerColors.primary} strokeWidth={2} />
+    <Circle cx={12} cy={12} r={5} fill={customerColors.primary} />
   </Svg>
 );
 
-export const HeadsetSvg = ({ color = '#2E7D32', size = 20 }: { color?: string; size?: number }) => (
+export const HeadsetSvg = ({ color = customerColors.primary, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M3 18v-6a9 9 0 0118 0v6"
@@ -253,7 +254,7 @@ export const StarSvg = ({
   size?: number;
   color?: string;
 }) => {
-  const starColor = color || (filled ? '#F59E0B' : '#D1D5DB');
+  const starColor = color || (filled ? customerColors.legacy.amber : customerColors.neutral.neutral400);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? starColor : 'none'}>
       <Path
@@ -267,7 +268,7 @@ export const StarSvg = ({
   );
 };
 
-export const StarTabSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+export const StarTabSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8z"
@@ -293,14 +294,14 @@ export const CheckboxSvg = ({
       width={18}
       height={18}
       rx={4}
-      stroke={checked ? '#2E7D32' : '#D1D5DB'}
+      stroke={checked ? customerColors.primary : customerColors.neutral.neutral400}
       strokeWidth={2}
-      fill={checked ? '#2E7D32' : 'none'}
+      fill={checked ? customerColors.primary : 'none'}
     />
     {checked && (
       <Path
         d="M7 12l3.5 3.5L17 8.5"
-        stroke="#FFFFFF"
+        stroke={customerColors.white}
         strokeWidth={2.2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -365,7 +366,7 @@ export const ReturnBoxIllustrationSvg = ({ size = 58 }: { size?: number }) => (
   </Svg>
 );
 
-export const ReturnTicketSvg = ({ color = '#166534', size = 20 }: { color?: string; size?: number }) => (
+export const ReturnTicketSvg = ({ color = customerColors.legacy.greenDeeper, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={3} y={4} width={18} height={16} rx={3} stroke={color} strokeWidth={1.8} />
     <Path d="M7 8h10M7 12h5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
@@ -379,7 +380,7 @@ export const ReturnTicketSvg = ({ color = '#166534', size = 20 }: { color?: stri
   </Svg>
 );
 
-export const ReturnsMenuSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+export const ReturnsMenuSvg = ({ color = customerColors.heading, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M4 8l8-4 8 4v8l-8 4-8-4V8z"

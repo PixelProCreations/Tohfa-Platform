@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { customerFonts } from '../theme';
+import { customerFonts, customerColors } from '../theme';
 import { useToggleWishlist, useWishlist, type WishlistItem } from '../api/wishlist';
 import { CatalogNotice, ProductCard, quickAddQty, useCatalogAddToCart } from '../components/ProductCard';
 import { t } from '../../../i18n/customer';
@@ -85,7 +85,7 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
               d="M19 12H5M12 19l-7-7 7-7"
-              stroke="#1F2937"
+              stroke={customerColors.neutral.neutral900}
               strokeWidth={2}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -101,14 +101,14 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
           <TextInput
             style={styles.searchInput}
             placeholder={tr('customer.wishlist.searchPlaceholder', 'Search wishlist...')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
           <TouchableOpacity activeOpacity={0.7} style={styles.searchIconBtn}>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Circle cx={11} cy={11} r={7} stroke="#6B7280" strokeWidth={2} />
-              <Path d="M21 21l-4.35-4.35" stroke="#6B7280" strokeWidth={2} strokeLinecap="round" />
+              <Circle cx={11} cy={11} r={7} stroke={customerColors.neutral.neutral600} strokeWidth={2} />
+              <Path d="M21 21l-4.35-4.35" stroke={customerColors.neutral.neutral600} strokeWidth={2} strokeLinecap="round" />
             </Svg>
           </TouchableOpacity>
         </View>
@@ -176,7 +176,7 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -191,14 +191,14 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 24,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   searchWrap: {
     paddingHorizontal: 20,
@@ -211,8 +211,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     height: '100%',
     fontFamily: customerFonts.regular,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   searchIconBtn: {
     padding: 4,
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#60A5FA',
+    backgroundColor: customerColors.palette.blue.soft,
     marginTop: 10,
   },
   scrollContainer: {
@@ -254,14 +254,14 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     height: 146,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 16,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
     justifyContent: 'space-between',
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -278,12 +278,12 @@ const styles = StyleSheet.create({
   },
   starIcon: {
     fontSize: 10,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
   },
   ratingText: {
     fontFamily: customerFonts.bold,
     fontSize: 10,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   heartBtn: {
     padding: 2,
@@ -305,25 +305,25 @@ const styles = StyleSheet.create({
   priceBold: {
     fontFamily: customerFonts.bold,
     fontSize: 11,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginRight: 2,
   },
   priceStrikethrough: {
     fontFamily: customerFonts.regular,
     fontSize: 9,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginRight: 'auto',
   },
   unitText: {
     fontFamily: customerFonts.regular,
     fontSize: 10,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   productName: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -336,19 +336,19 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 24,
   },
   browseButton: {
-    backgroundColor: '#2D6A4F',
+    backgroundColor: customerColors.legacy.greenPine,
     paddingHorizontal: 28,
     paddingVertical: 12,
     borderRadius: 22,
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   browseButtonText: {
     fontFamily: customerFonts.bold,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 });
 

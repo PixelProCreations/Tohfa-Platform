@@ -127,7 +127,7 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
             <TextInput
               style={styles.phoneInput}
               placeholder={t('customer.auth.login.phonePlaceholder')}
-              placeholderTextColor="#A0A7B1"
+              placeholderTextColor={customerColors.palette.grey.pewter}
               keyboardType="phone-pad"
               maxLength={10}
               value={phoneNumber}
@@ -190,9 +190,9 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
             accessibilityState={{ disabled: !canSubmit, busy: submitting }}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={customerColors.white} />
             ) : (
-              <ArrowRightFigmaIcon size={20} color="#FFFFFF" />
+              <ArrowRightFigmaIcon size={20} color={customerColors.white} />
             )}
           </TouchableOpacity>
         </View>
@@ -204,7 +204,7 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FEFDFB',
+    backgroundColor: customerColors.palette.warm.linen,
     position: 'relative',
   },
   branchTopLeft: {
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 14,
     lineHeight: 20,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 24,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   underline: {
     height: 1,
-    backgroundColor: '#EBEBEB',
+    backgroundColor: customerColors.palette.grey.fog,
     width: '100%',
   },
   checkboxRow: {
@@ -288,14 +288,14 @@ const styles = StyleSheet.create({
     borderColor: customerColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   checkboxChecked: {
     backgroundColor: customerColors.brand,
     borderColor: customerColors.brand,
   },
   checkmark: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 11,
     fontWeight: '700',
     marginTop: -1,
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   termsText: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   errorBox: {
     alignItems: 'center',
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.regular,
     fontSize: 12,
     lineHeight: 16,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     textAlign: 'center',
     marginTop: 6,
   },
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,

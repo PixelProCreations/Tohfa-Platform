@@ -12,10 +12,12 @@
  * 2FA is read-only: it is provisioned by policy, and no code lets a warehouse
  * admin change it.
  *
- * Hidden (plan phase 8), because no API reports them: the "Security Status"
- * grid (password / 2FA / session states), the "Login Security" rows (login
- * methods, trusted device) and the password-changed date. The design showed
- * fixed values there; the server has no endpoint for any of them.
+ * Hidden (plan phase 8): the "Security Status" grid, the "Login Security" rows
+ * (login methods, trusted device) and the password-changed date. The design
+ * showed fixed values there. No API reports 2FA state, login methods, a
+ * trusted device or a password-changed date. Two of the grid's states DO have
+ * a source but are not wired yet: whether a password is set (GET /auth/me
+ * `hasPassword`, BR-142) and the live sessions (GET /auth/me/sessions, BR-67).
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';

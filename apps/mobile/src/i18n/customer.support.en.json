@@ -1,5 +1,5 @@
 {
-  "customer.support.title": "Help & Support",
+  "customer.support.title": "Contact Support",
   "customer.support.back": "Back",
   "customer.support.newRequest": "Create new support request",
   "customer.support.newRequestCta": "+ New Request",
@@ -16,23 +16,20 @@
   "customer.support.tab.inReview": "In Review",
   "customer.support.tab.resolved": "Resolved",
   "customer.support.tab.cancelled": "Cancelled",
-
   "customer.contact.title": "Contact Us",
   "customer.contact.back": "Back",
-  "customer.contact.myRequests": "My Requests",
+  "customer.contact.myRequests": "My requests",
   "customer.contact.banner.order.title": "Need help with an order?",
   "customer.contact.banner.order.subtitle": "Select an order and describe what happened — our team will resolve it quickly.",
   "customer.contact.banner.product.title": "Product concerns & feedback",
   "customer.contact.banner.product.subtitle": "Let us know about freshness, packaging, or quality issues.",
   "customer.contact.banner.other.title": "How can we help?",
   "customer.contact.banner.other.subtitle": "Account, payments, app feedback, or general inquiries.",
-
   "customer.contact.relatedTo": "What is this regarding?",
-  "customer.contact.relatedToA11y": "Regarding {{label}}",
+  "customer.contact.relatedToA11y": "Related to {{label}}",
   "customer.contact.related.order": "Order",
   "customer.contact.related.product": "Product",
   "customer.contact.related.other": "Other",
-
   "customer.contact.selectOrder": "Select Order",
   "customer.contact.selectOrderA11y": "Select order",
   "customer.contact.selectOrderModal": "Choose an Order",
@@ -41,10 +38,8 @@
   "customer.contact.ordersRetryA11y": "Retry loading orders",
   "customer.contact.noOrders": "No recent orders found",
   "customer.contact.itemCount": "{{count}} items",
-
   "customer.contact.selectProduct": "Select Product",
   "customer.contact.selectProductA11y": "Select {{name}}",
-
   "customer.contact.issueType": "What is the issue?",
   "customer.contact.issue.product_support": "Product Support",
   "customer.contact.issue.order_status": "Order Status",
@@ -65,13 +60,11 @@
   "customer.contact.issue.policies.sublabel": "Returns, refunds & terms",
   "customer.contact.issue.report_concern": "Report a Concern",
   "customer.contact.issue.other": "Other",
-
   "customer.contact.tellMore": "Tell us more",
   "customer.contact.descriptionPlaceholder": "Describe your issue or question in detail...",
-  "customer.contact.descriptionA11y": "Issue description",
-
+  "customer.contact.descriptionA11y": "Description",
   "customer.contact.addPhotos": "Add Photos (Optional)",
-  "customer.contact.addPhotoA11y": "Add a photo",
+  "customer.contact.addPhotoA11y": "Add photo",
   "customer.contact.photosHelper": "Upload up to {{max}} photos to help us understand the issue.",
   "customer.contact.photoLimitTitle": "Photo Limit Reached",
   "customer.contact.photoLimitBody": "You can attach at most {{max}} photos.",
@@ -81,13 +74,11 @@
   "customer.contact.photoRetryA11y": "Retry photo upload",
   "customer.contact.removePhotoA11y": "Remove photo",
   "customer.contact.retry": "Retry",
-
   "customer.contact.hint.orderRequired": "Please select an order to proceed.",
   "customer.contact.hint.photosUploading": "Please wait for photos to finish uploading.",
   "customer.contact.cta.send": "Send to Support",
   "customer.contact.cta.submit": "Submit Request",
-  "customer.contact.submitUnsure": "We couldn't confirm ticket creation ({{message}}). Please check My Requests before submitting again.",
-
+  "customer.contact.submitUnsure": "We couldn't confirm ticket creation ({{message}}). You can submit again without changes (it won't create a duplicate), or check My requests.",
   "customer.contact.returnReason.wrong_item": "Wrong item delivered",
   "customer.contact.returnReason.quality": "Poor quality / freshness",
   "customer.contact.returnReason.damaged_pkg": "Damaged packaging",
@@ -95,13 +86,11 @@
   "customer.contact.returnReason.mismatch": "Item mismatch",
   "customer.contact.returnReason.not_described": "Not as described",
   "customer.contact.returnReason.other": "Other reason",
-
   "customer.contact.aspect.quality": "Quality",
   "customer.contact.aspect.delivery": "Delivery",
   "customer.contact.aspect.packaging": "Packaging",
   "customer.contact.aspect.communication": "Communication",
   "customer.contact.aspect.other": "Other",
-
   "customer.contact.submitted.close": "Close",
   "customer.contact.submitted.title": "Request Submitted!",
   "customer.contact.submitted.subtitle": "Your support request has been logged. Our customer delight team will review it shortly.",
@@ -121,7 +110,6 @@
   "customer.contact.submitted.step3.desc": "You'll receive updates directly in the app.",
   "customer.contact.submitted.track": "Track Request",
   "customer.contact.submitted.continue": "Continue Shopping",
-
   "customer.track.title": "Track Request",
   "customer.track.back": "Back",
   "customer.track.loading": "Loading request details...",
@@ -145,12 +133,24 @@
   "customer.track.cancelConfirmBody": "Are you sure you want to cancel this support request?",
   "customer.track.keepRequest": "Keep Request",
   "customer.track.requestCancelled": "Request has been cancelled.",
-  "customer.track.cancelConflict": "This request cannot be cancelled because it is already resolved.",
+  "customer.track.cancelConflict": "This request can no longer be cancelled because it is already resolved.",
   "customer.track.replyConflict": "This ticket is closed and cannot receive new replies.",
   "customer.track.supportTeam": "Tohfa Support",
   "customer.track.you": "You",
   "customer.track.na": "N/A",
   "customer.track.pending": "Pending",
   "customer.track.redacted": "Redacted",
-  "customer.track.noneSelected": "None selected"
+  "customer.track.noneSelected": "None selected",
+  "customer.contact.na": "N/A",
+  "customer.track.step.received.title": "Ticket Received",
+  "customer.track.step.received.done": "Request received and logged",
+  "customer.track.step.received.pending": "Waiting for confirmation",
+  "customer.track.step.review.title": "Under Review",
+  "customer.track.step.review.done": "Reviewed by support agent",
+  "customer.track.step.review.pending": "Pending review by support team",
+  "customer.track.step.resolution.title": "Resolution",
+  "customer.track.step.resolution.done": "Issue resolved",
+  "customer.track.step.resolution.pending": "Working on resolution",
+  "customer.track.step.cancelled.title": "Cancelled",
+  "customer.track.step.cancelled.done": "Ticket was cancelled"
 }

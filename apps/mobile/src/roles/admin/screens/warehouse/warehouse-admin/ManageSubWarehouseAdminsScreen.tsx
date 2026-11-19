@@ -19,11 +19,13 @@
  * the KPI definitions. Review's Create opens a confirm dialog and only its
  * Confirm sends the POST (./confirmCreateSubAdmin.ts).
  *
- * SPEC GAP: there is no update, deactivate or delete endpoint (the server's
- * sub-admins routes say so), so the old edit / status / responsibility items
- * were removed: the detail is read-only and the design's Responsibility
- * Summary (M15-07) is not drawn, as no endpoint exposes another role's
- * permission set. The list carries no mobile.
+ * SPEC GAP: there is no update or delete endpoint for a Sub Warehouse Admin.
+ * Deactivation exists (POST /admin/accounts/{id}/disable, BR-110) but only for
+ * a TOHFA Admin or Farmer Admin: MAIN_WH_ADMIN gets 403. So the old edit /
+ * status items were removed and the detail is read-only. The design's
+ * Responsibility Summary (M15-07) is not drawn yet, although GET /roles/{code}
+ * (role.definition.view, `view` for both warehouse roles) returns a role's
+ * granted permissions: not yet wired. The list carries no mobile.
  */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -307,7 +309,7 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
                   <StatusBadge label={t('warehouseAdmin.swa.unassignedBadge')} tone="warning" />
                 </View>
               ))}
-              <InfoNote tone="info">{t('warehouseAdmin.swa.noEditNote')}</InfoNote>
+              <InfoNote tone="info">{t('warehouseAdmin.swa.noEditNoteRole')}</InfoNote>
             </>
           ) : null}
 
@@ -406,7 +408,7 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
                   [{ label: t('warehouseAdmin.swa.field.assignedOn'), value: formatAdminDay(selected.assignedAt) || t('warehouseAdmin.figure.unavailable') }],
                 ]}
               />
-              <InfoNote tone="warning">{t('warehouseAdmin.swa.noEditNote')}</InfoNote>
+              <InfoNote tone="warning">{t('warehouseAdmin.swa.noEditNoteRole')}</InfoNote>
             </>
           ) : null}
         </ScrollView>

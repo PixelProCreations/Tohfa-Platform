@@ -30,6 +30,7 @@ import { canStepDown, canStepUp, clampKg, formatKg, formatRupees, multiplyMoney,
 import { packLabel } from '../components/ProductCard';
 import {
   customerFonts,
+  customerColors,
 } from '../theme';
 
 interface ProductDetailScreenProps {
@@ -162,8 +163,8 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
       <Text style={styles.barTitle}>{t('customer.product.detail.title')}</Text>
       <TouchableOpacity style={styles.circleBtn} onPress={() => onNavigate?.('Cart')} activeOpacity={0.7} accessibilityLabel={t('customer.product.detail.cart')}>
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-          <Path d="M3 3h2l2 12h11l2-8H6" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="#111827" />
+          <Path d="M3 3h2l2 12h11l2-8H6" stroke={customerColors.neutral.neutral950} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill={customerColors.neutral.neutral950} />
         </Svg>
       </TouchableOpacity>
     </View>
@@ -223,10 +224,10 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
 
           <TouchableOpacity style={styles.shareBtn} onPress={() => void handleShare()} activeOpacity={0.8} accessibilityLabel={t('customer.product.detail.share')}>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Circle cx="18" cy="5" r="3" stroke="#1F2937" strokeWidth={2} />
-              <Circle cx="6" cy="12" r="3" stroke="#1F2937" strokeWidth={2} />
-              <Circle cx="18" cy="19" r="3" stroke="#1F2937" strokeWidth={2} />
-              <Path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke="#1F2937" strokeWidth={2} strokeLinecap="round" />
+              <Circle cx="18" cy="5" r="3" stroke={customerColors.neutral.neutral900} strokeWidth={2} />
+              <Circle cx="6" cy="12" r="3" stroke={customerColors.neutral.neutral900} strokeWidth={2} />
+              <Circle cx="18" cy="19" r="3" stroke={customerColors.neutral.neutral900} strokeWidth={2} />
+              <Path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98" stroke={customerColors.neutral.neutral900} strokeWidth={2} strokeLinecap="round" />
             </Svg>
           </TouchableOpacity>
 
@@ -267,8 +268,8 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-                  fill={isWishlist ? '#EF4444' : 'none'}
-                  stroke={isWishlist ? '#EF4444' : '#6B7280'}
+                  fill={isWishlist ? customerColors.legacy.red : 'none'}
+                  stroke={isWishlist ? customerColors.legacy.red : customerColors.neutral.neutral600}
                   strokeWidth="1.8"
                 />
               </Svg>
@@ -282,7 +283,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                 <>
                   {!!product.originRegion && <View style={styles.metaDivider} />}
                   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                    <Path d="M20 6L9 17l-5-5" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <Path d="M20 6L9 17l-5-5" stroke={customerColors.shared.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                   <Text style={styles.certifiedText}> {(product.certificationBadges ?? []).map((c) => CERT_KEY[c] ? t(CERT_KEY[c]) : c).join(' · ')}</Text>
                 </>
@@ -430,7 +431,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                       <View style={styles.verifiedRow}>
                         <Text style={styles.reviewDate}>{formatReviewDate(r.createdAt)} · </Text>
                         <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-                          <Path d="M20 6L9 17l-5-5" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                          <Path d="M20 6L9 17l-5-5" stroke={customerColors.shared.success} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                         </Svg>
                         <Text style={styles.verifiedText}>{t('customer.product.detail.verified')}</Text>
                       </View>
@@ -477,7 +478,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
           activeOpacity={0.85}
           testID="detail-buy"
         >
-          {busy === 'buy' ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buyNowSolidText}>{t('customer.product.detail.buyNow')}</Text>}
+          {busy === 'buy' ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.buyNowSolidText}>{t('customer.product.detail.buyNow')}</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -487,7 +488,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   topBar: {
     flexDirection: 'row',
@@ -497,27 +498,27 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 16 : 14,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FFFFFF',
+    borderBottomColor: customerColors.neutral.neutral100,
+    backgroundColor: customerColors.white,
   },
   circleBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   backArrowText: {
     fontSize: 20,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   barTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   scroll: {
     flex: 1,
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
     height: 240,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
   },
   heroImage: {
     width: '100%',
@@ -544,7 +545,7 @@ const styles = StyleSheet.create({
     left: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#E8F5E9',
+    backgroundColor: customerColors.shared.primaryLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -555,7 +556,7 @@ const styles = StyleSheet.create({
   },
   organicText: {
     fontSize: 12,
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
     fontWeight: '600',
   },
   shareBtn: {
@@ -581,11 +582,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: customerColors.overlay.white60,
   },
   activeDot: {
     width: 18,
-    backgroundColor: '#16A34A',
+    backgroundColor: customerColors.shared.success,
   },
   thumbnailRow: {
     flexDirection: 'row',
@@ -598,12 +599,12 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     overflow: 'hidden',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
   },
   thumbBoxActive: {
-    borderColor: '#16A34A',
+    borderColor: customerColors.shared.success,
   },
   thumbImage: {
     width: '100%',
@@ -612,13 +613,13 @@ const styles = StyleSheet.create({
   moreThumbBox: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#E5E7EB',
-    borderColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral300,
+    borderColor: customerColors.neutral.neutral400,
   },
   moreThumbText: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   contentPadding: {
     paddingHorizontal: 16,
@@ -632,7 +633,7 @@ const styles = StyleSheet.create({
   productTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     flex: 1,
   },
   heartBtn: {
@@ -640,7 +641,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -651,34 +652,34 @@ const styles = StyleSheet.create({
   },
   metaLocation: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   metaDivider: {
     width: 1,
     height: 12,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: customerColors.neutral.neutral400,
     marginHorizontal: 8,
   },
   certifiedText: {
     fontSize: 13,
-    color: '#16A34A',
+    color: customerColors.shared.success,
     fontWeight: '600',
   },
   starText: {
     fontSize: 13,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
     fontWeight: 'bold',
   },
   reviewsCountText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   questionsIcon: {
     fontSize: 13,
   },
   questionsText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   priceRow: {
     flexDirection: 'row',
@@ -688,23 +689,23 @@ const styles = StyleSheet.create({
   priceMain: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   priceStrikethrough: {
     fontSize: 15,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginLeft: 10,
   },
   discountPill: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: customerColors.legacy.greenTint,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     marginLeft: 10,
   },
   discountPillText: {
-    color: '#15803D',
+    color: customerColors.legacy.greenDeep,
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -713,21 +714,21 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   plusBtnText: {
     fontSize: 20,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     lineHeight: 22,
   },
   qualityBadgesRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#F0FDF4',
+    backgroundColor: customerColors.shared.successLight,
     borderWidth: 1,
-    borderColor: '#DCFCE7',
+    borderColor: customerColors.legacy.greenTint,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 8,
@@ -744,32 +745,32 @@ const styles = StyleSheet.create({
   },
   qualityLabel: {
     fontSize: 11,
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
     fontWeight: '600',
     textAlign: 'center',
   },
   sectionTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 18,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     marginTop: 22,
     marginBottom: 8,
   },
   aboutText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     lineHeight: 20,
   },
   readMoreLink: {
     fontSize: 14,
-    color: '#16A34A',
+    color: customerColors.shared.success,
     fontWeight: '600',
     marginTop: 4,
   },
   infoTable: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
     marginTop: 4,
   },
   infoTableRow: {
@@ -777,21 +778,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   infoKey: {
     fontSize: 14,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   infoVal: {
     fontSize: 14,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     fontWeight: '500',
   },
   ratingCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     marginTop: 8,
   },
   ratingLeftCol: {
@@ -805,22 +806,22 @@ const styles = StyleSheet.create({
   bigScoreNum: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   bigScoreStar: {
     fontSize: 26,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
     marginLeft: 4,
   },
   bigReviewsTotal: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     marginTop: 2,
   },
   ratingDivider: {
     width: 1,
     height: 70,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     marginRight: 16,
   },
   ratingRightCol: {
@@ -833,30 +834,30 @@ const styles = StyleSheet.create({
   },
   barStarNumber: {
     fontSize: 11,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
     width: 10,
   },
   barStarGlyph: {
     fontSize: 10,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
     marginRight: 6,
   },
   barTrack: {
     flex: 1,
     height: 6,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     borderRadius: 3,
     overflow: 'hidden',
     marginRight: 8,
   },
   barFill: {
     height: '100%',
-    backgroundColor: '#16A34A',
+    backgroundColor: customerColors.shared.success,
     borderRadius: 3,
   },
   barPercent: {
     fontSize: 11,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     width: 28,
     textAlign: 'right',
   },
@@ -871,26 +872,26 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.white,
   },
   filterChipActive: {
-    borderColor: '#16A34A',
-    backgroundColor: '#E8F5E9',
+    borderColor: customerColors.shared.success,
+    backgroundColor: customerColors.shared.primaryLight,
   },
   filterChipText: {
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   filterChipTextActive: {
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
     fontWeight: '600',
   },
   reviewCard: {
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: customerColors.neutral.neutral100,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -914,7 +915,7 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
   },
   verifiedRow: {
     flexDirection: 'row',
@@ -923,15 +924,15 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     fontSize: 12,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
   },
   verifiedText: {
     fontSize: 12,
-    color: '#16A34A',
+    color: customerColors.shared.success,
     fontWeight: '500',
   },
   starBadgePill: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: customerColors.legacy.greenTint,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -939,11 +940,11 @@ const styles = StyleSheet.create({
   starBadgePillText: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#166534',
+    color: customerColors.legacy.greenDeeper,
   },
   reviewComment: {
     fontSize: 13,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     lineHeight: 18,
     marginTop: 8,
   },
@@ -956,7 +957,7 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
   },
   fixedBottomBar: {
     position: 'absolute',
@@ -966,9 +967,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: customerColors.neutral.neutral300,
     gap: 12,
   },
   addToCartOutlineBtn: {
@@ -976,27 +977,27 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: '#16A34A',
+    borderColor: customerColors.shared.success,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   addToCartOutlineText: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#16A34A',
+    color: customerColors.shared.success,
   },
   buyNowSolidBtn: {
     flex: 1,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#16A34A',
+    backgroundColor: customerColors.shared.success,
     justifyContent: 'center',
     alignItems: 'center',
   },
   buyNowSolidText: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: customerColors.white,
   },
 });

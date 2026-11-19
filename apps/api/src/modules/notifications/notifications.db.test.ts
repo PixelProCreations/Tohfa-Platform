@@ -12,11 +12,12 @@ import { insertUser, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { notificationsRepo } from './notifications.repo.js';
 import { notificationsService } from './notifications.service.js';
 import { eventBus } from '../../events/bus.js';
+import type { pool as dbPool } from '../../db/pool.js';
 
 describe('notifications createNotification (real SQL) — BR-185', () => {
   let ready = false;
   let userId = '';
-  let pool: typeof import('../../db/pool.js').pool;
+  let pool: typeof dbPool;
 
   beforeAll(async () => {
     ready = await requireDatabaseTables('notifications', 'notification_templates', 'users');

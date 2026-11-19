@@ -1,5 +1,6 @@
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
+import { customerColors } from '../theme';
 
 interface ArrowRightFigmaIconProps {
   size?: number;
@@ -13,7 +14,7 @@ interface ArrowRightFigmaIconProps {
  */
 export const ArrowRightFigmaIcon: React.FC<ArrowRightFigmaIconProps> = ({
   size = 22,
-  color = '#FFFFFF',
+  color = customerColors.white,
   strokeWidth = 2.4,
 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

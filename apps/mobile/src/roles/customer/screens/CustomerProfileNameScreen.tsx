@@ -103,7 +103,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
             <TextInput
               style={styles.nameInput}
               placeholder=""
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={customerColors.neutral.neutral500}
               value={name}
               onChangeText={(v) => {
                 setName(v);
@@ -142,9 +142,9 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
             accessibilityLabel={t('customer.account.setup.name.continue')}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" testID="name-saving" />
+              <ActivityIndicator color={customerColors.white} testID="name-saving" />
             ) : (
-              <ArrowRightFigmaIcon size={24} color={hasName ? '#FFFFFF' : '#9CA3AF'} />
+              <ArrowRightFigmaIcon size={24} color={hasName ? customerColors.white : customerColors.neutral.neutral500} />
             )}
           </TouchableOpacity>
         </View>
@@ -156,7 +156,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     position: 'relative',
   },
   headerRow: {
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.brand,
   },
   progressSegmentInactive: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   skipButton: {
     paddingVertical: 4,
@@ -230,16 +230,16 @@ const styles = StyleSheet.create({
   },
   underline: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
     width: '100%',
   },
   underlineError: {
-    backgroundColor: '#DC2626',
+    backgroundColor: customerColors.shared.error,
   },
   errorText: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -262,10 +262,10 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.brand,
   },
   circularButtonDisabled: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: customerColors.neutral.neutral300,
   },
   arrowText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 22,
     fontWeight: '700',
     marginTop: -2,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     width: 134,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#000000',
+    backgroundColor: customerColors.neutral.black,
     opacity: 0.8,
     alignSelf: 'center',
     marginBottom: 8,

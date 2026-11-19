@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { customerFonts } from '../theme';
+import { customerFonts, customerColors } from '../theme';
 import { productKey, useCategories, type Product } from '../api/catalog';
 import {
   SEARCH_MAX_LENGTH,
@@ -47,7 +47,7 @@ interface SearchScreenProps {
 }
 
 // ── BACK ARROW SVG ──────────────────────────────────────────────────────────
-const BackArrowSvg = ({ color = '#111827', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.neutral.neutral950, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M19 12H5M5 12L12 19M5 12L12 5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
@@ -131,7 +131,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
 
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <TouchableOpacity activeOpacity={0.7} onPress={handleBack} style={styles.backButton} accessibilityLabel={t('customer.search.back')}>
-          <BackArrowSvg color="#111827" size={18} />
+          <BackArrowSvg color={customerColors.neutral.neutral950} size={18} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {submitted || t('customer.catalog.search.defaultTitle')}
@@ -244,7 +244,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                          <Path d="M6 6l12 12M18 6L6 18" stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
+                          <Path d="M6 6l12 12M18 6L6 18" stroke={customerColors.neutral.neutral500} strokeWidth={2} strokeLinecap="round" />
                         </Svg>
                       </TouchableOpacity>
                     </TouchableOpacity>
@@ -281,7 +281,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
           <TextInput
             style={styles.searchInput}
             placeholder={t('customer.search.placeholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={customerColors.neutral.neutral500}
             value={query}
             onChangeText={onChangeText}
             onSubmitEditing={() => submit()}
@@ -299,8 +299,8 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
               accessibilityLabel={t('customer.search.clearA11y')}
             >
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Circle cx={12} cy={12} r={10} fill="#9CA3AF" />
-                <Path d="M8 8l8 8M16 8l-8 8" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
+                <Circle cx={12} cy={12} r={10} fill={customerColors.neutral.neutral500} />
+                <Path d="M8 8l8 8M16 8l-8 8" stroke={customerColors.white} strokeWidth={2} strokeLinecap="round" />
               </Svg>
             </TouchableOpacity>
           )}
@@ -308,8 +308,8 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
 
         <TouchableOpacity activeOpacity={0.8} style={styles.greenCircleBtn} accessibilityLabel={t('customer.search.submitA11y')} onPress={() => submit()} testID="search-submit">
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-            <Circle cx={11} cy={11} r={7} stroke="#FFFFFF" strokeWidth={2} />
-            <Path d="M21 21l-4.35-4.35" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
+            <Circle cx={11} cy={11} r={7} stroke={customerColors.white} strokeWidth={2} />
+            <Path d="M21 21l-4.35-4.35" stroke={customerColors.white} strokeWidth={2} strokeLinecap="round" />
           </Svg>
         </TouchableOpacity>
       </View>
@@ -320,29 +320,29 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     gap: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   backButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 2,
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#111827',
+    color: customerColors.neutral.neutral950,
     flex: 1,
   },
   contentWrap: {
@@ -385,14 +385,14 @@ const styles = StyleSheet.create({
   productCard: {
     width: '100%',
     height: 168,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 18,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: customerColors.neutral.neutral100,
     justifyContent: 'space-between',
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -409,12 +409,12 @@ const styles = StyleSheet.create({
   },
   starIcon: {
     fontSize: 11,
-    color: '#F59E0B',
+    color: customerColors.legacy.amber,
   },
   ratingText: {
     fontFamily: customerFonts.bold,
     fontSize: 11,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   heartButton: {
     padding: 2,
@@ -436,25 +436,25 @@ const styles = StyleSheet.create({
   priceBold: {
     fontFamily: customerFonts.bold,
     fontSize: 13,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginRight: 4,
   },
   priceStrikethrough: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
     textDecorationLine: 'line-through',
     marginRight: 'auto',
   },
   unitText: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#4B5563',
+    color: customerColors.neutral.neutral700,
   },
   cardProductName: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     marginTop: 6,
     textAlign: 'center',
   },
@@ -465,13 +465,13 @@ const styles = StyleSheet.create({
   noResultsText: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 8,
   },
   noResultsSub: {
     fontFamily: customerFonts.regular,
     fontSize: 13,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
 
   // ── 2. RECENT SEARCHES ────────────────────────────────────────────────────
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
   recentTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 14,
   },
   recentList: {
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -512,13 +512,13 @@ const styles = StyleSheet.create({
   recentItemName: {
     fontFamily: customerFonts.bold,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 2,
   },
   recentItemSub: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: customerColors.neutral.neutral500,
   },
 
   // ── 3. TRENDING SECTION ───────────────────────────────────────────────────
@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
   trendingTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 20,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     marginBottom: 16,
     paddingLeft: 4,
   },
@@ -547,12 +547,12 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#F4F5F7',
+    backgroundColor: customerColors.palette.grey.frost,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
     elevation: 2,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
@@ -566,7 +566,7 @@ const styles = StyleSheet.create({
   categoryCircleLabel: {
     fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#374151',
+    color: customerColors.neutral.neutral800,
     textAlign: 'center',
   },
 
@@ -583,14 +583,14 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 18,
     elevation: 4,
-    shadowColor: '#000000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     height: '100%',
     fontFamily: customerFonts.regular,
     fontSize: 14,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   clearBtn: {
     padding: 4,
@@ -609,11 +609,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#2D6A4F',
+    backgroundColor: customerColors.legacy.greenPine,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#2D6A4F',
+    shadowColor: customerColors.legacy.greenPine,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
     shadowRadius: 5,

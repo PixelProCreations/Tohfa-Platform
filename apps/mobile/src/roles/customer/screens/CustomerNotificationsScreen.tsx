@@ -47,7 +47,7 @@ export interface CustomerNotificationsScreenProps {
   now?: () => Date;
 }
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -59,7 +59,7 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const ChevronRightSvg = ({ color = '#9CA3AF', size = 16 }: { color?: string; size?: number }) => (
+const ChevronRightSvg = ({ color = customerColors.neutral.neutral500, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 18L15 12L9 6"
@@ -71,7 +71,7 @@ const ChevronRightSvg = ({ color = '#9CA3AF', size = 16 }: { color?: string; siz
   </Svg>
 );
 
-const PackageSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: number }) => (
+const PackageSvg = ({ color = customerColors.primary, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M16.5 9.4L7.55 4.24M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"
@@ -90,7 +90,7 @@ const PackageSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: n
   </Svg>
 );
 
-const WalletSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: number }) => (
+const WalletSvg = ({ color = customerColors.primary, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"
@@ -106,7 +106,7 @@ const WalletSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: nu
   </Svg>
 );
 
-const TruckSvg = ({ color = '#9333EA', size = 18 }: { color?: string; size?: number }) => (
+const TruckSvg = ({ color = customerColors.palette.purple.violet, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Rect x={1} y={3} width={15} height={13} rx={1} stroke={color} strokeWidth={1.8} />
     <Path d="M16 8h4l3 3v5h-7V8z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
@@ -115,7 +115,7 @@ const TruckSvg = ({ color = '#9333EA', size = 18 }: { color?: string; size?: num
   </Svg>
 );
 
-const LeafSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: number }) => (
+const LeafSvg = ({ color = customerColors.primary, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M11 20A7 7 0 019.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"
@@ -128,7 +128,7 @@ const LeafSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: numb
   </Svg>
 );
 
-const ReturnSvg = ({ color = '#DC2626', size = 18 }: { color?: string; size?: number }) => (
+const ReturnSvg = ({ color = customerColors.shared.error, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 14L4 9l5-5"
@@ -147,7 +147,7 @@ const ReturnSvg = ({ color = '#DC2626', size = 18 }: { color?: string; size?: nu
   </Svg>
 );
 
-const SupportSvg = ({ color = '#D97706', size = 18 }: { color?: string; size?: number }) => (
+const SupportSvg = ({ color = customerColors.shared.warning, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"
@@ -166,14 +166,14 @@ interface KindVisual {
 }
 
 const KIND_VISUALS: Record<NotificationKind, KindVisual> = {
-  order: { bg: '#EDF8EE', color: '#2E7D32', Icon: PackageSvg },
-  order_dispatched: { bg: '#F3E8FF', color: '#9333EA', Icon: TruckSvg },
-  wallet: { bg: '#EDF8EE', color: '#2E7D32', Icon: WalletSvg },
-  wallet_credit: { bg: '#EDF8EE', color: '#2E7D32', Icon: WalletSvg },
-  wallet_debit: { bg: '#FEF3C7', color: '#D97706', Icon: WalletSvg },
-  support: { bg: '#FEF3C7', color: '#D97706', Icon: SupportSvg },
-  return: { bg: '#FEE2E2', color: '#DC2626', Icon: ReturnSvg },
-  general: { bg: '#EDF8EE', color: '#2E7D32', Icon: LeafSvg },
+  order: { bg: customerColors.legacy.greenWash, color: customerColors.primary, Icon: PackageSvg },
+  order_dispatched: { bg: customerColors.palette.purple.lavender, color: customerColors.palette.purple.violet, Icon: TruckSvg },
+  wallet: { bg: customerColors.legacy.greenWash, color: customerColors.primary, Icon: WalletSvg },
+  wallet_credit: { bg: customerColors.legacy.greenWash, color: customerColors.primary, Icon: WalletSvg },
+  wallet_debit: { bg: customerColors.palette.amber.paleTint, color: customerColors.shared.warning, Icon: WalletSvg },
+  support: { bg: customerColors.palette.amber.paleTint, color: customerColors.shared.warning, Icon: SupportSvg },
+  return: { bg: customerColors.palette.red.blush, color: customerColors.shared.error, Icon: ReturnSvg },
+  general: { bg: customerColors.legacy.greenWash, color: customerColors.primary, Icon: LeafSvg },
 };
 
 const SECTION_LABEL_KEYS = {
@@ -224,7 +224,7 @@ const NotificationRow = ({
           <Text style={styles.timeText}>{formatNotificationTime(item.createdAt, now)}</Text>
           {unread && <View style={styles.unreadDot} testID={`notification-unread-${item.id}`} />}
         </View>
-        <ChevronRightSvg color="#9CA3AF" size={15} />
+        <ChevronRightSvg color={customerColors.neutral.neutral500} size={15} />
       </View>
     </TouchableOpacity>
   );
@@ -359,8 +359,8 @@ export const CustomerNotificationsScreen: React.FC<CustomerNotificationsScreenPr
 
         {showEmpty && (
           <View style={styles.stateBox} testID="notifications-empty">
-            <View style={[styles.iconBox, { backgroundColor: '#EDF8EE', marginBottom: 12 }]}>
-              <LeafSvg size={18} color="#2E7D32" />
+            <View style={[styles.iconBox, { backgroundColor: customerColors.legacy.greenWash, marginBottom: 12 }]}>
+              <LeafSvg size={18} color={customerColors.primary} />
             </View>
             <Text style={styles.stateTitle}>{t('customer.notifications.emptyTitle')}</Text>
             <Text style={styles.stateBody}>{t('customer.notifications.emptyBody')}</Text>
@@ -396,7 +396,7 @@ export const CustomerNotificationsScreen: React.FC<CustomerNotificationsScreenPr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -417,14 +417,14 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
   },
   scrollView: {
@@ -490,11 +490,11 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#EF4444',
+    backgroundColor: customerColors.legacy.red,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: customerColors.palette.grey.smoke,
     marginLeft: 50,
   },
   markAllText: {
@@ -536,12 +536,12 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.semibold,
   },
   skeletonBlock: {
-    backgroundColor: '#F0F0F0',
+    backgroundColor: customerColors.palette.grey.smoke,
   },
   skeletonBar: {
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: customerColors.palette.grey.smoke,
   },
   footerSpinner: {
     marginTop: 16,

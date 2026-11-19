@@ -3,15 +3,17 @@
  * screen. No React, so plain-Node vitest covers them
  * (../../../tests/movement_detail.test.ts).
  *
- * There is no GET /admin/stock-ledger/{id} in docs/openapi.yaml, so the
- * detail is the ledger row the user tapped, carried in the route params. A
- * deep link without that row has nothing to show (and nothing to ask for).
+ * The detail is the ledger row the user tapped, carried in the route params.
+ * GET /admin/stock-ledger/{id} exists in docs/openapi.yaml (same row shape)
+ * but the app does not call it yet, so a deep link without the row shows
+ * "not found" (follow-up: load the row by id).
  *
  * Only what the ledger row carries is shown (BR-37: the row is immutable; a
- * correction is a new row). Not shown, because the API does not carry them:
- * a movement code (only a uuid), a source/destination warehouse pair (a
- * transfer writes one row per warehouse), and who performed it (a user uuid,
- * no name).
+ * correction is a new row), including who recorded it and, for a row an
+ * approved stock adjustment inserted, who approved it (createdByName /
+ * approvedByName, BR-130). Not shown, because the API does not carry them: a
+ * movement code (only a uuid) and a source/destination warehouse pair (a
+ * transfer writes one row per warehouse).
  */
 import { t, type TranslationKey } from '../../../i18n';
 import { pairFields, type InfoFieldValue } from '../shared/infoFields';
@@ -80,5 +82,7 @@ export function movementDetailRows(movement: StockMovementRow, warehouseName: st
     field('inventory.movementDetail.field.batch', movement.batchCode),
     field('inventory.movementDetail.field.reference', movementReference(movement.refType, movement.refId)),
     field('inventory.movementDetail.field.performedAt', movement.performedAt),
+    field('inventory.movementDetail.field.recordedBy', movement.createdByName),
+    field('inventory.movementDetail.field.approvedBy', movement.approvedByName),
   ]);
 }

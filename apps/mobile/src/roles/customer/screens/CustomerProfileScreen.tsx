@@ -80,9 +80,24 @@ export interface CustomerProfileScreenProps {
   onSave?: (data: CustomerProfileData) => void;
 }
 
-/** Email OTP length: `system_config.otp_length` is not exposed to mobile; default 6, API accepts 4..8. */
-export const EMAIL_OTP_LENGTH = 6;
-const EMAIL_OTP_PATTERN = /^[0-9]{4,8}$/;
+/**
+ * Email OTP length. The authoritative value is `codeLength` on the POST /customers/me/email/otp 202
+ * answer (system_config otp_length, 4..8); this is only the placeholder box count before the first
+ * send, and the fallback if an answer ever arrives without a usable value.
+ */
+const DEFAULT_EMAIL_OTP_LENGTH = 6;
+const EMAIL_OTP_MIN_LENGTH = 4;
+const EMAIL_OTP_MAX_LENGTH = 8;
+const EMAIL_OTP_PATTERN = /^[0-9]+$/;
+
+function normalizeOtpLength(codeLength: unknown): number {
+  return typeof codeLength === 'number' &&
+    Number.isInteger(codeLength) &&
+    codeLength >= EMAIL_OTP_MIN_LENGTH &&
+    codeLength <= EMAIL_OTP_MAX_LENGTH
+    ? codeLength
+    : DEFAULT_EMAIL_OTP_LENGTH;
+}
 /** Local resend cooldown (the email OTP answer carries no `resendAvailableAt`); 429 overrides it. */
 const EMAIL_RESEND_COOLDOWN_S = 60;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -152,7 +167,7 @@ export function maskEmail(email: string): string {
 
 // ── SVG ICONS ─────────────────────────────────────────────────────────────────
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -164,7 +179,7 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const PencilEditSvg = ({ color = '#1A2E1A', size = 16 }: { color?: string; size?: number }) => (
+const PencilEditSvg = ({ color = customerColors.heading, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"
@@ -176,12 +191,12 @@ const PencilEditSvg = ({ color = '#1A2E1A', size = 16 }: { color?: string; size?
   </Svg>
 );
 
-const CheckCircleSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?: number }) => (
+const CheckCircleSvg = ({ color = customerColors.primary, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} fill={color} />
     <Path
       d="M8 12.5l2.5 2.5 5.5-5.5"
-      stroke="#FFFFFF"
+      stroke={customerColors.white}
       strokeWidth={2}
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -189,7 +204,7 @@ const CheckCircleSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size
   </Svg>
 );
 
-const ChevronDownSvg = ({ color = '#1A2E1A', size = 14 }: { color?: string; size?: number }) => (
+const ChevronDownSvg = ({ color = customerColors.heading, size = 14 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M6 9l6 6 6-6"
@@ -201,26 +216,26 @@ const ChevronDownSvg = ({ color = '#1A2E1A', size = 14 }: { color?: string; size
   </Svg>
 );
 
-const MapPinSvg = ({ color = '#EF4444', size = 20 }: { color?: string; size?: number }) => (
+const MapPinSvg = ({ color = customerColors.legacy.red, size = 20 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M12 21s-6-5.6-6-10a6 6 0 1112 0c0 4.4-6 10-6 10z"
       fill={color}
-      stroke="#B91C1C"
+      stroke={customerColors.palette.red.crimson}
       strokeWidth={1.5}
     />
-    <Circle cx={12} cy={11} r={2.5} fill="#FFFFFF" />
+    <Circle cx={12} cy={11} r={2.5} fill={customerColors.white} />
   </Svg>
 );
 
-const CrosshairSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?: number }) => (
+const CrosshairSvg = ({ color = customerColors.primary, size = 16 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={8} stroke={color} strokeWidth={1.6} />
     <Path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
   </Svg>
 );
 
-const CloseSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
+const CloseSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
@@ -280,7 +295,8 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
 
   // Email Verification Flow State (BR-160)
   const [showEmailOtpModal, setShowEmailOtpModal] = useState(false);
-  const [emailOtpPin, setEmailOtpPin] = useState<string[]>(() => Array(EMAIL_OTP_LENGTH).fill(''));
+  const [emailOtpLength, setEmailOtpLength] = useState<number>(DEFAULT_EMAIL_OTP_LENGTH);
+  const [emailOtpPin, setEmailOtpPin] = useState<string[]>(() => Array<string>(DEFAULT_EMAIL_OTP_LENGTH).fill(''));
   const [showEmailVerifiedSuccess, setShowEmailVerifiedSuccess] = useState(false);
   const [otpEmail, setOtpEmail] = useState('');
   const [emailError, setEmailError] = useState<string | null>(null);
@@ -418,9 +434,11 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   const sendEmailOtp = async (email: string, target: 'email' | 'otp') => {
     setSendingOtp(true);
     try {
-      await requestEmailOtp(email);
+      const challenge = await requestEmailOtp(email);
+      const codeLength = normalizeOtpLength(challenge.codeLength);
       setOtpEmail(email);
-      setEmailOtpPin(Array(EMAIL_OTP_LENGTH).fill(''));
+      setEmailOtpLength(codeLength);
+      setEmailOtpPin(Array<string>(codeLength).fill(''));
       setOtpError(null);
       setEmailError(null);
       setResendIn(EMAIL_RESEND_COOLDOWN_S);
@@ -448,7 +466,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   };
 
   const otpCode = emailOtpPin.join('');
-  const otpReady = EMAIL_OTP_PATTERN.test(otpCode);
+  const otpReady = otpCode.length === emailOtpLength && EMAIL_OTP_PATTERN.test(otpCode);
 
   const handleVerifyEmailSubmit = async () => {
     if (!otpReady || verifyingOtp) return;
@@ -460,7 +478,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
       setShowEmailOtpModal(false);
       setShowEmailVerifiedSuccess(true);
     } catch (err) {
-      setEmailOtpPin(Array(EMAIL_OTP_LENGTH).fill(''));
+      setEmailOtpPin(Array<string>(emailOtpLength).fill(''));
       applyEmailError(err, 'otp');
     } finally {
       setVerifyingOtp(false);
@@ -475,7 +493,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
       if (digits.length > 1) {
         // Pasted code: spread across the boxes.
         digits
-          .slice(0, EMAIL_OTP_LENGTH - index)
+          .slice(0, emailOtpLength - index)
           .split('')
           .forEach((d, i) => {
             next[index + i] = d;
@@ -947,7 +965,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             accessibilityState={{ disabled: saving, busy: saving }}
           >
             {saving ? (
-              <ActivityIndicator color="#FFFFFF" testID="profile-saving" />
+              <ActivityIndicator color={customerColors.white} testID="profile-saving" />
             ) : (
               <Text style={styles.saveChangesText}>{t('customer.account.profile.saveChanges')}</Text>
             )}
@@ -977,7 +995,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             />
 
             <Text style={styles.otpEditorialTitle}>
-              {t('customer.account.profile.otpTitle', { length: EMAIL_OTP_LENGTH })}
+              {t('customer.account.profile.otpTitle', { length: emailOtpLength })}
             </Text>
             <View style={styles.emailEditRow}>
               <Text style={styles.otpMaskedEmail}>
@@ -994,14 +1012,14 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* PIN Boxes (EMAIL_OTP_LENGTH) */}
+            {/* PIN Boxes (emailOtpLength, from the OTP-send answer's codeLength) */}
             <View style={styles.pinBoxesRow}>
               {emailOtpPin.map((digit, index) => (
                 <TextInput
                   key={index}
                   style={styles.pinInput}
                   keyboardType="numeric"
-                  maxLength={index === 0 ? EMAIL_OTP_LENGTH : 1}
+                  maxLength={index === 0 ? emailOtpLength : 1}
                   value={digit}
                   onChangeText={val => handleOtpChange(index, val)}
                   accessibilityLabel={t('customer.auth.otp.digitA11y', { number: index + 1 })}
@@ -1042,7 +1060,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               accessibilityState={{ disabled: !otpReady || verifyingOtp, busy: verifyingOtp }}
             >
               {verifyingOtp ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={customerColors.white} />
               ) : (
                 <Text style={styles.modalPrimaryBtnText}>{t('customer.common.continue')}</Text>
               )}
@@ -1094,7 +1112,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
@@ -1103,7 +1121,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: customerSpacing.base,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -1115,7 +1133,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.heading,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -1126,7 +1144,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    color: '#1A2E1A',
+    color: customerColors.heading,
     fontFamily: customerFonts.editorial,
   },
   scrollView: {
@@ -1167,14 +1185,14 @@ const styles = StyleSheet.create({
   },
   fieldRow: {
     borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingVertical: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   fieldRowWithTrailing: {
     borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1183,7 +1201,7 @@ const styles = StyleSheet.create({
   },
   dropdownFieldRow: {
     borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1209,7 +1227,7 @@ const styles = StyleSheet.create({
   },
   fieldErrorText: {
     fontSize: 12,
-    color: '#DC2626',
+    color: customerColors.shared.error,
     fontFamily: customerFonts.regular,
     textAlign: 'center',
     marginTop: 4,
@@ -1228,7 +1246,7 @@ const styles = StyleSheet.create({
   verifyBadge: {
     position: 'absolute',
     right: 4,
-    backgroundColor: '#FED7D7',
+    backgroundColor: customerColors.palette.red.petal,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: customerRadius.pill,
@@ -1236,7 +1254,7 @@ const styles = StyleSheet.create({
   verifyBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#E53E3E',
+    color: customerColors.palette.red.signal,
     fontFamily: customerFonts.semibold,
   },
   genderRow: {
@@ -1254,7 +1272,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: customerColors.neutral.neutral300,
     gap: 4,
   },
   genderChipSelected: {
@@ -1298,7 +1316,7 @@ const styles = StyleSheet.create({
   },
   openMapBtnText: {
     fontSize: 11,
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontWeight: '600',
     fontFamily: customerFonts.semibold,
   },
@@ -1307,8 +1325,8 @@ const styles = StyleSheet.create({
     borderRadius: customerRadius.sm,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F3F8F2',
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.palette.green.whisper,
     position: 'relative',
     marginTop: 4,
   },
@@ -1331,7 +1349,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 10,
     left: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 6,
@@ -1365,7 +1383,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1379,7 +1397,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   saveChangesText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 14,
     fontWeight: '700',
     fontFamily: customerFonts.bold,
@@ -1388,14 +1406,14 @@ const styles = StyleSheet.create({
   // ── MODAL STYLES ───────────────────────────────────────────────────────────
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: customerColors.overlay.scrim45,
     justifyContent: 'center',
     alignItems: 'center',
     padding: customerSpacing.base,
   },
   otpModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -1408,12 +1426,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 4,
@@ -1422,7 +1440,7 @@ const styles = StyleSheet.create({
   },
   modalCloseText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: customerColors.neutral.neutral600,
     fontWeight: '700',
     lineHeight: 15,
   },
@@ -1470,7 +1488,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 44,
     borderBottomWidth: 2,
-    borderBottomColor: '#D1D5DB',
+    borderBottomColor: customerColors.neutral.neutral400,
     fontSize: 20,
     fontWeight: '700',
     color: customerColors.heading,
@@ -1490,14 +1508,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalPrimaryBtnText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 14,
     fontWeight: '700',
     fontFamily: customerFonts.bold,
   },
   successModalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',

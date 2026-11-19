@@ -1766,7 +1766,7 @@ export function ProfileScreen({
         </View>
       </Modal>
 
-      {/* MOCK: farmer_bank_accounts (db/migrations/0007) has no route, service or repo anywhere in apps/api, no path in docs/openapi.yaml, and FARMER holds "none" on payout.dues.view / payout.farmer.initiate / payout.approve_above_10k in docs/rbac.json. */}
+      {/* MOCK (sample values): the API exists but is not yet wired in the app. GET/POST /farmers/me/bank-accounts, PATCH/DELETE /farmers/me/bank-accounts/{id}, POST .../{id}/default and GET/PUT/DELETE /farmers/me/upi (docs/openapi.yaml; apps/api/src/modules/farmer-bank-accounts), permission farmer.bank_account.manage_own = FARMER own (docs/rbac.json, BR-53). Payout views stay out of reach: FARMER holds "none" on payout.dues.view / payout.farmer.initiate. */}
       {/* ================= MODAL: BANK & PAYMENTS ================= */}
       <Modal
         visible={isBankModalVisible}

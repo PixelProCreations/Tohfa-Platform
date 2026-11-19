@@ -160,6 +160,15 @@ describe('toInvoiceRow', () => {
 });
 
 describe('toInvoiceDetail', () => {
+  it('BR-128: carries the invoice\'s own buyer name and GSTIN, null when blank or absent', () => {
+    const named = toInvoiceDetail(detail({ buyerName: ' Hotel Nilgiri ', buyerGstin: '33ABCDE1234F1Z5' }));
+    expect(named.buyerName).toBe('Hotel Nilgiri');
+    expect(named.buyerGstin).toBe('33ABCDE1234F1Z5');
+    const bare = toInvoiceDetail(detail({ buyerName: null, buyerGstin: '  ' }));
+    expect(bare.buyerName).toBeNull();
+    expect(bare.buyerGstin).toBeNull();
+  });
+
   it('maps every line with quantity in integer grams and money in integer paise', () => {
     const view = toInvoiceDetail(detail());
     expect(view.lines).toHaveLength(2);

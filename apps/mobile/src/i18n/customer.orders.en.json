@@ -218,5 +218,7 @@
   "customer.orders.tracking.viewQr": "View QR",
   "customer.orders.tracking.wallet": "Wallet",
   "customer.orders.tracking.writeReview": "Write a Review & Feedback",
-  "customer.orders.tracking.yourReview": "Your review: {{rating}} ★"
+  "customer.orders.tracking.yourReview": "Your review: {{rating}} ★",
+  "customer.orders.tracking.sellerFallbackName": "TOHFA Market",
+  "customer.orders.tracking.sellerStateCode": "State code: {{value}}"
 }

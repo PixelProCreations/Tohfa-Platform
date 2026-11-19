@@ -12,6 +12,8 @@
  * customer components can be authored using either convention seamlessly.
  */
 
+import { hex, neutral } from '@tohfa/design-tokens';
+
 // ── 01 COLOR PALETTE ────────────────────────────────────────────────────────
 
 /** Primitive swatches directly from Field Guide Page 01. */
@@ -58,6 +60,8 @@ export const customerColors = {
   selected: customerPrimitives.green50,
 
   // Direct string status values for backward-compatibility with screens
+  // NOTE: two success greens coexist — this one (Field Guide #2E7D32) and
+  // shared.success (#16A34A) below. Design should pick one standard success colour.
   success: customerPrimitives.green700,
   danger: customerPrimitives.red700,
   error: customerPrimitives.red700,
@@ -133,6 +137,221 @@ export const customerColors = {
 
   // Raw primitives exposed under swatches
   primitives: customerPrimitives,
+
+  /**
+   * The shared @tohfa/design-tokens neutral ramp, read through neutral() (never
+   * re-typed). Customer screens painted these greys before the Field Guide
+   * palette existed; named exactly after the token so a screen stays traceable.
+   */
+  neutral: {
+    neutral950: neutral('neutral950'), // #111827
+    neutral900: neutral('neutral900'), // #1F2937
+    neutral800: neutral('neutral800'), // #374151
+    neutral700: neutral('neutral700'), // #4B5563
+    neutral600: neutral('neutral600'), // #6B7280
+    neutral500: neutral('neutral500'), // #9CA3AF
+    neutral400: neutral('neutral400'), // #D1D5DB
+    neutral300: neutral('neutral300'), // #E5E7EB
+    neutral100: neutral('neutral100'), // #F3F4F6
+    neutral50: neutral('neutral50'), // #F9FAFB
+    black: neutral('black'), // #000000
+  },
+
+  /**
+   * Shared semantic colours from the @tohfa/design-tokens `color` group, read
+   * through hex(). NOTE: these differ from the Field Guide status colours above
+   * (e.g. shared.error #DC2626 vs error #B3261E) — they are the values the
+   * screens already used, kept so nothing renders differently. shared.success
+   * (#16A34A) vs success (#2E7D32): design should pick one standard success colour.
+   */
+  shared: {
+    primaryLight: hex('primaryLight'), // #E8F5E9
+    success: hex('success'), // #16A34A
+    successLight: hex('successLight'), // #F0FDF4
+    warning: hex('warning'), // #D97706
+    error: hex('error'), // #DC2626
+    errorLight: hex('errorLight'), // #FEF2F2
+    info: hex('info'), // #2563EB
+  },
+
+  /**
+   * LEGACY — off-palette values lifted verbatim from customer screens during
+   * the B4 literal-colour cleanup (each used 10+ times), so nothing renders
+   * differently. They are NOT part of the Field Guide: do not use them for new
+   * work, and do not 'round' another design onto them. Pending design review
+   * to fold each into a Field Guide token.
+   */
+  legacy: {
+    nearBlack: '#1A1A1A', // same value as design-tokens neutral.adminInk
+    charcoal: '#222222',
+    amber: '#F59E0B',
+    red: '#EF4444', // same value as design-tokens color.adminAlertIcon
+    greenDeep: '#15803D',
+    greenDeeper: '#166534',
+    greenTint: '#DCFCE7',
+    greenWash: '#EDF8EE',
+    greenMid: '#4CAF50',
+    greenForest: '#2D7A47',
+    greenDark: '#1E7E34',
+    greenPine: '#2D6A4F',
+  },
+
+  /** Modal / sheet backdrops (black scrims), values verbatim from the screens. */
+  overlay: {
+    scrim45: 'rgba(0, 0, 0, 0.45)', // same value as design-tokens color.adminScrim
+    scrim50: 'rgba(0, 0, 0, 0.5)',
+    scrim55: 'rgba(0, 0, 0, 0.55)',
+    // Translucent veils over photos / brand surfaces; each value repeats in the screens.
+    white10: 'rgba(255, 255, 255, 0.1)',
+    white60: 'rgba(255, 255, 255, 0.6)',
+    white95: 'rgba(255, 255, 255, 0.95)',
+    mintVeil45: 'rgba(232, 245, 233, 0.45)',
+  },
+
+  /**
+   * OFF-PALETTE, PENDING DESIGN REVIEW. Customer-owned swatches lifted verbatim
+   * (exact hex, zero visual change) from customer screens during the B4
+   * literal-colour cleanup, grouped by hue family and named by hue. They are not
+   * Field Guide colours: do not use them for new work and do not 'round' another
+   * design onto them. Some values happen to equal admin-only design tokens
+   * (e.g. grey.warmMuted = adminMuted, slate.* = adminSlate*, blue.sky =
+   * adminInfoCardIcon); they are deliberately re-declared here so the customer
+   * role does not depend on admin-named tokens.
+   */
+  palette: {
+    green: {
+      leafTint: '#C8E6C9',
+      successWash: '#EAF6E9',
+      paleMint: '#F0F8EE',
+      deepForest: '#1B4332',
+      fern: '#1E6B35',
+      sprout: '#81C784',
+      mistLight: '#EFF9F0',
+      emerald: '#059669',
+      frost: '#E8F8EE',
+      vivid: '#00C853',
+      emeraldBright: '#10B981',
+      bright: '#22C55E',
+      dew: '#EBF8E7',
+      seafoam: '#EAF5EE',
+      sage: '#A8C4A7',
+      sageDeep: '#97B896',
+      grass: '#43A047',
+      whisper: '#F3F8F2',
+      mintSoft: '#C6F6D5',
+      slateGreen: '#52796F',
+      haze: '#EAF7EC',
+      mintBorder: '#C6E7D0',
+      pineDark: '#1E3D29',
+      basil: '#1E6F38',
+      ivoryTint: '#F7FAF5',
+      emeraldLight: '#34D399',
+      lightBright: '#4ADE80',
+      cloud: '#EDF7ED',
+      meadow: '#388E3C',
+      olive: '#558B2F',
+      limeLeaf: '#7CB342',
+      blackGreen: '#131B14',
+      moss: '#A3B899',
+      midnight: '#0D1912',
+      celadon: '#A8D5BA',
+      jade: '#7CB992',
+      hunter: '#1E5128',
+      greyGreen: '#5E6F5E',
+      pastel: '#A7D7A9',
+    },
+    red: {
+      blush: '#FEE2E2',
+      brick: '#B42318',
+      tomato: '#E53935',
+      crimson: '#B91C1C',
+      rose: '#FFEBEE',
+      petal: '#FED7D7',
+      signal: '#E53E3E',
+      cherry: '#D32F2F',
+      raspberry: '#E11D48',
+    },
+    amber: {
+      paleTint: '#FEF3C7',
+      gold: '#F4B400',
+      bronze: '#B45309',
+      sun: '#FBC02D',
+      peachWash: '#FEF7EE',
+      honey: '#E5A93C',
+      ivory: '#FFFBF2',
+    },
+    orange: {
+      bright: '#F97316',
+      coral: '#FF7043',
+      tangerine: '#FFA726',
+      pumpkin: '#E08A38',
+      burnt: '#EA580C',
+    },
+    blue: {
+      sky: '#0284C7',
+      bright: '#3B82F6',
+      skyLight: '#38BDF8',
+      skyTint: '#BAE6FD',
+      skyWash: '#F0F9FF',
+      skyDeep: '#0369A1',
+      material: '#1976D2',
+      ice: '#E3F2FD',
+      soft: '#60A5FA',
+      cyan: '#06B6D4',
+      teal: '#14B8A6',
+    },
+    purple: {
+      violet: '#9333EA',
+      lavender: '#F3E8FF',
+      iris: '#8B5CF6',
+      pink: '#EC4899',
+    },
+    slate: {
+      dark: '#334155',
+      night: '#0F172A',
+      mist: '#94A3B8',
+      snow: '#F8FAFC',
+      line: '#CBD5E1',
+      charcoal: '#1E293B',
+      steel: '#475569',
+      cloud: '#E2E8F0',
+    },
+    grey: {
+      smoke: '#F0F0F0',
+      graphite: '#333333',
+      mid: '#777777',
+      dim: '#666666',
+      silver: '#CCCCCC',
+      ash: '#888888',
+      mist: '#EEEEEE',
+      iron: '#555555',
+      snow: '#FAFAFA',
+      systemGrey: '#8E8E93',
+      pewter: '#A0A7B1',
+      fog: '#EBEBEB',
+      warmMuted: '#5F5E5A',
+      paper: '#F8F9FA',
+      chalk: '#F7F7F7',
+      cloud: '#EFEFEF',
+      gunmetal: '#373A40',
+      pearl: '#EAEAEA',
+      charcoalSoft: '#444444',
+      frost: '#F4F5F7',
+    },
+    warm: {
+      offWhite: '#FAF9F6',
+      stone: '#FAFAF9',
+      linen: '#FEFDFB',
+      parchment: '#F4F5F0',
+      cream: '#FFFDF9',
+      eggshell: '#FDFBF7',
+    },
+    brown: {
+      cocoa: '#6D4C41',
+      taupe: '#A1887F',
+      sand: '#D7CCC8',
+    },
+  },
 } as const;
 
 // ── 02 FOUNDATIONS: TYPOGRAPHY ──────────────────────────────────────────────

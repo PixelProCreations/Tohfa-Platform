@@ -131,6 +131,10 @@ export interface AdjustmentView {
   statusTone: AdminTone;
   reason: string;
   createdBy: string;
+  /** Who raised it (createdByName, BR-130); absent when the server sent no name. */
+  createdByName?: string | undefined;
+  /** Who approved it (approvedByName, BR-130); absent while not approved. */
+  approvedByName?: string | undefined;
   createdAt: string;
   decidedAt: string | null;
   rejectionReason: string | null;
@@ -145,6 +149,8 @@ export function toAdjustmentView(
 ): AdjustmentView {
   const deltaGrams = parseKgToGrams(dto.qtyDeltaKg);
   const decided = dto.approvedAt ?? dto.rejectedAt;
+  const createdByName = typeof dto.createdByName === 'string' && dto.createdByName.trim() !== '' ? dto.createdByName : undefined;
+  const approvedByName = typeof dto.approvedByName === 'string' && dto.approvedByName.trim() !== '' ? dto.approvedByName : undefined;
   return {
     id: dto.id,
     ref: shortRef(dto.id),
@@ -161,6 +167,8 @@ export function toAdjustmentView(
     statusTone: adjustmentStatusTone(dto.status),
     reason: dto.reason,
     createdBy: dto.createdBy,
+    ...(createdByName === undefined ? {} : { createdByName }),
+    ...(approvedByName === undefined ? {} : { approvedByName }),
     createdAt: formatAdminDate(dto.createdAt, now),
     decidedAt: decided === null ? null : formatAdminDate(decided, now),
     rejectionReason: dto.rejectionReason,

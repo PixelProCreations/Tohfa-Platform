@@ -160,10 +160,12 @@ export function createCartService(opts: {
       allocationId: string;
       reservedUntil: Date;
     },
+    mode: 'add' | 'set' = 'add',
   ): Promise<void> {
     const row = await repo.upsertCartItem(tx, {
       ...line,
       lineTotal: cartLineTotal(line.unitPrice, line.qtyKg),
+      mode,
     });
     const lineTotal = cartLineTotal(row.unitPrice, row.qtyKg);
     await repo.setLineTotal(tx, row.id, lineTotal);
@@ -370,15 +372,19 @@ export function createCartService(opts: {
 
           const reservedUntil = new Date(Date.now() + lockHours * 3600 * 1000);
 
-          await upsertLine(tx, {
-            cartId: cart.id,
-            cropId: itemInput.productId,
-            grade,
-            qtyKg: itemInput.qtyKg,
-            unitPrice: priceInfo.price,
-            allocationId: allocation.id,
-            reservedUntil,
-          });
+          await upsertLine(
+            tx,
+            {
+              cartId: cart.id,
+              cropId: itemInput.productId,
+              grade,
+              qtyKg: itemInput.qtyKg,
+              unitPrice: priceInfo.price,
+              allocationId: allocation.id,
+              reservedUntil,
+            },
+            'set',
+          );
         }
 
         const updatedCart = await repo.updateCartLockAndSubtotal(

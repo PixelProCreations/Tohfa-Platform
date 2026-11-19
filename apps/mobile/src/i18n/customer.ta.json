@@ -125,5 +125,10 @@
   "customer.wishlist.loadError": "விருப்பப்பட்டியலை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கவும்.",
   "customer.wishlist.empty": "உங்கள் விருப்பப்பட்டியல் காலியாக உள்ளது",
   "customer.wishlist.emptyBody": "உங்களுக்குப் பிடித்த விளைச்சல்களை இங்கே சேர்த்து எளிதாகக் கண்டறிந்து ஆர்டர் செய்யுங்கள்.",
-  "customer.wishlist.explore": "விளைச்சல்களைக் காண்க"
+  "customer.wishlist.explore": "விளைச்சல்களைக் காண்க",
+  "customer.onboarding.welcome.getStarted": "தொடங்குங்கள்",
+  "customer.home.a11y.latestHarvest": "சமீபத்திய அறுவடை",
+  "customer.home.a11y.freshDrops": "புதிய வரவுகள்",
+  "customer.home.a11y.recentOrders": "சமீபத்திய ஆர்டர்கள்",
+  "catalog.grid.latestHarvest": "சமீபத்திய அறுவடை"
 }

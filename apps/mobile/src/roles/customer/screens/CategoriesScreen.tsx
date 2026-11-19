@@ -61,7 +61,7 @@ export function CategoriesScreen({ onNavigate, onBack }: CategoriesScreenProps =
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: customerColors.white },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   back: { paddingRight: 12 },
   backText: { fontSize: 28, color: customerColors.heading },
@@ -69,11 +69,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   message: { fontSize: 14, color: customerColors.heading, textAlign: 'center' },
   retry: { marginTop: 12, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, backgroundColor: customerColors.primary },
-  retryText: { color: '#FFFFFF', fontWeight: '600' },
+  retryText: { color: customerColors.white, fontWeight: '600' },
   list: { padding: 12 },
-  card: { flex: 1, margin: 4, padding: 12, alignItems: 'center', borderRadius: 12, backgroundColor: '#F7FAF5' },
+  card: { flex: 1, margin: 4, padding: 12, alignItems: 'center', borderRadius: 12, backgroundColor: customerColors.palette.green.ivoryTint },
   image: { width: 72, height: 72, borderRadius: 36 },
-  placeholder: { backgroundColor: '#E5E7EB' },
+  placeholder: { backgroundColor: customerColors.neutral.neutral300 },
   name: { marginTop: 8, fontSize: 14, fontWeight: '600', color: customerColors.heading },
-  count: { fontSize: 12, color: '#6B7280' },
+  count: { fontSize: 12, color: customerColors.neutral.neutral600 },
 });

@@ -15,9 +15,8 @@ import Svg, { Path } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
-  customerRadius,
-  customerSpacing,
 } from '../theme';
+import { TicketSvg } from '../components/ContactSupportIcons';
 import { useSupportTickets, formatSupportDateTime, type SupportTab, type TicketStatus } from '../api/support';
 import { mapProblem } from '../api/problem';
 import { t } from '../../../i18n/customer';
@@ -27,7 +26,7 @@ export interface CustomerSupportScreenProps {
   onBack?: (() => void) | undefined;
 }
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+const BackArrowSvg = ({ color = customerColors.neutral.neutral900, size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -39,26 +38,7 @@ const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?:
   </Svg>
 );
 
-const HeadsetSvg = ({ color = '#2E7D32', size = 16 }: { color?: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M3 18v-6a9 9 0 0118 0v6"
-      stroke={color}
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3v5zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3v5z"
-      stroke={color}
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const ChevronRightSvg = ({ color = '#2E7D32', size = 12 }: { color?: string; size?: number }) => (
+const ChevronRightSvg = ({ color = customerColors.neutral.neutral500, size = 14 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M9 18L15 12L9 6"
@@ -94,17 +74,41 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
   const [selectedTab, setSelectedTab] = useState<SupportTab>('ALL');
   const [refreshing, setRefreshing] = useState(false);
   const query = useSupportTickets(selectedTab);
+  const allQuery = useSupportTickets('ALL');
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const tickets = (query.data?.pages ?? []).flatMap((pg) => pg.items);
+  const allTickets = (allQuery.data?.pages ?? []).flatMap((pg) => pg.items);
+  const sourceTickets = allTickets.length > 0 ? allTickets : tickets;
+
+  const totalCount = allQuery.data?.pages[0]?.total ?? sourceTickets.length;
+  const openCount = sourceTickets.filter((t) => t.status === 'OPEN').length;
+  const inReviewCount = sourceTickets.filter((t) => t.status === 'IN_PROGRESS').length;
+  const resolvedCount = sourceTickets.filter((t) => t.status === 'RESOLVED' || t.status === 'CLOSED').length;
+  const cancelledCount = sourceTickets.filter((t) => t.status === 'CANCELLED').length;
+
+  const getTabCount = (tabId: SupportTab): number => {
+    switch (tabId) {
+      case 'ALL':
+        return totalCount;
+      case 'OPEN':
+        return openCount;
+      case 'IN_REVIEW':
+        return inReviewCount;
+      case 'RESOLVED':
+        return resolvedCount;
+      case 'CANCELLED':
+        return cancelledCount;
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await query.refetch();
+      await Promise.all([query.refetch(), allQuery.refetch()]);
     } finally {
       setRefreshing(false);
     }
@@ -123,18 +127,10 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
             style={styles.circleIconButton}
             accessibilityLabel={t('customer.support.back')}
           >
-            <BackArrowSvg color={customerColors.heading} size={18} />
+            <BackArrowSvg color={customerColors.neutral.neutral900} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{t('customer.support.title')}</Text>
         </View>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={() => onNavigate?.('ContactSupport')}
-          accessibilityLabel={t('customer.support.newRequest')}
-          style={{ marginLeft: 'auto' }}
-        >
-          <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>{t('customer.support.newRequestCta')}</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -149,8 +145,9 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsRow}
         >
-          {TABS.map(tab => {
+          {TABS.map((tab) => {
             const isActive = selectedTab === tab.id;
+            const count = getTabCount(tab.id);
             return (
               <TouchableOpacity
                 key={tab.id}
@@ -160,7 +157,7 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
                 accessibilityLabel={t('customer.support.tabA11y', { label: t(`customer.support.tab.${tab.labelKey}`) })}
               >
                 <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
-                  {t(`customer.support.tab.${tab.labelKey}`)}
+                  {`${t(`customer.support.tab.${tab.labelKey}`)} (${count})`}
                 </Text>
               </TouchableOpacity>
             );
@@ -178,12 +175,22 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
             </TouchableOpacity>
           </View>
         ) : tickets.length === 0 ? (
-          <Text style={[styles.ticketBodyText, { textAlign: 'center', marginTop: 32 }]}>
-            {t('customer.support.empty')}
-          </Text>
+          <View style={{ alignItems: 'center', marginTop: 40, gap: 12 }}>
+            <Text style={[styles.ticketBodyText, { textAlign: 'center' }]}>
+              {t('customer.support.empty')}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('ContactSupport', { mode: 'create' })}
+              style={styles.newRequestButton}
+              accessibilityLabel={t('customer.support.newRequest')}
+            >
+              <Text style={styles.newRequestButtonText}>{t('customer.support.newRequestCta')}</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.ticketList}>
-            {tickets.map(ticket => (
+            {tickets.map((ticket) => (
               <TouchableOpacity
                 key={ticket.id}
                 activeOpacity={0.8}
@@ -191,20 +198,45 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
                 style={styles.ticketCard}
                 accessibilityLabel={t('customer.support.requestA11y', { number: ticket.ticketNumber })}
               >
-                <View style={styles.ticketHeaderRow}>
-                  <Text style={styles.ticketNumberText}>{ticket.ticketNumber}</Text>
-                  <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>{STATUS_LABEL_KEY[ticket.status] ? t(`customer.support.tab.${STATUS_LABEL_KEY[ticket.status]}`) : ticket.status}</Text>
-                    <ChevronRightSvg size={11} color={customerColors.brand} />
+                <View style={styles.ticketCardRow}>
+                  {/* Left Green Ticket Voucher Outline Icon */}
+                  <View style={styles.ticketIconBox}>
+                    <TicketSvg color={customerColors.palette.green.bright} size={24} />
+                  </View>
+
+                  {/* Middle Details */}
+                  <View style={styles.ticketInfoColumn}>
+                    <Text style={styles.ticketNumberText}>{ticket.ticketNumber}</Text>
+                    <Text style={styles.ticketSubjectText} numberOfLines={1}>
+                      {ticket.subject}
+                    </Text>
+                    <Text style={styles.ticketDateText}>
+                      {formatSupportDateTime(ticket.createdAt)}
+                    </Text>
+                  </View>
+
+                  {/* Right Status Badge & Chevron */}
+                  <View style={styles.ticketRightGroup}>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        ticket.status === 'OPEN' ? styles.statusBadgeOpen : styles.statusBadgeOther,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          ticket.status === 'OPEN' ? styles.statusTextOpen : styles.statusTextOther,
+                        ]}
+                      >
+                        {STATUS_LABEL_KEY[ticket.status]
+                          ? t(`customer.support.tab.${STATUS_LABEL_KEY[ticket.status]}`)
+                          : ticket.status}
+                      </Text>
+                    </View>
+                    <ChevronRightSvg size={14} color={customerColors.neutral.neutral500} />
                   </View>
                 </View>
-
-                <View style={styles.ticketBodyRow}>
-                  <HeadsetSvg size={15} color={customerColors.brand} />
-                  <Text style={styles.ticketBodyText}>{ticket.subject}</Text>
-                </View>
-
-                <Text style={styles.ticketDateText}>{formatSupportDateTime(ticket.createdAt)}</Text>
               </TouchableOpacity>
             ))}
             {query.hasNextPage ? (
@@ -217,7 +249,9 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
                 {query.isFetchingNextPage ? (
                   <ActivityIndicator />
                 ) : (
-                  <Text style={{ color: customerColors.brand, fontWeight: '700' }}>{t('customer.support.loadMore')}</Text>
+                  <Text style={{ color: customerColors.brand, fontWeight: '700' }}>
+                    {t('customer.support.loadMore')}
+                  </Text>
                 )}
               </TouchableOpacity>
             ) : null}
@@ -233,42 +267,43 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: customerSpacing.base,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
+    paddingHorizontal: 16,
     paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: customerColors.neutral.neutral300,
   },
   headerLeftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
   circleIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: customerColors.neutral.neutral900,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   headerTitle: {
-    fontSize: 22,
-    color: '#1A2E1A',
+    fontSize: 24,
+    color: customerColors.neutral.neutral900,
     fontFamily: customerFonts.editorial,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: customerSpacing.base,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 14,
   },
   tabsRow: {
     flexDirection: 'row',
@@ -277,76 +312,110 @@ const styles = StyleSheet.create({
   },
   tabPill: {
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    borderRadius: customerRadius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    borderColor: customerColors.neutral.neutral400,
+    backgroundColor: customerColors.white,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
   },
   tabPillActive: {
-    backgroundColor: '#E9F7E9',
-    borderColor: customerColors.brand,
+    backgroundColor: customerColors.palette.green.dew,
+    borderColor: customerColors.palette.green.bright,
   },
   tabPillText: {
-    fontSize: 11,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: customerColors.neutral.neutral900,
+    fontFamily: customerFonts.semibold,
+    fontWeight: '500',
   },
   tabPillTextActive: {
-    color: customerColors.brand,
+    color: customerColors.shared.success,
     fontWeight: '600',
     fontFamily: customerFonts.semibold,
   },
   ticketList: {
-    gap: 14,
+    gap: 0,
   },
   ticketCard: {
-    borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
-    borderBottomColor: '#E5E7EB',
-    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: customerColors.neutral.neutral100,
+    paddingVertical: 14,
   },
-  ticketHeaderRow: {
+  ticketCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
+  },
+  ticketIconBox: {
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ticketInfoColumn: {
+    flex: 1,
+    justifyContent: 'center',
   },
   ticketNumberText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: customerColors.heading,
+    color: customerColors.neutral.neutral950,
     fontFamily: customerFonts.bold,
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EDF8EE',
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: customerRadius.pill,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    color: customerColors.brand,
-    fontWeight: '500',
+  ticketSubjectText: {
+    fontSize: 12,
+    color: customerColors.neutral.neutral600,
     fontFamily: customerFonts.regular,
+    marginTop: 2,
   },
-  ticketBodyRow: {
+  ticketDateText: {
+    fontSize: 11,
+    color: customerColors.neutral.neutral500,
+    fontFamily: customerFonts.regular,
+    marginTop: 2,
+  },
+  ticketRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    marginLeft: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusBadgeOpen: {
+    backgroundColor: customerColors.palette.green.dew,
+  },
+  statusBadgeOther: {
+    backgroundColor: customerColors.neutral.neutral100,
+  },
+  statusBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+    fontFamily: customerFonts.semibold,
+  },
+  statusTextOpen: {
+    color: customerColors.shared.success,
+  },
+  statusTextOther: {
+    color: customerColors.neutral.neutral600,
   },
   ticketBodyText: {
-    fontSize: 12,
+    fontSize: 13,
     color: customerColors.body,
     fontFamily: customerFonts.regular,
   },
-  ticketDateText: {
-    fontSize: 10,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+  newRequestButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: customerColors.primary,
+  },
+  newRequestButtonText: {
+    color: customerColors.white,
+    fontWeight: '700',
+    fontSize: 13,
   },
 });
+
 
