@@ -10,3 +10,27 @@
 declare module '@env' {
   export const MAPBOX_ACCESS_TOKEN: string;
 }
+
+declare module 'react-native-safe-area-context' {
+  import * as React from 'react';
+  import { ViewProps } from 'react-native';
+
+  export interface EdgeInsets {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  }
+
+  export function useSafeAreaInsets(): EdgeInsets;
+  export const SafeAreaView: React.ComponentType<ViewProps>;
+  export const SafeAreaProvider: React.ComponentType<ViewProps>;
+  export const SafeAreaConsumer: React.ComponentType<{ children: (insets: EdgeInsets) => React.ReactNode }>;
+  export const initialWindowMetrics: { insets: EdgeInsets; frame: { x: number; y: number; width: number; height: number } } | null;
+}
+
+declare module '*/assets/images/products' {
+  const content: any;
+  export default content;
+}
+

@@ -182,39 +182,49 @@ export function ProfitLossScreen({
         {/* 6 Top KPI Cards */}
         <OverviewCardsGrid style={styles.kpiGrid}>
           <OverviewDashboardCard
-            title="TOTAL REVENUE"
             value="₹1,84,500"
-            titlePosition="top"
+            title="Total Revenue"
+            subtitle="Gross earnings"
+            icon="cash"
             preserveCase
           />
           <OverviewDashboardCard
-            title="Cost of goods sold"
             value="₹7,60,000"
-            titlePosition="top"
+            title="Cost of Goods Sold"
+            subtitle="Procurement cost"
+            icon="box"
             preserveCase
           />
           <OverviewDashboardCard
-            title="Gross Profit"
             value="₹5,25,000"
-            titlePosition="top"
+            title="Gross Profit"
+            subtitle="Margin balance"
+            icon="sales"
+            tone="success"
             preserveCase
           />
           <OverviewDashboardCard
-            title="Operating Expenses"
             value="₹2,10,000"
-            titlePosition="top"
+            title="Operating Expenses"
+            subtitle="Logistics & ops"
+            icon="card"
+            tone="warning"
             preserveCase
           />
           <OverviewDashboardCard
-            title="Net Profit"
             value="₹3,15,000"
-            titlePosition="top"
+            title="Net Profit"
+            subtitle="Net realized"
+            icon="wallet"
+            tone="success"
             preserveCase
           />
           <OverviewDashboardCard
-            title="Profit Margin"
             value="24.5%"
-            titlePosition="top"
+            title="Profit Margin"
+            subtitle="Overall ratio"
+            icon="clipboard"
+            tone="success"
             preserveCase
           />
         </OverviewCardsGrid>
@@ -468,7 +478,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxxl * 2,
   },
   filtersRow: {
     flexDirection: 'row',

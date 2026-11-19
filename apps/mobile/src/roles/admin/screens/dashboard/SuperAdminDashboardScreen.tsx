@@ -72,6 +72,7 @@ import {
 import { TransfersFlow } from '../warehouse/transfers/TransfersFlow';
 import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
 import { SalesFlow } from '../warehouse/sales-direct';
+import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 import { StaffFlow } from '../warehouse/staff-attendance/StaffFlow';
 import { CreateStaffAccountScreen } from '../warehouse/staff-attendance/CreateStaffAccountScreen';
 import {
@@ -171,6 +172,7 @@ export function SuperAdminDashboardScreen({
   const [activeTab, setActiveTab] = useState<SuperAdminTab>(initialTab);
   const [farmerInitialTab, setFarmerInitialTab] = useState<'farmers' | 'applications'>('farmers');
   const [farmerSubView, setFarmerSubView] = useState<FarmerManagementSubView>('overview');
+  const [financeSubScreen, setFinanceSubScreen] = useState<string>('overview');
   const farmerUserScope = useMemo(
     () => ({ warehouseId: scope.warehouseId }),
     [scope.warehouseId],
@@ -398,17 +400,8 @@ export function SuperAdminDashboardScreen({
       );
     }
     return (
-      <SalesFlow
-        scope={scope}
-        can={can}
-        role={role ?? 'SUPER_ADMIN'}
-        initialScreen="Sales"
+      <PurchaseSalesOrdersScreen
         onBack={() => setActiveSubScreen(null)}
-        onNavigateToNotifications={() => setActiveSubScreen('notifications')}
-        onNavigateToNeedsAttention={() => {
-          setWorkQueueReturnSubScreen('purchases');
-          setActiveSubScreen('work_queue');
-        }}
       />
     );
   }
@@ -1153,9 +1146,10 @@ export function SuperAdminDashboardScreen({
             onTabChange={(tab) => {
               setActiveTab(tab as any);
             }}
+            onSubScreenChange={setFinanceSubScreen}
           />
         </View>
-        {renderBottomTabBar(activeTab, handleSelectTab)}
+        {financeSubScreen === 'overview' ? renderBottomTabBar(activeTab, handleSelectTab) : null}
       </SafeAreaView>
     );
   }

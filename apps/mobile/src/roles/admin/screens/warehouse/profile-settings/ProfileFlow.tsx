@@ -43,6 +43,7 @@ import { UserProfileScreen as _UserProfileScreen } from './UserProfileScreen';
 import { WarehouseEditProfileScreen, type EditWarehouseTab } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
+import { TohfaBankAccountManagementScreen } from './TohfaBankAccountManagementScreen';
 import { SystemSettingsFlow } from '../../dashboard/SystemSettingsFlow';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
 import { PROFILE_WAREHOUSES } from './warehouseFixtures';
@@ -137,6 +138,12 @@ export function ProfileFlow({
         <SystemSettingsFlow
           role="SUPER_ADMIN"
           can={can}
+          onBack={back}
+        />
+      );
+    case 'BankAccountManagement':
+      return (
+        <TohfaBankAccountManagementScreen
           onBack={back}
         />
       );

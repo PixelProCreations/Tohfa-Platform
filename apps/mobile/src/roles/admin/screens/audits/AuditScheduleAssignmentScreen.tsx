@@ -328,7 +328,8 @@ export function AuditScheduleAssignmentScreen({
 
       // Farmer filter
       if (selectedFarmer !== 'All') {
-        const fName = selectedFarmer.includes('·') ? selectedFarmer.split('·')[1].trim().toLowerCase() : selectedFarmer.toLowerCase();
+        const splitParts = selectedFarmer.split('·');
+        const fName = ((splitParts.length > 1 && splitParts[1]) ? splitParts[1] : selectedFarmer).trim().toLowerCase();
         if (!item.farmerName.toLowerCase().includes(fName)) return false;
       }
 
@@ -422,18 +423,18 @@ export function AuditScheduleAssignmentScreen({
             const badgeBg = isCompleted
               ? adminColors.success.bg
               : isPastDue
-              ? adminColors.danger.bg
-              : isScheduled
-              ? adminColors.info.bg
-              : adminColors.warning.bg;
+                ? adminColors.danger.bg
+                : isScheduled
+                  ? adminColors.info.bg
+                  : adminColors.warning.bg;
 
             const badgeText = isCompleted
               ? adminColors.success.text
               : isPastDue
-              ? adminColors.danger.text
-              : isScheduled
-              ? adminColors.info.text
-              : adminColors.warning.text;
+                ? adminColors.danger.text
+                : isScheduled
+                  ? adminColors.info.text
+                  : adminColors.warning.text;
 
             return (
               <TouchableOpacity key={schedule.id} style={styles.scheduleCard} activeOpacity={0.85} onPress={() => onViewSchedule?.(schedule)}>

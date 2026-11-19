@@ -337,7 +337,18 @@ export function FarmerManagementFlow({
     return (
       <AdminApplicationDetailScreen
         application={selectedApplication}
+        can={can}
+        role={role ?? 'SUPER_ADMIN'}
         onBack={() => {
+          setSelectedApplication(null);
+          setSubView('applications');
+        }}
+        onApprove={(updatedApp) => {
+          if (updatedApp) {
+            setSelectedApplication(updatedApp);
+          }
+        }}
+        onReject={() => {
           setSelectedApplication(null);
           setSubView('applications');
         }}

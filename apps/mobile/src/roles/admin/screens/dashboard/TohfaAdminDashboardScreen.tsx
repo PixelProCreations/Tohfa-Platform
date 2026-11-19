@@ -48,6 +48,7 @@ import {
   SalesFulfillmentAssignmentScreen,
   SalesInvoiceScreen,
   SalesReturnsRefundsScreen,
+  PurchaseSalesOrdersScreen,
   type OnlineOrderItem,
   type B2BAccount,
 } from '../sales';
@@ -7214,8 +7215,10 @@ export function TohfaAdminDashboardScreen({
     | 'salesFinanceOverview'
     | 'exportReport'
     | 'createHorecaB2BOrder'
+    | 'purchaseSalesOrders'
     | null
   >(null);
+  const [purchaseSalesReturnTab, setPurchaseSalesReturnTab] = useState<'Home' | 'More' | 'WorkQueue'>('More');
   const [exportReportReturnSubScreen, setExportReportReturnSubScreen] = useState<
     'operationsOverview' | 'salesFinanceOverview' | null
   >(null);
@@ -7259,8 +7262,10 @@ export function TohfaAdminDashboardScreen({
     | 'transactionHistory'
     | 'customerWallet'
     | 'reportExport'
+    | 'overview'
+    | string
     | null
-  >(null);
+  >('overview');
   const [farmersReturnTab, setFarmersReturnTab] = useState<'Home' | 'More' | 'WorkQueue' | 'Operations' | 'Inventory'>('Home');
   const [reportsSubScreen, setReportsSubScreen] = useState<
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
@@ -7756,7 +7761,8 @@ export function TohfaAdminDashboardScreen({
     switch (itemKey) {
       case 'purchase_sales':
         if (can('sales.channel.manage') || can('order.list.view') || can('sales.order.create') || !user) {
-          setFinanceSubScreen('purchaseSales');
+          setPurchaseSalesReturnTab('Home');
+          setDashboardSubScreen('purchaseSalesOrders');
         } else {
           Alert.alert(
             'Access Restricted',
@@ -7927,8 +7933,8 @@ export function TohfaAdminDashboardScreen({
       created: 'Created 09 Oct 2026',
       actionLabel: 'Review Exception',
       onAction: () => {
-        setFinanceSubScreen('purchaseSales');
-        setActiveTab('Finance');
+        setPurchaseSalesReturnTab('WorkQueue');
+        setDashboardSubScreen('purchaseSalesOrders');
       },
     },
     {
@@ -10297,19 +10303,19 @@ export function TohfaAdminDashboardScreen({
     const staff = selectedStaffDetails || workforceStaffList.find((s) => s.id === 'DRV-0018') || workforceStaffList[0];
     const member: StaffMember = staff
       ? {
-          id: staff.id || 'DRV-0018',
-          staffId: staff.employeeId || staff.id || 'DRV-0018',
-          name: staff.name || 'Arun Kumar',
-          role: staff.role || 'Driver',
-          type: (staff.role?.toLowerCase().includes('driver') || staff.type?.toLowerCase().includes('driver')) ? 'driver' : 'warehouse',
-          phone: staff.mobile || staff.maskedMobile || '+91 98765 43210',
-          email: staff.email || 'arunkumar@company.com',
-          warehouseId: staff.warehouseCode || 'WH-COON',
-          warehouseName: staff.warehouse || 'Coonoor Zone',
-          status: (staff.status === 'Active' ? 'Active' : staff.status === 'Inactive' ? 'Inactive' : 'Active') as any,
-          attendance: (staff.todayAttendance as AttendanceStatus) || 'Present',
-          joiningDate: staff.joiningDate || '15 Mar 2026',
-        }
+        id: staff.id || 'DRV-0018',
+        staffId: staff.employeeId || staff.id || 'DRV-0018',
+        name: staff.name || 'Arun Kumar',
+        role: staff.role || 'Driver',
+        type: (staff.role?.toLowerCase().includes('driver') || staff.type?.toLowerCase().includes('driver')) ? 'driver' : 'warehouse',
+        phone: staff.mobile || staff.maskedMobile || '+91 98765 43210',
+        email: staff.email || 'arunkumar@company.com',
+        warehouseId: staff.warehouseCode || 'WH-COON',
+        warehouseName: staff.warehouse || 'Coonoor Zone',
+        status: (staff.status === 'Active' ? 'Active' : staff.status === 'Inactive' ? 'Inactive' : 'Active') as any,
+        attendance: (staff.todayAttendance as AttendanceStatus) || 'Present',
+        joiningDate: staff.joiningDate || '15 Mar 2026',
+      }
       : STAFF_MEMBERS.find((s) => s.id === 'staff-1') || DEFAULT_STAFF_MEMBER;
 
     return (
@@ -10797,6 +10803,13 @@ export function TohfaAdminDashboardScreen({
               setSelectedAdminApplication(null);
               if (onNavigate) onNavigate('AdminAllFarmers');
               else setActiveTab('Farmers');
+            }}
+          />
+        ) : dashboardSubScreen === 'purchaseSalesOrders' ? (
+          <PurchaseSalesOrdersScreen
+            onBack={() => {
+              setDashboardSubScreen(null);
+              setActiveTab(purchaseSalesReturnTab);
             }}
           />
         ) : (
@@ -11745,6 +11758,7 @@ export function TohfaAdminDashboardScreen({
                 onTabChange={(tab) => {
                   setActiveTab(tab as any);
                 }}
+                onSubScreenChange={setFinanceSubScreen}
               />
             )}
 
@@ -12118,6 +12132,10 @@ export function TohfaAdminDashboardScreen({
                 <AdminMoreMenuScreen
                   onBack={() => setActiveTab('Home')}
                   onLogout={onSignOut}
+                  onNavigatePurchases={() => {
+                    setPurchaseSalesReturnTab('More');
+                    setDashboardSubScreen('purchaseSalesOrders');
+                  }}
                   onSelectOption={(optionId) => {
                     if (optionId === 'farmers') {
                       setFarmersReturnTab('More');
@@ -12136,9 +12154,8 @@ export function TohfaAdminDashboardScreen({
                       setDashboardSubScreen('marketPricingHome');
                     } else if (optionId === 'purchase_sales') {
                       if (can('sales.channel.manage') || can('order.list.view') || can('sales.order.create') || !user) {
-                        setFinanceReturnTab('More');
-                        setFinanceSubScreen('purchaseSales');
-                        setActiveTab('Finance');
+                        setPurchaseSalesReturnTab('More');
+                        setDashboardSubScreen('purchaseSalesOrders');
                       } else {
                         Alert.alert(
                           'Access Restricted',
@@ -12321,46 +12338,36 @@ export function TohfaAdminDashboardScreen({
       </View>
 
       {/* ══════════════════════════════════════════════════════════════════════
-          BOTTOM NAVIGATION BAR (5 Tabs matching Screenshot 1-5 exactly)
+          BOTTOM NAVIGATION BAR (5 Tabs: Home, Work Queue, Inventory, Finance, More)
+          Visible on main screens, hidden on all inner screens
          ══════════════════════════════════════════════════════════════════════ */}
-      {!dashboardSubScreen &&
-        produceControlScreen !== 'zoneBreakdown' &&
-        produceControlScreen !== 'cropDetail' &&
-        produceControlScreen !== 'harvestForecast' &&
-        produceControlScreen !== 'cropHistory' &&
-        inputsPestScreen !== 'catalog' &&
-        inputsPestScreen !== 'add_input' &&
-        inputsPestScreen !== 'edit_input' &&
-        inputsPestScreen !== 'input_detail' &&
-        inputsPestScreen !== 'pest_library' &&
-        inputsPestScreen !== 'add_pest' &&
-        inputsPestScreen !== 'edit_pest' &&
-        inputsPestScreen !== 'pest_incidents' &&
-        inputsPestScreen !== 'incident_detail' &&
-        inputsPestScreen !== 'application_guides' &&
-        inputsPestScreen !== 'add_guide' &&
-        inputsPestScreen !== 'edit_guide' &&
-        customerScreen !== 'directory' &&
-        customerScreen !== 'customer_detail' &&
-        customerScreen !== 'add_customer' &&
-        customerScreen !== 'gst_business' &&
-        customerScreen !== 'gst_business_detail' &&
-        communitySubScreen !== 'create_content' &&
-        communitySubScreen !== 'create_group' &&
-        communitySubScreen !== 'create_community' &&
-        communitySubScreen !== 'add_video' &&
-        communitySubScreen !== 'community_details' &&
-        communitySubScreen !== 'all_communities' &&
-        communitySubScreen !== 'all_groups' &&
-        communitySubScreen !== 'article_details' &&
-        communitySubScreen !== 'content_item_detail' &&
-        communitySubScreen !== 'qa_chat' &&
-        communitySubScreen !== 'knowledge_library' &&
-        activeTab !== 'Settings' &&
-        activeTab !== 'Profile' &&
-        activeTab !== 'Notifications' &&
+      {!selectedAdminApplication &&
+        !selectedAdminFarmer &&
+        farmerSubScreen === null &&
+        (activeTab as string) !== 'Farmers' &&
+        !dashboardSubScreen &&
+        !operationsSubScreen &&
+        (!salesSubScreen || salesSubScreen === 'overview') &&
+        (!financeSubScreen || financeSubScreen === 'overview') &&
+        !reportsSubScreen &&
+        !produceControlScreen &&
+        !inputsPestScreen &&
+        !customerScreen &&
+        !communitySubScreen &&
+        (activeTab as string) !== 'Settings' &&
+        (activeTab as string) !== 'Profile' &&
+        (activeTab as string) !== 'Notifications' &&
         (!workforceActive || workforceSubScreen === 'dashboard') &&
-        (activeTab !== 'Workforce' || workforceSubScreen === 'dashboard') && (
+        !selectedCatalogInput &&
+        !selectedPest &&
+        !selectedGuide &&
+        !selectedIncident &&
+        !selectedCustomer &&
+        !selectedGstBusiness &&
+        !selectedPricingRecord &&
+        !selectedSalesOrder &&
+        !selectedSalesB2B &&
+        !selectedStaffDetails && (
           <View style={styles.bottomNav}>
             {/* Tab 1: Home */}
             <TouchableOpacity
@@ -12483,7 +12490,7 @@ export function TohfaAdminDashboardScreen({
             >
               <TabFinanceIcon
                 color={
-                  activeTab === 'Finance' || activeTab === 'Sales'
+                  activeTab === 'Finance'
                     ? adminColors.brand
                     : adminColors.muted
                 }
@@ -12491,7 +12498,7 @@ export function TohfaAdminDashboardScreen({
               <Text
                 style={[
                   styles.navTabLabel,
-                  (activeTab === 'Finance' || activeTab === 'Sales') && styles.navTabLabelActive,
+                  activeTab === 'Finance' && styles.navTabLabelActive,
                 ]}
               >
                 Finance
@@ -12517,11 +12524,7 @@ export function TohfaAdminDashboardScreen({
             >
               <TabMoreIcon
                 color={
-                  activeTab === 'More' ||
-                    activeTab === 'Farmers' ||
-                    activeTab === 'Reports' ||
-                    (activeTab as string) === 'Profile' ||
-                    activeTab === 'Workforce'
+                  activeTab === 'More'
                     ? adminColors.brand
                     : adminColors.muted
                 }
@@ -12529,12 +12532,7 @@ export function TohfaAdminDashboardScreen({
               <Text
                 style={[
                   styles.navTabLabel,
-                  (activeTab === 'More' ||
-                    activeTab === 'Farmers' ||
-                    activeTab === 'Reports' ||
-                    (activeTab as string) === 'Profile' ||
-                    activeTab === 'Workforce') &&
-                  styles.navTabLabelActive,
+                  activeTab === 'More' && styles.navTabLabelActive,
                 ]}
               >
                 More

@@ -881,18 +881,18 @@ export interface AuditScheduleScreenProps {
   initialTypeFilter?: 'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view' | undefined;
   initialAuditId?: string | undefined;
   initialView?:
-    | 'history'
-    | 'audit_detail'
-    | 'audit_report'
-    | 'list'
-    | 'detail'
-    | 'schedule_visit'
-    | 'inspection'
-    | 'calendar'
-    | 'calendar_view'
-    | 'audit_details_m5'
-    | 'pdf_viewer'
-    | undefined;
+  | 'history'
+  | 'audit_detail'
+  | 'audit_report'
+  | 'list'
+  | 'detail'
+  | 'schedule_visit'
+  | 'inspection'
+  | 'calendar'
+  | 'calendar_view'
+  | 'audit_details_m5'
+  | 'pdf_viewer'
+  | undefined;
   onNavigateFarmerProfile?: ((farmerId: string) => void) | undefined;
   onOpenNotifications?: (() => void) | undefined;
 }
@@ -930,13 +930,13 @@ export function AuditScheduleScreen({
     initialView === 'calendar_view'
       ? 'calendar'
       : initialView ||
-        (initialTypeFilter === 'report'
-          ? 'audit_report'
-          : initialTypeFilter === 'field_visit'
+      (initialTypeFilter === 'report'
+        ? 'audit_report'
+        : initialTypeFilter === 'field_visit'
           ? 'calendar'
           : initialTypeFilter === 'history'
-          ? 'history'
-          : 'calendar')
+            ? 'history'
+            : 'calendar')
   );
 
   const [previousView, setPreviousView] = useState<string>(
@@ -968,13 +968,39 @@ export function AuditScheduleScreen({
   const [selectedRecord, setSelectedRecord] = useState<AuditScheduleRecord>(() => {
     const defaultRec = INITIAL_SCHEDULE_RECORDS[0]!;
     if (initialAuditId) {
-      return INITIAL_SCHEDULE_RECORDS.find((r) => r.id === initialAuditId) ?? defaultRec;
+      const match = INITIAL_SCHEDULE_RECORDS.find((r) => r.id === initialAuditId);
+      if (match) return match;
+      return {
+        ...defaultRec,
+        id: initialAuditId,
+        farmerName: initialAuditId.includes('0053') ? 'Selvi' : initialAuditId.includes('0052') ? 'Vijay' : initialAuditId.includes('0049') ? 'Meena' : 'Ramesh Kumar',
+        farm: initialAuditId.includes('0053') ? 'Selvi village farm · Coonoor, Zone A' : initialAuditId.includes('0049') ? 'Coonoor, Zone A' : 'Ooty Farm 01',
+        badge: initialAuditId.includes('0053') ? 'Scheduled' : initialAuditId.includes('0049') ? 'Completed' : initialAuditId.includes('0042') ? 'In Progress' : 'Upcoming',
+      };
     }
     if (initialTypeFilter === 'field_visit') {
       return INITIAL_SCHEDULE_RECORDS.find((r) => r.id === 'AUD-2026-0042') ?? defaultRec;
     }
     return defaultRec;
   });
+
+  useEffect(() => {
+    if (initialAuditId) {
+      const match = INITIAL_SCHEDULE_RECORDS.find((r) => r.id === initialAuditId);
+      if (match) {
+        setSelectedRecord(match);
+      } else {
+        const defaultRec = INITIAL_SCHEDULE_RECORDS[0]!;
+        setSelectedRecord({
+          ...defaultRec,
+          id: initialAuditId,
+          farmerName: initialAuditId.includes('0053') ? 'Selvi' : initialAuditId.includes('0052') ? 'Vijay' : initialAuditId.includes('0049') ? 'Meena' : 'Ramesh Kumar',
+          farm: initialAuditId.includes('0053') ? 'Selvi village farm · Coonoor, Zone A' : initialAuditId.includes('0049') ? 'Coonoor, Zone A' : 'Ooty Farm 01',
+          badge: initialAuditId.includes('0053') ? 'Scheduled' : initialAuditId.includes('0049') ? 'Completed' : initialAuditId.includes('0042') ? 'In Progress' : 'Upcoming',
+        });
+      }
+    }
+  }, [initialAuditId]);
 
   // Small Document Popup state
   const [showDocumentModal, setShowDocumentModal] = useState<boolean>(false);
@@ -1541,8 +1567,8 @@ export function AuditScheduleScreen({
                     {isSpecialCompleted
                       ? (rec.remarks || 'View only · completed audits are never rescheduled or overwritten')
                       : rec.assignedText
-                      ? `${rec.date} · ${rec.assignedText}`
-                      : rec.date}
+                        ? `${rec.date} · ${rec.assignedText}`
+                        : rec.date}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1934,8 +1960,8 @@ export function AuditScheduleScreen({
               {role === 'FARMER_ADMIN'
                 ? '1 Audit on this date'
                 : selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20
-                ? '1 Audit on this date'
-                : 'No scheduled audits on this date'}
+                  ? '1 Audit on this date'
+                  : 'No scheduled audits on this date'}
             </Text>
 
             {role === 'FARMER_ADMIN' ? (
@@ -2032,75 +2058,8 @@ export function AuditScheduleScreen({
               </>
             ) : (
               (selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20) && (
-              <TouchableOpacity
-                style={styles.calAuditCard}
-                onPress={() => {
-                  const targetRecord: AuditScheduleRecord = selectedCalDay === 8 ? {
-                    ...INITIAL_SCHEDULE_RECORDS[0]!,
-                    id: 'AUD-2026-0038',
-                    badge: 'In Progress',
-                    farmerName: 'Vijay',
-                    farmerId: 'FR-00124',
-                    farmingType: 'Organic',
-                    yearsOrganic: 5,
-                    farm: 'Vijay Terrace Farm',
-                    type: 'Internal',
-                    date: '08 Oct 2026',
-                    score: '78/100',
-                    majorFindings: 1,
-                    minorFindings: 2,
-                    redFlags: 0,
-                    year: '2026',
-                    assignedText: 'Assigned Auditor',
-                    auditor: 'Priya Nair · Kotagiri',
-                    dateBucket: 'Today',
-                    remarks: 'Regular internal compliance audit.',
-                    inference: 'In progress.',
-                    timeline: [
-                      { title: 'Audit Started', date: '08 Oct 2026, 09:30 AM', iconType: 'calendar' },
-                      { title: 'Field Inspection', date: '08 Oct 2026, 10:15 AM', iconType: 'inspection' },
-                    ],
-                    pgsOrganic: { status: 'Active', renewalDate: '10 Nov 2027' },
-                    npop: { status: 'Active', renewalDate: '15 Dec 2027' },
-                    previousSummary: { date: '08 Jul 2026', score: '82/100' },
-                  } : (INITIAL_SCHEDULE_RECORDS.find(r => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!);
-                  setSelectedRecord(targetRecord);
-                  setPreviousView('calendar_view');
-                  setCurrentView('audit_details_m5');
-                }}
-                activeOpacity={0.85}
-              >
-                <View style={styles.calAuditCardTopRow}>
-                  <Text style={styles.calAuditCardTitle}>
-                    {selectedCalDay === 8
-                      ? 'Internal Audit'
-                      : selectedCalDay === 15
-                      ? 'Quarterly Farm Audit'
-                      : selectedCalDay === 3
-                      ? 'Organic Practice Audit'
-                      : 'Soil & Water Audit'}
-                  </Text>
-                  <View style={styles.calAuditBadgeBlue}>
-                    <Text style={styles.calAuditBadgeBlueText}>
-                      {selectedCalDay === 8 ? 'In Progress' : 'Upcoming'}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.calAuditCardSubtitle}>
-                  {selectedCalDay === 15
-                    ? 'Ramesh Kumar · Ooty Farm 01'
-                    : 'Vijay · Vijay Terrace Farm'}
-                </Text>
-                <Text style={styles.calAuditCardMeta}>
-                  Internal Audit · {selectedCalDay} Oct 2026 · 09:30 AM
-                </Text>
-                <Text style={styles.calAuditCardMeta}>
-                  Auditor: {selectedCalDay === 15 ? 'Priya · Ooty' : 'Priya Nair · Kotagiri'}
-                </Text>
-
                 <TouchableOpacity
-                  style={styles.calViewDetailsBtn}
+                  style={styles.calAuditCard}
                   onPress={() => {
                     const targetRecord: AuditScheduleRecord = selectedCalDay === 8 ? {
                       ...INITIAL_SCHEDULE_RECORDS[0]!,
@@ -2135,12 +2094,79 @@ export function AuditScheduleScreen({
                     setPreviousView('calendar_view');
                     setCurrentView('audit_details_m5');
                   }}
-                  activeOpacity={0.7}
+                  activeOpacity={0.85}
                 >
-                  <Text style={styles.calViewDetailsText}>View Audit Details →</Text>
+                  <View style={styles.calAuditCardTopRow}>
+                    <Text style={styles.calAuditCardTitle}>
+                      {selectedCalDay === 8
+                        ? 'Internal Audit'
+                        : selectedCalDay === 15
+                          ? 'Quarterly Farm Audit'
+                          : selectedCalDay === 3
+                            ? 'Organic Practice Audit'
+                            : 'Soil & Water Audit'}
+                    </Text>
+                    <View style={styles.calAuditBadgeBlue}>
+                      <Text style={styles.calAuditBadgeBlueText}>
+                        {selectedCalDay === 8 ? 'In Progress' : 'Upcoming'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.calAuditCardSubtitle}>
+                    {selectedCalDay === 15
+                      ? 'Ramesh Kumar · Ooty Farm 01'
+                      : 'Vijay · Vijay Terrace Farm'}
+                  </Text>
+                  <Text style={styles.calAuditCardMeta}>
+                    Internal Audit · {selectedCalDay} Oct 2026 · 09:30 AM
+                  </Text>
+                  <Text style={styles.calAuditCardMeta}>
+                    Auditor: {selectedCalDay === 15 ? 'Priya · Ooty' : 'Priya Nair · Kotagiri'}
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.calViewDetailsBtn}
+                    onPress={() => {
+                      const targetRecord: AuditScheduleRecord = selectedCalDay === 8 ? {
+                        ...INITIAL_SCHEDULE_RECORDS[0]!,
+                        id: 'AUD-2026-0038',
+                        badge: 'In Progress',
+                        farmerName: 'Vijay',
+                        farmerId: 'FR-00124',
+                        farmingType: 'Organic',
+                        yearsOrganic: 5,
+                        farm: 'Vijay Terrace Farm',
+                        type: 'Internal',
+                        date: '08 Oct 2026',
+                        score: '78/100',
+                        majorFindings: 1,
+                        minorFindings: 2,
+                        redFlags: 0,
+                        year: '2026',
+                        assignedText: 'Assigned Auditor',
+                        auditor: 'Priya Nair · Kotagiri',
+                        dateBucket: 'Today',
+                        remarks: 'Regular internal compliance audit.',
+                        inference: 'In progress.',
+                        timeline: [
+                          { title: 'Audit Started', date: '08 Oct 2026, 09:30 AM', iconType: 'calendar' },
+                          { title: 'Field Inspection', date: '08 Oct 2026, 10:15 AM', iconType: 'inspection' },
+                        ],
+                        pgsOrganic: { status: 'Active', renewalDate: '10 Nov 2027' },
+                        npop: { status: 'Active', renewalDate: '15 Dec 2027' },
+                        previousSummary: { date: '08 Jul 2026', score: '82/100' },
+                      } : (INITIAL_SCHEDULE_RECORDS.find(r => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!);
+                      setSelectedRecord(targetRecord);
+                      setPreviousView('calendar_view');
+                      setCurrentView('audit_details_m5');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.calViewDetailsText}>View Audit Details →</Text>
+                  </TouchableOpacity>
                 </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
+              ))}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -2428,8 +2454,12 @@ export function AuditScheduleScreen({
           <TouchableOpacity
             style={styles.headerBackBtn}
             onPress={() => {
-              setCalendarViewMode('List');
-              setCurrentView('calendar');
+              if (onBack) {
+                onBack();
+              } else {
+                setCalendarViewMode('List');
+                setCurrentView('calendar');
+              }
             }}
             activeOpacity={0.7}
             accessibilityLabel="Back"
@@ -2609,11 +2639,11 @@ export function AuditScheduleScreen({
         }}
         onStartResume={() => {
           setPreviousView('inspection_findings');
-          setCurrentView('documents_findings');
+          setCurrentView('audit_inspection');
         }}
         onNavigateSupportAudit={() => {
           setPreviousView('inspection_findings');
-          setCurrentView('documents_findings');
+          setCurrentView('audit_inspection');
         }}
         onNavigateDocuments={() => {
           setPreviousView('inspection_findings');

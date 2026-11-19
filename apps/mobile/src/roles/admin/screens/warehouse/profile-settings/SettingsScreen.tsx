@@ -22,6 +22,7 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { BankIcon } from '../../../components/AdminIcons';
 import { Card, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { roleLabelOf, scopeLabelOf } from './fixtures';
 import {
@@ -174,6 +175,14 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
               title="Notification Settings"
               subtitle="Manage your notifications"
               onPress={() => onOpen('NotificationSettings')}
+            />
+          ) : null}
+          {role === 'SUPER_ADMIN' && onOpen ? (
+            <MenuRow
+              icon={<BankIcon color={adminColors.brandDeep} />}
+              title="TOHFA Bank Account Management"
+              subtitle="Manage organization bank accounts & payouts"
+              onPress={() => onOpen('BankAccountManagement' as SettingsChildRoute)}
             />
           ) : null}
         </MenuCard>

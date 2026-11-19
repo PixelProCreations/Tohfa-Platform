@@ -49,6 +49,67 @@ export const spacing = tokens.spacing;
 export const radius = tokens.radius;
 export const MIN_TOUCH_TARGET = tokens.size.minTouchTarget;
 
+export const customerFonts: Record<string, any> = Object.assign(
+  {},
+  typography,
+  weights,
+  {
+    regular: 'Manrope-Regular',
+    medium: 'Manrope-Medium',
+    semibold: 'Manrope-SemiBold',
+    bold: 'Manrope-Bold',
+    heading: 'Manrope-Bold',
+    subheading: 'Manrope-Medium',
+    body: 'Manrope-Regular',
+    caption: 'Manrope-Regular',
+  }
+);
+
+export const customerShadow: Record<string, any> = {
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  sm: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  md: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  lg: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  default: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  none: {
+    shadowColor: 'transparent',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+};
+
 export const theme = {
   colors,
   typography,

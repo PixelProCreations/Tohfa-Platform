@@ -61,11 +61,11 @@ export const STEP7_SECTIONS_CONFIG: {
   key: Step7SectionKey;
   title: string;
 }[] = [
-  { key: 'farmDoc', title: 'FARM DOCUMENTATION' },
-  { key: 'organicPractices', title: 'ORGANIC PRACTICES' },
-  { key: 'cropMgmt', title: 'CROP MANAGEMENT' },
-  { key: 'inputUsage', title: 'INPUT USAGE' },
-];
+    { key: 'farmDoc', title: 'FARM DOCUMENTATION' },
+    { key: 'organicPractices', title: 'ORGANIC PRACTICES' },
+    { key: 'cropMgmt', title: 'CROP MANAGEMENT' },
+    { key: 'inputUsage', title: 'INPUT USAGE' },
+  ];
 
 export const STEP7_INSPECTION_RESULTS = [
   'Select...',
@@ -364,6 +364,64 @@ export const INITIAL_SCHEDULE_RECORDS: AuditScheduleRecord[] = [
     npop: { status: 'Active', renewalDate: '15 Nov 2026' },
     previousSummary: { date: '24 Sep 2026', score: '91/100' },
   },
+  {
+    id: 'AUD-2026-0053',
+    badge: 'Scheduled',
+    farmerName: 'Selvi',
+    farmerId: 'FMR-00131',
+    farmingType: 'Organic',
+    yearsOrganic: 5,
+    farm: 'Selvi village farm · Coonoor, Zone A',
+    type: 'Internal',
+    date: '15 Oct 2026',
+    assignedText: 'Auditor S. Mohan',
+    auditor: 'S. Mohan',
+    dateBucket: 'Today',
+    year: '2026',
+    score: '84/100',
+    majorFindings: 0,
+    minorFindings: 1,
+    redFlags: 0,
+    remarks: 'Internal routine audit scheduled.',
+    inference: 'Scheduled for upcoming field audit inspection.',
+    timeline: [
+      { title: 'Audit Scheduled', date: '02 Oct 2026', iconType: 'calendar' },
+      { title: 'Inspection', date: '15 Oct 2026, 10:00 AM', iconType: 'inspection' },
+      { title: 'Findings Recorded', date: 'Pending', iconType: 'completed' },
+    ],
+    pgsOrganic: { status: 'Active', renewalDate: '15 Jun 2027' },
+    npop: { status: 'Active', renewalDate: '20 Mar 2027' },
+    previousSummary: { date: '12 Jul 2026', score: '84/100' },
+  },
+  {
+    id: 'AUD-2026-0052',
+    badge: 'Scheduled',
+    farmerName: 'Vijay',
+    farmerId: 'FMR-00152',
+    farmingType: 'Natural',
+    yearsOrganic: 3,
+    farm: 'Kotagiri farm · Zone C',
+    type: 'External',
+    date: '08 Oct 2026',
+    assignedText: 'External agency',
+    auditor: 'External agency',
+    dateBucket: 'Today',
+    year: '2026',
+    score: '76/100',
+    majorFindings: 1,
+    minorFindings: 2,
+    redFlags: 0,
+    remarks: 'Past scheduled date · Follow-up requested.',
+    inference: 'Pending overdue resolution from external bureau.',
+    timeline: [
+      { title: 'Audit Scheduled', date: '28 Sep 2026', iconType: 'calendar' },
+      { title: 'Inspection Window', date: '08 Oct 2026, 09:30 AM', iconType: 'inspection' },
+      { title: 'Audit Overdue', date: '09 Oct 2026', iconType: 'completed' },
+    ],
+    pgsOrganic: { status: 'Active', renewalDate: '10 Jan 2027' },
+    npop: { status: 'Under Review', renewalDate: '15 Oct 2026' },
+    previousSummary: { date: '10 May 2026', score: '76/100' },
+  },
 ];
 
 // ─── Module 9: Disputes & Mediation Fixtures ─────────────────────────────────
@@ -636,4 +694,4 @@ export const INITIAL_DISPUTES: DisputeItem[] = [
   },
 ];
 
-
+
