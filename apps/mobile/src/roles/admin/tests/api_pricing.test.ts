@@ -7,9 +7,13 @@
  *
  * BR-09 (retail price <= ceiling) is enforced server-side; the client only has
  * to turn the 422 into the right admin string and expose the ceiling the
- * server reported. There is deliberately no client for POST /fair-prices or
- * POST /fair-prices/bulk (Super Admin price management is still being
- * designed).
+ * server reported.
+ *
+ * The two ceiling writes (POST /fair-prices, POST /fair-prices/bulk) now have
+ * clients, because the Super Admin screens that use them exist. The assertion
+ * that they were absent was a statement about that earlier phase, not a safety
+ * property, so it is replaced below by tests that pin what they put on the
+ * wire — including the Idempotency-Key the spec declares on both.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type * as ClientModule from '../../../shell/api/client';
@@ -24,6 +28,8 @@ import { adminErrorKey } from '../api/errors';
 import { ADMIN_REQUEST_TIMEOUT_MS } from '../api/http';
 import * as pricing from '../api/pricing';
 import {
+  bulkUpsertFairPrices,
+  createFairPrice,
   createRetailPrice,
   ERROR_CODES,
   getFairPriceHistory,
@@ -170,15 +176,63 @@ describe('module surface', () => {
     expect([...PRICING_GRADES]).toEqual(['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT']);
   });
 
-  it('there is no client for setting or bulk-updating a fair price ceiling', () => {
+  it('BR-08: the ceiling writes are exported alongside the reads', () => {
     const names = Object.keys(pricing);
-    expect(names).not.toContain('createFairPrice');
-    expect(names).not.toContain('bulkUpsertFairPrices');
+    expect(names).toContain('createFairPrice');
+    expect(names).toContain('bulkUpsertFairPrices');
   });
 
   it('every documented problem code has an admin-facing string', () => {
     for (const code of ERROR_CODES) {
       expect({ code, has: hasKey(`admin.error.${code}`) }).toEqual({ code, has: true });
     }
+  });
+});
+
+describe('fair price ceiling write clients (BR-08)', () => {
+  const body = {
+    cropId: CROP,
+    grade: 'GRADE_1' as const,
+    ceilingPrice: '52.00',
+    frequency: 'WEEKLY' as const,
+    effectiveFrom: '2026-11-17',
+    notes: 'Monsoon supply dip',
+  };
+
+  it('BR-08: POSTs /fair-prices with the FairPriceCreate body', async () => {
+    await createFairPrice(body, KEY);
+    const { path, options } = lastCall();
+    expect(path).toBe('/fair-prices');
+    expect(options).toMatchObject({ method: 'POST', body, timeoutMs: ADMIN_REQUEST_TIMEOUT_MS });
+  });
+
+  it('BR-08: sends the Idempotency-Key the spec declares, so a replay sets the ceiling once', async () => {
+    await createFairPrice(body, KEY);
+    expect(lastCall().options).toMatchObject({ idempotencyKey: KEY });
+  });
+
+  it('BR-08a: a TOHFA_ADMIN 403 maps to the admin FORBIDDEN string, it is not swallowed', async () => {
+    requestMock.mockRejectedValueOnce(problem('FORBIDDEN', 403));
+    const err = await createFairPrice(body, KEY).catch((e: unknown) => e);
+    expect(adminErrorKey(err)).toBe('admin.error.FORBIDDEN');
+  });
+
+  it('BR-08b: an overlapping window 409 maps to the admin CONFLICT string', async () => {
+    requestMock.mockRejectedValueOnce(problem('CONFLICT', 409));
+    const err = await createFairPrice(body, KEY).catch((e: unknown) => e);
+    expect(adminErrorKey(err)).toBe('admin.error.CONFLICT');
+  });
+
+  it('BR-08: POSTs /fair-prices/bulk with the items wrapped as the spec requires, plus the key', async () => {
+    await bulkUpsertFairPrices([body], KEY);
+    const { path, options } = lastCall();
+    expect(path).toBe('/fair-prices/bulk');
+    expect(options).toMatchObject({ method: 'POST', body: { items: [body] }, idempotencyKey: KEY });
+  });
+
+  it('BR-08: a rejected batch surfaces as an error, never as a partial success', async () => {
+    requestMock.mockRejectedValueOnce(problem('VALIDATION_FAILED', 422));
+    const err = await bulkUpsertFairPrices([body], KEY).catch((e: unknown) => e);
+    expect(adminErrorKey(err)).toBe('admin.error.VALIDATION_FAILED');
   });
 });

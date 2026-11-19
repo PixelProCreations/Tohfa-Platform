@@ -7,10 +7,13 @@ import { requirePermission, requireScope } from '../../rbac/requirePermission.js
 import {
   adminOrderIdParams,
   adminOrdersQuerySchema,
+  ordersSummaryQuerySchema,
   assignWarehouseSchema,
   packOrderSchema,
   dispatchOrderSchema,
   verifyOtpSchema,
+  cancelOrderSchema,
+  orderIssueSchema,
 } from './fulfilment.schema.js';
 import { fulfilmentService } from './fulfilment.service.js';
 
@@ -30,6 +33,18 @@ adminFulfilmentRouter.get(
     const scope = requireScope(req.scope);
     const query = getValidated(req, 'query', adminOrdersQuerySchema);
     res.status(200).json(await fulfilmentService.listAdminOrders(scope, query));
+  }),
+);
+
+adminFulfilmentRouter.get(
+  '/summary',
+  requireAuth,
+  requirePermission('order.list.view_all'),
+  validate({ query: ordersSummaryQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', ordersSummaryQuerySchema);
+    res.status(200).json(await fulfilmentService.getOrdersSummary(scope, query));
   }),
 );
 
@@ -121,6 +136,61 @@ adminFulfilmentRouter.post(
       params.id,
       body,
       req.header('idempotency-key'),
+    );
+    res.status(200).json(result);
+  }),
+);
+
+adminFulfilmentRouter.post(
+  '/:id/cancel',
+  requireAuth,
+  requirePermission('order.cancel'),
+  validate({ params: idParamSchema, body: cancelOrderSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', idParamSchema);
+    const body = getValidated(req, 'body', cancelOrderSchema);
+    const result = await fulfilmentService.cancelOrder(
+      actor,
+      req.scope!,
+      params.id,
+      body,
+      req.header('idempotency-key'),
+    );
+    res.status(200).json(result);
+  }),
+);
+
+adminFulfilmentRouter.post(
+  '/:id/issues',
+  requireAuth,
+  requirePermission('warehouse.issue.manage'),
+  validate({ params: idParamSchema, body: orderIssueSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', idParamSchema);
+    const body = getValidated(req, 'body', orderIssueSchema);
+    const result = await fulfilmentService.createOrderIssue(
+      actor,
+      req.scope!,
+      params.id,
+      body,
+      req.header('idempotency-key'),
+    );
+    res.status(201).json(result);
+  }),
+);
+
+adminFulfilmentRouter.get(
+  '/:id/stock-check',
+  requireAuth,
+  requirePermission('order.list.view_all'),
+  validate({ params: idParamSchema }),
+  asyncHandler(async (req, res) => {
+    const params = getValidated(req, 'params', idParamSchema);
+    const result = await fulfilmentService.checkStock(
+      req.scope!,
+      params.id,
     );
     res.status(200).json(result);
   }),

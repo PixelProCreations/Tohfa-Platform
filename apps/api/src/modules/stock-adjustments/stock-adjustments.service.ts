@@ -21,6 +21,7 @@
  *    and the ledger row; never the free-text reason or rejection reason (free text can carry names
  *    and phone numbers, BR-35).
  */
+import { randomUUID } from 'node:crypto';
 import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
@@ -28,6 +29,8 @@ import { beginIdempotent, idempotencyStore, requireIdempotencyKey, type Idempote
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
+import { defaultBlobStorage } from '../../storage/blobStorage.js';
+import { stripExifAndGps } from '../../storage/imageProcessor.js';
 import type { RecordMovementInput, StockLedgerEntryView } from '../inventory/inventory.schema.js';
 import { inventoryService } from '../inventory/inventory.service.js';
 import { confineToAssignedWarehouses, visibleWarehouseIds } from '../warehouse-ops/scope.js';
@@ -39,6 +42,7 @@ import {
   type ListAdjustmentsResponse,
   type RejectAdjustmentBody,
   type StockAdjustment,
+  type StockAdjustmentEvidenceItem,
 } from './stock-adjustments.schema.js';
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
@@ -76,6 +80,11 @@ export interface StockAdjustmentsService {
   createInTransaction(tx: Executor, scope: ResolvedScope, body: CreateAdjustmentBody): Promise<StockAdjustment>;
   approve(scope: ResolvedScope, id: string, rawKey: string | undefined): Promise<StockAdjustment>;
   reject(scope: ResolvedScope, id: string, body: RejectAdjustmentBody): Promise<StockAdjustment>;
+  addEvidence(
+    scope: ResolvedScope,
+    id: string,
+    evidence: { url?: string; buffer?: Buffer; mimeType?: string },
+  ): Promise<StockAdjustmentEvidenceItem>;
 }
 
 const OPERATION = {
@@ -287,6 +296,40 @@ export function createStockAdjustmentsService(deps: Partial<StockAdjustmentsServ
         });
         return adjustment;
       });
+    },
+
+    async addEvidence(scope, id, evidence) {
+      const effectiveScope = confineToAssignedWarehouses(scope);
+      const adjustment = await repo.findAdjustment(db, id);
+      if (adjustment === null || !warehouseVisible(effectiveScope, adjustment.warehouseId)) {
+        throw adjustmentNotFound(id);
+      }
+
+      let evidenceUrl = evidence.url;
+      if (evidence.buffer) {
+        try {
+          const { buffer: cleanBuffer, mimeType } = await stripExifAndGps(evidence.buffer);
+          const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+          const key = `stock-adjustments/${id}/${randomUUID()}.${ext}`;
+          await defaultBlobStorage.upload(key, cleanBuffer, mimeType);
+          evidenceUrl = defaultBlobStorage.getPublicUrl(key);
+        } catch (err) {
+          throw new AppError('VALIDATION_FAILED', {
+            status: 422,
+            detail: 'Failed to process evidence image: invalid or corrupt image data.',
+            cause: err,
+          });
+        }
+      }
+
+      if (!evidenceUrl) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: 'Evidence URL or valid image buffer required.',
+        });
+      }
+
+      return repo.addEvidence(db, id, evidenceUrl);
     },
   };
 }

@@ -17,7 +17,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { OverviewDashboardCard } from '../../../components';
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
@@ -74,6 +74,10 @@ export interface StaffScreenProps extends WarehouseScreenBaseProps {
   onNavigateToRoles?: (() => void) | undefined;
   /** "Assign Access" quick action (role.definition.view). */
   onNavigateToAssignAccess?: (() => void) | undefined;
+  /** "View All Staff" link opens the full searchable StaffListScreen. */
+  onNavigateToStaffList?: (() => void) | undefined;
+  /** Current user's role code — used to show the Super Admin workforce dashboard. */
+  role?: string | undefined;
 }
 
 export function StaffScreen({
@@ -87,6 +91,8 @@ export function StaffScreen({
   onNavigateToHistory,
   onNavigateToRoles,
   onNavigateToAssignAccess,
+  onNavigateToStaffList,
+  role,
 }: StaffScreenProps) {
   const isMain = isAllWarehouses(scope);
   const allowed = can(STAFF_ROSTER_CODE);
@@ -167,6 +173,8 @@ export function StaffScreen({
     return frame(<AdminEmptyState title={t('staff.denied.title')} subtitle={t('staff.denied.roster')} />);
   }
 
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+
   const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
   const summary = rollCall.summary;
   const kpi = (value: number | undefined) => (value === undefined ? t('staff.kpi.unknown') : String(value));
@@ -213,6 +221,69 @@ export function StaffScreen({
     </View>
   ) : undefined;
 
+  // Super Admin gets the workforce dashboard (design M14-S01 SA view).
+  if (isSuperAdmin) {
+    const present = summary?.present;
+    const total = summary?.total;
+    const attendanceSummary = present !== undefined && total !== undefined ? `${present} of ${total}` : t('staff.kpi.unknown');
+    return frame(
+      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* 6-KPI overview grid */}
+        <OverviewCardsGrid style={styles.kpiGrid}>
+          <OverviewDashboardCard value={kpi(list.items.length || undefined)} title={t('staff.sa.adminStaff')} icon="users" titlePosition="bottom" />
+          <OverviewDashboardCard value={kpi(list.items.length || undefined)} title={t('staff.sa.warehouseStaff')} icon="box" titlePosition="bottom" />
+          <OverviewDashboardCard value="—" title={t('staff.sa.activeDrivers')} icon="truck" titlePosition="bottom" />
+          <OverviewDashboardCard value={attendanceSummary} title={t('staff.sa.todayAttendance')} icon="clipboard" tone="success" titlePosition="bottom" />
+          <OverviewDashboardCard value="—" title={t('staff.sa.pendingCorrections')} icon="orders" titlePosition="bottom" />
+          <OverviewDashboardCard value="—" title={t('staff.sa.needsAttention')} icon="alert" tone="danger" titlePosition="bottom" />
+        </OverviewCardsGrid>
+
+        {/* Staff directory preview */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitleText}>{t('staff.sa.directory').toUpperCase()}</Text>
+          {onNavigateToStaffList ? (
+            <TouchableOpacity onPress={onNavigateToStaffList} activeOpacity={0.7} accessibilityRole="button">
+              <Text style={styles.viewAllText}>{t('staff.sa.viewAllLink')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        {view === 'loading' ? <AdminLoadingState /> : null}
+        {view === 'ready' ? list.items.slice(0, 3).map(renderCard) : null}
+
+        {/* Quick actions */}
+        <Text style={styles.quickActionsTitle}>{t('staff.sa.quickActions').toUpperCase()}</Text>
+        <View style={styles.actionRow}>
+          {onNavigateToStaffList ? (
+            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToStaffList} activeOpacity={0.8} accessibilityRole="button">
+              <PersonIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staff.sa.action.directory')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onNavigateToAttendance ? (
+            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToAttendance} activeOpacity={0.8} accessibilityRole="button">
+              <CalendarIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staff.sa.action.attendance')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onNavigateToHistory ? (
+            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToHistory} activeOpacity={0.8} accessibilityRole="button">
+              <HistoryIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staff.sa.action.history')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onNavigateToRoles ? (
+            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToRoles} activeOpacity={0.8} accessibilityRole="button">
+              <StaffGroupIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staff.sa.action.roles')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+        <View style={styles.gap} />
+      </ScrollView>,
+      footer,
+    );
+  }
+
   return frame(
     <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
       {attendanceAllowed && onNavigateToAttendance ? (
@@ -242,12 +313,24 @@ export function StaffScreen({
       <View style={styles.gap} />
       <SearchBar value={searchInput} onChangeText={setSearchInput} placeholder={t('staff.list.searchPlaceholder')} />
 
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitleText}>{t('staff.list.sectionTitle')}</Text>
+        {onNavigateToStaffList ? (
+          <TouchableOpacity onPress={onNavigateToStaffList} activeOpacity={0.7} accessibilityRole="button">
+            <Text style={styles.viewAllText}>{t('staff.list.viewAll')}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
       {view === 'loading' ? <AdminLoadingState /> : null}
       {view === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
       {view === 'empty' ? <AdminEmptyState title={t('staff.list.empty.title')} subtitle={t('staff.list.empty.subtitle')} /> : null}
       {view === 'ready' ? list.items.map(renderCard) : null}
       {view === 'ready' && list.hasMore ? (
         <WalletButton label={t('staff.common.loadMore')} variant="outline" onPress={list.loadMore} />
+      ) : null}
+      {view === 'ready' && onNavigateToStaffList ? (
+        <WalletButton label={t('staff.list.viewAll')} variant="outline" onPress={onNavigateToStaffList} />
       ) : null}
 
       {attendanceAllowed && !isMain ? (
@@ -301,6 +384,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     rowGap: 10,
     marginBottom: adminSpacing.md,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  sectionTitleText: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  viewAllText: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  quickActionsTitle: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
   },
   card: {
     backgroundColor: adminColors.card,

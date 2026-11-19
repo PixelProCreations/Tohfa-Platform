@@ -147,13 +147,21 @@ describe('toTransferListItem / toTransferDetail', () => {
 
 describe('transferTimeline', () => {
   it('shows the approval step only when the transfer required approval', () => {
-    expect(transferTimeline(dto()).map((s) => s.key)).toEqual(['requested', 'dispatched', 'received']);
+    expect(transferTimeline(dto()).map((s) => s.key)).toEqual([
+      'requested', 'dispatched', 'inTransit', 'arrived', 'receiving', 'qtyVerification', 'qualityCheck', 'outcome', 'completed',
+    ]);
     const pending = transferTimeline(dto({ status: 'PENDING_APPROVAL', requiresApproval: true, dispatchedAt: null }));
     expect(pending.map((s) => [s.key, s.done])).toEqual([
       ['requested', true],
       ['approved', false],
       ['dispatched', false],
-      ['received', false],
+      ['inTransit', false],
+      ['arrived', false],
+      ['receiving', false],
+      ['qtyVerification', false],
+      ['qualityCheck', false],
+      ['outcome', false],
+      ['completed', false],
     ]);
   });
 

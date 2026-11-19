@@ -142,7 +142,11 @@ describe('assign-warehouse row lock (fake repo) — BR-85j', () => {
 describe('pack / dispatch status updates that match no row (fake repo) — BR-85j', () => {
   it('BR-85j: pack and dispatch are 409 CONFLICT with no audit row when the conditional status update changes nothing', async () => {
     for (const action of ['pack', 'dispatch'] as const) {
-      const h = harness({ unlocked: { status: 'CONFIRMED', channel: 'ONLINE' }, locked: null, updatedRows: 0 });
+      const h = harness({
+        unlocked: { status: action === 'pack' ? 'CONFIRMED' : 'PACKED', channel: 'ONLINE' },
+        locked: null,
+        updatedRows: 0,
+      });
       const call =
         action === 'pack'
           ? h.service.packOrder(h.actor, h.main, h.orderId, {}, newId())

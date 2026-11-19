@@ -1,8 +1,9 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { pool } from '../../db/pool.js';
+import { deleteTestWarehouseAndFixtures } from '../../test/committedFixtureCleanup.js';
 import {
   aScope,
   databaseReady,
@@ -434,5 +435,10 @@ describeIfDatabase('Cart Integration Tests (BR-22, BR-12)', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe('FORBIDDEN');
+  });
+
+  afterAll(async () => {
+    if (!ready || !warehouseId) return;
+    await deleteTestWarehouseAndFixtures(pool, warehouseId);
   });
 });

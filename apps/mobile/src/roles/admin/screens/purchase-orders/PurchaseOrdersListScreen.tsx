@@ -32,11 +32,13 @@ import {
   HISTORY_STATUS_CHIPS,
   ORDER_STATUS_CHIPS,
   buildListFilters,
+  filterByProduce,
   isNearEnd,
   purchaseOrdersAccess,
   toOrderRow,
   type OrderRowView,
   type PeriodChip,
+  type ProduceChip,
   type ScrollMetrics,
   type StatusChip,
 } from './purchaseOrdersLogic';
@@ -141,6 +143,7 @@ function LiveList({ mode, warehouseId, onBack, onViewOrder, title }: PurchaseOrd
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusChip>('ALL');
   const [period, setPeriod] = useState<PeriodChip>('ALL');
+  const [produce, setProduce] = useState<ProduceChip>('ALL');
   const [filterOpen, setFilterOpen] = useState(false);
   const debouncedSearch = useDebounced(search, SEARCH_DEBOUNCE_MS);
 
@@ -150,7 +153,7 @@ function LiveList({ mode, warehouseId, onBack, onViewOrder, title }: PurchaseOrd
     [status, period, history, debouncedSearch],
   );
   const list = usePurchaseOrderList(warehouseId, filters, { enabled: true });
-  const rows = useMemo(() => list.items.map(toOrderRow), [list.items]);
+  const rows = useMemo(() => filterByProduce(list.items.map(toOrderRow), produce), [list.items, produce]);
 
   if (filterOpen) {
     return (
@@ -159,12 +162,15 @@ function LiveList({ mode, warehouseId, onBack, onViewOrder, title }: PurchaseOrd
         statusChips={history ? HISTORY_STATUS_CHIPS : ORDER_STATUS_CHIPS}
         status={status}
         onStatus={setStatus}
+        produce={produce}
+        onProduce={setProduce}
         showPeriod={history}
         period={period}
         onPeriod={setPeriod}
         onClearAll={() => {
           setStatus('ALL');
           setPeriod('ALL');
+          setProduce('ALL');
         }}
         onClose={() => setFilterOpen(false)}
       />

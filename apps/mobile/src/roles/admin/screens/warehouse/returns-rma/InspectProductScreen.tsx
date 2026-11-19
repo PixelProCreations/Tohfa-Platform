@@ -13,13 +13,14 @@
  * Gates: Save needs inventory.quality_check.perform and a PENDING return
  * (returnActions); the server re-checks (409 INVALID_STATE_TRANSITION).
  *
- * Hidden, because the inspect body has no such field: the inspection result
- * dropdown, the notes and the inspection photos.
+ * The inspection result dropdown, the notes and the inspection photos are
+ * drawn as designed. The inspect body has no field for them, so they are not
+ * sent: they stay on the screen and an empty one shows the dash.
  */
 // Design id: M10-S03
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import type { ReturnInspectionBody } from '../../../api/returns';
 import { t, type TranslationKey } from '../../../i18n';
@@ -35,6 +36,45 @@ export interface InspectProductScreenProps extends WarehouseScreenBaseProps, Ret
   step: InspectStep;
   onSubmit: (body: ReturnInspectionBody) => void;
   onContinueToReview: () => void;
+}
+
+/** The design's inspection result choices (not sent: the inspect body has no such field). */
+const INSPECTION_RESULT_KEYS: readonly TranslationKey[] = [
+  'returns.inspect.result.damageConfirmed',
+  'returns.inspect.result.partialDamage',
+  'returns.inspect.result.qualityDegradation',
+  'returns.inspect.result.noDefect',
+];
+
+function ImageIcon() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={adminColors.brand} strokeWidth="1.8" />
+      <Circle cx="8.5" cy="8.5" r="1.5" fill={adminColors.brand} />
+      <Path d="M21 15l-5-5L5 21" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CameraIcon() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+        stroke={adminColors.muted}
+        strokeWidth="1.8"
+      />
+      <Circle cx="12" cy="13" r="4" stroke={adminColors.muted} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function ChevronDownIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={adminColors.ink} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
 }
 
 const EMPTY_ITEM: InspectionFormItem = { condition: undefined, accepted: '', damaged: '' };
@@ -136,6 +176,9 @@ export function InspectProductScreen({
   const [form, setForm] = useState<Record<string, InspectionFormItem>>({});
   // Shown only after a Save attempt, so an empty form does not open in red.
   const [itemErrors, setItemErrors] = useState<Readonly<Record<string, TranslationKey>>>({});
+  const [result, setResult] = useState<TranslationKey | undefined>(undefined);
+  const [showResultOptions, setShowResultOptions] = useState(false);
+  const [notes, setNotes] = useState('');
   const canInspect = detail !== undefined && returnActions(detail.status, can).inspect;
 
   if (step === 'saved') {
@@ -203,6 +246,67 @@ export function InspectProductScreen({
                 onChange={(next) => setForm((prev) => ({ ...prev, [item.orderItemId]: next }))}
               />
             ))}
+
+            <SectionTitle>{t('returns.inspect.result.section')}</SectionTitle>
+            <TouchableOpacity
+              style={styles.dropdownBtn}
+              onPress={() => setShowResultOptions((prev) => !prev)}
+              activeOpacity={0.8}
+              disabled={!canInspect}
+            >
+              <Text style={styles.dropdownSelectedText}>{result === undefined ? t('returns.noValue') : t(result)}</Text>
+              <ChevronDownIcon />
+            </TouchableOpacity>
+            {showResultOptions ? (
+              <View style={styles.dropdownMenu}>
+                {INSPECTION_RESULT_KEYS.map((key) => (
+                  <TouchableOpacity
+                    key={key}
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setResult(key);
+                      setShowResultOptions(false);
+                    }}
+                  >
+                    <Text style={[styles.dropdownItemText, result === key && styles.dropdownItemTextActive]}>{t(key)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+
+            <SectionTitle>{t('returns.inspect.notes.section')}</SectionTitle>
+            <View style={styles.notesBox}>
+              <TextInput
+                style={styles.notesInput}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                placeholder={t('returns.inspect.notes.placeholder')}
+                placeholderTextColor={adminColors.placeholder}
+                editable={canInspect && !isSubmitting}
+              />
+            </View>
+
+            <SectionTitle>{t('returns.inspect.photos.section')}</SectionTitle>
+            <View style={styles.photosRow}>
+              <View style={styles.photoBox}>
+                <ImageIcon />
+              </View>
+              <View style={styles.photoBox}>
+                <ImageIcon />
+              </View>
+              {canInspect ? (
+                <TouchableOpacity
+                  style={styles.addPhotoBox}
+                  onPress={() => Alert.alert(t('returns.inspect.photos.addTitle'), t('returns.inspect.photos.addMessage'))}
+                  activeOpacity={0.7}
+                  accessibilityLabel={t('returns.inspect.photos.add')}
+                >
+                  <CameraIcon />
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </ScrollView>
         )}
       </ReturnDetailGate>
@@ -210,7 +314,75 @@ export function InspectProductScreen({
   );
 }
 
+// Fixed sizes (photo tile, notes box): not spacing.
+const PHOTO_SIZE = 68;
+const NOTES_MIN_HEIGHT = 64;
+
 const styles = StyleSheet.create({
+  dropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    height: 48,
+    paddingHorizontal: adminSpacing.md,
+  },
+  dropdownSelectedText: { ...adminType.rowTitle, color: adminColors.ink },
+  dropdownMenu: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginTop: adminSpacing.xs,
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  dropdownItemText: { ...adminType.body, color: adminColors.ink },
+  dropdownItemTextActive: { ...adminType.sectionHead, color: adminColors.brand },
+  notesBox: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  notesInput: {
+    ...adminType.body,
+    color: adminColors.ink,
+    minHeight: NOTES_MIN_HEIGHT,
+    textAlignVertical: 'top',
+    padding: 0,
+  },
+  photosRow: { flexDirection: 'row', gap: adminSpacing.md },
+  photoBox: {
+    width: PHOTO_SIZE,
+    height: PHOTO_SIZE,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPhotoBox: {
+    width: PHOTO_SIZE,
+    height: PHOTO_SIZE,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xl },
   reason: { ...adminType.body, color: adminColors.ink },
   hint: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.sm },

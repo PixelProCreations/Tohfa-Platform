@@ -9,7 +9,24 @@ import {
   View,
 } from 'react-native';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { adminErrorKey } from '../../api/errors';
+import type { AuditDetailDto, RatingCategoryCode } from '../../api/audits';
+import { t, type TranslationKey } from '../../i18n';
+import { makeCan, type Can } from '../../permissions/can';
+import { adminColors, adminType } from '../../theme';
+import { formatAdminDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import {
+  INSPECTION_STEP_ORDER,
+  InspectionStepError,
+  SUMMARY_MAX,
+  inspectionBlocker,
+  stepLabel,
+  toScoreInputs,
+} from './auditActions';
 import type { AuditReportData } from './AuditReportScreen';
+import { useAuditDetail, useInspectAudit } from './useAuditsData';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -49,42 +66,35 @@ export type AuditEntry = {
   auditorLabel: string;
 };
 
-type CriterionKey =
-  | 'Soil Health'
-  | 'Water Management'
-  | 'Pest & Disease Control'
-  | 'Biodiversity'
-  | 'Record Keeping'
-  | 'Compliance History';
+/** docs/rbac.json codes the inspection needs: start + complete, score the categories, log a finding. */
+export const AUDIT_INSPECTION_CODES = {
+  conduct: 'audit.conduct',
+  score: 'audit.score.categories',
+  findings: 'audit.findings.log',
+} as const;
 
-const CRITERIA: CriterionKey[] = [
-  'Soil Health',
-  'Water Management',
-  'Pest & Disease Control',
-  'Biodiversity',
-  'Record Keeping',
-  'Compliance History',
-];
+const FAIL_CLOSED: Can = makeCan([]);
 
-const DEFAULT_SCORES: Record<CriterionKey, number> = {
-  'Soil Health': 8,
-  'Water Management': 7,
-  'Pest & Disease Control': 6,
-  'Biodiversity': 8,
-  'Record Keeping': 7,
-  'Compliance History': 8,
-};
+/** Category names are the farmer-rating catalogue's (same 10 seeded rating_categories, BR-06). */
+function categoryName(code: RatingCategoryCode): string {
+  return t(`farmerDetail.rating.category.${code}` as TranslationKey);
+}
 
 // ─── Score Stepper Row ────────────────────────────────────────────────────────
 function ScoreRow({
   label,
   score,
+  max,
   onChange,
 }: {
   label: string;
-  score: number;
+  /** null = not scored yet (incomplete, never zero, BR-06). */
+  score: number | null;
+  max: number;
   onChange: (n: number) => void;
 }) {
+  const atMin = score !== null && score <= 0;
+  const atMax = score !== null && score >= max;
   return (
     <View style={s.scoreRow}>
       <View style={{ flex: 1, paddingRight: 8 }}>
@@ -92,27 +102,27 @@ function ScoreRow({
       </View>
       <View style={s.stepperRow}>
         <TouchableOpacity
-          style={[s.stepBtn, score <= 1 && s.stepBtnDisabled]}
-          onPress={() => onChange(Math.max(1, score - 1))}
+          style={[s.stepBtn, atMin && s.stepBtnDisabled]}
+          onPress={() => onChange(score === null ? 0 : Math.max(0, score - 1))}
           activeOpacity={0.7}
-          disabled={score <= 1}
+          disabled={atMin}
           accessibilityLabel={`Decrease ${label}`}
         >
-          <Text style={[s.stepBtnText, score <= 1 && s.stepBtnTextDisabled]}>−</Text>
+          <Text style={[s.stepBtnText, atMin && s.stepBtnTextDisabled]}>−</Text>
         </TouchableOpacity>
 
         <View style={s.scoreBubble}>
-          <Text style={s.scoreValue}>{score}</Text>
+          <Text style={s.scoreValue}>{score === null ? ADMIN_NO_VALUE : score}</Text>
         </View>
 
         <TouchableOpacity
-          style={[s.stepBtn, score >= 10 && s.stepBtnDisabled]}
-          onPress={() => onChange(Math.min(10, score + 1))}
+          style={[s.stepBtn, atMax && s.stepBtnDisabled]}
+          onPress={() => onChange(score === null ? 1 : Math.min(max, score + 1))}
           activeOpacity={0.7}
-          disabled={score >= 10}
+          disabled={atMax}
           accessibilityLabel={`Increase ${label}`}
         >
-          <Text style={[s.stepBtnText, score >= 10 && s.stepBtnTextDisabled]}>+</Text>
+          <Text style={[s.stepBtnText, atMax && s.stepBtnTextDisabled]}>+</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -122,56 +132,121 @@ function ScoreRow({
 // ─── Screen Props ─────────────────────────────────────────────────────────────
 export interface AuditInspectionScreenProps {
   entry?: AuditEntry | undefined;
+  /** The API id of the audit being inspected; every call goes to this record. */
+  auditId?: string | undefined;
   farmerName?: string | undefined;
   farmId?: string | undefined;
   zone?: string | undefined;
   onBack: () => void;
+  /** Called only once the server has COMPLETED the audit; the data is the server's, not computed here. */
   onSubmitted?: (data: AuditReportData) => void;
+  /** The signed-in admin's permission check; without it every action is refused (fail closed). */
+  can?: Can | undefined;
+}
+
+/** The report the next screen draws, from the audit the server just completed. */
+function reportFromAudit(audit: AuditDetailDto, entry: AuditEntry | undefined, notes: string): AuditReportData {
+  return {
+    entry: {
+      ...(entry ?? { day: '', month: '' }),
+      id: audit.id,
+      farmerName: audit.farmerName,
+      farmId: audit.tohfaFarmerId,
+      location: audit.zoneName ?? ADMIN_NO_VALUE,
+      auditorLabel: audit.auditType === 'EXTERNAL' ? audit.externalAgencyName ?? ADMIN_NO_VALUE : audit.auditorName ?? ADMIN_NO_VALUE,
+      day: entry?.day ?? '',
+      month: entry?.month ?? '',
+    },
+    totalScore: audit.totalScore ?? 0,
+    maxScore: audit.maxScore,
+    majorViolations: audit.majorViolationsCount,
+    ...(audit.tier !== null ? { status: audit.tier } : {}),
+    date: formatAdminDay(audit.completedAt ?? audit.scheduledFor),
+    notes,
+  };
 }
 
 export function AuditInspectionScreen({
   entry,
+  auditId,
   farmerName,
   farmId,
   zone,
   onBack,
   onSubmitted,
+  can = FAIL_CLOSED,
 }: AuditInspectionScreenProps) {
-  const [scores, setScores] = useState<Record<CriterionKey, number>>({ ...DEFAULT_SCORES });
+  const id = auditId ?? entry?.id;
+  const detail = useAuditDetail(id);
+  const inspect = useInspectAudit();
+  const audit = detail.data;
+
+  const [values, setValues] = useState<Record<string, number | null>>({});
   const [violation, setViolation] = useState(false);
   const [notes, setNotes] = useState('');
+  const [blocked, setBlocked] = useState<string | null>(null);
+  // Set when the run reached the server far enough to record a finding: it cannot be withdrawn here.
+  const [findingLogged, setFindingLogged] = useState(false);
 
-  const activeFarmer = farmerName ?? entry?.farmerName ?? 'Vijay Anand';
-  const activeFarmId = farmId ?? entry?.farmId ?? '#TOHFA-F-00234';
-  const activeZone   = zone ?? entry?.location ?? 'Ooty';
+  const canConduct = can(AUDIT_INSPECTION_CODES.conduct);
+  const canScore = can(AUDIT_INSPECTION_CODES.score);
+  const canLog = can(AUDIT_INSPECTION_CODES.findings);
+  const permitted = canConduct && canScore && (!violation || canLog);
 
-  function handleScore(key: CriterionKey, val: number) {
-    setScores((prev) => ({ ...prev, [key]: val }));
+  const activeFarmer = audit?.farmerName ?? farmerName ?? entry?.farmerName ?? ADMIN_NO_VALUE;
+  const activeFarmId = audit?.tohfaFarmerId ?? farmId ?? entry?.farmId ?? ADMIN_NO_VALUE;
+  const activeZone   = audit?.zoneName ?? zone ?? entry?.location ?? ADMIN_NO_VALUE;
+  const activeDate   = audit !== undefined ? formatAdminDay(audit.scheduledFor) || ADMIN_NO_VALUE : ADMIN_NO_VALUE;
+
+  // The category list, its order and each maximum are the server's (AuditDetail.categoryScores).
+  const categories = audit?.categoryScores ?? [];
+  // A score the server already holds (an earlier, interrupted run) is the starting point, never a default.
+  const scoreOf = (code: RatingCategoryCode): number | null => {
+    if (code in values) return values[code] ?? null;
+    return categories.find((c) => c.categoryCode === code)?.score ?? null;
+  };
+  const current = categories.map((c) => scoreOf(c.categoryCode));
+  const scoredSum = current.reduce<number>((a, b) => a + (b ?? 0), 0);
+  const maxTotal = categories.reduce((a, c) => a + c.maxScore, 0);
+
+  function handleScore(code: RatingCategoryCode, val: number) {
+    setValues((prev) => ({ ...prev, [code]: val }));
+    setBlocked(null);
   }
 
-  const rawSum = Object.values(scores).reduce((a, b) => a + b, 0);
-  const scaledScore = Math.round((rawSum / (CRITERIA.length * 10)) * 1000);
+  const failure = inspect.error instanceof InspectionStepError ? inspect.error : null;
+  const mutationError = failure !== null ? failure.cause : inspect.error;
 
+  // Success is reported from the COMPLETED audit the server returned, nowhere else.
   function handleSubmit() {
-    const reportData: AuditReportData = {
-      entry: entry ?? {
-        id: '1',
-        day: '14',
-        month: 'Sep',
-        farmerName: activeFarmer,
-        location: activeZone,
-        farmId: activeFarmId,
-        auditorLabel: 'Auditor: Ravi K.',
+    if (inspect.isPending || audit === undefined || id === undefined || !permitted) return;
+    const blocker = inspectionBlocker({ status: audit.status, scores: current, violation, notes });
+    if (blocker !== null) {
+      setBlocked(t(blocker));
+      return;
+    }
+    setBlocked(null);
+    const summary = notes.trim() === '' ? undefined : notes.trim();
+    inspect.mutate(
+      {
+        auditId: id,
+        status: audit.status,
+        scores: toScoreInputs(categories, Object.fromEntries(categories.map((c) => [c.categoryCode, scoreOf(c.categoryCode)]))),
+        summary,
+        majorFindingDescription: violation ? notes.trim() : undefined,
       },
-      totalScore: scaledScore,
-      maxScore: 1000,
-      majorViolations: violation ? 1 : 0,
-      status: violation ? 'CRITICAL_ACTION_REQUIRED' : 'COMPLIANT',
-      date: '14 Sep 2026',
-      notes,
-    };
-    onSubmitted?.(reportData);
+      {
+        onSuccess: (completed) => onSubmitted?.(reportFromAudit(completed, entry, notes)),
+        onError: (err) => {
+          if (err instanceof InspectionStepError && err.saved.includes('finding')) setFindingLogged(true);
+        },
+      },
+    );
   }
+
+  const showLoading = id !== undefined && audit === undefined && detail.isPending;
+  const showLoadError = audit === undefined && !showLoading && (id === undefined || detail.error !== null);
+  const failedTitleKey = 'admin.auditActions.inspection.failedTitle' as const;
 
   return (
     <SafeAreaView style={s.root}>
@@ -196,29 +271,43 @@ export function AuditInspectionScreen({
         {/* ─── Page Title & Subtitle ─── */}
         <Text style={s.pageTitle}>Audit Inspection</Text>
         <Text style={s.pageSubtitle}>
-          {activeFarmer} · {activeFarmId} · {activeZone} · Sep 14, 2026
+          {activeFarmer} · {activeFarmId} · {activeZone} · {activeDate}
         </Text>
 
-        {/* ─── Criteria Score Card ─── */}
-        <View style={s.scoreCard}>
-          <View style={s.scoreCardHeader}>
-            <Text style={s.scoreCardTitle}>Compliance Criteria</Text>
-            <View style={s.scoreTotalBadge}>
-              <Text style={s.scoreTotalBadgeText}>{scaledScore} / 1000 pts</Text>
-            </View>
-          </View>
+        {showLoading ? <AdminLoadingState /> : null}
+        {showLoadError ? (
+          id === undefined ? (
+            <Text style={s.errorText}>{t('admin.auditActions.inspection.noAudit')}</Text>
+          ) : (
+            <AdminErrorState error={detail.error} onRetry={() => void detail.refetch()} />
+          )
+        ) : null}
 
-          {CRITERIA.map((key, i) => (
-            <View key={key}>
-              <ScoreRow
-                label={key}
-                score={scores[key]}
-                onChange={(v) => handleScore(key, v)}
-              />
-              {i < CRITERIA.length - 1 && <View style={s.scoreDivider} />}
+        {/* ─── Criteria Score Card ─── */}
+        {audit !== undefined ? (
+          <View style={s.scoreCard}>
+            <View style={s.scoreCardHeader}>
+              <Text style={s.scoreCardTitle}>Compliance Criteria</Text>
+              <View style={s.scoreTotalBadge}>
+                <Text style={s.scoreTotalBadgeText}>
+                  {t('admin.auditActions.inspection.totalBadge', { score: scoredSum, max: maxTotal })}
+                </Text>
+              </View>
             </View>
-          ))}
-        </View>
+
+            {categories.map((c, i) => (
+              <View key={c.categoryCode}>
+                <ScoreRow
+                  label={categoryName(c.categoryCode)}
+                  score={scoreOf(c.categoryCode)}
+                  max={c.maxScore}
+                  onChange={(v) => handleScore(c.categoryCode, v)}
+                />
+                {i < categories.length - 1 && <View style={s.scoreDivider} />}
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {/* ─── Major Violation Toggle Card ─── */}
         <View style={[s.violationCard, violation && s.violationCardActive]}>
@@ -231,7 +320,11 @@ export function AuditInspectionScreen({
           </View>
           <Switch
             value={violation}
-            onValueChange={setViolation}
+            onValueChange={(v) => {
+              setViolation(v);
+              setBlocked(null);
+            }}
+            disabled={!canLog || findingLogged}
             trackColor={{ false: '#DDD8D2', true: PALETTE.orange }}
             thumbColor="#FFFFFF"
           />
@@ -244,21 +337,52 @@ export function AuditInspectionScreen({
           placeholder="Log manual audit observations and notes..."
           placeholderTextColor="#9A8F88"
           value={notes}
-          onChangeText={setNotes}
+          onChangeText={(text) => {
+            setNotes(text);
+            setBlocked(null);
+          }}
+          maxLength={SUMMARY_MAX}
           multiline
           textAlignVertical="top"
         />
 
         <View style={{ height: 16 }} />
 
+        {failure !== null ? (
+          <View style={s.warningBox}>
+            <Text style={s.warningTitle}>{t(failedTitleKey)}</Text>
+            <Text style={s.warningText}>{t(adminErrorKey(mutationError))}</Text>
+            <Text style={s.warningText}>
+              {t('admin.auditActions.inspection.failedAt', { step: stepLabel(failure.step) })}
+            </Text>
+            {failure.saved.length > 0 ? (
+              <Text style={s.warningText}>
+                {t('admin.auditActions.inspection.savedSoFar', {
+                  steps: INSPECTION_STEP_ORDER.filter((st) => failure.saved.includes(st))
+                    .map((st) => t(`admin.auditActions.inspection.saved.${st}` as TranslationKey))
+                    .join(', '),
+                })}
+              </Text>
+            ) : null}
+            <Text style={s.warningText}>{t('admin.auditActions.inspection.resumeHint')}</Text>
+          </View>
+        ) : inspect.error !== null ? (
+          <Text style={s.errorText}>{t(adminErrorKey(mutationError))}</Text>
+        ) : null}
+        {!permitted ? <Text style={s.errorText}>{t('admin.auditActions.inspection.noPermission')}</Text> : null}
+        {blocked !== null ? <Text style={s.errorText}>{blocked}</Text> : null}
+
         {/* ─── Submit CTA Button ─── */}
         <TouchableOpacity
-          style={s.ctaBtn}
+          style={[s.ctaBtn, (inspect.isPending || audit === undefined || !permitted) && s.ctaBtnDisabled]}
           activeOpacity={0.85}
+          disabled={inspect.isPending || audit === undefined || !permitted}
           onPress={handleSubmit}
         >
           <Icon name="assignment" size={18} color="#FFFFFF" />
-          <Text style={s.ctaBtnLabel}>Submit Inspection</Text>
+          <Text style={s.ctaBtnLabel}>
+            {inspect.isPending ? t('admin.auditActions.inspection.submitting') : 'Submit Inspection'}
+          </Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -485,6 +609,34 @@ const s = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 3,
+  },
+  ctaBtnDisabled: {
+    opacity: 0.5,
+  },
+  errorText: {
+    ...adminType.body,
+    color: adminColors.danger.text,
+    marginBottom: 12,
+  },
+  warningBox: {
+    backgroundColor: PALETTE.warningBg,
+    borderColor: PALETTE.warningBorder,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+  },
+  warningTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: PALETTE.warningText,
+    marginBottom: 6,
+  },
+  warningText: {
+    fontSize: 12.5,
+    color: PALETTE.warningText,
+    lineHeight: 18,
+    marginBottom: 4,
   },
   ctaBtnLabel: {
     fontSize: 15,

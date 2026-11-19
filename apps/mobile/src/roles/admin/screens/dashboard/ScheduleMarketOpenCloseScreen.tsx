@@ -16,11 +16,11 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors } from '../../theme';
@@ -39,12 +39,11 @@ import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import { scheduleStyles as styles } from './scheduleMarketStyles';
 
 /**
- * docs/rbac.json has no market-schedule permission (the design checks
- * 'market.schedule.manage', which does not exist: a spec gap). The closest code
- * is the market-day view permission, so that gates the screen until the owner
- * adds a manage code.
+ * Gated by market.schedule.manage (docs/rbac.json, BR-106a: Super Admin and
+ * TOHFA Admin only). It used to borrow sales.market_day.view while that code
+ * did not exist; a view permission must not unlock a scheduling action.
  */
-export const SCHEDULE_MARKET_CODES = { manage: 'sales.market_day.view' } as const;
+export const SCHEDULE_MARKET_CODES = { manage: 'market.schedule.manage' } as const;
 
 function ScheduleOpenPlayIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -144,7 +143,7 @@ export function ScheduleMarketOpenCloseScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.header}>
         <TouchableOpacity

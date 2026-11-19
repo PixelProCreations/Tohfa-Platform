@@ -68,6 +68,8 @@ import {
   adminFulfilmentRouter,
   orderTrackingRouter,
 } from './modules/orders/fulfilment.routes.js';
+import { adminDeliverySlotsRouter } from './modules/orders/delivery-slots.routes.js';
+import { adminDeliveryPartnersRouter } from './modules/delivery-partners/delivery-partners.routes.js';
 import {
   payoutDuesRouter,
   payoutsRouter,
@@ -135,6 +137,9 @@ import { auditLogRouter } from './modules/audit-log/audit-log.routes.js';
 import { adminFarmersRouter } from './modules/admin-farmers/admin-farmers.routes.js';
 import { tierConfigRouter } from './modules/tier-config/tier-config.routes.js';
 import { adminAccountsRouter } from './modules/admin-accounts/admin-accounts.routes.js';
+import { adminZonesRouter } from './modules/zones/zones.routes.js';
+import { adminMarketDaysRouter } from './modules/market-days/market-days.routes.js';
+import { adminPaymentMethodsRouter } from './modules/payment-methods/payment-methods.routes.js';
 import { adminPromotionsRouter } from './modules/admin-promotions/admin-promotions.routes.js';
 import { rolesRouter } from './modules/roles/roles.routes.js';
 
@@ -183,6 +188,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/allocation-config', router: adminAllocationConfigRouter },
   { prefix: '/v1/admin', router: adminTopupRouter },
   { prefix: '/v1/admin/orders', router: adminFulfilmentRouter },
+  { prefix: '/v1/admin/delivery-partners', router: adminDeliveryPartnersRouter },
+  { prefix: '/v1/admin/delivery-slots', router: adminDeliverySlotsRouter },
   { prefix: '/v1/admin/customers', router: customersRouter },
   { prefix: '/v1/admin/sales', router: salesRouter },
   { prefix: '/v1/admin/sales', router: salesReadRouter },
@@ -203,12 +210,16 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
   { prefix: '/v1/admin/payouts', router: payoutsRouter },
   { prefix: '/v1/invoices', router: invoicesRouter },
+  { prefix: '/v1/admin/invoices', router: invoicesRouter },
   { prefix: '/v1/farmers/me/documents', router: farmerDocumentsRouter },
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmersRouter },
   { prefix: '/v1/admin', router: tierConfigRouter },
   { prefix: '/v1/admin/accounts', router: adminAccountsRouter },
+  { prefix: '/v1/admin/zones', router: adminZonesRouter },
+  { prefix: '/v1/admin/market-days', router: adminMarketDaysRouter },
+  { prefix: '/v1/admin/payment-methods', router: adminPaymentMethodsRouter },
   { prefix: '/v1/admin/promotions', router: adminPromotionsRouter },
   { prefix: '/v1/roles', router: rolesRouter },
   { prefix: '/v1/admin/audits', router: adminAuditsRouter },

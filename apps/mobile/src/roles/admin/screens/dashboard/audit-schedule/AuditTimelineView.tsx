@@ -3,7 +3,8 @@
  * Scheduled = createdAt (detail only), Inspection = startedAt, Completed = completedAt.
  */
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { formatAdminDay, formatAdminTime } from '../../../utils/datetime';
@@ -52,7 +53,7 @@ export function AuditTimelineView({ selected, onBack, onOpenHistoryFilter, onVie
 
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <ScreenHeader title={ds('admin.audits.dashSchedule.header.auditDetail')} onBack={onBack} onFilter={onOpenHistoryFilter} />
 
       <ScrollView style={sharedStyles.scroll} contentContainerStyle={styles.detailScrollPad} showsVerticalScrollIndicator={false}>

@@ -17,7 +17,7 @@
  *                  a rollback is impossible. They are `ON CONFLICT DO NOTHING`
  *                  (never UPDATE), so they cannot disturb another suite's row.
  */
-import { randomInt } from 'node:crypto';
+import { randomInt } from 'crypto';
 import type { Executor } from '../db/pool.js';
 import { IDS, databaseReady, newId } from './factories.js';
 
@@ -75,9 +75,20 @@ export async function requireTestDatabaseName(db: Executor): Promise<void> {
   }
 }
 
-/** A random +91 mobile that cannot collide with the fixed mobiles other suites use. */
+interface GlobalMobileCounterState {
+  __tohfa_run_base__?: number;
+  __tohfa_mobile_seq__?: number;
+}
+
+const g = globalThis as unknown as GlobalMobileCounterState;
+
+/** A random +91 mobile that cannot collide across test files or across runs. */
 export function randomMobile(): string {
-  return `+9190${randomInt(10_000_000, 99_999_999)}`;
+  if (g.__tohfa_run_base__ === undefined) {
+    g.__tohfa_run_base__ = randomInt(100, 999);
+  }
+  const seq = (g.__tohfa_mobile_seq__ = ((g.__tohfa_mobile_seq__ ?? 0) + 1) % 1_000_000);
+  return `+916${g.__tohfa_run_base__}${String(seq).padStart(6, '0')}`;
 }
 
 // ---------------------------------------------------------------------------

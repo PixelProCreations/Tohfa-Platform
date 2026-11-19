@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 const P = {
   bg: '#FAF8F5',
@@ -603,29 +604,40 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
            ══════════════════════════════════════════════════════════════════════ */}
         {selectedCategory === 'Farmers' && (
           <View style={styles.chartsColumn}>
-            {/* KPI Ribbon Strip */}
-            <View style={styles.kpiRibbon}>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{farmerDataMap.kpiApps}</Text>
-                <Text style={styles.kpiLbl}>New Applications</Text>
-                <Text style={styles.kpiSubGreen}>↑ Pipeline</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{farmerDataMap.kpiRating}</Text>
-                <Text style={styles.kpiLbl}>Avg Rating</Text>
-                <Text style={styles.kpiSubGreen}>★ 10-Cat SLA</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{farmerDataMap.kpiYield}</Text>
-                <Text style={styles.kpiLbl}>Yield Intake</Text>
-                <Text style={styles.kpiSubGreen}>91% Grade A</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{farmerDataMap.kpiAcres}</Text>
-                <Text style={styles.kpiLbl}>Total Acres</Text>
-                <Text style={styles.kpiSubMuted}>100% Geotagged</Text>
-              </View>
-            </View>
+            {/* KPI Overview Grid */}
+            <OverviewCardsGrid style={{ marginBottom: 16 }}>
+              <OverviewDashboardCard
+                value={farmerDataMap.kpiApps}
+                title="New Applications"
+                subtitle="↑ Pipeline"
+                icon="orders"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={farmerDataMap.kpiRating}
+                title="Avg Rating"
+                subtitle="★ 10-Cat SLA"
+                icon="pickup"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={farmerDataMap.kpiYield}
+                title="Yield Intake"
+                subtitle="91% Grade A"
+                icon="inventory"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={farmerDataMap.kpiAcres}
+                title="Total Acres"
+                subtitle="100% Geotagged"
+                icon="box"
+                titlePosition="bottom"
+              />
+            </OverviewCardsGrid>
 
             {/* Chart 1: Applications */}
             <CustomBarChart
@@ -750,29 +762,40 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
            ══════════════════════════════════════════════════════════════════════ */}
         {selectedCategory === 'Customers' && (
           <View style={styles.chartsColumn}>
-            {/* KPI Ribbon Strip */}
-            <View style={styles.kpiRibbon}>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{customerDataMap.kpiBuyers}</Text>
-                <Text style={styles.kpiLbl}>Verified Buyers</Text>
-                <Text style={styles.kpiSubGreen}>↑ Active</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{customerDataMap.kpiRetention}</Text>
-                <Text style={styles.kpiLbl}>Retention Rate</Text>
-                <Text style={styles.kpiSubGreen}>Recurring SLA</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{customerDataMap.kpiBasket}</Text>
-                <Text style={styles.kpiLbl}>Avg Basket</Text>
-                <Text style={styles.kpiSubGreen}>Organic B2C</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{customerDataMap.kpiRepeat}</Text>
-                <Text style={styles.kpiLbl}>Repeat Orders</Text>
-                <Text style={styles.kpiSubMuted}>Per Month</Text>
-              </View>
-            </View>
+            {/* KPI Overview Grid */}
+            <OverviewCardsGrid style={{ marginBottom: 16 }}>
+              <OverviewDashboardCard
+                value={customerDataMap.kpiBuyers}
+                title="Verified Buyers"
+                subtitle="↑ Active"
+                icon="pickup"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={customerDataMap.kpiRetention}
+                title="Retention Rate"
+                subtitle="Recurring SLA"
+                icon="orders"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={customerDataMap.kpiBasket}
+                title="Avg Basket"
+                subtitle="Organic B2C"
+                icon="sales"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={customerDataMap.kpiRepeat}
+                title="Repeat Orders"
+                subtitle="Per Month"
+                icon="receiving"
+                titlePosition="bottom"
+              />
+            </OverviewCardsGrid>
 
             {/* Chart 1 */}
             <CustomBarChart

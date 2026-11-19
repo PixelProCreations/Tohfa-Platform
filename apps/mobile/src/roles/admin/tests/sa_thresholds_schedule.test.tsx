@@ -43,6 +43,7 @@ import {
 import { AlertThresholdsScreen, type AlertThresholdItem } from '../screens/dashboard/AlertThresholdsScreen';
 import {
   ScheduleMarketOpenCloseScreen,
+  SCHEDULE_MARKET_CODES,
   type MarketScheduleData,
 } from '../screens/dashboard/ScheduleMarketOpenCloseScreen';
 import { makeCan } from '../permissions/can';
@@ -53,7 +54,7 @@ const ADMIN = path.join(__dirname, '..');
 const NONE = makeCan([]);
 const ALERT_CFG = makeCan(['alert.threshold.configure']);
 const TIER_CFG = makeCan(['audit.tier.configure_thresholds']);
-const MARKET = makeCan(['sales.market_day.view']);
+const MARKET = makeCan(['market.schedule.manage']);
 
 function textOf(node: ReactTestInstance | string): string {
   if (typeof node === 'string') return node;
@@ -369,9 +370,10 @@ describe('source guards', () => {
       permissions: { code: string }[];
     };
     const codes = new Set(rbac.permissions.map((p) => p.code));
-    for (const c of ['alert.threshold.configure', 'audit.tier.configure_thresholds', 'sales.market_day.view']) {
+    // market.schedule.manage was a spec gap until BR-106a added it; the schedule screen is gated by it now.
+    for (const c of ['alert.threshold.configure', 'audit.tier.configure_thresholds', 'market.schedule.manage']) {
       expect(codes.has(c), c).toBe(true);
     }
-    expect(codes.has('market.schedule.manage')).toBe(false);
+    expect(SCHEDULE_MARKET_CODES.manage).toBe('market.schedule.manage');
   });
 });

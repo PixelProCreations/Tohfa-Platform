@@ -13,7 +13,8 @@
  * counts and the calendar at once, and targeting a subset would leave one of
  * them stale. Unset filters are null so the key shape is stable.
  */
-import { useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useRef } from 'react';
 import {
   bulkRescheduleAudits,
   cancelAudit,
@@ -24,6 +25,7 @@ import {
   getAudit,
   getAuditCompliance,
   getAuditReportUrl,
+  getAuditTierThresholds,
   listAudits,
   redFlagAudit,
   setAuditScores,
@@ -36,6 +38,7 @@ import {
   type AuditCompleteBody,
   type AuditComplianceParams,
   type AuditCreateBody,
+  type AuditDetailDto,
   type AuditFindingCreateBody,
   type AuditFindingUpdateBody,
   type AuditReasonBody,
@@ -49,6 +52,7 @@ import {
 } from '../../api/audits';
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
+import { newInspectionProgress, runInspection, type InspectionInput, type InspectionProgress } from './auditActions';
 
 export const AUDITS_MODULE = 'audits';
 
@@ -94,6 +98,8 @@ export const auditKeys = {
     }),
   detail: (auditId: string | undefined) =>
     adminKeys.scoped(AUDITS_MODULE, undefined, { resource: 'detail', auditId: auditId ?? null }),
+  /** Under the audits prefix on purpose: that is what every audit write invalidates, the tier PATCH included. */
+  tierThresholds: () => adminKeys.scoped(AUDITS_MODULE, undefined, { resource: 'tierThresholds' }),
 };
 
 /** Cursor-paged audits for the calendar, history and compliance drill-downs. */
@@ -262,6 +268,19 @@ export function useBulkRescheduleAudits() {
 }
 
 /**
+ * The tier generation now in effect (BR-147a): four contiguous bands over
+ * 0-100. The read carries the same permission as the write
+ * (audit.tier.configure_thresholds) and answers 403, not an empty result, so a
+ * screen passes `enabled: false` when the caller cannot configure (BR-147b).
+ *
+ * Its key sits under the audits prefix, so the tier PATCH below — which
+ * invalidates that prefix — refetches it and the form shows what was saved.
+ */
+export function useAuditTierThresholds(options: { enabled?: boolean } = {}) {
+  return useAdminQuery(auditKeys.tierThresholds(), (signal) => getAuditTierThresholds(signal), options);
+}
+
+/**
  * Replace the tier bands. Tiers are resolved at read time, so every audit read
  * (and its tier) refetches; farm-rating screens keyed elsewhere are untouched
  * here, their stored ratings keep their stored tier.
@@ -269,6 +288,39 @@ export function useBulkRescheduleAudits() {
 export function useUpdateAuditTierThresholds() {
   return useAdminMutation({
     mutationFn: (body: TierBandsBody) => updateAuditTierThresholds(body),
+    invalidates: [AUDITS_PREFIX],
+  });
+}
+
+/**
+ * Submit an inspection: start, scores, finding, complete (see runInspection
+ * for the order and the partial-failure rule). One progress record lives for
+ * the lifetime of the screen, so a retry after a failure resumes instead of
+ * repeating a non-idempotent step.
+ *
+ * Unlike the other writes, the audits prefix is invalidated on failure too:
+ * a failed run can still have started the audit or saved its scores, and the
+ * detail the screen reads must show that.
+ */
+export function useInspectAudit() {
+  const queryClient = useQueryClient();
+  const progressRef = useRef<InspectionProgress | null>(null);
+  if (progressRef.current === null) progressRef.current = newInspectionProgress();
+  const progress = progressRef.current;
+  return useAdminMutation<InspectionInput, AuditDetailDto>({
+    mutationFn: async (input) => {
+      try {
+        return await runInspection(input, progress, {
+          startAudit: (id) => startAudit(id),
+          setAuditScores: (id, body) => setAuditScores(id, body),
+          createAuditFinding: (id, body) => createAuditFinding(id, body),
+          completeAudit: (id) => completeAudit(id),
+          getAudit: (id) => getAudit(id),
+        });
+      } finally {
+        void queryClient.invalidateQueries({ queryKey: AUDITS_PREFIX });
+      }
+    },
     invalidates: [AUDITS_PREFIX],
   });
 }

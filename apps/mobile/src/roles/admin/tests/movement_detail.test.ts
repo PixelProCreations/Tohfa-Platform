@@ -2,11 +2,11 @@
  * Movement Detail (design M3-16, route M3S15): one stock ledger row, opened
  * from the Stock Ledger list.
  *
- * There is no GET /admin/stock-ledger/{id} (docs/openapi.yaml), so the screen
- * renders the row the user tapped, carried in the route params. Without that
- * row it shows "not found" and asks nothing of the server. It shows only what
- * the ledger row carries (BR-37: the row is immutable, a correction is a new
- * row); the user who performed it is a bare uuid, so no name is shown.
+ * The screen renders the row the user tapped, carried in the route params.
+ * Without that row it shows "not found" and asks nothing of the server. It
+ * shows what the ledger row carries (BR-37: the row is immutable, a
+ * correction is a new row), including the names BR-130 added; every other
+ * element of the design renders with ADMIN_NO_VALUE.
  *
  * The pure parts (route params, the field list, the reference label, the
  * warehouse name) are tested directly; the wiring is pinned by reading the
@@ -20,8 +20,12 @@ import en from '../i18n/en.json';
 import ta from '../i18n/ta.json';
 import { t } from '../i18n';
 import { inventoryWarehouseName, toBatchRow, toStockMovementRow } from '../screens/warehouse/inventory/mappers';
+import { ADMIN_NO_VALUE } from '../utils/noValue';
 import {
+  movementAdjustmentId,
+  movementBalanceBeforeGrams,
   movementDetailRows,
+  movementDetailView,
   movementParam,
   movementReference,
   movementRouteParams,
@@ -194,13 +198,80 @@ describe('movementDetailRows: only what the ledger row carries', () => {
     expect(labels).toEqual([t('inventory.movementDetail.field.type'), t('inventory.movementDetail.field.performedAt')]);
   });
 
-  it('never shows who performed it (a uuid only) and no movement code the API does not have', () => {
+  it('never shows the performer uuid and no movement code the API does not have', () => {
     const values = movementDetailRows(row(), 'Ooty')
       .flat()
       .map((f) => f.value)
       .join(' ');
     expect(values).not.toContain('66666666');
     expect(values).not.toMatch(/MV-|GRN-/);
+  });
+
+  it('BR-130: shows who recorded the row by name when the API names them', () => {
+    const fields = fieldsOf(movementDetailRows(row({ createdByName: 'Asha Rao' }), 'Ooty'));
+    expect(fields[t('inventory.stockMovement.performedBy')]).toBe('Asha Rao');
+  });
+});
+
+describe('movementDetailView: every design element, real value or ADMIN_NO_VALUE', () => {
+  it('BR-130: Performed By is createdByName; the voucher approver is approvedByName', () => {
+    const view = movementDetailView(row({ createdByName: 'Asha Rao', approvedByName: 'Ravi Kumar' }), 'Ooty');
+    expect(view.performedBy).toBe('Asha Rao');
+    expect(view.approvedBy).toBe('Ravi Kumar');
+  });
+
+  it('BR-130: a null name is the dash, never the performer uuid', () => {
+    const view = movementDetailView(row({ createdByName: null, approvedByName: null }), 'Ooty');
+    expect(view.performedBy).toBe(ADMIN_NO_VALUE);
+    expect(view.approvedBy).toBeUndefined();
+    expect(JSON.stringify(view)).not.toContain('66666666');
+  });
+
+  it('BR-37: the real ledger facts: type, short id, warehouse, product, grade, batch, delta, before, after, reference, notes', () => {
+    const view = movementDetailView(row(), 'Ooty');
+    expect(view.typeLabel).toBe(t('inventory.movement.receipt'));
+    expect(view.movementId).toBe('55555555');
+    expect(view.warehouse).toBe('Ooty');
+    expect(view.dateTime).toBe('Today · 10:00 AM');
+    expect(view.product).toBe('Tomato');
+    expect(view.grade).toBe(t('inventory.grade.GRADE_1'));
+    expect(view.batch).toBe('BAT-OOTY-001');
+    expect(view.delta).toBe('+100 kg');
+    expect(view.before).toBe('20 kg');
+    expect(view.after).toBe('120 kg');
+    expect(view.referenceLabel).toBe(t('inventory.movementDetail.ref.GOODS_RECEIPT'));
+    expect(view.referenceValue).toBe('ABCDEF01');
+    expect(view.notes).toBe('Goods receipt accepted');
+  });
+
+  it('BR-37: balance before = balance after - signed delta, in integer grams; unreadable figures give the dash', () => {
+    expect(movementBalanceBeforeGrams(row({ qtyDeltaKg: '-20.000', balanceAfterKg: '100.000' }))).toBe(120_000);
+    expect(movementBalanceBeforeGrams(row({ qtyDeltaKg: '0.100', balanceAfterKg: '0.300' }))).toBe(200);
+    expect(movementBalanceBeforeGrams(row({ qtyDeltaKg: '1e3' }))).toBeNull();
+    expect(movementDetailView(row({ balanceAfterKg: 'x' }), 'Ooty').before).toBe(ADMIN_NO_VALUE);
+  });
+
+  it('what the API does not carry is the dash: status, storage type/section/rack/shelf, received from, three timeline times', () => {
+    const view = movementDetailView(row(), 'Ooty');
+    for (const value of [view.status, view.storageType, view.section, view.rack, view.shelf, view.receivedFrom]) {
+      expect(value).toBe(ADMIN_NO_VALUE);
+    }
+    expect(view.timeline.map((s) => s.time)).toEqual([ADMIN_NO_VALUE, ADMIN_NO_VALUE, 'Today · 10:00 AM', ADMIN_NO_VALUE]);
+  });
+
+  it('a bare row (no batch, no warehouse name, no reference, no remarks) still yields every element, as the dash', () => {
+    const view = movementDetailView(row({ refType: null, refId: null, remarks: null }, new Map()), undefined);
+    for (const value of [view.warehouse, view.product, view.grade, view.batch, view.location, view.referenceValue, view.reference, view.notes]) {
+      expect(value).toBe(ADMIN_NO_VALUE);
+    }
+    expect(view.referenceLabel).toBe(t('inventory.stockMovement.reference'));
+  });
+
+  it('View Reference opens only a stock adjustment (ref_type stock_adjustment, any case)', () => {
+    expect(movementAdjustmentId(row({ refType: 'stock_adjustment', refId: GRN }))).toBe(GRN);
+    expect(movementAdjustmentId(row({ refType: 'STOCK_ADJUSTMENT', refId: GRN }))).toBe(GRN);
+    expect(movementAdjustmentId(row())).toBeUndefined();
+    expect(movementAdjustmentId(row({ refType: 'stock_adjustment', refId: null }))).toBeUndefined();
   });
 });
 
@@ -251,6 +322,26 @@ describe('Movement Detail wiring', () => {
     expect(SCREEN).not.toMatch(/fixtures|MV-0|GRN-0|Suresh|\+140|'10:4\d AM'/);
     expect(SCREEN).toMatch(/movement === undefined/);
     expect(SCREEN).toMatch(/t\('inventory\.movementDetail\.notFound'\)/);
+  });
+
+  it('BR-130: the screen draws Performed By from the view, and the voucher approver line', () => {
+    expect(SCREEN).toMatch(/value=\{view\.performedBy\}/);
+    expect(SCREEN).toMatch(/t\('inventory\.stockMovement\.receipt\.approvedBy', \{ name: view\.approvedBy \}\)/);
+  });
+
+  it('renders every design section, the voucher in-screen, and View Reference behind the adjustments area', () => {
+    for (const key of [
+      'summary', 'productInfo', 'quantitySection', 'storage', 'reference', 'performedBySection', 'notesSection',
+      'timeline', 'actions', 'viewBatch', 'viewReference', 'viewLedger', 'viewReceipt', 'receipt.share', 'receipt.auditTitle',
+    ]) {
+      expect(SCREEN).toContain(`t('inventory.stockMovement.${key}'`);
+    }
+    expect(SCREEN).toMatch(/const canAdjust = isAreaAvailable\('stockAdjustments', can\);/);
+    expect(SCREEN).toMatch(/canAdjust \? \(\s*adjustmentId === undefined \? undefined : \(\) => onNavigate\?\.\('M3S17', \{ adjustmentId \}\)/);
+    expect(code(SCREEN)).not.toMatch(/'M3S1[68]'/);
+    expect(SCREEN).toMatch(/ADMIN_NO_VALUE/);
+    expect(SCREEN).not.toMatch(/not drawn|are gone/);
+    expect(read('movementDetailMappers.ts')).not.toMatch(/Not shown/);
   });
 
   it('the screen holds no English literal and no raw colour', () => {

@@ -348,6 +348,38 @@ describeIfDatabase('sub warehouse admin service (PostgreSQL)', () => {
       expect((await fail(svc.list(all, { warehouseId: newId(), page: 1, pageSize: 20 }))).status).toBe(404);
     });
   });
+
+  dbTest('BR-149: parallel admin creation produces distinct admin codes without collision', async () => {
+    await inRolledBackTx(async (tx) => {
+      const userId = await actor(tx);
+      const svc = service(tx);
+      const created = await Promise.all(
+        Array.from({ length: 5 }, (_, i) =>
+          svc.create(creator(userId), input(wh.coonoor, `Parallel Admin ${i}`)),
+        ),
+      );
+      const codes = created.map((c) => c.adminCode);
+      expect(new Set(codes).size).toBe(5);
+      expect(codes.every((c) => /^SWA-\d{3,}$/.test(c))).toBe(true);
+    });
+  });
+
+  dbTest('BR-149: an admin_code collision translates to 409 CONFLICT, never 500 INTERNAL', async () => {
+    await inRolledBackTx(async (tx) => {
+      const userId = await actor(tx);
+      const error = new Error('duplicate key value') as Error & { code?: string; constraint?: string };
+      error.code = '23505';
+      error.constraint = 'admin_profiles_admin_code_key';
+      const mockRepo = {
+        ...subAdminsRepo,
+        insertProfile: async () => { throw error; },
+      };
+      const svc = createSubAdminsService({ repo: mockRepo, db: tx, runTx: async (fn) => fn(tx) });
+      const err = await fail(svc.create(creator(userId), input(wh.coonoor, 'Dup Admin')));
+      expect(err.status).toBe(409);
+      expect(err.code).toBe('CONFLICT');
+    });
+  });
 });
 
 // ===========================================================================

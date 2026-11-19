@@ -18,6 +18,7 @@ import { useCallback, useMemo } from 'react';
 import { listAlerts, type AlertItemDto } from '../../../api/alerts';
 import { useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
 import {
+  getAllocationConfig,
   getBatch,
   listAllocations,
   listBatches,
@@ -27,11 +28,21 @@ import {
   type StockLedgerEntryDto,
 } from '../../../api/inventory';
 import { adminKeys } from '../../../api/queryKeys';
+import { getInventoryOverview } from '../../../api/inventoryOverview';
+import {
+  availableByProductAndWarehouse,
+  inventoryOverviewFigures,
+  overviewCoversView,
+  type InventoryOverviewFigures,
+} from './mappers';
 import { collectPages } from '../../../../../shell/api/pagination';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   aggregateStockByProduct,
   allocatedByProduct,
+  allocationSplitView,
+  allocationTableWarehouses,
+  warehouseAllocationRows,
   buildAllocationDashboard,
   cropNamesOf,
   inventoryWarehouseName,
@@ -43,9 +54,12 @@ import {
 } from './mappers';
 import type {
   AllocationDashboard,
+  AllocationSplitView,
+  WarehouseAllocationRow,
   BatchRow,
   LowStockRow,
   PermissionCheck,
+  ProductStock,
   StockMovementRow,
   StockSummary,
   WarehouseScope,
@@ -194,6 +208,37 @@ export function useAllocationDashboard(
   return { ...allocations, dashboard, rowCount: rows.length, complete: allocations.complete };
 }
 
+/** docs/rbac.json: the Super Admin's grant to read (and set) the configured channel split. */
+export const ALLOCATION_SPLIT_CODE = 'allocation.channel_percentage.set';
+
+/**
+ * The configured split (GET /admin/allocation-config), optionally for one
+ * crop. Fetched only with ALLOCATION_SPLIT_CODE, since the read is Super Admin
+ * only; without it every figure is ADMIN_NO_VALUE. Read only: no write here.
+ */
+export function useAllocationSplit(can: PermissionCheck, cropId?: string | undefined): AllocationSplitView {
+  const enabled = can(ALLOCATION_SPLIT_CODE);
+  const query = useAdminQuery(
+    adminKeys.scoped(INVENTORY, undefined, { resource: 'allocationConfig', cropId: cropId ?? null }),
+    (signal) => getAllocationConfig(cropId, signal),
+    { enabled },
+  );
+  return useMemo(() => allocationSplitView(enabled ? query.data : undefined), [enabled, query.data]);
+}
+
+/** The 'Warehouse allocation' table rows, from the same allocation walk the dashboard uses. */
+export function useWarehouseAllocationRows(
+  scope: WarehouseScope,
+  options: readonly WarehouseScope[] | undefined,
+  warehouseId: string | undefined,
+): WarehouseAllocationRow[] {
+  const allocations = useAllAllocations(warehouseId);
+  return useMemo(
+    () => warehouseAllocationRows(allocations.items, allocationTableWarehouses(scope, options, warehouseId)),
+    [allocations.items, scope, options, warehouseId],
+  );
+}
+
 /** The batches of one warehouse, optionally of one product, page by page. */
 export function useBatchList(
   warehouseId: string | undefined,
@@ -278,4 +323,59 @@ export function useInventoryWarehouseName(
   const own = inventoryWarehouseName(scope, [], warehouseId);
   const list = useWarehouseOptions({ enabled: warehouseId !== undefined && own === undefined && can(WAREHOUSE_LIST_CODE) });
   return own ?? inventoryWarehouseName(scope, list.options, warehouseId);
+}
+
+/** GET /admin/inventory/overview needs this code (docs/rbac.json; SUB_WH_ADMIN own, MAIN_WH_ADMIN all). */
+const INVENTORY_OVERVIEW_CODE = 'inventory.batch.view';
+
+/**
+ * The overview figures the inventory screens draw (BR-116): Verification
+ * Pending and the low-stock threshold. The endpoint answers for the caller's
+ * whole scope, so the figures are null (the dash) when the screen shows a
+ * single warehouse picked from the Main selector, and while it loads or fails.
+ */
+export function useInventoryOverviewFigures(
+  scope: WarehouseScope,
+  can: PermissionCheck,
+  warehouseId: string | undefined,
+): InventoryOverviewFigures {
+  const query = useAdminQuery(
+    adminKeys.scoped(INVENTORY, scope.warehouseId, { resource: 'overview' }),
+    (signal) => getInventoryOverview(signal),
+    { enabled: can(INVENTORY_OVERVIEW_CODE) },
+  );
+  return useMemo(
+    () => inventoryOverviewFigures(query.data, overviewCoversView(scope, warehouseId)),
+    [query.data, scope, warehouseId],
+  );
+}
+
+/** The Main consolidated stock view (design M3S02, all warehouses): products plus each one's per-warehouse split. */
+export interface ConsolidatedStock extends LiveQueryState {
+  /** Stock per product over every warehouse in the caller's scope. */
+  products: ProductStock[];
+  /** productKey -> warehouseId -> available grams (BR-100). */
+  availableByWarehouse: ReadonlyMap<string, ReadonlyMap<string, number>>;
+  complete: boolean;
+}
+
+/**
+ * Stock over the caller's whole scope, whatever the Main selector picked: the
+ * consolidated view compares the warehouses. For a Sub scope (and an
+ * unfiltered Main view) the query keys are the stock list's own, so nothing
+ * extra is fetched.
+ */
+export function useConsolidatedStock(scope: WarehouseScope): ConsolidatedStock {
+  const live = useStockSummary(scope.warehouseId);
+  const batches = useAllBatches(scope.warehouseId);
+  const availableByWarehouse = useMemo(() => availableByProductAndWarehouse(batches.items), [batches.items]);
+  return {
+    isLoading: live.isLoading,
+    error: live.error,
+    refresh: live.refresh,
+    isRefreshing: live.isRefreshing,
+    products: live.summary.products,
+    availableByWarehouse,
+    complete: live.complete,
+  };
 }

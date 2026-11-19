@@ -27,8 +27,10 @@
  * (2026-10-23 triage, M9-04). GenerateInvoice, InvoiceWizard and
  * InvoiceGenerated are refused (availability.ts EXCLUDED_BILLING_ROUTES): a
  * host or deep link that opens one lands on the hub, so their sample data is
- * never shown. The Main hub's GST Invoice tile only lists existing B2B
- * invoices (GST_INVOICE_LIST_PARAMS).
+ * never shown. The hub therefore gets no onGenerateInvoice, and draws its
+ * Generate Invoice tiles disabled rather than as silent no-ops. The Main
+ * hub's GST Invoice tile only lists existing B2B invoices
+ * (GST_INVOICE_LIST_PARAMS).
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
@@ -53,7 +55,7 @@ import type {
   WarehouseScreenBaseProps,
   WarehouseTab,
 } from './types';
-import { useInvoice, useInvoiceDownload, useInvoiceList } from './useBillingData';
+import { useInvoice, useInvoiceDownload, useInvoiceKpis, useInvoiceList } from './useBillingData';
 
 /** One entry of the flow's back stack. */
 export interface BillingStackEntry {
@@ -92,10 +94,12 @@ interface LiveHubRouteProps {
 
 function LiveHubRoute({ base, onOpenList, onOpenGstInvoices, onOpenDetail, onNavigateToNotifications }: LiveHubRouteProps) {
   const list = useInvoiceList(base.scope.warehouseId, undefined);
+  const kpis = useInvoiceKpis(base.scope.warehouseId);
   const download = useInvoiceDownload();
   return (
     <BillingHubScreen
       {...base}
+      kpis={kpis}
       onNavigateToInvoiceList={() => onOpenList('list')}
       onNavigateToInvoiceHistory={() => onOpenList('history')}
       onNavigateToGstInvoices={onOpenGstInvoices}
@@ -121,9 +125,10 @@ interface LiveListRouteProps {
   /** The chip to open on (the GST tile asks for 'B2B'); omitted = 'All'. */
   initialChip?: InvoiceHistoryChip | undefined;
   onOpenDetail: (invoiceId: string) => void;
+  onOpenFilters: () => void;
 }
 
-function LiveListRoute({ base, warehouseId, layout, initialChip, onOpenDetail }: LiveListRouteProps) {
+function LiveListRoute({ base, warehouseId, layout, initialChip, onOpenDetail, onOpenFilters }: LiveListRouteProps) {
   const [chip, setChip] = useState<InvoiceHistoryChip>(initialChip ?? 'All');
   // The history chips are the server's type filter; the list layout draws no chips, so it stays 'All'.
   const list = useInvoiceList(warehouseId, historyTypeFilter(chip));
@@ -136,6 +141,7 @@ function LiveListRoute({ base, warehouseId, layout, initialChip, onOpenDetail }:
       historyChip={chip}
       onHistoryChipChange={setChip}
       onNavigateToInvoiceDetail={onOpenDetail}
+      onOpenFilters={onOpenFilters}
       onDownload={download.run}
       isDownloading={download.isPending}
       downloadError={download.error}
@@ -261,6 +267,7 @@ export function BillingFlow({
           layout={params.layout ?? 'list'}
           initialChip={params.historyChip}
           onOpenDetail={openDetail}
+          onOpenFilters={() => navigate('InvoiceFilters')}
         />
       );
     case 'InvoiceFilters':

@@ -14,11 +14,11 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../i18n';
 import {
   adminColors,
@@ -134,8 +134,7 @@ export function NotificationsCenterScreen({ onBack }: NotificationsCenterScreenP
 
   return (
     <SafeAreaView style={styles.root}>
-      {/* backgroundColor is Android-only; StatusBar types omit it, so we spread it */}
-      <StatusBar barStyle="light-content" {...({ backgroundColor: adminColors.brand } as object)} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ────────────────────────────────────────────────────────── */}
       <View style={styles.header}>

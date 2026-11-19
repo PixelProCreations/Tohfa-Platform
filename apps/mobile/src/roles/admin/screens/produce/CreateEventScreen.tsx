@@ -4,7 +4,8 @@
  * audience pick from the server's enums (calendar.schema.ts).
  */
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import type { Can } from '../../permissions/can';
 import { t } from '../../i18n';
@@ -102,7 +103,7 @@ export function CreateEventScreen({ can, onBack, onSuccess }: CreateEventScreenP
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.header}>
         <TouchableOpacity

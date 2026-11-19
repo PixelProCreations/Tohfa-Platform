@@ -70,6 +70,10 @@ export interface ListFarmCropsResult {
   next: FarmCropCursor | null;
 }
 
+export interface CreateCropMasterData extends CreateCropMasterBody {
+  createdBy?: string | null | undefined;
+}
+
 export interface UpdateCropMasterPatch {
   name?: string | undefined;
   nameTa?: string | null | undefined;
@@ -79,6 +83,11 @@ export interface UpdateCropMasterPatch {
   shelfLifeDays?: number | null | undefined;
   iconKey?: string | null | undefined;
   isActive?: boolean | undefined;
+  gradeSystem?: string | null | undefined;
+  durationDays?: string | null | undefined;
+  storageTemp?: string | null | undefined;
+  description?: string | null | undefined;
+  deactivationReason?: string | null | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -115,7 +124,7 @@ export interface CropsRepo {
   /** Any crop_master row (active or not) by id — used both for admin reads and the create-time existence check. */
   findCropMaster(db: Executor, id: string): Promise<CropMasterResponse | null>;
   findCropMasterBySlug(db: Executor, slug: string): Promise<CropMasterResponse | null>;
-  createCropMaster(db: Executor, data: CreateCropMasterBody): Promise<CropMasterResponse>;
+  createCropMaster(db: Executor, data: CreateCropMasterData): Promise<CropMasterResponse>;
   updateCropMaster(db: Executor, id: string, patch: UpdateCropMasterPatch): Promise<CropMasterResponse | null>;
 }
 
@@ -125,6 +134,7 @@ export interface CropsRepo {
 
 interface CropMasterRow {
   id: string;
+  code: string;
   slug: string;
   name: string;
   name_ta: string | null;
@@ -135,6 +145,12 @@ interface CropMasterRow {
   shelf_life_days: number | null;
   icon_key: string | null;
   is_active: boolean;
+  grade_system: string | null;
+  duration_days: string | null;
+  storage_temp: string | null;
+  description: string | null;
+  deactivation_reason: string | null;
+  created_by: string | null;
 }
 
 interface FarmCropRow {
@@ -174,6 +190,7 @@ interface RotationRow {
 function toCropMaster(row: CropMasterRow): CropMasterResponse {
   return {
     id: row.id,
+    code: row.code,
     slug: row.slug,
     name: row.name,
     nameTa: row.name_ta,
@@ -184,6 +201,12 @@ function toCropMaster(row: CropMasterRow): CropMasterResponse {
     shelfLifeDays: row.shelf_life_days,
     iconKey: row.icon_key,
     isActive: row.is_active,
+    gradeSystem: row.grade_system,
+    durationDays: row.duration_days,
+    storageTemp: row.storage_temp,
+    description: row.description,
+    deactivationReason: row.deactivation_reason,
+    createdBy: row.created_by,
   };
 }
 
@@ -214,7 +237,7 @@ function toFarmCrop(row: FarmCropRow): FarmCropResponse {
 }
 
 const CROP_MASTER_COLUMNS =
-  'id, slug, name, name_ta, category_id, botanical_name, default_unit, season_months, shelf_life_days, icon_key, is_active';
+  'id, code, slug, name, name_ta, category_id, botanical_name, default_unit, season_months, shelf_life_days, icon_key, is_active, grade_system, duration_days, storage_temp, description, deactivation_reason, created_by';
 
 /**
  * Joined to crop_master for the display fields the mobile crop screens
@@ -282,6 +305,11 @@ const CROP_MASTER_PATCH_COLUMNS: Record<string, { column: string; cast?: string 
   shelfLifeDays: { column: 'shelf_life_days' },
   iconKey: { column: 'icon_key' },
   isActive: { column: 'is_active' },
+  gradeSystem: { column: 'grade_system' },
+  durationDays: { column: 'duration_days' },
+  storageTemp: { column: 'storage_temp' },
+  description: { column: 'description' },
+  deactivationReason: { column: 'deactivation_reason' },
 };
 
 // ---------------------------------------------------------------------------
@@ -444,11 +472,28 @@ export const cropsRepo: CropsRepo = {
   },
 
   async createCropMaster(db, data) {
+    await db.query(`SELECT pg_advisory_xact_lock(hashtextextended('crop_master.code', 0))`);
+    const maxRes = await db.query<{ max_seq: string }>(
+      `SELECT COALESCE(MAX(substring(code FROM '^CRP-([0-9]+)$')::bigint), 0)::text AS max_seq FROM crop_master`,
+    );
+    const seqRes = await db.query<{ val: string }>(`SELECT nextval('crop_code_seq')::text AS val`);
+    const nextNum = Math.max(Number(maxRes.rows[0]?.max_seq ?? 0) + 1, Number(seqRes.rows[0]?.val ?? 1));
+    const code = `CRP-${String(nextNum).padStart(3, '0')}`;
+
     const result = await db.query<CropMasterRow>(
-      `INSERT INTO crop_master (slug, name, name_ta, category_id, botanical_name, default_unit, season_months, shelf_life_days, icon_key)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::smallint[], $8, $9)
+      `INSERT INTO crop_master (
+         code, slug, name, name_ta, category_id, botanical_name,
+         default_unit, season_months, shelf_life_days, icon_key,
+         grade_system, duration_days, storage_temp, description, created_by
+       )
+       VALUES (
+         $1, $2, $3, $4, $5, $6,
+         $7, $8::smallint[], $9, $10,
+         $11, $12, $13, $14, $15
+       )
        RETURNING ${CROP_MASTER_COLUMNS}`,
       [
+        code,
         data.slug,
         data.name,
         data.nameTa ?? null,
@@ -458,6 +503,11 @@ export const cropsRepo: CropsRepo = {
         data.seasonMonths ?? null,
         data.shelfLifeDays ?? null,
         data.iconKey ?? null,
+        data.gradeSystem ?? null,
+        data.durationDays ?? null,
+        data.storageTemp ?? null,
+        data.description ?? null,
+        data.createdBy ?? null,
       ],
     );
     return toCropMaster(result.rows[0]!);

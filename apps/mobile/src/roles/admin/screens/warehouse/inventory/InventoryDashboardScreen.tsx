@@ -23,6 +23,8 @@ export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps,
   lowStockCount?: number | null | undefined;
   /** False when a walk stopped early or a quantity could not be read. */
   complete?: boolean | undefined;
+  /** RECORDED stock verifications (overview, BR-107); null = not known for this view. */
+  verificationPendingCount?: number | null | undefined;
 }
 
 /** How many products "Top Stock Products" lists (a layout choice, not a business rule). */
@@ -174,6 +176,7 @@ export function InventoryDashboardScreen({
   allocatedGrams = null,
   lowStockCount = null,
   complete = true,
+  verificationPendingCount = null,
   isLoading = false,
   error,
   onRetry,
@@ -188,6 +191,10 @@ export function InventoryDashboardScreen({
   // An empty warehouse still shows its zero tiles; only loading and error replace them.
   const view = queryViewState({ isLoading, error, itemCount: products.length });
   const kg = (grams: number | null) => (grams === null ? t('inventory.noValue') : formatKg(grams));
+  const count = (value: number | null) => (value === null ? t('inventory.noValue') : String(value).padStart(2, '0'));
+  // Design: "<Name> Warehouse · Assigned Warehouse" on the locked pill.
+  const ownName = scope.warehouseName ?? scope.warehouseId ?? '';
+  const pillName = ownName.includes('Warehouse') ? ownName : t('inventory.dashboard.warehouseNamed', { name: ownName });
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -203,13 +210,13 @@ export function InventoryDashboardScreen({
                     onPress={onBack}
                     activeOpacity={0.7}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    accessibilityLabel="Back to Dashboard"
+                    accessibilityLabel={t('inventory.dashboard.backA11y')}
                   >
                     <BackArrowIcon size={22} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 )}
                 <HeaderBoxIcon size={24} color={adminColors.onBrand} />
-                <Text style={styles.headerTitle}>Inventory & Stock</Text>
+                <Text style={styles.headerTitle}>{t('inventory.dashboard.title')}</Text>
               </View>
               <TouchableOpacity 
                 style={styles.notificationButton} 
@@ -224,7 +231,7 @@ export function InventoryDashboardScreen({
             {scope.warehouseId !== undefined ? (
               <View style={styles.warehousePill}>
                 <LockBadgeIcon size={12} color={adminColors.onBrand} />
-                <Text style={styles.warehouseText}>{scope.warehouseName ?? scope.warehouseId}</Text>
+                <Text style={styles.warehouseText}>{t('inventory.dashboard.assignedWarehouse', { name: pillName })}</Text>
               </View>
             ) : (
               <WarehouseSelector
@@ -260,7 +267,7 @@ export function InventoryDashboardScreen({
           {/* Total Available Stock - White Card with Brown Text */}
           <View style={styles.totalStockCard}>
             <Text style={styles.totalStockValue}>{kg(summary?.totalAvailableGrams ?? null)}</Text>
-            <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
+            <Text style={styles.totalStockLabel}>{t('inventory.dashboard.totalAvailable')}</Text>
             {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
           </View>
           {/* 6 Stats Grid - 2 columns x 3 rows. Design (mod1213farmadmin M3S01 Sub): the
@@ -269,7 +276,7 @@ export function InventoryDashboardScreen({
             {/* Row 1 Left: Available */}
             <OverviewDashboardCard
               value={kg(summary?.totalAvailableGrams ?? null)}
-              title="Available"
+              title={t('inventory.dashboard.available')}
               icon={<StatAvailableIcon size={22} color={adminColors.brandDeep} />}
               onPress={() => onNavigate?.('M3S02')}
             />
@@ -277,7 +284,7 @@ export function InventoryDashboardScreen({
             {/* Row 1 Right: Reserved */}
             <OverviewDashboardCard
               value={kg(summary?.totalReservedGrams ?? null)}
-              title="Reserved"
+              title={t('inventory.dashboard.reserved')}
               icon={<StatReservedIcon size={22} color={adminColors.brandDeep} />}
               onPress={() => onNavigate?.('M3S02')}
             />
@@ -285,15 +292,16 @@ export function InventoryDashboardScreen({
             {/* Row 2 Left: Allocated */}
             <OverviewDashboardCard
               value={kg(allocatedGrams)}
-              title="Allocated"
+              title={t('inventory.dashboard.allocated')}
               icon={<StatAllocatedIcon size={22} color={adminColors.brandDeep} />}
               onPress={() => onNavigate?.('M3S07')}
             />
 
             {/* Row 2 Right: Low Stock */}
             <OverviewDashboardCard
-              value={lowStockCount === null ? t('inventory.noValue') : String(lowStockCount).padStart(2, '0')}
-              title="Low Stock"
+              value={count(lowStockCount)}
+              title={t('inventory.dashboard.lowStock')}
+              subtitle={t('inventory.dashboard.needsAttention')}
               icon={<StatLowStockIcon size={22} color={adminColors.brandDeep} />}
               tone="danger"
               onPress={() => onNavigate?.('M3S09')}
@@ -302,8 +310,8 @@ export function InventoryDashboardScreen({
             {/* Row 3 Left: Verification (gated on stock counts, availability.ts) */}
             {canVerify ? (
               <OverviewDashboardCard
-                value={t('inventory.noValue')}
-                title="Verification Pending"
+                value={count(verificationPendingCount)}
+                title={t('inventory.dashboard.verificationPending')}
                 icon={<StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />}
                 onPress={() => onNavigate?.('M3S10')}
               />
@@ -312,8 +320,8 @@ export function InventoryDashboardScreen({
             {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
             {canViewLedger ? (
               <OverviewDashboardCard
-                value="View"
-                title="Stock Ledger"
+                value={t('inventory.dashboard.view')}
+                title={t('inventory.dashboard.stockLedger')}
                 icon={<StatStockLedgerIcon size={22} color={adminColors.brandDeep} />}
                 onPress={() => onNavigate?.('M3S06')}
               />
@@ -323,9 +331,9 @@ export function InventoryDashboardScreen({
           {/* Top Stock Products Section */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Top Stock Products</Text>
+              <Text style={styles.sectionTitle}>{t('inventory.dashboard.topProducts')}</Text>
               <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
-                <Text style={styles.viewAllLink}>View All Stock</Text>
+                <Text style={styles.viewAllLink}>{t('inventory.dashboard.viewAllStock')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -352,15 +360,15 @@ export function InventoryDashboardScreen({
                 </View>
                 <View style={styles.productStats}>
                   <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatLabel}>{t('inventory.dashboard.available')}</Text>
                     <Text style={styles.productStatValue}>{kg(product.availableGrams)}</Text>
                   </View>
                   <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatLabel}>{t('inventory.dashboard.reserved')}</Text>
                     <Text style={styles.productStatValue}>{kg(product.reservedGrams)}</Text>
                   </View>
                   <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatLabel}>{t('inventory.dashboard.allocated')}</Text>
                     <Text style={styles.productStatValue}>{kg(product.allocatedGrams)}</Text>
                   </View>
                 </View>

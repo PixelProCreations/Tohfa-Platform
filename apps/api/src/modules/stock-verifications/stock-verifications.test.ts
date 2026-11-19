@@ -184,6 +184,7 @@ function makeWorld() {
       const b = batches.get(body.batchId)!;
       const adjustment: StockAdjustment = {
         id: newId(),
+        adjustmentCode: 'ADJ-000001',
         batchId: b.id,
         batchCode: b.batchCode,
         warehouseId: b.warehouseId,
@@ -193,6 +194,7 @@ function makeWorld() {
         qtyDeltaKg: toKg(signedKgToGrams(body.qtyDeltaKg)),
         reason: body.reason,
         status: 'PENDING',
+        evidence: [],
         createdBy: scope.userId,
         createdByName: null,
         createdAt: stamp(),

@@ -61,9 +61,13 @@ const superAll = (permission = 'customer.list.view'): ResolvedScope => aScope({ 
 function aCustomerRow(overrides: Partial<CustomerRow> = {}): CustomerRow {
   return {
     id: IDS.customer,
+    userId: IDS.userSuperAdmin,
     customerCode: 'CUST-0001',
     customerType: 'RETAIL',
     businessName: null,
+    businessType: null,
+    gstin: null,
+    gstVerified: false,
     preferredWarehouseId: OOTY,
     fullName: 'Lakshmi Narayan',
     mobile: MOBILE,
@@ -158,6 +162,22 @@ function stubRepo(overrides: Partial<CustomersRepo> = {}): CustomersRepo {
     farmerIdentityTerms: vi.fn(async () => IDENTITY),
     customerContact: vi.fn(async () => ({ mobile: MOBILE, email: 'lakshmi@example.com' })),
     insertMessage: vi.fn(async () => ({ id: newId(), createdAt: '2026-09-03T10:00:00.000Z' })),
+    findLiveUserByMobile: vi.fn(async () => null),
+    findLiveCustomerByUserId: vi.fn(async () => null),
+    findLiveRolesByUserId: vi.fn(async () => []),
+    hasLiveFarmer: vi.fn(async () => false),
+    insertUser: vi.fn(async () => newId()),
+    assignCustomerRole: vi.fn(async () => {}),
+    generateCustomerCode: vi.fn(async () => 'CUST-0001'),
+    insertCustomer: vi.fn(async () => newId()),
+    insertCustomerAddress: vi.fn(async () => newId()),
+    setDefaultAddress: vi.fn(async () => {}),
+    createWallet: vi.fn(async () => newId()),
+    findCustomerGstinConflict: vi.fn(async () => false),
+    checkWarehouseActive: vi.fn(async () => true),
+    getCustomerById: vi.fn(async () => aCustomerRow()),
+    updateCustomer: vi.fn(async () => {}),
+    updateUser: vi.fn(async () => {}),
     ...overrides,
   };
 }
@@ -699,10 +719,12 @@ function routeTable(): Array<{ path: string; method: string }> {
 }
 
 describe('customers routes: route table', () => {
-  it('BR-93f / BR-93a: the router has exactly the documented eleven routes; every wallet path is GET-only and the only write is the support reply', () => {
+  it('BR-93f / BR-93a / BR-160: the router has the documented routes; every wallet path is GET-only', () => {
     expect(routeTable()).toEqual([
       { path: '/', method: 'GET' },
+      { path: '/', method: 'POST' },
       { path: '/:customerId', method: 'GET' },
+      { path: '/:customerId', method: 'PATCH' },
       { path: '/:customerId/purchases', method: 'GET' },
       { path: '/:customerId/orders', method: 'GET' },
       { path: '/:customerId/wallet', method: 'GET' },

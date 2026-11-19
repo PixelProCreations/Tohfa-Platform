@@ -8,13 +8,14 @@
  * against a throwaway / CI database.
  */
 import request from 'supertest';
-import { beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool } from '../../db/pool.js';
 import type { AppError } from '../../http/problem.js';
 import { aScope, databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { randomMobile } from '../../test/dbFixtures.js';
 import { createPayoutsService } from './payouts.service.js';
 
 const adminActor = (userId = newId()): Actor => ({
@@ -40,12 +41,13 @@ describeIfDatabase('BR-70: payout bank account ownership (real database)', () =>
   let adminUserId: string;
   let adminToken: string;
   const createdUsers: string[] = [];
+  const createdFarmers: string[] = [];
 
   async function makeFarmer(label: string): Promise<FarmerFixture> {
     const userId = newId();
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, $3, 'FARMER', 'ACTIVE')`,
-      [userId, `+9195${Math.floor(10000000 + Math.random() * 89999999)}`, `Payout ${label} Farmer`],
+      [userId, randomMobile(), `Payout ${label} Farmer`],
     );
     const farmerId = newId();
     await pool.query(`INSERT INTO farmers (id, user_id, tohfa_farmer_id) VALUES ($1, $2, $3)`, [
@@ -60,6 +62,7 @@ describeIfDatabase('BR-70: payout bank account ownership (real database)', () =>
       [accountId, farmerId, `Payout ${label} Farmer`],
     );
     createdUsers.push(userId);
+    createdFarmers.push(farmerId);
     return { userId, farmerId, accountId };
   }
 
@@ -96,10 +99,22 @@ describeIfDatabase('BR-70: payout bank account ownership (real database)', () =>
     adminUserId = newId();
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Payout Ownership Admin', 'ADMIN', 'ACTIVE')`,
-      [adminUserId, `+9194${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [adminUserId, randomMobile()],
     );
     createdUsers.push(adminUserId);
     adminToken = signAccessToken({ sub: adminUserId, roles: [{ code: 'SUPER_ADMIN' }], customerId: null, farmerId: null });
+  });
+
+  afterAll(async () => {
+    for (const farmerId of createdFarmers) {
+      await pool.query(`DELETE FROM payouts WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM farmer_bank_accounts WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM farmers WHERE id = $1`, [farmerId]).catch(() => undefined);
+    }
+    for (const userId of createdUsers) {
+      await pool.query(`DELETE FROM idempotency_keys WHERE actor_user_id = $1`, [userId]).catch(() => undefined);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId]).catch(() => undefined);
+    }
   });
 
 

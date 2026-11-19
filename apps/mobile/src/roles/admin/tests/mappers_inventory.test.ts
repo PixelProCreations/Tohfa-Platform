@@ -15,6 +15,8 @@ import {
   aggregateStockByProduct,
   allocatedByProduct,
   allocationBucketDetail,
+  allocationSplitView,
+  allocationTableWarehouses,
   batchStatusOf,
   buildAllocationDashboard,
   cropNamesOf,
@@ -25,7 +27,9 @@ import {
   toBatchRow,
   toLowStockRow,
   toStockMovementRow,
+  warehouseAllocationRows,
 } from '../screens/warehouse/inventory/mappers';
+import { ADMIN_NO_VALUE } from '../utils/noValue';
 
 // 12 Oct 2026, 12:00 PM IST.
 const NOW = new Date('2026-10-12T06:30:00Z');
@@ -436,5 +440,80 @@ describe('low stock from the LOW_STOCK alerts', () => {
   it('a quantity that does not parse is shown as sent, never NaN', () => {
     const row = toLowStockRow(lowStockAlert({ params: { cropId: CARROT, grade: 'GRADE_1', totalQtyKg: 'n/a', thresholdKg: '50' } }), new Map());
     expect(row.available).toBe('n/a');
+  });
+});
+
+describe('allocation split views (design M3-08 Set Channel Split)', () => {
+  const pct = (value: string) => t('inventory.allocation.percent', { value });
+
+  it('BR-12: shows only the configured percentages the API returned; HORECA and B2B never get one', () => {
+    const view = allocationSplitView({
+      effectiveFrom: '2026-10-01',
+      channels: [
+        { channel: 'ONLINE', percentage: 55 },
+        { channel: 'LIVE_MARKET', percentage: 15.5 },
+        { channel: 'RESERVE', percentage: 19.5 },
+        { channel: 'BUFFER', percentage: 10 },
+      ],
+    });
+    expect(view.figures).toEqual({
+      online: pct('55'),
+      liveMarket: pct('15.5'),
+      horeca: ADMIN_NO_VALUE,
+      b2b: ADMIN_NO_VALUE,
+      reserve: pct('19.5'),
+      buffer: pct('10'),
+    });
+    expect(view.total).toBe(pct('100'));
+  });
+
+  it('no config (no grant, still loading, failed) leaves every figure and the total as no value', () => {
+    const view = allocationSplitView(undefined);
+    expect(Object.values(view.figures).every((v) => v === ADMIN_NO_VALUE)).toBe(true);
+    expect(view.total).toBe(ADMIN_NO_VALUE);
+  });
+
+  it('a missing bucket shows no value and suppresses the total rather than summing a partial split', () => {
+    const view = allocationSplitView({ effectiveFrom: '2026-10-01', channels: [{ channel: 'ONLINE', percentage: 55 }] });
+    expect(view.figures.online).toBe(pct('55'));
+    expect(view.figures.buffer).toBe(ADMIN_NO_VALUE);
+    expect(view.total).toBe(ADMIN_NO_VALUE);
+  });
+
+  it('table warehouses: the narrowed warehouse only, otherwise every offered warehouse', () => {
+    const other = '55555555-5555-4555-8555-555555555555';
+    const options = [
+      { warehouseId: WAREHOUSE, warehouseName: 'Ooty' },
+      { warehouseId: other, warehouseName: 'Coonoor' },
+    ];
+    expect(allocationTableWarehouses({}, options, WAREHOUSE)).toEqual([{ warehouseId: WAREHOUSE, name: 'Ooty' }]);
+    expect(allocationTableWarehouses({}, options, undefined)).toEqual([
+      { warehouseId: WAREHOUSE, name: 'Ooty' },
+      { warehouseId: other, name: 'Coonoor' },
+    ]);
+    expect(allocationTableWarehouses({ warehouseId: WAREHOUSE, warehouseName: 'Sub' }, undefined, WAREHOUSE)).toEqual([
+      { warehouseId: WAREHOUSE, name: 'Sub' },
+    ]);
+  });
+
+  it('table rows: each channel share of that warehouse own allocated grams; no rows means no value', () => {
+    const other = '55555555-5555-4555-8555-555555555555';
+    const rows = [
+      allocation({ channel: 'ONLINE', allocatedQtyKg: '3.000' }),
+      allocation({ channel: 'BUFFER', allocatedQtyKg: '1.000' }),
+    ];
+    const [own, empty] = warehouseAllocationRows(rows, [
+      { warehouseId: WAREHOUSE, name: 'Ooty' },
+      { warehouseId: other, name: 'Coonoor' },
+    ]);
+    expect(own?.figures).toEqual({
+      online: pct('75'),
+      liveMarket: pct('0'),
+      horeca: ADMIN_NO_VALUE,
+      b2b: ADMIN_NO_VALUE,
+      reserve: pct('0'),
+      buffer: pct('25'),
+    });
+    expect(Object.values(empty?.figures ?? {}).every((v) => v === ADMIN_NO_VALUE)).toBe(true);
   });
 });

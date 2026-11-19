@@ -14,7 +14,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   Switch,
   Text,
   TextInput,
@@ -23,6 +22,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import { adminColors } from '../../theme';
 import { BackArrowIcon, CheckCircleIcon, ChevronDownIcon } from '../../components/AdminIcons';
@@ -161,7 +161,7 @@ export function ComplianceTierThresholdsScreen({ initialData, can, onBack, onSav
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.header}>
         <TouchableOpacity

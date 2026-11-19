@@ -77,10 +77,15 @@ import {
   useAllocationDashboard,
   useBatch,
   useBatchList,
+  useConsolidatedStock,
   useInventoryWarehouseName,
+  useInventoryOverviewFigures,
   useLowStockRows,
   useStockLedger,
   useStockSummary,
+  ALLOCATION_SPLIT_CODE,
+  useAllocationSplit,
+  useWarehouseAllocationRows,
 } from './useInventoryData';
 
 /** Navigation handle given to `renderExternalScreen`. */
@@ -154,9 +159,11 @@ type RouteCommon = InventoryScreenBaseProps & { warehouseId: string | undefined 
 
 function LiveDashboardRoute({ warehouseId, ...common }: RouteCommon) {
   const live = useStockSummary(warehouseId);
+  const overview = useInventoryOverviewFigures(common.scope, common.can, warehouseId);
   return (
     <InventoryDashboardScreen
       {...common}
+      verificationPendingCount={overview.verificationPendingCount}
       summary={live.summary}
       allocatedGrams={live.allocatedGrams}
       lowStockCount={live.lowStockCount}
@@ -176,9 +183,11 @@ function LiveStockListRoute({
   ...common
 }: RouteCommon & { initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify' | undefined }) {
   const live = useStockSummary(warehouseId);
+  const consolidated = useConsolidatedStock(common.scope);
   return (
     <StockListScreen
       {...common}
+      consolidated={consolidated}
       initialTab={initialTab}
       products={live.summary.products}
       complete={live.complete}
@@ -271,9 +280,21 @@ function LiveLedgerRoute({ warehouseId, ...common }: RouteCommon) {
 
 function LiveAllocationRoute({ warehouseId, ...common }: RouteCommon) {
   const live = useAllocationDashboard(warehouseId);
+  // The configured split is read only with the Super Admin grant (useAllocationSplit); nothing here writes it.
+  const [splitCropId, setSplitCropId] = useState<string | undefined>(undefined);
+  const splitConfig = useAllocationSplit(common.can);
+  const produceSplitConfig = useAllocationSplit(common.can, splitCropId);
+  const warehouseRows = useWarehouseAllocationRows(common.scope, common.warehouseOptions, warehouseId);
+  const stock = useStockSummary(warehouseId);
   return (
     <StockAllocationDashboardScreen
       {...common}
+      canEditSplit={common.can(ALLOCATION_SPLIT_CODE)}
+      splitConfig={splitConfig}
+      produceSplitConfig={splitCropId === undefined ? undefined : produceSplitConfig}
+      warehouseRows={warehouseRows}
+      produce={stock.summary.products}
+      onPickProduce={setSplitCropId}
       dashboard={live.dashboard}
       rowCount={live.rowCount}
       complete={live.complete}
@@ -299,9 +320,11 @@ function LiveLowStockRoute({
   ...common
 }: RouteCommon & { onInitiateTransfer?: (() => void) | undefined }) {
   const live = useLowStockRows(warehouseId);
+  const overview = useInventoryOverviewFigures(common.scope, common.can, warehouseId);
   return (
     <LowStockScreen
       {...common}
+      lowStockThresholdLabel={overview.lowStockThresholdLabel}
       items={live.rows}
       onInitiateTransfer={onInitiateTransfer}
       isLoading={live.isLoading}

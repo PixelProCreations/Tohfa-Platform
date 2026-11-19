@@ -40,6 +40,7 @@ import { CreateStaffAccountScreen } from './CreateStaffAccountScreen';
 import { canOpenStaffRoute } from './mappers';
 import { RolesScreen } from './RolesScreen';
 import { StaffScreen } from './StaffScreen';
+import { StaffListScreen } from './StaffListScreen';
 import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StaffStackEntry {
@@ -59,6 +60,8 @@ export interface StaffFlowProps {
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   /** Unused (no delivery assignment in the API); kept so existing hosts still compile. */
   onAssignDelivery?: ((driver?: StaffMember) => void) | undefined;
+  /** The caller's role string, e.g. 'SUPER_ADMIN'. Used to route SA directly to correction. */
+  role?: string | undefined;
 }
 
 export function StaffFlow({
@@ -68,6 +71,7 @@ export function StaffFlow({
   initialParams,
   onBack,
   onTabChange,
+  role,
 }: StaffFlowProps) {
   const [stack, setStack] = useState<StaffStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -118,6 +122,15 @@ export function StaffFlow({
           onNavigateToAssignAccess={() => navigate('AssignAccess')}
           onNavigateToAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
           onNavigateToHistory={() => navigate('AttendanceHistory')}
+          onNavigateToStaffList={() => navigate('StaffList')}
+        />
+      );
+    case 'StaffList':
+      return (
+        <StaffListScreen
+          {...common}
+          onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
+          onCreateAccount={canCreateAdminLogin(can) ? () => navigate('CreateStaffAccount') : undefined}
         />
       );
     case 'StaffDetail':
@@ -136,9 +149,11 @@ export function StaffFlow({
       return (
         <AttendanceScreen
           {...common}
+          role={role}
           initialFilter={params.attendanceFilter}
           onSelectRecord={(record) => navigate('AttendanceDetail', { record })}
           onNavigateToHistory={() => navigate('AttendanceHistory')}
+          onNavigateToCorrection={(record) => navigate('AttendanceCorrection', { record })}
         />
       );
     case 'AttendanceDetail':

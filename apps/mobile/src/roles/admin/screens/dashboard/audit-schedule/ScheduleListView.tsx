@@ -3,7 +3,8 @@
  * 'calendar', calendarViewMode 'List') with its filter bottom sheet.
  */
 import React, { useMemo, useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { AuditSummaryDto } from '../../../api/audits';
 import { adminColors, adminSpacing } from '../../../theme';
 import { formatAdminDay } from '../../../utils/datetime';
@@ -178,7 +179,7 @@ export function ScheduleListView(props: ScheduleListViewProps) {
 
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.header}>
         <View style={styles.headerTopRow}>

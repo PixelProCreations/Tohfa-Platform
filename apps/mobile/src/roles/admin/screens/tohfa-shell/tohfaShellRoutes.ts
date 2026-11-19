@@ -40,7 +40,7 @@ export type TohfaSubFlow =
   | { kind: 'wallet' }
   | { kind: 'receiving' }
   /** M3S02 = stock list (the design's "stock ledger" link), M3S10 = stock verification. */
-  | { kind: 'inventory'; screen: 'M3S02' | 'M3S10'; warehouseId?: string | undefined }
+  | { kind: 'inventory'; screen: 'M3S02' | 'M3S07' | 'M3S10'; warehouseId?: string | undefined }
   | { kind: 'sales' }
   | { kind: 'finance'; screen: 'Revenue' | 'Expenses' | 'FinanceHistory' }
   | { kind: 'returns' }

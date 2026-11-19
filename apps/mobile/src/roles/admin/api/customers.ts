@@ -303,6 +303,50 @@ export const ERROR_CODES: readonly (GenericProblemCode | ErrorCode)[] = [
   'INTERNAL',
 ];
 
+/** Address sent to POST /admin/customers (matches CustomerAddressInput in backend schema). */
+export interface CustomerAddressInput {
+  line1: string;
+  line2?: string | null | undefined;
+  city: string;
+  district?: string | null | undefined;
+  state?: string | undefined;
+  pincode: string;
+  label?: string | undefined;
+}
+
+/** Body for POST /admin/customers (customer.record.create, SA/TA only). */
+export interface CreateAdminCustomerBody {
+  name: string;
+  mobile: string;
+  email?: string | null | undefined;
+  customerType: 'RETAIL' | 'B2B' | 'HORECA';
+  businessName?: string | null | undefined;
+  businessType?: string | null | undefined;
+  gstin?: string | null | undefined;
+  preferredWarehouseId?: string | null | undefined;
+  address?: CustomerAddressInput | null | undefined;
+  businessAddress?: CustomerAddressInput | null | undefined;
+}
+
+/** 201 response from POST /admin/customers. */
+export interface CreateAdminCustomerResponseDto {
+  id: string;
+  customerCode: string;
+  userId: string;
+  name: string;
+  mobileMasked: string;
+  mobile?: string | undefined;
+  email?: string | null | undefined;
+  customerType: 'RETAIL' | 'B2B' | 'HORECA';
+  businessName: string | null;
+  businessType: string | null;
+  gstin: string | null;
+  gstVerified: boolean;
+  preferredWarehouseId: string | null;
+  linkedToExistingUser: boolean;
+  createdAt: string;
+}
+
 const BASE = '/admin/customers';
 
 function customerPath(customerId: string): string {
@@ -417,4 +461,14 @@ export function replyToSupportTicket(
     `${customerPath(customerId)}/support-tickets/${encodeURIComponent(ticketId)}/replies`,
     payload,
   );
+}
+
+/**
+ * Create a customer (201, the new customer record). SA/TA only
+ * (customer.record.create). No Idempotency-Key: the spec does not define one
+ * for this route (the mobile field is a true unique identifier, so a 409 on
+ * replay is correct — it found the already-created customer).
+ */
+export function createCustomer(body: CreateAdminCustomerBody): Promise<CreateAdminCustomerResponseDto> {
+  return adminPost<CreateAdminCustomerResponseDto>(BASE, body);
 }

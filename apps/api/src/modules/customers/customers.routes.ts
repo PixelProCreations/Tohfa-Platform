@@ -16,17 +16,19 @@
  * reply itself is authorised by `support.ticket.respond` (BR-97d).
  */
 import { Router, type RequestHandler } from 'express';
-import { requireAuth } from '../../auth/requireAuth.js';
+import { requireAuth, requireActor } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission, requireScope, type ResolvedScope } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope, resolveScope, type ResolvedScope } from '../../rbac/requirePermission.js';
 import { customersService, type CustomersService } from './customers.service.js';
 import {
+  createCustomerBody,
   customerIdParams,
   listCustomersQuery,
   pageQuery,
   replyBody,
   ticketParams,
+  updateCustomerBody,
   walletTxnParams,
 } from './customers.schema.js';
 
@@ -51,6 +53,18 @@ export function createCustomersRouter(service: CustomersService = customersServi
     }),
   );
 
+  router.post(
+    '/',
+    requireAuth,
+    requirePermission('customer.record.create'),
+    validate({ body: createCustomerBody }),
+    asyncHandler(async (req, res) => {
+      const body = getValidated(req, 'body', createCustomerBody);
+      const created = await service.create(requireScope(req.scope), body);
+      res.status(201).json(created);
+    }),
+  );
+
   router.get(
     '/:customerId',
     requireAuth,
@@ -59,6 +73,20 @@ export function createCustomersRouter(service: CustomersService = customersServi
     asyncHandler(async (req, res) => {
       const { customerId } = getValidated(req, 'params', customerIdParams);
       res.json(await service.get(requireScope(req.scope), customerId));
+    }),
+  );
+
+  router.patch(
+    '/:customerId',
+    requireAuth,
+    requirePermission('customer.profile.edit'),
+    validate({ params: customerIdParams, body: updateCustomerBody }),
+    asyncHandler(async (req, res) => {
+      const { customerId } = getValidated(req, 'params', customerIdParams);
+      const body = getValidated(req, 'body', updateCustomerBody);
+      const actor = requireActor(req.actor);
+      const gstScope = resolveScope(actor, 'customer.gst_details.manage');
+      res.json(await service.update(requireScope(req.scope), gstScope, customerId, body));
     }),
   );
 

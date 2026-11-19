@@ -13,13 +13,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import type { Can } from '../../permissions/can';
 import { t, type TranslationKey } from '../../i18n';
@@ -119,7 +119,7 @@ export function AddCropTypeScreen({ can, crop, onBack, onSuccess }: AddCropTypeS
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.header}>
         <TouchableOpacity

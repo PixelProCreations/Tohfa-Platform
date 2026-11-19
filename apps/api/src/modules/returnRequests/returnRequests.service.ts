@@ -48,6 +48,8 @@ import type {
   ReturnRequestItemResponse,
   ReturnRequestResponse,
   ReturnStatus,
+  ReturnsSummaryQuery,
+  ReturnsSummaryResponse,
 } from './returnRequests.schema.js';
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
@@ -143,6 +145,10 @@ export function createReturnRequestsService(
           customerId: order.customerId,
           reason: input.reason,
           note: input.note ?? null,
+          issueCategory: input.issueCategory ?? null,
+          issueTicket: input.issueTicket ?? null,
+          requestedResolution: input.requestedResolution ?? null,
+          customerEvidence: input.customerEvidence ?? [],
         });
 
         const insertedItems = await repo.insertReturnRequestItems(
@@ -179,7 +185,12 @@ export function createReturnRequestsService(
       return {
         items: result.items,
         page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
+        summary: result.summary,
       };
+    },
+
+    async getSummary(scope, query): Promise<ReturnsSummaryResponse> {
+      return repo.getSummary(db, { scope: confineToAssignedWarehouses(scope), filters: query });
     },
 
     async getById(scope, id): Promise<ReturnRequestResponse> {
@@ -202,7 +213,7 @@ export function createReturnRequestsService(
       }
 
       await runTx(async (tx) => {
-        await repo.updateInspectionItems(tx, id, input.items);
+        await repo.updateInspectionItems(tx, id, input.items, input.inspectionNotes, input.inspectionPhotos);
         await repo.updateStatus(tx, id, 'INSPECTED');
         await repo.insertStatusHistory(tx, {
           returnRequestId: id,
@@ -423,11 +434,22 @@ function toResponse(
   return {
     id: row.id,
     orderId: row.orderId,
+    orderNumber: row.orderNumber ?? null,
     customerId: row.customerId,
+    customerName: row.customerName ?? null,
     warehouseId,
     status: row.status,
     reason: row.reason,
     note: row.note,
+    issueCategory: row.issueCategory ?? null,
+    issueTicket: row.issueTicket ?? null,
+    requestedResolution: row.requestedResolution ?? null,
+    customerEvidence: row.customerEvidence ?? [],
+    inspectionNotes: row.inspectionNotes ?? null,
+    inspectionPhotos: row.inspectionPhotos ?? [],
+    returnWindowEligible: row.returnWindowEligible ?? true,
+    projectedRefundAmount: row.projectedRefundAmount ?? null,
+    projectedRefundMethod: row.projectedRefundMethod ?? null,
     items,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt === null ? null : row.updatedAt.toISOString(),
@@ -442,6 +464,7 @@ export interface ReturnRequestsService {
     input: CreateReturnRequestBody,
   ): Promise<ReturnRequestResponse>;
   list(scope: ResolvedScope, query: ListReturnsQuery): Promise<ListReturnsResponse>;
+  getSummary(scope: ResolvedScope, query: ReturnsSummaryQuery): Promise<ReturnsSummaryResponse>;
   getById(scope: ResolvedScope, id: string): Promise<ReturnRequestResponse>;
   inspect(
     actor: Actor,

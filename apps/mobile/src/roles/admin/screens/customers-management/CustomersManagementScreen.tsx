@@ -17,7 +17,8 @@
  * decides, root CLAUDE.md 2.1).
  */
 import React, { useEffect, useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { OverviewCardsGrid, OverviewDashboardCard, type OverviewCardIcon } from '../../components';
 import type { OverviewCardTone } from '../../components/overviewDashboardCardStyle';
@@ -117,7 +118,7 @@ export function CustomersManagementScreen({
 
   return (
     <SafeAreaView style={styles.rootContainer}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Header banner */}
       <View style={styles.headerBanner}>

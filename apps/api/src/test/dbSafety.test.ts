@@ -69,12 +69,13 @@ describe('classifyDatabaseUrl', () => {
 });
 
 describe('assertSafeTestDatabase', () => {
-  const REMOTE = 'postgresql://u:topsecret@db.example.supabase.co:5432/postgres';
+  const REMOTE_TEST = 'postgresql://u:topsecret@db.example.supabase.co:5432/remote_test';
+  const REMOTE_PROD = 'postgresql://u:topsecret@db.example.supabase.co:5432/postgres';
 
   it('throws for NODE_ENV=test with a remote DATABASE_URL, without echoing the password', () => {
     let message = '';
     try {
-      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE });
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE_TEST });
     } catch (e) {
       message = (e as Error).message;
     }
@@ -84,26 +85,54 @@ describe('assertSafeTestDatabase', () => {
     expect(message).not.toContain('topsecret');
   });
 
-  it('passes for a local DATABASE_URL', () => {
+  it('passes for a local DATABASE_URL ending in _test', () => {
     expect(() =>
-      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: 'postgres://tohfa:tohfa@localhost:5432/t' }),
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: 'postgres://tohfa:tohfa@localhost:5432/tohfa_test' }),
     ).not.toThrow();
+  });
+
+  it('throws for a DATABASE_URL whose database name does not end in _test', () => {
+    expect(() =>
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: 'postgres://tohfa:tohfa@localhost:5432/tohfa' }),
+    ).toThrow(/does not end in "_test"/);
+  });
+
+  it('throws for an empty database name in DATABASE_URL', () => {
+    expect(() =>
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: 'postgres://localhost:5432/' }),
+    ).toThrow(/does not end in "_test"/);
+    expect(() =>
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: 'postgres://localhost:5432' }),
+    ).toThrow(/does not end in "_test"/);
+  });
+
+  it('handles socket-path URLs correctly', () => {
+    expect(() =>
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: '/var/run/postgresql tohfa_test' }),
+    ).not.toThrow();
+    expect(() =>
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: '/var/run/postgresql tohfa' }),
+    ).toThrow(/does not end in "_test"/);
   });
 
   it('passes when DATABASE_URL is unset', () => {
     expect(() => assertSafeTestDatabase({ NODE_ENV: 'test' })).not.toThrow();
   });
 
-  it('passes with the explicit ALLOW_REMOTE_TEST_DB=true override, and only for exactly "true"', () => {
+  it('ALLOW_REMOTE_TEST_DB=true permits remote host ONLY when db ends in _test', () => {
     expect(() =>
-      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE, ALLOW_REMOTE_TEST_DB: 'true' }),
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE_TEST, ALLOW_REMOTE_TEST_DB: 'true' }),
     ).not.toThrow();
+    // Bypassing remote check NEVER bypasses the _test name check
     expect(() =>
-      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE, ALLOW_REMOTE_TEST_DB: '1' }),
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE_PROD, ALLOW_REMOTE_TEST_DB: 'true' }),
+    ).toThrow(/does not end in "_test"/);
+    expect(() =>
+      assertSafeTestDatabase({ NODE_ENV: 'test', DATABASE_URL: REMOTE_TEST, ALLOW_REMOTE_TEST_DB: '1' }),
     ).toThrow(/REFUSING/);
   });
 
   it('does nothing outside NODE_ENV=test (the guard is a test-run guard, not an app guard)', () => {
-    expect(() => assertSafeTestDatabase({ NODE_ENV: 'production', DATABASE_URL: REMOTE })).not.toThrow();
+    expect(() => assertSafeTestDatabase({ NODE_ENV: 'production', DATABASE_URL: REMOTE_PROD })).not.toThrow();
   });
 });

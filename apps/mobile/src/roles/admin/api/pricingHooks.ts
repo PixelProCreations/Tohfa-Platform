@@ -8,16 +8,22 @@
  * `can('pricing.retail_price.set')` denies. The server still decides
  * (root CLAUDE.md 2.1); `enabled` only avoids a request that would be a 403.
  *
- * Idempotency: POST /retail-prices declares a required Idempotency-Key; one key
- * per logical write (same body), released by `finish()`.
+ * Idempotency: POST /retail-prices, POST /fair-prices and POST
+ * /fair-prices/bulk each declare a required Idempotency-Key; one key per
+ * logical write (same body), released by `finish()`, so a retry after a lost
+ * reply moves the price once.
  */
 import { useMemo } from 'react';
 import {
+  bulkUpsertFairPrices,
+  createFairPrice,
   createRetailPrice,
   getFairPriceHistory,
   listFairPrices,
   listRetailPrices,
+  type BulkFairPriceResult,
   type CreateRetailPriceBody,
+  type FairPriceCreateBody,
   type FairPriceDto,
   type FairPricePage,
   type PricingGrade,
@@ -27,7 +33,7 @@ import {
 import { toCeilingHistory, toFairPriceRow, toRetailPriceRow, todayInIndia } from './pricingMappers';
 import type { CeilingHistoryRowView, FairPriceRowView, RetailPriceRowView } from './pricingTypes';
 import { useAdminMutation, useCursorList, useIdempotencyKey, type CursorList } from './hooks';
-import { adminKeys, pricingKeys, PRICING_RETAIL_MODULE } from './queryKeys';
+import { adminKeys, pricingKeys, PRICING_FAIR_MODULE, PRICING_RETAIL_MODULE } from './queryKeys';
 
 export interface PricingHookOptions {
   /** false: nothing is fetched (or sent) and nothing is loading. Default true. */
@@ -157,6 +163,94 @@ export function useCreateRetailPrice(options: PricingHookOptions = {}): LiveReta
         if (isPending) return;
         if (onDone === undefined) mutate(body);
         else mutate(body, { onSuccess: (result) => onDone(result) });
+      },
+      isPending,
+      error,
+      finish: () => {
+        keys.reset();
+        reset();
+      },
+    }),
+    [mutate, isPending, error, reset, keys],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fair price ceiling writes (BR-08, SUPER_ADMIN only)
+// ---------------------------------------------------------------------------
+
+export interface LiveFairPriceWrite {
+  /** Runs the write; `onDone` fires only after the server stored it. Ignored while one is in flight. */
+  run: (body: FairPriceCreateBody, onDone?: (result: FairPriceDto) => void) => void;
+  isPending: boolean;
+  /** The last failure, for adminErrorKey: FORBIDDEN (BR-08a), CONFLICT (BR-08b), VALIDATION_FAILED. */
+  error: unknown;
+  /** Call once the edit is done (or abandoned), so the next one gets a fresh Idempotency-Key. */
+  finish: () => void;
+}
+
+function fairWriteNotPermitted(): Promise<never> {
+  return Promise.reject(new Error('Fair price ceiling write is not enabled for this caller.'));
+}
+
+/**
+ * POST /fair-prices (pricing.fair_price.set, SUPER_ADMIN only — BR-08). Build
+ * the body with buildFairPriceBody. A success refetches the ceiling queries.
+ * With enabled=false the write is refused locally and nothing is sent; the
+ * server decides either way (root CLAUDE.md 2.1).
+ */
+export function useCreateFairPrice(options: PricingHookOptions = {}): LiveFairPriceWrite {
+  const enabled = options.enabled ?? true;
+  const keys = useIdempotencyKey();
+  const mutation = useAdminMutation<FairPriceCreateBody, FairPriceDto>({
+    mutationFn: (body) => (enabled ? createFairPrice(body, keys.keyFor(body)) : fairWriteNotPermitted()),
+    invalidates: [adminKeys.module(PRICING_FAIR_MODULE)],
+  });
+  const { mutate, isPending, error, reset } = mutation;
+  return useMemo(
+    () => ({
+      run: (body: FairPriceCreateBody, onDone?: (result: FairPriceDto) => void) => {
+        if (isPending) return;
+        if (onDone === undefined) mutate(body);
+        else mutate(body, { onSuccess: (result) => onDone(result) });
+      },
+      isPending,
+      error,
+      finish: () => {
+        keys.reset();
+        reset();
+      },
+    }),
+    [mutate, isPending, error, reset, keys],
+  );
+}
+
+export interface LiveBulkFairPriceWrite {
+  run: (items: readonly FairPriceCreateBody[], onDone?: (result: BulkFairPriceResult) => void) => void;
+  isPending: boolean;
+  error: unknown;
+  finish: () => void;
+}
+
+/**
+ * POST /fair-prices/bulk (pricing.fair_price.bulk_update, SUPER_ADMIN only).
+ * All-or-nothing on the server: one bad row rejects the batch, so a partial
+ * success can never be reported here.
+ */
+export function useBulkFairPriceUpdate(options: PricingHookOptions = {}): LiveBulkFairPriceWrite {
+  const enabled = options.enabled ?? true;
+  const keys = useIdempotencyKey();
+  const mutation = useAdminMutation<readonly FairPriceCreateBody[], BulkFairPriceResult>({
+    mutationFn: (items) => (enabled ? bulkUpsertFairPrices(items, keys.keyFor(items)) : fairWriteNotPermitted()),
+    invalidates: [adminKeys.module(PRICING_FAIR_MODULE)],
+  });
+  const { mutate, isPending, error, reset } = mutation;
+  return useMemo(
+    () => ({
+      run: (items: readonly FairPriceCreateBody[], onDone?: (result: BulkFairPriceResult) => void) => {
+        if (isPending) return;
+        if (onDone === undefined) mutate(items);
+        else mutate(items, { onSuccess: (result) => onDone(result) });
       },
       isPending,
       error,

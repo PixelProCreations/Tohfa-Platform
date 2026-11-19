@@ -119,6 +119,55 @@ export const FILTER_LABEL_KEY: Record<LiveNotificationFilter, TranslationKey> = 
 };
 
 /**
+ * The design's category tabs. The server only knows All / Unread; a row's
+ * category is derived on the device (mappers.ts), so these tabs narrow the rows
+ * already loaded. A tab whose category the app cannot derive (Farmers,
+ * Disputes, Audits) is still shown and simply matches nothing.
+ */
+export type CategoryFilter =
+  | 'Orders'
+  | 'Inventory'
+  | 'Receiving'
+  | 'Finance'
+  | 'Returns'
+  | 'Quality'
+  | 'System'
+  | 'Messages'
+  | 'Farmers'
+  | 'Disputes'
+  | 'Audits';
+
+export const CATEGORY_FILTER_CATEGORIES: Record<CategoryFilter, readonly NotificationCategory[]> = {
+  Orders: ['order'],
+  Inventory: ['inventory'],
+  Receiving: ['shipment', 'received'],
+  Finance: ['wallet'],
+  Returns: ['returns'],
+  Quality: ['quality', 'mismatch'],
+  System: ['system'],
+  Messages: ['message'],
+  Farmers: [],
+  Disputes: [],
+  Audits: [],
+};
+
+export const CATEGORY_FILTERS = Object.keys(CATEGORY_FILTER_CATEGORIES) as readonly CategoryFilter[];
+
+export const CATEGORY_FILTER_LABEL_KEY: Record<CategoryFilter, TranslationKey> = {
+  Orders: 'notifications.filter.orders',
+  Inventory: 'notifications.filter.inventory',
+  Receiving: 'notifications.filter.receiving',
+  Finance: 'notifications.filter.finance',
+  Returns: 'notifications.filter.returns',
+  Quality: 'notifications.filter.quality',
+  System: 'notifications.filter.system',
+  Messages: 'notifications.filter.messages',
+  Farmers: 'notifications.filter.farmers',
+  Disputes: 'notifications.filter.disputes',
+  Audits: 'notifications.filter.audits',
+};
+
+/**
  * The tab a route opens on. The legacy System Messages / Message History
  * entries asked for category tabs that no longer exist, so they open All.
  */

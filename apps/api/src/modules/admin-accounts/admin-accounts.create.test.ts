@@ -100,6 +100,7 @@ function fakeRepo(opts: { zone?: { isActive: boolean } | null; mobileTaken?: boo
     findFarmerAdminForUpdate: unexpected,
     findZones: unexpected,
     endZoneAssignments: unexpected,
+    listAdminAccounts: unexpected,
   };
   return { repo, calls };
 }

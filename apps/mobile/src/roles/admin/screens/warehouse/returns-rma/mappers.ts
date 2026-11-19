@@ -17,6 +17,7 @@
  */
 import { ApiError, NetworkError } from '../../../../../shell/api/client';
 import { adminErrorKey } from '../../../api/errors';
+import type { AdminOrderDetailDto } from '../../../api/orders';
 import {
   REJECT_REASON_MAX_LENGTH,
   type ReturnHistoryDto,
@@ -33,7 +34,16 @@ import { formatPaise, parseRupeesToPaise } from '../../../money/paise';
 import { gramsToKgString, parseKgToGrams } from '../../../money/quantity';
 import { formatAdminDate } from '../../../utils/datetime';
 import type { AdminTone } from '../../../theme';
-import type { InspectionCondition, PermissionCheck, ReturnDetailView, ReturnItemView, ReturnRowView, ReturnTimelineEntry } from './types';
+import { toOrderDetail } from '../orders/mappers';
+import type {
+  InspectionCondition,
+  PermissionCheck,
+  ReturnDetailView,
+  ReturnItemView,
+  ReturnOrderView,
+  ReturnRowView,
+  ReturnTimelineEntry,
+} from './types';
 
 // ─── Status ──────────────────────────────────────────────────────────────────
 
@@ -227,6 +237,44 @@ export function toReturnTimeline(dto: ReturnHistoryDto, now: Date): ReturnTimeli
     time: formatAdminDate(entry.createdAt, now),
     note: entry.note ?? null,
   }));
+}
+
+/** docs/rbac.json code that lets the caller read the linked order (BR-30: Sub own, Main all). */
+export const RETURN_ORDER_CODE = 'order.list.view_all';
+
+const CHANNEL_LABEL: Readonly<Record<AdminOrderDetailDto['channel'], TranslationKey>> = {
+  ONLINE: 'customers.channel.ONLINE',
+  DIRECT: 'customers.channel.DIRECT',
+  MARKET: 'customers.channel.MARKET',
+  HORECA: 'customers.channel.HORECA',
+  B2B: 'customers.channel.B2B',
+};
+
+/**
+ * The linked order as the return screens show it. Order number, buyer,
+ * warehouse, placed date and payment status are the orders module's own
+ * mapping (one place decides their wording); the channel is read here because
+ * the orders view does not carry it. A channel the app does not know reads as
+ * the dash, never a guessed label.
+ */
+export function toReturnOrder(dto: AdminOrderDetailDto, now: Date): ReturnOrderView {
+  const order = toOrderDetail(dto, now);
+  const channelKey = Object.prototype.hasOwnProperty.call(CHANNEL_LABEL, dto.channel) ? CHANNEL_LABEL[dto.channel] : undefined;
+  return {
+    orderNumber: order.orderNumber,
+    buyerName: order.buyerName,
+    customerCode: dto.buyer.customerCode,
+    mobileMasked: order.buyerMobileMasked,
+    warehouseName: order.warehouseName,
+    placedLabel: order.placedLabel,
+    channelLabel: channelKey === undefined ? t('returns.noValue') : t(channelKey),
+    paymentStatusLabel: order.paymentStatusLabel,
+  };
+}
+
+/** Sum of the requested grams over every item of the return. */
+export function totalRequestedGrams(items: readonly ReturnItemView[]): number {
+  return items.reduce((sum, item) => sum + item.requestedGrams, 0);
 }
 
 // ─── Inspection ──────────────────────────────────────────────────────────────

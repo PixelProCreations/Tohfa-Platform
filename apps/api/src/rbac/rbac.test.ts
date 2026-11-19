@@ -1166,6 +1166,22 @@ const GRANT_CASES: readonly GrantCase[] = [
   { permission: 'admin.promotion.reject', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
   { permission: 'admin.promotion.reject', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
   { permission: 'admin.promotion.reject', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-117: rejecting mirrors admin.promotion.approve, SA only.' },
+  // --- delivery.partner.manage: Batch 8 P0-71 ---
+  { permission: 'delivery.partner.manage', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-157: SA manages delivery partners.' },
+  { permission: 'delivery.partner.manage', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-157: TA manages delivery partners.' },
+  { permission: 'delivery.partner.manage', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-157: Farmer Admin has no delivery partner management authority.' },
+  { permission: 'delivery.partner.manage', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.ALL, because: 'BR-157: Main WH Admin manages shared delivery partner pool.' },
+  { permission: 'delivery.partner.manage', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.ALL, because: 'BR-157: Sub WH Admin manages shared delivery partner pool (no warehouse_id column).' },
+  { permission: 'delivery.partner.manage', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-157: Farmer has no admin access.' },
+  { permission: 'delivery.partner.manage', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-157: Customer has no admin access.' },
+  // --- order.cancel: Batch 7 P0-60 / BR-151 ---
+  { permission: 'order.cancel', role: RoleCode.SUPER_ADMIN, expected: ScopeLevel.ALL, because: 'BR-151: SA can cancel orders.' },
+  { permission: 'order.cancel', role: RoleCode.TOHFA_ADMIN, expected: ScopeLevel.ALL, because: 'BR-151: TA can cancel orders.' },
+  { permission: 'order.cancel', role: RoleCode.FARMER_ADMIN, expected: ScopeLevel.NONE, because: 'BR-151: Farmer Admin cannot cancel orders.' },
+  { permission: 'order.cancel', role: RoleCode.MAIN_WH_ADMIN, expected: ScopeLevel.ALL, because: 'BR-151: Main WH Admin can cancel orders at all warehouses.' },
+  { permission: 'order.cancel', role: RoleCode.SUB_WH_ADMIN, expected: ScopeLevel.OWN, because: 'BR-151: Sub WH Admin can cancel orders at own warehouse.' },
+  { permission: 'order.cancel', role: RoleCode.FARMER, expected: ScopeLevel.NONE, because: 'BR-151: Farmer cannot cancel sales orders.' },
+  { permission: 'order.cancel', role: RoleCode.CUSTOMER, expected: ScopeLevel.NONE, because: 'BR-151: Customer uses customer cancellation endpoint, not admin.' },
 ];
 
 describe('docs/rbac.json grants', () => {

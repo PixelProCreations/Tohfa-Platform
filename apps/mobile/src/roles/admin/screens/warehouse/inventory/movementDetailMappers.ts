@@ -3,17 +3,14 @@
  * screen. No React, so plain-Node vitest covers them
  * (../../../tests/movement_detail.test.ts).
  *
- * There is no GET /admin/stock-ledger/{id} in docs/openapi.yaml, so the
- * detail is the ledger row the user tapped, carried in the route params. A
- * deep link without that row has nothing to show (and nothing to ask for).
- *
- * Only what the ledger row carries is shown (BR-37: the row is immutable; a
- * correction is a new row). Not shown, because the API does not carry them:
- * a movement code (only a uuid), a source/destination warehouse pair (a
- * transfer writes one row per warehouse), and who performed it (a user uuid,
- * no name).
+ * The detail is the ledger row the user tapped, carried in the route params
+ * (GET /admin/stock-ledger/{id} returns the same shape, BR-130). A deep link
+ * without that row has nothing to show. Every element of the design renders;
+ * a value the API does not carry is ADMIN_NO_VALUE, never sample data.
  */
 import { t, type TranslationKey } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { pairFields, type InfoFieldValue } from '../shared/infoFields';
 import { shortRef } from './adjustmentMappers';
 import type { InventoryRouteParams, StockMovementRow } from './types';
@@ -80,5 +77,99 @@ export function movementDetailRows(movement: StockMovementRow, warehouseName: st
     field('inventory.movementDetail.field.batch', movement.batchCode),
     field('inventory.movementDetail.field.reference', movementReference(movement.refType, movement.refId)),
     field('inventory.movementDetail.field.performedAt', movement.performedAt),
+    // BR-130: the API names who recorded the row.
+    field('inventory.stockMovement.performedBy', movement.createdByName),
   ]);
+}
+
+/** A value for an element the design always draws: the dash when the API has none. */
+function shown(value: string | undefined): string {
+  return value === undefined || value === '' ? ADMIN_NO_VALUE : value;
+}
+
+/**
+ * The balance before the movement: balance after minus the signed delta, in
+ * integer grams (BR-37: the ledger row records both). null when either is
+ * missing.
+ */
+export function movementBalanceBeforeGrams(movement: StockMovementRow): number | null {
+  if (movement.balanceAfterGrams === null || movement.deltaGrams === null) return null;
+  return movement.balanceAfterGrams - movement.deltaGrams;
+}
+
+/**
+ * The adjustment a row points at (stock_ledger.ref_type 'stock_adjustment',
+ * ref_id = the adjustment uuid), which View Reference can open (M3S17). Other
+ * references have no screen in the inventory flow.
+ */
+export function movementAdjustmentId(movement: StockMovementRow): string | undefined {
+  return movement.refType?.toUpperCase() === 'STOCK_ADJUSTMENT' ? movement.refId : undefined;
+}
+
+/** Every value the screen and its voucher draw, in display form. */
+export interface MovementDetailView {
+  typeLabel: string;
+  /** No status on a ledger row in the API. */
+  status: string;
+  movementId: string;
+  warehouse: string;
+  dateTime: string;
+  product: string;
+  grade: string;
+  productLabel: string;
+  batch: string;
+  delta: string;
+  before: string;
+  after: string;
+  storageType: string;
+  section: string;
+  rack: string;
+  shelf: string;
+  location: string;
+  referenceLabel: string;
+  referenceValue: string;
+  reference: string;
+  receivedFrom: string;
+  performedBy: string;
+  approvedBy: string | undefined;
+  notes: string;
+  /** Timeline: only "Ledger Posted" has a time in the API (performedAt). */
+  timeline: readonly { labelKey: TranslationKey; time: string }[];
+}
+
+export function movementDetailView(movement: StockMovementRow, warehouseName: string | undefined): MovementDetailView {
+  const before = movementBalanceBeforeGrams(movement);
+  const refKey = movement.refType === undefined ? undefined : REFERENCE_LABEL[movement.refType.toUpperCase()];
+  return {
+    typeLabel: movement.typeLabel,
+    status: ADMIN_NO_VALUE,
+    movementId: shortRef(movement.id),
+    warehouse: shown(warehouseName),
+    dateTime: shown(movement.performedAt),
+    product: shown(movement.productName),
+    grade: shown(movement.gradeLabel),
+    productLabel: shown(movement.productLabel),
+    batch: shown(movement.batchCode),
+    delta: shown(movement.deltaText),
+    before: before === null ? ADMIN_NO_VALUE : formatKg(before),
+    after: shown(movement.balanceText),
+    storageType: ADMIN_NO_VALUE,
+    section: ADMIN_NO_VALUE,
+    rack: ADMIN_NO_VALUE,
+    shelf: ADMIN_NO_VALUE,
+    location: shown(movement.storageLocation),
+    referenceLabel: t(refKey ?? 'inventory.stockMovement.reference'),
+    referenceValue: movement.refId === undefined ? ADMIN_NO_VALUE : shortRef(movement.refId),
+    reference: shown(movementReference(movement.refType, movement.refId)),
+    receivedFrom: ADMIN_NO_VALUE,
+    performedBy: shown(movement.createdByName),
+    approvedBy: movement.approvedByName,
+    notes: shown(movement.remarks),
+    timeline: [
+      { labelKey: 'inventory.stockMovement.step.created', time: ADMIN_NO_VALUE },
+      { labelKey: 'inventory.stockMovement.step.recorded', time: ADMIN_NO_VALUE },
+      { labelKey: 'inventory.stockMovement.step.posted', time: shown(movement.performedAt) },
+      { labelKey: 'inventory.stockMovement.step.completed', time: ADMIN_NO_VALUE },
+    ],
+  };
 }

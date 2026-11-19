@@ -278,22 +278,25 @@ describe('storage locations (BR-79) and derived stock', () => {
     expect(toLocationRow(dto, undefined, NOON).occupancyPercent).toBeNull();
   });
 
-  it('M4-04: the info card names the warehouse the location belongs to, and hides it while unknown', () => {
+  it('M4-04: the info card names the warehouse, and shows the dash while unknown; layout fields are dashes', () => {
     const row = toLocationRow(dto, undefined, NOON);
+    const none = t('storageOps.notAvailable');
     const rows = locationInfoRows(row, 'Coonoor');
     expect(rows.flat()).toEqual([
       { label: t('storageOps.location.field.code'), value: 'CS-A' },
       { label: t('storageOps.location.field.type'), value: t('storageOps.location.typeNotSet') },
+      { label: t('storageOps.location.field.section'), value: none },
+      { label: t('storageOps.location.field.rack'), value: none },
+      { label: t('storageOps.location.field.shelf'), value: none },
       { label: t('storageOps.location.field.warehouse'), value: 'Coonoor' },
       { label: t('storageOps.location.field.capacity'), value: row.capacity },
       { label: t('storageOps.location.field.created'), value: row.createdAt },
     ]);
     expect(rows.every((r) => r.length <= 2)).toBe(true);
-    const labels = locationInfoRows(row, undefined).flat().map((f) => f.label);
-    expect(labels).not.toContain(t('storageOps.location.field.warehouse'));
-    // No section / rack / shelf: the API has no layout fields.
-    expect(labels).toHaveLength(4);
-    expect(locationInfoRows(toLocationRow({ ...dto, capacityKg: null }, undefined, NOON), 'Coonoor').flat()[3]?.value).toBe(
+    const unnamed = locationInfoRows(row, undefined).flat();
+    expect(unnamed.find((f) => f.label === t('storageOps.location.field.warehouse'))?.value).toBe(none);
+    expect(unnamed).toHaveLength(8);
+    expect(locationInfoRows(toLocationRow({ ...dto, capacityKg: null }, undefined, NOON), 'Coonoor').flat()[6]?.value).toBe(
       t('storageOps.location.capacityNotSet'),
     );
   });

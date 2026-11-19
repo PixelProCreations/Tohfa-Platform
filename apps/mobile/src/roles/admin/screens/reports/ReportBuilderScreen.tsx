@@ -1,3 +1,4 @@
+import { adminColors } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -16,19 +17,24 @@ import { ReportAddFieldScreen } from './ReportAddFieldScreen';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#662208',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  orangePrimary: '#E85226',
-  orangeLight: '#FFF1EB',
-  borderCard: '#ECE5DC',
-  borderPill: '#E5E7EB',
-  blueBox: '#EFF6FF',
-  blueText: '#1E40AF',
-  blueIcon: '#2563EB',
+  pageBg:       adminColors.canvas,
+  cardBg:       adminColors.card,
+  textHeading:  adminColors.brandDeep,
+  textPrimary:  adminColors.ink,
+  textSecondary:adminColors.muted,
+  textMuted:    adminColors.muted,
+  orangePrimary:adminColors.brand,
+  orangeLight:  adminColors.brandTint,
+  borderCard:   adminColors.border,
+  borderPill:   adminColors.border,
+  blueBox:      adminColors.info.bg,
+  blueText:     adminColors.info.text,
+  blueIcon:     adminColors.warehouse.infoIcon,
+  // Additional for StyleSheet surfaces and SVG icons
+  shadow:       adminColors.shadow,
+  iconStroke:   adminColors.ink,
+  iconMuted:    adminColors.muted,
+  onBrand:      adminColors.onBrand,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -37,7 +43,7 @@ function BackChevronIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1F2937"
+        stroke={PALETTE.iconStroke}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -51,7 +57,7 @@ function ChevronRightIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M9 18l6-6-6-6"
-        stroke="#9CA3AF"
+        stroke={PALETTE.iconMuted}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -98,12 +104,12 @@ function WarehouseBuildingIcon() {
 function DragGripIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="6" r="1.5" fill="#9CA3AF" />
-      <Circle cx="15" cy="6" r="1.5" fill="#9CA3AF" />
-      <Circle cx="9" cy="12" r="1.5" fill="#9CA3AF" />
-      <Circle cx="15" cy="12" r="1.5" fill="#9CA3AF" />
-      <Circle cx="9" cy="18" r="1.5" fill="#9CA3AF" />
-      <Circle cx="15" cy="18" r="1.5" fill="#9CA3AF" />
+      <Circle cx="9" cy="6" r="1.5" fill={PALETTE.iconMuted} />
+      <Circle cx="15" cy="6" r="1.5" fill={PALETTE.iconMuted} />
+      <Circle cx="9" cy="12" r="1.5" fill={PALETTE.iconMuted} />
+      <Circle cx="15" cy="12" r="1.5" fill={PALETTE.iconMuted} />
+      <Circle cx="9" cy="18" r="1.5" fill={PALETTE.iconMuted} />
+      <Circle cx="15" cy="18" r="1.5" fill={PALETTE.iconMuted} />
     </Svg>
   );
 }
@@ -111,8 +117,8 @@ function DragGripIcon() {
 function PlusIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Line x1="12" y1="5" x2="12" y2="19" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
-      <Line x1="5" y1="12" x2="19" y2="12" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
+      <Line x1="12" y1="5" x2="12" y2="19" stroke={PALETTE.iconStroke} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="5" y1="12" x2="19" y2="12" stroke={PALETTE.iconStroke} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -122,13 +128,13 @@ function SaveDiskIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"
-        stroke="#FFFFFF"
+        stroke={PALETTE.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M17 21v-8H7v8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M7 3v5h8" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M17 21v-8H7v8" stroke={PALETTE.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 3v5h8" stroke={PALETTE.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -495,7 +501,7 @@ const styles = StyleSheet.create({
   saveTemplateBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: PALETTE.onBrand,
   },
   infoBanner: {
     flexDirection: 'row',

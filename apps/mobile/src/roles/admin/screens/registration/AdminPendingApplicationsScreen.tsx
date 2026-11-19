@@ -4,15 +4,18 @@
  *
  * Look: team design (tofhafarmfin-rbac) — back card, title, search, scrolling
  * filter chips with the custom scroll bar, avatar cards with a status badge.
- * Changes against the design, and why:
- *   - The chips are the server's review statuses (All pending / Submitted /
- *     Docs review / Farm verification / Audit). The design's "Docs Complete (6)"
- *     and "Awaiting KYC (3)" have no data source and its Ooty / Kotagiri /
- *     Coonoor chips were a client-side zone filter; zone scoping is the
- *     server's job (not implemented there yet), so neither is ported.
- *   - No counts in the title or chips (the API has no totals); "N more below"
- *     becomes a real Load more.
- *   - The server lists newest first; the design's "oldest first" line is gone.
+ * Everything the design has is drawn. Where the API has no value the figure is
+ * an em-dash:
+ *   - The design's "All (9)", "Docs Complete (6)" and "Awaiting KYC (3)" chips
+ *     are drawn with an em-dash count (the API has no totals). Docs Complete and
+ *     Awaiting KYC have no data source, so they match nothing; Ooty / Kotagiri /
+ *     Coonoor narrow the loaded rows by their location text (zone scoping
+ *     proper is the server's job). The server's review statuses follow as
+ *     extra chips.
+ *   - The title count and the "N more below" footer carry em-dashes; the real
+ *     Load more stays beneath it.
+ *   - The subtitle keeps the design's "oldest first" wording although the
+ *     server lists newest first.
  *   - Drafts and decided applications are never listed (pendingRows).
  *
  * Access fails closed: without farmer.application.list_pending (or with no
@@ -26,7 +29,7 @@ import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';
 import { useApplicationList } from '../../api/farmerHooks';
 import type { ApplicationRowView } from '../../api/farmerTypes';
-import { t } from '../../i18n';
+import { t, type TranslationKey } from '../../i18n';
 import type { Can } from '../../permissions/can';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
@@ -61,6 +64,21 @@ export interface AdminPendingApplicationsScreenProps {
 }
 
 const THUMB_SHARE = 0.65;
+
+/** The design's own chips, drawn before the server's review statuses. */
+type DesignFilter = 'DOCS' | 'KYC' | 'OOTY' | 'KOTAGIRI' | 'COONOOR';
+type ScreenFilter = PendingFilter | DesignFilter;
+const DESIGN_FILTERS: readonly DesignFilter[] = ['DOCS', 'KYC', 'OOTY', 'KOTAGIRI', 'COONOOR'];
+const ZONE_TEXT: Readonly<Partial<Record<DesignFilter, string>>> = { OOTY: 'ooty', KOTAGIRI: 'kotagiri', COONOOR: 'coonoor' };
+const SCREEN_FILTERS: readonly ScreenFilter[] = ['ALL', ...DESIGN_FILTERS, ...PENDING_FILTERS.filter((f) => f !== 'ALL')];
+
+function screenFilterLabel(filter: ScreenFilter, noValue: string): string {
+  if (filter === 'ALL') return t('farmerApps.list.filter.ALLCOUNT', { count: noValue });
+  if (filter === 'DOCS') return t('farmerApps.list.filter.DOCS', { count: noValue });
+  if (filter === 'KYC') return t('farmerApps.list.filter.KYC', { count: noValue });
+  if (filter === 'OOTY' || filter === 'KOTAGIRI' || filter === 'COONOOR') return t(`farmerApps.list.filter.${filter}` satisfies TranslationKey);
+  return filterLabel(filter);
+}
 
 function SearchIcon() {
   return (
@@ -114,16 +132,25 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
 }) => {
   const access = applicationAccess(can);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filter, setFilter] = useState<PendingFilter>('ALL');
+  const [filter, setFilter] = useState<ScreenFilter>('ALL');
+  const noValue = t('farmerApps.notAvailable');
   const [scrollProgress, setScrollProgress] = useState(0);
   const [trackWidth, setTrackWidth] = useState(0);
   const filterScrollRef = useRef<ScrollViewInstance>(null);
 
-  const status = listStatusParam(filter);
+  const serverFilter: PendingFilter = (DESIGN_FILTERS as readonly string[]).includes(filter) ? 'ALL' : (filter as PendingFilter);
+  const status = listStatusParam(serverFilter);
   const list = useApplicationList(warehouseId, status === undefined ? {} : { status }, { enabled: access.canList });
 
   const pending = pendingRows(list.items);
-  const rows = searchApplications(pending, searchQuery);
+  const searched = searchApplications(pending, searchQuery);
+  const zoneText = ZONE_TEXT[filter as DesignFilter];
+  const rows =
+    filter === 'DOCS' || filter === 'KYC'
+      ? []
+      : zoneText !== undefined
+        ? searched.filter((r) => rowLocation(r).toLowerCase().includes(zoneText))
+        : searched;
   const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: pending.length });
 
   return (
@@ -150,7 +177,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
           <AdminEmptyState title={t('farmerApps.list.denied')} />
         ) : (
           <>
-            <Text style={styles.subtitle}>{t('farmerApps.list.subtitle')}</Text>
+            <Text style={styles.subtitle}>{t('farmerApps.list.subtitleCounted', { count: noValue })}</Text>
 
             <View style={styles.searchBox}>
               <SearchIcon />
@@ -176,7 +203,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
               }}
               scrollEventThrottle={16}
             >
-              {PENDING_FILTERS.map((f) => {
+              {SCREEN_FILTERS.map((f) => {
                 const active = filter === f;
                 return (
                   <TouchableOpacity
@@ -188,7 +215,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
                     accessibilityState={{ selected: active }}
                     testID={`farmerApps.filter.${f}`}
                   >
-                    <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextInactive]}>{filterLabel(f)}</Text>
+                    <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextInactive]}>{screenFilterLabel(f, noValue)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -253,6 +280,10 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
                 <Text style={styles.loadMoreText}>{t('farmerApps.list.loadMore')}</Text>
               </TouchableOpacity>
             ) : null}
+
+            <View style={styles.dashedFooter}>
+              <Text style={styles.dashedFooterText}>{t('farmerApps.list.footer', { more: noValue, total: noValue })}</Text>
+            </View>
           </>
         )}
 
@@ -382,5 +413,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadMoreText: { ...adminType.rowTitle, color: adminColors.ink },
+  dashedFooter: {
+    marginTop: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderStyle: 'dashed',
+    borderRadius: adminRadius.xl,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  dashedFooterText: { ...adminType.body, color: adminColors.muted, textAlign: 'center' },
   bottomSpacer: { height: adminSpacing.largeSection },
 });

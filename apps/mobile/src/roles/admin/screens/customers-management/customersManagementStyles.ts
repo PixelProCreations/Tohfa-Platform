@@ -205,6 +205,36 @@ export const customersManagementStyles = StyleSheet.create({
     height: adminSpacing.xxl,
   },
 
+  // Directory screen styles
+  directoryCountText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.smMd,
+  },
+  customerCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.smMd,
+  },
+  customerCardMetaLine1: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xsSm,
+  },
+  customerCardMetaLine2: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs / 2,
+  },
+  filterBtnActive: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.sm,
+    padding: adminSpacing.xs / 2,
+  },
+
   // Period filter modal
   modalOverlay: {
     flex: 1,

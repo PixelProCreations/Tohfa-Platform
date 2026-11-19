@@ -97,6 +97,29 @@ export function UsersMetricIcon({ size = 18, color = adminColors.brandDeep }: Ic
   );
 }
 
+/** Filter sliders icon (plain, not in circle) for the directory search bar. */
+export function FilterSlidersIcon({ size = 18, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="15" cy="6" r="2.2" fill={color} />
+      <Circle cx="9" cy="12" r="2.2" fill={color} />
+      <Circle cx="16" cy="18" r="2.2" fill={color} />
+    </Svg>
+  );
+}
+
+/** Plus icon for the circular header + button. */
+export function PlusIcon({ size = 18, color = adminColors.onBrand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** Card badge for the design's `clipboard` icon name. */
 export function ClipboardMetricIcon({ size = 18, color = adminColors.brandDeep }: IconProps) {
   return (

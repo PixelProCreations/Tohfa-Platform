@@ -13,7 +13,8 @@
  * host callback runs only after the write succeeded.
  */
 import React from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import type { AuditDetailDto } from '../../api/audits';
 import { adminErrorKey } from '../../api/errors';
@@ -110,7 +111,7 @@ export function AuditInspectionOverviewScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Orange Header ─── */}
       <View style={styles.header}>

@@ -3,7 +3,8 @@
  * currentView 'audit_details_m5'), with the Checklist.pdf document popup.
  */
 import React, { useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { Can } from '../../../permissions/can';
 import { adminColors, adminSpacing } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
@@ -41,7 +42,7 @@ export function AuditDetailsM5View({ selected, can, onBack, onNavigateFarmerProf
 
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <ScreenHeader
         title={ds('admin.audits.dashSchedule.header.auditTitle', { code })}
         subtitle={ds('admin.audits.dashSchedule.header.status', { status })}

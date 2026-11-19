@@ -7,6 +7,7 @@ import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import {
   allocationsRepo,
+  type AllocationConfigFilter,
   type AllocationsRepo,
   type InsertAllocationItem,
   type ListAllocationsResult,
@@ -53,6 +54,7 @@ export class AllocationsService {
         client,
         effectiveDate,
         input.cropId,
+        input.warehouseId,
       );
 
       const batchGrams = kgToGrams(input.qtyReceivedKg);
@@ -134,13 +136,23 @@ export class AllocationsService {
         outcome: 'ALLOWED',
         after: {
           effectiveFrom: input.effectiveFrom,
+          warehouseId: input.warehouseId ?? null,
           cropId: input.cropId ?? null,
+          grade: input.grade ?? null,
           channels: input.channels,
         },
       });
 
       return result;
     });
+  }
+
+  async getAllocationConfig(
+    _scope: ResolvedScope,
+    filter?: AllocationConfigFilter | string | null,
+    db: Executor = pool,
+  ): Promise<AllocationConfigView> {
+    return this.repo.getAllocationConfig(db, filter);
   }
 
   async listAllocations(

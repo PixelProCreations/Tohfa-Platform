@@ -12,9 +12,10 @@
  * Directions open the device dialer and maps (Linking), each only when its
  * value is set.
  *
- * Hidden, because the warehouse record has no such field: the e-mail (and its
- * Email action), the contact person and the emergency contact. Not ported: the
- * per-row "Copy" buttons (no clipboard module is installed, SPEC_GAPS W4m-3).
+ * The e-mail, the contact person and the emergency contact are design rows the
+ * warehouse record has no field for: they render the em-dash placeholder rather
+ * than disappearing. Not ported: the per-row "Copy" buttons (no clipboard
+ * module is installed, SPEC_GAPS W4m-3).
  */
 import React from 'react';
 import { Alert, Linking, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -23,11 +24,12 @@ import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { InfoCard, SectionTitle, WalletScreen, WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
+import { InfoCard, SectionTitle, WalletButton, WalletScreen, WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 import type { WarehouseProfileView, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
 import {
   DirectionsIcon,
   LinkCard,
+  MailIcon,
   MapFoldedIcon,
   PhoneIcon,
   singleWarehouseId,
@@ -100,34 +102,49 @@ export function ContactScreen({
           refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
         >
           <SectionTitle>Primary Contact</SectionTitle>
-          <InfoCard rows={[[{ label: 'Phone', value: profile.contactPhone ?? noValue }]]} />
+          <InfoCard rows={[[{ label: 'Phone', value: profile.contactPhone ?? noValue }], [{ label: 'Email', value: noValue }]]} />
+
+          <SectionTitle>Contact Person</SectionTitle>
+          <InfoCard
+            rows={[
+              [
+                { label: 'Name', value: noValue },
+                { label: 'Role', value: noValue },
+              ],
+              [{ label: 'Phone', value: noValue }],
+            ]}
+          />
 
           <SectionTitle>Address</SectionTitle>
           <InfoCard rows={[[{ label: 'Warehouse Address', value: profile.address ?? noValue }]]} />
-          {mapTarget !== null ? (
-            <>
-              <View style={warehouseProfileLayout.gap} />
-              <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open in Maps" onPress={directions} />
-            </>
-          ) : null}
+          <View style={warehouseProfileLayout.gap} />
+          <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open in Maps" onPress={directions} />
 
-          {profile.contactPhone !== null || mapTarget !== null ? (
-            <>
-              <SectionTitle>Contact Actions</SectionTitle>
-              <View style={styles.actions}>
-                {profile.contactPhone !== null ? (
-                  <ActionButton
-                    icon={<PhoneIcon size={16} color={adminColors.brandDeep} />}
-                    label="Call"
-                    onPress={() => {
-                      if (profile.contactPhone !== null) call(profile.contactPhone);
-                    }}
-                  />
-                ) : null}
-                {mapTarget !== null ? <ActionButton icon={<DirectionsIcon />} label="Directions" onPress={directions} /> : null}
-              </View>
-            </>
-          ) : null}
+          <SectionTitle>Contact Actions</SectionTitle>
+          <View style={styles.actions}>
+            <ActionButton
+              icon={<PhoneIcon size={16} color={adminColors.brandDeep} />}
+              label="Call"
+              onPress={() => {
+                if (profile.contactPhone !== null) call(profile.contactPhone);
+              }}
+            />
+            {/* No e-mail field on the warehouse record, so the action has nothing to open. */}
+            <ActionButton icon={<MailIcon />} label="Email" onPress={() => undefined} />
+            <ActionButton icon={<DirectionsIcon />} label="Directions" onPress={directions} />
+          </View>
+
+          <SectionTitle>Emergency Contact</SectionTitle>
+          <InfoCard
+            rows={[
+              [
+                { label: 'Name', value: noValue },
+                { label: 'Phone', value: noValue },
+              ],
+            ]}
+          />
+          <View style={warehouseProfileLayout.gap} />
+          <WalletButton label="Call Emergency Contact" variant="outline" onPress={() => undefined} />
         </ScrollView>
       )}
     </WalletScreen>

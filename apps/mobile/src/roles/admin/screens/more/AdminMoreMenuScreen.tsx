@@ -18,7 +18,7 @@ import type { Can } from '../../permissions/can';
 import { t } from '../../i18n';
 import { adminColors } from '../../theme';
 import { BackArrowWhiteIcon, ChevronRightIcon, MORE_ROW_ICONS } from './moreMenuIcons';
-import { moreRowDef, moreRowHasOpener, visibleMoreRows, type MoreRowHandlers, type MoreRowId } from './moreMenuRows';
+import { moreRowDef, visibleMoreRows, type MoreRowHandlers, type MoreRowId } from './moreMenuRows';
 import { moreMenuStyles as styles } from './moreMenuStyles';
 
 export type { MoreRowId } from './moreMenuRows';

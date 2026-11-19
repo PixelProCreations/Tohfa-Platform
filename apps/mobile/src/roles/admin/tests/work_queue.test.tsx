@@ -396,10 +396,19 @@ describe('filter and sort sheet', () => {
     expect(last.warehouseId).toBe(WH);
   });
 
-  it('no warehouse.all.view: no warehouse field and no warehouse request', async () => {
+  it('no warehouse.all.view: the warehouse field is drawn but offers only "Any", and no warehouse request is made', async () => {
+    api.listAllWarehouses.mockResolvedValue([
+      { id: WH, name: 'North Store', code: 'N1', type: 'SUB', city: null, isActive: true },
+    ]);
     const tree = await mount({ can: makeCan(['task.own.view']) });
     await press(tree, 'workQueue.filterOpen');
-    expect(byId(tree, 'workQueue.filter.field.warehouse')).toHaveLength(0);
+    // Design element, kept: the field is always drawn.
+    expect(byId(tree, 'workQueue.filter.field.warehouse')).toHaveLength(1);
+    await press(tree, 'workQueue.filter.field.warehouse');
+    // Without warehouse.all.view the only option is "Any" (the empty value); no real warehouse is offered.
+    expect(byId(tree, 'workQueue.filter.option.warehouse.')).toHaveLength(1);
+    expect(byId(tree, `workQueue.filter.option.warehouse.${WH}`)).toHaveLength(0);
+    // Security, unchanged: no warehouse list is ever requested without the permission.
     expect(api.listAllWarehouses).not.toHaveBeenCalled();
   });
 });

@@ -779,6 +779,14 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
     };
     coonoorStaff = await create(coonoorId, `${tag} Coonoor`);
     kotagiriStaff = await create(kotagiriId, `${tag} Kotagiri`);
+    await request(server)
+      .post(`/v1/admin/warehouse-staff/${coonoorStaff}/bank-account`)
+      .set('Authorization', auth('main'))
+      .send({ accountHolderName: 'Coonoor Staff', accountNumber: '12345678', ifsc: 'SBIN0001', bankName: 'SBI', branchName: 'Coonoor' });
+    await request(server)
+      .put(`/v1/admin/warehouse-staff/${coonoorStaff}/emergency-contact`)
+      .set('Authorization', auth('main'))
+      .send({ name: 'Emergency Contact', relationship: 'Family', mobile: '+919876543210' });
   });
 
   afterAll(async () => {
@@ -804,11 +812,18 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
   const STAFF_READS: Call[] = [
     { route: 'GET /v1/admin/warehouse-staff', method: 'get', path: () => '/v1/admin/warehouse-staff' },
     { route: 'GET /v1/admin/warehouse-staff/:id', method: 'get', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}` },
+    { route: 'GET /v1/admin/warehouse-staff/:id/bank-account', method: 'get', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/bank-account` },
+    { route: 'GET /v1/admin/warehouse-staff/:id/documents', method: 'get', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/documents` },
+    { route: 'GET /v1/admin/warehouse-staff/:id/emergency-contact', method: 'get', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/emergency-contact` },
   ];
   const STAFF_WRITES: Call[] = [
     { route: 'POST /v1/admin/warehouse-staff', method: 'post', path: () => '/v1/admin/warehouse-staff', body: () => ({ warehouseId: coonoorId, fullName: `${tag} X`, designation: tag, joinedOn: '2026-01-15' }) },
     { route: 'PATCH /v1/admin/warehouse-staff/:id', method: 'patch', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}`, body: () => ({ designation: tag }) },
     { route: 'POST /v1/admin/warehouse-staff/:id/deactivate', method: 'post', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/deactivate` },
+    { route: 'POST /v1/admin/warehouse-staff/:id/bank-account', method: 'post', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/bank-account`, body: () => ({ accountHolderName: 'X', accountNumber: '123', ifsc: 'SBI01', bankName: 'SBI', branchName: 'Ooty' }) },
+    { route: 'PUT /v1/admin/warehouse-staff/:id/bank-account', method: 'put', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/bank-account`, body: () => ({ accountHolderName: 'X', accountNumber: '123', ifsc: 'SBI01', bankName: 'SBI', branchName: 'Ooty' }) },
+    { route: 'POST /v1/admin/warehouse-staff/:id/documents', method: 'post', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/documents`, body: () => ({ type: 'PAN', documentNumber: 'ABCDE1234F', fileUrl: 'https://example.com/doc.pdf' }) },
+    { route: 'PUT /v1/admin/warehouse-staff/:id/emergency-contact', method: 'put', path: () => `/v1/admin/warehouse-staff/${coonoorStaff}/emergency-contact`, body: () => ({ name: 'Jane', relationship: 'Spouse', mobile: '+919876543210' }) },
   ];
   const ATTENDANCE_READS: Call[] = [
     { route: 'GET /v1/admin/staff-attendance/roll-call', method: 'get', path: () => `/v1/admin/staff-attendance/roll-call?date=${DAY}` },
@@ -854,7 +869,7 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
       ...exposed(routes.adminWarehouseStaffRouter, '/v1/admin/warehouse-staff'),
       ...exposed(routes.adminStaffAttendanceRouter, '/v1/admin/staff-attendance'),
     ].sort();
-    expect(actual).toHaveLength(11);
+    expect(actual).toHaveLength(18);
     expect(ALL_CALLS.map((c) => c.route).sort()).toEqual(actual);
   });
 

@@ -39,6 +39,9 @@ import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
 import { AdminMoreMenuScreen } from '../more/AdminMoreMenuScreen';
 import { ProfileFlow } from '../warehouse/profile-settings';
+import { ProduceControlFlow } from '../produce';
+import { AuditManagementFlow } from '../audits/AuditManagementFlow';
+import { PricingFlow } from '../pricing/PricingFlow';
 import {
   OverviewDashboardCard,
   OverviewCardsGrid,
@@ -303,7 +306,7 @@ export function FarmerAdminDashboardScreen({
   initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
-  const [subView, setSubView] = useState<'none' | 'notifications' | 'settings'>('none');
+  const [subView, setSubView] = useState<'none' | 'notifications' | 'settings' | 'pricing'>('none');
   const [user, setUser] = useState<UserMe | null>(null);
   const [expandedFarmer, setExpandedFarmer] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<{
@@ -356,6 +359,16 @@ export function FarmerAdminDashboardScreen({
         initialScreen="Settings"
         onBack={() => setSubView('none')}
         onLogout={onSignOut}
+      />
+    );
+  }
+
+  // ─── Sub-view: Market & Pricing ─────────────────────────────────────────────
+  if (subView === 'pricing') {
+    return (
+      <PricingFlow
+        can={adminCan}
+        onBack={() => setSubView('none')}
       />
     );
   }
@@ -687,20 +700,14 @@ export function FarmerAdminDashboardScreen({
           <FarmersFlow can={adminCan} onBack={() => setActiveTab('Home')} />
         )}
 
-        {/* ─── Produce Calendar Tab (not built) — rendered but no content; tab press toasts ─── */}
+        {/* ─── Produce Calendar Tab ─── */}
         {activeTab === 'Produce' && (
-          <View style={styles.placeholderFill}>
-            <Text style={styles.placeholderText}>{t('tohfaHome.notAvailable.title')}</Text>
-            <Text style={styles.placeholderSub}>{t('tohfaHome.notAvailable.body')}</Text>
-          </View>
+          <ProduceControlFlow can={adminCan} onBack={() => setActiveTab('Home')} />
         )}
 
-        {/* ─── Audits Tab (not built) — rendered but no content; tab press toasts ─── */}
+        {/* ─── Audits Tab ─── */}
         {activeTab === 'Audits' && (
-          <View style={styles.placeholderFill}>
-            <Text style={styles.placeholderText}>{t('tohfaHome.notAvailable.title')}</Text>
-            <Text style={styles.placeholderSub}>{t('tohfaHome.notAvailable.body')}</Text>
-          </View>
+          <AuditManagementFlow can={adminCan} onBack={() => setActiveTab('Home')} />
         )}
 
         {/* ─── More Tab ─── */}
@@ -709,8 +716,9 @@ export function FarmerAdminDashboardScreen({
             can={adminCan}
             onBack={() => setActiveTab('Home')}
             onLogout={onSignOut}
-            hiddenRows={['farmers', 'audit']}
+            hiddenRows={['farmers', 'audit', 'produce']}
             handlers={{
+              pricing: () => setSubView('pricing'),
               notifications: () => setSubView('notifications'),
               settings: () => setSubView('settings'),
               ...(onSwitchRole !== undefined ? { switch_role: onSwitchRole } : {}),
@@ -785,9 +793,7 @@ export function FarmerAdminDashboardScreen({
 
           <Pressable
             style={styles.tabItem}
-            onPress={() => {
-              Alert.alert(t('tohfaHome.notAvailable.title'), t('tohfaHome.notAvailable.body'));
-            }}
+            onPress={() => setActiveTab('Produce')}
             accessibilityRole="tab"
             accessibilityLabel="Produce Calendar"
           >
@@ -799,9 +805,7 @@ export function FarmerAdminDashboardScreen({
 
           <Pressable
             style={styles.tabItem}
-            onPress={() => {
-              Alert.alert(t('tohfaHome.notAvailable.title'), t('tohfaHome.notAvailable.body'));
-            }}
+            onPress={() => setActiveTab('Audits')}
             accessibilityRole="tab"
             accessibilityLabel="Audits"
           >

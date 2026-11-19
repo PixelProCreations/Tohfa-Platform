@@ -5,7 +5,7 @@
  *   Home       -> TohfaHomeScreen
  *   Work Queue -> WorkQueueScreen (screens/work-queue)
  *   Inventory  -> WarehouseOverviewScreen
- *   Finance    -> FinanceHubScreen (screens/finance-hub)
+ *   Finance    -> FinanceManagementFlow (screens/finance) — hub + sub-screen routing
  *   More       -> AdminMoreMenuScreen
  * Navigation state lives in tohfa-shell/tohfaShellRoutes.ts.
  *
@@ -35,8 +35,9 @@ import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { PricingFlow } from '../pricing/PricingFlow';
 import { TohfaHomeScreen } from '../tohfa-home/TohfaHomeScreen';
 import { WarehouseOverviewScreen } from '../operations';
-// screens/warehouse/finance-expenses also exports a FinanceHubScreen; this is the Tohfa hub.
-import { FinanceHubScreen as TohfaFinanceHubScreen } from '../finance-hub';
+// FinanceManagementFlow is the Finance tab: hub + all sub-screen routing.
+// (FinanceHubScreen from finance-hub/ is used inside it for the overview.)
+import { FinanceManagementFlow } from '../finance';
 import { AdminMoreMenuScreen } from '../more/AdminMoreMenuScreen';
 import { TohfaAdminSettingsScreen } from '../settings/TohfaAdminSettingsScreen';
 import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
@@ -246,19 +247,10 @@ export function TohfaAdminDashboardScreen({
           />
         );
       case 'Finance':
-        return (
-          <TohfaFinanceHubScreen
-            can={adminCan}
-            onBack={goHome}
-            onOpenSales={() => open({ kind: 'sales' })}
-            onOpenSalesIncome={() => open({ kind: 'finance', screen: 'Revenue' })}
-            onOpenExpenses={() => open({ kind: 'finance', screen: 'Expenses' })}
-            onOpenWallet={() => open({ kind: 'wallet' })}
-            onOpenReturns={() => open({ kind: 'returns' })}
-            onOpenInvoices={() => open({ kind: 'billing' })}
-            onOpenTransactionHistory={() => open({ kind: 'finance', screen: 'FinanceHistory' })}
-          />
-        );
+        // FinanceManagementFlow handles all sub-screen navigation internally.
+        // The shell-level sub-flows (kind: 'finance', 'sales', 'wallet', etc.)
+        // remain for external entry points (e.g. initialTohfaShellState('Sales')).
+        return <FinanceManagementFlow can={adminCan} onBack={goHome} />;
       case 'More':
         return (
           <AdminMoreMenuScreen
@@ -273,6 +265,9 @@ export function TohfaAdminDashboardScreen({
               audit: () => open({ kind: 'audits' }),
               pricing: () => open({ kind: 'pricing' }),
               customers: () => open({ kind: 'customersManagement' }),
+              allocation: () => open({ kind: 'inventory', screen: 'M3S07' }),
+              sales_orders: () => open({ kind: 'orders' }),
+              staff: () => open({ kind: 'staff', screen: 'Staff' }),
               reports: () => open({ kind: 'reports' }),
               notifications: () => open({ kind: 'notifications' }),
               settings: () => open({ kind: 'settings' }),

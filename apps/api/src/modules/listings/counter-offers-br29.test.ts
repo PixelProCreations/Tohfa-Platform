@@ -60,28 +60,13 @@ describeIfDatabase('POST /admin/listings/:id/approve (BR-29)', () => {
       );
     }
 
-    // Ensure crop and fair price exist
-    const cropRes = await pool.query<{ id: string }>('SELECT id FROM crop_master LIMIT 1');
-    if (cropRes.rows.length > 0) {
-      cropId = cropRes.rows[0]!.id;
-    } else {
-      const catRes = await pool.query<{ id: string }>('SELECT id FROM categories LIMIT 1');
-      cropId = newId();
-      await pool.query(
-        `INSERT INTO crop_master (id, slug, name, category_id) VALUES ($1, $2, 'BR-29 Test Crop', $3)`,
-        [cropId, `br29-crop-${cropId}`, catRes.rows[0]!.id],
-      );
-    }
-
-    // Set fair price ceiling
-    const fpRes = await pool.query<{ id: string }>(
-      `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
-       VALUES ($1, 'GRADE_1', '100.00', '2020-01-01', $2)
-       ON CONFLICT (crop_id, grade, effective_from) DO UPDATE SET ceiling_price = '100.00'
-       RETURNING id`,
-      [cropId, newId()],
+    // Ensure isolated crop and fair price exist for this test
+    const catRes = await pool.query<{ id: string }>('SELECT id FROM categories LIMIT 1');
+    cropId = newId();
+    await pool.query(
+      `INSERT INTO crop_master (id, slug, name, category_id) VALUES ($1, $2, 'BR-29 Test Crop', $3)`,
+      [cropId, `br29-crop-${cropId}`, catRes.rows[0]!.id],
     );
-    const fairPriceId = fpRes.rows[0]!.id;
 
     // 2. Create Farmer Admin who is also a Farmer
     farmerAdminUserId = newId();
@@ -94,6 +79,15 @@ describeIfDatabase('POST /admin/listings/:id/approve (BR-29)', () => {
        VALUES ($1, $2, 'BR-29 Farmer Admin', 'ADMIN', 'ACTIVE')`,
       [farmerAdminUserId, `+9198${Math.floor(10000000 + Math.random() * 89999999)}`],
     );
+
+    // Set fair price ceiling (fair_prices is append-only, set_by references users)
+    const fpRes = await pool.query<{ id: string }>(
+      `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
+       VALUES ($1, 'GRADE_1', '100.00', '2020-01-01', $2)
+       RETURNING id`,
+      [cropId, farmerAdminUserId],
+    );
+    const fairPriceId = fpRes.rows[0]!.id;
 
     await pool.query(
       `INSERT INTO user_roles (user_id, role_id, role_code, zone_id)
@@ -170,17 +164,31 @@ describeIfDatabase('POST /admin/listings/:id/approve (BR-29)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    for (const id of createdListingIds) {
-      await pool.query('DELETE FROM purchase_orders WHERE listing_id = $1', [id]).catch(() => undefined);
-      await pool.query('DELETE FROM listing_routing WHERE listing_id = $1', [id]).catch(() => undefined);
-      await pool.query('DELETE FROM produce_listings WHERE id = $1', [id]).catch(() => undefined);
-    }
-    for (const id of createdFarmerIds) {
-      await pool.query('DELETE FROM farmers WHERE id = $1', [id]).catch(() => undefined);
-    }
-    for (const id of createdUserIds) {
-      await pool.query('DELETE FROM user_roles WHERE user_id = $1', [id]).catch(() => undefined);
-      await pool.query('DELETE FROM users WHERE id = $1', [id]).catch(() => undefined);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL session_replication_role = replica');
+      for (const id of createdListingIds) {
+        await client.query('DELETE FROM purchase_orders WHERE listing_id = $1', [id]).catch(() => undefined);
+        await client.query('DELETE FROM listing_routing WHERE listing_id = $1', [id]).catch(() => undefined);
+        await client.query('DELETE FROM produce_listings WHERE id = $1', [id]).catch(() => undefined);
+      }
+      if (cropId) {
+        await client.query('DELETE FROM fair_prices WHERE crop_id = $1', [cropId]).catch(() => undefined);
+        await client.query('DELETE FROM crop_master WHERE id = $1', [cropId]).catch(() => undefined);
+      }
+      for (const id of createdFarmerIds) {
+        await client.query('DELETE FROM farmers WHERE id = $1', [id]).catch(() => undefined);
+      }
+      for (const id of createdUserIds) {
+        await client.query('DELETE FROM user_roles WHERE user_id = $1', [id]).catch(() => undefined);
+        await client.query('DELETE FROM users WHERE id = $1', [id]).catch(() => undefined);
+      }
+      await client.query('COMMIT');
+    } catch {
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
     }
   });
 

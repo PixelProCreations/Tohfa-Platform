@@ -4,7 +4,8 @@
  * the server only renders it once the audit is COMPLETED.
  */
 import React from 'react';
-import { Alert, Linking, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
 import type { Can } from '../../../permissions/can';
@@ -53,7 +54,7 @@ export function AuditReportView(props: AuditReportViewProps) {
 
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <ScreenHeader
         title={ds('admin.audits.dashSchedule.header.farmerAuditReport')}
         subtitle={a === undefined ? ADMIN_NO_VALUE : auditCode(a.id)}

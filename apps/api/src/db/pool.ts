@@ -113,5 +113,6 @@ export async function pingDatabase(): Promise<boolean> {
 }
 
 export async function closePool(): Promise<void> {
+  if (pool.ending) return;
   await pool.end();
 }

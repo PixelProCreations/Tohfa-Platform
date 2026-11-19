@@ -4,7 +4,8 @@
  * dropdown sheet and the dual action bar.
  */
 import React from 'react';
-import { Modal, SafeAreaView, ScrollView, StatusBar, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, SafeAreaView, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { adminColors } from '../../../theme';
 import { BackArrowIcon, CheckmarkIcon, ChevronDownIcon, CopyIcon, InfoCircleIcon } from './systemSettingsIcons';
@@ -27,7 +28,7 @@ export function ScreenShell({
 }) {
   return (
     <SafeAreaView style={styles.root} testID={testID}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.headerBackBtn}

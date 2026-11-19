@@ -78,9 +78,21 @@ export const listAdjustmentsQuery = z
   .strict();
 export type ListAdjustmentsQuery = z.infer<typeof listAdjustmentsQuery>;
 
+export const stockAdjustmentEvidenceItem = z.object({
+  id: z.string().uuid(),
+  url: z.string(),
+});
+export type StockAdjustmentEvidenceItem = z.infer<typeof stockAdjustmentEvidenceItem>;
+
+export const addAdjustmentEvidenceBody = z.object({
+  url: z.string().optional(),
+});
+export type AddAdjustmentEvidenceBody = z.infer<typeof addAdjustmentEvidenceBody>;
+
 /** Wire representation of one adjustment (list, detail, create, approve, reject). */
 export const stockAdjustmentResponse = z.object({
   id: z.string().uuid(),
+  adjustmentCode: z.string(),
   batchId: z.string().uuid(),
   batchCode: z.string(),
   warehouseId: z.string().uuid(),
@@ -91,6 +103,7 @@ export const stockAdjustmentResponse = z.object({
   qtyDeltaKg: z.string(),
   reason: z.string(),
   status: z.enum(ADJUSTMENT_STATUSES),
+  evidence: z.array(stockAdjustmentEvidenceItem).default([]),
   createdBy: z.string().uuid(),
   /** BR-130: `users.full_name` of `createdBy`, joined in the same query; null only if the user row is gone. */
   createdByName: z.string().nullable(),

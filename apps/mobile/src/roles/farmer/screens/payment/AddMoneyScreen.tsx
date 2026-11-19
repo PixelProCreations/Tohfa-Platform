@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { t } from '../../../../i18n/farmer';
 
 function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
@@ -72,15 +72,36 @@ function InfoCircleIcon({ size = 16, color = P.twGray500 }: { size?: number; col
 export interface AddMoneyScreenProps {
   currentBalance?: string;
   onClose?: () => void;
+  /**
+   * Kept on the props so callers (App.tsx) need not change, but deliberately
+   * not destructured or called: nothing here can succeed yet. See the note on
+   * `ADD_MONEY_UNAVAILABLE` below.
+   */
   onSuccess?: () => void;
+  /** Same -- the reference code it used to carry was invented client-side. */
   onNavigateToCashTopUp?: (data: { amount: string; referenceCode: string }) => void;
 }
+
+/**
+ * There is no wallet top-up endpoint for a farmer anywhere in
+ * `docs/openapi.yaml` -- every write under `/farmers/me` was checked, and
+ * `roles/farmer/api/wallet.ts` is read-only (getMyWallet,
+ * getMyWalletTransactions, getMyInvoices, downloadInvoice). Neither branch of
+ * this screen ever reached a server: the Razorpay branch popped a "Simulating
+ * secure payment" alert and then called `onSuccess`, and the cash branch
+ * handed out the hard-coded reference code 'CASH-TU-7734' as if a warehouse
+ * could honour it. Both told a farmer money had moved when it had not.
+ *
+ * Until a top-up endpoint exists (see the module docblock in
+ * `roles/farmer/api/wallet.ts`), the form stays rendered exactly as designed
+ * and the action reads as unavailable, rather than lying. Flip this to `false`
+ * and wire the handler when the endpoint is there.
+ */
+const ADD_MONEY_UNAVAILABLE = true;
 
 export function AddMoneyScreen({
   currentBalance = '₹4,250',
   onClose,
-  onSuccess,
-  onNavigateToCashTopUp,
 }: AddMoneyScreenProps): React.JSX.Element {
   const [amount, setAmount] = useState('2,000');
   const [method, setMethod] = useState<'Razorpay' | 'Cash'>('Cash');
@@ -95,45 +116,6 @@ export function AddMoneyScreen({
     });
     return () => sub.remove();
   }, [onClose]);
-
-  const handleAction = () => {
-    if (method === 'Cash') {
-      if (onNavigateToCashTopUp) {
-        onNavigateToCashTopUp({
-          amount: amount || '2,000',
-          referenceCode: 'CASH-TU-7734',
-        });
-      } else {
-        Alert.alert(
-          'Reference Code Generated',
-          `Reference Code CASH-TU-7734 generated for ₹${amount}. Please deposit cash at any TOHFA warehouse.`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (onSuccess) onSuccess();
-                else if (onClose) onClose();
-              },
-            },
-          ]
-        );
-      }
-    } else {
-      Alert.alert(
-        'Razorpay Checkout',
-        `Simulating secure payment of ₹${amount} via Razorpay (UPI / Cards / NetBanking). Amount will be credited to wallet immediately upon success.`,
-        [
-          {
-            text: 'Complete Payment',
-            onPress: () => {
-              if (onSuccess) onSuccess();
-              else if (onClose) onClose();
-            },
-          },
-        ]
-      );
-    }
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -244,6 +226,23 @@ export function AddMoneyScreen({
               </Text>
             </View>
           </View>
+
+          {/* Honest notice: nothing here reaches the server yet (see ADD_MONEY_UNAVAILABLE). */}
+          {ADD_MONEY_UNAVAILABLE ? (
+            <View style={styles.unavailableBanner}>
+              <View style={styles.helperIconBox}>
+                <InfoCircleIcon size={16} color={P.twGray700} />
+              </View>
+              <View style={styles.unavailableTextCol}>
+                <Text style={styles.unavailableTitle}>
+                  {t('farmer.wallet.addMoney.unavailableTitle')}
+                </Text>
+                <Text style={styles.unavailableBody}>
+                  {t('farmer.wallet.addMoney.unavailableBody')}
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -260,11 +259,15 @@ export function AddMoneyScreen({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.payBtn}
-          onPress={handleAction}
+          style={[styles.payBtn, ADD_MONEY_UNAVAILABLE && styles.payBtnDisabled]}
           activeOpacity={0.88}
+          disabled={ADD_MONEY_UNAVAILABLE}
           accessibilityRole="button"
           accessibilityLabel={method === 'Cash' ? 'Generate Reference Code' : 'Pay via Razorpay'}
+          accessibilityState={{ disabled: ADD_MONEY_UNAVAILABLE }}
+          {...(ADD_MONEY_UNAVAILABLE
+            ? { accessibilityHint: t('farmer.wallet.addMoney.unavailableBody') }
+            : {})}
         >
           {method === 'Cash' ? (
             <QrCodeIcon size={18} color={P.white} />
@@ -461,6 +464,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
+  },
+  payBtnDisabled: {
+    opacity: 0.5,
+  },
+  unavailableBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: P.twGray50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    padding: 12,
+  },
+  unavailableTextCol: {
+    flex: 1,
+  },
+  unavailableTitle: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.twGray900,
+    marginBottom: 2,
+  },
+  unavailableBody: {
+    fontSize: typography.bodySmall,
+    lineHeight: 17,
+    color: P.twGray700,
+    fontWeight: '500',
   },
   payBtnText: {
     fontSize: typography.body,

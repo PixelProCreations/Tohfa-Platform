@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   Platform,
   ScrollView,
@@ -11,6 +12,15 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
+import {
+  getMyUpiPreference,
+  listMyBankAccounts,
+  type FarmerBankAccount,
+  type FarmerUpiPreference,
+} from '../../api/payoutDestinations';
+import { formatMoneyAmount, getMyWallet, type Wallet } from '../../api/wallet';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -117,6 +127,130 @@ export function BankPaymentScreen({
   onNavigateToPayoutHistory,
   onNavigateToWallet,
 }: BankPaymentScreenProps): React.JSX.Element {
+  // Both cards come from the server (GET /farmers/me/bank-accounts and GET /farmers/me/upi).
+  // Each is loaded and can fail on its own, so one failing never blanks or invents the other.
+  // `undefined` = not loaded yet, `null` = loaded and the farmer has none.
+  const [bank, setBank] = useState<FarmerBankAccount | null | undefined>(undefined);
+  const [upi, setUpi] = useState<FarmerUpiPreference | null | undefined>(undefined);
+  const [bankError, setBankError] = useState<string | null>(null);
+  const [upiError, setUpiError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  // The wallet card loads on its own too, so a wallet failure never hides the bank/UPI cards
+  // (and vice versa). `undefined` = not loaded yet, `null` = the server has no wallet for us.
+  const [wallet, setWallet] = useState<Wallet | null | undefined>(undefined);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
+
+  const loadWallet = useCallback(async () => {
+    setWalletLoading(true);
+    setWalletError(null);
+    setWallet(undefined);
+    try {
+      setWallet(await getMyWallet());
+    } catch (err) {
+      // A 404 means there is no wallet row: an empty state, not an error.
+      if (err instanceof ApiError && err.problem.status === 404) setWallet(null);
+      else setWalletError(formatErrorMessage(err, t('farmer.payment.loadFailed')));
+    }
+    setWalletLoading(false);
+  }, []);
+
+  const loadDestinations = useCallback(async () => {
+    setLoading(true);
+    setBankError(null);
+    setUpiError(null);
+    setBank(undefined);
+    setUpi(undefined);
+    const loadBank = async () => {
+      try {
+        const list = await listMyBankAccounts();
+        // Same rule as BankAccountScreen: only rows that are actually a bank account.
+        const banks = list.filter((a) => a.bankName !== null);
+        setBank(banks.find((a) => a.isDefault) ?? banks[0] ?? null);
+      } catch (err) {
+        setBankError(formatErrorMessage(err, t('farmer.payment.loadFailed')));
+      }
+    };
+    const loadUpi = async () => {
+      try {
+        setUpi(await getMyUpiPreference());
+      } catch (err) {
+        // A 404 means no UPI id is registered yet: an empty state, not an error.
+        if (err instanceof ApiError && err.problem.status === 404) setUpi(null);
+        else setUpiError(formatErrorMessage(err, t('farmer.payment.loadFailed')));
+      }
+    };
+    await Promise.all([loadBank(), loadUpi()]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    void loadDestinations();
+    void loadWallet();
+  }, [loadDestinations, loadWallet]);
+
+  const loadError = bankError ?? upiError ?? walletError;
+  const retryAll = () => {
+    void loadDestinations();
+    void loadWallet();
+  };
+
+  // What each card shows, derived once so the visible text and the screen-reader label
+  // can never disagree.
+  const verifiedText = t('farmer.payment.status.verified');
+  const pendingText = t('farmer.payment.status.pending');
+  const notAddedText = t('farmer.payment.status.notAdded');
+
+  let bankSubtitle: string | null = null;
+  let bankBadge: { text: string; verified: boolean } | null = null;
+  if (bankError) {
+    bankSubtitle = t('farmer.payment.summary.unavailable');
+  } else if (bank === null) {
+    bankSubtitle = t('farmer.payment.summary.bank.empty');
+    bankBadge = { text: notAddedText, verified: false };
+  } else if (bank) {
+    bankSubtitle = bank.accountNumberLast4
+      ? `${bank.bankName ?? ''} • • • • ${bank.accountNumberLast4}`.trim()
+      : (bank.bankName ?? '');
+    bankBadge = { text: bank.isVerified ? verifiedText : pendingText, verified: bank.isVerified };
+  }
+
+  let upiSubtitle: string | null = null;
+  let upiBadge: { text: string; verified: boolean } | null = null;
+  if (upiError) {
+    upiSubtitle = t('farmer.payment.summary.unavailable');
+  } else if (upi === null) {
+    upiSubtitle = t('farmer.payment.summary.upi.empty');
+    upiBadge = { text: notAddedText, verified: false };
+  } else if (upi) {
+    upiSubtitle = upi.upiVpa;
+    upiBadge = { text: upi.isVerified ? verifiedText : pendingText, verified: upi.isVerified };
+  }
+
+  // The balance string is formatted, never computed: formatMoneyAmount only re-groups digits.
+  // The transaction count is deliberately absent: /wallets/me/transactions is cursor-paged and
+  // returns no total, so any number here would be a page size, not a count.
+  let walletSubtitle: string | null = null;
+  if (walletError) {
+    walletSubtitle = t('farmer.payment.summary.unavailable');
+  } else if (wallet === null) {
+    walletSubtitle = t('farmer.payment.summary.wallet.empty');
+  } else if (wallet) {
+    walletSubtitle = t('farmer.payment.summary.wallet.balance', {
+      amount: formatMoneyAmount(wallet.balance),
+    });
+  }
+  const walletLabel = [t('farmer.payment.summary.wallet.title'), walletSubtitle]
+    .filter((x): x is string => !!x)
+    .join('. ');
+
+  const bankLabel = [t('farmer.payment.summary.bank.title'), bankSubtitle, bankBadge?.text]
+    .filter((x): x is string => !!x)
+    .join('. ');
+  const upiLabel = [t('farmer.payment.summary.upi.title'), upiSubtitle, upiBadge?.text]
+    .filter((x): x is string => !!x)
+    .join('. ');
+
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (onBack) {
@@ -168,6 +302,20 @@ export function BankPaymentScreen({
           </Text>
         </View>
 
+        {loadError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{loadError}</Text>
+            <TouchableOpacity
+              onPress={retryAll}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.payment.retry')}
+            >
+              <Text style={styles.errorRetryText}>{t('farmer.payment.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* 4 Navigation Cards */}
         <View style={styles.cardsList}>
           {/* Card 1: Bank Account */}
@@ -176,7 +324,7 @@ export function BankPaymentScreen({
             onPress={onNavigateToBankAccount}
             activeOpacity={0.78}
             accessibilityRole="button"
-            accessibilityLabel="Bank Account. HDFC Bank ending in 4821. Verified."
+            accessibilityLabel={bankLabel}
           >
             <View style={[styles.iconBox, { backgroundColor: P.twGreen50 }]}>
               <BankColumnsIcon size={22} color={P.twGreen700} />
@@ -184,10 +332,24 @@ export function BankPaymentScreen({
 
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>Bank Account</Text>
-              <Text style={styles.cardSubtitle}>HDFC Bank • • • • 4821</Text>
-              <View style={styles.verifiedBadge}>
-                <Text style={styles.verifiedBadgeText}>Verified</Text>
-              </View>
+              {loading ? (
+                <View style={styles.loadingRow} accessibilityLabel={t('farmer.payment.loading')}>
+                  <ActivityIndicator size="small" color={P.forestGreen} />
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.cardSubtitle}>{bankSubtitle}</Text>
+                  {bankBadge ? (
+                    <View style={bankBadge.verified ? styles.verifiedBadge : styles.pendingBadge}>
+                      <Text
+                        style={bankBadge.verified ? styles.verifiedBadgeText : styles.pendingBadgeText}
+                      >
+                        {bankBadge.text}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
             </View>
 
             <ChevronRightIcon size={18} color={P.twGray400} />
@@ -199,7 +361,7 @@ export function BankPaymentScreen({
             onPress={onNavigateToUpiId}
             activeOpacity={0.78}
             accessibilityRole="button"
-            accessibilityLabel="UPI ID. murugan.r at okhdfcbank. Pending Verification."
+            accessibilityLabel={upiLabel}
           >
             <View style={[styles.iconBox, { backgroundColor: P.twAmber50 }]}>
               <QrCodeIcon size={22} color={P.twAmber800} />
@@ -207,10 +369,24 @@ export function BankPaymentScreen({
 
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>UPI ID</Text>
-              <Text style={styles.cardSubtitle}>murugan.r@okhdfcbank</Text>
-              <View style={styles.pendingBadge}>
-                <Text style={styles.pendingBadgeText}>Pending Verification</Text>
-              </View>
+              {loading ? (
+                <View style={styles.loadingRow} accessibilityLabel={t('farmer.payment.loading')}>
+                  <ActivityIndicator size="small" color={P.forestGreen} />
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.cardSubtitle}>{upiSubtitle}</Text>
+                  {upiBadge ? (
+                    <View style={upiBadge.verified ? styles.verifiedBadge : styles.pendingBadge}>
+                      <Text
+                        style={upiBadge.verified ? styles.verifiedBadgeText : styles.pendingBadgeText}
+                      >
+                        {upiBadge.text}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
             </View>
 
             <ChevronRightIcon size={18} color={P.twGray400} />
@@ -242,7 +418,7 @@ export function BankPaymentScreen({
             onPress={onNavigateToWallet}
             activeOpacity={0.78}
             accessibilityRole="button"
-            accessibilityLabel="Wallet. Balance 4250 rupees, 3 recent transactions."
+            accessibilityLabel={walletLabel}
           >
             <View style={[styles.iconBox, { backgroundColor: P.twAmber50 }]}>
               <WalletIcon size={22} color={P.twAmber800} />
@@ -250,7 +426,13 @@ export function BankPaymentScreen({
 
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>Wallet</Text>
-              <Text style={styles.cardSubtitle}>Balance: ₹4,250 · 3 recent transactions</Text>
+              {walletLoading ? (
+                <View style={styles.loadingRow} accessibilityLabel={t('farmer.payment.loading')}>
+                  <ActivityIndicator size="small" color={P.forestGreen} />
+                </View>
+              ) : (
+                <Text style={styles.cardSubtitle}>{walletSubtitle}</Text>
+              )}
             </View>
 
             <ChevronRightIcon size={18} color={P.twGray400} />
@@ -407,5 +589,28 @@ const styles = StyleSheet.create({
     fontSize: typography.caption,
     fontWeight: '700',
     color: P.twAmber900,
+  },
+  loadingRow: {
+    alignItems: 'flex-start',
+    marginTop: 6,
+  },
+  errorBanner: {
+    backgroundColor: P.twRed50,
+    borderColor: P.twRed200,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+    gap: 6,
+  },
+  errorBannerText: {
+    color: P.twRed700,
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+  },
+  errorRetryText: {
+    color: P.twRed700,
+    fontSize: typography.bodySmall,
+    fontWeight: '800',
   },
 });

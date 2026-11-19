@@ -62,14 +62,14 @@ import { toWarehouseOptions as toListOptions } from '../../api/warehouseList';
 import { listBatches, type BatchDto } from '../../api/inventory';
 import { listGoodsReceipts, type GoodsReceiptDto } from '../../api/receiving';
 import { dismissAlert, listAlerts, snoozeAlert, type AlertItemDto } from '../../api/alerts';
-import { ALERT_FILTER_LABEL, ALERT_STATE_FILTERS, snoozeUntil, type AlertStateFilter } from '../warehouse/dashboard-home-more/mappers_dashboardHome';
+import { ALERT_STATE_FILTERS, snoozeUntil, type AlertStateFilter } from '../warehouse/dashboard-home-more/mappers_dashboardHome';
 import { getTaskSummary, listTasks, type TaskItemDto } from '../../api/tasks';
 import { getSalesSummary } from '../../api/sales';
 import { AdminEmptyState, AdminErrorState } from '../warehouse/shared/AsyncStates';
 import { SectionGate, derivedSource, mergeSources, retryFailed, sourceOf } from './MainDashboardParts';
 import { adminErrorKey } from '../../api/errors';
 import { isOnIstDay, istDay, relativeTime } from '../../utils/datetime';
-import { t } from '../../i18n';
+import { t, type TranslationKey } from '../../i18n';
 import {
   DASHBOARD_PAGE_LIMIT,
   EMPTY_ISSUE_FIGURES,
@@ -79,9 +79,7 @@ import {
   EMPTY_TRANSFER_FIGURES,
   FIGURE_PLACEHOLDER,
   barWidthPercent,
-  ALERT_TYPE_FILTERS,
   collectPages,
-  countDashboardAlerts,
   coveredWarehouseIds,
   countLabel,
   dashboardAccess,
@@ -340,6 +338,20 @@ function ChevronRightGrayIcon({ size = 16, color = adminColors.dashboard.mutedWa
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FilterFunnelWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -722,6 +734,15 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   // The Alerts & Action Center lists the caller's active alerts or the ones they snoozed (BR-78).
   const [alertState, setAlertState] = useState<AlertStateFilter>('active');
   const [alertTypeFilter, setAlertTypeFilter] = useState<AlertTypeFilter>('all');
+  // The design's Status and Priority chips. The API has no read/resolved state and no priority,
+  // so a choice other than "all" matches no alert (an empty result, never an unfiltered one).
+  const [alertStatusFilter, setAlertStatusFilter] = useState<'all' | 'unread' | 'resolved'>('all');
+  const [alertPriorityFilter, setAlertPriorityFilter] = useState<'all' | 'critical' | 'high'>('all');
+  const [showAlertsFilterModal, setShowAlertsFilterModal] = useState(false);
+  const [tempAlertWarehouseId, setTempAlertWarehouseId] = useState<string | undefined>(undefined);
+  const [tempAlertType, setTempAlertType] = useState<AlertTypeFilter>('all');
+  const [tempAlertStatus, setTempAlertStatus] = useState<'all' | 'unread' | 'resolved'>('all');
+  const [tempAlertPriority, setTempAlertPriority] = useState<'all' | 'critical' | 'high'>('all');
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [user, setUser] = useState<UserMe | null>(null);
   // Permissions come from GET /v1/auth/me, retried until it answers: the demo
@@ -1739,49 +1760,78 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
   };
 
   const renderAlertsActionCenterScreen = () => {
-    // The API has no priority or read state, so the chips are the real ones: Active / Snoozed
-    // (the caller's own BR-78 state), the alert type, and the warehouse.
+    // The API has no priority or read state: the design's Status and Priority chips are drawn, and a
+    // choice other than "all" matches nothing. Active / Snoozed (the caller's own BR-78 state), the
+    // alert type and the warehouse are the real filters.
     const stateList = alertState === 'active' ? alertsList : snoozedAlertsList;
     const inWarehouse = stateList.filter(
       (alert) => alertWarehouseId === undefined || alert.warehouseId === alertWarehouseId,
     );
-    const alertTypeCounts = countDashboardAlerts(inWarehouse);
-    const visibleAlerts = filterDashboardAlerts(inWarehouse, alertTypeFilter);
-    const alertFilterWarehouse = warehouses.find((w) => w.id === alertWarehouseId);
-    const alertFilterLabel =
-      alertFilterWarehouse === undefined ? t('mainDashboard.allWarehouses') : warehouseShortName(alertFilterWarehouse.name);
+    const visibleAlerts =
+      alertStatusFilter !== 'all' || alertPriorityFilter !== 'all'
+        ? []
+        : filterDashboardAlerts(inWarehouse, alertTypeFilter);
+    const hasActiveAlertFilters =
+      alertWarehouseId !== undefined ||
+      alertTypeFilter !== 'all' ||
+      alertStatusFilter !== 'all' ||
+      alertPriorityFilter !== 'all';
+
+    // The design's CHANNEL / CATEGORY chips, matched to the API alert types by the icon the card
+    // already wears: Low Stock, Operational (capacity), Transfer (the clock icon, batch expiry).
+    const ALERT_CATEGORIES: readonly { value: AlertTypeFilter; label: TranslationKey }[] = [
+      { value: 'all', label: 'mainDashboard.alerts.filter.cat.all' },
+      { value: 'LOW_STOCK', label: 'mainDashboard.alerts.filter.cat.lowStock' },
+      { value: 'CAPACITY_NEAR_FULL', label: 'mainDashboard.alerts.filter.cat.operational' },
+      { value: 'BATCH_NEAR_EXPIRY', label: 'mainDashboard.alerts.filter.cat.transfer' },
+    ];
+    const ALERT_STATUSES: readonly { value: 'all' | 'unread' | 'resolved'; label: TranslationKey }[] = [
+      { value: 'all', label: 'mainDashboard.alerts.filter.status.all' },
+      { value: 'unread', label: 'mainDashboard.alerts.filter.status.unread' },
+      { value: 'resolved', label: 'mainDashboard.alerts.filter.status.resolved' },
+    ];
+    const ALERT_PRIORITIES: readonly { value: 'all' | 'critical' | 'high'; label: TranslationKey }[] = [
+      { value: 'all', label: 'mainDashboard.alerts.filter.priority.all' },
+      { value: 'critical', label: 'mainDashboard.alerts.filter.priority.critical' },
+      { value: 'high', label: 'mainDashboard.alerts.filter.priority.high' },
+    ];
+    const ALERT_WAREHOUSE_CHIPS: readonly { id: string | undefined; label: string }[] = [
+      { id: undefined, label: t('mainDashboard.allWarehouses') },
+      ...warehouses.map((w) => ({ id: w.id as string | undefined, label: warehouseShortName(w.name) })),
+    ];
 
     return (
       <View style={styles.subScreenContainer}>
         <View style={styles.subHeaderBanner}>
-          <View style={styles.subHeaderRow}>
-            <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+          <View style={styles.alertsHeaderTopRow}>
+            <View style={styles.subHeaderRow}>
+              <TouchableOpacity onPress={goBackWh} style={styles.backBtn} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setTempAlertWarehouseId(alertWarehouseId);
+                setTempAlertType(alertTypeFilter);
+                setTempAlertStatus(alertStatusFilter);
+                setTempAlertPriority(alertPriorityFilter);
+                setShowAlertsFilterModal(true);
+              }}
+              style={styles.alertsHeaderFilterBtn}
+              activeOpacity={0.75}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <View style={{ position: 'relative' }}>
+                <FilterFunnelWhiteIcon size={20} color={adminColors.onBrand} />
+                {hasActiveAlertFilters && <View style={styles.alertsFilterActiveDot} />}
+              </View>
             </TouchableOpacity>
-            <Text style={styles.subHeaderTitle}>Alerts & Action Center</Text>
           </View>
           <Text style={styles.subHeaderSubtitle}>Warehouse-level problems requiring attention</Text>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
-          {/* Warehouse filter */}
-          <View style={styles.actionCenterFiltersRow}>
-            <TouchableOpacity
-              style={styles.actionCenterChip}
-              onPress={() => {
-                // All, then each live warehouse in turn.
-                const ids: (string | undefined)[] = [undefined, ...warehouses.map((w) => w.id)];
-                const next = (ids.indexOf(alertWarehouseId) + 1) % ids.length;
-                setAlertWarehouseId(ids[next]);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.actionCenterChipText}>
-                {`${alertFilterLabel} ▾`}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           <View style={styles.actionCenterFiltersRow}>
             <ChipGroup
               options={ALERT_STATE_FILTERS}
@@ -1790,15 +1840,6 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               labelOf={(f) => t(f === 'active' ? 'alerts.filter.active' : 'alerts.filter.snoozed')}
             />
           </View>
-          <View style={styles.actionCenterFiltersRow}>
-            <ChipGroup
-              options={ALERT_TYPE_FILTERS}
-              value={alertTypeFilter}
-              onChange={setAlertTypeFilter}
-              labelOf={(f) => t('dashboardHome.alerts.filterCount', { label: t(ALERT_FILTER_LABEL[f]), count: alertTypeCounts[f] })}
-            />
-          </View>
-
           <View style={{ height: 6 }} />
 
           {/* Alerts List */}
@@ -1850,6 +1891,169 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
           <View style={{ height: 24 }} />
         </ScrollView>
+
+        {/* Filter Full Screen Modal */}
+        <Modal
+          visible={showAlertsFilterModal}
+          animationType="slide"
+          onRequestClose={() => setShowAlertsFilterModal(false)}
+        >
+          <SafeAreaView style={styles.alertsFullScreenFilterModal}>
+            <ScreenStatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
+
+            {/* Top Orange Header */}
+            <View style={styles.alertsFilterModalHeader}>
+              <TouchableOpacity
+                onPress={() => setShowAlertsFilterModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={t('mainDashboard.alerts.filter.back')}
+              >
+                <ArrowLeftWhiteIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+              <Text style={styles.alertsFilterModalTitle}>{t('mainDashboard.alerts.filter.title')}</Text>
+              <TouchableOpacity
+                onPress={() => setShowAlertsFilterModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={t('mainDashboard.alerts.filter.close')}
+              >
+                <Text style={styles.alertsFilterCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              style={styles.alertsFilterModalScroll}
+              contentContainerStyle={styles.alertsFilterModalScrollContent}
+            >
+              {/* Section 1: Warehouse */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>{t('mainDashboard.alerts.filter.sec.warehouse')}</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_WAREHOUSE_CHIPS.map((wh) => {
+                    const active = tempAlertWarehouseId === wh.id;
+                    return (
+                      <TouchableOpacity
+                        key={wh.id ?? 'all'}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertWarehouseId(wh.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {wh.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Section 2: Channel / Category */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>{t('mainDashboard.alerts.filter.sec.category')}</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_CATEGORIES.map((cat) => {
+                    const active = tempAlertType === cat.value;
+                    return (
+                      <TouchableOpacity
+                        key={cat.value}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertType(cat.value)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {t(cat.label)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Section 3: Status */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>{t('mainDashboard.alerts.filter.sec.status')}</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_STATUSES.map((st) => {
+                    const active = tempAlertStatus === st.value;
+                    return (
+                      <TouchableOpacity
+                        key={st.value}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertStatus(st.value)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {t(st.label)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Section 4: Priority */}
+              <View style={styles.alertsFilterSection}>
+                <Text style={styles.alertsFilterSectionTitle}>{t('mainDashboard.alerts.filter.sec.priority')}</Text>
+                <View style={styles.alertsChipWrap}>
+                  {ALERT_PRIORITIES.map((pr) => {
+                    const active = tempAlertPriority === pr.value;
+                    return (
+                      <TouchableOpacity
+                        key={pr.value}
+                        style={[styles.alertsFilterChip, active && styles.alertsFilterChipActive]}
+                        onPress={() => setTempAlertPriority(pr.value)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.alertsFilterChipText, active && styles.alertsFilterChipTextActive]}>
+                          {t(pr.label)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Modal Footer Buttons */}
+            <View style={styles.alertsFilterFooter}>
+              <TouchableOpacity
+                style={styles.alertsModalApplyBtn}
+                onPress={() => {
+                  setAlertWarehouseId(tempAlertWarehouseId);
+                  setAlertTypeFilter(tempAlertType);
+                  setAlertStatusFilter(tempAlertStatus);
+                  setAlertPriorityFilter(tempAlertPriority);
+                  setShowAlertsFilterModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertsModalApplyBtnText}>{t('mainDashboard.alerts.filter.apply')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.alertsModalResetBtn}
+                onPress={() => {
+                  setTempAlertWarehouseId(undefined);
+                  setTempAlertType('all');
+                  setTempAlertStatus('all');
+                  setTempAlertPriority('all');
+                  setAlertWarehouseId(undefined);
+                  setAlertTypeFilter('all');
+                  setAlertStatusFilter('all');
+                  setAlertPriorityFilter('all');
+                  setShowAlertsFilterModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.alertsModalResetBtnText}>{t('mainDashboard.alerts.filter.reset')}</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </Modal>
       </View>
     );
   };
@@ -3967,6 +4171,131 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: adminColors.onBrand,
+  },
+  alertsHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertsHeaderFilterBtn: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertsFilterActiveDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: adminColors.onBrand,
+    borderWidth: 1.5,
+    borderColor: PALETTE.headerBg,
+  },
+  alertsFullScreenFilterModal: {
+    flex: 1,
+    backgroundColor: PALETTE.pageBg,
+  },
+  alertsFilterModalHeader: {
+    backgroundColor: PALETTE.headerBg,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  alertsFilterModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  alertsFilterCloseText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  alertsFilterModalScroll: {
+    flex: 1,
+  },
+  alertsFilterModalScrollContent: {
+    padding: 16,
+    paddingBottom: 28,
+  },
+  alertsFilterSection: {
+    marginBottom: 22,
+  },
+  alertsFilterSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.muted,
+    marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  alertsChipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  alertsFilterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 24,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  alertsFilterChipActive: {
+    backgroundColor: adminColors.card,
+    borderColor: PALETTE.headerBg,
+  },
+  alertsFilterChipText: {
+    fontSize: 13.5,
+    color: adminColors.ink,
+    fontWeight: '500',
+  },
+  alertsFilterChipTextActive: {
+    color: PALETTE.headerBg,
+    fontWeight: '700',
+  },
+  alertsFilterFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  alertsModalApplyBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: PALETTE.headerBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertsModalApplyBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  alertsModalResetBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertsModalResetBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
   subHeaderSubtitle: {
     fontSize: 13,

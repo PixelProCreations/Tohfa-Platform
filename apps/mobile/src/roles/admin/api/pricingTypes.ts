@@ -161,6 +161,34 @@ export interface RetailPriceFormValues {
 }
 
 /**
+ * What the Update Fair Price screen collects; buildFairPriceBody turns it into
+ * the POST /fair-prices body. `ceilingInput` is a typed rupee string, never a
+ * float (root CLAUDE.md 2.2).
+ */
+export interface FairPriceFormValues {
+  cropId: string;
+  grade: PricingGrade;
+  /** As typed or stepped ("48", "48.50"). */
+  ceilingInput: string;
+  /** YYYY-MM-DD. */
+  effectiveFrom: string;
+  frequency?: FairPriceFrequency | undefined;
+  notes?: string | undefined;
+}
+
+/**
+ * One row of the Bulk Price Update list: a live ceiling, whether it is
+ * selected, and what the percentage would make it (integer paise, display
+ * only — the server stores what is sent and enforces BR-08).
+ */
+export interface BulkCeilingDraftRow {
+  row: FairPriceRowView;
+  selected: boolean;
+  /** The ceiling the batch would send for this row; null when the row has no readable ceiling. */
+  proposedCeiling: Money | null;
+}
+
+/**
  * The Market & Pricing home KPIs (Tohfa and Farmer Admin layouts). NONE has an
  * API source: there is no dashboard endpoint, and counting a paged list on the
  * phone would be wrong after the first page.

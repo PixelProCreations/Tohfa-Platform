@@ -193,6 +193,35 @@ class MockAllocationsRepo implements AllocationsRepo {
     };
   }
 
+  async getAllocationConfig(
+    _db: unknown,
+    cropId?: string | null,
+  ): Promise<AllocationConfigView> {
+    const targetCropId = cropId ?? null;
+    const matching = this.configRows.filter((r) => r.crop_id === targetCropId);
+    const rows = matching.length === 4 ? matching : this.configRows.filter((r) => r.crop_id === null);
+    if (rows.length === 4) {
+      return {
+        effectiveFrom: rows[0]!.effective_from,
+        cropId: rows[0]!.crop_id,
+        channels: rows.map((r) => ({ channel: r.channel, percentage: r.percentage })),
+        setBy: rows[0]!.set_by,
+        setAt: new Date().toISOString(),
+      };
+    }
+    return {
+      effectiveFrom: '2026-08-28',
+      cropId: null,
+      channels: [
+        { channel: 'ONLINE', percentage: 70 },
+        { channel: 'LIVE_MARKET', percentage: 10 },
+        { channel: 'RESERVE', percentage: 10 },
+        { channel: 'BUFFER', percentage: 10 },
+      ],
+      setBy: null,
+    };
+  }
+
   async listAllocations(
     _db: unknown,
     _scope: ResolvedScope,
@@ -462,6 +491,16 @@ describe('AllocationsService (Unit & Business Rules S-27)', () => {
       expect(result.setBy).toBe(IDS.superAdminUser);
       const onlineRow = repo.configRows.find((r) => r.channel === 'ONLINE' && r.effective_from === '2026-09-01');
       expect(onlineRow?.percentage).toBe(65);
+    });
+
+    it('BR-148: Super Admin successfully retrieves current channel percentages', async () => {
+      const { service } = createTestService();
+      const result = await service.getAllocationConfig(
+        superAdminScope('allocation.channel_percentage.set'),
+      );
+      expect(result.channels).toHaveLength(4);
+      const sum = result.channels.reduce((acc, c) => acc + c.percentage, 0);
+      expect(sum).toBe(100);
     });
   });
 

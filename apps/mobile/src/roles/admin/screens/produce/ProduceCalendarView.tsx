@@ -9,13 +9,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import type { Can } from '../../permissions/can';
 import { t, type TranslationKey } from '../../i18n';
@@ -128,7 +128,7 @@ export function ProduceCalendarView({
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>

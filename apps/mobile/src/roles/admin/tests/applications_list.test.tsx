@@ -144,7 +144,7 @@ describe('AdminPendingApplicationsScreen', () => {
     for (const hidden of ['Draft Person', 'Half Draft', 'Approved Person', 'Rejected Person']) expect(text).not.toContain(hidden);
   });
 
-  it('no client-side zone or role filtering: every pending row from the server is shown, and no zone is sent', () => {
+  it('no client-side zone or role filtering: every pending row from the server is shown, no zone is sent, and the zone chips stay drawn', () => {
     list.items = [row({ id: '1', name: 'Zone A Farmer', zoneId: 'z-a' }), row({ id: '2', name: 'Zone B Farmer', zoneId: 'z-b' }), row({ id: '3', name: 'No Zone Farmer' })];
     const tree = mount();
     const text = allText(tree);
@@ -154,7 +154,8 @@ describe('AdminPendingApplicationsScreen', () => {
     for (const call of hooks.useApplicationList.mock.calls) {
       expect((call[1] as Record<string, unknown>)['zoneId']).toBeUndefined();
     }
-    for (const zone of ['Ooty', 'Kotagiri', 'Coonoor']) expect(text).not.toContain(zone);
+    // Design element, kept: the zone filter chips are drawn even though the API cannot filter by zone.
+    for (const zone of ['Ooty', 'Kotagiri', 'Coonoor']) expect(text).toContain(zone);
   });
 
   it('a status chip asks the server for that status', () => {

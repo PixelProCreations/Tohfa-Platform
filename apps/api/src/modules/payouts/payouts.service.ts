@@ -15,6 +15,9 @@ import type {
   CreatePayoutInput,
   ApprovePayoutInput,
   ExportPayoutsQuery,
+  ListPayoutsQuery,
+  ListPayoutsResponse,
+  PayoutDetailResponse,
 } from './payouts.schema.js';
 
 // ---------------------------------------------------------------------------
@@ -47,6 +50,18 @@ export interface PayoutsService {
     scope: ResolvedScope,
     query: ExportPayoutsQuery,
   ): Promise<{ filename: string; csv: string }>;
+
+  listPayouts(
+    actor: Actor,
+    scope: ResolvedScope,
+    query: ListPayoutsQuery,
+  ): Promise<ListPayoutsResponse>;
+
+  getPayoutById(
+    actor: Actor,
+    scope: ResolvedScope,
+    payoutId: string,
+  ): Promise<PayoutDetailResponse>;
 }
 
 // ---------------------------------------------------------------------------
@@ -473,6 +488,18 @@ export function createPayoutsService(
         filename,
         csv: csvLines.join('\n') + '\n',
       };
+    },
+
+    async listPayouts(_actor: Actor, _scope: ResolvedScope, query: ListPayoutsQuery): Promise<ListPayoutsResponse> {
+      return repo.listPayouts(db, query);
+    },
+
+    async getPayoutById(_actor: Actor, _scope: ResolvedScope, payoutId: string): Promise<PayoutDetailResponse> {
+      const detail = await repo.getPayoutDetail(db, payoutId);
+      if (!detail) {
+        throw new AppError('NOT_FOUND', { detail: `Payout ${payoutId} not found.` });
+      }
+      return detail;
     },
   };
 }

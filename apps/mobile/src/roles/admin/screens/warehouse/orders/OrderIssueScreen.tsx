@@ -2,18 +2,30 @@
  * Order Issue — report a problem with a customer order, then confirm it.
  *
  * Two steps in one screen: the issue form, and the "Issue Submitted"
- * confirmation that used to be its own route (M5S16B). Submitting the form is
- * a local step change, so the confirmation can never be reached without an
- * issue having been raised from this screen (or a deep link with
- * `initialStep: 'submitted'`).
+ * confirmation that used to be its own route (M5S16B). The confirmation is
+ * reached ONLY after POST /admin/orders/{id}/issues answered 2xx (BR-35,
+ * BR-152; Idempotency-Key), or by a deep link carrying a real `issueId` (the
+ * issue list opens it that way). A failure stays on the form with the error
+ * shown.
  *
- * Gates: none. docs/rbac.json has no permission code for raising an order
- * issue from the warehouse app, so the form stays ungated exactly as before
- * (spec gap, reported to the orchestrator for SPEC_GAPS.md).
+ * Gates (docs/rbac.json; the server re-checks everything, CLAUDE.md 2.1):
+ *   - "Submit Issue" renders only with `warehouse.issue.manage`.
  *
- * "View Issue" on the confirmation opens the operational issues list, an area
- * with no API yet, so it is offered only when isAreaAvailable says so
- * (../availability.ts); without it the confirmation has no bottom action.
+ * "View Issue" on the confirmation opens the operational issues list, which
+ * needs `warehouse.issue.view` (../availability.ts 'operationalIssues'); a
+ * caller without that permission gets no bottom action.
+ *
+ * Live data: the order number and the affected-item options are the order's
+ * own lines (GET /admin/orders/{orderId}). The submitted step's Issue ID and
+ * Status are the issue number and status the server returned (or the route's
+ * issue id, with no status), never an invented one.
+ *
+ * What is sent: the issue type as a stable code (quality, quantity, ...), and
+ * the description. The endpoint has no field for the affected item or quantity
+ * and the order detail carries no order-item ids for `lineItemIds`, so the
+ * admin's affected-item and quantity entries travel as lines of the
+ * description. The photo tile is a design placeholder: there is no upload
+ * endpoint for it, so nothing is sent for it.
  */
 // Design id: M5S16 (M5S16_OrderIssue), absorbs M5S16B (M5S16B_IssueSubmitted)
 import React, { useState } from 'react';
@@ -23,23 +35,102 @@ import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { isAreaAvailable } from '../availability';
-import { SAMPLE_NEW_ISSUE_ID, SAMPLE_ORDER_ID } from './fixtures';
-import type { OrderIssueStep, OrderScreenBaseProps } from './types';
+import type { CreateOrderIssueBody, OrderIssueResponseDto } from '../../../api/orders';
+import { adminErrorKey } from '../../../api/errors';
+import { t, type TranslationKey } from '../../../i18n';
+import { formatKg } from '../../../money/quantity';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { OrderDetailView, OrderIssueStep, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
+import type { LiveOrderAction } from './useOrdersData';
 
-export interface OrderIssueScreenProps extends OrderScreenBaseProps {
+export interface OrderIssueScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
   /** Which step to open on; the host passes `params.step` here (M5S16B deep links -> 'submitted'). */
   initialStep?: OrderIssueStep | undefined;
-  /** Issue id shown on the submitted step. Falls back to the mock id the form generates. */
+  /** Issue id shown on the submitted step (deep link); without one the step shows ADMIN_NO_VALUE. */
   issueId?: string | undefined;
   /** "View Issue" on the submitted step. Without it the screen navigates to 'M4S09'. */
   onViewIssue?: (() => void) | undefined;
+  /** POST .../issues. */
+  report?: LiveOrderAction<CreateOrderIssueBody> | undefined;
 }
 
-const ISSUE_TYPES = ['Quality', 'Quantity', 'Missing', 'Wrong', 'Damaged', 'Late'];
+/** The stable code the server stores for an issue-type option: the last key segment ('quality', 'late', ...). */
+export function issueTypeCode(key: TranslationKey): string {
+  return key.slice(key.lastIndexOf('.') + 1);
+}
 
-const ORDER_ITEMS = ['Tomato - Grade 1 (2 KG)', 'Carrot - Grade 1 (3 KG)', 'Potato - Grade 1 (5 KG)', 'Whole Order'];
+/** The server's answer to POST .../issues, or undefined for anything else (a re-read that found it landed). */
+function asIssueResponse(result: unknown): OrderIssueResponseDto | undefined {
+  if (typeof result !== 'object' || result === null) return undefined;
+  const { id, issueNumber, status } = result as Record<string, unknown>;
+  return typeof id === 'string' && typeof issueNumber === 'string' && typeof status === 'string'
+    ? { id, issueNumber, status }
+    : undefined;
+}
 
-const ITEM_PLACEHOLDER = 'Select item';
+/** The server's description limit (docs/openapi.yaml createAdminOrderIssue). */
+export const ISSUE_DESCRIPTION_MAX = 4000;
+
+/**
+ * The request body: the typed description, then the affected item and quantity
+ * the admin entered as extra lines (the endpoint has no fields for them), cut
+ * to the server's limit. Null when there is no description to send.
+ */
+export function buildIssueBody(input: {
+  issueType: TranslationKey;
+  description: string;
+  affectedItemLabel: string | undefined;
+  affectedQty: string;
+}): CreateOrderIssueBody | null {
+  const description = input.description.trim();
+  if (description === '') return null;
+  const lines = [description];
+  if (input.affectedItemLabel !== undefined) lines.push(t('orders.issue.sent.item', { item: input.affectedItemLabel }));
+  const qty = input.affectedQty.trim();
+  if (qty !== '') lines.push(t('orders.issue.sent.qty', { qty }));
+  return { issueType: issueTypeCode(input.issueType), description: lines.join('\n').slice(0, ISSUE_DESCRIPTION_MAX) };
+}
+
+/** A refused or failed write, worded for warehouse staff (adminErrorKey), never the server's detail. */
+function WriteError({ error }: { error: unknown }) {
+  if (error === null || error === undefined) return null;
+  return (
+    <View style={styles.errorBox}>
+      <Text style={styles.errorText}>{t(adminErrorKey(error))}</Text>
+    </View>
+  );
+}
+
+const ISSUE_TYPES: readonly TranslationKey[] = [
+  'orders.issue.type.quality',
+  'orders.issue.type.quantity',
+  'orders.issue.type.missing',
+  'orders.issue.type.wrong',
+  'orders.issue.type.damaged',
+  'orders.issue.type.late',
+];
+
+/** The key of the design's last option, the whole order. */
+const WHOLE_ORDER_KEY = 'whole-order';
+
+/** The affected-item options: one per order line, then the whole order. */
+function affectedItemOptions(order: OrderDetailView): { key: string; label: string }[] {
+  return [
+    ...order.lines.map((line) => ({
+      key: line.key,
+      label: t('orders.issue.itemOption', {
+        name: line.name,
+        grade: line.gradeLabel,
+        qty: line.qtyGrams === null ? ADMIN_NO_VALUE : formatKg(line.qtyGrams),
+      }),
+    })),
+    { key: WHOLE_ORDER_KEY, label: t('orders.issue.wholeOrder') },
+  ];
+}
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -168,29 +259,35 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
 // ─── Step: form (M5S16) ──────────────────────────────────────────────────────
 
 interface IssueFormStepProps {
-  orderId: string;
+  order: OrderDetailView;
   onBack: () => void;
-  onSubmit: () => void;
+  /** Sends the issue; the screen moves to the submitted step only when this reports a 2xx. */
+  report: LiveOrderAction<CreateOrderIssueBody>;
+  canReport: boolean;
+  onSubmitted: (result: unknown) => void;
 }
 
-function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
-  const [issueType, setIssueType] = useState('Quality');
-  const [selectedItem, setSelectedItem] = useState(ITEM_PLACEHOLDER);
+function IssueFormStep({ order, onBack, report, canReport, onSubmitted }: IssueFormStepProps) {
+  const orderItems = affectedItemOptions(order);
+  const [issueType, setIssueType] = useState<TranslationKey>('orders.issue.type.quality');
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const selectedLabel = orderItems.find((item) => item.key === selectedItem)?.label;
   const [showItemPicker, setShowItemPicker] = useState(false);
   const [affectedQty, setAffectedQty] = useState('');
   const [description, setDescription] = useState('');
   const [hasPhoto, setHasPhoto] = useState(false);
+  const body = buildIssueBody({ issueType, description, affectedItemLabel: selectedLabel, affectedQty });
 
   return (
     <View style={styles.container}>
-      <Header title="Order Issue" onBack={onBack} />
+      <Header title={t('orders.issue.title')} onBack={onBack} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        <Text style={styles.orderRefLabel}>{orderId}</Text>
+        <Text style={styles.orderRefLabel}>{order.orderNumber}</Text>
 
         <View style={styles.sectionHeaderRowTop}>
-          <Text style={styles.sectionHeading}>Issue Type</Text>
-          <Text style={styles.helperLabel}>Required</Text>
+          <Text style={styles.sectionHeading}>{t('orders.issue.issueType')}</Text>
+          <Text style={styles.helperLabel}>{t('orders.issue.required')}</Text>
         </View>
 
         <View style={styles.categoryCard}>
@@ -201,7 +298,7 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
               <React.Fragment key={type}>
                 <TouchableOpacity style={styles.radioRow} activeOpacity={0.75} onPress={() => setIssueType(type)}>
                   {isSelected ? <RadioSelectedIcon /> : <RadioUnselectedIcon />}
-                  <Text style={styles.radioText}>{type}</Text>
+                  <Text style={styles.radioText}>{t(type)}</Text>
                 </TouchableOpacity>
                 {!isLast && <View style={styles.cardDivider} />}
               </React.Fragment>
@@ -209,25 +306,25 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
           })}
         </View>
 
-        <Text style={styles.sectionHeading}>Affected Item</Text>
+        <Text style={styles.sectionHeading}>{t('orders.issue.affectedItem')}</Text>
         <TouchableOpacity style={styles.dropdownBox} activeOpacity={0.75} onPress={() => setShowItemPicker(true)}>
           <View style={styles.dropdownTextWrap}>
-            <Text style={styles.dropdownCaption}>AFFECTED ITEM</Text>
-            <Text style={[styles.dropdownValue, selectedItem === ITEM_PLACEHOLDER && styles.dropdownPlaceholder]}>
-              {selectedItem}
+            <Text style={styles.dropdownCaption}>{t('orders.issue.affectedItemCaption')}</Text>
+            <Text style={[styles.dropdownValue, selectedLabel === undefined && styles.dropdownPlaceholder]}>
+              {selectedLabel ?? t('orders.issue.itemPlaceholder')}
             </Text>
           </View>
           <ChevronDownIcon />
         </TouchableOpacity>
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeading}>Affected Quantity</Text>
-          <Text style={styles.helperLabel}>If supported</Text>
+          <Text style={styles.sectionHeading}>{t('orders.issue.affectedQty')}</Text>
+          <Text style={styles.helperLabel}>{t('orders.issue.ifSupported')}</Text>
         </View>
         <View style={styles.inputBox}>
           <TextInput
             style={styles.textInput}
-            placeholder="e.g. 2 KG"
+            placeholder={t('orders.issue.affectedQtyPlaceholder')}
             placeholderTextColor={adminColors.placeholder}
             value={affectedQty}
             onChangeText={setAffectedQty}
@@ -235,13 +332,14 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
         </View>
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeading}>Description</Text>
-          <Text style={styles.helperLabel}>Required</Text>
+          <Text style={styles.sectionHeading}>{t('orders.issue.description')}</Text>
+          <Text style={styles.helperLabel}>{t('orders.issue.required')}</Text>
         </View>
         <View style={styles.textareaBox}>
           <TextInput
+            testID="orders.issue.description"
             style={styles.textareaInput}
-            placeholder="Describe the issue..."
+            placeholder={t('orders.issue.descriptionPlaceholder')}
             placeholderTextColor={adminColors.placeholder}
             value={description}
             onChangeText={setDescription}
@@ -249,46 +347,58 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
           />
         </View>
 
-        <Text style={styles.sectionHeading}>Photos</Text>
+        <Text style={styles.sectionHeading}>{t('orders.issue.photos')}</Text>
         <TouchableOpacity
           style={[styles.photoBox, hasPhoto && styles.photoBoxActive]}
           activeOpacity={0.75}
           onPress={() => setHasPhoto(!hasPhoto)}
         >
           <CameraPhotoIcon />
-          <Text style={styles.photoBoxText}>{hasPhoto ? '1 Photo' : 'Add Photo'}</Text>
+          <Text style={styles.photoBoxText}>{hasPhoto ? t('orders.issue.onePhoto') : t('orders.issue.addPhoto')}</Text>
         </TouchableOpacity>
 
         <View style={styles.noticeBox}>
           <View style={styles.noticeIconWrap}>
             <InfoCircleIcon />
           </View>
-          <Text style={styles.noticeText}>
-            Further RMA/refund processing happens in Module 10 — Returns & Issues. No refund calculation is performed here.
-          </Text>
+          <Text style={styles.noticeText}>{t('orders.issue.notice')}</Text>
         </View>
 
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onSubmit}>
-          <SendPlaneIcon />
-          <Text style={styles.primaryBtnText}>Submit Issue</Text>
-        </TouchableOpacity>
+        <WriteError error={report.error} />
+        {/* Hidden without warehouse.issue.manage; disabled until the required description is typed. */}
+        {canReport ? (
+          <TouchableOpacity
+            testID="orders.issue.submit"
+            style={[styles.primaryBtn, (body === null || report.isPending) && styles.primaryBtnPending]}
+            activeOpacity={0.8}
+            disabled={body === null || report.isPending}
+            onPress={() => {
+              if (body !== null) report.run(body, onSubmitted);
+            }}
+          >
+            <SendPlaneIcon />
+            <Text style={styles.primaryBtnText}>{report.isPending ? t('orders.action.saving') : t('orders.issue.submit')}</Text>
+          </TouchableOpacity>
+        ) : null}
       </ScrollView>
 
       <Modal visible={showItemPicker} transparent animationType="fade" onRequestClose={() => setShowItemPicker(false)}>
         {/* Was a translucent overlay; no translucent token, so the scrim is transparent and the card carries adminShadow.lg. */}
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowItemPicker(false)}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Affected Item</Text>
-            {ORDER_ITEMS.map((item) => (
+            <Text style={styles.modalTitle}>{t('orders.issue.itemPickerTitle')}</Text>
+            {orderItems.map((item) => (
               <TouchableOpacity
-                key={item}
-                style={[styles.modalOption, selectedItem === item && styles.modalOptionSelected]}
+                key={item.key}
+                style={[styles.modalOption, selectedItem === item.key && styles.modalOptionSelected]}
                 onPress={() => {
-                  setSelectedItem(item);
+                  setSelectedItem(item.key);
                   setShowItemPicker(false);
                 }}
               >
-                <Text style={[styles.modalOptionText, selectedItem === item && styles.modalOptionTextSelected]}>{item}</Text>
+                <Text style={[styles.modalOptionText, selectedItem === item.key && styles.modalOptionTextSelected]}>
+                  {item.label}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -301,34 +411,37 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
 // ─── Step: submitted (folded M5S16B) ─────────────────────────────────────────
 
 interface IssueSubmittedStepProps {
-  issueId: string;
+  /** The issue number the server returned, else a real issue id from the route, else undefined (ADMIN_NO_VALUE). */
+  issueId: string | undefined;
+  /** The status the server returned; undefined (ADMIN_NO_VALUE) for a route's issue id. */
+  status: string | undefined;
   onBack: () => void;
   /** Omitted when the issues area is hidden: no "View Issue" button. */
   onViewIssue?: (() => void) | undefined;
 }
 
-function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStepProps) {
+function IssueSubmittedStep({ issueId, status, onBack, onViewIssue }: IssueSubmittedStepProps) {
   return (
     <View style={styles.container}>
-      <Header title="Issue Submitted" onBack={onBack} />
+      <Header title={t('orders.issue.submittedTitle')} onBack={onBack} />
 
       <View style={styles.submittedContent}>
         <View style={styles.heroContainer}>
           <View style={styles.successCircleBadge}>
             <SuccessCheckIcon />
           </View>
-          <Text style={styles.heroTitle}>Issue Submitted</Text>
+          <Text style={styles.heroTitle}>{t('orders.issue.submittedTitle')}</Text>
         </View>
 
         <View style={styles.summaryCard}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Issue ID</Text>
-              <Text style={styles.fieldValue}>{issueId}</Text>
+              <Text style={styles.fieldLabel}>{t('orders.issue.field.issueId')}</Text>
+              <Text style={styles.fieldValue}>{issueId ?? ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <Text style={styles.fieldValue}>Open</Text>
+              <Text style={styles.fieldLabel}>{t('orders.issue.field.status')}</Text>
+              <Text style={styles.fieldValue}>{status ?? ADMIN_NO_VALUE}</Text>
             </View>
           </View>
         </View>
@@ -338,7 +451,7 @@ function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStep
         <View style={styles.bottomBar}>
           <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onViewIssue}>
             <EyeIcon />
-            <Text style={styles.primaryBtnText}>View Issue</Text>
+            <Text style={styles.primaryBtnText}>{t('orders.issue.viewIssue')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -349,39 +462,73 @@ function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStep
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function OrderIssueScreen({
-  orderId = SAMPLE_ORDER_ID,
+  order,
   initialStep = 'form',
   issueId,
   onViewIssue,
+  report,
   can,
   onBack,
   onNavigate,
+  isLoading = false,
+  error,
+  onRetry,
 }: OrderIssueScreenProps) {
   const [step, setStep] = useState<OrderIssueStep>(initialStep);
-  // The id the old M5S16 handed to M5S16B on submit; a caller-supplied id (deep link) wins.
-  const [submittedIssueId, setSubmittedIssueId] = useState(issueId ?? SAMPLE_NEW_ISSUE_ID);
-
-  const handleSubmit = () => {
-    setSubmittedIssueId(issueId ?? SAMPLE_NEW_ISSUE_ID);
-    setStep('submitted');
-  };
+  // What the server answered for the issue raised from this screen.
+  const [created, setCreated] = useState<OrderIssueResponseDto | undefined>(undefined);
+  const [submittedHere, setSubmittedHere] = useState(false);
+  // "Issue Submitted" needs a 2xx from this screen or a real issue id from the
+  // route; a bare deep link to the step opens the form instead of claiming a
+  // submission nobody made.
+  const showSubmitted = step === 'submitted' && (submittedHere || issueId !== undefined);
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
 
   const handleViewIssue = () => {
     if (onViewIssue) {
       onViewIssue();
     } else {
-      // M4S09 = operational issues; M5S16B sent the issue id, orderId is added for context.
-      onNavigate?.('M4S09', { orderId, issueId: submittedIssueId });
+      // M4S09 = operational issues; the issue id only when a real one came in, the order for context.
+      onNavigate?.('M4S09', { orderId: order?.id, issueId });
     }
   };
 
+  // The submitted step reads nothing from the order; the form needs it loaded.
+  if (!showSubmitted && (view !== 'ready' || order === undefined || report === undefined)) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Header title={t('orders.issue.title')} onBack={onBack} />
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+            <AdminEmptyState title={t('orders.empty.notFound')} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      {step === 'form' ? (
-        <IssueFormStep orderId={orderId} onBack={onBack} onSubmit={handleSubmit} />
+      {!showSubmitted && order !== undefined && report !== undefined ? (
+        <IssueFormStep
+          order={order}
+          onBack={onBack}
+          report={report}
+          canReport={can('warehouse.issue.manage')}
+          onSubmitted={(result) => {
+            setCreated(asIssueResponse(result));
+            setSubmittedHere(true);
+            setStep('submitted');
+          }}
+        />
       ) : (
         <IssueSubmittedStep
-          issueId={submittedIssueId}
+          issueId={created?.issueNumber ?? issueId}
+          status={created?.status}
           // Back from the confirmation returns to the form, not out of the screen.
           onBack={() => setStep('form')}
           onViewIssue={isAreaAvailable('operationalIssues', can) ? handleViewIssue : undefined}
@@ -515,6 +662,15 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 20,
   },
+  primaryBtnPending: { backgroundColor: adminColors.brandTint },
+  errorBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+  },
+  errorText: { ...adminType.body, color: adminColors.danger.text },
   noticeIconWrap: { marginTop: 1 },
   noticeText: { ...adminType.rowTitle, flex: 1, color: adminColors.danger.text },
   primaryBtn: {

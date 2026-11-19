@@ -16,7 +16,14 @@
  * (BR-16). Statuses and types go through exhaustive tables with a fallback.
  */
 import type { Paise } from '@tohfa/shared-types';
-import type { InvoiceDetailDto, InvoiceDto, InvoiceLineDto, InvoiceStatus, InvoiceType } from '../../../api/invoices';
+import type {
+  InvoiceDetailDto,
+  InvoiceDto,
+  InvoiceLineDto,
+  InvoiceStatus,
+  InvoiceSummaryDto,
+  InvoiceType,
+} from '../../../api/invoices';
 import { t, type TranslationKey } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
@@ -28,6 +35,7 @@ import type {
   InvoiceDayGroup,
   InvoiceDetailView,
   InvoiceHistoryChip,
+  InvoiceKpiView,
   InvoiceLineView,
   InvoiceOrderContext,
   InvoiceOrderRef,
@@ -196,12 +204,19 @@ function taxRows(dto: InvoiceDetailDto): InvoiceTaxRow[] {
   return rows;
 }
 
+/** A buyer field of the detail: a non-empty string, else null (BR-128). */
+function buyerText(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
 export function toInvoiceDetail(dto: InvoiceDetailDto): InvoiceDetailView {
   const row = toInvoiceRow(dto);
   const taxablePaise = moneyToPaise(dto.taxableAmount);
   return {
     ...row,
     orderId: typeof dto.orderId === 'string' && UUID_RE.test(dto.orderId) ? dto.orderId : null,
+    buyerName: buyerText(dto.buyerName),
+    buyerGstin: buyerText(dto.buyerGstin),
     placeOfSupply: typeof dto.placeOfSupply === 'string' && dto.placeOfSupply !== '' ? dto.placeOfSupply : null,
     gstApplicable: dto.gstApplicable === true,
     gstInclusive: dto.gstInclusive === true,
@@ -228,6 +243,36 @@ export function invoiceOrderContext(
   if (order === undefined || invoice.orderId === null || invoice.orderId !== order.id) return null;
   const name = order.buyerName.trim();
   return { orderNumber: order.orderNumber, customerName: name === '' ? null : name };
+}
+
+// ─── KPI tiles ─────────────────────────────────────────────────────
+
+/** The count of one invoice status in a summary, or null when the summary did not carry it. */
+function statusCount(summary: InvoiceSummaryDto | undefined, status: InvoiceStatus): number | null {
+  if (summary === undefined || !Array.isArray(summary.byStatus)) return null;
+  const bucket = summary.byStatus.find((entry) => entry.status === status);
+  return bucket === undefined || !Number.isFinite(bucket.count) ? null : bucket.count;
+}
+
+function countLabel(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? String(value) : noValue();
+}
+
+/**
+ * The hub's four KPI tiles (M9-S01) from GET /invoices/summary: `all` is the
+ * caller's whole visible set, `today` the same summary asked for today's
+ * issue date. Nothing is added up here — each figure is the server's own.
+ * "Failed" has no source: docs/openapi.yaml InvoiceStatus has no such value,
+ * and calling a cancelled invoice failed would be inventing a meaning, so the
+ * tile renders the dash.
+ */
+export function toInvoiceKpis(all: InvoiceSummaryDto | undefined, today: InvoiceSummaryDto | undefined): InvoiceKpiView {
+  return {
+    today: countLabel(today?.count),
+    generated: countLabel(statusCount(all, 'ISSUED')),
+    pending: countLabel(statusCount(all, 'DRAFT')),
+    failed: noValue(),
+  };
 }
 
 /** The history layout: rows grouped by issue day, in the order the server sent them (newest first). */

@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createHmac, randomUUID } from 'node:crypto';
 import { fromPaise, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
@@ -6,6 +6,7 @@ import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { config } from '../../config.js';
 import { pool } from '../../db/pool.js';
+import { deleteTestWarehouseAndFixtures } from '../../test/committedFixtureCleanup.js';
 import {
   aScope,
   databaseReady,
@@ -905,5 +906,10 @@ describeIfDatabase('Admin Cash Top-up & Daily Reconciliation (BR-18, BR-19, S-33
         ORDER BY started_at DESC LIMIT 1`,
     );
     expect(jobRunRes.rows[0]!.status).toBe('SUCCEEDED');
+  });
+
+  afterAll(async () => {
+    if (!ready || !testWarehouseId) return;
+    await deleteTestWarehouseAndFixtures(pool, testWarehouseId);
   });
 });

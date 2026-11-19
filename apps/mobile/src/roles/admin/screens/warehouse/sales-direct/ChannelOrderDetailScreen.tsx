@@ -10,7 +10,8 @@
  *     sales API has no channel-order detail of its own.
  *
  * The API carries no contact person, phone or GSTIN for a channel order, so
- * none is shown. Nothing here edits the order (BR-13: channel orders are not
+ * Contact, Phone and GSTIN (B2B, with customer.gst_details.manage) stay on the
+ * card and show the no-value dash. Nothing here edits the order (BR-13: channel orders are not
  * created or changed from this app).
  *
  * Invoice: only an invoice uuid the server returned is ever opened; it goes to
@@ -177,6 +178,8 @@ export function ChannelOrderDetailScreen({
 
   const businessName =
     order.businessName ?? detail?.buyerName ?? order.customerCode ?? t('sales.channelSales.unknownBusiness');
+  const noValue = t('sales.channelOrder.noValue');
+  const showGstin = channel === 'B2B' && can('customer.gst_details.manage');
   const customerCode = order.customerCode ?? detail?.customerCode ?? null;
   const warehouseName = detail?.warehouseName ?? warehouses.nameOf(order.warehouseId);
 
@@ -209,13 +212,31 @@ export function ChannelOrderDetailScreen({
               <Text style={styles.fieldLabel}>{t('sales.channelOrder.business')}</Text>
               <Text style={styles.fieldValue}>{businessName}</Text>
             </View>
-            {customerCode ? (
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.contact')}</Text>
+              <Text style={styles.fieldValue}>{noValue}</Text>
+            </View>
+          </View>
+          <View style={[styles.row, styles.rowGap]}>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.phone')}</Text>
+              <Text style={styles.fieldValue}>{noValue}</Text>
+            </View>
+            {showGstin ? (
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>{t('sales.channelOrder.gstin')}</Text>
+                <Text style={styles.fieldValue}>{noValue}</Text>
+              </View>
+            ) : null}
+          </View>
+          {customerCode ? (
+            <View style={[styles.row, styles.rowGap]}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>{t('sales.channelOrder.customerCode')}</Text>
                 <Text style={styles.fieldValue}>{customerCode}</Text>
               </View>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
 
         {/* ─── 2. Order ─── */}
@@ -226,12 +247,10 @@ export function ChannelOrderDetailScreen({
               <Text style={styles.fieldLabel}>{t('sales.channelOrder.orderNumber')}</Text>
               <Text style={styles.fieldValue}>{order.orderNumber}</Text>
             </View>
-            {warehouseName ? (
-              <View style={styles.col}>
-                <Text style={styles.fieldLabel}>{t('sales.channelOrder.warehouse')}</Text>
-                <Text style={styles.fieldValue}>{warehouseName}</Text>
-              </View>
-            ) : null}
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>{t('sales.channelOrder.warehouse')}</Text>
+              <Text style={styles.fieldValue}>{warehouseName || noValue}</Text>
+            </View>
           </View>
           <View style={[styles.row, styles.rowGap]}>
             <View style={styles.col}>
@@ -266,8 +285,21 @@ export function ChannelOrderDetailScreen({
         {/* ─── 3. Items + 4. Amount (GET /admin/orders/{id}) ─── */}
         {!canViewDetail ? (
           <>
+            <Text style={styles.sectionHeading}>{t('sales.channelOrder.itemsSection')}</Text>
+            <View style={styles.card}>
+              <Text style={styles.summaryLabel}>{noValue}</Text>
+            </View>
             <Text style={styles.sectionHeading}>{t('sales.channelOrder.amountSection')}</Text>
             <View style={styles.card}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{t('sales.channelOrder.subtotal')}</Text>
+                <Text style={styles.summaryValue}>{noValue}</Text>
+              </View>
+              <View style={[styles.summaryRow, styles.summaryGap]}>
+                <Text style={styles.summaryLabel}>{t('sales.channelOrder.gst')}</Text>
+                <Text style={styles.summaryValue}>{noValue}</Text>
+              </View>
+              <View style={styles.divider} />
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>{t('sales.channelOrder.total')}</Text>
                 <Text style={styles.totalValue}>{formatPaise(order.totalPaise)}</Text>

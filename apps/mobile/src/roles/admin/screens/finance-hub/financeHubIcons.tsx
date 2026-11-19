@@ -187,6 +187,24 @@ function GoToReportExportIcon({ size = 26, color = adminColors.brand }: IconProp
   );
 }
 
+function GoToProfitLossIcon({ size = 26, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 3v18h18" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M19 9l-5 5-4-4-3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToPaymentMethodsIcon({ size = 26, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="1.9" />
+      <Path d="M2 10h20M6 15h4" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** Go-to tile icon per tile id (the design renders each at size 24). */
 export const FINANCE_HUB_TILE_ICONS: Record<FinanceHubTileId, (props: IconProps) => React.JSX.Element> = {
   purchaseSales: GoToPurchaseSalesIcon,
@@ -198,4 +216,6 @@ export const FINANCE_HUB_TILE_ICONS: Record<FinanceHubTileId, (props: IconProps)
   reviewReturns: GoToReviewReturnsIcon,
   transactionHistory: GoToTransactionHistoryIcon,
   reportExport: GoToReportExportIcon,
+  profitLoss: GoToProfitLossIcon,
+  paymentMethods: GoToPaymentMethodsIcon,
 };

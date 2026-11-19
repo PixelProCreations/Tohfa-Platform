@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { BackHandler, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
@@ -16,6 +16,7 @@ import {
   shouldLoadWarehousePermissions,
 } from './utils/navigationSession';
 import { adminShellForRole } from './utils/adminShell';
+import { performRemoveItem } from './utils/removeItem';
 import { endSession } from './utils/signOut';
 import { Icon, NavigationBarInset, StatusBarInset } from '@tohfa/mobile-ui';
 import { t } from '../../i18n/farmer';
@@ -94,7 +95,7 @@ import { EditPlantingScreen } from './screens/farm/crops/EditPlantingScreen';
 import { MachineryListScreen, type MachineryItem } from './screens/farm/assets/MachineryListScreen';
 import { AddMachineryScreen } from './screens/farm/assets/AddMachineryScreen';
 import { EditMachineryScreen } from './screens/farm/assets/EditMachineryScreen';
-import { RemoveItemScreen, canDeleteAsset, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
+import { RemoveItemScreen, type RemoveItemData } from './screens/farm/assets/RemoveItemScreen';
 import { LearningHubScreen } from './screens/learning/LearningHubScreen';
 import { ContentDetailScreen, type ContentDetailItem } from './screens/learning/ContentDetailScreen';
 import { GroupsScreen, type GroupItem } from './screens/learning/GroupsScreen';
@@ -237,9 +238,9 @@ import { FairPriceCeilingScreen } from '../admin/screens/dashboard/FairPriceCeil
 import { UpdateFairPriceScreen } from '../admin/screens/dashboard/UpdateFairPriceScreen';
 import { BulkPriceUpdateScreen } from '../admin/screens/dashboard/BulkPriceUpdateScreen';
 import { PriceHistoryScreen } from '../admin/screens/dashboard/PriceHistoryScreen';
-import { MarketDayScheduleScreen, MOCK_DAYS } from '../admin/screens/dashboard/MarketDayScheduleScreen';
+import { MarketDayScheduleScreen } from '../admin/screens/dashboard/MarketDayScheduleScreen';
 import { AddMarketDayScreen } from '../admin/screens/dashboard/AddMarketDayScreen';
-import { ListingApprovalQueueScreen } from '../admin/screens/dashboard/ListingApprovalQueueScreen';
+import { ListingsFlow } from '../admin/screens/listings/ListingsFlow';
 import { AdminSupportScreen } from '../admin/screens/dashboard/AdminSupportScreen';
 import { ReportBuilderScreen } from '../admin/screens/reports';
 import { TohfaToast, type ToastData } from '../admin/components/TohfaToast';
@@ -560,6 +561,24 @@ function channelForRoute(route: 'SubWarehouseB2BSales' | 'SubWarehouseB2BDetail'
  * /auth/me (BR-30), rendered through WarehouseScopeGate (renderWithSubScope).
  */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
+
+/** Audit screens that write to the server and so need the signed-in admin's permission list. */
+const AUDIT_WRITE_SCREENS: readonly string[] = ['ScheduleNewAudit', 'AuditInspection', 'BulkRescheduleAudits'];
+/**
+ * Routes that mount the shared ListingsFlow. Its actions (approve, reject,
+ * counter-offer) are gated on listing.* codes from the same GET /auth/me, so
+ * the flow needs the signed-in admin's own permission list loaded while it is
+ * open — exactly as AUDIT_WRITE_SCREENS does for the audit write screens.
+ */
+const LISTING_SCREENS: readonly string[] = ['ListingApprovalQueue'];
+/**
+ * The Market & Pricing writes and the market day schedule. They are not
+ * warehouse routes, so they load their own /auth/me session for `can`:
+ * pricing.fair_price.set / .bulk_update (BR-08, Super Admin only) and
+ * warehouse.all.view for the market day venues. Fails closed until the list
+ * arrives; the server re-checks every action (CLAUDE.md 2.1).
+ */
+const PRICING_WRITE_SCREENS: readonly string[] = ['UpdateFairPrice', 'BulkPriceUpdate', 'MarketDaySchedule', 'AddMarketDay'];
 /** Legacy Main inventory route keys -> shared InventoryFlow design ids (W4). */
 /** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST #106). */
 const RETURNS_ROUTE_ENTRY: Partial<Record<ScreenName, ReturnsRoute>> = {
@@ -863,6 +882,52 @@ export default function App(): React.JSX.Element {
   });
   const warehousePermissions = warehouseSession.permissions;
   const warehouseCan = useMemo(() => makeCan(warehousePermissions), [warehousePermissions]);
+  // The audit write screens (Schedule New Audit, Audit Inspection, Bulk Reschedule) gate their
+  // actions on audit.* codes from the same GET /auth/me. They are not warehouse routes, so
+  // `warehouseCan` is never loaded for them; this second session loads only while one is open.
+  // Fails closed until the list arrives; the server re-checks every action (CLAUDE.md 2.1).
+  const auditSession = useWarehousePermissions({
+    enabled: AUDIT_WRITE_SCREENS.includes(screen),
+    adminRole: lastAdminRole,
+    isDev: __DEV__,
+    loadSession: async () => {
+      const me = await fetchMe();
+      return { permissions: me.permissions ?? [], roles: me.roles ?? [] };
+    },
+    hasCredentials: hasSessionCredentials,
+    sessionKey: sessionEpoch,
+  });
+  const auditCan = useMemo(() => makeCan(auditSession.permissions), [auditSession.permissions]);
+  // The listing approval queue is not a warehouse route either, so it loads its
+  // own session: `can` for the listing.* codes, and the Sub admin's own
+  // warehouse (BR-30) as the approve destination the spec requires. A Tohfa or
+  // Super admin has no such assignment, and the queue then draws Approve
+  // disabled rather than inventing a destination. Fails closed until the list
+  // arrives; the server re-checks every action (CLAUDE.md 2.1).
+  const listingsSession = useWarehousePermissions({
+    enabled: LISTING_SCREENS.includes(screen),
+    adminRole: lastAdminRole,
+    isDev: __DEV__,
+    loadSession: async () => {
+      const me = await fetchMe();
+      return { permissions: me.permissions ?? [], roles: me.roles ?? [] };
+    },
+    hasCredentials: hasSessionCredentials,
+    sessionKey: sessionEpoch,
+  });
+  const listingsCan = useMemo(() => makeCan(listingsSession.permissions), [listingsSession.permissions]);
+  const pricingSession = useWarehousePermissions({
+    enabled: PRICING_WRITE_SCREENS.includes(screen),
+    adminRole: lastAdminRole,
+    isDev: __DEV__,
+    loadSession: async () => {
+      const me = await fetchMe();
+      return { permissions: me.permissions ?? [], roles: me.roles ?? [] };
+    },
+    hasCredentials: hasSessionCredentials,
+    sessionKey: sessionEpoch,
+  });
+  const pricingCan = useMemo(() => makeCan(pricingSession.permissions), [pricingSession.permissions]);
   // Params for a BillingFlow entry, memoised so the flow does not restart its
   // stack on every App render. An invoice opened from a sale record falls back
   // to that record's invoice number, as the old SubWarehouseInvoiceDetail did.
@@ -1884,6 +1949,8 @@ export default function App(): React.JSX.Element {
             farmerName={selectedPayoutDue?.farmerName ?? 'Ramasamy S.'}
             farmerId={selectedPayoutDue?.farmId ?? '#TOHFA-F-00189'}
             zone={selectedPayoutDue?.location ?? 'Coonoor'}
+            payoutId={selectedPayoutDue?.payoutId}
+            can={warehouseCan}
             onApprovedSuccess={goBack}
           />
         ) : screen === 'Expenses' ? (
@@ -1895,6 +1962,7 @@ export default function App(): React.JSX.Element {
           <AddExpenseScreen
             onBack={goBack}
             onSuccess={goBack}
+            can={warehouseCan}
           />
         ) : screen === 'GSTAccounting' ? (
           <GSTAccountingScreen
@@ -1930,14 +1998,17 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ScheduleNewAudit' ? (
           <ScheduleNewAuditScreen
             onBack={goBack}
+            can={auditCan}
             onSuccess={() => navigate('AuditCalendar')}
           />
         ) : screen === 'AuditInspection' ? (
           <AuditInspectionScreen
             onBack={goBack}
-            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
-            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
-            zone={selectedAuditEntry?.location ?? 'Ooty'}
+            can={auditCan}
+            auditId={selectedAuditEntry?.id}
+            farmerName={selectedAuditEntry?.farmerName}
+            farmId={selectedAuditEntry?.farmId}
+            zone={selectedAuditEntry?.location}
             onSubmitted={(data: AuditReportData) => {
               setAuditReportData(data);
               navigate('AuditReport');
@@ -1971,6 +2042,7 @@ export default function App(): React.JSX.Element {
         ) : screen === 'BulkRescheduleAudits' ? (
           <BulkRescheduleAuditsScreen
             onBack={goBack}
+            can={auditCan}
             onSuccess={() => navigate('AuditCalendar')}
           />
         ) : screen === 'AuditPdfPreview' ? (
@@ -2009,14 +2081,14 @@ export default function App(): React.JSX.Element {
         ) : screen === 'UpdateFairPrice' ? (
           <UpdateFairPriceScreen
             onBack={goBack}
-            onSave={() => {
-              // Save logic here
-              goBack();
-            }}
+            can={pricingCan}
+            onSaved={goBack}
           />
         ) : screen === 'BulkPriceUpdate' ? (
           <BulkPriceUpdateScreen
             onBack={goBack}
+            can={pricingCan}
+            warehouseId={pricingSession.subScope?.warehouseId}
           />
         ) : screen === 'PriceHistory' ? (
           <PriceHistoryScreen
@@ -2026,35 +2098,15 @@ export default function App(): React.JSX.Element {
           <MarketDayScheduleScreen
             onBack={goBack}
             onAddMarketDay={() => navigate('AddMarketDay')}
-            onToggle={() => {
-              // Handle toggle
-            }}
-            days={MOCK_DAYS}
-            onDaysChange={() => {
-              // Handle days change
-            }}
+            can={pricingCan}
           />
         ) : screen === 'AddMarketDay' ? (
           <AddMarketDayScreen
             onBack={goBack}
-            onSave={() => {
-              // Save market day logic here
-              navigate('MarketDaySchedule');
-            }}
+            can={pricingCan}
           />
         ) : screen === 'ListingApprovalQueue' ? (
-          <ListingApprovalQueueScreen
-            onBack={goBack}
-            onApprove={() => {
-              // Handle approve
-            }}
-            onCounter={() => {
-              // Handle counter
-            }}
-            onReject={() => {
-              // Handle reject
-            }}
-          />
+          <ListingsFlow can={listingsCan} onBack={goBack} warehouseId={listingsSession.subScope?.warehouseId} />
         ) : screen === 'CustomerMain' ? (
           <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
         ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
@@ -2876,33 +2928,19 @@ export default function App(): React.JSX.Element {
             item={selectedItemForRemove ?? undefined}
             onNavigateBack={goBack}
             onConfirmRemove={async () => {
-              // canDeleteAsset is the single source of truth for which categories have no
-              // backend delete endpoint (see RemoveItemScreen.tsx; currently none) --
-              // RemoveItemScreen already refuses to call onConfirmRemove for those, so this
-              // is belt-and-braces, not the gate itself. Trees delete via BR-55d.
-              if (
-                selectedItemForRemove?.id &&
-                canDeleteAsset(selectedItemForRemove.category)
-              ) {
-                try {
-                  if (selectedItemForRemove.category === 'Trees') {
-                    await deleteTreePlanting(selectedItemForRemove.id);
-                  } else {
-                    await deleteFarmAsset(selectedItemForRemove.id);
-                  }
-                } catch {
-                  // Ignore error and navigate back to list which refreshes
-                }
+              // A failed or skipped delete must never navigate back to the list: that is
+              // how this flow says "it is gone". performRemoveItem (utils/removeItem.ts)
+              // decides; Alert is the mechanism RemoveItemScreen already uses to refuse a
+              // removal, and App.tsx has no banner of its own.
+              const outcome = await performRemoveItem(selectedItemForRemove, {
+                deleteTreePlanting,
+                deleteFarmAsset,
+              });
+              if (outcome.kind === 'failed') {
+                Alert.alert(outcome.title, outcome.message);
+                return;
               }
-              if (selectedItemForRemove?.category === 'Tools') {
-                navigate('ToolsList');
-              } else if (selectedItemForRemove?.category === 'Equipment') {
-                navigate('EquipmentList');
-              } else if (selectedItemForRemove?.category === 'Trees') {
-                navigate('TreesList');
-              } else {
-                navigate('MachineryList');
-              }
+              navigate(outcome.next);
             }}
           />
         ) : screen === 'DailyAttendance' ? (

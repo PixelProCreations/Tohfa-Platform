@@ -10,8 +10,16 @@
  * them per session family.
  */
 import type { Executor } from '../../db/pool.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { authRepo } from '../auth/auth.repo.js';
 import { subAdminsRepo } from '../warehouse-ops/sub-admins.repo.js';
+import type {
+  AdminAccountListItem,
+  AdminAccountZone,
+  ListAdminAccountsQuery,
+  ListAdminAccountsResponse,
+} from './admin-accounts.schema.js';
 
 export interface AdminAccountRow {
   id: string;
@@ -68,6 +76,9 @@ export interface AdminAccountsRepo {
   findZones(db: Executor, zoneIds: string[]): Promise<Array<{ id: string; isActive: boolean }>>;
   /** End every live FARMER_ADMIN assignment of the user whose zone is not in `keepZoneIds`. */
   endZoneAssignments(db: Executor, userId: string, keepZoneIds: string[]): Promise<number>;
+
+  /** List admin accounts with keyset pagination and filtering. */
+  listAdminAccounts(db: Executor, query: ListAdminAccountsQuery): Promise<ListAdminAccountsResponse>;
 }
 
 const ACCOUNT_COLUMNS = `
@@ -154,11 +165,19 @@ export const adminAccountsRepo: AdminAccountsRepo = {
   },
 
   async insertAdminProfile(db, { userId, createdBy }) {
+    await db.query(`SELECT pg_advisory_xact_lock(hashtextextended('admin_profiles.admin_code', 0))`);
+    const maxRes = await db.query<{ max_seq: string }>(
+      `SELECT COALESCE(MAX(substring(admin_code FROM '^ADM-([0-9]+)$')::bigint), 0)::text AS max_seq FROM admin_profiles`,
+    );
+    const seqRes = await db.query<{ val: string }>(`SELECT nextval('admin_account_code_seq')::text AS val`);
+    const nextNum = Math.max(Number(maxRes.rows[0]?.max_seq ?? 0) + 1, Number(seqRes.rows[0]?.val ?? 1));
+    const adminCode = `ADM-${String(nextNum).padStart(3, '0')}`;
+
     const result = await db.query<{ admin_code: string }>(
       `INSERT INTO admin_profiles (user_id, admin_code, created_by)
-       VALUES ($1, 'ADM-' || lpad(nextval('admin_account_code_seq')::text, 3, '0'), $2)
+       VALUES ($1, $2, $3)
        RETURNING admin_code`,
-      [userId, createdBy],
+      [userId, adminCode, createdBy],
     );
     return result.rows[0]!.admin_code;
   },
@@ -222,5 +241,115 @@ export const adminAccountsRepo: AdminAccountsRepo = {
       [userId],
     );
     return result.rowCount ?? 0;
+  },
+
+  async listAdminAccounts(db, query) {
+    const conditions: string[] = ["u.user_type = 'ADMIN'", 'u.deleted_at IS NULL'];
+    const params: unknown[] = [];
+
+    if (query.status !== undefined) {
+      params.push(query.status);
+      conditions.push(`u.status = $${params.length}`);
+    }
+
+    if (query.role !== undefined) {
+      params.push(query.role);
+      conditions.push(
+        `EXISTS (
+          SELECT 1 FROM user_roles ur
+          JOIN roles r ON r.id = ur.role_id
+          WHERE ur.user_id = u.id
+            AND ${LIVE_ROLE}
+            AND r.code = $${params.length}
+        )`,
+      );
+    }
+
+    if (query.q !== undefined && query.q.length > 0) {
+      params.push(`%${query.q}%`);
+      conditions.push(`(u.full_name ILIKE $${params.length} OR (u.email IS NOT NULL AND u.email ILIKE $${params.length}))`);
+    }
+
+    if (query.cursor !== undefined && query.cursor.length > 0) {
+      const after = requireKeysetCursor(CURSOR_TAGS.adminAccounts, query.cursor);
+      params.push(after.ts, after.id);
+      conditions.push(`(u.created_at, u.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const limit = query.limit ?? 20;
+    params.push(limit + 1);
+
+    const result = await db.query<{
+      id: string;
+      fullName: string;
+      email: string | null;
+      status: 'PENDING' | 'ACTIVE' | 'DISABLED';
+      roleCode: string;
+      zones: AdminAccountZone[];
+      cursor_ts: string;
+    }>(
+      `SELECT
+         u.id,
+         u.full_name AS "fullName",
+         u.email,
+         u.status,
+         COALESCE(
+           (SELECT r.code
+              FROM user_roles ur
+              JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id
+               AND ${LIVE_ROLE}
+             ORDER BY r.hierarchy_level ASC, r.code ASC
+             LIMIT 1),
+           (SELECT r.code
+              FROM user_roles ur
+              JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id
+             ORDER BY ur.valid_from DESC
+             LIMIT 1),
+           'ADMIN'
+         ) AS "roleCode",
+         COALESCE(
+           (SELECT json_agg(json_build_object('id', z.id, 'code', z.code, 'name', z.name) ORDER BY z.name)
+              FROM (
+                SELECT DISTINCT z.id, z.code, z.name
+                  FROM user_roles ur
+                  JOIN zones z ON z.id = ur.zone_id
+                 WHERE ur.user_id = u.id
+                   AND ${LIVE_ROLE}
+                   AND z.deleted_at IS NULL
+              ) z),
+           '[]'::json
+         ) AS zones,
+         ${MICRO_TS_SQL('u.created_at')} AS cursor_ts
+        FROM users u
+       ${whereClause}
+       ORDER BY u.created_at DESC, u.id DESC
+       LIMIT $${params.length}`,
+      params,
+    );
+
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const last = rows[rows.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined ? encodeKeysetCursor(CURSOR_TAGS.adminAccounts, { ts: last.cursor_ts, id: last.id }) : null;
+
+    const items: AdminAccountListItem[] = rows.map((r) => ({
+      id: r.id,
+      fullName: r.fullName,
+      email: r.email,
+      roleCode: r.roleCode,
+      status: r.status,
+      zones: Array.isArray(r.zones) ? r.zones : [],
+    }));
+
+    return {
+      items,
+      page: { nextCursor, hasMore },
+      nextCursor,
+      hasMore,
+    };
   },
 };

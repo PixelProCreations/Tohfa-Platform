@@ -60,6 +60,25 @@ export interface ReturnDetailView extends ReturnRowView {
   items: readonly ReturnItemView[];
 }
 
+/**
+ * The facts of the order a return belongs to (GET /admin/orders/{orderId},
+ * order.list.view_all). The return itself carries only the order's id, so the
+ * order number, buyer, date, warehouse, channel and payment status come from
+ * here; every field is drawn with a dash while the order is not loaded.
+ */
+export interface ReturnOrderView {
+  orderNumber: string;
+  buyerName: string;
+  /** The buyer's customer code, or null for a walk-in. */
+  customerCode: string | null;
+  /** `******3210` as sent (BR-92), or null. */
+  mobileMasked: string | null;
+  warehouseName: string;
+  placedLabel: string;
+  channelLabel: string;
+  paymentStatusLabel: string;
+}
+
 /** One status change (GET /admin/returns/{id}/history), oldest first. */
 export interface ReturnTimelineEntry {
   id: string;
@@ -102,7 +121,8 @@ export type ReturnsRoute =
   | 'RefundFailed'
   | 'RefundCompleted'
   | 'ReturnHistory'
-  | 'ReturnHistoryDetail';
+  | 'ReturnHistoryDetail'
+  | 'ReturnsFilters';
 
 /** The refund the server confirmed, carried to the Refund Completed page. */
 export interface ReturnRefundParams {

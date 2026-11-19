@@ -82,6 +82,7 @@ type SingleCodeRoute = Exclude<StaffRoute, 'CreateStaffAccount'>;
 
 const ROUTE_CODE: Record<SingleCodeRoute, string> = {
   Staff: STAFF_CODES.listView,
+  StaffList: STAFF_CODES.listView,
   StaffDetail: STAFF_CODES.listView,
   EditStaffProfile: STAFF_CODES.manage,
   Attendance: STAFF_CODES.attendanceView,

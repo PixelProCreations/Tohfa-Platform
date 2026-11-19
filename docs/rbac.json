@@ -1371,7 +1371,7 @@
       "description": "Set customer-facing retail price (must be at or below the ceiling).",
       "grants": {
         "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "none",
         "SUB_WH_ADMIN": "none",
@@ -2494,6 +2494,36 @@
       "source": "matrix \u00a76 + reqs FR-C05"
     },
     {
+      "code": "order.cancel",
+      "module": "Sales Management",
+      "description": "Cancel an order and release allocated stock.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "matrix \u00a76"
+    },
+    {
+      "code": "delivery.partner.manage",
+      "module": "Sales Management",
+      "description": "Manage delivery partners (list, create, update, delete).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "reqs FR-A04"
+    },
+    {
       "code": "order.delivery_status.view",
       "module": "Sales Management",
       "description": "View order/delivery status.",
@@ -3139,6 +3169,22 @@
         "CUSTOMER": "none"
       },
       "source": "spec gap added 2026-10-23 by owner decision of 2026-10-23: a new Farmer Admin is bound to exactly one zone at creation, and more zones are added later only by Super Admin or TOHFA Admin (BR-113)"
+    },
+    {
+      "code": "zone.view",
+      "module": "Farmer Management",
+      "description": "View zones reference list and details.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "predicate": "OWN_ZONE_ONLY",
+      "source": "Batch 10 Zones Priority 1"
     },
     {
       "code": "admin.main_wh_admin.create",

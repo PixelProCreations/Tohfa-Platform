@@ -5,8 +5,9 @@
  *
  * Shows what the API carries: code, name, free-text type, capacity and the
  * active flag, plus the warehouse it belongs to (named by useStorageWarehouse
- * from the scope or GET /warehouses; hidden until known). The old Section /
- * Rack / Shelf card is gone (the API has no layout). "Stored stock" and occupancy are DERIVED from the warehouse's
+ * from the scope or GET /warehouses; the dash until known). Section / Rack / Shelf
+ * stay on the card as dashes: the API has no layout for a location. "Stored stock"
+ * and occupancy are DERIVED from the warehouse's
  * ACTIVE batches whose free-text storage location equals this location's code
  * (what the receiving flow records), and the screen says so.
  *

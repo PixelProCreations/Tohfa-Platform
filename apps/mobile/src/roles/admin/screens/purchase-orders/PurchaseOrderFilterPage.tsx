@@ -4,14 +4,12 @@
  *
  * Chips the API cannot serve are kept and drawn disabled with a note:
  *  - "Collection Scheduled": the API has no such purchase-order status.
- *  - Produce: the design's chips were fixture crop names and the API has no
- *    crop filter, so only "All" is drawn, with a not-available note.
  */
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { t, type TranslationKey } from '../../i18n';
 import { PurchaseOrdersFrame } from './PurchaseOrdersFrame';
-import { chipStatusParam, PERIOD_CHIPS, type PeriodChip, type StatusChip } from './purchaseOrdersLogic';
+import { chipStatusParam, PERIOD_CHIPS, PRODUCE_CHIPS, type PeriodChip, type ProduceChip, type StatusChip } from './purchaseOrdersLogic';
 import { styles } from './purchaseOrdersStyles';
 
 const STATUS_KEYS: Readonly<Record<StatusChip, TranslationKey>> = {
@@ -56,6 +54,8 @@ export interface PurchaseOrderFilterPageProps {
   statusChips: readonly StatusChip[];
   status: StatusChip;
   onStatus: (chip: StatusChip) => void;
+  produce: ProduceChip;
+  onProduce: (chip: ProduceChip) => void;
   /** The history page also has the period section. */
   showPeriod: boolean;
   period: PeriodChip;
@@ -69,6 +69,8 @@ export function PurchaseOrderFilterPage({
   statusChips,
   status,
   onStatus,
+  produce,
+  onProduce,
   showPeriod,
   period,
   onPeriod,
@@ -97,9 +99,16 @@ export function PurchaseOrderFilterPage({
 
           <Text style={[styles.filterSectionTitle, styles.filterSectionSpacing]}>{t('purchaseOrders.filter.produce')}</Text>
           <View style={styles.chipRow}>
-            <FilterChip label={t('purchaseOrders.filter.all')} active onPress={() => undefined} testID="purchaseOrders.filter.produce.ALL" />
+            {PRODUCE_CHIPS.map((chip) => (
+              <FilterChip
+                key={chip}
+                label={chip === 'ALL' ? t('purchaseOrders.filter.all') : chip}
+                active={produce === chip}
+                onPress={() => onProduce(chip)}
+                testID={`purchaseOrders.filter.produce.${chip}`}
+              />
+            ))}
           </View>
-          <Text style={styles.notAvailableNote}>{t('purchaseOrders.filter.produceNotAvailable')}</Text>
 
           {showPeriod ? (
             <>

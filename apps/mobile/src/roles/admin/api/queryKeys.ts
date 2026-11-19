@@ -57,6 +57,22 @@ export const farmerKeys = {
   rating: perFarmer('rating'),
 };
 
+/**
+ * Certifications (api/certifications.ts). Its own module, not a farmer
+ * sub-resource: `GET /admin/certifications` is admin-wide and filtered by
+ * `farmerId`, so a farmer write must not silently invalidate it.
+ */
+export const CERTIFICATIONS_MODULE = 'certifications';
+
+export const certificationKeys = {
+  list: (warehouseId: string | undefined, filters: { farmerId?: string | undefined; status?: string | undefined }) =>
+    adminKeys.scoped(CERTIFICATIONS_MODULE, warehouseId, {
+      resource: 'list',
+      farmerId: filters.farmerId ?? null,
+      status: filters.status ?? null,
+    }),
+};
+
 export const applicationKeys = {
   list: (warehouseId: string | undefined, filters: ApplicationListKeyFilters) =>
     adminKeys.scoped(FARMER_APPLICATIONS_MODULE, warehouseId, {
@@ -75,6 +91,13 @@ export const applicationKeys = {
  * is read-only from these screens. Unset filters are null so the key shape is
  * stable.
  */
+/**
+ * The market day schedule reads GET /warehouses and keeps the market day
+ * venues (api/marketDay.ts); its own module key so a refetch here does not
+ * disturb the warehouse screens' caches.
+ */
+export const MARKET_DAY_MODULE = 'marketDay';
+
 export const PRICING_FAIR_MODULE = 'pricingFair';
 export const PRICING_RETAIL_MODULE = 'pricingRetail';
 

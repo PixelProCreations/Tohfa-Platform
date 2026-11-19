@@ -7,6 +7,13 @@
  *     `none` for both warehouse admin roles, so there is no slot picker here.
  *   - The delivery checklist ticks have no rbac code; they are local UI state
  *     and stay ungated.
+ *
+ * Live data: the order number, delivery date and packed state are GET
+ * /admin/orders/{orderId}. AdminOrderDetail carries no delivery address (BR-99
+ * allow-list), so the address shows ADMIN_NO_VALUE. The order's delivery slot
+ * is sent (fulfilment.deliverySlot) but OrderDetailView does not map it yet, so
+ * no slot starts selected. Nothing records a stock check, so "Stock Checked"
+ * starts unticked; the delivery checklist starts unticked too (local aid only).
  */
 // Design id: M5S13 (M5S13_DeliveryPreparation)
 import React, { useState } from 'react';
@@ -15,12 +22,16 @@ import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors } from '../../../theme';
-import { SAMPLE_DELIVERY_ORDER_ID, SAMPLE_DELIVERY_PREP } from './fixtures';
-import type { OrderScreenBaseProps } from './types';
+import { t, type TranslationKey } from '../../../i18n';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
 
-// No screen-specific props yet. A type alias, because an empty interface fails
-// @typescript-eslint/no-empty-object-type; widen to an interface when props arrive.
-export type DeliveryPreparationScreenProps = OrderScreenBaseProps;
+export interface DeliveryPreparationScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
+}
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -86,20 +97,48 @@ export function DeliveryPreparationScreen({
   can,
   onBack,
   onNavigate,
-  orderId = SAMPLE_DELIVERY_ORDER_ID,
+  order,
+  isLoading = false,
+  error,
+  onRetry,
 }: DeliveryPreparationScreenProps) {
   const canDispatch = can('order.dispatch');
-  const [selectedSlot, setSelectedSlot] = useState<string>(SAMPLE_DELIVERY_PREP.deliverySlot);
-  const [checklist, setChecklist] = useState([
-    { id: '1', title: 'Items verified', checked: true },
-    { id: '2', title: 'Quantity verified', checked: true },
-    { id: '3', title: 'Address verified', checked: true },
-    { id: '4', title: 'Ready for dispatch', checked: false },
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [checklist, setChecklist] = useState<{ id: string; title: TranslationKey; checked: boolean }[]>([
+    { id: '1', title: 'orders.deliveryPrep.check.items', checked: false },
+    { id: '2', title: 'orders.deliveryPrep.check.quantity', checked: false },
+    { id: '3', title: 'orders.deliveryPrep.check.address', checked: false },
+    { id: '4', title: 'orders.deliveryPrep.check.ready', checked: false },
   ]);
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
 
   const toggleCheck = (id: string) => {
     setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)));
   };
+
+  if (view !== 'ready' || order === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+              <BackArrowIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{t('orders.deliveryPrep.title')}</Text>
+          </View>
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+            <AdminEmptyState title={t('orders.empty.notFound')} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const isPacked = order.packedLabel !== null;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -108,21 +147,21 @@ export function DeliveryPreparationScreen({
           <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
             <BackArrowIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Delivery Preparation</Text>
+          <Text style={styles.headerTitle}>{t('orders.deliveryPrep.title')}</Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.orderIdTop}>{orderId}</Text>
+          <Text style={styles.orderIdTop}>{order.orderNumber}</Text>
 
-          <Text style={styles.sectionTitleFirst}>Delivery Information</Text>
+          <Text style={styles.sectionTitleFirst}>{t('orders.deliveryPrep.info')}</Text>
           <View style={styles.card}>
-            <Text style={styles.fieldLabel}>Delivery Address</Text>
-            <Text style={styles.fieldValueBold}>{SAMPLE_DELIVERY_PREP.configuredAddress}</Text>
-            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Delivery Date</Text>
-            <Text style={styles.fieldValueBold}>{SAMPLE_DELIVERY_PREP.deliveryDate}</Text>
+            <Text style={styles.fieldLabel}>{t('orders.deliveryPrep.address')}</Text>
+            <Text style={styles.fieldValueBold}>{ADMIN_NO_VALUE}</Text>
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>{t('orders.deliveryPrep.date')}</Text>
+            <Text style={styles.fieldValueBold}>{order.deliveryDateLabel ?? ADMIN_NO_VALUE}</Text>
           </View>
 
-          <Text style={styles.sectionTitle}>Delivery Slot</Text>
+          <Text style={styles.sectionTitle}>{t('orders.deliveryPrep.slot')}</Text>
           <View style={styles.slotsRow}>
             {DELIVERY_SLOTS.map((slot) => {
               const isSelected = slot === selectedSlot;
@@ -141,22 +180,20 @@ export function DeliveryPreparationScreen({
 
           <View style={styles.infoBox}>
             <InfoCircleIcon />
-            <Text style={styles.infoText}>
-              Slot codes are configuration/API-driven, not hard-coded into the design.
-            </Text>
+            <Text style={styles.infoText}>{t('orders.deliveryPrep.slotNotice')}</Text>
           </View>
 
-          <Text style={styles.sectionTitle}>Packing Status</Text>
+          <Text style={styles.sectionTitle}>{t('orders.deliveryPrep.packingStatus')}</Text>
           <View style={styles.packingCard}>
-            <GreenCheckboxIcon />
-            <Text style={styles.packingCardText}>Stock Checked</Text>
+            <EmptyCheckboxIcon />
+            <Text style={styles.packingCardText}>{t('orders.deliveryPrep.stockChecked')}</Text>
           </View>
           <View style={[styles.packingCard, styles.packingCardSpaced]}>
-            <GreenCheckboxIcon />
-            <Text style={styles.packingCardText}>Packed</Text>
+            {isPacked ? <GreenCheckboxIcon /> : <EmptyCheckboxIcon />}
+            <Text style={styles.packingCardText}>{t('orders.deliveryPrep.packed')}</Text>
           </View>
 
-          <Text style={styles.sectionTitle}>Delivery Checklist</Text>
+          <Text style={styles.sectionTitle}>{t('orders.deliveryPrep.checklist')}</Text>
           <View style={styles.checklistCard}>
             {checklist.map((item, index) => (
               <TouchableOpacity
@@ -166,7 +203,7 @@ export function DeliveryPreparationScreen({
                 onPress={() => toggleCheck(item.id)}
               >
                 {item.checked ? <GreenCheckboxIcon /> : <EmptyCheckboxIcon />}
-                <Text style={styles.checklistText}>{item.title}</Text>
+                <Text style={styles.checklistText}>{t(item.title)}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -179,10 +216,10 @@ export function DeliveryPreparationScreen({
             <TouchableOpacity
               style={styles.dispatchBtn}
               activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S14', { orderId })}
+              onPress={() => onNavigate?.('M5S14', { orderId: order.id })}
             >
               <DeliveryTruckIcon />
-              <Text style={styles.dispatchBtnText}>Prepare for Dispatch</Text>
+              <Text style={styles.dispatchBtnText}>{t('orders.deliveryPrep.prepareDispatch')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}

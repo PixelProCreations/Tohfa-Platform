@@ -22,7 +22,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -31,6 +30,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { adminErrorKey } from '../../api/errors';
 import { useFarmer, useFarmerList } from '../../api/farmerHooks';
@@ -237,7 +237,7 @@ export function ScheduleAuditFormScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ── Header ── */}
       <View style={styles.headerBanner}>

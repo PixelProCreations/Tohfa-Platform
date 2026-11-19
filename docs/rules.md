@@ -429,21 +429,21 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
-### BR-21 — Every order supports warehouse pickup
+### BR-21 — Dual fulfilment: warehouse pickup and home delivery
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §2.3 ("dual fulfilment"); Matrix P9 (pickup only) |
-| **Status** | CONTESTED |
-| **Layer** | Server-side, order-create path |
-| **Scope** | Track 1 (pickup path only) |
+| **Source** | Requirements v1.0 §2.3 ("dual fulfilment"); Matrix P9 (pickup only); owner decision 2026-11-16 (Dual Fulfilment) |
+| **Status** | RESOLVED: owner decision 2026-11-16 (Dual Fulfilment) |
+| **Layer** | Server-side, order-create and fulfilment paths |
+| **Scope** | Track 1 (dual fulfilment) |
 
-**Rule.** Every order MUST offer warehouse pickup as a fulfilment option. Requirements additionally describe home delivery with slots and out-for-delivery tracking; the matrix says all orders are pickup-only and contains no driver or fleet feature. Track 1 implements pickup only; delivery slots exist in the data model but no delivery routing is built.
+**Rule.** Every order MUST offer warehouse pickup or home delivery as a fulfilment option (Dual Fulfilment, resolved 2026-11-16). Warehouse pickup orders transition from `PACKED` to `READY_FOR_PICKUP` via empty dispatch payload, while delivery orders require a delivery partner assignment and transition from `PACKED` to `OUT_FOR_DELIVERY`.
 
-**Failure mode if unenforced.** Either the whole delivery fleet capability is built against a client who wanted pickup only, or customers are promised a delivery slot no one can serve.
+**Failure mode if unenforced.** Either the whole delivery fleet capability is built against a client who wanted pickup only, or customers are promised a delivery slot no one can serve, or pickup orders are dispatched to drivers.
 
 **Test contract.**
-- `BR-21a` Every order created in Track 1 has `fulfilment_type = pickup` and a `warehouse_id`.
-- `BR-21b` No endpoint assigns a driver or transitions an order to `out_for_delivery` in Track 1.
+- `BR-21a` Every order created in Track 1 has `fulfilment_type = PICKUP` or `DELIVERY` with a `warehouse_id`.
+- `BR-21b` Dual fulfilment: `POST /admin/orders/{id}/dispatch` accepts `{ deliveryPartnerId, slot }` and transitions a `PACKED` delivery order to `OUT_FOR_DELIVERY`, persisting partner assignment, history, and audit log. Any attempt to dispatch an order whose fulfilment type is `PICKUP` with delivery parameters or to `OUT_FOR_DELIVERY` is refused with 409 `INVALID_STATE_TRANSITION` and writes nothing.
 
 ---
 
@@ -2362,7 +2362,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders/{orderId}`, permission `order.list.view_all` (existing code); scope predicate in SQL (`warehouseScopeFilter`); allow-list serializer plus a strict response schema |
 | **Scope** | Track 1 |
 
-**Rule.** `GET /admin/orders/{orderId}` returns one order of any channel (`ONLINE`, `DIRECT`, `MARKET`, `HORECA`, `B2B`). The warehouse scope is an explicit SQL predicate: scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse; an order at another warehouse returns the same 404 `problem+json` as an unknown id, never 403 (BR-30). A scope that carries a customer or farmer id fails closed (404) on this admin route, so a CUSTOMER, whose `order.list.view_all` grant is `own`, gets 404 here and keeps using `/orders/{id}`. The response is built by an allow-list (`AdminOrderDetail`): order identity, channel, status, fulfilment type, payment method and status, warehouse `{id, name}`, buyer (customer id, code, name, or the walk-in name) with the mobile masked to its last four digits for every scope (BR-92; like `Sale`, this response never carries a full mobile), lines (crop name, grade, kg to 3 decimals, unit price, GST rate and amount, line total), totals as `Money` strings read from the stored order (never recomputed), the latest invoice reference `{id, invoiceNumber, status}` or null, delivery date and slot, `otpRequired` and `otpVerifiedAt`, a timeline of status changes and times, and `placedAt`, `packedAt`, `completedAt`, `cancelledAt`. Never returned, at any depth: `farmerId`, `sourceFarmerId`, farm, village, GPS, FMB, batch or allocation ids or codes (implementer's choice, consistent with `GET /admin/sales/{saleId}`: no batch identifiers at all), the delivery OTP, its hash or the attempt count (BR-20), the delivery address (customer PII, BR-92), and the history note or actor (free text can name a farmer). The read writes no audit row (BR-35 covers mutations).
+**Rule.** `GET /admin/orders/{orderId}` returns one order of any channel (`ONLINE`, `DIRECT`, `MARKET`, `HORECA`, `B2B`). The warehouse scope is an explicit SQL predicate: scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse; an order at another warehouse returns the same 404 `problem+json` as an unknown id, never 403 (BR-30). A scope that carries a customer or farmer id fails closed (404) on this admin route, so a CUSTOMER, whose `order.list.view_all` grant is `own`, gets 404 here and keeps using `/orders/{id}`. The response is built by an allow-list (`AdminOrderDetail`): order identity, channel, status, fulfilment type, payment method and status, warehouse `{id, name}`, buyer (customer id, code, name, or the walk-in name) with the mobile masked to its last four digits for every scope (BR-92; like `Sale`, this response never carries a full mobile), lines (crop name, grade, kg to 3 decimals, unit price, GST rate and amount, line total), totals as `Money` strings read from the stored order (never recomputed), the latest invoice reference `{id, invoiceNumber, status}` or null, delivery date and slot, `otpRequired` and `otpVerifiedAt`, a timeline of status changes and times, and `placedAt`, `packedAt`, `completedAt`, `cancelledAt`. Never returned, at any depth: `farmerId`, `sourceFarmerId`, farm, village, GPS, FMB, batch or allocation ids or codes (implementer's choice, consistent with `GET /admin/sales/{saleId}`: no batch identifiers at all), the delivery OTP, its hash or the attempt count (BR-20), the delivery address (customer PII, BR-92, except for the narrow dual fulfilment exception below), and the history note or actor (free text can name a farmer). Narrow exception (owner decision 2026-11-16 Dual Fulfilment, P0-70): `deliveryAddress` is returned on `AdminOrderDetail` ONLY when `fulfilment_type = 'DELIVERY'`, and ONLY to a caller within warehouse scope. Pickup orders continue returning null/no address. List endpoints never return addresses. Masked customer mobile rules under BR-92 remain strictly enforced. The read writes no audit row (BR-35 covers mutations).
 
 **Failure mode if unenforced.** A Sub admin reads another warehouse's orders, or learns by a 403 which order ids exist; a counter screen or support agent sees the farmer behind a lot, or the handover OTP that proves delivery.
 
@@ -2376,6 +2376,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-99g` Each of ONLINE, DIRECT, MARKET, HORECA and B2B is returned, schema-valid, with no farm-identity, batch or OTP key at any depth (recursive scan), and neither the farmer's name nor the batch code from the history notes or batch appears in the JSON.
 - `BR-99h` `otpRequired` is true for an unverified OTP order and the plaintext OTP never appears; the invoice reference is present when an invoice exists and null otherwise.
 - `BR-99i` (derived, review of 2026-10-13) A DIRECT/MARKET sale cancelled after its UPI payment was captured carries `payment_status = REFUND_DUE` (migration 0068, BR-94i); its detail is 200 with `paymentStatus = REFUND_DUE`, never a 500 from the response schema.
+- `BR-99j` (owner decision 2026-11-16, P0-70) For `fulfilment_type = 'DELIVERY'`, `deliveryAddress` (`{ line1, line2, city, district, state, pincode, lat, lng }`) is returned to callers within warehouse scope. For `fulfilment_type = 'PICKUP'`, `deliveryAddress` is null. Customer mobile remains masked (BR-92).
 
 ---
 
@@ -3635,13 +3636,464 @@ Every other place that adds a role creates a brand-new account in the same trans
 
 ---
 
+### BR-147 — Admin rating tier and audit compliance tier configuration read
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (P0-50) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/tier-config/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/rating-tiers` and `GET /admin/audit-tier-thresholds` return the current active generation of `rating_tier_config` (the latest generation with `effective_from <= CURRENT_DATE`). Both endpoints require authentication and SUPER_ADMIN authorization (`farmer.rating.configure_tiers` and `audit.tier.configure_thresholds` respectively); unauthorized roles receive 403 `FORBIDDEN`.
+
+**Test contract.**
+- `BR-147a`: GET returns the current tier generation with 4 contiguous bands covering 0-100.
+- `BR-147b`: Unauthorized callers receive 403 `FORBIDDEN`.
+
+---
+
+### BR-148 — Channel allocation configuration read
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (P0-50) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/allocations/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/allocation-config` returns the current channel percentages for all 4 channels (`ONLINE`, `LIVE_MARKET`, `RESERVE`, `BUFFER`) totaling 100%. An optional `cropId` query parameter returns crop-specific percentages when configured, falling back to the default channel allocation when not configured. Gated by `allocation.channel_percentage.set`.
+
+**Test contract.**
+- `BR-148a`: GET returns 4 channels totaling 100% and effective date.
+- `BR-148b`: Unauthorized callers receive 403 `FORBIDDEN`.
+
+---
+
+### BR-149 — Admin code generation safety, concurrency lock, and uniqueness conflict handling
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 6) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/warehouse-ops/`, `apps/api/src/modules/admin-accounts/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+Admin profile creation generates unique `admin_code` identifiers (`SWA-` for Sub Warehouse Admins, `ADM-` for general admin accounts) using `pg_advisory_xact_lock` over `admin_profiles.admin_code` and derives the next code using `MAX(existing suffix, sequence.nextval)`. Code numbers are padded to at least 3 digits without truncation when exceeding 999 (`padStart(3, '0')`). Any `admin_profiles_admin_code_key` uniqueness constraint conflict is caught and translated to a 409 `CONFLICT` response, never surfacing as a 500 `INTERNAL` error.
+
+**Test contract.**
+- `BR-149a`: Parallel admin creation produces distinct admin codes without collision.
+- `BR-149b`: An admin code unique violation translates to 409 `CONFLICT`.
+
+---
+
+### BR-150 — Crop taxonomy screen parity fields and unique code generation
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 6 / P0-51) |
+| **Status** | ENFORCED |
+| **Layer** | Database (`0090_crop_taxonomy_fields.sql`), Server-side: `apps/api/src/modules/crops/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+Crop master entities maintain screen parity with the admin Crop Data management interface:
+1. `code`: A human-readable crop code (e.g. `CRP-001`), server-generated, sequential and strictly unique. Generation uses `pg_advisory_xact_lock` over `crop_master.code` with suffix derivation combining existing max code and `crop_code_seq`, padded to at least 3 digits. A database trigger acts as safety fallback for raw inserts.
+2. Metadata fields: `grade_system` (preset label metadata, strictly descriptive and never altering operational grades `GRADE_1`..`REJECT`), `duration_days` (text range, e.g. "90 - 120 days"), `storage_temp` (text e.g. "10°C - 12°C, 85-90% RH"), `description` (text).
+3. `deactivation_reason`: Persisted when `isActive: false` (retiring a crop type).
+4. `created_by`: UUID FK to `users(id)`, capturing the admin user who created the crop type.
+
+**Test contract.**
+- `BR-150a`: Creating a crop accepts metadata fields, generates unique sequential code, records creator, and returns in response.
+- `BR-150b`: Patching a crop updates metadata and records `deactivationReason` when retiring (`isActive: false`).
+
+---
+
+### BR-151 — Admin Order Cancellation lifecycle, status history, audit log, idempotency, and RBAC
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-60) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+An authorized administrator can cancel an order via `POST /admin/orders/{id}/cancel` prior to completion:
+1. Permission `order.cancel` (SUPER_ADMIN: all, TOHFA_ADMIN: all, MAIN_WH_ADMIN: all, SUB_WH_ADMIN: own). Outside scope is 404 (BR-30).
+2. Requires `{ reason: string }` (1-500 chars).
+3. An order in `DELIVERED` or `PICKED_UP` status cannot be cancelled (409 `INVALID_STATE_TRANSITION`).
+4. Updates `orders.status` to `CANCELLED`, persists `cancellation_reason`, and sets `cancelled_at = now()`.
+5. Inside the same database transaction, appends to `order_status_history` (`from_status`, `to_status = 'CANCELLED'`, `changed_by = actor.userId`, `note = reason`) and writes an `audit_log` row with action `order.cancel`.
+6. Honours `Idempotency-Key`: Replaying the request with the identical key returns the stored response without duplicate history or audit entries.
+
+**Test contract.**
+- `BR-151a`: Cancelling an order updates status to `CANCELLED`, records `cancellation_reason`, status history, and audit log.
+- `BR-151b`: Sub Warehouse Admin is confined to own warehouse (other warehouse is 404).
+- `BR-151c`: Replaying with `Idempotency-Key` returns stored response without duplicate side effects.
+- `BR-151d`: Cancelling a completed order returns 409 `INVALID_STATE_TRANSITION`.
+
+---
+
+### BR-152 — Admin Order Issue reporting and linkage to warehouse operational issues
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-60) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/`, `apps/api/src/modules/warehouse-ops/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+Reporting an issue against an order via `POST /admin/orders/{id}/issues`:
+1. Requires `warehouse.issue.manage` permission within caller's warehouse scope.
+2. Accepts `{ lineItemIds?: string[], issueType: string, description: string }`.
+3. Records an issue directly in `warehouse_issues` linked to the order (`order_id`, `order_line_ids`), auto-generates a sequential `issue_number` (`ISS-xxxx`), and sets category (`QUALITY` or `OTHER`).
+4. Writes an audit log row and returns `{ id, issueNumber, status }` so the admin screen can navigate directly to `M4S09`.
+5. Honours `Idempotency-Key`: Replaying returns the stored response without creating a second issue.
+
+**Test contract.**
+- `BR-152a`: Submitting an order issue records into `warehouse_issues` with order reference and returns `{ id, issueNumber, status }`.
+- `BR-152b`: Warehouse scope is strictly enforced (Sub WH Admin cannot report an issue against another warehouse's order).
+- `BR-152c`: Replay with `Idempotency-Key` is idempotent and creates exactly one issue.
+
+---
+
+### BR-153 — Admin Order Detail response parity and item identification
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-61) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+The `AdminOrderDetail` response on `GET /admin/orders/{orderId}`:
+1. Exposes `pickupType` (`'WAREHOUSE_PICKUP'` or `'HOME_DELIVERY'`) and `notes` (`cancellation_reason` or notes text).
+2. Each item in `items[]` exposes `id` (`order_items.id`), enabling client-side reconciliation with RMA return items without array-position matching.
+3. Each event in `timeline[]` exposes `actor` (`users.full_name`) and `note` (`order_status_history.note`).
+4. `GET /admin/orders` list items expose both `buyerName` and `customerName`, and `packedAt`.
+
+**Test contract.**
+- `BR-153a`: Order detail response includes `pickupType`, `notes`, item `id`, and timeline `actor` + `note`.
+- `BR-153b`: Order list items expose `buyerName`, `customerName`, and `packedAt`.
+
+---
+
+### BR-154 — Admin Returns queue search, warehouse scoping, and KPI status summary
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-62) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/returnRequests/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/returns`:
+1. Accepts `q` (1-100 characters, literal substring search over order number, customer name, and return reference/reason).
+2. Accepts `warehouseId` filter, narrowing returns to those originating from orders of that warehouse.
+3. Returns a `summary` object containing counts for the 4 KPI tiles: `pending`, `underReview`, `approved`, `refundPending`.
+4. Returns each row with `customerName` and `orderNumber`.
+
+**Test contract.**
+- `BR-154a`: `GET /admin/returns` filters by `q` and `warehouseId`.
+- `BR-154b`: Returns queue response includes KPI summary counts and list item `customerName` / `orderNumber`.
+
+---
+
+### BR-155 — Admin Returns extended fields, computed return window eligibility, and projected refund calculation
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-63) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/returnRequests/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+RMA return requests and detail responses:
+1. Support `issueCategory`, `issueTicket`, `requestedResolution`, `customerEvidence` array, `inspectionNotes`, and `inspectionPhotos` array.
+2. Computes `returnWindowEligible` boolean indicating whether the return was requested within the valid return window (7 days from order placement/completion).
+3. Computes `projectedRefundAmount` and `projectedRefundMethod` prior to refund execution.
+
+**Test contract.**
+- `BR-155a`: Creating and inspecting a return accepts extended fields and customer evidence.
+- `BR-155b`: Return detail response calculates `returnWindowEligible`, `projectedRefundAmount`, and `projectedRefundMethod`.
+
+---
+
+### BR-156 — Admin Order Stock Check per-line availability and warehouse shortage evaluation
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-64) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/orders/{id}/stock-check`:
+1. Requires `order.list.view_all` within caller's warehouse scope.
+2. Computes per order line in the fulfilling warehouse:
+   - `orderedKg`: quantity ordered.
+   - `availableStockKg`: physical stock on warehouse shelves (`qty_available` across active batches).
+   - `reservedKg`: stock held by other pending reservations in that warehouse.
+   - `availableKg`: effective pickable stock = $\max(0, \text{availableStockKg} - \text{reservedKg})$.
+   - `shortageKg`: $\max(0, \text{orderedKg} - \text{availableKg})$.
+   - `status`: `'IN_STOCK'` if `shortageKg == 0`, else `'SHORTAGE'`.
+3. Returns overall status: `'AVAILABLE'` if all lines are in stock; `'INSUFFICIENT'` if any line has a shortage.
+
+**Test contract.**
+- `BR-156a`: Stock check calculates ordered, available, reserved, and shortage per line.
+- `BR-156b`: Stock check returns `AVAILABLE` when sufficient stock exists and `INSUFFICIENT` when a shortage exists.
+
+---
+
+### BR-157 — Delivery Partners CRUD, active status, and soft-delete protection
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 8 / P0-71) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/delivery-partners/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. Delivery partners are managed under permission `delivery.partner.manage` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN holding `all`, as delivery partners are a shared pool without `warehouse_id`).
+2. `name` and `phone` are mandatory non-empty strings; `vehicleRef` is optional string.
+3. Listing `GET /admin/delivery-partners` returns active partners (`is_active = true` and `deleted_at IS NULL`).
+4. Creating `POST /admin/delivery-partners` returns 201 with the created partner.
+5. Updating `PATCH /admin/delivery-partners/{id}` modifies fields (`name`, `phone`, `vehicleRef`, `isActive`).
+6. Deletion is soft delete only (`is_active = false`, `deleted_at = now()`). A partner referenced by an order must never be hard-deleted.
+7. Mutations write an audit log entry under actionCode `delivery.partner.manage`.
+
+**Test contract.**
+- `BR-157a`: `GET /admin/delivery-partners` lists active delivery partners only; inactive and soft-deleted are excluded.
+- `BR-157b`: `POST /admin/delivery-partners` validates required name and phone; creates partner and logs audit row.
+- `BR-157c`: `PATCH /admin/delivery-partners/{id}` updates fields and supports soft-delete; 404 for unknown id.
+- `BR-157d`: Hard deletion of a partner referenced by an order is prevented.
+- `BR-157e`: RBAC enforcement: caller requires `delivery.partner.manage`.
+
+---
+
+### BR-158 — Delivery Slots reference list and per-warehouse capacity tracking
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 8 / P0-72) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `GET /admin/delivery-slots` returns the fixed 3 reference windows (`MORNING_8_12`, `AFTERNOON_12_4`, `EVENING_4_8`).
+2. When optional query parameters `warehouseId` (UUID) and `date` (`YYYY-MM-DD`) are provided, slots are enriched with per-warehouse capacity from the `delivery_slots` table:
+   - `capacityOrders`: configured maximum orders for that slot on that date (default 0 if no row configured).
+   - `bookedOrders`: number of orders currently booked.
+   - `availableOrders`: $\max(0, \text{capacityOrders} - \text{bookedOrders})$.
+   - `isActive`: boolean status of the slot.
+3. Accessible by roles with order read access (`order.list.view_all` or `order.dispatch`).
+
+**Test contract.**
+- `BR-158a`: `GET /admin/delivery-slots` without query parameters returns the 3 fixed slot reference windows.
+- `BR-158b`: `GET /admin/delivery-slots?warehouseId=...&date=...` returns slot availability and capacity metrics from `delivery_slots`.
+
+---
+
+### BR-159 — Order Delivery Dispatch lifecycle, partner assignment, and state machine enforcement
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 8 / P0-73, P0-74) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/fulfilment` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `POST /admin/orders/{id}/dispatch` supports dual fulfilment:
+   - For `fulfilment_type = 'PICKUP'`: Transitions `PACKED` -> `READY_FOR_PICKUP`. Order MUST be in `PACKED` status; attempting to dispatch a non-PACKED order (e.g. `CONFIRMED`) returns 409 `INVALID_STATE_TRANSITION`. Body must not supply a delivery partner; supplying a delivery partner or attempting delivery dispatch returns 409 `INVALID_STATE_TRANSITION`.
+   - For `fulfilment_type = 'DELIVERY'`: Accepts `{ deliveryPartnerId, vehicleNumber?, slot? }`. Validates that the partner exists and is active. Order MUST be in `PACKED` status. Transitions `PACKED` -> `OUT_FOR_DELIVERY`. Persists `delivery_partner_id` on the order (and `delivery_slot` if specified).
+2. Slot locking and capacity semantics:
+   - Dispatch cannot change the customer-booked delivery slot: if `input.slot` differs from `order.deliverySlot`, the call is rejected with 409 `INVALID_STATE_TRANSITION`.
+   - If the order has no slot previously booked (e.g. legacy delivery order), dispatch verifies capacity against `delivery_slots` for that warehouse, date, and slot, increments `booked_orders`, and books it. If the slot is full (`booked_orders >= capacity_orders`), it is rejected with 409 `CONFLICT`.
+3. Status transition records an `order_status_history` row with actor and transition note, and writes an `audit_log` row with `actionCode: 'order.dispatch'` inside the same database transaction. On 409 refusal, no status history or audit log rows are written.
+4. Emits tracking event `OUT_FOR_DELIVERY` to order events emitter.
+5. Requires header `Idempotency-Key` (BR-118).
+6. `GET /admin/orders/{id}` returns:
+   - When `fulfilment_type = 'DELIVERY'`: `fulfilmentType: 'DELIVERY'`, `deliveryAddress` (`{ line1, line2, city, district, state, pincode, lat, lng }`), `deliveryPartner` (`{ id, name, phone, vehicleRef }` or null), and `deliverySlot`.
+   - When `fulfilment_type = 'PICKUP'`: `fulfilmentType: 'PICKUP'`, `deliveryAddress: null`, and `deliveryPartner: null`.
+
+**Test contract.**
+- `BR-159a`: Dispatching a `DELIVERY` order transitions `PACKED` -> `OUT_FOR_DELIVERY`, assigns partner and slot, writes history and audit log.
+- `BR-159b`: Attempting to dispatch a `PICKUP` order with delivery partner or to delivery status returns 409 `INVALID_STATE_TRANSITION`. Attempting to dispatch a non-PACKED pickup order (e.g. `CONFIRMED`) returns 409 `INVALID_STATE_TRANSITION`. On refusal, 0 new rows are written to `order_status_history` and `audit_log`.
+- `BR-159c`: Delivery dispatch honours `Idempotency-Key` and returns identical response on replay.
+- `BR-159d`: `AdminOrderDetail` exposes `deliveryAddress` and `deliveryPartner` for delivery orders, and nulls them for pickup orders.
+- `BR-159e`: Dispatch cannot change the customer-booked delivery slot (409 `INVALID_STATE_TRANSITION`); an unbooked delivery order with no `delivery_date` returns 409 `INVALID_STATE_TRANSITION` and writes nothing; unbooked delivery orders with a delivery date check capacity and book the slot, refusing with 409 `CONFLICT` if full.
+
+---
+
+### BR-160 — Customer Creation, Profile Management, Role Merging, and GSTIN Governance
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 9 / Add Customer form & GSTIN enablement) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/customers/` |
+
+1. **Customer Record Creation (`POST /admin/customers`):**
+   - Authorized by `customer.record.create` permission (`SUPER_ADMIN` and `TOHFA_ADMIN`).
+   - Generates sequential customer code in format `CUST-XXXX` under advisory transaction lock (`customer_code_seq`).
+   - Customer is created in `ACTIVE` status with no password hash (logs in via standard mobile OTP challenge).
+   - Automatically initializes customer wallet with zero ledger balance and creates default customer address if provided.
+   - Requires non-empty `businessName` for `B2B` and `HORECA` customer types; `RETAIL` does not require `businessName`.
+   - Validates optional `businessType` (free text), `preferredWarehouseId` (must exist and be active), and GSTIN format/uniqueness.
+
+2. **Mobile Collision and Role Merging:**
+   - If mobile already belongs to an active customer, rejects with 409 `CONFLICT`.
+   - If mobile belongs to an administrative account (`SUPER_ADMIN`, `TOHFA_ADMIN`, `MAIN_WH_ADMIN`, `SUB_WH_ADMIN`), rejects with 409 `CONFLICT` under BR-135 role exclusivity.
+   - If mobile belongs to a live farmer or farmer admin account, reuses the existing user record, attaches the `CUSTOMER` role, records `customer.role_attached` audit log, and returns 201 with `linkedToExistingUser: true`.
+   - If mobile belongs to a soft-deleted user, creates a fresh user row (preserving BR-34: reactivation is Super Admin only) and returns 201 with `linkedToExistingUser: false`.
+
+3. **Customer Profile Edit (`PATCH /admin/customers/:id`):**
+   - Authorized by `customer.profile.edit` permission (`SUPER_ADMIN` and `TOHFA_ADMIN`).
+   - Allows updating `name`, `email`, `businessType`, `customerType`, `businessName`, `preferredWarehouseId`, and `address`.
+   - Enforces business name requirement when switching to or maintaining `B2B`/`HORECA` (422 `VALIDATION_FAILED` on missing/empty business name).
+   - `mobile` is locked and cannot be edited per BR-33 (rejected with 422 if sent).
+   - Updating `gstin` is strictly gated by the resolved scope of `customer.gst_details.manage` (403 `FORBIDDEN` if actor lacks mutating scope).
+   - Changing `gstin` resets `gst_verified = false`.
+   - Records `customer.profile.edit` audit log.
+
+4. **Read Payloads & Privacy:**
+   - Detail (`GET /admin/customers/:id`): exposes `customerType`, `businessName`, `businessType`, `gstin`, and `gstVerified`. Masks mobile for warehouse-scoped actors (BR-92).
+   - List (`GET /admin/customers`): row exposes `customerType` and `businessName`.
+
+**Test contract.**
+- `BR-160a`: POST /admin/customers creates user, customer, wallet, address, generates `CUST-XXXX`, records audit log, returns 201 with `linkedToExistingUser: false`. Rejects actors without `customer.record.create` with 403.
+- `BR-160b`: Mobile collisions on POST: live customer -> 409 `CONFLICT`; live farmer -> merges user, attaches `CUSTOMER` role, records `customer.role_attached`, returns 201 with `linkedToExistingUser: true`; live admin -> 409 `CONFLICT` under BR-135; soft-deleted user -> inserts fresh user row, returns `linkedToExistingUser: false`.
+- `BR-160c`: Business name requirement: B2B/HORECA without `businessName` returns 422 `VALIDATION_FAILED`. RETAIL does not require businessName.
+- `BR-160d`: GSTIN format and uniqueness: invalid format returns 422; duplicate GSTIN returns 409 `CONFLICT`.
+- `BR-160e`: PATCH /admin/customers/:id: updates name, email, businessType, address; rejects mobile with 422; editing GSTIN without `customer.gst_details.manage` returns 403 `FORBIDDEN`; editing GSTIN with permission resets `gst_verified = false`.
+- `BR-160f`: Detail and list read payloads include `customerType`, `businessName`, `businessType`, `gstin`, `gstVerified` (detail) and `customerType`, `businessName` (list), with BR-92 mobile masking.
+
+---
+
+### BR-161 — Zone Reference Surface and Farmer Admin Geographic Scoping
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 10 / Zones Priority 1) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/zones/` |
+
+1. **Zone Reference List (`GET /admin/zones`):**
+   - Authorized by `zone.view` permission (`SUPER_ADMIN`, `TOHFA_ADMIN`, `MAIN_WH_ADMIN`, `SUB_WH_ADMIN` held at `all`; `FARMER_ADMIN` held at `own`).
+   - Rejects unauthenticated callers with 401; rejects `FARMER` and `CUSTOMER` with 403 `FORBIDDEN`.
+   - Filtering: defaults to live active zones (`is_active = true` and `deleted_at IS NULL`); supports `status=ACTIVE|INACTIVE|ALL` and `warehouseId=<uuid>`.
+   - Derives `shortCode` in code from zone `code` (e.g. `ZONE-OOTY` -> `OOT`, `ZONE-COON` -> `COO`, `ZONE-KOTA` -> `KOT`, `ZONE-GUDA` -> `GUD`).
+   - Aggregates mapped taluks from `zone_taluks` ordered alphabetically (`taluks: string[]`).
+   - Strict allow-list response: `id`, `code`, `shortCode`, `name`, `warehouseId`, `warehouseName`, `description`, `taluks`, `isActive`, `createdAt`. Does not expose internal or manager fields on the list item.
+   - Farmer Admin Scoping: `FARMER_ADMIN` holding `own` scope sees only zones assigned to their account (`user_roles.zone_id`).
+
+2. **Zone Detail & Personnel Resolution (`GET /admin/zones/:id`):**
+   - Authorized by `zone.view` permission.
+   - Non-existent or soft-deleted (`deleted_at IS NOT NULL`) zones return 404 `NOT_FOUND`.
+   - Farmer Admin Scoping: an authenticated `FARMER_ADMIN` requesting a zone outside their assigned zone set receives 404 `NOT_FOUND`, never 403 (CLAUDE.md: out-of-scope resources do not exist in the caller's view).
+   - Resolves active zone manager (`manager: { userId, fullName, mobile } | null`) by joining `user_roles` (`role_code = 'FARMER_ADMIN'`, `valid_to IS NULL`) and `users` (`status = 'ACTIVE'`, `deleted_at IS NULL`).
+   - Mobile Privacy (BR-92): manager `mobile` is masked (`*********XXXX`), never leaking the raw phone number.
+   - Strict allow-list response: `id`, `code`, `shortCode`, `name`, `warehouseId`, `warehouseName`, `description`, `taluks`, `manager`, `isActive`, `createdAt`.
+
+**Test contract.**
+- `BR-161a`: `GET /admin/zones` returns 401 unauthenticated, 403 for FARMER and CUSTOMER, 200 with all 4 canonical seed zones for administrative roles, derives `shortCode`, aggregates ordered taluks, supports `warehouseId` and `status` filters, filters to assigned zone for `FARMER_ADMIN`, and conforms strictly to the allow-list shape.
+- `BR-161b`: `GET /admin/zones/:id` returns 401 unauthenticated, 403 for FARMER and CUSTOMER, 404 for unknown or soft-deleted zone, 404 for FARMER_ADMIN reading outside assigned zone, resolves active manager with BR-92 masked mobile (or null), and conforms strictly to the allow-list shape.
+
+---
+
+### BR-162 — Market Day Schedule Management
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gap 8) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/market-days/` |
+
+1. **Market Days Schedule (`GET /admin/market-days`):**
+   - Authorized by `market.schedule.manage` permission.
+   - Filterable by `warehouseId`, `from`, `to`. Excludes soft-deleted records.
+2. **Market Day Creation & Mutation (`POST /admin/market-days`, `PATCH /admin/market-days/:id`):**
+   - Validates time window (`startTime < endTime`) and valid warehouse.
+   - Authorized by `market.schedule.manage`.
+
+**Test contract.**
+- `BR-162a`: Creates, lists, and patches market days schedule with proper validation and role authorization.
+
+---
+
+### BR-163 — Order Queue Summary Breakdown
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gap 7) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/fulfilment.routes.ts` |
+
+1. **Order Summary (`GET /admin/orders/summary`):**
+   - Authorized by `order.list.view_all` permission.
+   - Returns order counts aggregated by `status` and `warehouseId`.
+   - Strictly confined by the caller's warehouse scope (Sub Warehouse Admin sees only its own warehouse).
+
+**Test contract.**
+- `BR-163a`: Returns accurate counts grouped by status and warehouse with scope isolation.
+
+---
+
+### BR-164 — Stock Adjustment Evidence Photos and Stable Reference Code
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gaps 9 & 15) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/stock-adjustments/` |
+
+1. **Stable Adjustment Code:**
+   - Every stock adjustment receives a readable, sequential identifier (e.g. `ADJ-000128`) generated via database sequence `stock_adjustment_code_seq`.
+2. **Evidence Photos (`POST /admin/stock-adjustments/:id/evidence`):**
+   - Attaches photo evidence to a stock adjustment.
+   - Strips EXIF and GPS metadata prior to blob storage (BR-16).
+   - Authorized by `inventory.stock_adjustment.create`.
+
+**Test contract.**
+- `BR-164a`: Attaches evidence with EXIF stripping and returns sequential adjustment codes.
+
+---
+
+### BR-165 — Critical Stock Threshold and Health Metrics
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gap 10) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/inventory-overview/` |
+
+1. **Critical Stock Count:**
+   - `GET /admin/inventory/overview` reports `criticalStockCount` representing warehouse + crop + grade groups whose active stock is below `system_config.critical_stock_threshold_kg`.
+   - Reports `thresholds.criticalStockThresholdKg` alongside low stock threshold.
+
+**Test contract.**
+- `BR-165a`: Accurately counts inventory groups below critical threshold within caller's warehouse scope.
+
+---
+
+### BR-166 — Per-Warehouse and Per-Produce Allocation Configuration
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gaps 11 & 12) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/allocations/` |
+
+1. **Multidimensional Allocation Splits:**
+   - Supports allocation percentage configuration partitioned by `(effective_from, warehouse_id, crop_id, grade)`.
+   - Super Admin only (`allocation.channel_percentage.set`).
+   - Querying `GET /admin/allocation-config` with `warehouseId`, `cropId`, `grade` resolves from most specific override to global default.
+   - Sum guard enforces all 4 channel percentages sum to exactly 100%.
+
+**Test contract.**
+- `BR-166a`: Sets and queries per-warehouse and per-produce allocation configuration with exact 100% sum guard.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
 |---|---|---|---|---|---|
 | 1 | Audit scoring scale (BR-04) | §2.1: "max 100 points" and tiers `<650 / 650-700 / 700-749 / 750+` in the same bullet | §9 repeats both verbatim | `rating_tier_config` now carries a second, later-`effective_from` generation with the client-confirmed 0-100 bands (`POOR`<50, `MODERATE` 50-69, `GOOD` 70-84, `EXCELLENT`>=85); the 2025-01-01 placeholder rows are kept as history, not read by `resolveTierForScore` any more | resolved for Farm Rating (BR-06), recorded for completeness |
 | 2 | Automation (BR-38) | FR-F06/FR-F07: auto-reminders, system-suggested treatments, weather risk indicators; §2.2 automatic B2B/Horeca allocation | Principle 5: "All data is entered manually... No automated processes" | No advisory automation; only the three rule-enforcement jobs | requires client confirmation |
-| 3 | Fulfilment model (BR-21) | §2.3 doorstep OTP at delivery hub, FR-C04 delivery slots + out-for-delivery, FR-A04 driver performance, module 14 drivers | Principle 9: "All orders fulfilled via warehouse pickup"; no driver or fleet feature anywhere | Pickup + 4-digit OTP only; delivery slot fields modelled but unused; no driver entity | requires client confirmation |
+| 3 | Fulfilment model (BR-21) | §2.3 doorstep OTP at delivery hub, FR-C04 delivery slots + out-for-delivery, FR-A04 driver performance, module 14 drivers | Principle 9: "All orders fulfilled via warehouse pickup"; no driver or fleet feature anywhere | Pickup + 4-digit OTP only; delivery slot fields modelled but unused; no driver entity | Resolved 2026-11-16 (owner decision: dual fulfilment, BR-21) |
 | 4 | Audit log scope for Main Warehouse Admin | §6.4: `View audit logs` MW = `Own` | §15: `View system audit logs` MW = `View` (all) | MAIN_WH_ADMIN = `own` (Ch.6 precedence), meaning ONLY its assigned warehouse: a Main admin with no assigned warehouse sees an empty list, and an entry with no warehouse never matches `own` (`apps/api/src/modules/audit-log/`, BR-30, BR-35) | **Resolved 2026-10-23** (owner decision: the assigned warehouse only, not all four) |
 | 5 | Set warehouse capacity | §6.2: SA = Y, TA = Y, MW = Y | §7: SUPER_ADMIN only; TA = N, MW = N | SA/TA/MW may set (Ch.6 precedence); matrix is stricter. MW = all; the new capacity is not checked against current stock (BR-66) | requires client confirmation |
 | 6 | Wallet write authority for MW/SW | §6.3 `Wallet management (customers)`: MW = Y, SW = Own | §8: manual credit/debit is SA/TA only; MW/SW get view | MW = all, SW = own (Ch.6 precedence) — the loosest reading of a money-moving grant | requires client confirmation, priority |
@@ -3688,7 +4140,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 4 | B2B/Horeca allocation from consolidated inventory | §2.2 | BR-13 | Only the Online channel is in scope; source contradiction unresolved |
 | 5 | Four sales channels | §2.2 | BR-15 | Amended 2026-10-11 (owner decision D1): Market, and the new Direct channel, are now enforced for the Sub Warehouse Admin through BR-85 and BR-95 (row kept for history). Horeca and B2B creation are still not enforced (501); each needs its own order, pricing and invoicing path |
 | 6 | Farmer subscription Rs 500/year and free-tier limits | §2.2 | BR-14 | Billing module is Phase 2; free-tier limits are undefined in both documents |
-| 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Pickup path only; delivery model is contested (contradiction 3) |
+| 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Moved into Track 1 on 2026-11-16 (Batch 8; see BR-21) — row kept for history |
 | 8 | Live order tracking beyond packed/picked-up | FR-C04 | — | Dispatch and out-for-delivery states belong to the delivery model that is not in scope |
 | 9 | Rate & review, tags, one-tap reorder | FR-C05 | — | Customer app Phase 5 screens; no backend dependency in the golden thread |
 | 10 | RMA issue category taxonomy, customer support-ticket lifecycle | FR-C05, matrix §6 | — | The return/inspect/approve/refund workflow itself is now enforced (BR-61, `apps/api/src/modules/returnRequests/`); a free-text `reason` stands in for a structured issue-category list, and the bank refund is a status + manual hand-off, not a tracked ticket. Issue categories and a support-ticket lifecycle around that are still Phase 2-3 |

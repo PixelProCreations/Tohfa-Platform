@@ -90,6 +90,89 @@ export const listStaffQuery = z
 export type ListStaffQuery = z.infer<typeof listStaffQuery>;
 
 // ---------------------------------------------------------------------------
+// Staff sub-resources (bank account, documents, emergency contact, BR-167)
+// ---------------------------------------------------------------------------
+export const staffBankAccountBody = z
+  .object({
+    accountHolderName: z.string().trim().min(1).max(120),
+    accountNumber: z.string().trim().min(1).max(50),
+    ifsc: z.string().trim().min(1).max(20),
+    bankName: z.string().trim().min(1).max(100),
+    branchName: z.string().trim().min(1).max(100),
+  })
+  .strict();
+export type StaffBankAccountBody = z.infer<typeof staffBankAccountBody>;
+
+export const staffBankAccountResponse = z
+  .object({
+    id: z.string().uuid(),
+    staffId: z.string().uuid(),
+    accountHolderName: z.string(),
+    accountNumber: z.string(),
+    ifsc: z.string(),
+    bankName: z.string(),
+    branchName: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .strict();
+export type StaffBankAccountResponse = z.infer<typeof staffBankAccountResponse>;
+
+export const staffDocumentTypes = ['AADHAAR', 'PAN', 'DRIVING_LICENSE', 'PASSBOOK'] as const;
+export const staffDocumentTypeEnum = z.enum(staffDocumentTypes);
+export type StaffDocumentType = z.infer<typeof staffDocumentTypeEnum>;
+
+export const staffDocumentBody = z
+  .object({
+    type: staffDocumentTypeEnum,
+    documentNumber: z.string().trim().min(1).max(50),
+    fileUrl: z.string().trim().url(),
+  })
+  .strict();
+export type StaffDocumentBody = z.infer<typeof staffDocumentBody>;
+
+export const staffDocumentResponse = z
+  .object({
+    id: z.string().uuid(),
+    staffId: z.string().uuid(),
+    type: staffDocumentTypeEnum,
+    documentNumber: z.string(),
+    fileUrl: z.string(),
+    createdAt: z.string(),
+  })
+  .strict();
+export type StaffDocumentResponse = z.infer<typeof staffDocumentResponse>;
+
+export const listStaffDocumentsResponse = z
+  .object({
+    items: z.array(staffDocumentResponse),
+  })
+  .strict();
+export type ListStaffDocumentsResponse = z.infer<typeof listStaffDocumentsResponse>;
+
+export const staffEmergencyContactBody = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    relationship: z.string().trim().min(1).max(50),
+    mobile: phone,
+  })
+  .strict();
+export type StaffEmergencyContactBody = z.infer<typeof staffEmergencyContactBody>;
+
+export const staffEmergencyContactResponse = z
+  .object({
+    id: z.string().uuid(),
+    staffId: z.string().uuid(),
+    name: z.string(),
+    relationship: z.string(),
+    mobile: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })
+  .strict();
+export type StaffEmergencyContactResponse = z.infer<typeof staffEmergencyContactResponse>;
+
+// ---------------------------------------------------------------------------
 // Attendance: bodies and queries
 // ---------------------------------------------------------------------------
 const instant = z.string().datetime({ offset: true, message: 'Must be an ISO 8601 date-time with an offset' });

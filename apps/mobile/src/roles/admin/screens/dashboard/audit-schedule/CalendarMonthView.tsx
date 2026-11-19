@@ -4,7 +4,8 @@
  * for the shown IST month.
  */
 import React, { useMemo } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { AuditSummaryDto } from '../../../api/audits';
 import { adminColors, adminSpacing } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
@@ -195,7 +196,7 @@ export function CalendarMonthView(props: CalendarMonthViewProps) {
 
   return (
     <SafeAreaView style={styles.calRoot}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.calHeader}>
         <View style={styles.calHeaderTopRow}>

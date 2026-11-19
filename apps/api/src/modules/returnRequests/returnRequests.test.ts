@@ -122,6 +122,8 @@ function buildFakeRepo(options: {
       status: r.status,
       reason: r.reason,
       note: r.note,
+      customerEvidence: [],
+      inspectionPhotos: [],
       items: r.items,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt === null ? null : r.updatedAt.toISOString(),
@@ -190,7 +192,12 @@ function buildFakeRepo(options: {
       return r === undefined ? null : toSummaryShape(r);
     },
     async list(_db, _args: ListArgs): Promise<ListResult> {
-      return { items: [...store.values()].map(toResponse), nextCursor: null, hasMore: false };
+      return {
+        items: [...store.values()].map(toResponse),
+        nextCursor: null,
+        hasMore: false,
+        summary: { pending: 0, underReview: 0, approved: 0, refundPending: 0 },
+      };
     },
     async updateStatus(_db, id, status) {
       const r = store.get(id);
@@ -236,6 +243,16 @@ function buildFakeRepo(options: {
         return sum + qty * 40; // matches the fixture unitPrice '40.00'
       }, 0);
       return total.toFixed(2);
+    },
+    async getSummary() {
+      return {
+        total: 0,
+        pending: 0,
+        inspecting: 0,
+        approved: 0,
+        rejected: 0,
+        refunded: 0,
+      };
     },
   };
 }

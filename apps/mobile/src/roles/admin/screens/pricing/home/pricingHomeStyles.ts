@@ -6,9 +6,51 @@
  * adminType style / spacing token.
  */
 import { StyleSheet } from 'react-native';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 
 export const homeStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
+  },
+  backButton: {
+    padding: adminSpacing.xs,
+    marginRight: adminSpacing.sm,
+  },
+  saHeader: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.smMd,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  saHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+  },
+  saHeaderTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  saHeaderFilterBtn: {
+    width: adminSpacing.xxl + adminSpacing.xs,
+    height: adminSpacing.xxl + adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   kpiGrid: {
     marginBottom: adminSpacing.lg,
   },
@@ -120,5 +162,246 @@ export const homeStyles = StyleSheet.create({
     borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Super Admin Home styles
+  saKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: adminSpacing.lg,
+  },
+  saKpiCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  saKpiVal: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  saKpiSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
+  },
+  saPrimaryBtn: {
+    backgroundColor: adminColors.brand,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.smMd,
+    ...adminShadow.sm,
+  },
+  saPrimaryBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+  },
+  saSecondaryBtn: {
+    backgroundColor: adminColors.card,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
+  },
+  saSecondaryBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  saSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.sm,
+  },
+  saSectionHeading: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+  },
+  saViewLink: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  saRecentCardItem: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    marginBottom: adminSpacing.smMd,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...adminShadow.sm,
+  },
+  saBadgeBoxSuccess: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.xs,
+    paddingVertical: adminSpacing.xs / 2,
+    paddingHorizontal: adminSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saBadgeBoxDanger: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.xs,
+    paddingVertical: adminSpacing.xs / 2,
+    paddingHorizontal: adminSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saCropInfoCol: {
+    flex: 1.2,
+  },
+  saCropName: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  saCropGrade: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  saPriceCol: {
+    flex: 1.1,
+  },
+  saPriceCurrent: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  saPriceOld: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textDecorationLine: 'line-through',
+  },
+  saBadgeCol: {
+    flex: 1.1,
+    alignItems: 'center',
+  },
+  saPillSuccessText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+  },
+  saPillDangerText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+  },
+  saPillSubDanger: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    marginTop: 2,
+  },
+  saDateCol: {
+    flex: 1.2,
+    alignItems: 'flex-end',
+  },
+  saDatePrimary: {
+    ...adminType.caption,
+    color: adminColors.ink,
+  },
+  saDateSecondary: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  saQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  saQuickCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 80,
+    ...adminShadow.sm,
+  },
+  saQuickIconBox: {
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  saQuickLabel: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
+
+  // Farmer Admin Home styles
+  snapshotCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  snapshotRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.xs,
+  },
+  snapshotLabel: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  snapshotValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  snapshotDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.xs,
+  },
+  activeStatusText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+  },
+  recentPriceCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  recentPriceHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  recentPriceCropTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  activePill: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs / 2,
+  },
+  activePillText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
   },
 });

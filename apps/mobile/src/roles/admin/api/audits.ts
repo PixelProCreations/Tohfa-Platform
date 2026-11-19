@@ -16,6 +16,7 @@
  *   POST  /admin/audits/{id}/red-flag                audit.red_flag.manage   (BR-05)
  *   POST  /admin/audits/{id}/clear-red-flag          audit.red_flag.manage   (BR-05)
  *   GET   /admin/audits/{id}/report                  audit.report.generate   (BR-04, BR-06)
+ *   GET   /admin/audit-tier-thresholds               audit.tier.configure_thresholds (BR-04, BR-147)
  *   PATCH /admin/audit-tier-thresholds               audit.tier.configure_thresholds (BR-04, BR-111)
  *
  * Scope is the server's: a Farmer Admin sees only audits of farmers in their
@@ -27,8 +28,11 @@
  * a bulk `shiftDays` applied twice, is guarded by the per-item
  * `expectedScheduledFor` in the BODY, not a header.
  *
- * There is NO GET for the tier thresholds: /admin/audit-tier-thresholds is
- * PATCH-only (spec gap, see screens/dashboard/AlertThresholdsScreen.tsx).
+ * The tier thresholds read and write the same store as the farm rating tiers
+ * (one scale, BR-04): GET /admin/audit-tier-thresholds returns exactly the body
+ * of GET /admin/rating-tiers, only the permission differs. Both carry
+ * audit.tier.configure_thresholds, so a screen that cannot configure must not
+ * ask for the read either (BR-147b: it is a 403, not an empty result).
  *
  * The report is not JSON: 200 is the PDF bytes, `redirect=true` is a 302 to a
  * 5-minute signed URL. A viewer opened through Linking never sends the bearer
@@ -587,6 +591,14 @@ export function redFlagAudit(auditId: string, body: AuditReasonBody, signal?: Ab
 /** Clear the red flag (BR-05b); 409 when the audit is not flagged. */
 export function clearAuditRedFlag(auditId: string, body: AuditClearRedFlagBody = {}, signal?: AbortSignal): Promise<AuditDetailDto> {
   return adminPost<AuditDetailDto>(`${auditPath(auditId)}/clear-red-flag`, body, { signal });
+}
+
+/**
+ * The tier generation now in effect: four contiguous bands covering 0-100, in
+ * POOR, MODERATE, GOOD, EXCELLENT order (BR-147a). Read-only, nothing audited.
+ */
+export function getAuditTierThresholds(signal?: AbortSignal): Promise<TierBandsGenerationDto> {
+  return adminGet<TierBandsGenerationDto>('/admin/audit-tier-thresholds', undefined, signal);
 }
 
 /** Replace the tier bands (one scale shared with farm ratings, BR-04/BR-111). Identical bands are a 200 no-op. */

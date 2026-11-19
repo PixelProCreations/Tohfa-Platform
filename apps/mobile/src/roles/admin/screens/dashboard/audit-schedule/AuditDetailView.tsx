@@ -1,6 +1,7 @@
 /** "Audit <code>" full detail (design: currentView 'detail'). */
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { formatAdminDay } from '../../../utils/datetime';
@@ -32,7 +33,7 @@ export function AuditDetailView({ selected, onBack, onViewHistory, onOpenInspect
 
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <ScreenHeader
         title={ds('admin.audits.dashSchedule.header.auditTitle', { code })}
         subtitle={ds('admin.audits.dashSchedule.header.status', { status: statusLower })}

@@ -242,7 +242,7 @@ describe('filter page: the design chips on the API params', () => {
     expect(lastListCall()[1]).toEqual({});
   });
 
-  it('Collection Scheduled and Produce stay, but are marked not available and disabled', async () => {
+  it('Collection Scheduled stays, marked not available and disabled; the Produce chips are drawn and narrow the loaded rows, sending no crop param', async () => {
     const tree = await mount(<PurchaseOrdersFlow can={viewer} onBack={() => undefined} />);
     await press(tree, 'purchaseOrders.filterButton');
     const [scheduled] = byTestId(tree, 'purchaseOrders.filter.status.COLLECTION_SCHEDULED');
@@ -252,7 +252,17 @@ describe('filter page: the design chips on the API params', () => {
     expect(text).toContain(en['purchaseOrders.filter.status.COLLECTION_SCHEDULED']);
     expect(text).toContain(en['purchaseOrders.filter.statusNotAvailable']);
     expect(text).toContain(en['purchaseOrders.filter.produce']);
-    expect(text).toContain(en['purchaseOrders.filter.produceNotAvailable']);
+    // The design's Produce chips are all drawn and enabled (the old "not available" note is gone).
+    expect(text).not.toContain(en['purchaseOrders.filter.produceNotAvailable']);
+    for (const chip of ['ALL', 'Carrot', 'Beans', 'Tomato']) {
+      const [node] = byTestId(tree, `purchaseOrders.filter.produce.${chip}`);
+      expect(node, chip).toBeDefined();
+      expect(node!.props.disabled, chip).not.toBe(true);
+    }
+    // The API has no crop filter: choosing a produce chip narrows rows client-side and adds no request param.
+    await press(tree, 'purchaseOrders.filter.produce.Carrot');
+    await press(tree, 'purchaseOrders.filter.apply');
+    expect(lastListCall()[1]).toEqual({});
   });
 });
 

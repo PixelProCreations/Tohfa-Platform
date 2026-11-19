@@ -23,6 +23,7 @@ import { cropsService, type CropsService } from '../crops/crops.service.js';
 import { farmsService, type FarmsService } from '../farms/farms.service.js';
 import { farmDiaryRepo, type EntryCursor, type FarmDiaryRepo, type UpdateEntryPatch, type WorkerRowInput } from './farm-diary.repo.js';
 import type {
+  AdminDiaryCategoriesListResponse,
   AttachDiaryPhotoBody,
   CreateDiaryCategoryBody,
   CreateDiaryEntryBody,
@@ -430,6 +431,7 @@ export const farmDiaryService: FarmDiaryService = createFarmDiaryService();
 // ---------------------------------------------------------------------------
 
 export interface DiaryTaxonomyAdminService {
+  listCategories(scope: ResolvedScope): Promise<AdminDiaryCategoriesListResponse>;
   createCategory(scope: ResolvedScope, body: CreateDiaryCategoryBody): Promise<DiaryCategoryResponse>;
   updateCategory(scope: ResolvedScope, key: string, body: UpdateDiaryCategoryBody): Promise<DiaryCategoryResponse>;
   createSubActivity(
@@ -455,6 +457,10 @@ export function createDiaryTaxonomyAdminService(
   }
 
   return {
+    async listCategories(_scope) {
+      return repo.listCategoriesWithCounts(pool);
+    },
+
     async createCategory(scope, body) {
       return runTx(async (tx) => {
         if ((await repo.findCategory(tx, body.key)) !== null) throw conflict('category', body.key);

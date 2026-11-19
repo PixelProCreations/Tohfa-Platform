@@ -12,21 +12,21 @@
  * device platform, user agent, when it started, when it was last seen, the
  * last-seen IP and when it expires. Exactly those fields.
  *
- * Hidden, because the API cannot provide them: the "Current Session" card
+ * The design's "Current Session" card, session id, location, "trusted device"
+ * switch and login history are all shown. Where the API cannot supply a value
  * (the access token carries no session id, so the server cannot say which row
- * is this device, and the app does not guess), the session id, the location,
- * the "trusted device" switch and the login history (only live sessions are
- * returned; there are no failed or past logins).
+ * is this device; there is no location, no trusted-device flag and no failed or
+ * past logins) the value is an em-dash, never a missing element.
  */
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { t } from '../../../i18n';
-import { adminSpacing } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { InfoCard, InfoNote, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { ConfirmDialog, DangerOutlineButton, LogoutIcon, profileLayout } from './ProfileParts';
+import { Card, InfoCard, InfoNote, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { ConfirmDialog, DangerOutlineButton, LogoutIcon, MenuCard, profileLayout, StatusDot, StatusRow } from './ProfileParts';
 import type { SessionRowView, WarehouseScreenBaseProps } from './types';
 
 export interface SessionSecurityScreenProps extends WarehouseScreenBaseProps {
@@ -51,6 +51,7 @@ export function SessionSecurityScreen({
   isRefreshing = false,
   onLogout,
 }: SessionSecurityScreenProps) {
+  const [remembered, setRemembered] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
 
   const logout = () => {
@@ -69,6 +70,78 @@ export function SessionSecurityScreen({
         showsVerticalScrollIndicator={false}
         refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
       >
+        <SectionTitle>{t('profile.sessions.current')}</SectionTitle>
+        <View style={styles.currentSession}>
+          <View style={styles.activeRow}>
+            <StatusDot color={adminColors.success.text} />
+            <Text style={styles.activeText}>{t('profile.sessions.active')}</Text>
+          </View>
+          <InfoCard
+            rows={[
+              [
+                { label: t('profile.sessions.device'), value: noValue },
+                { label: t('profile.sessions.browser'), value: noValue },
+              ],
+              [
+                { label: t('profile.sessions.location'), value: noValue },
+                { label: t('profile.sessions.lastActive'), value: noValue },
+              ],
+            ]}
+          />
+        </View>
+
+        <SectionTitle>{t('profile.sessions.info')}</SectionTitle>
+        <InfoCard
+          rows={[
+            [
+              { label: t('profile.sessions.sessionId'), value: noValue },
+              { label: t('profile.sessions.status'), value: t('profile.sessions.active') },
+            ],
+            [
+              { label: t('profile.sessions.started'), value: noValue },
+              { label: t('profile.sessions.lastActive'), value: noValue },
+            ],
+          ]}
+        />
+
+        <SectionTitle>{t('profile.sessions.trusted')}</SectionTitle>
+        <MenuCard>
+          <StatusRow
+            label={t('profile.sessions.remembered')}
+            right={
+              <Switch
+                value={remembered}
+                onValueChange={setRemembered}
+                trackColor={{ false: adminColors.border, true: adminColors.brand }}
+                thumbColor={adminColors.card}
+              />
+            }
+          />
+        </MenuCard>
+
+        <SectionTitle>{t('profile.sessions.history')}</SectionTitle>
+        <Card>
+          {sessions.length === 0 ? (
+            <View style={styles.historyRow}>
+              <View style={styles.historyText}>
+                <Text style={styles.historyDevice}>{noValue}</Text>
+                <Text style={styles.historyTime}>{noValue}</Text>
+              </View>
+              <Text style={styles.historyResult}>{noValue}</Text>
+            </View>
+          ) : (
+            sessions.map((session, index) => (
+              <View key={session.id} style={[styles.historyRow, index > 0 && styles.historyRowDivided]}>
+                <View style={styles.historyText}>
+                  <Text style={styles.historyDevice}>{session.device}</Text>
+                  <Text style={styles.historyTime}>{session.started}</Text>
+                </View>
+                <Text style={styles.historyResult}>{t('profile.sessions.active')}</Text>
+              </View>
+            ))
+          )}
+        </Card>
+
         <SectionTitle>{t('profile.sessions.title')}</SectionTitle>
         {state === 'loading' ? (
           <AdminLoadingState />
@@ -122,6 +195,28 @@ export function SessionSecurityScreen({
 }
 
 const styles = StyleSheet.create({
+  // The design outlines the current session in green; success.border is the theme's green stroke.
+  currentSession: {
+    borderWidth: 1.5,
+    borderColor: adminColors.success.border,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.xs,
+    backgroundColor: adminColors.success.bg,
+  },
+  activeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+  },
+  activeText: { ...adminType.rowTitle, color: adminColors.success.text },
+  historyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: adminSpacing.sm },
+  historyRowDivided: { borderTopWidth: 1, borderTopColor: adminColors.border },
+  historyText: { flex: 1 },
+  historyDevice: { ...adminType.rowTitle, color: adminColors.ink },
+  historyTime: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+  historyResult: { ...adminType.caption, color: adminColors.success.text },
   session: { marginTop: adminSpacing.md },
   logoutButton: { marginTop: adminSpacing.xl },
 });

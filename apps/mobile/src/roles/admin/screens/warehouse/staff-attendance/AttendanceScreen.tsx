@@ -16,11 +16,11 @@
  */
 // Design id: M14-S03
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import {
@@ -56,7 +56,7 @@ import {
   staffWarehouseFilter,
   withDay,
 } from './mappers';
-import { AttendanceStatusText, DateNavigator, DatePickerModal, HistoryIcon, ListCard, ListRow, StaffAvatar } from './StaffParts';
+import { AttendanceStatusText, ChevronDownIcon, DateNavigator, DatePickerModal, HistoryIcon, ListCard, ListRow, RefreshIcon, StaffAvatar } from './StaffParts';
 import type { AttendanceFilter, AttendanceRecordRef, RollCallRow, WarehouseScreenBaseProps } from './types';
 import { useBulkAttendanceMutation, useRollCall, useStaffWarehouses } from './useStaffData';
 
@@ -65,9 +65,18 @@ export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
   initialFilter?: AttendanceFilter | undefined;
   onSelectRecord?: ((record: AttendanceRecordRef) => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
+  /**
+   * Super Admin only: navigate directly to the correction screen for a record.
+   * When provided alongside role='SUPER_ADMIN', the per-row Update button routes
+   * here instead of opening the detail screen.
+   */
+  onNavigateToCorrection?: ((record: AttendanceRecordRef) => void) | undefined;
+  role?: string | undefined;
 }
 
-export function AttendanceScreen({ scope, can, onBack, onTabChange, initialFilter = 'All', onSelectRecord, onNavigateToHistory }: AttendanceScreenProps) {
+export function AttendanceScreen({ scope, can, onBack, onTabChange, initialFilter = 'All', onSelectRecord, onNavigateToHistory, onNavigateToCorrection, role }: AttendanceScreenProps) {
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const [quickStatusRecord, setQuickStatusRecord] = useState<AttendanceRecordRef | null>(null);
   const isMain = isAllWarehouses(scope);
   const allowed = canViewAttendance(can);
   const [now] = useState(() => new Date());
@@ -96,10 +105,17 @@ export function AttendanceScreen({ scope, can, onBack, onTabChange, initialFilte
       title={t('staff.attendance.title')}
       onBack={onBack}
       headerRight={
-        allowed && onNavigateToHistory ? (
-          <HeaderIconButton onPress={onNavigateToHistory} accessibilityLabel={t('staff.history.title')}>
-            <HistoryIcon color={adminColors.onBrand} />
-          </HeaderIconButton>
+        allowed ? (
+          <View style={styles.headerButtons}>
+            <HeaderIconButton onPress={() => rollCall.refresh()} accessibilityLabel={t('staff.attendance.refresh')}>
+              <RefreshIcon color={adminColors.onBrand} />
+            </HeaderIconButton>
+            {onNavigateToHistory ? (
+              <HeaderIconButton onPress={onNavigateToHistory} accessibilityLabel={t('staff.history.title')}>
+                <HistoryIcon color={adminColors.onBrand} />
+              </HeaderIconButton>
+            ) : null}
+          </View>
         ) : undefined
       }
       headerExtra={
@@ -142,6 +158,23 @@ export function AttendanceScreen({ scope, can, onBack, onTabChange, initialFilte
   const chunks = bulkPresentChunks(rollCall.rows);
   const showBulk = canMarkAttendance(can) && chunks.length > 0;
 
+  const makeRecordRef = (row: RollCallRow): AttendanceRecordRef => ({
+    staffId: row.staffId,
+    date,
+    name: row.name,
+    designation: row.designation,
+  });
+
+  const handleRowUpdate = (row: RollCallRow) => {
+    if (isSuperAdmin && onNavigateToCorrection) {
+      onNavigateToCorrection(makeRecordRef(row));
+    } else if (onSelectRecord) {
+      onSelectRecord(makeRecordRef(row));
+    } else {
+      setQuickStatusRecord(makeRecordRef(row));
+    }
+  };
+
   const renderRow = (row: RollCallRow, index: number, list: readonly RollCallRow[]) => (
     <ListRow
       key={row.staffId}
@@ -149,14 +182,25 @@ export function AttendanceScreen({ scope, can, onBack, onTabChange, initialFilte
       subtitle={isMain ? t('staff.attendance.rowMeta', { designation: row.designation, warehouse: row.warehouseName }) : row.designation}
       leading={<StaffAvatar tone={row.status === 'PRESENT' ? undefined : attendanceStatusTone(row.status)} />}
       trailing={
-        <AttendanceStatusText
-          label={attendanceStatusLabel(row.status)}
-          tone={attendanceStatusTone(row.status)}
-          lines={[row.checkInText === null ? null : t('staff.attendance.checkedInAt', { time: row.checkInText })]}
-        />
+        <View style={styles.trailingRow}>
+          <TouchableOpacity
+            style={styles.statusPill}
+            onPress={() => handleRowUpdate(row)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('staff.attendance.updateA11y', { name: row.name })}
+          >
+            <AttendanceStatusText
+              label={attendanceStatusLabel(row.status)}
+              tone={attendanceStatusTone(row.status)}
+              lines={[row.checkInText === null ? null : t('staff.attendance.checkedInAt', { time: row.checkInText })]}
+            />
+            <ChevronDownIcon size={12} color={adminColors.muted} />
+          </TouchableOpacity>
+        </View>
       }
       divider={index < list.length - 1}
-      onPress={onSelectRecord ? () => onSelectRecord({ staffId: row.staffId, date, name: row.name, designation: row.designation }) : undefined}
+      onPress={onSelectRecord ? () => onSelectRecord(makeRecordRef(row)) : undefined}
     />
   );
 
@@ -210,6 +254,37 @@ export function AttendanceScreen({ scope, can, onBack, onTabChange, initialFilte
         {view === 'ready' && visible.length > 0 ? <ListCard>{visible.map(renderRow)}</ListCard> : null}
       </ScrollView>
 
+      {/* Quick status info modal — tapping the chevron pill shows detail for non-SA users */}
+      <Modal
+        visible={!!quickStatusRecord}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQuickStatusRecord(null)}
+      >
+        <TouchableOpacity
+          style={styles.statusBackdrop}
+          activeOpacity={1}
+          onPress={() => setQuickStatusRecord(null)}
+        >
+          <View style={styles.statusSheet}>
+            <Text style={styles.statusSheetTitle}>{quickStatusRecord?.name ?? ''}</Text>
+            <Text style={styles.statusSheetSub}>{t('staff.attendance.tapToUpdate')}</Text>
+            <TouchableOpacity
+              style={styles.statusSheetBtn}
+              onPress={() => {
+                if (quickStatusRecord && onSelectRecord) {
+                  onSelectRecord(quickStatusRecord);
+                }
+                setQuickStatusRecord(null);
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.statusSheetBtnText}>{t('staff.attendance.openDetail')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <DatePickerModal
         visible={pickerOpen}
         monthLabel={cal.label}
@@ -239,4 +314,59 @@ const styles = StyleSheet.create({
   bulk: { marginBottom: adminSpacing.md },
   errorText: { ...adminType.rowMeta, color: adminColors.danger.text, marginBottom: adminSpacing.sm },
   doneText: { ...adminType.rowMeta, color: adminColors.success.text, marginBottom: adminSpacing.md },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: adminSpacing.xs,
+  },
+  trailingRow: {
+    alignItems: 'flex-end',
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 4,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  statusBackdrop: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  statusSheet: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.sm,
+  },
+  statusSheetTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 16,
+  },
+  statusSheetSub: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+  },
+  statusSheetBtn: {
+    marginTop: adminSpacing.xs,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.sm + 2,
+    alignItems: 'center',
+  },
+  statusSheetBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+    fontSize: 14,
+  },
 });

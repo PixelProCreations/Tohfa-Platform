@@ -20,6 +20,7 @@ import { requirePermission, type ResolvedScope } from '../../rbac/requirePermiss
 import { aScope, anActor, aFarmer, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import { insertCrop, insertFarmerWithPlot, requireDatabaseTables } from '../../test/dbFixtures.js';
 import type {
+  CreateCropMasterData,
   CreateFarmCropData,
   CropsRepo,
   ListFarmCropsArgs,
@@ -100,6 +101,7 @@ function createFakeRepo() {
       CROP_MASTER_CARROT,
       {
         id: CROP_MASTER_CARROT,
+        code: 'CRP-001',
         slug: 'carrot',
         name: 'Carrot',
         nameTa: null,
@@ -110,12 +112,19 @@ function createFakeRepo() {
         shelfLifeDays: null,
         iconKey: null,
         isActive: true,
+        gradeSystem: null,
+        durationDays: null,
+        storageTemp: null,
+        description: null,
+        deactivationReason: null,
+        createdBy: null,
       },
     ],
     [
       CROP_MASTER_TOMATO,
       {
         id: CROP_MASTER_TOMATO,
+        code: 'CRP-002',
         slug: 'tomato',
         name: 'Tomato',
         nameTa: null,
@@ -126,6 +135,12 @@ function createFakeRepo() {
         shelfLifeDays: null,
         iconKey: null,
         isActive: true,
+        gradeSystem: null,
+        durationDays: null,
+        storageTemp: null,
+        description: null,
+        deactivationReason: null,
+        createdBy: null,
       },
     ],
   ]);
@@ -273,9 +288,10 @@ function createFakeRepo() {
       return c === undefined ? null : { ...c };
     },
 
-    async createCropMaster(_db, data) {
+    async createCropMaster(_db, data: CreateCropMasterData) {
       const c: CropMasterResponse = {
         id: newId(),
+        code: `CRP-${String(cropMaster.size + 1).padStart(3, '0')}`,
         slug: data.slug,
         name: data.name,
         nameTa: data.nameTa ?? null,
@@ -286,6 +302,12 @@ function createFakeRepo() {
         shelfLifeDays: data.shelfLifeDays ?? null,
         iconKey: data.iconKey ?? null,
         isActive: true,
+        gradeSystem: data.gradeSystem ?? null,
+        durationDays: data.durationDays ?? null,
+        storageTemp: data.storageTemp ?? null,
+        description: data.description ?? null,
+        deactivationReason: null,
+        createdBy: data.createdBy ?? null,
       };
       cropMaster.set(c.id, c);
       return { ...c };
@@ -303,6 +325,11 @@ function createFakeRepo() {
       if (patch.shelfLifeDays !== undefined) next.shelfLifeDays = patch.shelfLifeDays;
       if (patch.iconKey !== undefined) next.iconKey = patch.iconKey;
       if (patch.isActive !== undefined) next.isActive = patch.isActive;
+      if (patch.gradeSystem !== undefined) next.gradeSystem = patch.gradeSystem;
+      if (patch.durationDays !== undefined) next.durationDays = patch.durationDays;
+      if (patch.storageTemp !== undefined) next.storageTemp = patch.storageTemp;
+      if (patch.description !== undefined) next.description = patch.description;
+      if (patch.deactivationReason !== undefined) next.deactivationReason = patch.deactivationReason;
       cropMaster.set(id, next);
       return { ...next };
     },
@@ -511,6 +538,49 @@ describe('crops — crop_master taxonomy', () => {
     expect(error.status).toBe(409);
   });
 
+  it('BR-150a: creating a crop accepts screen parity metadata fields, generates a code, records creator, and returns them', async () => {
+    const { admin } = setup();
+    const created = await admin.create(adminScope, {
+      slug: 'spinach',
+      name: 'Spinach',
+      categoryId: CATEGORY_ID,
+      defaultUnit: 'kg' as const,
+      gradeSystem: 'Standard Quality System',
+      durationDays: '45 - 60 days',
+      storageTemp: '2°C - 5°C, 95% RH',
+      description: 'Leafy green vegetable rich in iron',
+    });
+
+    expect(created.code).toMatch(/^CRP-[0-9]{3,}$/);
+    expect(created.slug).toBe('spinach');
+    expect(created.gradeSystem).toBe('Standard Quality System');
+    expect(created.durationDays).toBe('45 - 60 days');
+    expect(created.storageTemp).toBe('2°C - 5°C, 95% RH');
+    expect(created.description).toBe('Leafy green vegetable rich in iron');
+    expect(created.createdBy).toBe(adminScope.userId);
+    expect(created.isActive).toBe(true);
+    expect(created.deactivationReason).toBeNull();
+  });
+
+  it('BR-150b: patching a crop updates metadata and records deactivationReason when retiring (isActive: false)', async () => {
+    const { admin } = setup();
+    const updated = await admin.update(adminScope, CROP_MASTER_CARROT, {
+      isActive: false,
+      deactivationReason: 'Out of season indefinitely',
+      durationDays: '90 - 120 days',
+      storageTemp: '0°C - 1°C, 90-95% RH',
+      description: 'Orange root vegetable',
+      gradeSystem: 'Alphabetical (Grade A, B, C)',
+    });
+
+    expect(updated.isActive).toBe(false);
+    expect(updated.deactivationReason).toBe('Out of season indefinitely');
+    expect(updated.durationDays).toBe('90 - 120 days');
+    expect(updated.storageTemp).toBe('0°C - 1°C, 90-95% RH');
+    expect(updated.description).toBe('Orange root vegetable');
+    expect(updated.gradeSystem).toBe('Alphabetical (Grade A, B, C)');
+  });
+
   it('every admin crop taxonomy mutation writes exactly one audit_log row on the same transaction client', async () => {
     const mutations: Array<(admin: ReturnType<typeof setup>['admin']) => Promise<unknown>> = [
       (admin) => admin.create(adminScope, { slug: 'cabbage', name: 'Cabbage', categoryId: CATEGORY_ID, defaultUnit: 'kg' as const }),
@@ -637,6 +707,49 @@ describeIfDatabase('cropsRepo (integration)', () => {
         code: '23505',
       });
       // Roll back: nothing this test created is left behind.
+      throw new Error('__rollback_test_fixture__');
+    }).catch((error: unknown) => {
+      if (!(error instanceof Error) || error.message !== '__rollback_test_fixture__') throw error;
+    });
+  });
+
+  it('BR-150: Postgres creates crop_master with sequential code, metadata, and updates deactivationReason', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const { withTransaction } = await import('../../db/pool.js');
+    const { cropsRepo } = await import('./crops.repo.js');
+
+    await withTransaction(async (tx) => {
+      const catRes = await tx.query<{ id: string }>('SELECT id FROM categories LIMIT 1');
+      const categoryId = catRes.rows[0]?.id ?? newId();
+
+      const created = await cropsRepo.createCropMaster(tx, {
+        slug: `test-crop-${Date.now()}`,
+        name: 'Test Crop',
+        categoryId,
+        defaultUnit: 'kg',
+        gradeSystem: 'Standard Quality System',
+        durationDays: '60 - 90 days',
+        storageTemp: '5°C - 10°C',
+        description: 'Integration test crop',
+        createdBy: IDS.userTohfaAdmin,
+      });
+
+      expect(created.code).toMatch(/^CRP-[0-9]{3,}$/);
+      expect(created.gradeSystem).toBe('Standard Quality System');
+      expect(created.durationDays).toBe('60 - 90 days');
+      expect(created.storageTemp).toBe('5°C - 10°C');
+      expect(created.description).toBe('Integration test crop');
+      expect(created.createdBy).toBe(IDS.userTohfaAdmin);
+      expect(created.deactivationReason).toBeNull();
+      expect(created.isActive).toBe(true);
+
+      const updated = await cropsRepo.updateCropMaster(tx, created.id, {
+        isActive: false,
+        deactivationReason: 'Seasonal end',
+      });
+      expect(updated?.isActive).toBe(false);
+      expect(updated?.deactivationReason).toBe('Seasonal end');
+
       throw new Error('__rollback_test_fixture__');
     }).catch((error: unknown) => {
       if (!(error instanceof Error) || error.message !== '__rollback_test_fixture__') throw error;

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   Platform,
@@ -13,6 +14,9 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
+import { createSupportTicket, SUPPORT_TICKET_DESCRIPTION_MAX } from '../../api/supportTickets';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -230,6 +234,8 @@ export function AboutSupportScreen({
   const [expandedFaq, setExpandedFaq] = useState<string | null>('harvest');
   const [rating, setRating] = useState<number>(4);
   const [feedbackText, setFeedbackText] = useState<string>('');
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   const toggleFaq = (id: string) => {
     setExpandedFaq((prev) => (prev === id ? null : id));
@@ -255,12 +261,34 @@ export function AboutSupportScreen({
     });
   };
 
-  const handleSubmitFeedback = () => {
-    Alert.alert(
-      'Thank you!',
-      `Your feedback (${rating} stars) has been submitted to the TOHFA team.`,
-      [{ text: 'OK', onPress: () => setFeedbackText('') }]
-    );
+  // The ticket endpoint has no rating field, so the stars travel in the subject and as the first
+  // line of the description. The thank-you is shown only after the server answers 2xx.
+  const handleSubmitFeedback = async () => {
+    if (sending) return;
+    setSendError(null);
+    const body = feedbackText.trim();
+    if (!body) {
+      setSendError(t('farmer.support.feedback.empty'));
+      return;
+    }
+
+    setSending(true);
+    try {
+      await createSupportTicket({
+        categoryCode: 'OTHER',
+        subject: t('farmer.support.feedback.subject', { rating: String(rating) }),
+        description: `${t('farmer.support.feedback.ratingLine', { rating: String(rating) })}\n\n${body}`,
+      });
+      Alert.alert(
+        t('farmer.support.feedback.successTitle'),
+        t('farmer.support.feedback.successBody', { rating: String(rating) }),
+        [{ text: 'OK', onPress: () => setFeedbackText('') }]
+      );
+    } catch (err) {
+      setSendError(formatErrorMessage(err, t('farmer.support.feedback.failed')));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -438,19 +466,35 @@ export function AboutSupportScreen({
             style={styles.feedbackInput}
             value={feedbackText}
             onChangeText={setFeedbackText}
-            placeholder="Tell us what's working or what could be better... (optional)"
+            placeholder={t('farmer.support.feedback.placeholder')}
+            accessibilityLabel={t('farmer.support.feedback.placeholder')}
+            maxLength={SUPPORT_TICKET_DESCRIPTION_MAX - 100}
+            editable={!sending}
             placeholderTextColor={P.twGray400}
             multiline
             numberOfLines={3}
           />
 
+          {sendError ? (
+            <View style={styles.errorBanner}>
+              <Text style={styles.errorBannerText}>{sendError}</Text>
+            </View>
+          ) : null}
+
           {/* Submit Feedback Button */}
           <TouchableOpacity
-            style={styles.submitFeedbackBtn}
-            onPress={handleSubmitFeedback}
+            style={[styles.submitFeedbackBtn, sending && styles.submitFeedbackBtnBusy]}
+            onPress={() => void handleSubmitFeedback()}
+            disabled={sending}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.support.feedback.submit')}
           >
-            <Text style={styles.submitFeedbackBtnText}>Submit feedback</Text>
+            {sending ? (
+              <ActivityIndicator size="small" color={P.weatherCloudWhite} />
+            ) : (
+              <Text style={styles.submitFeedbackBtnText}>{t('farmer.support.feedback.submit')}</Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -739,6 +783,22 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  submitFeedbackBtnBusy: {
+    opacity: 0.7,
+  },
+  errorBanner: {
+    backgroundColor: P.twRed50,
+    borderColor: P.twRed200,
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+  },
+  errorBannerText: {
+    color: P.twRed700,
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
   },
   submitFeedbackBtnText: {
     fontSize: typography.body,

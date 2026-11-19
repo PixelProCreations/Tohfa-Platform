@@ -1075,9 +1075,11 @@ describeIfDatabase('Tasks and alerts routes (real app router, PostgreSQL)', () =
 
   afterAll(async () => {
     const { pool } = await import('../../db/pool.js');
-    const del = (sql: string, ids: string[]): Promise<unknown> => (ids.length === 0 ? Promise.resolve() : pool.query(sql, [ids]));
-    await pool.query('SET session_replication_role = replica');
+    const client = await pool.connect();
+    const del = (sql: string, ids: string[]): Promise<unknown> => (ids.length === 0 ? Promise.resolve() : client.query(sql, [ids]));
     try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL session_replication_role = replica');
       await del(`DELETE FROM task_alert_states WHERE user_id = ANY($1::uuid[])`, created.users);
       await del(`DELETE FROM inventory_batches WHERE id = ANY($1::uuid[])`, created.batches);
       await del(`DELETE FROM goods_receipts WHERE id = ANY($1::uuid[])`, created.receipts);
@@ -1090,8 +1092,11 @@ describeIfDatabase('Tasks and alerts routes (real app router, PostgreSQL)', () =
       await del(`DELETE FROM crop_master WHERE id = ANY($1::uuid[])`, created.crops);
       await del(`DELETE FROM warehouses WHERE id = ANY($1::uuid[])`, created.warehouses);
       await del(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [...created.users, ...created.farmerUsers]);
+      await client.query('COMMIT');
+    } catch {
+      await client.query('ROLLBACK');
     } finally {
-      await pool.query('SET session_replication_role = DEFAULT');
+      client.release();
     }
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });

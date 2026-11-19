@@ -20,6 +20,15 @@ for (const [path, permission] of [
   ['/rating-tiers', 'farmer.rating.configure_tiers'],
   ['/audit-tier-thresholds', 'audit.tier.configure_thresholds'],
 ] as const) {
+  tierConfigRouter.get(
+    path,
+    requireAuth,
+    requirePermission(permission),
+    asyncHandler(async (_req, res) => {
+      res.json(await tierConfigService.getCurrentTiers());
+    }),
+  );
+
   tierConfigRouter.patch(
     path,
     requireAuth,

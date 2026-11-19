@@ -20,7 +20,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -29,6 +28,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import type { AuditType } from '../../api/audits';
 import { adminErrorKey } from '../../api/errors';
@@ -306,7 +306,7 @@ export function AuditScheduleAssignmentScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ── Header ── */}
       <View style={styles.header}>

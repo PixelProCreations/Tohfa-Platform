@@ -383,40 +383,36 @@ describe('Finance & Business Overview', () => {
     expect(nav).toHaveBeenCalledWith('wallet_flow');
   });
 
-  it('payout buttons: disabled without a payout; with one they confirm and call the host', async () => {
-    const none = await mount(<FinanceBusinessOverviewScreen onBack={noop} can={makeCan(['payout.approve_above_10k'])} onApprovePayout={vi.fn()} />);
+  // Approve itself is a real POST /admin/payouts/{id}/approve; its calls, key and failure
+  // handling are pinned in finance_live_writes.test.tsx. Here: the confirm prompt and the host-owned Reject.
+  it('payout buttons: disabled without a payout; with one Approve asks to confirm and Reject calls the host', async () => {
+    const none = await mount(<FinanceBusinessOverviewScreen onBack={noop} can={makeCan(['payout.approve_above_10k'])} />);
     expect(byId(none, 'saFinance.approve')[0]!.props.disabled).toBe(true);
 
-    const onApprovePayout = vi.fn();
     const onRejectPayout = vi.fn();
     const tree = await mount(
       <FinanceBusinessOverviewScreen
         onBack={noop}
         can={makeCan(['payout.approve_above_10k'])}
         awaitingPayout={{ id: 'p-1', number: 'PO-2026-000871', farmerName: 'Meena', amount: '18400.00' }}
-        onApprovePayout={onApprovePayout}
         onRejectPayout={onRejectPayout}
       />,
     );
     expect(allText(tree)).toContain('PO-2026-000871 · Meena');
     expect(allText(tree)).toContain('₹18,400');
     await act(async () => byId(tree, 'saFinance.approve')[0]!.props.onPress());
-    expect(onApprovePayout).not.toHaveBeenCalled();
-    const buttons = vi.mocked(Alert.alert).mock.calls[0]![2]!;
-    await act(async () => buttons[1]!.onPress!());
-    expect(onApprovePayout).toHaveBeenCalledWith('p-1');
+    expect(vi.mocked(Alert.alert).mock.calls[0]![0]).toBe(t('saFinance.approve.title'));
     await act(async () => byId(tree, 'saFinance.reject')[0]!.props.onPress());
     await act(async () => vi.mocked(Alert.alert).mock.calls[1]![2]![1]!.onPress!());
     expect(onRejectPayout).toHaveBeenCalledWith('p-1');
   });
 
-  it('without payout.approve_above_10k the buttons stay disabled even with a payout and callbacks', async () => {
+  it('without payout.approve_above_10k the buttons stay disabled even with a payout and a reject callback', async () => {
     const tree = await mount(
       <FinanceBusinessOverviewScreen
         onBack={noop}
         can={makeCan([])}
         awaitingPayout={{ id: 'p-1', number: null, farmerName: null, amount: null }}
-        onApprovePayout={vi.fn()}
         onRejectPayout={vi.fn()}
       />,
     );

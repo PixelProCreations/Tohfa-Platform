@@ -10,7 +10,7 @@ import { randomInt } from 'node:crypto';
 import express from 'express';
 import request from 'supertest';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
@@ -478,11 +478,6 @@ describe('community planting routes (BR-136g)', () => {
   app.use('/v1/farmers/community', createCommunityPlantingRouter(stub));
   app.use(notFoundHandler);
   app.use(errorHandler);
-  const server = app.listen(0);
-
-  afterAll(async () => {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  });
 
   const token = (roles: Array<{ code: RoleCode; warehouseId?: string; zoneId?: string }>, farmerId: string | null = null) =>
     `Bearer ${signAccessToken({ sub: newId(), roles, farmerId, customerId: null })}`;
@@ -491,7 +486,7 @@ describe('community planting routes (BR-136g)', () => {
 
   it('BR-136g: both routes are 401 without a token', async () => {
     for (const path of [SUMMARY, FILTERS]) {
-      const res = await request(server).get(path);
+      const res = await request(app).get(path);
       expect(res.status, path).toBe(401);
     }
   });
@@ -512,7 +507,7 @@ describe('community planting routes (BR-136g)', () => {
     seen.length = 0;
     for (const auth of everyRole) {
       for (const path of [SUMMARY, FILTERS]) {
-        const res = await request(server).get(path).set('Authorization', auth);
+        const res = await request(app).get(path).set('Authorization', auth);
         expect(res.status, path).toBe(403);
         expect(res.body.code).toBe('FORBIDDEN');
       }

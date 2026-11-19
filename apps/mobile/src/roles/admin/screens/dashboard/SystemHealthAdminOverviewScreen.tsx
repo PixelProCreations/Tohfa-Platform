@@ -14,7 +14,8 @@
  * and System Settings are disabled (still drawn) without their rbac code.
  */
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
@@ -67,7 +68,7 @@ export function SystemHealthAdminOverviewScreen({ can, onBack, onNavigateSubScre
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Header */}
       <View style={styles.header}>

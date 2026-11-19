@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 
 // ---------------------------------------------------------------------------
 // Shared
@@ -109,4 +110,95 @@ export interface PayoutResponse {
   remarks: string | null;
   createdAt: string;
   updatedAt: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// GET /admin/payouts (list) & GET /admin/payouts/{id} (detail) - P0-40
+// ---------------------------------------------------------------------------
+
+export const listPayoutsQuerySchema = z.object({
+  status: z.enum(payoutStatuses).optional(),
+  farmerId: z.string().uuid().optional(),
+  fromDate: z.string().optional(),
+  toDate: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(20),
+  cursor: z
+    .string()
+    .max(512)
+    .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.adminPayouts, raw) !== null, { message: 'Invalid cursor.' })
+    .optional(),
+});
+export type ListPayoutsQuery = z.infer<typeof listPayoutsQuerySchema>;
+
+export interface PayoutListItem {
+  id: string;
+  payoutNumber: string;
+  farmerId: string;
+  farmerName: string;
+  amount: string;
+  status: PayoutStatus;
+  requestedAt: string;
+  requestedBy: string;
+}
+
+export interface ListPayoutsResponse {
+  items: PayoutListItem[];
+  page: {
+    nextCursor: string | null;
+    hasMore: boolean;
+  };
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export const payoutIdParamSchema = z.object({
+  id: z.string().uuid(),
+});
+export type PayoutIdParam = z.infer<typeof payoutIdParamSchema>;
+
+export interface PayoutLinkedItem {
+  id: string;
+  purchaseOrderId: string | null;
+  purchaseOrderNumber: string | null;
+  goodsReceiptId: string;
+  goodsReceiptNumber: string | null;
+  produce: string | null;
+  acceptedQuantity: string | null;
+  acceptedGrade: string | null;
+  unitPrice: string | null;
+  purchaseValue: string | null;
+  amount: string;
+}
+
+export interface PayoutAuditEvent {
+  id: string;
+  actionCode: string;
+  actorId: string;
+  actorName: string | null;
+  outcome: string;
+  createdAt: string;
+  details: unknown;
+}
+
+export interface PayoutDetailResponse extends PayoutListItem {
+  farmerContact: string | null;
+  farmerCode: string | null;
+  verifiedPayoutAccount: string | null;
+  purchaseOrderId: string | null;
+  purchaseOrderNumber: string | null;
+  goodsReceiptId: string | null;
+  goodsReceiptNumber: string | null;
+  produce: string | null;
+  acceptedQuantity: string | null;
+  acceptedGrade: string | null;
+  unitPrice: string | null;
+  purchaseValue: string | null;
+  items: PayoutLinkedItem[];
+  netPayableAmount: string;
+  approvedAdjustments: string;
+  calculationReference: string;
+  approvalStatus: string;
+  approver: string | null;
+  rejectionReason: string | null;
+  auditTrail: PayoutAuditEvent[];
 }

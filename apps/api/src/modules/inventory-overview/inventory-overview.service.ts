@@ -25,10 +25,11 @@ export function createInventoryOverviewService(
   return {
     async get(scope) {
       const thresholds = await repo.getThresholds(db);
-      const [warehouses, backlog, alerts] = await Promise.all([
+      const [warehouses, backlog, alerts, criticalCount] = await Promise.all([
         repo.warehouseStock(db, scope),
         repo.backlogCounts(db, scope),
         repo.alertConditionCounts(db, scope, thresholds),
+        repo.criticalStockCount(db, scope, thresholds.criticalStockKg),
       ]);
 
       // Allow-list: every key is named here; the strict parse is the second fence.
@@ -40,12 +41,14 @@ export function createInventoryOverviewService(
         })),
         nearExpiryBatchCount: thresholds.expiryDays === null ? null : alerts.nearExpiryBatches,
         lowStockCount: thresholds.lowStockKg === null ? null : alerts.lowStockGroups,
+        criticalStockCount: thresholds.criticalStockKg === null ? null : criticalCount,
         pendingAdjustmentCount: backlog.pendingAdjustments,
         unreconciledVerificationCount: backlog.recordedVerifications,
         varianceUnreconciledVerificationCount: backlog.recordedVerificationsWithVariance,
         thresholds: {
           nearExpiryDays: thresholds.expiryDays,
           lowStockThresholdKg: thresholds.lowStockKg,
+          criticalStockThresholdKg: thresholds.criticalStockKg,
         },
       });
     },

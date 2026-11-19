@@ -115,6 +115,7 @@ export interface AttendanceChange {
 /** Screens of the staff & attendance flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StaffRoute =
   | 'Staff'
+  | 'StaffList'
   | 'StaffDetail'
   | 'EditStaffProfile'
   | 'Attendance'

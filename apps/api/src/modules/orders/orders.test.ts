@@ -1,8 +1,9 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { pool } from '../../db/pool.js';
+import { deleteTestWarehouseAndFixtures } from '../../test/committedFixtureCleanup.js';
 import {
   aScope,
   databaseReady,
@@ -545,5 +546,10 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
       });
 
     expect(res.status).toBe(403);
+  });
+
+  afterAll(async () => {
+    if (!ready || !warehouseId) return;
+    await deleteTestWarehouseAndFixtures(pool, warehouseId);
   });
 });

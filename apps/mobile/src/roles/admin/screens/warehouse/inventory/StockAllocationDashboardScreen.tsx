@@ -5,10 +5,17 @@
 // bucket opens its detail sheet, built from the same GET /admin/allocations
 // totals the card shows (allocationBucketDetail). The FCFS note is static
 // text worded from BR-12c and BR-22 only.
-import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal } from 'react-native';
+//
+// The pencil (shown with `canEditSplit`) opens the design's 'Set Channel
+// Split', 'Adjust by Produce' and 'Override the split' views. They draw the
+// configured split read from GET /admin/allocation-config; their inputs are
+// read-only and their Save / Confirm / Save Override / Reset / Set default
+// buttons are disabled, because no write is wired yet (the PATCH needs an
+// owner-chosen effectiveFrom, and per-crop writes are not in docs/openapi.yaml).
+import React, { useMemo, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
-import { t } from '../../../i18n';
+import { t, type TranslationKey } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { isAreaAvailable } from '../availability';
@@ -16,11 +23,17 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/A
 import { queryViewState } from '../shared/queryViewState';
 import { InfoCard, InfoNote, WalletButton } from '../wallet-cashtopup/WalletParts';
 import { allocationBucketDetail } from './mappers';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import type {
   AllocationChannelKey,
   AllocationDashboard,
+  AllocationSplitChannel,
+  AllocationSplitFigures,
+  AllocationSplitView,
   InventoryLiveStateProps,
   InventoryScreenBaseProps,
+  ProductStock,
+  WarehouseAllocationRow,
 } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
@@ -32,6 +45,59 @@ export interface StockAllocationDashboardScreenProps extends InventoryScreenBase
   rowCount?: number | undefined;
   /** False when the walk stopped early. */
   complete?: boolean | undefined;
+  /** Shows the header pencil and the split views (the flow decides it from the viewer's grant). */
+  canEditSplit?: boolean | undefined;
+  /** The configured split (GET /admin/allocation-config); ADMIN_NO_VALUE figures without the grant. */
+  splitConfig?: AllocationSplitView | undefined;
+  /** The configured split for the produce picked in 'Adjust by Produce'. */
+  produceSplitConfig?: AllocationSplitView | undefined;
+  /** The 'Warehouse allocation' table rows. */
+  warehouseRows?: readonly WarehouseAllocationRow[] | undefined;
+  /** The products listed in 'Adjust by Produce'. */
+  produce?: readonly ProductStock[] | undefined;
+  /** The produce whose split 'Override the split' shows (undefined = none). */
+  onPickProduce?: ((cropId: string | undefined) => void) | undefined;
+}
+
+/** The design's six channels, in its order, with their split-form labels. */
+const SPLIT_FIELDS: readonly { key: AllocationSplitChannel; labelKey: TranslationKey; short: TranslationKey }[] = [
+  { key: 'online', labelKey: 'inventory.allocation.field.online', short: 'inventory.channel.online' },
+  { key: 'liveMarket', labelKey: 'inventory.allocation.field.liveMarket', short: 'inventory.channel.liveMarket' },
+  { key: 'horeca', labelKey: 'inventory.allocation.field.horeca', short: 'inventory.allocation.channel.horeca' },
+  { key: 'b2b', labelKey: 'inventory.allocation.field.b2b', short: 'inventory.allocation.channel.b2b' },
+  { key: 'reserve', labelKey: 'inventory.allocation.field.reserve', short: 'inventory.channel.reserve' },
+  { key: 'buffer', labelKey: 'inventory.allocation.field.buffer', short: 'inventory.channel.buffer' },
+];
+
+/** HORECA and B2B cards: sales channels, not BR-12 buckets, so the API has no figure for them. */
+const SALES_CHANNEL_CARDS: readonly { key: AllocationSplitChannel; labelKey: TranslationKey; borderColor: string }[] = [
+  { key: 'horeca', labelKey: 'inventory.allocation.channel.horeca', borderColor: adminColors.purple.border },
+  { key: 'b2b', labelKey: 'inventory.allocation.channel.b2b', borderColor: adminColors.danger.border },
+];
+
+const NO_SPLIT: AllocationSplitView = {
+  figures: {
+    online: ADMIN_NO_VALUE,
+    liveMarket: ADMIN_NO_VALUE,
+    horeca: ADMIN_NO_VALUE,
+    b2b: ADMIN_NO_VALUE,
+    reserve: ADMIN_NO_VALUE,
+    buffer: ADMIN_NO_VALUE,
+  },
+  total: ADMIN_NO_VALUE,
+};
+
+function produceSplitLine(figures: AllocationSplitFigures): string {
+  return t('inventory.allocation.produceSplit', {
+    online: figures.online,
+    liveMarket: figures.liveMarket,
+    reserve: figures.reserve,
+    buffer: figures.buffer,
+  });
+}
+
+function produceLabel(product: ProductStock): string {
+  return t('inventory.allocation.produceName', { name: product.productName, grade: product.gradeLabel });
 }
 
 /** Card title and accent colours per channel, as the design draws them. */
@@ -104,6 +170,46 @@ function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   );
 }
 
+function PencilWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronDownIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function StepperArrowsIcon({ size = 14, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M7 15l5 5 5-5M7 9l5-5 5 5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+type SplitSubView = 'dashboard' | 'editSplit' | 'adjustProduce' | 'overrideSplit';
+
 export function StockAllocationDashboardScreen({
   scope,
   can,
@@ -117,6 +223,12 @@ export function StockAllocationDashboardScreen({
   onRetry,
   onRefresh,
   isRefreshing = false,
+  canEditSplit = false,
+  splitConfig = NO_SPLIT,
+  produceSplitConfig = NO_SPLIT,
+  warehouseRows = [],
+  produce = [],
+  onPickProduce,
 }: StockAllocationDashboardScreenProps) {
   // Stock counts (BR-107) are shown only with inventory.stock_verification.perform (availability.ts).
   const canVerify = isAreaAvailable('stockCounts', can);
@@ -124,6 +236,336 @@ export function StockAllocationDashboardScreen({
   const allocations = (dashboard?.channels ?? []).map((summary) => ({ ...summary, ...CHANNEL_COLORS[summary.channel] }));
   const [selectedChannel, setSelectedChannel] = useState<AllocationChannelKey | undefined>(undefined);
   const bucket = allocationBucketDetail(dashboard, selectedChannel);
+  const [subView, setSubView] = useState<SplitSubView>('dashboard');
+  const [produceQuery, setProduceQuery] = useState('');
+  const [pickedProduceKey, setPickedProduceKey] = useState<string | undefined>(undefined);
+  const pickedProduce = produce.find((p) => p.key === pickedProduceKey);
+  const filteredProduce = useMemo(() => {
+    const needle = produceQuery.trim().toLowerCase();
+    return needle === '' ? produce : produce.filter((p) => produceLabel(p).toLowerCase().includes(needle));
+  }, [produce, produceQuery]);
+  const splitWarehouseName = scope.warehouseName ?? warehouseRows[0]?.name ?? ADMIN_NO_VALUE;
+
+  const splitBar = (
+    <View style={styles.multiSplitBar}>
+      {allocations
+        .filter((alloc) => alloc.shareBasisPoints > 0)
+        .map((alloc) => (
+          <View
+            key={alloc.channel}
+            style={[styles.splitSegment, { flex: alloc.shareBasisPoints, backgroundColor: alloc.borderColor }]}
+          />
+        ))}
+    </View>
+  );
+
+  const warehouseTable = (
+    <View style={styles.warehouseAllocationSection}>
+      <Text style={styles.tableSectionTitle}>{t('inventory.allocation.warehouseTable')}</Text>
+      <View style={styles.tableCard}>
+        {warehouseRows.length === 0 ? (
+          <View style={styles.warehouseTableRow}>
+            <Text style={styles.warehouseNameText}>{ADMIN_NO_VALUE}</Text>
+          </View>
+        ) : null}
+        {warehouseRows.map((w, idx) => (
+          <View key={w.warehouseId} style={[styles.warehouseTableRow, idx > 0 && styles.tableRowBorder]}>
+            <Text style={styles.warehouseNameText}>{w.name}</Text>
+            <View style={styles.warehousePillGrid}>
+              {SPLIT_FIELDS.map((field) => (
+                <Text key={field.key} style={styles.warehousePctText}>
+                  <Text style={styles.pctBold}>{w.figures[field.key]}</Text> {t(field.short)}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+
+  // Read-only: each field shows the configured value; nothing here can change it.
+  const renderSplitFormFields = (figures: AllocationSplitFigures) => (
+    <>
+      <Text style={styles.formFieldLabel}>{t('inventory.allocation.selectWarehouse')}</Text>
+      <TouchableOpacity
+        style={styles.dropdownInputRow}
+        disabled
+        accessibilityRole="button"
+        accessibilityState={{ disabled: true }}
+        accessibilityLabel={t('inventory.allocation.selectWarehouse')}
+      >
+        <Text style={styles.dropdownInputText}>{splitWarehouseName}</Text>
+        <ChevronDownIcon size={18} color={adminColors.muted} />
+      </TouchableOpacity>
+
+      {SPLIT_FIELDS.map((field) => (
+        <View key={field.key} style={styles.channelInputWrap}>
+          <Text style={styles.formFieldLabel}>{t(field.labelKey)}</Text>
+          <View style={styles.stepperInputRow}>
+            <TextInput style={styles.stepperTextInput} value={figures[field.key]} editable={false} />
+            <StepperArrowsIcon />
+          </View>
+        </View>
+      ))}
+    </>
+  );
+
+  const totalRow = (total: string) => (
+    <View style={styles.totalRowWrap}>
+      <Text style={styles.totalRowLabel}>{t('inventory.allocation.total')}</Text>
+      <View style={styles.totalPill}>
+        <Text style={styles.totalPillText}>{total}</Text>
+      </View>
+    </View>
+  );
+
+  const subHeader = (title: string, backTo: SplitSubView) => (
+    <View style={styles.headerBanner}>
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.headerBackBtn}
+          onPress={() => setSubView(backTo)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('inventory.allocation.back')}
+        >
+          <BackArrowWhiteIcon />
+        </TouchableOpacity>
+        <Text style={styles.headerBannerTitle}>{title}</Text>
+      </View>
+    </View>
+  );
+
+  // ─── Set Channel Split ──────────────────────────────────────────────────────
+  if (canEditSplit && subView === 'editSplit') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {subHeader(t('inventory.allocation.setSplitTitle'), 'dashboard')}
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>{t('inventory.allocation.splitTitleFor', { name: splitWarehouseName })}</Text>
+              <Text style={styles.sectionSubtitle}>{t('inventory.allocation.splitSubtitle')}</Text>
+            </View>
+            {splitBar}
+
+            <View style={styles.formCard}>
+              {renderSplitFormFields(splitConfig.figures)}
+              <TouchableOpacity style={[styles.saveChannelBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+                <Text style={styles.saveChannelBtnText}>{t('inventory.allocation.saveSplit')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {totalRow(splitConfig.total)}
+
+            <View style={styles.adjustSectionWrap}>
+              <Text style={styles.adjustSectionTitle}>{t('inventory.allocation.adjustOptional')}</Text>
+              <TouchableOpacity
+                style={styles.adjustProduceBtn}
+                onPress={() => setSubView('adjustProduce')}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+              >
+                <Text style={styles.adjustProduceBtnText}>{t('inventory.allocation.adjustTitle')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {warehouseTable}
+
+            <View style={styles.splitBottomActions}>
+              <TouchableOpacity style={[styles.splitResetBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+                <Text style={styles.splitResetBtnText}>{t('inventory.allocation.reset')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.splitConfirmBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+                <Text style={styles.splitConfirmBtnText}>{t('inventory.allocation.confirmUpdate')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.subViewSpacer} />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Adjust by Produce ──────────────────────────────────────────────────────
+  if (canEditSplit && subView === 'adjustProduce') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {subHeader(t('inventory.allocation.adjustTitle'), 'editSplit')}
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.searchBarWrap}>
+              <TextInput
+                style={styles.searchBarInput}
+                placeholder={t('inventory.allocation.search')}
+                placeholderTextColor={adminColors.placeholder}
+                value={produceQuery}
+                onChangeText={setProduceQuery}
+              />
+            </View>
+
+            <Text style={styles.produceCountHeader}>
+              {t('inventory.allocation.typesCount', { count: String(filteredProduce.length) })}
+            </Text>
+
+            {filteredProduce.map((p) => (
+              <View key={p.key} style={styles.produceCard}>
+                <View style={styles.produceCardTop}>
+                  <Text style={styles.produceCardName}>{produceLabel(p)}</Text>
+                  {/* Whether this crop has its own split is not in the AllocationConfig spec. */}
+                  <View style={styles.defaultSplitBadge}>
+                    <Text style={styles.defaultSplitBadgeText}>{ADMIN_NO_VALUE}</Text>
+                  </View>
+                </View>
+                <Text style={styles.produceCardMeta}>{produceSplitLine(NO_SPLIT.figures)}</Text>
+
+                <View style={styles.produceCardActionsRow}>
+                  <TouchableOpacity style={[styles.setDefaultSplitBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+                    <Text style={styles.setDefaultSplitBtnText}>{t('inventory.allocation.setDefault')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.overrideSplitBtn}
+                    onPress={() => {
+                      setPickedProduceKey(p.key);
+                      onPickProduce?.(p.cropId);
+                      setSubView('overrideSplit');
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <Text style={styles.overrideSplitBtnText}>{t('inventory.allocation.overrideAction')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            <View style={styles.subViewSpacer} />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Override the split ─────────────────────────────────────────────────────
+  if (canEditSplit && subView === 'overrideSplit') {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          {subHeader(t('inventory.allocation.overrideTitle'), 'adjustProduce')}
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            <View style={styles.overrideInfoCard}>
+              <View style={styles.overrideInfoRow}>
+                <Text style={styles.overrideInfoLabel}>{t('inventory.allocation.info.produce')}</Text>
+                <Text style={styles.overrideInfoValue}>{pickedProduce ? produceLabel(pickedProduce) : ADMIN_NO_VALUE}</Text>
+              </View>
+              <View style={styles.overrideInfoDivider} />
+              <View style={styles.overrideInfoRow}>
+                <Text style={styles.overrideInfoLabel}>{t('inventory.allocation.info.stock')}</Text>
+                <Text style={styles.overrideInfoValue}>{pickedProduce ? kg(pickedProduce.availableGrams) : ADMIN_NO_VALUE}</Text>
+              </View>
+              <View style={styles.overrideInfoDivider} />
+              <View style={styles.overrideInfoRow}>
+                <Text style={styles.overrideInfoLabel}>{t('inventory.allocation.info.defaultSplit')}</Text>
+                <Text style={styles.overrideInfoValueSmall}>{produceSplitLine(splitConfig.figures)}</Text>
+              </View>
+              <View style={styles.overrideInfoDivider} />
+              <View style={styles.overrideInfoRow}>
+                <Text style={styles.overrideInfoLabel}>{t('inventory.allocation.info.before')}</Text>
+                <Text style={styles.overrideInfoValue}>{ADMIN_NO_VALUE}</Text>
+              </View>
+            </View>
+
+            <View style={styles.formCard}>{renderSplitFormFields(produceSplitConfig.figures)}</View>
+
+            {totalRow(produceSplitConfig.total)}
+
+            <View style={styles.splitBottomActions}>
+              <TouchableOpacity style={[styles.splitConfirmBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+                <Text style={styles.splitConfirmBtnText}>{t('inventory.allocation.saveOverride')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.splitResetBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+                <Text style={styles.splitResetBtnText}>{t('inventory.allocation.reset')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.subViewSpacer} />
+          </ScrollView>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const statBoxes = (figures: { allocated: string; consumed: string; reserved: string; available: string }) => (
+    <View style={styles.statsBoxRow}>
+      <View style={styles.statBox}>
+        <Text style={styles.statValue}>{figures.allocated}</Text>
+        <Text style={styles.statLabel}>{t('inventory.allocation.stat.allocated')}</Text>
+      </View>
+
+      <View style={styles.statBox}>
+        <Text style={styles.statValue}>{figures.consumed}</Text>
+        <Text style={styles.statLabel}>{t('inventory.allocation.stat.consumed')}</Text>
+      </View>
+
+      <View style={styles.statBox}>
+        <Text style={styles.statValue}>{figures.reserved}</Text>
+        <Text style={styles.statLabel}>{t('inventory.allocation.stat.reserved')}</Text>
+      </View>
+
+      <View style={styles.statBox}>
+        <Text style={styles.statValue}>{figures.available}</Text>
+        <Text style={styles.statLabel}>{t('inventory.allocation.stat.available')}</Text>
+      </View>
+    </View>
+  );
+
+  const renderBucketCard = (alloc: (typeof allocations)[number]) => (
+    <TouchableOpacity
+      key={alloc.channel}
+      style={styles.allocationCard}
+      onPress={() => setSelectedChannel(alloc.channel)}
+      activeOpacity={0.75}
+      accessibilityRole="button"
+      accessibilityLabel={t('inventory.allocation.openDetail', { name: alloc.label })}
+    >
+      <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={[styles.channelName, styles.channelNameInRow, { color: alloc.titleColor }]}>{alloc.label}</Text>
+          <View style={styles.pctBadge}>
+            <Text style={styles.pctBadgeText}>
+              {alloc.channel === 'unknown' ? ADMIN_NO_VALUE : splitConfig.figures[alloc.channel]}
+            </Text>
+          </View>
+        </View>
+
+        {statBoxes({
+          allocated: kg(alloc.allocatedGrams),
+          consumed: kg(alloc.consumedGrams),
+          reserved: kg(alloc.reservedGrams),
+          available: kg(alloc.availableGrams),
+        })}
+      </View>
+    </TouchableOpacity>
+  );
+
+  // HORECA and B2B: no allocation rows exist for them, so no detail sheet and every figure is ADMIN_NO_VALUE.
+  const renderSalesChannelCard = (card: (typeof SALES_CHANNEL_CARDS)[number]) => (
+    <View key={card.key} style={styles.allocationCard}>
+      <View style={[styles.leftAccentStripe, { backgroundColor: card.borderColor }]} />
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeaderRow}>
+          <Text style={[styles.channelName, styles.channelNameInRow, { color: adminColors.brandDeep }]}>{t(card.labelKey)}</Text>
+          <View style={styles.pctBadge}>
+            <Text style={styles.pctBadgeText}>{splitConfig.figures[card.key]}</Text>
+          </View>
+        </View>
+        {statBoxes({ allocated: ADMIN_NO_VALUE, consumed: ADMIN_NO_VALUE, reserved: ADMIN_NO_VALUE, available: ADMIN_NO_VALUE })}
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -133,6 +575,19 @@ export function StockAllocationDashboardScreen({
           onBack={onBack}
           showWarehouse={true}
           warehouseName={scope.warehouseName}
+          rightAction={
+            canEditSplit ? (
+              <TouchableOpacity
+                style={styles.headerEditBtn}
+                onPress={() => setSubView('editSplit')}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('inventory.allocation.editSplit')}
+              >
+                <PencilWhiteIcon size={18} color={adminColors.onBrand} />
+              </TouchableOpacity>
+            ) : undefined
+          }
         />
 
         {/* 4 Rounded Tab Cards */}
@@ -219,47 +674,12 @@ export function StockAllocationDashboardScreen({
               ))}
           </View>
 
-          {/* 4 Allocation Cards with curved left colored accent */}
-          {allocations.map((alloc) => (
-            <TouchableOpacity
-              key={alloc.channel}
-              style={styles.allocationCard}
-              onPress={() => setSelectedChannel(alloc.channel)}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel={t('inventory.allocation.openDetail', { name: alloc.label })}
-            >
-              <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
-              <View style={styles.cardContent}>
-                <Text style={[styles.channelName, { color: alloc.titleColor }]}>
-                  {alloc.label}
-                </Text>
+          {/* 6 Allocation Cards with curved left colored accent, in the design's order */}
+          {allocations.slice(0, 2).map(renderBucketCard)}
+          {SALES_CHANNEL_CARDS.map(renderSalesChannelCard)}
+          {allocations.slice(2).map(renderBucketCard)}
 
-                {/* 4 Stat Boxes Row */}
-                <View style={styles.statsBoxRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{kg(alloc.allocatedGrams)}</Text>
-                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.allocated')}</Text>
-                  </View>
-
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{kg(alloc.consumedGrams)}</Text>
-                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.consumed')}</Text>
-                  </View>
-
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{kg(alloc.reservedGrams)}</Text>
-                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.reserved')}</Text>
-                  </View>
-
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{kg(alloc.availableGrams)}</Text>
-                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.available')}</Text>
-                  </View>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+          {warehouseTable}
 
           <InfoNote tone="info">{t('inventory.allocation.fcfsNote')}</InfoNote>
           </>
@@ -462,4 +882,241 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     letterSpacing: 0.4,
   },
+  // ─── Split views (design M3-08) ───────────────────────────────────────────
+  headerEditBtn: {
+    padding: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.md,
+  },
+  channelNameInRow: { marginBottom: 0 },
+  pctBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+  },
+  pctBadgeText: { ...adminType.caption, color: adminColors.success.text },
+  warehouseAllocationSection: { marginTop: adminSpacing.sm },
+  tableSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
+  },
+  tableCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  warehouseTableRow: { paddingVertical: adminSpacing.sm },
+  tableRowBorder: { borderTopWidth: 1, borderTopColor: adminColors.border },
+  warehouseNameText: { ...adminType.rowTitle, color: adminColors.brandDeep, marginBottom: adminSpacing.xs },
+  warehousePillGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
+  warehousePctText: { ...adminType.rowMeta, color: adminColors.muted },
+  pctBold: { fontWeight: '700', color: adminColors.ink },
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.xs,
+    paddingBottom: adminSpacing.md,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md },
+  headerBackBtn: { padding: adminSpacing.xs, alignItems: 'center', justifyContent: 'center' },
+  headerBannerTitle: { ...adminType.title, color: adminColors.onBrand },
+  subViewSpacer: { height: adminSpacing.pageMargin },
+  disabledBtn: { opacity: 0.5 },
+  formCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  formFieldLabel: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+    marginTop: adminSpacing.xs,
+  },
+  dropdownInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
+    paddingHorizontal: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    marginBottom: adminSpacing.sm,
+  },
+  dropdownInputText: { ...adminType.body, color: adminColors.ink },
+  channelInputWrap: { marginBottom: adminSpacing.xs },
+  stepperInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
+    paddingHorizontal: adminSpacing.md,
+    backgroundColor: adminColors.card,
+  },
+  stepperTextInput: { ...adminType.body, flex: 1, color: adminColors.ink, padding: 0 },
+  saveChannelBtn: {
+    paddingVertical: adminSpacing.md,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.md,
+  },
+  saveChannelBtnText: { ...adminType.rowTitle, color: adminColors.onBrand },
+  totalRowWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  totalRowLabel: { ...adminType.sectionHead, color: adminColors.ink },
+  totalPill: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+  },
+  totalPillText: { ...adminType.rowTitle, color: adminColors.success.text },
+  adjustSectionWrap: { marginBottom: adminSpacing.md },
+  adjustSectionTitle: { ...adminType.rowTitle, color: adminColors.brandDeep, marginBottom: adminSpacing.xs },
+  adjustProduceBtn: {
+    paddingVertical: adminSpacing.md,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  adjustProduceBtnText: { ...adminType.rowTitle, color: adminColors.brand },
+  splitBottomActions: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  splitResetBtn: {
+    flex: 1,
+    paddingVertical: adminSpacing.md,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  splitResetBtnText: { ...adminType.rowTitle, color: adminColors.ink },
+  splitConfirmBtn: {
+    flex: 1.5,
+    paddingVertical: adminSpacing.md,
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  splitConfirmBtnText: { ...adminType.rowTitle, color: adminColors.onBrand },
+  searchBarWrap: { marginTop: adminSpacing.sm, marginBottom: adminSpacing.sm },
+  searchBarInput: {
+    ...adminType.body,
+    paddingVertical: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    color: adminColors.ink,
+  },
+  produceCountHeader: { ...adminType.rowTitle, color: adminColors.muted, marginBottom: adminSpacing.sm },
+  produceCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  produceCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
+  },
+  produceCardName: { ...adminType.rowTitle, color: adminColors.ink },
+  defaultSplitBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+  },
+  defaultSplitBadgeText: { ...adminType.caption, color: adminColors.success.text },
+  produceCardMeta: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.md },
+  produceCardActionsRow: { flexDirection: 'row', gap: adminSpacing.sm },
+  setDefaultSplitBtn: {
+    flex: 1,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  setDefaultSplitBtnText: { ...adminType.rowTitle, color: adminColors.ink },
+  overrideSplitBtn: {
+    flex: 1,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  overrideSplitBtnText: { ...adminType.rowTitle, color: adminColors.brand },
+  overrideInfoCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  overrideInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm,
+    gap: adminSpacing.sm,
+  },
+  overrideInfoDivider: { height: 1, backgroundColor: adminColors.border },
+  overrideInfoLabel: { ...adminType.rowMeta, color: adminColors.muted },
+  overrideInfoValue: { ...adminType.rowTitle, color: adminColors.ink },
+  overrideInfoValueSmall: { ...adminType.rowMeta, flex: 1, fontWeight: '600', color: adminColors.ink, textAlign: 'right' },
 });

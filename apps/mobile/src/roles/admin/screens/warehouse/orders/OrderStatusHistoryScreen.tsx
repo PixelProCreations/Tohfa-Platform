@@ -9,8 +9,8 @@
  *
  * Live data (API integration plan, phase 5): the timeline is the order
  * detail's `timeline` (GET /admin/orders/{orderId}), oldest first, status
- * changes only. The API sends no actor and no note (free text can name a
- * farmer, BR-99), so "Performed By" is not shown.
+ * changes only. The timeline rows carry no actor, so "Performed By" shows
+ * ADMIN_NO_VALUE.
  */
 // Design id: M5S15 (M5S15_OrderStatusHistory), absorbs M5S15B (M5S15B_EventDetail)
 import React, { useState } from 'react';
@@ -20,6 +20,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { t } from '../../../i18n';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps, OrderTimelineEntry } from './types';
@@ -77,24 +78,28 @@ function EventDetailCard({ event, orderNumber }: { event: OrderTimelineEntry; or
     <View style={styles.detailCard}>
       <View style={styles.twoColRow}>
         <View style={styles.col}>
-          <Text style={styles.fieldLabel}>Event</Text>
+          <Text style={styles.fieldLabel}>{t('ordersLive.history.event')}</Text>
           <Text style={styles.fieldValue}>{event.label}</Text>
         </View>
         <View style={styles.col}>
-          <Text style={styles.fieldLabel}>Date</Text>
+          <Text style={styles.fieldLabel}>{t('ordersLive.history.date')}</Text>
           <Text style={styles.fieldValue}>{event.dayLabel}</Text>
         </View>
       </View>
 
       <View style={[styles.twoColRow, styles.detailRowGap]}>
         <View style={styles.col}>
-          <Text style={styles.fieldLabel}>Time</Text>
+          <Text style={styles.fieldLabel}>{t('ordersLive.history.time')}</Text>
           <Text style={styles.fieldValue}>{event.atLabel}</Text>
+        </View>
+        <View style={styles.col}>
+          <Text style={styles.fieldLabel}>{t('ordersLive.history.performedBy')}</Text>
+          <Text style={styles.fieldValue}>{ADMIN_NO_VALUE}</Text>
         </View>
       </View>
 
       <View style={styles.detailRowGap}>
-        <Text style={styles.fieldLabel}>Reference</Text>
+        <Text style={styles.fieldLabel}>{t('ordersLive.history.reference')}</Text>
         <Text style={styles.fieldValue}>{orderNumber}</Text>
       </View>
     </View>
@@ -126,7 +131,7 @@ export function OrderStatusHistoryScreen({
           <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
             <BackArrowIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Order Status History</Text>
+          <Text style={styles.headerTitle}>{t('ordersLive.history.title')}</Text>
         </View>
 
         {view === 'loading' ? (
@@ -167,7 +172,7 @@ export function OrderStatusHistoryScreen({
                         onPress={() => setExpandedId(isOpen ? null : event.key)}
                       >
                         <View style={styles.stepTextWrap}>
-                          <Text style={styles.stepTitle}>{event.label} ✓</Text>
+                          <Text style={styles.stepTitle}>{t('ordersLive.history.eventDone', { label: event.label })}</Text>
                           <Text style={styles.stepTime}>{event.atLabel}</Text>
                         </View>
                         <ChevronIcon open={isOpen} />

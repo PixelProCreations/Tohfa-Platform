@@ -194,6 +194,28 @@ function PurchaseSalesIcon({ size = 20, color = adminColors.brand }: { size?: nu
   );
 }
 
+function AllocationPieIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Line x1="12" y1="3" x2="12" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="3" y1="12" x2="21" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function SalesRegisterIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M7 6h10M8 3h8v3H8V3z" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M5 9h14l-1.5 8H6.5L5 9z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <Rect x="4" y="17" width="16" height="4" rx="1" stroke={color} strokeWidth="2" />
+      <Line x1="9" y1="13" x2="11" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="13" y1="13" x2="15" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function GavelIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -211,9 +233,15 @@ export const MORE_ROW_ICONS: Record<MoreRowId, () => React.ReactElement> = {
   inputs: () => <InputsPestIcon />,
   pricing: () => <MarketPricingIcon />,
   disputes: () => <GavelIcon />,
+  allocation: () => <AllocationPieIcon />,
+  sales_orders: () => <SalesRegisterIcon />,
   customers: () => <CustomersIcon />,
   reports: () => <ReportsMenuIcon />,
   workforce: () => <WorkforceStaffIcon />,
+  // The design's Staff & Admin Accounts badge is this same staff icon; the
+  // workforce row above it is permanently hidden (no rbac code), so nothing
+  // renders both.
+  staff: () => <WorkforceStaffIcon />,
   community: () => <CommunityIcon />,
   switch_role: () => <SwitchArrowsIcon />,
   notifications: () => <NotificationsReportsIcon />,

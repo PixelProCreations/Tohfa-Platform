@@ -23,9 +23,12 @@ export type MoreRowId =
   | 'inputs'
   | 'pricing'
   | 'disputes'
+  | 'allocation'
+  | 'sales_orders'
   | 'customers'
   | 'reports'
   | 'workforce'
+  | 'staff'
   | 'community'
   | 'switch_role'
   | 'notifications'
@@ -64,9 +67,12 @@ export const MORE_ROWS: readonly MoreRowDef[] = [
   { id: 'inputs', labelKey: 'moreMenu.row.inputs', gate: code('inputs.catalog.manage') },
   { id: 'pricing', labelKey: 'moreMenu.row.pricing', gate: code('pricing.fair_price.view') },
   { id: 'disputes', labelKey: 'moreMenu.row.disputes', gate: code('dispute.farmer.mediate') },
+  { id: 'allocation', labelKey: 'moreMenu.row.allocation', gate: code('allocation.dashboard.view') },
+  { id: 'sales_orders', labelKey: 'moreMenu.row.sales_orders', gate: code('order.list.view_all') },
   { id: 'customers', labelKey: 'moreMenu.row.customers', gate: code('customer.list.view') },
   { id: 'reports', labelKey: 'moreMenu.row.reports', gate: code('report.export.file') },
   { id: 'workforce', labelKey: 'moreMenu.row.workforce', gate: { kind: 'noCode' } },
+  { id: 'staff', labelKey: 'moreMenu.row.staff', gate: code('admin.staff.list_view') },
   { id: 'community', labelKey: 'moreMenu.row.community', gate: code('farmer.learning.view') },
   { id: 'switch_role', labelKey: 'moreMenu.row.switch_role', gate: { kind: 'switchRole' } },
   { id: 'notifications', labelKey: 'moreMenu.row.notifications', gate: code('notification.own.view') },

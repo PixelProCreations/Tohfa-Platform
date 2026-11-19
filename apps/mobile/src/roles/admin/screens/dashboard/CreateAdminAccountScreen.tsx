@@ -12,6 +12,21 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
+import { ApiError } from '../../../../shell/api/client';
+import {
+  ADMIN_MOBILE_PATTERN,
+  createAdminAccount,
+  disableAdminAccount,
+  type AdminAccountRole,
+  type AdminAccountStatusDto,
+} from '../../api/adminAccounts';
+import { adminErrorKey } from '../../api/errors';
+import { useAdminMutation } from '../../api/hooks';
+import { createSubAdmin } from '../../api/subAdmins';
+import { t, type TranslationKey } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { useWarehouseOptions } from '../warehouse/shared/useWarehouseOptions';
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const ADMIN_PALETTE = {
   primaryOrange: '#F0562A',
@@ -147,24 +162,70 @@ export interface AdminAccountData {
 
 export interface CreateAdminAccountScreenProps {
   initialData?: AdminAccountData | null | undefined;
-  currentUserRole?: ('SUPER_ADMIN' | 'TOHFA_ADMIN') | undefined;
+  /**
+   * The signed-in admin's permission check (/auth/me codes). Fail closed: with
+   * none, every role and the disable action are unavailable. Which roles may be
+   * created is decided by the `admin.*.create` codes, never by a role name here.
+   */
+  can?: Can | undefined;
   onBack?: (() => void) | undefined;
+  /** Fires only after the server accepted a create (201). Never on a failed or unsent call. */
   onSuccess?: ((account: AdminAccountData) => void) | undefined;
   onViewDirectory?: (() => void) | undefined;
 }
 
-const WAREHOUSE_OPTIONS = [
-  'Not applicable for this role',
-  'Ooty Central Main Warehouse (MW)',
-  'Coonoor Sub-Warehouse (SW)',
-  'Kotagiri Sub-Warehouse (SW)',
-  'Gudalur Sub-Warehouse (SW)',
-  'Ketti Valley Field Depot (SW)',
-];
+/** The create permission for each role button (docs/rbac.json; the server checks the same code). */
+const ROLE_CREATE_CODE: Record<'SA' | 'TA' | 'FA' | 'SW', string> = {
+  SA: 'admin.super_admin.create',
+  TA: 'admin.tohfa_admin.create',
+  FA: 'admin.farmer_admin.create',
+  SW: 'admin.sub_wh_admin.create',
+};
+const DISABLE_CODE = 'admin.account.disable';
+const WAREHOUSE_LIST_CODE = 'warehouse.all.view';
+
+/** The role value POST /admin/accounts takes; SW goes through POST /admin/sub-warehouse-admins instead. */
+const ACCOUNT_API_ROLE: Record<'SA' | 'TA' | 'FA', AdminAccountRole> = {
+  SA: 'SUPER_ADMIN',
+  TA: 'TOHFA_ADMIN',
+  FA: 'FARMER_ADMIN',
+};
+
+const DENY_ALL: Can = () => false;
+const MOBILE_COUNTRY_CODE = '+91';
+const MOBILE_DIGITS = 10;
+
+interface CreateInput {
+  role: 'SA' | 'TA' | 'SW';
+  fullName: string;
+  mobileE164: string;
+  warehouseId: string | undefined;
+}
+
+interface CreatedAccount {
+  userId: string;
+  adminCode: string;
+  fullName: string;
+  role: AdminRoleType;
+  mobile: string;
+  warehouse: string | undefined;
+}
+
+/** The national number from what was typed or pasted ("+91 98765 43210" and "98765 43210" both work). */
+function nationalDigits(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  return digits.length === MOBILE_DIGITS + 2 && digits.startsWith('91') ? digits.slice(2) : digits;
+}
+
+/** A taken mobile / full warehouse (create) and the last Super Admin (disable) are both 409; say which. */
+function conflictAwareErrorKey(error: unknown, conflictKey: TranslationKey): TranslationKey {
+  if (error instanceof ApiError && error.problem.code === 'CONFLICT') return conflictKey;
+  return adminErrorKey(error);
+}
 
 export function CreateAdminAccountScreen({
   initialData,
-  currentUserRole = 'SUPER_ADMIN',
+  can = DENY_ALL,
   onBack,
   onSuccess,
   onViewDirectory,
@@ -173,112 +234,161 @@ export function CreateAdminAccountScreen({
 
   const [fullName, setFullName] = useState(initialData?.fullName ?? '');
   const [mobile, setMobile] = useState(initialData?.mobile ?? '');
-  const [selectedRole, setSelectedRole] = useState<AdminRoleType>(initialData?.role ?? 'FA');
-  const [warehouse, setWarehouse] = useState(
-    initialData?.warehouse ?? (initialData?.role === 'SW' ? 'Coonoor Sub-Warehouse (SW)' : 'Not applicable for this role')
-  );
+  const [pickedRole, setPickedRole] = useState<AdminRoleType | null>(null);
+  const [warehouseId, setWarehouseId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'ACTIVE' | 'PENDING' | 'DISABLED'>(initialData?.status ?? 'ACTIVE');
 
   const [showWarehouseModal, setShowWarehouseModal] = useState(false);
-  const [createdModalVisible, setCreatedModalVisible] = useState(false);
-  const [generatedCreds, setGeneratedCreds] = useState<{ password: string; mobile: string }>({
-    password: '',
-    mobile: '',
+  const [created, setCreated] = useState<CreatedAccount | null>(null);
+
+  // Role availability comes from the caller's permission codes, not from a role name.
+  const roleOptions: { key: AdminRoleType; label: string; allowed: boolean; name: string }[] = [
+    { key: 'SA', label: 'SA', allowed: can(ROLE_CREATE_CODE.SA), name: 'Super Admin' },
+    { key: 'TA', label: 'TA', allowed: can(ROLE_CREATE_CODE.TA), name: 'TOHFA Admin' },
+    { key: 'FA', label: 'FA', allowed: can(ROLE_CREATE_CODE.FA), name: 'Field / Finance Admin' },
+    { key: 'SW', label: 'SW', allowed: can(ROLE_CREATE_CODE.SW), name: 'Sub Warehouse Admin' },
+  ];
+  const allRolesGrantable = roleOptions.every((r) => r.allowed);
+  // Least privilege first: the default is the lowest role this caller may create that the app can send.
+  const defaultRole: AdminRoleType =
+    (['SW', 'TA', 'SA', 'FA'] as const).find((k) => roleOptions.some((r) => r.key === k && r.allowed)) ?? 'SW';
+  const selectedRole: AdminRoleType = isEditing ? (initialData?.role ?? defaultRole) : (pickedRole ?? defaultRole);
+  const roleGrantable = selectedRole === 'MW' ? false : can(ROLE_CREATE_CODE[selectedRole]);
+  // POST /admin/accounts needs exactly one zoneId for a Farmer Admin and no zone list is served, so the
+  // call cannot be built; it is not sent rather than sent to a certain 422.
+  const zoneBlocked = !isEditing && selectedRole === 'FA';
+
+  // Live sub-warehouses for the SW picker (GET /warehouses, warehouse.all.view). Only fetched when it can be used.
+  const warehouses = useWarehouseOptions({
+    enabled: !isEditing && selectedRole === 'SW' && can(WAREHOUSE_LIST_CODE),
+    activeOnly: true,
+  });
+  const subWarehouses = warehouses.options.filter((o) => o.type === 'SUB');
+  const warehouseName = isEditing
+    ? initialData?.warehouse
+    : subWarehouses.find((o) => o.warehouseId === warehouseId)?.warehouseName;
+
+  const createMutation = useAdminMutation<CreateInput, CreatedAccount>({
+    mutationFn: async (input) => {
+      if (input.role === 'SW') {
+        const res = await createSubAdmin({
+          fullName: input.fullName,
+          mobile: input.mobileE164,
+          warehouseId: input.warehouseId ?? '',
+        });
+        return {
+          userId: res.userId,
+          adminCode: res.adminCode,
+          fullName: res.fullName,
+          role: 'SW',
+          mobile: input.mobileE164,
+          warehouse: undefined,
+        };
+      }
+      const res = await createAdminAccount({
+        role: ACCOUNT_API_ROLE[input.role],
+        fullName: input.fullName,
+        mobile: input.mobileE164,
+      });
+      return {
+        userId: res.userId,
+        adminCode: res.adminCode,
+        fullName: res.fullName,
+        role: input.role,
+        mobile: input.mobileE164,
+        warehouse: undefined,
+      };
+    },
   });
 
-  const isSuperAdmin = currentUserRole === 'SUPER_ADMIN';
-
-  // Role availability rules
-  const roleOptions: { key: AdminRoleType; label: string; allowed: boolean; name: string }[] = [
-    { key: 'SA', label: 'SA', allowed: isSuperAdmin, name: 'Super Admin' },
-    { key: 'TA', label: 'TA', allowed: isSuperAdmin, name: 'TOHFA Admin' },
-    { key: 'FA', label: 'FA', allowed: true, name: 'Field / Finance Admin' },
-    { key: 'SW', label: 'SW', allowed: true, name: 'Sub Warehouse Admin' },
-  ];
+  const disableMutation = useAdminMutation<string, AdminAccountStatusDto>({
+    mutationFn: (id) => disableAdminAccount(id),
+  });
 
   const handleRoleSelect = (roleKey: AdminRoleType, allowed: boolean) => {
+    if (isEditing) return;
     if (!allowed) {
-      Alert.alert(
-        'Permission Restricted',
-        'Only Super Admin accounts can provision Super Admin (SA) and TOHFA Admin (TA) accounts.'
-      );
+      Alert.alert(t('adminAccount.restricted.title'), t('adminAccount.restricted.body'));
       return;
     }
-    setSelectedRole(roleKey);
-    if (roleKey === 'SW') {
-      if (warehouse === 'Not applicable for this role') {
-        setWarehouse('Coonoor Sub-Warehouse (SW)');
-      }
-    } else {
-      setWarehouse('Not applicable for this role');
-    }
+    createMutation.reset();
+    setPickedRole(roleKey);
+    if (roleKey !== 'SW') setWarehouseId(undefined);
   };
 
   const handleSave = () => {
+    // Editing has no server route (no update endpoint exists), so there is nothing to save: the
+    // button is disabled and this is never reached; it must never report an update that was not sent.
+    if (isEditing || zoneBlocked || !roleGrantable || createMutation.isPending) return;
     if (!fullName.trim()) {
-      Alert.alert('Validation Error', 'Please enter the admin full name.');
+      Alert.alert(t('adminAccount.validation.title'), t('adminAccount.validation.name'));
       return;
     }
-    const cleanMobile = mobile.replace(/\D/g, '');
-    if (cleanMobile.length < 10) {
-      Alert.alert('Validation Error', 'Please enter a valid 10-digit mobile number.');
+    const digits = nationalDigits(mobile);
+    const mobileE164 = `${MOBILE_COUNTRY_CODE}${digits}`;
+    if (digits.length !== MOBILE_DIGITS || !ADMIN_MOBILE_PATTERN.test(mobileE164)) {
+      Alert.alert(t('adminAccount.validation.title'), t('adminAccount.validation.mobile'));
       return;
     }
-
-    if (selectedRole === 'SW' && warehouse === 'Not applicable for this role') {
-      Alert.alert('Validation Error', 'Please assign a sub-warehouse location for SW admin.');
+    if (selectedRole === 'SW' && warehouseId === undefined) {
+      Alert.alert(t('adminAccount.validation.title'), t('adminAccount.validation.warehouse'));
       return;
     }
-
-    if (isEditing) {
-      Alert.alert('Account Updated', `Admin account for ${fullName} has been updated.`);
-      onSuccess?.({
-        id: initialData.id,
-        fullName,
-        mobile: cleanMobile,
-        role: selectedRole,
-        warehouse,
-        status,
-      });
-      onBack?.();
-    } else {
-      // Generate temporary secure password
-      const tempPass = 'Tohfa@' + Math.floor(1000 + Math.random() * 9000);
-      setGeneratedCreds({ password: tempPass, mobile: cleanMobile });
-      setCreatedModalVisible(true);
-    }
+    if (selectedRole !== 'SA' && selectedRole !== 'TA' && selectedRole !== 'SW') return;
+    const sentWarehouse = warehouseName;
+    createMutation.mutate(
+      { role: selectedRole, fullName: fullName.trim(), mobileE164, warehouseId },
+      // Only a real 201 gets here: the credentials modal is the success state.
+      { onSuccess: (res) => setCreated({ ...res, warehouse: sentWarehouse }) },
+    );
   };
 
   const handleFinishCreate = () => {
-    setCreatedModalVisible(false);
+    const account = created;
+    setCreated(null);
+    if (account === null) return;
     onSuccess?.({
-      fullName,
-      mobile: mobile.replace(/\D/g, ''),
-      role: selectedRole,
-      warehouse,
+      id: account.userId,
+      fullName: account.fullName,
+      mobile: nationalDigits(account.mobile),
+      role: account.role,
+      warehouse: account.warehouse,
       status: 'ACTIVE',
     });
     onBack?.();
   };
 
+  const canDisable = can(DISABLE_CODE);
   const handleToggleDisable = () => {
-    const nextStatus = status === 'DISABLED' ? 'ACTIVE' : 'DISABLED';
+    // Only DISABLE exists on the server; there is no re-enable route.
+    if (status === 'DISABLED' || !canDisable || disableMutation.isPending) return;
+    const id = initialData?.id;
+    if (id === undefined) return;
     Alert.alert(
-      nextStatus === 'DISABLED' ? 'Disable Admin Account' : 'Reactivate Admin Account',
-      `Are you sure you want to ${nextStatus === 'DISABLED' ? 'disable' : 'activate'} login access for ${fullName}?`,
+      t('adminAccount.disable.confirmTitle'),
+      t('adminAccount.disable.confirmBody', { name: fullName }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('adminAccount.disable.cancel'), style: 'cancel' },
         {
-          text: nextStatus === 'DISABLED' ? 'Disable Account' : 'Activate',
-          style: nextStatus === 'DISABLED' ? 'destructive' : 'default',
+          text: t('adminAccount.disable.confirmAction'),
+          style: 'destructive',
           onPress: () => {
-            setStatus(nextStatus);
-            Alert.alert('Status Updated', `Admin account status is now ${nextStatus}.`);
+            disableMutation.mutate(id, {
+              // Only a real 200: the status shown is the server's, not an assumption.
+              onSuccess: (res) => {
+                setStatus(res.status);
+                Alert.alert(t('adminAccount.disable.doneTitle'), t('adminAccount.disable.doneBody', { name: res.fullName }));
+              },
+            });
           },
         },
-      ]
+      ],
     );
   };
+
+  const isDisabledAccount = status === 'DISABLED';
+  const primaryDisabled = isEditing || zoneBlocked || !roleGrantable || createMutation.isPending;
+  const disableUnavailable = isDisabledAccount || !canDisable || disableMutation.isPending;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -357,6 +467,7 @@ export function CreateAdminAccountScreen({
                 placeholder="e.g. Anitha Raghavan"
                 placeholderTextColor={ADMIN_PALETTE.textMuted}
                 autoCapitalize="words"
+                editable={!isEditing}
               />
             </View>
           </View>
@@ -377,6 +488,7 @@ export function CreateAdminAccountScreen({
                 placeholderTextColor={ADMIN_PALETTE.textMuted}
                 keyboardType="phone-pad"
                 maxLength={14}
+                editable={!isEditing}
               />
             </View>
           </View>
@@ -399,6 +511,8 @@ export function CreateAdminAccountScreen({
                     ]}
                     onPress={() => handleRoleSelect(role.key, isAllowed)}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: !isAllowed, selected: isSelected }}
                   >
                     <Text
                       style={[
@@ -416,8 +530,8 @@ export function CreateAdminAccountScreen({
 
             {/* Helper Caption */}
             <Text style={styles.roleHelperCaption}>
-              {!isSuperAdmin
-                ? 'SA and TA are greyed out — your account (TOHFA Admin) cannot create those roles.'
+              {!allRolesGrantable
+                ? t('adminAccount.roleHelper.restricted')
                 : 'As Super Admin, you can provision Super Admin (SA), Tohfa Admin (TA), Field Admin (FA), and Sub Warehouse (SW).'}
             </Text>
           </View>
@@ -428,23 +542,25 @@ export function CreateAdminAccountScreen({
             <TouchableOpacity
               style={[
                 styles.selectInputContainer,
-                selectedRole !== 'SW' && styles.selectInputDisabled,
+                (selectedRole !== 'SW' || isEditing) && styles.selectInputDisabled,
               ]}
               onPress={() => {
-                if (selectedRole === 'SW') {
+                if (selectedRole === 'SW' && !isEditing) {
                   setShowWarehouseModal(true);
                 }
               }}
-              activeOpacity={selectedRole === 'SW' ? 0.7 : 1}
+              activeOpacity={selectedRole === 'SW' && !isEditing ? 0.7 : 1}
             >
               <Text
                 style={[
                   styles.selectInputText,
-                  selectedRole !== 'SW' && styles.selectInputTextDisabled,
+                  (selectedRole !== 'SW' || isEditing) && styles.selectInputTextDisabled,
                 ]}
                 numberOfLines={1}
               >
-                {selectedRole === 'SW' ? warehouse : 'Not applicable for ' + selectedRole}
+                {selectedRole === 'SW'
+                  ? (warehouseName ?? t('adminAccount.warehouse.placeholder'))
+                  : 'Not applicable for ' + selectedRole}
               </Text>
               <ChevronDownIcon color={selectedRole === 'SW' ? ADMIN_PALETTE.textSecondary : ADMIN_PALETTE.textMuted} />
             </TouchableOpacity>
@@ -455,44 +571,65 @@ export function CreateAdminAccountScreen({
             <View style={styles.infoNoticeIcon}>
               <LockIcon />
             </View>
-            <Text style={styles.infoNoticeText}>
-              A temporary password will be generated. The new admin sets a permanent one on first login.
-            </Text>
+            <Text style={styles.infoNoticeText}>{t('adminAccount.create.infoNotice')}</Text>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actionBlock}>
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={[styles.primaryButton, primaryDisabled && styles.actionUnavailable]}
               onPress={handleSave}
+              disabled={primaryDisabled}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: primaryDisabled, busy: createMutation.isPending }}
             >
               <CheckCircleIcon size={19} />
               <Text style={styles.primaryButtonText}>
-                {isEditing ? 'Save Changes' : 'Create Account'}
+                {createMutation.isPending ? t('adminAccount.create.saving') : isEditing ? 'Save Changes' : 'Create Account'}
               </Text>
             </TouchableOpacity>
+            {isEditing ? <Text style={styles.noteText}>{t('adminAccount.edit.unavailable')}</Text> : null}
+            {zoneBlocked ? <Text style={styles.noteText}>{t('adminAccount.create.zoneUnavailable')}</Text> : null}
+            {createMutation.error !== null ? (
+              <Text style={styles.errorText}>{t(conflictAwareErrorKey(createMutation.error, 'adminAccount.error.conflict'))}</Text>
+            ) : null}
 
             {isEditing && (
               <TouchableOpacity
                 style={[
                   styles.disableButton,
-                  status === 'DISABLED' && styles.enableButton,
+                  isDisabledAccount && styles.enableButton,
+                  disableUnavailable && styles.actionUnavailable,
                 ]}
                 onPress={handleToggleDisable}
+                disabled={disableUnavailable}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: disableUnavailable, busy: disableMutation.isPending }}
               >
-                <BanIcon color={status === 'DISABLED' ? ADMIN_PALETTE.successText : ADMIN_PALETTE.dangerText} />
+                <BanIcon color={isDisabledAccount ? ADMIN_PALETTE.successText : ADMIN_PALETTE.dangerText} />
                 <Text
                   style={[
                     styles.disableButtonText,
-                    status === 'DISABLED' && styles.enableButtonText,
+                    isDisabledAccount && styles.enableButtonText,
                   ]}
                 >
-                  {status === 'DISABLED' ? 'Reactivate This Account' : 'Disable This Account'}
+                  {disableMutation.isPending
+                    ? t('adminAccount.disable.saving')
+                    : isDisabledAccount
+                      ? 'Reactivate This Account'
+                      : 'Disable This Account'}
                 </Text>
               </TouchableOpacity>
             )}
+            {isEditing && isDisabledAccount ? <Text style={styles.noteText}>{t('adminAccount.reactivate.unavailable')}</Text> : null}
+            {isEditing && !isDisabledAccount && !canDisable ? (
+              <Text style={styles.noteText}>{t('adminAccount.disable.noPermission')}</Text>
+            ) : null}
+            {disableMutation.error !== null ? (
+              <Text style={styles.errorText}>{t(conflictAwareErrorKey(disableMutation.error, 'adminAccount.error.lastSuperAdmin'))}</Text>
+            ) : null}
           </View>
         </View>
 
@@ -512,29 +649,37 @@ export function CreateAdminAccountScreen({
             <Text style={styles.modalSubtitle}>Choose the regional hub or sub-warehouse for this admin</Text>
 
             <View style={styles.modalList}>
-              {WAREHOUSE_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[
-                    styles.modalOptionRow,
-                    warehouse === opt && styles.modalOptionRowSelected,
-                  ]}
-                  onPress={() => {
-                    setWarehouse(opt);
-                    setShowWarehouseModal(false);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text
+              {warehouses.isLoading ? (
+                <Text style={styles.noteText}>{t('adminAccount.warehouse.loading')}</Text>
+              ) : warehouses.error !== null && warehouses.error !== undefined ? (
+                <Text style={styles.errorText}>{t(adminErrorKey(warehouses.error))}</Text>
+              ) : subWarehouses.length === 0 ? (
+                <Text style={styles.noteText}>{t('adminAccount.warehouse.empty')}</Text>
+              ) : (
+                subWarehouses.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.warehouseId}
                     style={[
-                      styles.modalOptionText,
-                      warehouse === opt && styles.modalOptionTextSelected,
+                      styles.modalOptionRow,
+                      warehouseId === opt.warehouseId && styles.modalOptionRowSelected,
                     ]}
+                    onPress={() => {
+                      setWarehouseId(opt.warehouseId);
+                      setShowWarehouseModal(false);
+                    }}
+                    activeOpacity={0.7}
                   >
-                    {opt}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        warehouseId === opt.warehouseId && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {opt.warehouseName}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
 
             <TouchableOpacity
@@ -548,9 +693,9 @@ export function CreateAdminAccountScreen({
         </View>
       </Modal>
 
-      {/* Created Credentials Modal */}
+      {/* Created Credentials Modal: opens only from a real 201 */}
       <Modal
-        visible={createdModalVisible}
+        visible={created !== null}
         transparent
         animationType="slide"
         onRequestClose={handleFinishCreate}
@@ -562,26 +707,27 @@ export function CreateAdminAccountScreen({
             </View>
             <Text style={styles.modalTitle}>Admin Account Created</Text>
             <Text style={styles.modalSubtitle}>
-              Temporary sign-in credentials for {fullName} ({selectedRole})
+              {t('adminAccount.created.subtitle', { name: created?.fullName ?? '', role: created?.role ?? '' })}
             </Text>
 
             <View style={styles.credsCard}>
               <View style={styles.credRow}>
                 <Text style={styles.credLabel}>Mobile / User ID</Text>
-                <Text style={styles.credValue}>+91 {generatedCreds.mobile}</Text>
+                <Text style={styles.credValue}>
+                  {MOBILE_COUNTRY_CODE} {nationalDigits(created?.mobile ?? '')}
+                </Text>
               </View>
               <View style={styles.credDivider} />
               <View style={styles.credRow}>
-                <Text style={styles.credLabel}>Temporary Password</Text>
+                <Text style={styles.credLabel}>{t('adminAccount.created.adminCode')}</Text>
                 <Text style={[styles.credValue, { color: ADMIN_PALETTE.primaryOrange, fontWeight: '800' }]}>
-                  {generatedCreds.password}
+                  {created?.adminCode ?? ''}
                 </Text>
               </View>
             </View>
 
-            <Text style={styles.credsNotice}>
-              An SMS with sign-in instructions has been queued. The admin will be prompted to set a new password on initial sign-in.
-            </Text>
+            <Text style={styles.credsNotice}>{t('adminAccount.created.notice')}</Text>
+            <Text style={styles.credsNotice}>{t('adminAccount.created.directoryNote')}</Text>
 
             <TouchableOpacity
               style={styles.modalPrimaryBtn}
@@ -854,6 +1000,20 @@ const styles = StyleSheet.create({
   actionBlock: {
     marginTop: 12,
     gap: 10,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  noteText: {
+    fontSize: 11.5,
+    color: ADMIN_PALETTE.textSecondary,
+    lineHeight: 16,
+  },
+  errorText: {
+    fontSize: 12.5,
+    color: ADMIN_PALETTE.dangerText,
+    lineHeight: 17,
+    fontWeight: '600',
   },
   primaryButton: {
     flexDirection: 'row',

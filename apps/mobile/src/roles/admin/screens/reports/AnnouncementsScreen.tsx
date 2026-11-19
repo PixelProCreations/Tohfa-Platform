@@ -1,3 +1,4 @@
+import { adminColors } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -12,19 +13,26 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#111827',
-  textSecondary: '#4B5563',
-  textMuted: '#9CA3AF',
-  border: '#F0ECE6',
-  buttonBorder: '#EFE7DE',
-  orangePrimary: '#E85226',
-  systemTagBg: '#E0F2FE',
-  systemTagText: '#0369A1',
-  warehouseTagBg: '#FEF3C7',
-  warehouseTagText: '#B45309',
+  pageBg:           adminColors.canvas,
+  cardBg:           adminColors.card,
+  textHeading:      adminColors.brandDeep,
+  textPrimary:      adminColors.ink,
+  textSecondary:    adminColors.muted,
+  textMuted:        adminColors.muted,
+  border:           adminColors.border,
+  buttonBorder:     adminColors.border,
+  orangePrimary:    adminColors.brand,
+  systemTagBg:      adminColors.info.bg,
+  systemTagText:    adminColors.info.text,
+  warehouseTagBg:   adminColors.warning.bg,
+  warehouseTagText: adminColors.warning.text,
+  // Additional for StyleSheet surfaces and SVG icons
+  shadow:           adminColors.shadow,
+  iconStroke:       adminColors.ink,
+  tabBg:            adminColors.canvas,
+  onBrand:          adminColors.onBrand,
+  inputBg:          adminColors.canvas,
+  inputBorder:      adminColors.border,
 };
 
 export interface AnnouncementItem {
@@ -122,7 +130,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M15 19L8 12L15 5"
-                stroke="#2B2523"
+                stroke={PALETTE.iconStroke}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -251,7 +259,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M15 19L8 12L15 5"
-                stroke="#2B2523"
+                stroke={PALETTE.iconStroke}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -267,7 +275,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M12 5v14M5 12h14"
-                stroke="#2B2523"
+                stroke={PALETTE.iconStroke}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -367,7 +375,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1.4,
     borderColor: PALETTE.buttonBorder,
-    shadowColor: '#000',
+    shadowColor: PALETTE.shadow,
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
@@ -384,7 +392,7 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     fontSize: 14,
-    color: '#78716C',
+    color: PALETTE.textSecondary,
     fontWeight: '400',
   },
   cardsList: {
@@ -397,7 +405,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.2,
     borderColor: PALETTE.border,
     padding: 18,
-    shadowColor: '#000',
+    shadowColor: PALETTE.shadow,
     shadowOpacity: 0.03,
     shadowRadius: 6,
     elevation: 1.5,
@@ -446,7 +454,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   primaryNewBtnText: {
-    color: '#FFFFFF',
+    color: PALETTE.onBrand,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -458,7 +466,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: PALETTE.shadow,
     shadowOpacity: 0.03,
     shadowRadius: 6,
     elevation: 1.5,
@@ -474,7 +482,7 @@ const styles = StyleSheet.create({
   },
   scopeTabs: {
     flexDirection: 'row',
-    backgroundColor: '#F5F2EC',
+    backgroundColor: PALETTE.tabBg,
     borderRadius: 12,
     padding: 3,
   },
@@ -485,8 +493,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   scopeTabActive: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: PALETTE.cardBg,
+    shadowColor: PALETTE.shadow,
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
@@ -494,15 +502,15 @@ const styles = StyleSheet.create({
   scopeTabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: PALETTE.textSecondary,
   },
   scopeTabTextActive: {
     color: PALETTE.orangePrimary,
   },
   formInput: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: PALETTE.inputBg,
     borderWidth: 1.2,
-    borderColor: '#EFECE6',
+    borderColor: PALETTE.inputBorder,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,

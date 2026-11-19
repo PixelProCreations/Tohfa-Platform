@@ -8,3 +8,4 @@ export * from './GSTAccountingScreen';
 export * from './GSTFilingReportDetailScreen';
 export * from './BasicAccountingLedgerScreen';
 export * from './AddManualJournalEntryScreen';
+export { FinanceManagementFlow, type FinanceManagementFlowProps } from './FinanceManagementFlow';

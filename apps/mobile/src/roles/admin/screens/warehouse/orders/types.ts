@@ -181,8 +181,8 @@ export interface OrderTaskCounts {
   awaitingPickup: number;
 }
 
-/** A write on an order: pack, mark ready for pickup (POST .../dispatch), or the OTP handover. */
-export type OrderAction = 'pack' | 'markReady' | 'verifyOtp';
+/** A write on an order: pack, mark ready for pickup (POST .../dispatch), the OTP handover, or assigning its warehouse. */
+export type OrderAction = 'pack' | 'markReady' | 'verifyOtp' | 'assign' | 'dispatch' | 'cancel' | 'reportIssue';
 
 /** What the order detail offers next, by status and permission. */
 export type OrderNextAction =

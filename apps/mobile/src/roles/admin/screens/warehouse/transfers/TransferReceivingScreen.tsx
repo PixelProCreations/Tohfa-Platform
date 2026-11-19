@@ -8,12 +8,15 @@
  * separate "arrived" state on the server: a transfer is IN_TRANSIT until it is
  * received.
  *
- * Tiles (design M2-16), on the shared OverviewDashboardCard: In Transit and
- * Completed are the list's `total` for IN_TRANSIT and RECEIVED; Qty Mismatch
- * counts the RECEIVED transfers flagged `hasDiscrepancy` (receiptViews.ts).
- * The design's Arrived, Receiving Pending and Quality Issue tiles are not
- * drawn: the API has no arrival step (owner decision), "receiving pending" is
- * the same IN_TRANSIT figure, and a transfer receipt records no quality check.
+ * Tiles (design M2-16), all six, in the design's order, on the shared
+ * OverviewDashboardCard: In Transit and Completed are the list's `total` for
+ * IN_TRANSIT and RECEIVED; Qty Mismatch counts the RECEIVED transfers flagged
+ * `hasDiscrepancy` (receiptViews.ts). Arrived, Receiving Pending and Quality
+ * Issue render the no-value dash: the API has no arrival state of its own
+ * (a transfer is IN_TRANSIT until it is received), no separate
+ * receiving-pending figure, and a transfer receipt records no quality check.
+ * The tiles stay drawn either way — a figure the server cannot supply is a
+ * dash, never a missing card.
  */
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
@@ -34,7 +37,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { TRANSFER_CODES, transferActions } from './mappers';
 import { discrepancyTileValue } from './receiptViews';
-import { TransferRow } from './TransferParts';
+import { PlayCircleIcon, TransferRow } from './TransferParts';
 import { useTransferDiscrepancyTally, useTransferList, useTransferStatusCounts, useTransferWarehouses } from './useTransfersData';
 import type { WarehouseScreenBaseProps } from './types';
 
@@ -51,6 +54,9 @@ export function TransferReceivingScreen({ scope, can, onBack, onStartTransferIns
   const countOrUnknown = (n: number | undefined) => (n === undefined ? t('transfers.kpi.unknown') : String(n));
   const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
   const start = canReceive ? onStartTransferInspection : undefined;
+  // The design offers Start Inspection for the first arrived transfer. The API has no arrival state, so the
+  // first IN_TRANSIT transfer this caller may receive stands in for it.
+  const firstReceivable = start ? list.items.find((item) => transferActions(scope, can, item).receive) : undefined;
 
   return (
     <WalletScreen
@@ -59,7 +65,11 @@ export function TransferReceivingScreen({ scope, can, onBack, onStartTransferIns
       onBack={onBack}
       headerExtra={<ScopeHeader scope={scope} label={scope.warehouseId === undefined ? t('transfers.scope.all') : undefined} />}
       footer={
-        !canReceive ? (
+        start && firstReceivable ? (
+          <WalletFooter>
+            <WalletButton label={t('transfers.receiving.startInspection')} icon={<PlayCircleIcon />} onPress={() => start(firstReceivable.id)} />
+          </WalletFooter>
+        ) : !canReceive ? (
           <WalletFooter>
             <PermissionNote>{t('transfers.receiving.noPermission')}</PermissionNote>
           </WalletFooter>
@@ -75,11 +85,30 @@ export function TransferReceivingScreen({ scope, can, onBack, onStartTransferIns
             icon="truck"
           />
           <OverviewDashboardCard
+            value={t('transfers.noValue')}
+            title={t('transfers.receiving.tile.arrived')}
+            subtitle={t('transfers.receiving.tile.arrivedSub')}
+            icon="receiving"
+          />
+          <OverviewDashboardCard
+            value={t('transfers.noValue')}
+            title={t('transfers.receiving.tile.receivingPending')}
+            subtitle={t('transfers.receiving.tile.receivingPendingSub')}
+            icon="pickup"
+          />
+          <OverviewDashboardCard
             value={discrepancyTileValue(mismatch.tally, { loading: mismatch.isLoading, error: mismatch.error })}
             title={t('transfers.receiving.tile.qtyMismatch')}
             subtitle={t('transfers.receiving.tile.qtyMismatchSub')}
             icon="alert"
             tone="warning"
+          />
+          <OverviewDashboardCard
+            value={t('transfers.noValue')}
+            title={t('transfers.receiving.tile.qualityIssue')}
+            subtitle={t('transfers.receiving.tile.qualityIssueSub')}
+            icon="alert"
+            tone="danger"
           />
           <OverviewDashboardCard
             value={countOrUnknown(counts.RECEIVED)}

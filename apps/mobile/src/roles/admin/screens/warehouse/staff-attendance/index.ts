@@ -10,6 +10,7 @@ export {
   type StaffFilterValues,
   type StaffStatusFilter,
 } from './StaffFiltersScreen';
+export { StaffListScreen, type StaffListScreenProps } from './StaffListScreen';
 export { StaffDetailScreen, type StaffDetailScreenProps } from './StaffDetailScreen';
 export { EditStaffProfileScreen, type EditStaffProfileScreenProps } from './EditStaffProfileScreen';
 export { AttendanceScreen, type AttendanceScreenProps } from './AttendanceScreen';

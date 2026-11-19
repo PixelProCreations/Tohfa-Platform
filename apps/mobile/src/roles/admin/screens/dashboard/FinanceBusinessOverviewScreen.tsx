@@ -8,14 +8,21 @@
  *   Sales revenue    GET /admin/finance/reports/revenue   finance.sales_income.view   last 30 IST days
  *   Expenses         GET /admin/finance/reports/expenses  finance.expense.log         last 30 IST days
  *   Outstanding dues GET /admin/payout-dues (totals)      payout.dues.view
- * Purchase value, pending payouts and awaiting-SA-approval have no source, and
- * the API has no payout read, so the payout card is drawn with dashes unless
- * the host passes `awaitingPayout`. The Approve and Reject buttons are always
- * drawn; they act only through the host's callbacks (the approval is a
- * money-moving write that needs the host's Idempotency-Key).
+ * Purchase value, pending payouts and awaiting-SA-approval have no source.
+ *
+ * Payout card: the payout is the host's `awaitingPayout`, else the one waiting
+ * longest for its second approval (GET /admin/payouts?status=PENDING_APPROVAL,
+ * payout.view); without either it is drawn with dashes. Approve is a real
+ * POST /admin/payouts/{id}/approve (payout.approve_above_10k, BR-31) with an
+ * Idempotency-Key kept across retries (BR-72). A success message is shown only
+ * after the server answered 2xx, and it reads the returned status: a payout
+ * still PENDING_APPROVAL has recorded this approval but is NOT released. The
+ * API has no reject endpoint, so Reject is drawn but enabled only when a host
+ * supplies `onRejectPayout`.
  */
 import React, { useMemo } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import {
@@ -33,6 +40,9 @@ import { AdminStatusBadge } from '../../components/AdminStatusBadge';
 import { useAdminQuery } from '../../api/hooks';
 import { adminKeys } from '../../api/queryKeys';
 import { listPayoutDues } from '../../api/payoutDues';
+import { adminErrorKey } from '../../api/errors';
+import type { PayoutDto } from '../../api/payouts';
+import { useApprovePayout, useAwaitingPayout } from '../../api/payoutsHooks';
 import type { Can } from '../../permissions/can';
 import { t } from '../../i18n';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
@@ -59,8 +69,9 @@ export interface FinanceBusinessOverviewScreenProps {
   onNavigateSubScreen?: ((subscreen: string) => void) | undefined;
   /** The payout the card is about. The API has no payout read yet, so the card shows dashes without it. */
   awaitingPayout?: AwaitingPayout | undefined;
-  /** Money-moving: the host owns the approve call and its Idempotency-Key. */
-  onApprovePayout?: ((payoutId: string) => void) | undefined;
+  /** Called after the server accepted an approval (the response is the stored payout). */
+  onPayoutApproved?: ((payout: PayoutDto) => void) | undefined;
+  /** No payout reject endpoint exists in docs/openapi.yaml: enabled only when a host owns the rejection. */
   onRejectPayout?: ((payoutId: string) => void) | undefined;
 }
 
@@ -70,7 +81,11 @@ const CODES = {
   expenses: 'finance.expense.log',
   dues: 'payout.dues.view',
   approvePayout: 'payout.approve_above_10k',
+  viewPayouts: 'payout.view',
 } as const;
+
+/** A payout that has both approvals in; before that the approval is recorded but nothing is released. */
+const FULLY_APPROVED: readonly string[] = ['APPROVED', 'PROCESSING', 'PAID'];
 
 const MODULE = 'saFinance';
 const BACK_SIZE = adminSpacing.xxl + adminSpacing.xs;
@@ -83,8 +98,8 @@ export function FinanceBusinessOverviewScreen({
   onBack,
   onSelectPayout,
   onNavigateSubScreen,
-  awaitingPayout,
-  onApprovePayout,
+  awaitingPayout: hostPayout,
+  onPayoutApproved,
   onRejectPayout,
 }: FinanceBusinessOverviewScreenProps) {
   const has = (code: string): boolean => typeof can === 'function' && can(code);
@@ -102,6 +117,13 @@ export function FinanceBusinessOverviewScreen({
 
   const nav = (id: string): (() => void) | undefined => (onNavigateSubScreen ? () => onNavigateSubScreen(id) : undefined);
 
+  const live = useAwaitingPayout({ enabled: hostPayout === undefined && has(CODES.viewPayouts) });
+  const awaitingPayout: AwaitingPayout | undefined =
+    hostPayout ??
+    (live.payout === undefined
+      ? undefined
+      : { id: live.payout.id, number: live.payout.payoutNumber, farmerName: live.payout.farmerName, amount: live.payout.amount });
+  const approval = useApprovePayout({ enabled: has(CODES.approvePayout) });
   const payoutId = awaitingPayout?.id;
   const canDecide = has(CODES.approvePayout) && payoutId !== undefined;
   const payoutTitle = t('saFinance.payout.title', {
@@ -110,11 +132,23 @@ export function FinanceBusinessOverviewScreen({
   });
   const amount = moneyText(awaitingPayout?.amount);
 
+  const confirmApprove = (id: string) => {
+    approval.run(id, {}, (payout) => {
+      // Only here, after a real 2xx. The returned status says whether money is released.
+      const fully = FULLY_APPROVED.includes(payout.status);
+      Alert.alert(
+        t(fully ? 'saFinance.approve.done.title' : 'saFinance.approve.recorded.title'),
+        t(fully ? 'saFinance.approve.done.body' : 'saFinance.approve.recorded.body', { amount: moneyText(payout.amount) }),
+      );
+      onPayoutApproved?.(payout);
+    });
+  };
+
   const handleApprove = () => {
-    if (!canDecide || payoutId === undefined || onApprovePayout === undefined) return;
+    if (!canDecide || payoutId === undefined || approval.isPending) return;
     Alert.alert(t('saFinance.approve.title'), t('saFinance.approve.body', { title: payoutTitle, amount }), [
       { text: t('saFinance.cancel'), style: 'cancel' },
-      { text: t('saFinance.approve.confirm'), onPress: () => onApprovePayout(payoutId) },
+      { text: t('saFinance.approve.confirm'), onPress: () => confirmApprove(payoutId) },
     ]);
   };
 
@@ -126,12 +160,12 @@ export function FinanceBusinessOverviewScreen({
     ]);
   };
 
-  const approveEnabled = canDecide && onApprovePayout !== undefined;
+  const approveEnabled = canDecide && !approval.isPending;
   const rejectEnabled = canDecide && onRejectPayout !== undefined;
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -251,7 +285,9 @@ export function FinanceBusinessOverviewScreen({
               accessibilityRole="button"
               accessibilityState={{ disabled: !approveEnabled }}
             >
-              <Text style={styles.approveBtnText}>{t('saFinance.approve.confirm')}</Text>
+              <Text style={styles.approveBtnText}>
+                {approval.isPending ? t('saFinance.approve.pending') : t('saFinance.approve.confirm')}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -266,6 +302,12 @@ export function FinanceBusinessOverviewScreen({
               <Text style={styles.rejectBtnText}>{t('saFinance.reject.confirm')}</Text>
             </TouchableOpacity>
           </View>
+          {/* The real failure, worded by adminErrorKey; never a success message. */}
+          {approval.error ? (
+            <Text style={styles.payoutError} testID="saFinance.approveError">
+              {t(adminErrorKey(approval.error))}
+            </Text>
+          ) : null}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -317,6 +359,11 @@ const styles = StyleSheet.create({
     borderColor: adminColors.danger.border,
     padding: adminSpacing.md,
     gap: adminSpacing.xs,
+  },
+  payoutError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '600',
   },
   payoutHeaderRow: {
     flexDirection: 'row',

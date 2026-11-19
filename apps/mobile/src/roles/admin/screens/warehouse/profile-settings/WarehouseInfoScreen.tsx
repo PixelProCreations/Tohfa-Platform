@@ -18,8 +18,8 @@
  * options are still the design's sample codes until the Main phase, which the
  * API does not know, so Main sees "not available" here for now.
  *
- * Hidden, because GET /warehouses/{id} has no such field: Region and Assigned
- * Admin. Not ported: three modal sheets (Operating / Contact / Documents) that
+ * GET /warehouses/{id} has no Region or Assigned Admin; the design's cells for
+ * them are still shown, with an em-dash. Not ported: three modal sheets (Operating / Contact / Documents) that
  * nothing could open (only the map sheet was reachable); the sections they
  * duplicated are the sub-screens. The fake bottom tab bar is the shared
  * WarehouseTabBar, shown when the host passes onTabChange.
@@ -149,7 +149,12 @@ export function WarehouseInfoScreen({
 
   return (
     <WalletScreen
-      title="Warehouse Profile"
+      title={
+        <View style={styles.headerTitleWrap}>
+          <WarehouseBuildingIcon size={20} color={adminColors.onBrand} />
+          <Text style={styles.headerTitleText}>Warehouse Profile</Text>
+        </View>
+      }
       onBack={onBack}
       headerRight={
         onRefresh || showEdit ? (
@@ -206,17 +211,17 @@ export function WarehouseInfoScreen({
                 { label: 'Status', value: profile.statusLabel },
                 { label: 'Warehouse Type', value: profile.kindLabel },
               ],
+              [
+                { label: t('profile.warehouse.region'), value: noValue },
+                { label: t('profile.warehouse.assignedSwa'), value: noValue },
+              ],
             ]}
           />
 
           <SectionTitle>Location</SectionTitle>
           <InfoCard rows={[[{ label: 'Location', value: profile.address ?? noValue }]]} />
-          {mapTarget !== null ? (
-            <>
-              <View style={warehouseProfileLayout.gap} />
-              <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open Map" onPress={() => setShowMap(true)} />
-            </>
-          ) : null}
+          <View style={warehouseProfileLayout.gap} />
+          <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open Map" onPress={() => setShowMap(true)} />
 
           <SectionTitle>Warehouse Overview</SectionTitle>
           <InfoCard
@@ -225,9 +230,16 @@ export function WarehouseInfoScreen({
                 { label: 'Storage Locations', value: locationCount === null ? noValue : String(locationCount) },
                 { label: 'Active', value: t(profile.isActive ? 'profile.yes' : 'profile.no') },
               ],
-              [{ label: 'Current Stock', value: capacity === undefined ? noValue : formatKg(capacity.usedGrams) }],
+              [
+                { label: t('profile.warehouse.assignedAdmin'), value: noValue },
+                { label: 'Current Stock', value: capacity === undefined ? noValue : formatKg(capacity.usedGrams) },
+              ],
             ]}
           />
+
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxText}>{t('profile.warehouse.stockNote')}</Text>
+          </View>
 
           {onOpen ? (
             <>
@@ -236,7 +248,7 @@ export function WarehouseInfoScreen({
                 <MenuRow icon={<StorageRackIcon />} title="Storage Information" onPress={() => onOpen('StorageInfo')} />
                 <MenuRow icon={<ClockIcon />} title="Operating Information" onPress={() => onOpen('OperatingInfo')} />
                 <MenuRow icon={<PhoneIcon />} title="Warehouse Contact" onPress={() => onOpen('Contact')} />
-                {/* Documents has no API yet (owner decision 2): the row is hidden, the screen stays. */}
+                {/* Shown only to a role holding the documents permission (BR-105). */}
                 {isAreaAvailable('warehouseDocuments', can) ? (
                   <MenuRow icon={<DocumentIcon />} title="Warehouse Documents" onPress={() => onOpen('Documents')} />
                 ) : null}
@@ -280,6 +292,18 @@ const EDIT_ICON = 20;
 
 const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  headerTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  headerTitleText: { ...adminType.title, color: adminColors.onBrand },
+  infoBox: {
+    backgroundColor: adminColors.info.bg,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xs,
+  },
+  infoBoxText: { ...adminType.caption, color: adminColors.info.text },
   hero: {
     alignItems: 'center',
     backgroundColor: adminColors.brand,

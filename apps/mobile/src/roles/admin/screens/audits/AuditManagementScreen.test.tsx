@@ -22,6 +22,9 @@ vi.mock('react-native', () => ({
   View: 'View',
 }));
 vi.mock('react-native-svg', () => ({ default: 'Svg', Circle: 'Circle', Line: 'Line', Path: 'Path', Rect: 'Rect' }));
+// The screen renders ScreenStatusBar; the real module pulls in react-native's
+// Platform and react-native-safe-area-context, neither of which this file mocks.
+vi.mock('@tohfa/mobile-ui', () => ({ ScreenStatusBar: 'ScreenStatusBar' }));
 
 const hooks = vi.hoisted(() => ({ useAuditCompliance: vi.fn(), useAuditList: vi.fn() }));
 vi.mock('./useAuditsData', () => hooks);

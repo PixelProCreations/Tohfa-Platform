@@ -519,15 +519,19 @@ export function toLocationRow(dto: StorageLocationDto, stock: LocationStock | un
 }
 
 /**
- * The Location Information card (design M4-04), two fields per row. The
- * warehouse is the one the location was fetched under; undefined (not named
- * yet) hides it. Section / Rack / Shelf are not drawn: the API has no layout.
+ * The Location Information card (design M4-04), two fields per row. Section / Rack / Shelf are always drawn: the
+ * API carries no layout for a location (no `section`, `rack` or `shelf` on StorageLocation), so they show the
+ * no-value dash. The warehouse is the one the location was fetched under; undefined (not named yet) shows the dash.
  */
 export function locationInfoRows(row: LocationRow, warehouseName: string | undefined): InfoFieldValue[][] {
+  const none = t('storageOps.notAvailable');
   return pairFields([
     { label: t('storageOps.location.field.code'), value: row.code },
     { label: t('storageOps.location.field.type'), value: row.typeLabel },
-    warehouseName === undefined ? undefined : { label: t('storageOps.location.field.warehouse'), value: warehouseName },
+    { label: t('storageOps.location.field.section'), value: none },
+    { label: t('storageOps.location.field.rack'), value: none },
+    { label: t('storageOps.location.field.shelf'), value: none },
+    { label: t('storageOps.location.field.warehouse'), value: warehouseName ?? none },
     { label: t('storageOps.location.field.capacity'), value: row.capacity ?? t('storageOps.location.capacityNotSet') },
     { label: t('storageOps.location.field.created'), value: row.createdAt },
   ]);

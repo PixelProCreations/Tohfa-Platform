@@ -162,10 +162,30 @@ export interface InvoiceTaxRow {
   amountLabel: string;
 }
 
+/**
+ * The hub's four KPI tiles (M9-S01), from GET /invoices/summary. Each is
+ * already a display string: a figure the summary has no source for carries
+ * the module's "no value" dash, so the tile always renders.
+ */
+export interface InvoiceKpiView {
+  /** Invoices issued today (the summary asked for today's issue date). */
+  today: string;
+  /** Issued invoices (InvoiceSummary.byStatus ISSUED). */
+  generated: string;
+  /** Draft invoices awaiting action (InvoiceSummary.byStatus DRAFT). */
+  pending: string;
+  /** No invoice status means "failed", so this tile has no source. */
+  failed: string;
+}
+
 /** Everything the live invoice detail shows: what GET /invoices/{id} returns, nothing more. */
 export interface InvoiceDetailView extends InvoiceRow {
   /** The order uuid the invoice names (Invoice.orderId), or null; never shown, only matched (invoiceOrderContext). */
   orderId: string | null;
+  /** BR-128: the invoice's buyer, or null when it names none (farmer purchase, payout). */
+  buyerName: string | null;
+  /** BR-128: the buyer's GSTIN, or null when none is stored. */
+  buyerGstin: string | null;
   placeOfSupply: string | null;
   gstApplicable: boolean;
   gstInclusive: boolean;

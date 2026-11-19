@@ -23,11 +23,14 @@ import type {
   InspectReturnItem,
   ListReturnsQuery,
   ReturnItemCondition,
+  ReturnKpiSummary,
   ReturnRequestItemResponse,
   ReturnRequestResponse,
   ReturnStatus,
   ReturnStatusHistoryEntryResponse,
   ReturnSummaryResponse,
+  ReturnsSummaryQuery,
+  ReturnsSummaryResponse,
 } from './returnRequests.schema.js';
 
 // ---------------------------------------------------------------------------
@@ -36,11 +39,22 @@ import type {
 interface ReturnSummaryRow {
   id: string;
   order_id: string;
+  order_number?: string | null;
   customer_id: string;
+  customer_name?: string | null;
   warehouse_id: string;
   status: ReturnStatus;
   reason: string;
   note: string | null;
+  issue_category?: string | null;
+  issue_ticket?: string | null;
+  requested_resolution?: string | null;
+  customer_evidence?: string[] | null;
+  inspection_notes?: string | null;
+  inspection_photos?: string[] | null;
+  return_window_eligible?: boolean | null;
+  projected_refund_amount?: string | null;
+  projected_refund_method?: string | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -82,11 +96,22 @@ function toSummary(row: ReturnSummaryRow): ReturnSummaryResponse {
   return {
     id: row.id,
     orderId: row.order_id,
+    orderNumber: row.order_number ?? null,
     customerId: row.customer_id,
+    customerName: row.customer_name ?? null,
     warehouseId: row.warehouse_id,
     status: row.status,
     reason: row.reason,
     note: row.note,
+    issueCategory: row.issue_category ?? null,
+    issueTicket: row.issue_ticket ?? null,
+    requestedResolution: row.requested_resolution ?? null,
+    customerEvidence: row.customer_evidence ?? [],
+    inspectionNotes: row.inspection_notes ?? null,
+    inspectionPhotos: row.inspection_photos ?? [],
+    returnWindowEligible: row.return_window_eligible ?? true,
+    projectedRefundAmount: row.projected_refund_amount ?? null,
+    projectedRefundMethod: row.projected_refund_method ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
   };
@@ -116,7 +141,19 @@ function toHistoryEntry(row: HistoryRow): ReturnStatusHistoryEntryResponse {
 }
 
 const SUMMARY_COLUMNS = `
-  r.id, r.order_id, r.customer_id, o.warehouse_id, r.status, r.reason, r.note,
+  r.id, r.order_id, o.order_number, r.customer_id, u.full_name AS customer_name,
+  o.warehouse_id, r.status, r.reason, r.note,
+  r.issue_category, r.issue_ticket, r.requested_resolution, r.customer_evidence,
+  r.inspection_notes, r.inspection_photos,
+  (r.created_at <= (COALESCE(o.completed_at, o.placed_at) + interval '7 days')) AS return_window_eligible,
+  o.payment_method AS projected_refund_method,
+  ROUND(COALESCE(
+    (SELECT SUM(oi.unit_price * (CASE WHEN r.status = 'PENDING' THEN ri.requested_qty ELSE COALESCE(ri.accepted_qty, 0) END))
+       FROM return_request_items ri
+       JOIN order_items oi ON oi.id = ri.order_item_id
+      WHERE ri.return_request_id = r.id),
+    0
+  )::numeric, 2)::text AS projected_refund_amount,
   r.created_at, r.updated_at
 `;
 
@@ -125,6 +162,10 @@ export interface InsertReturnRequestInput {
   customerId: string;
   reason: string;
   note: string | null;
+  issueCategory?: string | null;
+  issueTicket?: string | null;
+  requestedResolution?: string | null;
+  customerEvidence?: string[];
 }
 
 export interface InsertReturnRequestItemInput {
@@ -149,6 +190,7 @@ export interface ListResult {
   items: ReturnSummaryResponse[];
   nextCursor: string | null;
   hasMore: boolean;
+  summary: ReturnKpiSummary;
 }
 
 export interface ReturnRequestsRepo {
@@ -188,7 +230,13 @@ export interface ReturnRequestsRepo {
     expectedCurrent: ReturnStatus,
     newStatus: ReturnStatus,
   ): Promise<boolean>;
-  updateInspectionItems(db: Executor, returnRequestId: string, items: InspectReturnItem[]): Promise<void>;
+  updateInspectionItems(
+    db: Executor,
+    returnRequestId: string,
+    items: InspectReturnItem[],
+    notes?: string | null,
+    photos?: string[],
+  ): Promise<void>;
   markOrderItemsReturned(db: Executor, orderItemIds: string[]): Promise<void>;
 
   getItems(db: Executor, returnRequestId: string): Promise<ReturnRequestItemResponse[]>;
@@ -196,16 +244,32 @@ export interface ReturnRequestsRepo {
 
   /** Sum of unit_price * accepted_qty across a return's items, for the refund amount. */
   sumAcceptedAmount(db: Executor, returnRequestId: string): Promise<string>;
+  getSummary(
+    db: Executor,
+    args: { scope: ResolvedScope; filters: ReturnsSummaryQuery },
+  ): Promise<ReturnsSummaryResponse>;
 }
 
 /** The shape `insertReturnRequest`/`findRawById` return — status + timestamps, no join needed. */
 export interface ReturnSummaryRowShape {
   id: string;
   orderId: string;
+  orderNumber?: string | null;
   customerId: string;
+  customerName?: string | null;
+  warehouseId?: string;
   status: ReturnStatus;
   reason: string;
   note: string | null;
+  issueCategory?: string | null;
+  issueTicket?: string | null;
+  requestedResolution?: string | null;
+  customerEvidence?: string[];
+  inspectionNotes?: string | null;
+  inspectionPhotos?: string[];
+  returnWindowEligible?: boolean;
+  projectedRefundAmount?: string | null;
+  projectedRefundMethod?: string | null;
   createdAt: Date;
   updatedAt: Date | null;
 }
@@ -239,13 +303,31 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       status: ReturnStatus;
       reason: string;
       note: string | null;
+      issue_category: string | null;
+      issue_ticket: string | null;
+      requested_resolution: string | null;
+      customer_evidence: string[];
       created_at: Date;
       updated_at: Date | null;
     }>(
-      `INSERT INTO return_requests (order_id, customer_id, reason, note)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, order_id, customer_id, status, reason, note, created_at, updated_at`,
-      [input.orderId, input.customerId, input.reason, input.note],
+      `INSERT INTO return_requests (
+         order_id, customer_id, reason, note,
+         issue_category, issue_ticket, requested_resolution, customer_evidence
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, order_id, customer_id, status, reason, note,
+                 issue_category, issue_ticket, requested_resolution, customer_evidence,
+                 created_at, updated_at`,
+      [
+        input.orderId,
+        input.customerId,
+        input.reason,
+        input.note,
+        input.issueCategory ?? null,
+        input.issueTicket ?? null,
+        input.requestedResolution ?? null,
+        input.customerEvidence ?? [],
+      ],
     );
     const row = result.rows[0]!;
     return {
@@ -255,6 +337,10 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       status: row.status,
       reason: row.reason,
       note: row.note,
+      issueCategory: row.issue_category,
+      issueTicket: row.issue_ticket,
+      requestedResolution: row.requested_resolution,
+      customerEvidence: row.customer_evidence,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -291,6 +377,8 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       `SELECT ${SUMMARY_COLUMNS}
          FROM return_requests r
          JOIN orders o ON o.id = r.order_id
+         LEFT JOIN customers c ON c.id = r.customer_id
+         LEFT JOIN users u ON u.id = c.user_id
         WHERE r.id = $1 AND ${scopeFilter.sql}
         LIMIT 1`,
       [id, ...scopeFilter.params],
@@ -345,6 +433,18 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       index += 1;
     }
 
+    if (filters.warehouseId !== undefined) {
+      conditions.push(`o.warehouse_id = $${index}`);
+      params.push(filters.warehouseId);
+      index += 1;
+    }
+
+    if (filters.q !== undefined && filters.q.trim().length > 0) {
+      conditions.push(`(o.order_number ILIKE '%' || $${index} || '%' OR u.full_name ILIKE '%' || $${index} || '%' OR r.reason ILIKE '%' || $${index} || '%')`);
+      params.push(filters.q.trim());
+      index += 1;
+    }
+
     if (filters.cursor !== undefined) {
       conditions.push(`r.created_at < $${index}::timestamptz`);
       params.push(filters.cursor);
@@ -365,6 +465,8 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       `SELECT ${SUMMARY_COLUMNS}
          FROM return_requests r
          JOIN orders o ON o.id = r.order_id
+         LEFT JOIN customers c ON c.id = r.customer_id
+         LEFT JOIN users u ON u.id = c.user_id
         ${whereClause}
         ORDER BY r.created_at DESC
         ${limitClause}`,
@@ -376,7 +478,49 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
     const items = rows.map(toSummary);
     const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.createdAt : null;
 
-    return { items, nextCursor, hasMore };
+    // Compute KPI summary counts across caller's scoped set (respecting warehouseId if provided)
+    const summaryConditions: string[] = [];
+    const summaryParams: unknown[] = [];
+    let sIdx = 1;
+
+    if (filters.warehouseId !== undefined) {
+      summaryConditions.push(`o.warehouse_id = $${sIdx}`);
+      summaryParams.push(filters.warehouseId);
+      sIdx += 1;
+    }
+
+    const summaryScope = scopedWhere(scope, { warehouseColumn: 'o.warehouse_id', startIndex: sIdx });
+    summaryConditions.push(summaryScope.sql);
+    summaryParams.push(...summaryScope.params);
+
+    const summaryWhere = summaryConditions.length > 0 ? `WHERE ${summaryConditions.join(' AND ')}` : '';
+
+    const summaryResult = await db.query<{
+      pending: string;
+      under_review: string;
+      approved: string;
+      refund_pending: string;
+    }>(
+      `SELECT
+         COUNT(*) FILTER (WHERE r.status = 'PENDING')::int AS pending,
+         COUNT(*) FILTER (WHERE r.status = 'INSPECTED')::int AS under_review,
+         COUNT(*) FILTER (WHERE r.status = 'APPROVED')::int AS approved,
+         COUNT(*) FILTER (WHERE r.status = 'REFUND_PENDING_BANK')::int AS refund_pending
+       FROM return_requests r
+       JOIN orders o ON o.id = r.order_id
+       ${summaryWhere}`,
+      summaryParams,
+    );
+
+    const summaryRow = summaryResult.rows[0];
+    const summary: ReturnKpiSummary = {
+      pending: parseInt(summaryRow?.pending ?? '0', 10),
+      underReview: parseInt(summaryRow?.under_review ?? '0', 10),
+      approved: parseInt(summaryRow?.approved ?? '0', 10),
+      refundPending: parseInt(summaryRow?.refund_pending ?? '0', 10),
+    };
+
+    return { items, nextCursor, hasMore, summary };
   },
 
   async updateStatus(db, id, status): Promise<void> {
@@ -397,13 +541,23 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
     return (result.rowCount ?? 0) > 0;
   },
 
-  async updateInspectionItems(db, returnRequestId, items): Promise<void> {
+  async updateInspectionItems(db, returnRequestId, items, notes, photos): Promise<void> {
     for (const item of items) {
       await db.query(
         `UPDATE return_request_items
             SET accepted_qty = $3, damaged_qty = $4, condition = $5, updated_at = now()
           WHERE return_request_id = $1 AND order_item_id = $2`,
         [returnRequestId, item.orderItemId, item.acceptedQty, item.damagedQty, item.condition],
+      );
+    }
+    if (notes !== undefined || photos !== undefined) {
+      await db.query(
+        `UPDATE return_requests
+            SET inspection_notes = COALESCE($2, inspection_notes),
+                inspection_photos = COALESCE($3, inspection_photos),
+                updated_at = now()
+          WHERE id = $1`,
+        [returnRequestId, notes ?? null, photos ?? null],
       );
     }
   },
@@ -450,5 +604,62 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       [returnRequestId],
     );
     return result.rows[0]?.total ?? '0.00';
+  },
+
+  async getSummary(db, { scope, filters }): Promise<ReturnsSummaryResponse> {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    let index = 1;
+
+    if (filters.warehouseId !== undefined) {
+      conditions.push(`o.warehouse_id = $${index}`);
+      params.push(filters.warehouseId);
+      index += 1;
+    }
+    if (filters.from !== undefined) {
+      conditions.push(`r.created_at >= ($${index}::text || ' 00:00:00+05:30')::timestamptz`);
+      params.push(filters.from);
+      index += 1;
+    }
+    if (filters.to !== undefined) {
+      conditions.push(`r.created_at <= ($${index}::text || ' 23:59:59.999999+05:30')::timestamptz`);
+      params.push(filters.to);
+      index += 1;
+    }
+
+    const scopeFilter = scopedWhere(scope, { warehouseColumn: 'o.warehouse_id', startIndex: index });
+    conditions.push(scopeFilter.sql);
+    params.push(...scopeFilter.params);
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const sql = `
+      SELECT
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE r.status = 'PENDING')::int AS pending,
+        COUNT(*) FILTER (WHERE r.status = 'INSPECTED')::int AS inspecting,
+        COUNT(*) FILTER (WHERE r.status = 'APPROVED')::int AS approved,
+        COUNT(*) FILTER (WHERE r.status = 'REJECTED')::int AS rejected,
+        COUNT(*) FILTER (WHERE r.status IN ('REFUNDED', 'REFUND_PENDING_BANK'))::int AS refunded
+      FROM return_requests r
+      JOIN orders o ON o.id = r.order_id
+      ${whereClause}
+    `;
+    const res = await db.query<{
+      total: number;
+      pending: number;
+      inspecting: number;
+      approved: number;
+      rejected: number;
+      refunded: number;
+    }>(sql, params);
+    const row = res.rows[0];
+    return {
+      total: row?.total ?? 0,
+      pending: row?.pending ?? 0,
+      inspecting: row?.inspecting ?? 0,
+      approved: row?.approved ?? 0,
+      rejected: row?.rejected ?? 0,
+      refunded: row?.refunded ?? 0,
+    };
   },
 };

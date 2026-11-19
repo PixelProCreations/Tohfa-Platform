@@ -2325,9 +2325,18 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
   describe('BR-146: Farmer application lifecycle integrity, concurrency guards, keyset pagination, and response parity', () => {
     const app = createApp();
     const server = app.listen(0);
+    const testAppIds: string[] = [];
 
     afterAll(async () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
+      if (testAppIds.length > 0) {
+        const { pool } = await import('../../db/pool.js');
+        await pool.query(
+          `DELETE FROM farmer_application_status_history WHERE application_id = ANY($1::uuid[])`,
+          [testAppIds],
+        );
+        await pool.query(`DELETE FROM farmer_applications WHERE id = ANY($1::uuid[])`, [testAppIds]);
+      }
     });
 
     let adminToken: string;
@@ -2359,6 +2368,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         .send({ mobile, fullName: name });
       expect(res.status).toBe(201);
       const appId = res.body.id as string;
+      testAppIds.push(appId);
       await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/1`)
         .send({ fullName: name, village: 'Kodanad', taluk: 'Kotagiri', district: 'The Nilgiris', pincode: '643217' });
@@ -2525,6 +2535,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
           [mobile, `Pagination Farmer ${i}`, fixedTs, zones['ZONE-KOTA']],
         );
         appIds.push(res.rows[0]!.id);
+        testAppIds.push(res.rows[0]!.id);
       }
 
       // Page 1 with limit = 2

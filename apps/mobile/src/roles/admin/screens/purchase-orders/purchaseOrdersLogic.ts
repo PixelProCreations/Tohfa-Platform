@@ -37,6 +37,17 @@ export type StatusChip = 'ALL' | 'AWAITING_HANDOVER' | 'COLLECTION_SCHEDULED' | 
 export const ORDER_STATUS_CHIPS: readonly StatusChip[] = ['ALL', 'AWAITING_HANDOVER', 'COLLECTION_SCHEDULED', 'COMPLETED'];
 export const HISTORY_STATUS_CHIPS: readonly StatusChip[] = ['ALL', 'COMPLETED'];
 
+/**
+ * The design's Produce chips. The API has no crop filter on the list, so a chip narrows the rows
+ * already loaded, by the produce text the row shows (as the design's own filter did).
+ */
+export type ProduceChip = 'ALL' | 'Carrot' | 'Beans' | 'Tomato';
+export const PRODUCE_CHIPS: readonly ProduceChip[] = ['ALL', 'Carrot', 'Beans', 'Tomato'];
+
+export function filterByProduce<T extends { produce: string }>(rows: readonly T[], chip: ProduceChip): T[] {
+  return chip === 'ALL' ? [...rows] : rows.filter((row) => row.produce.toLowerCase().includes(chip.toLowerCase()));
+}
+
 /** The design history's period chips. */
 export type PeriodChip = 'ALL' | 'LAST_7' | 'LAST_30';
 export const PERIOD_CHIPS: readonly PeriodChip[] = ['ALL', 'LAST_7', 'LAST_30'];

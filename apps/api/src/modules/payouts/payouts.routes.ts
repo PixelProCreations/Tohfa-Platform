@@ -9,6 +9,8 @@ import {
   createPayoutSchema,
   approvePayoutSchema,
   exportPayoutsQuerySchema,
+  listPayoutsQuerySchema,
+  payoutIdParamSchema,
 } from './payouts.schema.js';
 import { payoutsService } from './payouts.service.js';
 
@@ -57,6 +59,40 @@ payoutsRouter.get(
         'X-Content-Type-Options': 'nosniff',
       })
       .send(result.csv);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// GET /admin/payouts (list)
+// ---------------------------------------------------------------------------
+
+payoutsRouter.get(
+  '/',
+  requireAuth,
+  requirePermission('payout.view'),
+  validate({ query: listPayoutsQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const query = getValidated(req, 'query', listPayoutsQuerySchema);
+    const result = await payoutsService.listPayouts(actor, req.scope!, query);
+    res.status(200).json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// GET /admin/payouts/{id} (detail)
+// ---------------------------------------------------------------------------
+
+payoutsRouter.get(
+  '/:id',
+  requireAuth,
+  requirePermission('payout.view'),
+  validate({ params: payoutIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const { id } = getValidated(req, 'params', payoutIdParamSchema);
+    const result = await payoutsService.getPayoutById(actor, req.scope!, id);
+    res.status(200).json(result);
   }),
 );
 

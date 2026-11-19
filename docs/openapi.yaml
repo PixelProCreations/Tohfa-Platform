@@ -11499,6 +11499,43 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/stock-adjustments/{id}/evidence:
+    post:
+      tags: [Inventory]
+      operationId: uploadStockAdjustmentEvidence
+      summary: Upload evidence photo for a stock adjustment
+      description: |
+        Attaches an evidence photo to an existing stock adjustment. Strips EXIF metadata before storage (BR-16, BR-164).
+      x-permission: inventory.stock_adjustment.create
+      x-business-rules: [BR-16, BR-37, BR-164]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+          application/octet-stream:
+            schema: { type: string, format: binary }
+          application/json:
+            schema:
+              type: object
+              properties:
+                url: { type: string, format: uri }
+      responses:
+        '201':
+          description: Evidence attached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockAdjustmentEvidence' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/stock-verifications:
     get:
       tags: [Inventory]
@@ -11669,6 +11706,26 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/allocation-config:
+    get:
+      tags: [Inventory]
+      operationId: getAllocationConfig
+      summary: Get channel percentages
+      description: Returns channel percentages for warehouse, crop, grade, or global default (BR-12, BR-166).
+      x-permission: allocation.channel_percentage.set
+      x-business-rules: [BR-12, BR-166]
+      parameters:
+        - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
+        - { name: cropId, in: query, schema: { type: string, format: uuid } }
+        - { name: grade, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: Channel percentages.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AllocationConfig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Inventory]
       operationId: updateAllocationConfig
@@ -12200,6 +12257,29 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/returns/summary:
+    get:
+      tags: [Returns]
+      operationId: getReturnsSummary
+      summary: Returns queue KPI summary
+      description: Returns aggregated return request counts (total, pending, inspecting, approved, rejected, refunded) filtered by warehouse and date range (BR-61).
+      x-permission: rma.request.process
+      x-business-rules: [BR-61]
+      parameters:
+        - { name: warehouseId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: Returns summary KPI counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReturnsSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/returns/{id}:
     get:
       tags: [Returns]
@@ -12431,6 +12511,45 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/orders/summary:
+    get:
+      tags: [Fulfilment]
+      operationId: getOrdersSummary
+      summary: Order queue summary breakdown
+      description: Returns counts of orders grouped by status and warehouse within caller scope (BR-101, BR-163).
+      x-permission: order.list.view_all
+      x-business-rules: [BR-101, BR-163]
+      parameters:
+        - { name: warehouseId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Summary breakdown.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [total, byStatus, byWarehouse]
+                properties:
+                  total: { type: integer, minimum: 0 }
+                  byStatus:
+                    type: object
+                    additionalProperties: { type: integer, minimum: 0 }
+                  byWarehouse:
+                    type: array
+                    items:
+                      type: object
+                      required: [warehouseId, name, count]
+                      properties:
+                        warehouseId: { type: string, format: uuid }
+                        name: { type: string }
+                        count: { type: integer, minimum: 0 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/orders/{orderId}:
     get:
       tags: [Fulfilment]
@@ -12568,9 +12687,8 @@ paths:
       operationId: dispatchOrder
       summary: Dispatch a packed order
       description: |
-        Transitions a packed order to `OUT_FOR_DELIVERY`. Track 1 fulfils every order by
-        warehouse pickup (BR-21), so this path is specified but not enabled — see
-        `docs/rules.md` open contradiction 3.
+        Dispatches a packed order: moves PICKUP orders from `PACKED` to `READY_FOR_PICKUP`,
+        and DELIVERY orders to `DISPATCHED` / `OUT_FOR_DELIVERY` with the assigned delivery partner.
 
         Idempotent (BR-118): the `Idempotency-Key` is claimed before anything is written. A replay
         with the same key and body returns the original status and body and writes nothing (no second
@@ -12670,6 +12788,448 @@ paths:
                 code: OTP_INVALID
                 traceId: 01J9F1B2C3D4E5F6G7H8J9K8
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/orders/{id}/cancel:
+    post:
+      tags: [Fulfilment]
+      operationId: cancelAdminOrder
+      summary: Cancel an order and release allocated stock
+      description: |
+        Cancels an order if it is in a cancellable status (BR-99). Rejection with 409 ORDER_NOT_CANCELLABLE
+        occurs if the order has already progressed beyond cancellable stages.
+      x-permission: order.cancel
+      x-business-rules: [BR-99]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Order cancelled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOrderDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: ORDER_NOT_CANCELLABLE
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/orders/{id}/issues:
+    post:
+      tags: [Fulfilment]
+      operationId: createOrderIssue
+      summary: Raise an operational issue against an order
+      description: |
+        Raises an issue against an order or specific order lines (BR-99). Generates a tracked issue number.
+      x-permission: warehouse.issue.manage
+      x-business-rules: [BR-99]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                lineItemIds:
+                  type: array
+                  items: { type: string, format: uuid }
+                issueType: { type: string, maxLength: 100 }
+                severity: { type: string, enum: [LOW, MEDIUM, HIGH] }
+                description: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        '201':
+          description: Issue created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [issueNumber]
+                properties:
+                  issueNumber: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/orders/{id}/stock-check:
+    get:
+      tags: [Fulfilment]
+      operationId: checkOrderStock
+      summary: Check stock availability for an order
+      description: Computes ordered vs available stock across line items (BR-99).
+      x-permission: order.list.view_all
+      x-business-rules: [BR-99]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Stock check result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [orderedKg, availableStockKg, reservedKg, availableKg, shortageKg, status]
+                properties:
+                  orderedKg: { type: string }
+                  availableStockKg: { type: string }
+                  reservedKg: { type: string }
+                  availableKg: { type: string }
+                  shortageKg: { type: string }
+                  status: { type: string }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/delivery-partners:
+    get:
+      tags: [Fulfilment]
+      operationId: listDeliveryPartners
+      summary: List delivery partners
+      description: Returns delivery partners filtered by status (BR-21).
+      x-permission: delivery.partner.manage
+      x-business-rules: [BR-21]
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [active, inactive, all], default: active } }
+      responses:
+        '200':
+          description: List of delivery partners.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/DeliveryPartner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Fulfilment]
+      operationId: createDeliveryPartner
+      summary: Create a delivery partner
+      description: Registers a new delivery partner (BR-21).
+      x-permission: delivery.partner.manage
+      x-business-rules: [BR-21]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryPartnerCreate' }
+      responses:
+        '201':
+          description: Delivery partner created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryPartner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/delivery-partners/{id}:
+    get:
+      tags: [Fulfilment]
+      operationId: getDeliveryPartner
+      summary: Read a delivery partner
+      description: Returns delivery partner details by id (BR-21).
+      x-permission: delivery.partner.manage
+      x-business-rules: [BR-21]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Delivery partner details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryPartner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Fulfilment]
+      operationId: updateDeliveryPartner
+      summary: Update a delivery partner
+      description: Modifies an existing delivery partner (BR-21).
+      x-permission: delivery.partner.manage
+      x-business-rules: [BR-21]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeliveryPartnerUpdate' }
+      responses:
+        '200':
+          description: Delivery partner updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DeliveryPartner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Fulfilment]
+      operationId: deleteDeliveryPartner
+      summary: Soft-delete a delivery partner
+      description: Marks a delivery partner as deleted (BR-21).
+      x-permission: delivery.partner.manage
+      x-business-rules: [BR-21]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '204':
+          description: Delivery partner deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/market-days:
+    get:
+      tags: [Fulfilment]
+      operationId: listMarketDays
+      summary: List market days schedule
+      description: Returns scheduled market days, filterable by warehouse and date range (BR-162).
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-162]
+      parameters:
+        - { name: warehouseId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: false, schema: { type: string } }
+        - { name: to, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: Market days list.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MarketDay' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Fulfilment]
+      operationId: createMarketDay
+      summary: Schedule a market day
+      description: Creates a new market day schedule entry for a warehouse (BR-162).
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-162]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarketDayCreate' }
+      responses:
+        '201':
+          description: Market day scheduled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarketDay' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/market-days/{id}:
+    patch:
+      tags: [Fulfilment]
+      operationId: patchMarketDay
+      summary: Update a market day schedule
+      description: Modifies an existing market day schedule entry (BR-162).
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-162]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarketDayPatch' }
+      responses:
+        '200':
+          description: Market day updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarketDay' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/payment-methods:
+    get:
+      tags: [Finance]
+      operationId: listPaymentMethods
+      summary: List configured payment methods
+      description: Returns configured payment methods, filterable by active/inactive status.
+      x-permission: payment.method.configure
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [active, inactive, all], default: all } }
+      responses:
+        '200':
+          description: List of payment methods.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ConfiguredPaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Finance]
+      operationId: createPaymentMethod
+      summary: Create a payment method
+      description: Adds a new payment method. If isDefault is true, unsets isDefault on any other payment method.
+      x-permission: payment.method.configure
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, label]
+              properties:
+                type: { type: string, enum: [CASH, UPI, BANK_TRANSFER, CARD] }
+                label: { type: string, minLength: 1, maxLength: 100 }
+                isDefault: { type: boolean, default: false }
+                config: { type: object, default: {} }
+                isActive: { type: boolean, default: true }
+      responses:
+        '201':
+          description: Created payment method.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfiguredPaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/payment-methods/{id}:
+    get:
+      tags: [Finance]
+      operationId: getPaymentMethod
+      summary: Read a payment method
+      description: Returns payment method details by ID.
+      x-permission: payment.method.configure
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Payment method details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfiguredPaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Finance]
+      operationId: updatePaymentMethodPut
+      summary: Replace / update payment method
+      description: Updates payment method configuration.
+      x-permission: payment.method.configure
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string, enum: [CASH, UPI, BANK_TRANSFER, CARD] }
+                label: { type: string, minLength: 1, maxLength: 100 }
+                isDefault: { type: boolean }
+                config: { type: object }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Updated payment method.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfiguredPaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Finance]
+      operationId: updatePaymentMethodPatch
+      summary: Partial update of a payment method
+      description: Partially updates payment method configuration.
+      x-permission: payment.method.configure
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type: { type: string, enum: [CASH, UPI, BANK_TRANSFER, CARD] }
+                label: { type: string, minLength: 1, maxLength: 100 }
+                isDefault: { type: boolean }
+                config: { type: object }
+                isActive: { type: boolean }
+      responses:
+        '200':
+          description: Updated payment method.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfiguredPaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Finance]
+      operationId: deletePaymentMethod
+      summary: Deactivate a payment method
+      description: Deactivates an existing payment method.
+      x-permission: payment.method.configure
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Deactivated payment method.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfiguredPaymentMethod' }
+        '204':
+          description: Payment method deactivated.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /wallets/me:
@@ -12878,6 +13438,44 @@ paths:
                 traceId: 01J9F1B2C3D4E5F6G7H8J9K9
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/wallets/{customerId}/deduct:
+    post:
+      tags: [Wallet]
+      operationId: deductCustomerWallet
+      summary: Manually debit a customer's wallet
+      description: |
+        Manually debits a customer's wallet for an adjustment or penalty (BR-170).
+        Requires Idempotency-Key header. Replays with the same key return the original response;
+        key reuse with different parameters returns 409. Overdraw returns 402/409.
+      x-permission: wallet.manual_credit_debit
+      x-business-rules: [BR-17]
+      parameters:
+        - { name: customerId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, reason]
+              properties:
+                amount: { $ref: '#/components/schemas/Money' }
+                reason: { type: string, minLength: 1, maxLength: 300 }
+      responses:
+        '200':
+          description: Wallet deducted transaction record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletTransaction' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/wallets/cash-topup/customers/lookup:
     get:
       tags: [Wallet]
@@ -12949,6 +13547,37 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/payouts:
+    get:
+      tags: [Payouts & Invoices]
+      operationId: listPayouts
+      summary: List farmer payouts
+      description: Returns a paginated list of farmer payouts (BR-63).
+      x-permission: payout.view
+      x-business-rules: [BR-63]
+      parameters:
+        - { name: status, in: query, required: false, schema: { $ref: '#/components/schemas/PayoutStatus' } }
+        - { name: farmerId, in: query, required: false, schema: { type: string, format: uuid } }
+        - { name: fromDate, in: query, required: false, schema: { type: string } }
+        - { name: toDate, in: query, required: false, schema: { type: string } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - $ref: '#/components/parameters/CursorParam'
+      responses:
+        '200':
+          description: Paginated payouts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/PayoutSummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Payouts & Invoices]
       operationId: createPayout
@@ -13060,6 +13689,27 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/payouts/{id}:
+    get:
+      tags: [Payouts & Invoices]
+      operationId: getPayoutDetail
+      summary: Read payout details
+      description: Returns detailed payout facts including linked line items and audit events (BR-63).
+      x-permission: payout.view
+      x-business-rules: [BR-63]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Payout detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/payouts/export:
@@ -14599,6 +15249,70 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/zones:
+    get:
+      tags: [Platform]
+      operationId: listAdminZones
+      summary: List agricultural zones
+      description: |
+        Returns the reference list of agricultural zones (BR-161). Used to populate the zone
+        picker in CreateAdminAccountScreen and filter zones in admin views.
+        Requires `zone.view`, granted to SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN, and
+        SUB_WH_ADMIN at `all`, and FARMER_ADMIN at `own` (confined to assigned zone).
+      x-permission: zone.view
+      x-business-rules: [BR-161]
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [ACTIVE, INACTIVE, ALL]
+            default: ACTIVE
+          description: Filter by status. Defaults to ACTIVE.
+        - name: warehouseId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional filter by mapped warehouse ID.
+      responses:
+        '200':
+          description: List of agricultural zones.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AdminZoneListItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/zones/{id}:
+    get:
+      tags: [Platform]
+      operationId: getAdminZone
+      summary: Get agricultural zone details
+      description: |
+        Returns details of a specific agricultural zone including mapped taluks and active
+        zone manager (BR-161). Manager mobile is masked per BR-92.
+        FARMER_ADMIN requesting an out-of-scope zone receives 404 NOT FOUND.
+      x-permission: zone.view
+      x-business-rules: [BR-161, BR-92]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Zone detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminZoneDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/promotions:
     get:
       tags: [Platform]
@@ -14791,6 +15505,31 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/rating-tiers:
+    get:
+      tags: [Farm Rating]
+      operationId: getRatingTiers
+      summary: Read the rating tier bands now in effect
+      description: |
+        Returns the generation of `rating_tier_config` now in effect (BR-147): the generation with the
+        latest `effective_from` on or before today (BR-04a), as four bands ascending by `sortOrder`,
+        `minScore` inclusive, `maxScore` exclusive, `null` = unbounded.
+
+        This is the read behind the configuration screen, so the form shows what is actually stored
+        rather than an empty set of inputs. It is the same store the audit compliance thresholds are
+        read from (BR-04), so `GET /admin/audit-tier-thresholds` returns the identical body; only the
+        permission differs. Read-only: no audit row, nothing written. SUPER_ADMIN only — `BR-147b`,
+        a caller without the permission gets 403 `FORBIDDEN`.
+      x-permission: farmer.rating.configure_tiers
+      x-business-rules: [BR-04, BR-147]
+      responses:
+        '200':
+          description: The generation now in effect.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TierBandsGeneration' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Farm Rating]
       operationId: configureRatingTiers
@@ -14836,6 +15575,28 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/audit-tier-thresholds:
+    get:
+      tags: [Audits]
+      operationId: getAuditTierThresholds
+      summary: Read the audit compliance tier thresholds now in effect
+      description: |
+        Returns the generation of `rating_tier_config` now in effect (BR-147): the generation with the
+        latest `effective_from` on or before today (BR-04a). Audit compliance tiers and farm rating
+        tiers are one scale read from one store (BR-04, "Extension to audits", product decision
+        2026-10-01), so this returns exactly the body of `GET /admin/rating-tiers`; only the permission
+        differs. Read-only: no audit row, nothing written. SUPER_ADMIN only — `BR-147b`, a caller
+        without the permission gets 403 `FORBIDDEN`.
+      x-permission: audit.tier.configure_thresholds
+      x-business-rules: [BR-04, BR-147]
+      responses:
+        '200':
+          description: The generation now in effect.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TierBandsGeneration' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Audits]
       operationId: configureAuditTierThresholds
@@ -15772,6 +16533,203 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/warehouse-staff/{id}/bank-account:
+    get:
+      tags: [Warehouse Staff]
+      operationId: getStaffBankAccount
+      summary: Read warehouse staff bank account
+      description: Returns the bank account details of a staff member (BR-83).
+      x-permission: admin.staff.list_view
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Staff bank account details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Warehouse Staff]
+      operationId: createStaffBankAccount
+      summary: Create warehouse staff bank account
+      description: Sets the bank account details for a warehouse staff member (BR-83).
+      x-permission: admin.staff.manage
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountHolderName, accountNumber, ifsc, bankName, branchName]
+              properties:
+                accountHolderName: { type: string, minLength: 1, maxLength: 120 }
+                accountNumber: { type: string, minLength: 1, maxLength: 50 }
+                ifsc: { type: string, minLength: 1, maxLength: 20 }
+                bankName: { type: string, minLength: 1, maxLength: 100 }
+                branchName: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '201':
+          description: Bank account created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Warehouse Staff]
+      operationId: updateStaffBankAccount
+      summary: Update warehouse staff bank account
+      description: Updates the bank account details for a warehouse staff member (BR-83).
+      x-permission: admin.staff.manage
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountHolderName, accountNumber, ifsc, bankName, branchName]
+              properties:
+                accountHolderName: { type: string, minLength: 1, maxLength: 120 }
+                accountNumber: { type: string, minLength: 1, maxLength: 50 }
+                ifsc: { type: string, minLength: 1, maxLength: 20 }
+                bankName: { type: string, minLength: 1, maxLength: 100 }
+                branchName: { type: string, minLength: 1, maxLength: 100 }
+      responses:
+        '200':
+          description: Bank account updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffBankAccount' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/warehouse-staff/{id}/documents:
+    get:
+      tags: [Warehouse Staff]
+      operationId: listStaffDocuments
+      summary: List warehouse staff documents
+      description: Returns all identity documents uploaded for a staff member (BR-83).
+      x-permission: admin.staff.list_view
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: List of documents.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/StaffDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Warehouse Staff]
+      operationId: createStaffDocument
+      summary: Add warehouse staff document
+      description: Records an identity document for a warehouse staff member (BR-83).
+      x-permission: admin.staff.manage
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, documentNumber, fileUrl]
+              properties:
+                type: { type: string, enum: [AADHAAR, PAN, DRIVING_LICENSE, PASSBOOK] }
+                documentNumber: { type: string, minLength: 1, maxLength: 50 }
+                fileUrl: { type: string, format: uri }
+      responses:
+        '201':
+          description: Document recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffDocument' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/warehouse-staff/{id}/emergency-contact:
+    get:
+      tags: [Warehouse Staff]
+      operationId: getStaffEmergencyContact
+      summary: Read warehouse staff emergency contact
+      description: Returns emergency contact details for a staff member (BR-83).
+      x-permission: admin.staff.list_view
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Emergency contact details.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffEmergencyContact' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Warehouse Staff]
+      operationId: updateStaffEmergencyContact
+      summary: Update warehouse staff emergency contact
+      description: Sets emergency contact details for a warehouse staff member (BR-83).
+      x-permission: admin.staff.manage
+      x-business-rules: [BR-83]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, relationship, mobile]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 120 }
+                relationship: { type: string, minLength: 1, maxLength: 50 }
+                mobile: { type: string, pattern: '^\+?[0-9]{10,15}$' }
+      responses:
+        '200':
+          description: Emergency contact updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StaffEmergencyContact' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/staff-attendance/roll-call:
     get:
       tags: [Warehouse Staff]
@@ -16089,6 +17047,35 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+    post:
+      tags: [Customers]
+      operationId: createAdminCustomer
+      summary: Manually create a customer record
+      description: |
+        Authorized by `customer.record.create` (BR-160). Creates a customer in ACTIVE status with no password hash
+        (logs in via mobile OTP). Automatically creates a wallet with zero balance and customer addresses if provided.
+        Reuses live farmer/farmer admin users by attaching the CUSTOMER role (returns `linkedToExistingUser: true`).
+        Rejects existing active customer mobile or administrative user mobile with 409 CONFLICT.
+      x-permission: customer.record.create
+      x-business-rules: [BR-160, BR-135, BR-34]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAdminCustomerRequest' }
+      responses:
+        '201':
+          description: Customer created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateAdminCustomerResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/customers/{customerId}:
     get:
       tags: [Customers]
@@ -16112,6 +17099,37 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    patch:
+      tags: [Customers]
+      operationId: updateAdminCustomer
+      summary: Edit customer profile
+      description: |
+        Authorized by `customer.profile.edit` (BR-160). Allows updating customer name, email, business name, business type,
+        customer type, preferred warehouse, and address. `mobile` is locked per BR-33 and cannot be modified.
+        Editing `gstin` requires `customer.gst_details.manage` permission and resets `gstVerified` to false.
+      x-permission: customer.profile.edit
+      x-business-rules: [BR-160, BR-33]
+      parameters:
+        - { $ref: '#/components/parameters/CustomerIdPathParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAdminCustomerRequest' }
+      responses:
+        '200':
+          description: Customer updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminCustomerDetail' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -23291,6 +24309,7 @@ components:
         cropName: { type: string }
         grade: { $ref: '#/components/schemas/Grade' }
         goodsReceiptId: { type: [string, 'null'], format: uuid }
+        goodsReceiptNumber: { type: [string, 'null'], description: 'Goods receipt number (readable GR-1024 / GRN).' }
         sourceFarmerId: { type: [string, 'null'], format: uuid }
         qtyReceivedKg: { $ref: '#/components/schemas/Quantity' }
         qtyAvailableKg: { $ref: '#/components/schemas/Quantity' }
@@ -23353,14 +24372,26 @@ components:
       properties:
         reason: { type: string, minLength: 1, maxLength: 500 }
 
+    StockAdjustmentEvidence:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, format: uri }
+        createdAt: { type: string, format: date-time }
+
     StockAdjustment:
       type: object
       description: |
         A manual stock correction (BR-37). Creating one moves no stock; approval by an admin other
         than `createdBy` inserts the ledger row named by `ledgerEntryId`.
-      required: [id, batchId, batchCode, warehouseId, cropId, grade, adjustmentType, qtyDeltaKg, reason, status, createdBy, createdByName, createdAt, approvedBy, approvedByName, approvedAt, rejectedBy, rejectedAt, rejectionReason, ledgerEntryId, verificationId, updatedAt]
+      required: [id, adjustmentCode, evidence, batchId, batchCode, warehouseId, cropId, grade, adjustmentType, qtyDeltaKg, reason, status, createdBy, createdByName, createdAt, approvedBy, approvedByName, approvedAt, rejectedBy, rejectedAt, rejectionReason, ledgerEntryId, verificationId, updatedAt]
       properties:
         id: { type: string, format: uuid }
+        adjustmentCode: { type: string, description: 'Stable reference code generated via database sequence (BR-164).' }
+        evidence:
+          type: array
+          items: { $ref: '#/components/schemas/StockAdjustmentEvidence' }
         batchId: { type: string, format: uuid }
         batchCode: { type: string }
         warehouseId: { type: string, format: uuid }
@@ -23422,7 +24453,7 @@ components:
         scope. Counts are integers; a threshold-based count is `null` when its `system_config`
         threshold is missing or unusable. Quantities are kilograms as three-decimal strings.
       additionalProperties: false
-      required: [warehouses, nearExpiryBatchCount, lowStockCount, pendingAdjustmentCount, unreconciledVerificationCount, varianceUnreconciledVerificationCount, thresholds]
+      required: [warehouses, nearExpiryBatchCount, lowStockCount, criticalStockCount, pendingAdjustmentCount, unreconciledVerificationCount, varianceUnreconciledVerificationCount, thresholds]
       properties:
         warehouses:
           type: array
@@ -23437,16 +24468,18 @@ components:
               availableQtyKg: { $ref: '#/components/schemas/Quantity', description: 'Sum of the BR-100 free shelf over ACTIVE batches.' }
         nearExpiryBatchCount: { type: [integer, 'null'], minimum: 0, description: 'ACTIVE batches with stock expiring within alert_batch_expiry_days (past expiry included), BR-77d.' }
         lowStockCount: { type: [integer, 'null'], minimum: 0, description: 'Warehouse + crop + grade groups whose ACTIVE stock is below low_stock_threshold_kg, BR-77e.' }
+        criticalStockCount: { type: [integer, 'null'], minimum: 0, description: 'Warehouse + crop + grade groups whose ACTIVE stock is below critical_stock_threshold_kg, BR-165.' }
         pendingAdjustmentCount: { type: integer, minimum: 0, description: 'Stock adjustments awaiting a decision (PENDING), BR-37.' }
         unreconciledVerificationCount: { type: integer, minimum: 0, description: 'Stock verifications in status RECORDED, BR-107.' }
         varianceUnreconciledVerificationCount: { type: integer, minimum: 0, description: 'RECORDED stock verifications with a non-zero variance, BR-107.' }
         thresholds:
           type: object
           additionalProperties: false
-          required: [nearExpiryDays, lowStockThresholdKg]
+          required: [nearExpiryDays, lowStockThresholdKg, criticalStockThresholdKg]
           properties:
             nearExpiryDays: { type: [integer, 'null'], minimum: 0, description: 'system_config.alert_batch_expiry_days as used, or null when unusable.' }
             lowStockThresholdKg: { type: [string, 'null'], description: 'system_config.low_stock_threshold_kg as used (decimal string), or null when unusable.' }
+            criticalStockThresholdKg: { type: [string, 'null'], description: 'system_config.critical_stock_threshold_kg as used (decimal string), or null when unusable.' }
 
     StockVerification:
       type: object
@@ -23518,6 +24551,9 @@ components:
       required: [effectiveFrom, channels]
       properties:
         effectiveFrom: { type: string, format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        cropId: { type: [string, 'null'], format: uuid }
+        grade: { type: [string, 'null'] }
         channels:
           type: array
           minItems: 4
@@ -23535,6 +24571,9 @@ components:
       required: [effectiveFrom, channels]
       properties:
         effectiveFrom: { type: string, format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        cropId: { type: [string, 'null'], format: uuid }
+        grade: { type: [string, 'null'] }
         channels:
           type: array
           items:
@@ -23542,7 +24581,7 @@ components:
             properties:
               channel: { $ref: '#/components/schemas/AllocationChannel' }
               percentage: { type: number }
-        setBy: { type: string, format: uuid }
+        setBy: { type: [string, 'null'], format: uuid }
         setAt: { type: string, format: date-time }
 
     Category:
@@ -23861,6 +24900,132 @@ components:
         gatewayPayoutId: { type: [string, 'null'] }
         failureReason: { type: [string, 'null'] }
         paidAt: { type: [string, 'null'], format: date-time }
+
+    PayoutSummary:
+      type: object
+      required: [id, payoutNumber, farmerId, farmerName, amount, status, requestedAt, requestedBy]
+      properties:
+        id: { type: string, format: uuid }
+        payoutNumber: { type: string }
+        farmerId: { type: string, format: uuid }
+        farmerName: { type: string }
+        amount: { $ref: '#/components/schemas/Money' }
+        status: { $ref: '#/components/schemas/PayoutStatus' }
+        requestedAt: { type: string, format: date-time }
+        requestedBy: { type: string }
+
+    PayoutDetail:
+      type: object
+      required: [id, payoutNumber, farmerId, farmerName, amount, status, requestedAt, requestedBy, lineItems]
+      properties:
+        id: { type: string, format: uuid }
+        payoutNumber: { type: string }
+        farmerId: { type: string, format: uuid }
+        farmerName: { type: string }
+        farmerContact: { type: [string, 'null'] }
+        farmerCode: { type: [string, 'null'] }
+        amount: { $ref: '#/components/schemas/Money' }
+        status: { $ref: '#/components/schemas/PayoutStatus' }
+        requestedAt: { type: string, format: date-time }
+        requestedBy: { type: string }
+        verifiedPayoutAccount: { type: [string, 'null'] }
+        purchaseOrderId: { type: [string, 'null'], format: uuid }
+        purchaseOrderNumber: { type: [string, 'null'] }
+        goodsReceiptId: { type: [string, 'null'], format: uuid }
+        goodsReceiptNumber: { type: [string, 'null'] }
+        lineItems:
+          type: array
+          items:
+            type: object
+            required: [id, amount]
+            properties:
+              id: { type: string, format: uuid }
+              purchaseOrderId: { type: [string, 'null'], format: uuid }
+              purchaseOrderNumber: { type: [string, 'null'] }
+              goodsReceiptId: { type: string, format: uuid }
+              goodsReceiptNumber: { type: [string, 'null'] }
+              produce: { type: [string, 'null'] }
+              acceptedQuantity: { type: [string, 'null'] }
+              acceptedGrade: { type: [string, 'null'] }
+              unitPrice: { type: [string, 'null'] }
+              purchaseValue: { type: [string, 'null'] }
+              amount: { $ref: '#/components/schemas/Money' }
+        auditTrail:
+          type: array
+          items:
+            type: object
+            required: [id, actionCode, actorId, outcome, createdAt]
+            properties:
+              id: { type: string, format: uuid }
+              actionCode: { type: string }
+              actorId: { type: string, format: uuid }
+              actorName: { type: [string, 'null'] }
+              outcome: { type: string }
+              createdAt: { type: string, format: date-time }
+              details: { type: object }
+
+    DeliveryPartner:
+      type: object
+      required: [id, name, phone, isActive, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        phone: { type: string }
+        vehicleRef: { type: [string, 'null'] }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    DeliveryPartnerCreate:
+      type: object
+      required: [name, phone]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        phone: { type: string, minLength: 1, maxLength: 20 }
+        vehicleRef: { type: string, maxLength: 100 }
+
+    DeliveryPartnerUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        phone: { type: string, minLength: 1, maxLength: 20 }
+        vehicleRef: { type: [string, 'null'], maxLength: 100 }
+        isActive: { type: boolean }
+
+    MarketDay:
+      type: object
+      required: [id, warehouseId, marketDate, startTime, endTime, isActive, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        warehouseName: { type: string }
+        marketDate: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        isActive: { type: boolean }
+        notes: { type: [string, 'null'] }
+        createdBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    MarketDayCreate:
+      type: object
+      required: [warehouseId, marketDate, startTime, endTime]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        marketDate: { type: string, format: date }
+        startTime: { type: string }
+        endTime: { type: string }
+        isActive: { type: boolean }
+        notes: { type: [string, 'null'], maxLength: 1000 }
+
+    MarketDayPatch:
+      type: object
+      properties:
+        startTime: { type: string }
+        endTime: { type: string }
+        isActive: { type: boolean }
+        notes: { type: [string, 'null'], maxLength: 1000 }
 
     Invoice:
       type: object
@@ -25429,7 +26594,7 @@ components:
         `mobile` and `email` are ABSENT (not null) — only `name`, `mobileMasked` and `customerCode`
         identify the customer (BR-92). Scope `all` actors also receive `mobile` and `email`.
         No farm field ever appears (BR-16).
-      required: [id, customerCode, name, mobileMasked, customerType, status, isNew, preferredWarehouseId, totalOrders, lastActivityAt, piiMasked, createdAt, issueCount, ticketCount]
+      required: [id, customerCode, name, mobileMasked, customerType, businessName, status, isNew, preferredWarehouseId, totalOrders, lastActivityAt, piiMasked, createdAt, issueCount, ticketCount]
       additionalProperties: false
       properties:
         id: { type: string, format: uuid }
@@ -25439,6 +26604,7 @@ components:
         mobile: { type: string, description: Full mobile. Present only when `piiMasked` is false (scope `all`). }
         email: { type: [string, 'null'], format: email, description: Present only when `piiMasked` is false (scope `all`). }
         customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'], description: B2B/Horeca account business name (not a person). }
         status: { type: string, enum: [ACTIVE, INACTIVE], description: 'Derived from `system_config.active_customer_window_days` (BR-98).' }
         isNew: { type: boolean, description: Created within the active-customer window (BR-98). }
         preferredWarehouseId: { type: [string, 'null'], format: uuid }
@@ -25478,7 +26644,7 @@ components:
         Allow-list. For scope `own` (`piiMasked: true`) `mobile`, `email` and `addresses` are ABSENT;
         only `name`, `mobileMasked`, `customerCode` and non-personal aggregates are returned (BR-92).
         No farm field ever appears (BR-16).
-      required: [id, customerCode, name, mobileMasked, customerType, businessName, status, isNew, preferredWarehouseId, totalOrders, lifetimeValue, walletBalance, lastOrderAt, lastActivityAt, piiMasked, createdAt]
+      required: [id, customerCode, name, mobileMasked, customerType, businessName, businessType, gstin, gstVerified, status, isNew, preferredWarehouseId, totalOrders, lifetimeValue, walletBalance, lastOrderAt, lastActivityAt, piiMasked, createdAt]
       additionalProperties: false
       properties:
         id: { type: string, format: uuid }
@@ -25505,6 +26671,9 @@ components:
               isDefault: { type: boolean }
         customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
         businessName: { type: [string, 'null'], description: B2B/Horeca account business name (not a person). }
+        businessType: { type: [string, 'null'], description: Free-text nature of business. }
+        gstin: { type: [string, 'null'], description: 15-character GSTIN. }
+        gstVerified: { type: boolean, description: Whether GSTIN has been verified. }
         status: { type: string, enum: [ACTIVE, INACTIVE] }
         isNew: { type: boolean }
         preferredWarehouseId: { type: [string, 'null'], format: uuid }
@@ -25515,6 +26684,69 @@ components:
         lastActivityAt: { type: [string, 'null'], format: date-time }
         piiMasked: { type: boolean }
         createdAt: { type: string, format: date-time }
+
+    CustomerAddressInput:
+      type: object
+      required: [line1, city, pincode]
+      additionalProperties: false
+      properties:
+        line1: { type: string, minLength: 1, maxLength: 255 }
+        line2: { type: [string, 'null'], maxLength: 255 }
+        city: { type: string, minLength: 1, maxLength: 100 }
+        district: { type: [string, 'null'], maxLength: 100 }
+        state: { type: [string, 'null'], maxLength: 100 }
+        pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+        label: { type: string, maxLength: 50 }
+
+    CreateAdminCustomerRequest:
+      type: object
+      required: [name, mobile, customerType]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        mobile: { type: string, pattern: '^\+[1-9][0-9]{7,14}$' }
+        email: { type: [string, 'null'], format: email }
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'], maxLength: 200 }
+        businessType: { type: [string, 'null'], maxLength: 100 }
+        gstin: { type: [string, 'null'], pattern: '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$' }
+        preferredWarehouseId: { type: [string, 'null'], format: uuid }
+        address: { $ref: '#/components/schemas/CustomerAddressInput' }
+        businessAddress: { $ref: '#/components/schemas/CustomerAddressInput' }
+
+    CreateAdminCustomerResponse:
+      type: object
+      required: [id, customerCode, userId, name, mobileMasked, customerType, businessName, businessType, gstin, gstVerified, preferredWarehouseId, linkedToExistingUser, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        customerCode: { type: string }
+        userId: { type: string, format: uuid }
+        name: { type: string }
+        mobileMasked: { $ref: '#/components/schemas/MaskedMobile' }
+        mobile: { type: string }
+        email: { type: [string, 'null'], format: email }
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'] }
+        businessType: { type: [string, 'null'] }
+        gstin: { type: [string, 'null'] }
+        gstVerified: { type: boolean }
+        preferredWarehouseId: { type: [string, 'null'], format: uuid }
+        linkedToExistingUser: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    UpdateAdminCustomerRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        email: { type: [string, 'null'], format: email }
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'], maxLength: 200 }
+        businessType: { type: [string, 'null'], maxLength: 100 }
+        gstin: { type: [string, 'null'], pattern: '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$' }
+        preferredWarehouseId: { type: [string, 'null'], format: uuid }
+        address: { $ref: '#/components/schemas/CustomerAddressInput' }
 
     AdminCustomerPurchase:
       type: object
@@ -25871,8 +27103,9 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [productId, name, grade, qtyKg, unitPrice, gstRate, gstAmount, lineTotal]
+            required: [id, productId, name, grade, qtyKg, unitPrice, gstRate, gstAmount, lineTotal]
             properties:
+              id: { type: string, format: uuid, description: 'Order line item id.' }
               productId: { type: string, format: uuid, description: The crop id. }
               name: { type: string }
               grade: { $ref: '#/components/schemas/Grade' }
@@ -26513,3 +27746,118 @@ components:
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer }
         expiryWarningDays: { type: integer, minimum: 0, description: The EXPIRING_SOON window the statuses were derived with. }
+
+    AdminZoneListItem:
+      type: object
+      description: Agricultural zone summary for list and picker surfaces (BR-161).
+      required: [id, code, shortCode, name, warehouseId, warehouseName, description, taluks, isActive, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: ZONE-OOTY }
+        shortCode: { type: string, example: OOT }
+        name: { type: string, example: Ooty Zone }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        warehouseName: { type: [string, 'null'], example: Ooty Warehouse }
+        description: { type: [string, 'null'] }
+        taluks:
+          type: array
+          items: { type: string }
+          example: [Ooty, Udhagamandalam]
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    ZoneManager:
+      type: object
+      description: Active zone manager details (BR-161). Mobile is masked per BR-92.
+      required: [userId, fullName, mobile]
+      additionalProperties: false
+      properties:
+        userId: { type: string, format: uuid }
+        fullName: { type: string }
+        mobile: { $ref: '#/components/schemas/MaskedMobile' }
+
+    AdminZoneDetail:
+      type: object
+      description: Comprehensive agricultural zone detail (BR-161).
+      required: [id, code, shortCode, name, warehouseId, warehouseName, description, taluks, manager, isActive, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, example: ZONE-OOTY }
+        shortCode: { type: string, example: OOT }
+        name: { type: string, example: Ooty Zone }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        warehouseName: { type: [string, 'null'], example: Ooty Warehouse }
+        description: { type: [string, 'null'] }
+        taluks:
+          type: array
+          items: { type: string }
+          example: [Ooty, Udhagamandalam]
+        manager:
+          oneOf:
+            - { $ref: '#/components/schemas/ZoneManager' }
+            - { type: 'null' }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    StaffBankAccount:
+      type: object
+      required: [id, staffId, accountHolderName, accountNumber, ifsc, bankName, branchName, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        staffId: { type: string, format: uuid }
+        accountHolderName: { type: string }
+        accountNumber: { type: string }
+        ifsc: { type: string }
+        bankName: { type: string }
+        branchName: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    StaffDocument:
+      type: object
+      required: [id, staffId, type, documentNumber, fileUrl, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        staffId: { type: string, format: uuid }
+        type: { type: string, enum: [AADHAAR, PAN, DRIVING_LICENSE, PASSBOOK] }
+        documentNumber: { type: string }
+        fileUrl: { type: string }
+        createdAt: { type: string }
+
+    StaffEmergencyContact:
+      type: object
+      required: [id, staffId, name, relationship, mobile, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        staffId: { type: string, format: uuid }
+        name: { type: string }
+        relationship: { type: string }
+        mobile: { type: string }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+
+    ReturnsSummary:
+      type: object
+      required: [total, pending, inspecting, approved, rejected, refunded]
+      properties:
+        total: { type: integer }
+        pending: { type: integer }
+        inspecting: { type: integer }
+        approved: { type: integer }
+        rejected: { type: integer }
+        refunded: { type: integer }
+
+    ConfiguredPaymentMethod:
+      type: object
+      required: [id, type, label, isDefault, config, isActive, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [CASH, UPI, BANK_TRANSFER, CARD] }
+        label: { type: string }
+        isDefault: { type: boolean }
+        config: { type: object }
+        isActive: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }

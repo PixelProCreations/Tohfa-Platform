@@ -1,7 +1,18 @@
 /**
- * Admin account creation (docs/openapi.yaml `POST /admin/accounts`, BR-28, BR-112, BR-35):
- *   POST /admin/accounts   x-permission-any-of: admin.super_admin.create, admin.tohfa_admin.create,
+ * Admin account creation and disabling (docs/openapi.yaml, BR-28, BR-110, BR-112, BR-35):
+ *   POST /admin/accounts              x-permission-any-of: admin.super_admin.create, admin.tohfa_admin.create,
  *                          admin.farmer_admin.create, admin.main_wh_admin.create, admin.sub_wh_admin.create
+ *   POST /admin/accounts/{id}/disable x-permission: admin.account.disable (BR-110)
+ *
+ * There is NO GET /admin/accounts in the shipped server (the path is POST-only),
+ * so this module exports no list call and no screen can refresh an admin
+ * directory from the server.
+ *
+ * Disable: body is optional (`reason`, 1-500 chars). 403 for your own account
+ * or an account not strictly below your highest role (LOWER_ROLES_ONLY), 404
+ * for an unknown / non-admin id, 409 for the last ACTIVE Super Admin. Already
+ * DISABLED is a 200 no-op, so a replay is safe and no Idempotency-Key is sent.
+ * There is no route to re-enable an account.
  *
  * The code that applies is the one for the requested `role`; a caller without
  * it is 403 (and one DENIED audit row is written). SUB_WH_ADMIN is refused
@@ -65,4 +76,41 @@ export function createAdminAccount(body: CreateAdminAccountBody, signal?: AbortS
   const payload: CreateAdminAccountBody = { role: body.role, fullName: body.fullName, mobile: body.mobile };
   if (body.zoneId !== undefined) payload.zoneId = body.zoneId;
   return adminPost<AdminAccountCreatedDto>('/admin/accounts', payload, { signal });
+}
+
+/** docs/openapi.yaml `AdminAccountStatus`. Never carries the mobile, email or password hash. */
+export interface AdminAccountStatusDto {
+  id: string;
+  fullName: string;
+  status: 'PENDING' | 'ACTIVE' | 'DISABLED';
+  roles: string[];
+  disabledAt: string | null;
+  disabledBy: string | null;
+  disabledReason: string | null;
+}
+
+/** docs/openapi.yaml `DisableAdminAccountRequest`: `reason` is optional, 1-500 chars. */
+export interface DisableAdminAccountBody {
+  reason?: string;
+}
+
+/** 401, 403 (own account / not lower / no grant), 404, 409 (last Super Admin), 422, 500. */
+export const DISABLE_ERROR_CODES: readonly (GenericProblemCode | ErrorCode)[] = [
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'CONFLICT',
+  'VALIDATION_FAILED',
+  'INTERNAL',
+];
+
+/** Disables the admin account `id` and revokes its sessions (admin.account.disable, BR-110). */
+export function disableAdminAccount(
+  id: string,
+  body: DisableAdminAccountBody = {},
+  signal?: AbortSignal,
+): Promise<AdminAccountStatusDto> {
+  const payload: DisableAdminAccountBody = {};
+  if (body.reason !== undefined) payload.reason = body.reason;
+  return adminPost<AdminAccountStatusDto>(`/admin/accounts/${encodeURIComponent(id)}/disable`, payload, { signal });
 }

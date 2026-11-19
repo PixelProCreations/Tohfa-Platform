@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { t } from '../../../../i18n/farmer';
 
 function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
@@ -55,13 +55,32 @@ function InfoCircleIcon({ size = 16, color = P.twBlue700 }: { size?: number; col
 export interface WithdrawFundsScreenProps {
   availableBalance?: string;
   onClose?: () => void;
+  /**
+   * Kept on the props so callers (App.tsx) need not change, but deliberately
+   * not destructured or called: there is nothing that can succeed yet. See the
+   * note on `WITHDRAWAL_UNAVAILABLE` below.
+   */
   onRequestSuccess?: () => void;
 }
+
+/**
+ * There is no payout-request endpoint for a farmer anywhere in
+ * `docs/openapi.yaml` -- every write under `/farmers/me` was checked, and
+ * `roles/farmer/api/wallet.ts` is read-only (getMyWallet,
+ * getMyWalletTransactions, getMyInvoices, downloadInvoice). This screen used
+ * to pop an "Withdrawal Requested" alert that no server ever saw, which told a
+ * farmer their money was on its way when nothing had been requested at all.
+ *
+ * Until `POST /farmers/me/payout-requests` (or whatever the backend lands on)
+ * exists, the form stays rendered exactly as designed and the action reads as
+ * unavailable, rather than lying. Flip this to `false` and wire the handler
+ * when the endpoint is there.
+ */
+const WITHDRAWAL_UNAVAILABLE = true;
 
 export function WithdrawFundsScreen({
   availableBalance = '₹4,250',
   onClose,
-  onRequestSuccess,
 }: WithdrawFundsScreenProps): React.JSX.Element {
   const [amount, setAmount] = useState('4,250');
   const [method, setMethod] = useState<'Bank' | 'UPI'>('UPI');
@@ -76,22 +95,6 @@ export function WithdrawFundsScreen({
     });
     return () => sub.remove();
   }, [onClose]);
-
-  const handleRequest = () => {
-    Alert.alert(
-      'Withdrawal Requested',
-      `Your request to withdraw ₹${amount} via ${method} has been submitted. Funds will be credited after admin verification.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onRequestSuccess) onRequestSuccess();
-            else if (onClose) onClose();
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -189,6 +192,23 @@ export function WithdrawFundsScreen({
               Payouts above ₹10,000 require additional TOHFA approval and may take longer to process.
             </Text>
           </View>
+
+          {/* Honest notice: nothing here reaches the server yet (see WITHDRAWAL_UNAVAILABLE). */}
+          {WITHDRAWAL_UNAVAILABLE ? (
+            <View style={styles.unavailableBanner}>
+              <View style={styles.policyIconCol}>
+                <InfoCircleIcon size={16} color={P.twGray700} />
+              </View>
+              <View style={styles.unavailableTextCol}>
+                <Text style={styles.unavailableTitle}>
+                  {t('farmer.wallet.withdraw.unavailableTitle')}
+                </Text>
+                <Text style={styles.unavailableBody}>
+                  {t('farmer.wallet.withdraw.unavailableBody')}
+                </Text>
+              </View>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -205,11 +225,15 @@ export function WithdrawFundsScreen({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.actionBtn}
-          onPress={handleRequest}
+          style={[styles.actionBtn, WITHDRAWAL_UNAVAILABLE && styles.actionBtnDisabled]}
           activeOpacity={0.88}
+          disabled={WITHDRAWAL_UNAVAILABLE}
           accessibilityRole="button"
           accessibilityLabel="Request Withdrawal"
+          accessibilityState={{ disabled: WITHDRAWAL_UNAVAILABLE }}
+          {...(WITHDRAWAL_UNAVAILABLE
+            ? { accessibilityHint: t('farmer.wallet.withdraw.unavailableBody') }
+            : {})}
         >
           <CheckmarkIcon size={16} color={P.white} />
           <Text style={styles.actionBtnText}>Request Withdrawal</Text>
@@ -419,9 +443,36 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  actionBtnDisabled: {
+    opacity: 0.5,
+  },
   actionBtnText: {
     fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
+  },
+  unavailableBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: P.twGray50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    padding: 12,
+  },
+  unavailableTextCol: {
+    flex: 1,
+  },
+  unavailableTitle: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.twGray900,
+    marginBottom: 2,
+  },
+  unavailableBody: {
+    fontSize: typography.bodySmall,
+    lineHeight: 17,
+    color: P.twGray700,
+    fontWeight: '500',
   },
 });

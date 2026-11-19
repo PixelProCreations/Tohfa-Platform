@@ -50,8 +50,26 @@ export interface AdminOrderDetailRecord {
   discount: Money;
   gstAmount: Money;
   totalAmount: Money;
+  pickupType?: string | null;
+  notes?: string | null;
   deliveryDate: string | null;
   deliverySlot: DeliverySlot | null;
+  deliveryAddress?: {
+    line1: string;
+    line2: string | null;
+    city: string;
+    district: string | null;
+    state: string | null;
+    pincode: string;
+    lat: number | null;
+    lng: number | null;
+  } | null;
+  deliveryPartner?: {
+    id: string;
+    name: string;
+    phone: string;
+    vehicleRef: string | null;
+  } | null;
   otpRequired: boolean;
   otpVerifiedAt: string | null;
   invoice: { id: string; invoiceNumber: string; status: AdminOrderInvoiceStatus } | null;
@@ -60,6 +78,7 @@ export interface AdminOrderDetailRecord {
   completedAt: string | null;
   cancelledAt: string | null;
   items: Array<{
+    id?: string;
     productId: string;
     name: string;
     grade: ProduceGrade;
@@ -69,7 +88,11 @@ export interface AdminOrderDetailRecord {
     gstAmount: Money;
     lineTotal: Money;
   }>;
-  timeline: Array<{ fromStatus: AdminOrderStatus | null; toStatus: AdminOrderStatus; at: string }>;
+  timeline: Array<{
+    fromStatus: AdminOrderStatus | null;
+    toStatus: AdminOrderStatus;
+    at: string;
+  }>;
 }
 
 interface AdminOrderDetailRow {
@@ -95,6 +118,7 @@ interface AdminOrderDetailRow {
   total_amount: string;
   delivery_date: string | null;
   delivery_slot: string | null;
+  cancellation_reason: string | null;
   otp_required: boolean;
   otp_verified_at: Date | null;
   invoice_id: string | null;
@@ -104,6 +128,18 @@ interface AdminOrderDetailRow {
   packed_at: Date | null;
   completed_at: Date | null;
   cancelled_at: Date | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  address_city: string | null;
+  address_district: string | null;
+  address_state: string | null;
+  address_pincode: string | null;
+  address_lat: string | null;
+  address_lng: string | null;
+  partner_id: string | null;
+  partner_name: string | null;
+  partner_phone: string | null;
+  partner_vehicle_ref: string | null;
 }
 
 const isoOrNull = (value: Date | null): string | null => (value === null ? null : value.toISOString());
@@ -235,9 +271,12 @@ export interface FulfilmentRepo {
       warehouseId?: string;
       packedAt?: Date;
       completedAt?: Date;
+      cancelledAt?: Date;
       otpVerifiedAt?: Date;
       otpVerifiedBy?: string;
-      cancellationReason?: string;
+      cancellationReason?: string | null | undefined;
+      deliveryPartnerId?: string | undefined;
+      deliverySlot?: DeliverySlot | undefined;
     },
   ): Promise<number>;
 
@@ -504,19 +543,25 @@ export const fulfilmentRepo: FulfilmentRepo = {
               warehouse_id = COALESCE($2, warehouse_id),
               packed_at = COALESCE($3, packed_at),
               completed_at = COALESCE($4, completed_at),
-              otp_verified_at = COALESCE($5, otp_verified_at),
-              otp_verified_by = COALESCE($6, otp_verified_by),
-              cancellation_reason = COALESCE($7, cancellation_reason),
+              cancelled_at = COALESCE($5, cancelled_at),
+              otp_verified_at = COALESCE($6, otp_verified_at),
+              otp_verified_by = COALESCE($7, otp_verified_by),
+              cancellation_reason = COALESCE($8, cancellation_reason),
+              delivery_partner_id = COALESCE($9, delivery_partner_id),
+              delivery_slot = COALESCE($10, delivery_slot),
               updated_at = now()
-        WHERE id = $8 AND status = $9`,
+        WHERE id = $11 AND status = $12`,
       [
         params.toStatus,
         params.warehouseId ?? null,
         params.packedAt ?? null,
         params.completedAt ?? null,
+        params.cancelledAt ?? null,
         params.otpVerifiedAt ?? null,
         params.otpVerifiedBy ?? null,
         params.cancellationReason ?? null,
+        params.deliveryPartnerId ?? null,
+        params.deliverySlot ?? null,
         params.orderId,
         params.fromStatus,
       ],
@@ -630,14 +675,21 @@ export const fulfilmentRepo: FulfilmentRepo = {
               o.discount::text AS discount, o.gst_amount::text AS gst_amount,
               o.total_amount::text AS total_amount,
               o.delivery_date::text AS delivery_date, o.delivery_slot::text AS delivery_slot,
+              o.cancellation_reason,
               (o.delivery_otp_hash IS NOT NULL AND o.otp_verified_at IS NULL) AS otp_required,
               o.otp_verified_at,
               inv.id AS invoice_id, inv.invoice_number, inv.status AS invoice_status,
-              o.placed_at, o.packed_at, o.completed_at, o.cancelled_at
+              o.placed_at, o.packed_at, o.completed_at, o.cancelled_at,
+              ca.line1 AS address_line1, ca.line2 AS address_line2, ca.city AS address_city,
+              ca.district AS address_district, ca.state AS address_state, ca.pincode AS address_pincode,
+              ca.lat::text AS address_lat, ca.lng::text AS address_lng,
+              dp.id AS partner_id, dp.name AS partner_name, dp.phone AS partner_phone, dp.vehicle_ref AS partner_vehicle_ref
          FROM orders o
          JOIN warehouses w ON w.id = o.warehouse_id
          LEFT JOIN customers c ON c.id = o.customer_id
          LEFT JOIN users u ON u.id = c.user_id
+         LEFT JOIN customer_addresses ca ON ca.id = o.delivery_address_id
+         LEFT JOIN delivery_partners dp ON dp.id = o.delivery_partner_id
          LEFT JOIN LATERAL (
                SELECT i.id, i.invoice_number, i.status
                  FROM invoices i
@@ -655,6 +707,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
     // The order is already proven visible; the children are read by its id only.
     const [items, history] = await Promise.all([
       db.query<{
+        id: string;
         product_id: string;
         name: string;
         grade: string;
@@ -664,7 +717,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
         gst_amount: string;
         line_total: string;
       }>(
-        `SELECT oi.crop_id AS product_id, cm.name, oi.grade::text AS grade, oi.qty_kg::text AS qty_kg,
+        `SELECT oi.id, oi.crop_id AS product_id, cm.name, oi.grade::text AS grade, oi.qty_kg::text AS qty_kg,
                 oi.unit_price::text AS unit_price, oi.gst_rate::text AS gst_rate,
                 oi.gst_amount::text AS gst_amount, oi.line_total::text AS line_total
            FROM order_items oi
@@ -688,6 +741,8 @@ export const fulfilmentRepo: FulfilmentRepo = {
       channel: row.channel as AdminOrderChannel,
       status: row.status as AdminOrderStatus,
       fulfilmentType: row.fulfilment_type as AdminOrderFulfilmentType,
+      pickupType: row.fulfilment_type === 'PICKUP' ? 'WAREHOUSE_PICKUP' : 'HOME_DELIVERY',
+      notes: row.cancellation_reason ?? null,
       paymentMethod: row.payment_method as AdminOrderPaymentMethod,
       paymentStatus: row.payment_status as AdminOrderPaymentStatus,
       warehouseId: row.warehouse_id,
@@ -705,6 +760,28 @@ export const fulfilmentRepo: FulfilmentRepo = {
       totalAmount: parseMoney(row.total_amount),
       deliveryDate: row.delivery_date,
       deliverySlot: row.delivery_slot as DeliverySlot | null,
+      deliveryAddress:
+        row.address_line1 && row.address_city && row.address_pincode
+          ? {
+              line1: row.address_line1,
+              line2: row.address_line2,
+              city: row.address_city,
+              district: row.address_district,
+              state: row.address_state,
+              pincode: row.address_pincode,
+              lat: row.address_lat !== null ? Number(row.address_lat) : null,
+              lng: row.address_lng !== null ? Number(row.address_lng) : null,
+            }
+          : null,
+      deliveryPartner:
+        row.partner_id && row.partner_name && row.partner_phone
+          ? {
+              id: row.partner_id,
+              name: row.partner_name,
+              phone: row.partner_phone,
+              vehicleRef: row.partner_vehicle_ref,
+            }
+          : null,
       otpRequired: row.otp_required,
       otpVerifiedAt: isoOrNull(row.otp_verified_at),
       invoice:
@@ -720,6 +797,7 @@ export const fulfilmentRepo: FulfilmentRepo = {
       completedAt: isoOrNull(row.completed_at),
       cancelledAt: isoOrNull(row.cancelled_at),
       items: items.rows.map((r) => ({
+        id: r.id,
         productId: r.product_id,
         name: r.name,
         grade: r.grade as ProduceGrade,

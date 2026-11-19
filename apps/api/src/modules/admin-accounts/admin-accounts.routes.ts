@@ -14,11 +14,25 @@ import {
   createAdminAccountBody,
   CREATE_PERMISSION_BY_ROLE,
   disableAdminAccountBody,
+  listAdminAccountsQuery,
   setFarmerAdminZonesBody,
 } from './admin-accounts.schema.js';
 import { adminAccountsService } from './admin-accounts.service.js';
 
 export const adminAccountsRouter: Router = Router();
+
+// GET /v1/admin/accounts — cursor-paged list of admin accounts (P0-41)
+adminAccountsRouter.get(
+  '/',
+  requireAuth,
+  requireAnyPermission(['admin.staff.list_view', 'role.definition.view']),
+  validate({ query: listAdminAccountsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', listAdminAccountsQuery);
+    res.status(200).json(await adminAccountsService.list(scope, query));
+  }),
+);
 
 // POST /v1/admin/accounts — the code that applies depends on the role in the body
 // (`x-permission-any-of` in docs/openapi.yaml). The gate admits a holder of any admin.*.create code;

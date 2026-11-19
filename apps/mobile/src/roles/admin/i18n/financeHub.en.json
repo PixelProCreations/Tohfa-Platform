@@ -35,5 +35,8 @@
   "financeHub.tile.invoices": "Create or View Invoice",
   "financeHub.tile.reviewReturns": "Review Returns",
   "financeHub.tile.transactionHistory": "History",
-  "financeHub.tile.reportExport": "Report & Export"
+  "financeHub.tile.reportExport": "Report & Export",
+  "financeHub.tile.profitLoss": "Profit & Loss",
+  "financeHub.tile.paymentMethods": "Payment Methods",
+  "financeHub.comingSoon.message": "This section is under construction. Check back when the backend is ready."
 }

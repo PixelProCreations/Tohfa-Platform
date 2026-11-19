@@ -15,12 +15,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { tokens } from '@tohfa/design-tokens';
 import type { AuditComplianceCountsDto, AuditSummaryDto } from '../../api/audits';
@@ -315,7 +315,7 @@ function AuditManagementLayout({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ── Top Header Banner ── */}
       <View style={styles.headerBanner}>

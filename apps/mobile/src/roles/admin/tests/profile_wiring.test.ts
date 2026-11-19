@@ -95,8 +95,13 @@ describe('own profile (BR-82, BR-33)', () => {
     expect(DATA).toMatch(/updateMe\(\{ preferredLocale/);
   });
 
-  it('shows no admin id, access level or password-changed date (the API has none)', () => {
-    for (const source of [USER, SECURITY]) expect(source).not.toMatch(/adminId|accessLevel|passwordChanged|Access Level|Admin ID/);
+  it('draws the admin id, access level and password-changed date, each with the em-dash because the API has no value', () => {
+    expect(JSON.parse(read('roles/admin/i18n/en.json'))['profile.noValue']).toBe('\u2014');
+    expect(USER).toMatch(/label: t\('profile\.adminId'\), value: noValue/);
+    expect(USER).toMatch(/label: t\('profile\.accessLevel'\), value: noValue/);
+    expect(USER).toMatch(/t\('profile\.passwordChanged', \{ when: noValue \}\)/);
+    // The value is never invented from an account field the API does not return.
+    expect(USER).not.toMatch(/account\.(adminId|accessLevel|passwordChanged)/);
   });
 });
 
@@ -105,8 +110,16 @@ describe('sessions (BR-67)', () => {
     expect(DATA).toMatch(/listMySessions\(/);
   });
 
-  it('claims no current device and shows no login history, trusted device, location or session id', () => {
-    expect(SESSIONS).not.toMatch(/isCurrent|LOGIN HISTORY|Login History|TRUSTED DEVICE|remembered|Location|Session ID|Failed/);
+  it('draws the current-session location, session id, trusted-device and login-history blocks with the em-dash, and still claims no current device', () => {
+    // Elements the design draws: present, valued with the em-dash.
+    expect(SESSIONS).toMatch(/label: t\('profile\.sessions\.location'\), value: noValue/);
+    expect(SESSIONS).toMatch(/label: t\('profile\.sessions\.sessionId'\), value: noValue/);
+    expect(SESSIONS).toMatch(/<SectionTitle>\{t\('profile\.sessions\.trusted'\)\}<\/SectionTitle>/);
+    expect(SESSIONS).toMatch(/label=\{t\('profile\.sessions\.remembered'\)\}/);
+    expect(SESSIONS).toMatch(/<SectionTitle>\{t\('profile\.sessions\.history'\)\}<\/SectionTitle>/);
+    expect(SESSIONS).toMatch(/<Text style=\{styles\.historyResult\}>\{noValue\}<\/Text>/);
+    // Still true: the API marks no session as the current one, and records no failed logins.
+    expect(SESSIONS).not.toMatch(/isCurrent|Failed/);
   });
 
   it('BR-67: terminating another session is none for both warehouse roles, so there is no route or control for it', () => {
@@ -153,10 +166,21 @@ describe('warehouse profile (BR-30, BR-66)', () => {
     expect(info).toMatch(/onEdit !== undefined && can\('warehouse\.profile\.edit'\)/);
   });
 
-  it('shows no region, assigned admin, sections, hierarchy, services or emergency contact (no API field)', () => {
-    for (const source of WAREHOUSE_SCREENS) {
-      expect(source).not.toMatch(/Region|Assigned Admin|Storage Hierarchy|Storage Sections|Operational Services|Emergency Contact|Contact Person|currentKg/);
-    }
+  it('draws region, assigned admin, sections, hierarchy, services and the contact blocks with the em-dash (no API field), inventing no stock figure', () => {
+    const [info, storage, operating, contact] = WAREHOUSE_SCREENS;
+    expect(info).toMatch(/label: t\('profile\.warehouse\.region'\), value: noValue/);
+    expect(info).toMatch(/label: t\('profile\.warehouse\.assignedSwa'\), value: noValue/);
+    expect(info).toMatch(/label: t\('profile\.warehouse\.assignedAdmin'\), value: noValue/);
+    expect(storage).toMatch(/<SectionTitle>\{t\('profile\.storage\.hierarchy'\)\}<\/SectionTitle>/);
+    expect(storage).toMatch(/<Text style=\{styles\.treeLeaf\}>\{noValue\}<\/Text>/);
+    expect(storage).toMatch(/<SectionTitle>\{t\('profile\.storage\.sections'\)\}<\/SectionTitle>/);
+    expect(storage).toMatch(/label=\{t\('profile\.storage\.current'\)\} value=\{noValue\}/);
+    expect(operating).toMatch(/<SectionTitle>Operational Services<\/SectionTitle>\s*<Card>\s*<Text style=\{styles\.placeholder\}>\{noValue\}<\/Text>/);
+    expect(contact).toMatch(/<SectionTitle>Contact Person<\/SectionTitle>/);
+    expect(contact).toMatch(/<SectionTitle>Emergency Contact<\/SectionTitle>/);
+    expect(contact).toMatch(/\{ label: 'Name', value: noValue \}/);
+    // No invented stock figure: the per-location "current" cell is never a number.
+    for (const source of WAREHOUSE_SCREENS) expect(source).not.toMatch(/currentKg/);
   });
 
   it('warehouse performance stays hidden for Sub: it needs warehouse.all.view, which Sub does not hold', () => {

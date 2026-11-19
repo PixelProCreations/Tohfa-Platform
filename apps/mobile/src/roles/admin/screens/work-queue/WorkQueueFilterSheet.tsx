@@ -12,8 +12,8 @@
  *   - Status keeps the design's six options; Exception / Blocked / In review
  *     are selectable but match nothing (the API has no such state), and the
  *     design's list has no Done, so none is offered;
- *   - Warehouse lists the real warehouses (GET /warehouses) and is shown only
- *     with warehouse.all.view; the design's three names were fixtures;
+ *   - Warehouse lists the real warehouses (GET /warehouses) with
+ *     warehouse.all.view (otherwise only "Any"); the design's three names were fixtures;
  *   - Assigned to is drawn where the design has it, disabled and showing the
  *     empty value with a "not available yet" hint: a task has no assignee, and
  *     the design's sample names are not shown.
@@ -106,7 +106,7 @@ const ANY_WAREHOUSE = '';
 export interface WorkQueueFilterSheetProps {
   visible: boolean;
   filters: WorkQueueFilters;
-  /** Real warehouses; the field is drawn only when `showWarehouse`. */
+  /** Real warehouses; offered as options only when `showWarehouse`, the field itself is always drawn. */
   warehouses: readonly WarehouseOption[];
   showWarehouse: boolean;
   onApply: (filters: WorkQueueFilters) => void;
@@ -185,20 +185,18 @@ export function WorkQueueFilterSheet({ visible, filters, warehouses, showWarehou
               open={openField === 'due'}
               options={DUE_FILTERS.map((v) => ({ value: v, label: t(DUE_LABEL[v]) }))}
             />
-            {showWarehouse ? (
-              <SelectField
-                {...common}
-                field="warehouse"
-                label={t('workQueue.warehouse.label')}
-                value={draft.warehouseId ?? ANY_WAREHOUSE}
-                open={openField === 'warehouse'}
-                helper={t('workQueue.warehouse.helper')}
-                options={[
-                  { value: ANY_WAREHOUSE, label: t('workQueue.warehouse.any') },
-                  ...warehouses.map((w) => ({ value: w.warehouseId, label: w.warehouseName })),
-                ]}
-              />
-            ) : null}
+            <SelectField
+              {...common}
+              field="warehouse"
+              label={t('workQueue.warehouse.label')}
+              value={draft.warehouseId ?? ANY_WAREHOUSE}
+              open={openField === 'warehouse'}
+              helper={t('workQueue.warehouse.helper')}
+              options={[
+                { value: ANY_WAREHOUSE, label: t('workQueue.warehouse.any') },
+                ...(showWarehouse ? warehouses.map((w) => ({ value: w.warehouseId, label: w.warehouseName })) : []),
+              ]}
+            />
             <SelectField
               {...common}
               field="assign"

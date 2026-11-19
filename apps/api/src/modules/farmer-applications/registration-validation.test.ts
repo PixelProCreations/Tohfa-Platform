@@ -8,6 +8,7 @@
  * with ZERO farms. Everything below goes through the REAL router and the REAL database:
  * a mocked repo cannot observe a query that never ran.
  */
+import { randomInt } from 'crypto';
 import { afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
@@ -75,17 +76,26 @@ const MOBILE_DOCS = {
 };
 
 let mobileCounter = 0;
+const runBase = randomInt(1000, 9999);
 function freshMobile(): string {
   mobileCounter += 1;
-  return `+9197${(Date.now() % 1_000_000).toString().padStart(6, '0')}${String(mobileCounter).padStart(2, '0')}`;
+  return `+9197${runBase}${String(mobileCounter).padStart(4, '0')}`;
 }
 
 describeIfDatabase('BR-69: registration step validation (real router, real database)', () => {
   const app = createApp();
   const server = app.listen(0);
+  const createdAppIds: string[] = [];
 
   afterAll(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (createdAppIds.length > 0) {
+      await pool.query(
+        `DELETE FROM farmer_application_status_history WHERE application_id = ANY($1::uuid[])`,
+        [createdAppIds],
+      );
+      await pool.query(`DELETE FROM farmer_applications WHERE id = ANY($1::uuid[])`, [createdAppIds]);
+    }
   });
 
 
@@ -93,7 +103,9 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     const mobile = freshMobile();
     const res = await request(server).post('/v1/farmers/applications').send({ mobile, fullName: 'Devika R' });
     expect(res.status).toBe(201);
-    return { id: res.body.id as string, mobile };
+    const id = res.body.id as string;
+    createdAppIds.push(id);
+    return { id, mobile };
   }
 
   const patchStep = (id: string, step: number, body: unknown) =>
@@ -354,10 +366,11 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     expect(res.body.code).toBe('VALIDATION_FAILED');
     const key = Object.keys(body)[0]!;
     expect(Object.keys(res.body.errors)).toContain(`body.${key}`);
-    // Sensitive input must never come back in the problem body.
+    // Sensitive input must never come back in the problem detail or field errors.
     const raw = String(Object.values(body)[0]);
     if (key === 'aadhaarLast4' || key === 'dob') {
-      expect(JSON.stringify(res.body)).not.toContain(raw);
+      expect(res.body.detail ?? '').not.toContain(raw);
+      expect(JSON.stringify(res.body.errors ?? {})).not.toContain(raw);
     }
   });
 

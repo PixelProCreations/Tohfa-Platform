@@ -14,14 +14,16 @@
  */
 import { fromPaise, isMoney, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
 import { formatPaise, parseRupeesToPaise } from '../money/paise';
-import type { CreateRetailPriceBody, FairPriceDto, RetailPriceDto } from './pricing';
+import type { CreateRetailPriceBody, FairPriceCreateBody, FairPriceDto, RetailPriceDto } from './pricing';
 import type {
+  BulkCeilingDraftRow,
   CeilingComparison,
   CeilingHistoryRowView,
   CeilingWindowStatus,
   FairPriceRowView,
   MarkupBreakdownView,
   RetailDraftCheck,
+  FairPriceFormValues,
   RetailPriceFormValues,
   RetailPriceRowView,
 } from './pricingTypes';
@@ -216,4 +218,83 @@ export function buildRetailPriceBody(form: RetailPriceFormValues): CreateRetailP
     ...(form.markupPct === undefined ? {} : { markupPct: form.markupPct }),
     ...(form.gstInclusive === undefined ? {} : { gstInclusive: form.gstInclusive }),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Fair price ceiling writes (pricing.fair_price.set / .bulk_update, SA only)
+// ---------------------------------------------------------------------------
+
+/**
+ * The POST /fair-prices body, or null when the typed amount is not a positive
+ * rupee amount with at most 2 decimals (the server would refuse it with 422).
+ * The amount goes through integer paise, never parseFloat (root CLAUDE.md 2.2).
+ */
+export function buildFairPriceBody(form: FairPriceFormValues): FairPriceCreateBody | null {
+  const paise = parseRupeesToPaise(form.ceilingInput);
+  if (paise === null || paise <= 0) return null;
+  const notes = form.notes === undefined ? undefined : form.notes.trim();
+  return {
+    cropId: form.cropId,
+    grade: form.grade,
+    ceilingPrice: fromPaise(paise),
+    effectiveFrom: form.effectiveFrom,
+    ...(form.frequency === undefined ? {} : { frequency: form.frequency }),
+    ...(notes === undefined || notes === '' ? {} : { notes }),
+  };
+}
+
+/**
+ * `percent` is a percentage, not money: the arithmetic is on integer paise and
+ * the result is rounded to the nearest paisa, so a bulk +5% can never drift the
+ * way `price * 1.05` on a float would. Never negative.
+ */
+export function applyPercentToPaise(paise: number, percent: number): number {
+  return Math.max(0, Math.round((paise * (100 + percent)) / 100));
+}
+
+/** `ceiling` after `percent`; null stays null (an unreadable ceiling is never guessed). */
+export function applyPercentToCeiling(ceiling: Money | null, percent: number): Money | null {
+  return ceiling === null ? null : fromPaise(applyPercentToPaise(toPaise(ceiling), percent));
+}
+
+/**
+ * The selected ceilings with the percentage applied, ready for the bulk list.
+ * Every loaded row is returned so the screen can draw the unselected ones too.
+ */
+export function toBulkDraftRows(
+  rows: readonly FairPriceRowView[],
+  selectedIds: readonly string[],
+  percent: number,
+): BulkCeilingDraftRow[] {
+  const selected = new Set(selectedIds);
+  return rows.map((row) => ({
+    row,
+    selected: selected.has(row.id),
+    proposedCeiling: applyPercentToCeiling(row.ceilingPrice, percent),
+  }));
+}
+
+/**
+ * The POST /fair-prices/bulk items for the selected rows, or null when nothing
+ * is selected or a selected row has no readable ceiling to change (sending a
+ * guessed amount would move a farmer's price on a guess).
+ */
+export function buildBulkFairPriceItems(
+  drafts: readonly BulkCeilingDraftRow[],
+  effectiveFrom: string,
+): FairPriceCreateBody[] | null {
+  const chosen = drafts.filter((d) => d.selected);
+  if (chosen.length === 0) return null;
+  const items: FairPriceCreateBody[] = [];
+  for (const draft of chosen) {
+    if (draft.proposedCeiling === null) return null;
+    items.push({
+      cropId: draft.row.cropId,
+      grade: draft.row.grade,
+      ceilingPrice: draft.proposedCeiling,
+      effectiveFrom,
+      ...(draft.row.frequency === null ? {} : { frequency: draft.row.frequency }),
+    });
+  }
+  return items;
 }

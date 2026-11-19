@@ -134,6 +134,7 @@ function makeWorld() {
       const b = batches.get(input.batchId)!;
       adjustments.set(id, {
         id,
+        adjustmentCode: `ADJ-${id.slice(0, 6)}`,
         batchId: input.batchId,
         batchCode: b.batchCode,
         warehouseId: input.warehouseId,
@@ -143,6 +144,7 @@ function makeWorld() {
         qtyDeltaKg: (signedKgToGrams(input.qtyDeltaKg) / 1000).toFixed(3),
         reason: input.reason,
         status: 'PENDING',
+        evidence: [],
         createdBy: input.createdBy,
         createdByName: null,
         createdAt: stamp(),
@@ -186,6 +188,12 @@ function makeWorld() {
       const a = adjustments.get(id)!;
       if (a.status !== 'PENDING') throw new Error('frozen');
       Object.assign(a, { status: 'REJECTED', rejectedBy: input.rejectedBy, rejectedAt: stamp(), rejectionReason: input.reason, updatedAt: stamp() });
+    },
+    async addEvidence(_db, id, url) {
+      const a = adjustments.get(id)!;
+      const item = { id: newId(), url };
+      a.evidence = [...(a.evidence ?? []), item];
+      return item;
     },
   };
 

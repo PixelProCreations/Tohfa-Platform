@@ -13,7 +13,11 @@
  * threshold (system_config, value-based) is dispatched at once (IN_TRANSIT);
  * one at or above it, or with an unvalued line, waits for Super Admin
  * approval (PENDING_APPROVAL). The app does not guess the threshold; it reports
- * the status the server returns. There is no ETA or driver: the API has none.
+ * the status the server returns.
+ *
+ * Produce Type filters the batch list by crop; the quick-add kg presets add to a
+ * selected batch's quantity. Transfer Reason / Priority is drawn as designed but the
+ * create call has no priority or reason field, so the choice is not sent.
  */
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -22,7 +26,7 @@ import { useIdempotencyKey } from '../../../api/hooks';
 import { adminErrorKey } from '../../../api/errors';
 import type { WarehouseTransferDto } from '../../../api/transfers';
 import { t } from '../../../i18n';
-import { formatKg } from '../../../money/quantity';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
@@ -41,6 +45,10 @@ import {
   canInitiateTransfer,
   createdOutcomeKey,
   INITIATE_ERROR_KEY,
+  kgInputText,
+  TRANSFER_PRIORITIES,
+  TRANSFER_QTY_PRESETS_KG,
+  type TransferPriority,
   TRANSFER_NOTES_MAX,
   VEHICLE_NUMBER_MAX,
   type InitiateDraftLine,
@@ -96,6 +104,18 @@ function BatchRow({
             />
             <Text style={styles.qtyUnit}>{t('transfers.common.kgUnit')}</Text>
           </View>
+          <View style={styles.presetRow}>
+            {TRANSFER_QTY_PRESETS_KG.map((add) => (
+              <TouchableOpacity
+                key={add}
+                style={styles.presetBtn}
+                onPress={() => onChangeQty(kgInputText((parseKgToGrams(qtyText) ?? 0) + add * 1000))}
+                accessibilityRole="button"
+              >
+                <Text style={styles.presetText}>+{formatKg(add * 1000)}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           {error ? <Text style={styles.error}>{error}</Text> : null}
         </>
       ) : null}
@@ -114,6 +134,8 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onTransferCreate
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [vehicle, setVehicle] = useState('');
   const [notes, setNotes] = useState('');
+  const [produce, setProduce] = useState('');
+  const [priority, setPriority] = useState<TransferPriority>('Urgent');
   const [submitError, setSubmitError] = useState<unknown>(null);
 
   // Before a pick, the source defaults to the scope's warehouse when it has one, else the first option.
@@ -190,6 +212,9 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onTransferCreate
     );
   };
 
+  const cropName = (b: TransferBatchOption) => b.cropName ?? t('transfers.initiate.cropUnknown');
+  const cropNames = Array.from(new Set(batches.items.map(cropName)));
+  const shownBatches = produce === '' ? batches.items : batches.items.filter((b) => cropName(b) === produce);
   const batchView = queryViewState({ isLoading: batches.isLoading, error: batches.error, itemCount: batches.items.length });
 
   return (
@@ -225,12 +250,22 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onTransferCreate
           ) : null}
         </View>
 
+        <View style={styles.card}>
+          <Text style={styles.label}>{t('transfers.initiate.produceType')}</Text>
+          <ChipGroup
+            options={['', ...cropNames]}
+            value={produce}
+            onChange={setProduce}
+            labelOf={(c) => (c === '' ? t('transfers.initiate.produceAll') : c)}
+          />
+        </View>
+
         <SectionTitle>{t('transfers.initiate.batches')}</SectionTitle>
         {batchView === 'loading' ? <AdminLoadingState /> : null}
         {batchView === 'error' ? <AdminErrorState error={batches.error} onRetry={batches.refresh} /> : null}
         {batchView === 'empty' ? <AdminEmptyState title={t('transfers.initiate.noBatches')} /> : null}
         {batchView === 'ready'
-          ? batches.items.map((option) => (
+          ? shownBatches.map((option) => (
               <BatchRow
                 key={option.batchId}
                 option={option}
@@ -269,6 +304,24 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onTransferCreate
             accessibilityLabel={t('transfers.initiate.notes')}
           />
         </View>
+
+        <SectionTitle>{t('transfers.initiate.priority')}</SectionTitle>
+        {TRANSFER_PRIORITIES.map((p) => {
+          const active = priority === p;
+          return (
+            <TouchableOpacity
+              key={p}
+              style={[styles.priorityBtn, active && styles.priorityBtnActive]}
+              onPress={() => setPriority(p)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.priorityTitle, active && styles.priorityTitleActive]}>{t(`transfers.initiate.priority.${p}.title`)}</Text>
+              <Text style={styles.prioritySub}>{t(`transfers.initiate.priority.${p}.subtitle`)}</Text>
+            </TouchableOpacity>
+          );
+        })}
 
         {formError ? <Text style={styles.error}>{formError}</Text> : null}
         {submitError ? <InfoNote tone="danger">{t(adminErrorKey(submitError))}</InfoNote> : null}
@@ -326,6 +379,26 @@ const styles = StyleSheet.create({
   },
   qtyInput: { ...adminType.title, flex: 1, color: adminColors.ink, padding: 0 },
   qtyUnit: { ...adminType.sectionHead, color: adminColors.muted },
+  presetRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: adminSpacing.sm },
+  presetBtn: {
+    backgroundColor: adminColors.canvas,
+    paddingVertical: adminSpacing.xs,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.xs,
+  },
+  presetText: { ...adminType.caption, color: adminColors.ink },
+  priorityBtn: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  priorityBtnActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
+  priorityTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  priorityTitleActive: { color: adminColors.brand },
+  prioritySub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   textInput: {
     ...adminType.body,
     color: adminColors.ink,

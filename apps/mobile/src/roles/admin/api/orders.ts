@@ -6,6 +6,9 @@
  *   POST /admin/orders/{id}/pack           order.mark_packed        (BR-37; Idempotency-Key)
  *   POST /admin/orders/{id}/dispatch       order.dispatch           (BR-21; Idempotency-Key)
  *   POST /admin/orders/{id}/verify-otp     order.pickup_otp.verify  (BR-20; Idempotency-Key)
+ *   POST /admin/orders/{id}/cancel         order.cancel             (BR-35, BR-151; Idempotency-Key)
+ *   POST /admin/orders/{id}/issues         warehouse.issue.manage   (BR-35, BR-152; Idempotency-Key)
+ *   GET  /admin/delivery-partners          delivery.partner.manage  (BR-157; the dispatch picker)
  * POST /admin/orders/{id}/assign-warehouse is `none` for a Sub Warehouse Admin
  * and is not used here.
  *
@@ -96,6 +99,14 @@ export interface OrderSummaryDto {
   /** date (YYYY-MM-DD). */
   deliveryDate?: string | null;
   placedAt: string;
+  /** Display name for the buyer (CUSTOMER or WALK_IN); `null` for walk-in. openapi `AdminOrderSummary.customerName`. */
+  customerName?: string | null;
+  /** Masked mobile `******XXXX` (BR-92); null when not applicable. openapi `AdminOrderSummary.customerMobileMasked`. */
+  customerMobileMasked?: string | null;
+  /** ISO-8601: when the order was packed. `null` until packed. openapi `AdminOrderSummary.packedAt`. */
+  packedAt?: string | null;
+  /** ISO-8601: when the order moved to READY_FOR_PICKUP. `null` until then. openapi `AdminOrderSummary.readyAt`. */
+  readyAt?: string | null;
 }
 
 /** One line of `AdminOrderDetail.items` (farm-anonymous, BR-99). */
@@ -194,11 +205,51 @@ export interface DispatchOrderBody {
   expectedArrival?: string;
 }
 
+/** docs/openapi.yaml cancel request body: a reason of 1 to 500 characters. */
+export interface CancelOrderBody {
+  reason: string;
+}
+
+/** docs/openapi.yaml createAdminOrderIssue request body. */
+export interface CreateOrderIssueBody {
+  /** 1 to 100 characters. */
+  issueType: string;
+  /** 1 to 4000 characters. */
+  description: string;
+  /** Order line ids (uuid). The detail carries no order-item id today, so the app sends none. */
+  lineItemIds?: string[];
+}
+
+/** docs/openapi.yaml `OrderIssueResponse`: the created issue. */
+export interface OrderIssueResponseDto {
+  id: string;
+  issueNumber: string;
+  status: string;
+}
+
+/** docs/openapi.yaml `DeliveryPartner`. */
+export interface DeliveryPartnerDto {
+  id: string;
+  name: string;
+  phone: string;
+  vehicleRef?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
 /** docs/openapi.yaml verify-otp request body. */
 export interface VerifyOtpBody {
   /** The customer's 4-digit code, `^[0-9]{4}$` (BR-20). */
   otp: string;
   podPhotoUrl?: string;
+}
+
+/** docs/openapi.yaml assign-warehouse request body. */
+export interface AssignWarehouseBody {
+  /** The fulfilling warehouse (uuid). */
+  warehouseId: string;
+  /** Max 300 characters. */
+  reason?: string;
 }
 
 export interface ListAdminOrdersParams {
@@ -280,6 +331,11 @@ export function dispatchOrder(orderId: string, body: DispatchOrderBody, idempote
   return adminPost<OrderDto>(`/admin/orders/${encodeURIComponent(orderId)}/dispatch`, body, { idempotencyKey });
 }
 
+/** Assign or reassign a CONFIRMED / PENDING_PAYMENT order's fulfilling warehouse (order.warehouse.assign, BR-27). */
+export function assignOrderWarehouse(orderId: string, body: AssignWarehouseBody, idempotencyKey: string): Promise<OrderDto> {
+  return adminPost<OrderDto>(`/admin/orders/${encodeURIComponent(orderId)}/assign-warehouse`, body, { idempotencyKey });
+}
+
 /**
  * Verify the customer's handover code; success moves a pickup order to
  * PICKED_UP. A code that is not exactly four digits is refused here, before
@@ -288,4 +344,22 @@ export function dispatchOrder(orderId: string, body: DispatchOrderBody, idempote
 export function verifyPickupOtp(orderId: string, body: VerifyOtpBody, idempotencyKey: string): Promise<OrderDto> {
   if (!isPickupOtp(body.otp)) return Promise.reject(new PickupOtpFormatError());
   return adminPost<OrderDto>(`/admin/orders/${encodeURIComponent(orderId)}/verify-otp`, body, { idempotencyKey });
+}
+
+/**
+ * Cancel an order (order.cancel, BR-35). 409 when it is already DELIVERED or
+ * PICKED_UP; returns the cancelled order detail.
+ */
+export function cancelAdminOrder(orderId: string, body: CancelOrderBody, idempotencyKey: string): Promise<AdminOrderDetailDto> {
+  return adminPost<AdminOrderDetailDto>(`/admin/orders/${encodeURIComponent(orderId)}/cancel`, body, { idempotencyKey });
+}
+
+/** Record an operational issue against an order (warehouse.issue.manage, BR-152); 201 with the issue id and number. */
+export function createAdminOrderIssue(orderId: string, body: CreateOrderIssueBody, idempotencyKey: string): Promise<OrderIssueResponseDto> {
+  return adminPost<OrderIssueResponseDto>(`/admin/orders/${encodeURIComponent(orderId)}/issues`, body, { idempotencyKey });
+}
+
+/** The active delivery partners the dispatch step offers (delivery.partner.manage, BR-157). */
+export function listDeliveryPartners(signal?: AbortSignal): Promise<DeliveryPartnerDto[]> {
+  return adminGet<DeliveryPartnerDto[]>('/admin/delivery-partners', { status: 'active' }, signal);
 }

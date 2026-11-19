@@ -11,7 +11,8 @@
  * host's mutation.
  */
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import { BackArrowIcon } from '../../components/AdminIcons';
@@ -156,7 +157,7 @@ export function ApprovalDetailPayoutScreen({ payoutId, can, onBack, onApprove, o
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Header */}
       <View style={styles.header}>

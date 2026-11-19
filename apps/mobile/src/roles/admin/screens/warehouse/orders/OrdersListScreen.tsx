@@ -11,15 +11,17 @@
  *     warehouses the host passes (held by the flow).
  * The server returns only in-scope orders (CLAUDE.md 2.1).
  *
- * A row shows the order number and item count: the list carries no customer
- * name (BR-101), and the detail is not fetched per row; the name is on the
- * detail. The search box narrows the rows already loaded by order number (the
- * API has no search). The filter button is gone: the filters screen is not
- * wired to any request. `status` (from a dashboard tile) is the server filter.
+ * Every designed element is drawn. A row shows the order number, a customer
+ * line (the dash: the list carries no customer name, BR-101, and the detail is
+ * not fetched per row), the item count and fulfilment. The search box narrows
+ * the rows already loaded by order number (the API has no search). The filter
+ * button opens the filters screen (M5S03). `status` (from a dashboard tile) is
+ * the server filter; `fulfillment` (a dashboard tile) narrows the loaded rows
+ * and shows the "Only" pill that clears it.
  *
  * Gates: the rows open the detail, which gates its own actions.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -35,17 +37,20 @@ import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import type { OrderListStatusFilter } from '../../../api/orders';
+import { FilterSlidersIcon } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { listStatusOf, orderStatusLabel } from './mappers';
+import { fulfilmentLabel, listStatusOf, orderStatusLabel } from './mappers';
 import { orderToneColors } from './statusTone';
 import type { OrderListRow, OrderScreenBaseProps, OrdersLiveStateProps, OrdersWarehouseSelector } from './types';
 
 export interface OrdersListScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps, OrdersWarehouseSelector {
   /** The server-side status filter the list was opened with, if any. */
   status?: OrderListStatusFilter | undefined;
+  /** The fulfilment a dashboard tile opened the list with; narrows the loaded rows. */
+  fulfillment?: 'Delivery' | 'Pickup' | undefined;
   /** The loaded rows, page by page. */
   orders?: readonly OrderListRow[] | undefined;
   onLoadMore?: (() => void) | undefined;
@@ -118,6 +123,7 @@ export function OrdersListScreen({
   onBack,
   onNavigate,
   status,
+  fulfillment,
   orders = [],
   warehouseOptions = [],
   selectedWarehouseId,
@@ -132,8 +138,15 @@ export function OrdersListScreen({
 }: OrdersListScreenProps) {
   const isAllWarehouses = scope.warehouseId === undefined;
   const [searchQuery, setSearchQuery] = useState('');
+  const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | 'Delivery' | 'Pickup'>(fulfillment ?? 'All');
+  useEffect(() => {
+    if (fulfillment !== undefined) setFulfillmentFilter(fulfillment);
+  }, [fulfillment]);
+  const dash = t('orders.noValue');
   const query = searchQuery.trim().toLowerCase();
-  const filteredOrders = query === '' ? orders : orders.filter((order) => order.orderNumber.toLowerCase().includes(query));
+  const filteredOrders = orders
+    .filter((order) => fulfillmentFilter === 'All' || order.fulfilment === fulfillmentFilter.toLowerCase())
+    .filter((order) => query === '' || order.orderNumber.toLowerCase().includes(query));
   const view = queryViewState({ isLoading, error, itemCount: orders.length });
 
   const warehouses = warehouseOptions.flatMap((w) =>
@@ -146,8 +159,11 @@ export function OrdersListScreen({
     ...warehouses,
   ];
 
+  const fulfilmentName = fulfilmentLabel(fulfillmentFilter === 'Pickup' ? 'pickup' : 'delivery');
   const countLabel =
-    status === undefined
+    fulfillmentFilter !== 'All'
+      ? t('orders.list.countFulfilment', { count: filteredOrders.length, fulfilment: fulfilmentName })
+      : status === undefined
       ? t(hasMore ? 'orders.list.countMore' : 'orders.list.count', { count: orders.length })
       : t(hasMore ? 'orders.list.countStatusMore' : 'orders.list.countStatus', {
           count: orders.length,
@@ -165,6 +181,8 @@ export function OrdersListScreen({
             <Text style={[styles.statusBadgeText, { color: tone.text }]}>{order.statusLabel}</Text>
           </View>
         </View>
+
+        <Text style={styles.customerNameText}>{dash}</Text>
 
         {warehouseName !== undefined ? (
           <View style={styles.warehouseRow}>
@@ -210,7 +228,15 @@ export function OrdersListScreen({
         </ScrollView>
       ) : null}
 
-      <Text style={styles.orderCountLabel}>{countLabel}</Text>
+      <View style={styles.countRow}>
+        <Text style={styles.orderCountLabel}>{countLabel}</Text>
+        {fulfillmentFilter !== 'All' ? (
+          <TouchableOpacity onPress={() => setFulfillmentFilter('All')} activeOpacity={0.7} style={styles.onlyPill}>
+            <DeliveryTruckSmallIcon />
+            <Text style={styles.onlyPillText}>{t('orders.list.fulfilmentOnly', { fulfilment: fulfilmentName })}</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
 
       <View style={styles.searchBox}>
         <SearchIcon />
@@ -235,6 +261,16 @@ export function OrdersListScreen({
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Orders</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.filterButton}
+            activeOpacity={0.75}
+            onPress={() => onNavigate?.('M5S03', { initialFilters: { warehouseId: selectedWarehouseId } })}
+            accessibilityRole="button"
+            accessibilityLabel={t('orders.list.filter')}
+          >
+            <FilterSlidersIcon />
+          </TouchableOpacity>
         </View>
 
         {view === 'loading' ? (
@@ -297,6 +333,30 @@ const styles = StyleSheet.create({
     ...adminType.title,
     color: adminColors.onBrand,
   },
+  filterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: adminSpacing.sm },
+  onlyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 4,
+    borderRadius: adminRadius.md,
+    gap: 4,
+  },
+  onlyPillText: { ...adminType.caption, fontWeight: '700', color: adminColors.brand },
+  customerNameText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: 6,
+  },
   content: {
     flex: 1,
     paddingHorizontal: adminSpacing.lg,
@@ -337,7 +397,6 @@ const styles = StyleSheet.create({
   orderCountLabel: {
     ...adminType.rowTitle,
     color: adminColors.muted,
-    marginBottom: adminSpacing.sm,
   },
   searchBox: {
     backgroundColor: adminColors.card,

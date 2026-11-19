@@ -445,6 +445,26 @@ function createFakeRepo() {
       if (e !== null) photos = photos.filter((p) => !(p.id === photoId && p.entryId === entryId));
       return photos.length < before;
     },
+    async listCategoriesWithCounts(_db) {
+      const items = Array.from(categories.values()).map((c) => ({
+        ...c,
+        subActivityCount: Array.from(subs.values()).filter((s) => s.categoryKey === c.key).length,
+      }));
+      const activeCategories = items.filter((c) => c.isActive).length;
+      const retiredActivities = items.filter((c) => !c.isActive).length;
+      const totalSubActivities = Array.from(subs.values()).length;
+      const counts = {
+        totalActivityTypes: items.length,
+        activeCategories,
+        totalSubActivities,
+        retiredActivities,
+      };
+      return {
+        items,
+        ...counts,
+        counts,
+      };
+    },
     async findCategory(_db, key) {
       const c = categories.get(key);
       return c === undefined ? null : { ...c };
@@ -815,7 +835,7 @@ describe('farm diary — BR-45 admin-managed taxonomy', () => {
     const farmer = aFarmer();
     const customer = anActor({ userId: newId(), roles: [{ code: RoleCode.CUSTOMER }], customerId: IDS.customer });
     for (const actor of [farmer, customer]) {
-      for (const method of ['POST', 'PATCH']) {
+      for (const method of ['GET', 'POST', 'PATCH']) {
         const err = runPermission('admin.diary_taxonomy.manage', actor, method);
         expect(err).toBeInstanceOf(AppError);
         expect((err as AppError).status).toBe(403);
@@ -884,6 +904,17 @@ describe('farm diary — BR-45 admin-managed taxonomy', () => {
       (await errorOf(admin.createSubActivity(adminScope, 'land_prep', { key: 'sowing.wrong_parent', name: 'x', sortOrder: 1 }))).code,
     ).toBe('VALIDATION_FAILED');
     expect(tx.sql.filter((s) => s.includes('INSERT INTO audit_log'))).toHaveLength(0);
+  });
+
+  it('BR-146: GET /admin/diary/categories returns categories with subActivityCount and summary counts', async () => {
+    const { admin } = setup();
+    const result = await admin.listCategories(adminScope);
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(result.totalActivityTypes).toBe(result.items.length);
+    expect(result.activeCategories).toBe(result.items.filter((c) => c.isActive).length);
+    expect(result.retiredActivities).toBe(result.items.filter((c) => !c.isActive).length);
+    expect(result.counts.totalActivityTypes).toBe(result.totalActivityTypes);
+    expect(result.items[0]).toHaveProperty('subActivityCount');
   });
 });
 

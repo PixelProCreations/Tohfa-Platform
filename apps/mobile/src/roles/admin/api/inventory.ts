@@ -82,10 +82,14 @@ export interface StockLedgerEntryDto {
   balanceAfterKg: QuantityKg;
   refType?: string | null;
   refId?: string | null;
-  /** A user uuid only; the spec carries no name. */
+  /** A user uuid; the name is createdByName. */
   performedBy?: string | null;
   performedAt: string;
   remarks?: string | null;
+  /** BR-130: users.full_name of performedBy; null when the row has no recorder or the user row is gone. */
+  createdByName?: string | null;
+  /** BR-130: the approver's name for a row an approved stock adjustment inserted; null for every other row. */
+  approvedByName?: string | null;
 }
 
 /** docs/openapi.yaml `Allocation`. */
@@ -190,4 +194,24 @@ export function listAllocations(params: ListAllocationsParams = {}, signal?: Abo
     },
     signal,
   );
+}
+
+/**
+ * docs/openapi.yaml `AllocationConfig`: the configured channel percentages
+ * (BR-12). Read only here; the PATCH is not wired in the app.
+ */
+export interface AllocationConfigDto {
+  /** date (YYYY-MM-DD). */
+  effectiveFrom: string;
+  channels: { channel?: AllocationChannel; percentage?: number }[];
+  setBy?: string;
+  setAt?: string;
+}
+
+/**
+ * GET /admin/allocation-config (allocation.channel_percentage.set, Super Admin
+ * only). `cropId` asks for that crop's configuration.
+ */
+export function getAllocationConfig(cropId: string | undefined, signal?: AbortSignal): Promise<AllocationConfigDto> {
+  return adminGet<AllocationConfigDto>('/admin/allocation-config', { cropId }, signal);
 }

@@ -1,3 +1,4 @@
+import { adminColors } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -13,18 +14,24 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#662208',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  orangePrimary: '#E85226',
-  orangeLight: '#FFF1EB',
-  borderCard: '#ECE5DC',
-  greenSuccess: '#166534',
-  greenLight: '#EAF7EE',
-  blueLight: '#EFF6FF',
+  pageBg:       adminColors.canvas,
+  cardBg:       adminColors.card,
+  textHeading:  adminColors.brandDeep,
+  textPrimary:  adminColors.ink,
+  textSecondary:adminColors.muted,
+  textMuted:    adminColors.muted,
+  orangePrimary:adminColors.brand,
+  orangeLight:  adminColors.brandTint,
+  borderCard:   adminColors.border,
+  greenSuccess: adminColors.success.text,
+  greenLight:   adminColors.success.bg,
+  blueLight:    adminColors.info.bg,
+  // Additional for StyleSheet surfaces and SVG icons
+  shadow:       adminColors.shadow,
+  iconStroke:   adminColors.ink,
+  iconMuted:    adminColors.muted,
+  onBrand:      adminColors.onBrand,
+  badgeBg:      adminColors.platform.neutral100,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -33,7 +40,7 @@ function BackChevronIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1F2937"
+        stroke={PALETTE.iconStroke}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -45,13 +52,13 @@ function BackChevronIcon() {
 function SearchIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke="#9CA3AF" strokeWidth="2" />
-      <Path d="M20 20l-3.5-3.5" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="11" cy="11" r="7" stroke={PALETTE.iconMuted} strokeWidth="2" />
+      <Path d="M20 20l-3.5-3.5" stroke={PALETTE.iconMuted} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function PlusIcon({ color = '#FFFFFF' }: { color?: string }) {
+function PlusIcon({ color = PALETTE.onBrand }: { color?: string }) {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
@@ -326,7 +333,7 @@ export function ReportAddFieldScreen({
                     </>
                   ) : (
                     <>
-                      <PlusIcon color="#FFFFFF" />
+                      <PlusIcon color={PALETTE.onBrand} />
                       <Text style={styles.actionBtnAddText}>Add</Text>
                     </>
                   )}
@@ -432,7 +439,7 @@ const styles = StyleSheet.create({
     color: PALETTE.textSecondary,
   },
   catTextActive: {
-    color: '#FFFFFF',
+    color: PALETTE.onBrand,
     fontWeight: '700',
   },
   fieldsContainer: {
@@ -462,7 +469,7 @@ const styles = StyleSheet.create({
     color: PALETTE.textPrimary,
   },
   categoryBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: PALETTE.badgeBg,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -492,7 +499,7 @@ const styles = StyleSheet.create({
   actionBtnAddText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: PALETTE.onBrand,
   },
   actionBtnAdded: {
     backgroundColor: PALETTE.greenLight,
@@ -532,6 +539,6 @@ const styles = StyleSheet.create({
   doneBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: PALETTE.onBrand,
   },
 });

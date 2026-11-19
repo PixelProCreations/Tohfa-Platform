@@ -132,44 +132,44 @@ export function ProductStockDetailScreen({
           <>
           {/* Stock Summary - 3 Separate White Cards */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Stock Summary</Text>
+            <Text style={styles.sectionTitle}>{t('inventory.productDetail.summaryTitle')}</Text>
             <View style={styles.summaryCards}>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryValue}>{formatKg(product.availableGrams)}</Text>
-                <Text style={styles.summaryLabel}>AVAILABLE</Text>
+                <Text style={styles.summaryLabel}>{t('inventory.productDetail.tile.available')}</Text>
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryValue}>{formatKg(product.reservedGrams)}</Text>
-                <Text style={styles.summaryLabel}>RESERVED</Text>
+                <Text style={styles.summaryLabel}>{t('inventory.productDetail.tile.reserved')}</Text>
               </View>
               <View style={styles.summaryCard}>
                 <Text style={styles.summaryValue}>{product.allocatedGrams === null ? t('inventory.noValue') : formatKg(product.allocatedGrams)}</Text>
-                <Text style={styles.summaryLabel}>ALLOCATED</Text>
+                <Text style={styles.summaryLabel}>{t('inventory.productDetail.tile.allocated')}</Text>
               </View>
             </View>
           </View>
 
           {/* Allocation - Single Card Container (matching design mockup exactly) */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Allocation</Text>
+            <Text style={styles.sectionTitle}>{t('inventory.productDetail.allocationTitle')}</Text>
             <View style={styles.allocationSingleCard}>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
-                  <Text style={styles.allocationLabel}>ONLINE</Text>
+                  <Text style={styles.allocationLabel}>{t('inventory.productDetail.channel.online')}</Text>
                   <Text style={styles.allocationValue}>{channel('online')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
-                  <Text style={styles.allocationLabel}>LIVE MARKET</Text>
+                  <Text style={styles.allocationLabel}>{t('inventory.productDetail.channel.liveMarket')}</Text>
                   <Text style={styles.allocationValue}>{channel('liveMarket')}</Text>
                 </View>
               </View>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
-                  <Text style={styles.allocationLabel}>RESERVE</Text>
+                  <Text style={styles.allocationLabel}>{t('inventory.productDetail.channel.reserve')}</Text>
                   <Text style={styles.allocationValue}>{channel('reserve')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
-                  <Text style={styles.allocationLabel}>BUFFER</Text>
+                  <Text style={styles.allocationLabel}>{t('inventory.productDetail.channel.buffer')}</Text>
                   <Text style={styles.allocationValue}>{channel('buffer')}</Text>
                 </View>
               </View>
@@ -178,28 +178,33 @@ export function ProductStockDetailScreen({
 
           {/* Batches & Storage - Single Card Container */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Batches & Storage</Text>
-            <View style={styles.batchesCard}>
+            <Text style={styles.sectionTitle}>{t('inventory.productDetail.batchesTitle')}</Text>
+            <TouchableOpacity
+              style={styles.batchesCard}
+              onPress={() => onNavigate?.('M3S08')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
               <View style={styles.infoRowTop}>
                 <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Active Batches</Text>
+                  <Text style={styles.infoLabel}>{t('inventory.productDetail.activeBatches')}</Text>
                   <Text style={styles.infoValue}>{product.activeBatchCount}</Text>
                 </View>
                 <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Storage Locations</Text>
+                  <Text style={styles.infoLabel}>{t('inventory.productDetail.storageLocations')}</Text>
                   <Text style={styles.infoValue}>{product.storageLocations.length}</Text>
                 </View>
               </View>
               <View style={styles.primaryStorageRow}>
-                <Text style={styles.infoLabel}>Primary Storage</Text>
+                <Text style={styles.infoLabel}>{t('inventory.productDetail.primaryStorage')}</Text>
                 <Text style={styles.primaryStorageValue}>{product.primaryStorage ?? t('inventory.noValue')}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
 
           {/* Actions - White Cards with Orange Border and Centered Brown Text */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Actions</Text>
+            <Text style={styles.sectionTitle}>{t('inventory.productDetail.actionsTitle')}</Text>
             
             <TouchableOpacity 
               style={styles.actionButton}
@@ -207,7 +212,7 @@ export function ProductStockDetailScreen({
               activeOpacity={0.7}
             >
               <ActionBatchesIcon color={adminColors.brandDeep} />
-              <Text style={styles.actionButtonText}>View Batches</Text>
+              <Text style={styles.actionButtonText}>{t('inventory.productDetail.viewBatches')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -216,7 +221,7 @@ export function ProductStockDetailScreen({
               activeOpacity={0.7}
             >
               <ActionLedgerIcon color={adminColors.brandDeep} />
-              <Text style={styles.actionButtonText}>View Ledger</Text>
+              <Text style={styles.actionButtonText}>{t('inventory.productDetail.viewLedger')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -225,7 +230,7 @@ export function ProductStockDetailScreen({
               activeOpacity={0.7}
             >
               <ActionPinIcon color={adminColors.brandDeep} />
-              <Text style={styles.actionButtonText}>View Storage Locations</Text>
+              <Text style={styles.actionButtonText}>{t('inventory.productDetail.viewStorage')}</Text>
             </TouchableOpacity>
 
             {canVerify ? (
@@ -235,7 +240,7 @@ export function ProductStockDetailScreen({
               activeOpacity={0.7}
             >
               <ActionVerifyIcon color={adminColors.brandDeep} />
-              <Text style={styles.actionButtonText}>Verify Stock</Text>
+              <Text style={styles.actionButtonText}>{t('inventory.productDetail.verifyStock')}</Text>
             </TouchableOpacity>
             ) : null}
           </View>

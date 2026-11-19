@@ -1,6 +1,7 @@
 /** The full-page "Filters" view of the schedule list (design: currentView 'filters'). */
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors } from '../../../theme';
 import { ds } from './i18n';
 import { BackArrowIcon, FilterSlidersIcon } from './icons';
@@ -21,7 +22,7 @@ export function FiltersPageView({ filters, onApply, onClear, onBack }: FiltersPa
   const [draft, setDraft] = useState<ScheduleFilters>(filters);
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={filterStyles.filterPageHeader}>
         <TouchableOpacity
           style={filterStyles.filterBackBtn}

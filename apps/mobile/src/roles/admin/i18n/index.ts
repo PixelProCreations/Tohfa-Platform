@@ -33,6 +33,8 @@ import settingsEn from './settings.en.json';
 import settingsTa from './settings.ta.json';
 // Market & Pricing catalogues: one file per screen group so parallel work never edits the same JSON.
 import pricingCeilingEn from './pricingCeiling.en.json';
+import pricingUpdateEn from './pricingUpdate.en.json';
+import pricingUpdateTa from './pricingUpdate.ta.json';
 import pricingCeilingTa from './pricingCeiling.ta.json';
 import pricingEntryEn from './pricingEntry.en.json';
 import pricingEntryTa from './pricingEntry.ta.json';
@@ -75,6 +77,12 @@ import auditsManagementEn from './auditsManagement.en.json';
 import auditsScheduleEn from './auditsSchedule.en.json';
 import auditsDashboardScheduleEn from './auditsDashboardSchedule.en.json';
 import auditsInspectionOverviewEn from './auditsInspectionOverview.en.json';
+import auditsTierConfigEn from './auditsTierConfig.en.json';
+import auditDetailsRecordsEn from './auditDetailsRecords.en.json';
+// Warehouse order workflow screens (stock check, cancel, issue, delivery prep, dispatch) catalogue.
+import ordersWorkflowEn from './ordersWorkflow.en.json';
+// Warehouse order dashboard, detail, status history and ready-for-pickup screens catalogue.
+import ordersLiveEn from './ordersLive.en.json';
 
 export const en = {
   ...errorsEn,
@@ -85,6 +93,7 @@ export const en = {
   ...farmerAppsEn,
   ...farmersEntryEn,
   ...pricingCeilingEn,
+  ...pricingUpdateEn,
   ...pricingRetailEn,
   ...pricingEntryEn,
   ...moreMenuEn,
@@ -104,6 +113,10 @@ export const en = {
   ...auditsScheduleEn,
   ...auditsDashboardScheduleEn,
   ...auditsInspectionOverviewEn,
+  ...auditsTierConfigEn,
+  ...auditDetailsRecordsEn,
+  ...ordersWorkflowEn,
+  ...ordersLiveEn,
 };
 const ta: Record<string, string> = {
   ...errorsTa,
@@ -114,6 +127,7 @@ const ta: Record<string, string> = {
   ...farmerAppsTa,
   ...farmersEntryTa,
   ...pricingCeilingTa,
+  ...pricingUpdateTa,
   ...pricingRetailTa,
   ...pricingEntryTa,
   ...moreMenuTa,

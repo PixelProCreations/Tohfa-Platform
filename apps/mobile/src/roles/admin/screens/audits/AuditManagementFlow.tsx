@@ -5,11 +5,17 @@ import { AuditScheduleAssignmentScreen } from './AuditScheduleAssignmentScreen';
 import { ScheduleAuditFormScreen, type ScheduleAuditDraft } from './ScheduleAuditFormScreen';
 import { AuditScheduleScreen } from '../dashboard/AuditScheduleScreen';
 import { AuditInspectionOverviewScreen } from '../dashboard/AuditInspectionOverviewScreen';
+import { AuditHistoryComplianceScreen } from './AuditHistoryComplianceScreen';
+import { GenerateAuditReportScreen } from './GenerateAuditReportScreen';
+import { AuditReportsTierConfigScreen } from './AuditReportsTierConfigScreen';
+import { AuditReportHistoryScreen } from './AuditReportHistoryScreen';
+import { AuditDetailsFarmerRecordsScreen } from './AuditDetailsFarmerRecordsScreen';
 
 export type AuditSubScreen =
   | 'management'
   | 'scheduleAssignment'
   | 'detailsRecord'
+  | 'detailsFarmerRecords'
   | 'scheduleForm'
   | 'inspectionOverview'
   | 'historyCompliance'
@@ -51,12 +57,18 @@ export function AuditManagementFlow({
   const [detailsReturnScreen, setDetailsReturnScreen] = useState<AuditSubScreen>('management');
   const [scheduleFormReturnScreen, setScheduleFormReturnScreen] = useState<AuditSubScreen>('management');
   const [reportHistoryReturnScreen, setReportHistoryReturnScreen] = useState<AuditSubScreen>('management');
+  const [farmerRecordsReturnScreen, setFarmerRecordsReturnScreen] = useState<AuditSubScreen>('management');
   const [savedDraft, setSavedDraft] = useState<SavedDraft | undefined>(undefined);
 
   const openDetails = (auditId: string, from: AuditSubScreen) => {
     setSelectedAuditId(auditId);
     setDetailsReturnScreen(from);
     setCurrentScreen('detailsRecord');
+  };
+  const openFarmerRecords = (auditId: string, from: AuditSubScreen) => {
+    setSelectedAuditId(auditId);
+    setFarmerRecordsReturnScreen(from);
+    setCurrentScreen('detailsFarmerRecords');
   };
   const openScheduleForm = (auditId: string | undefined, from: AuditSubScreen) => {
     setSelectedAuditId(auditId);
@@ -145,18 +157,59 @@ export function AuditManagementFlow({
         />
       );
 
-    // Second wave: historyCompliance, generateReport, reportsTierConfig and
-    // reportHistory render their screens here once built. Their transitions:
-    //   historyCompliance  -> onBack: management; onSelectAudit: openDetails(audit.id, 'historyCompliance')
-    //   generateReport     -> onBack: management; configure / generate: reportsTierConfig
-    //   reportsTierConfig  -> onBack: generateReport; success: reportHistory (return reportsTierConfig)
-    //   reportHistory      -> onBack: reportHistoryReturnScreen
     case 'historyCompliance':
+      return (
+        <AuditHistoryComplianceScreen
+          can={can}
+          onBack={() => setCurrentScreen('management')}
+          onSelectAudit={(audit) => openFarmerRecords(audit.id, 'historyCompliance')}
+        />
+      );
+
+    // The design's `detailsRecord`. It is a second detail view, kept separate
+    // from the existing `detailsRecord` (AuditScheduleScreen) route so that the
+    // schedule-side entry points behave exactly as they did before.
+    case 'detailsFarmerRecords':
+      return (
+        <AuditDetailsFarmerRecordsScreen
+          key={selectedAuditId ?? ''}
+          auditId={selectedAuditId}
+          can={can}
+          onBack={() => setCurrentScreen(farmerRecordsReturnScreen)}
+          onEditSchedule={() => openScheduleForm(selectedAuditId, 'detailsFarmerRecords')}
+          onReschedule={() => openScheduleForm(selectedAuditId, 'detailsFarmerRecords')}
+          onCancelSchedule={() => setCurrentScreen(farmerRecordsReturnScreen)}
+          onOpenFarmerProfile={onOpenFarmerProfile}
+        />
+      );
+
     case 'generateReport':
+      return (
+        <GenerateAuditReportScreen
+          can={can}
+          auditId={selectedAuditId}
+          onBack={() => setCurrentScreen('management')}
+          onConfigureReport={() => setCurrentScreen('reportsTierConfig')}
+          onGenerateReport={() => setCurrentScreen('reportsTierConfig')}
+        />
+      );
+
     case 'reportsTierConfig':
+      return (
+        <AuditReportsTierConfigScreen
+          can={can}
+          onBack={() => setCurrentScreen('generateReport')}
+          onGenerateReportSuccess={() => {
+            setReportHistoryReturnScreen('reportsTierConfig');
+            setCurrentScreen('reportHistory');
+          }}
+        />
+      );
+
+    // Reachable from the hub and from reportsTierConfig, so back has to return
+    // to whichever one opened it.
     case 'reportHistory':
-      void reportHistoryReturnScreen;
-      return management;
+      return <AuditReportHistoryScreen can={can} onBack={() => setCurrentScreen(reportHistoryReturnScreen)} />;
 
     case 'management':
     default:

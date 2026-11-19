@@ -20,9 +20,11 @@ import { fromPaise, parseMoney, type Money } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
+import { ScopeLevel } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import { logger } from '../../logger.js';
-import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { assertMayGrantRole } from '../../rbac/roleExclusivity.js';
+import { type ResolvedScope } from '../../rbac/requirePermission.js';
 import {
   buildRedactor,
   composeRedactors,
@@ -61,11 +63,14 @@ import type {
   AdminCustomerWalletSummary,
   AdminTicketStatus,
   AdminWalletTransaction,
+  CreateCustomerBody,
+  CreateCustomerResponse,
   ListCustomersQuery,
   PageMeta,
   PageQuery,
   Paged,
   ReplyBody,
+  UpdateCustomerBody,
 } from './customers.schema.js';
 
 /**
@@ -85,6 +90,13 @@ export interface CustomersServiceDeps {
 }
 
 export interface CustomersService {
+  create(scope: ResolvedScope, body: CreateCustomerBody): Promise<CreateCustomerResponse>;
+  update(
+    scope: ResolvedScope,
+    gstScope: ResolvedScope | null,
+    customerId: string,
+    body: UpdateCustomerBody,
+  ): Promise<AdminCustomerDetail>;
   list(scope: ResolvedScope, query: ListCustomersQuery): Promise<AdminCustomerListResponse>;
   get(scope: ResolvedScope, customerId: string): Promise<AdminCustomerDetail>;
   listPurchases(scope: ResolvedScope, customerId: string, page: PageQuery): Promise<Paged<AdminCustomerPurchase>>;
@@ -129,6 +141,7 @@ function listItem(row: CustomerListRow, masked: boolean): AdminCustomerListItem 
     name: row.fullName,
     mobileMasked: maskMobile(row.mobile),
     customerType: row.customerType,
+    businessName: row.businessName,
     status: row.isActive ? 'ACTIVE' : 'INACTIVE',
     isNew: row.isNew,
     preferredWarehouseId: row.preferredWarehouseId,
@@ -332,6 +345,264 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
   }
 
   return {
+    async create(scope, body) {
+      if (body.customerType !== 'RETAIL' && (!body.businessName || body.businessName.trim() === '')) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'Business name is required for B2B and HORECA customers',
+        });
+      }
+
+      return transaction(async (tx) => {
+        if (body.gstin) {
+          const conflict = await repo.findCustomerGstinConflict(tx, body.gstin);
+          if (conflict) {
+            throw new AppError('CONFLICT', {
+              detail: 'A customer with this GSTIN already exists',
+            });
+          }
+        }
+
+        if (body.preferredWarehouseId) {
+          const whValid = await repo.checkWarehouseActive(tx, body.preferredWarehouseId);
+          if (!whValid) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: 'Preferred warehouse not found or inactive',
+            });
+          }
+        }
+
+        const existingUser = await repo.findLiveUserByMobile(tx, body.mobile);
+        let userId: string;
+        let linkedToExistingUser = false;
+
+        if (existingUser !== null) {
+          const existingCustomer = await repo.findLiveCustomerByUserId(tx, existingUser.id);
+          if (existingCustomer !== null) {
+            throw new AppError('CONFLICT', {
+              detail: 'A customer with this mobile number already exists',
+            });
+          }
+
+          const liveRoles = await repo.findLiveRolesByUserId(tx, existingUser.id);
+          const hasFarmer = await repo.hasLiveFarmer(tx, existingUser.id);
+          assertMayGrantRole({ roles: liveRoles, hasLiveFarmer: hasFarmer }, 'CUSTOMER');
+
+          userId = existingUser.id;
+          linkedToExistingUser = true;
+          await repo.assignCustomerRole(tx, userId);
+        } else {
+          userId = await repo.insertUser(tx, {
+            mobile: body.mobile,
+            fullName: body.name,
+            email: body.email,
+          });
+          linkedToExistingUser = false;
+          await repo.assignCustomerRole(tx, userId);
+        }
+
+        const customerCode = await repo.generateCustomerCode(tx);
+        const customerId = await repo.insertCustomer(tx, {
+          userId,
+          customerCode,
+          customerType: body.customerType,
+          businessName: body.businessName ?? null,
+          businessType: body.businessType ?? null,
+          gstin: body.gstin ?? null,
+          preferredWarehouseId: body.preferredWarehouseId ?? null,
+        });
+
+        await repo.createWallet(tx, customerId);
+
+        if (body.address) {
+          const addrId = await repo.insertCustomerAddress(tx, {
+            customerId,
+            ...body.address,
+            isDefault: true,
+          });
+          await repo.setDefaultAddress(tx, customerId, addrId);
+        }
+
+        if (body.businessAddress) {
+          await repo.insertCustomerAddress(tx, {
+            customerId,
+            ...body.businessAddress,
+            isDefault: false,
+          });
+        }
+
+        const auditAction = linkedToExistingUser ? 'customer.role_attached' : 'customer.record.create';
+        const auditMessage = linkedToExistingUser
+          ? `Attached CUSTOMER role to existing user ${userId}`
+          : `Created user ${userId} and customer`;
+
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: auditAction,
+          entityType: 'customer',
+          entityId: customerId,
+          after: {
+            customerId,
+            customerCode,
+            userId,
+            mobile: body.mobile,
+            linkedToExistingUser,
+            message: auditMessage,
+          },
+        });
+
+        const access = customerAccess(scope);
+        const res: CreateCustomerResponse = {
+          id: customerId,
+          customerCode,
+          userId,
+          name: body.name,
+          mobileMasked: maskMobile(body.mobile),
+          customerType: body.customerType,
+          businessName: body.businessName ?? null,
+          businessType: body.businessType ?? null,
+          gstin: body.gstin ?? null,
+          gstVerified: false,
+          preferredWarehouseId: body.preferredWarehouseId ?? null,
+          linkedToExistingUser,
+          createdAt: new Date().toISOString(),
+        };
+
+        if (!access.masked) {
+          res.mobile = body.mobile;
+          res.email = body.email ?? null;
+        }
+
+        return res;
+      });
+    },
+
+    async update(scope, gstScope, customerId, body) {
+      await visibleAccess(db, scope, customerId);
+      const existing = await repo.getCustomerById(db, customerId);
+      if (existing === null) throw customerNotFound();
+
+      if (body.gstin !== undefined) {
+        if (gstScope === null || gstScope.level === ScopeLevel.VIEW) {
+          throw new AppError('FORBIDDEN', {
+            detail: 'Requires customer.gst_details.manage permission to edit GSTIN',
+          });
+        }
+        if (body.gstin !== null) {
+          const conflict = await repo.findCustomerGstinConflict(db, body.gstin, customerId);
+          if (conflict) {
+            throw new AppError('CONFLICT', {
+              detail: 'A customer with this GSTIN already exists',
+            });
+          }
+        }
+      }
+
+      if (body.preferredWarehouseId !== undefined && body.preferredWarehouseId !== null) {
+        const whValid = await repo.checkWarehouseActive(db, body.preferredWarehouseId);
+        if (!whValid) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'Preferred warehouse not found or inactive',
+          });
+        }
+      }
+
+      const resultingType = body.customerType ?? existing.customerType;
+      const resultingBusinessName = body.businessName !== undefined ? body.businessName : existing.businessName;
+      if (resultingType !== 'RETAIL' && (!resultingBusinessName || resultingBusinessName.trim() === '')) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'Business name is required for B2B and HORECA customers',
+        });
+      }
+
+      return transaction(async (tx) => {
+        if (body.name !== undefined || body.email !== undefined) {
+          await repo.updateUser(tx, existing.userId, {
+            fullName: body.name,
+            email: body.email,
+          });
+        }
+
+        let gstVerified: boolean | undefined = undefined;
+        if (body.gstin !== undefined && body.gstin !== existing.gstin) {
+          gstVerified = false;
+        }
+
+        await repo.updateCustomer(tx, customerId, {
+          customerType: body.customerType,
+          businessName: body.businessName,
+          businessType: body.businessType,
+          gstin: body.gstin,
+          gstVerified,
+          preferredWarehouseId: body.preferredWarehouseId,
+        });
+
+        if (body.address) {
+          const addrId = await repo.insertCustomerAddress(tx, {
+            customerId,
+            ...body.address,
+            isDefault: true,
+          });
+          await repo.setDefaultAddress(tx, customerId, addrId);
+        }
+
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'customer.profile.edit',
+          entityType: 'customer',
+          entityId: customerId,
+          before: {
+            name: existing.fullName,
+            customerType: existing.customerType,
+            businessName: existing.businessName,
+            gstin: existing.gstin,
+            gstVerified: existing.gstVerified,
+          },
+          after: {
+            name: body.name ?? existing.fullName,
+            customerType: resultingType,
+            businessName: resultingBusinessName,
+            gstin: body.gstin !== undefined ? body.gstin : existing.gstin,
+            gstVerified: gstVerified !== undefined ? gstVerified : existing.gstVerified,
+          },
+        });
+
+        const updated = await repo.findCustomer(tx, customerId, customerAccess(scope), await windowDays(tx));
+        if (updated === null) throw customerNotFound();
+        const wallet = await repo.findWallet(tx, customerId);
+
+        const access = customerAccess(scope);
+        const detail: AdminCustomerDetail = {
+          id: updated.id,
+          customerCode: updated.customerCode,
+          name: updated.fullName,
+          mobileMasked: maskMobile(updated.mobile),
+          customerType: updated.customerType,
+          businessName: updated.businessName,
+          businessType: updated.businessType,
+          gstin: updated.gstin,
+          gstVerified: updated.gstVerified,
+          status: updated.isActive ? 'ACTIVE' : 'INACTIVE',
+          isNew: updated.isNew,
+          preferredWarehouseId: updated.preferredWarehouseId,
+          totalOrders: updated.totalOrders,
+          lifetimeValue: parseMoney(updated.lifetimeValue),
+          walletBalance: parseMoney(wallet?.ledgerBalance ?? '0'),
+          lastOrderAt: updated.lastOrderAt,
+          lastActivityAt: updated.lastActivityAt,
+          piiMasked: access.masked,
+          createdAt: updated.createdAt,
+        };
+        if (!access.masked) {
+          detail.mobile = updated.mobile;
+          detail.email = updated.email;
+          detail.addresses = await repo.listAddresses(tx, customerId);
+        }
+        return detail;
+      });
+    },
+
     async list(scope, query) {
       const access = customerAccess(scope);
       const days = await windowDays(db);
@@ -379,6 +650,9 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
         mobileMasked: maskMobile(row.mobile),
         customerType: row.customerType,
         businessName: row.businessName,
+        businessType: row.businessType,
+        gstin: row.gstin,
+        gstVerified: row.gstVerified,
         status: row.isActive ? 'ACTIVE' : 'INACTIVE',
         isNew: row.isNew,
         preferredWarehouseId: row.preferredWarehouseId,

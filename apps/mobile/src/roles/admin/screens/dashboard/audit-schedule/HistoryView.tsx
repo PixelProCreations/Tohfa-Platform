@@ -3,7 +3,8 @@
  * card. Rows come from GET /admin/audits, newest first, within the chosen year.
  */
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { AuditSummaryDto } from '../../../api/audits';
 import { adminColors, adminSpacing } from '../../../theme';
 import { formatAdminDay } from '../../../utils/datetime';
@@ -141,7 +142,7 @@ export function HistoryView(props: HistoryViewProps) {
 
   return (
     <SafeAreaView style={sharedStyles.rootOrange}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.header}>
         <View style={styles.headerTopRow}>

@@ -28,7 +28,7 @@ import { createInventoryOverviewService } from './inventory-overview.service.js'
 const PERMISSION = 'inventory.batch.view';
 
 const OVERVIEW_KEYS = [
-  'lowStockCount', 'nearExpiryBatchCount', 'pendingAdjustmentCount', 'thresholds', 'unreconciledVerificationCount',
+  'criticalStockCount', 'lowStockCount', 'nearExpiryBatchCount', 'pendingAdjustmentCount', 'thresholds', 'unreconciledVerificationCount',
   'varianceUnreconciledVerificationCount', 'warehouses',
 ].sort();
 
@@ -67,10 +67,11 @@ describe('inventory overview schemas', () => {
       warehouses: [{ warehouseId: newId(), name: 'Ooty', availableQtyKg: '12.500' }],
       nearExpiryBatchCount: 1,
       lowStockCount: null,
+      criticalStockCount: null,
       pendingAdjustmentCount: 0,
       unreconciledVerificationCount: 2,
       varianceUnreconciledVerificationCount: 2,
-      thresholds: { nearExpiryDays: 7, lowStockThresholdKg: null },
+      thresholds: { nearExpiryDays: 7, lowStockThresholdKg: null, criticalStockThresholdKg: null },
     };
     expect(inventoryOverviewResponse.safeParse(good).success).toBe(true);
     expect(inventoryOverviewResponse.safeParse({ ...good, disputedVerificationCount: 0 }).success).toBe(false);
@@ -88,7 +89,7 @@ describe('inventory overview service (fake repo)', () => {
     const scopes: ResolvedScope[] = [];
     return {
       scopes,
-      getThresholds: async () => ({ expiryDays: 7, capacityPercent: '90', lowStockKg: '50' }),
+      getThresholds: async () => ({ expiryDays: 7, capacityPercent: '90', lowStockKg: '50', criticalStockKg: '10' }),
       warehouseStock: async (_db, scope) => {
         scopes.push(scope);
         return [{ warehouseId: newId(), name: 'Ooty', availableQtyKg: '105.000' }];
@@ -101,6 +102,10 @@ describe('inventory overview service (fake repo)', () => {
         scopes.push(scope);
         return { nearExpiryBatches: 1, lowStockGroups: 3 };
       },
+      criticalStockCount: async (_db, scope) => {
+        scopes.push(scope);
+        return 1;
+      },
       ...overrides,
     };
   }
@@ -110,34 +115,43 @@ describe('inventory overview service (fake repo)', () => {
     const scope = subScope(newId());
     const out = await createInventoryOverviewService({ repo, db: {} as Executor }).get(scope);
     expect(Object.keys(out).sort()).toEqual(OVERVIEW_KEYS);
-    expect(Object.keys(out.thresholds).sort()).toEqual(['lowStockThresholdKg', 'nearExpiryDays']);
+    expect(Object.keys(out.thresholds).sort()).toEqual(['criticalStockThresholdKg', 'lowStockThresholdKg', 'nearExpiryDays']);
     expect(Object.keys(out.warehouses[0]!).sort()).toEqual(['availableQtyKg', 'name', 'warehouseId']);
     expect(out).toMatchObject({
       nearExpiryBatchCount: 1,
       lowStockCount: 3,
+      criticalStockCount: 1,
       pendingAdjustmentCount: 2,
       unreconciledVerificationCount: 2,
       varianceUnreconciledVerificationCount: 1,
-      thresholds: { nearExpiryDays: 7, lowStockThresholdKg: '50' },
+      thresholds: { nearExpiryDays: 7, lowStockThresholdKg: '50', criticalStockThresholdKg: '10' },
     });
-    expect(repo.scopes).toHaveLength(3);
+    expect(repo.scopes).toHaveLength(4);
     for (const passed of repo.scopes) expect(passed).toBe(scope);
     expect(keysMatching(FORBIDDEN_KEY, out)).toEqual([]);
   });
 
   it('BR-116c: an unusable near-expiry or low-stock threshold reports that count as null, never a hard-coded default', async () => {
-    const repo = fakeRepo({ getThresholds: async () => ({ expiryDays: null, capacityPercent: null, lowStockKg: null }) });
+    const repo = fakeRepo({
+      getThresholds: async () => ({ expiryDays: null, capacityPercent: null, lowStockKg: null, criticalStockKg: null }),
+      criticalStockCount: async () => null,
+    });
     const out = await createInventoryOverviewService({ repo, db: {} as Executor }).get(allScope());
     expect(out.nearExpiryBatchCount).toBeNull();
     expect(out.lowStockCount).toBeNull();
-    expect(out.thresholds).toEqual({ nearExpiryDays: null, lowStockThresholdKg: null });
+    expect(out.criticalStockCount).toBeNull();
+    expect(out.thresholds).toEqual({ nearExpiryDays: null, lowStockThresholdKg: null, criticalStockThresholdKg: null });
     // The threshold-free figures are still reported.
     expect(out.pendingAdjustmentCount).toBe(2);
 
-    const onlyExpiry = fakeRepo({ getThresholds: async () => ({ expiryDays: 3, capacityPercent: null, lowStockKg: null }) });
+    const onlyExpiry = fakeRepo({
+      getThresholds: async () => ({ expiryDays: 3, capacityPercent: null, lowStockKg: null, criticalStockKg: null }),
+      criticalStockCount: async () => null,
+    });
     const partial = await createInventoryOverviewService({ repo: onlyExpiry, db: {} as Executor }).get(allScope());
     expect(partial.nearExpiryBatchCount).toBe(1);
     expect(partial.lowStockCount).toBeNull();
+    expect(partial.criticalStockCount).toBeNull();
   });
 
   it('BR-116f (BR-107): no statement the overview repo issues names DISPUTED, and the counts name RECORDED', async () => {
@@ -155,7 +169,7 @@ describe('inventory overview service (fake repo)', () => {
     const out = await createInventoryOverviewService({ repo: inventoryOverviewRepo, db }).get(allScope());
     expect(statements.length).toBeGreaterThan(0);
     // A handful of aggregate statements, not one per warehouse or batch.
-    expect(statements.length).toBeLessThanOrEqual(6);
+    expect(statements.length).toBeLessThanOrEqual(8);
     for (const sql of statements) expect(sql).not.toMatch(/DISPUTED/i);
     expect(statements.some((sql) => /v\.status = 'RECORDED'/.test(sql))).toBe(true);
     expect(JSON.stringify(out)).not.toMatch(/DISPUTED/i);
@@ -327,7 +341,7 @@ describeIfDatabase('inventory overview (PostgreSQL, rolled back)', () => {
       await setConfig(tx, 'alert_batch_expiry_days', 7);
       await setConfig(tx, 'low_stock_threshold_kg', 50);
       const wide = await overview(tx, subScope(wh.ooty));
-      expect(wide.thresholds).toEqual({ nearExpiryDays: 7, lowStockThresholdKg: '50' });
+      expect(wide.thresholds).toEqual({ nearExpiryDays: 7, lowStockThresholdKg: '50', criticalStockThresholdKg: '10' });
 
       // Narrow the horizon to 2 days: Ooty's b2 (3 days out) is no longer near expiry.
       await setConfig(tx, 'alert_batch_expiry_days', 2);
@@ -336,14 +350,14 @@ describeIfDatabase('inventory overview (PostgreSQL, rolled back)', () => {
       const narrow = await overview(tx, subScope(wh.ooty));
       expect(wide.nearExpiryBatchCount! - narrow.nearExpiryBatchCount!).toBe(1);
       expect(wide.lowStockCount! - narrow.lowStockCount!).toBe(1);
-      expect(narrow.thresholds).toEqual({ nearExpiryDays: 2, lowStockThresholdKg: '15' });
+      expect(narrow.thresholds).toEqual({ nearExpiryDays: 2, lowStockThresholdKg: '15', criticalStockThresholdKg: '10' });
 
       await setConfig(tx, 'alert_batch_expiry_days', 'seven');
       await tx.query(`DELETE FROM system_config WHERE key = 'low_stock_threshold_kg'`);
       const unusable = await overview(tx, subScope(wh.ooty));
       expect(unusable.nearExpiryBatchCount).toBeNull();
       expect(unusable.lowStockCount).toBeNull();
-      expect(unusable.thresholds).toEqual({ nearExpiryDays: null, lowStockThresholdKg: null });
+      expect(unusable.thresholds).toEqual({ nearExpiryDays: null, lowStockThresholdKg: null, criticalStockThresholdKg: '10' });
       expect(unusable.pendingAdjustmentCount).toBe(wide.pendingAdjustmentCount);
     });
   });

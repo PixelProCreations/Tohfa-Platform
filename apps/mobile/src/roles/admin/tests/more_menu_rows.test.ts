@@ -43,14 +43,17 @@ const GATED: Array<[MoreRowId, string]> = [
   ['inputs', 'inputs.catalog.manage'],
   ['pricing', 'pricing.fair_price.view'],
   ['disputes', 'dispute.farmer.mediate'],
+  ['allocation', 'allocation.dashboard.view'],
+  ['sales_orders', 'order.list.view_all'],
   ['customers', 'customer.list.view'],
   ['reports', 'report.export.file'],
+  ['staff', 'admin.staff.list_view'],
   ['community', 'farmer.learning.view'],
   ['notifications', 'notification.own.view'],
 ];
 
 describe('more menu rows: table', () => {
-  it('has the fifteen rows in the design order', () => {
+  it('has the eighteen rows in the design order', () => {
     expect(ALL_IDS).toEqual([
       'farmers',
       'produce',
@@ -59,9 +62,12 @@ describe('more menu rows: table', () => {
       'inputs',
       'pricing',
       'disputes',
+      'allocation',
+      'sales_orders',
       'customers',
       'reports',
       'workforce',
+      'staff',
       'community',
       'switch_role',
       'notifications',
@@ -149,8 +155,11 @@ describe('more menu rows: visibility', () => {
       'inputs',
       'pricing',
       'disputes',
+      'allocation',
+      'sales_orders',
       'customers',
       'reports',
+      'staff',
       'community',
       'notifications',
       'settings',

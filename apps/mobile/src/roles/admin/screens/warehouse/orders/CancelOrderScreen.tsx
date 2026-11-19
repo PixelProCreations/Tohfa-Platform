@@ -1,10 +1,21 @@
 /**
  * Cancel Order — pick a reason, confirm, and see the order cancelled.
  *
- * Gates: docs/rbac.json has NO code for an admin cancelling a customer order,
- * so the cancel action is deliberately left ungated (a specification gap the
- * orchestrator records). There is no warehouse selector: the screen acts on
- * the order in focus, which already belongs to the viewer's warehouse scope.
+ * Gates (docs/rbac.json; the server re-checks everything, CLAUDE.md 2.1):
+ *   - Both "Cancel Order" buttons (the one that opens the confirm step and the
+ *     one that performs the cancel) render only with `order.cancel`.
+ *   There is no warehouse selector: the screen acts on the order in focus,
+ *   which already belongs to the viewer's warehouse scope.
+ *
+ * Live data: the order number, customer and total are GET
+ * /admin/orders/{orderId}. "Cancel Order" on the confirm step is POST
+ * /admin/orders/{id}/cancel (BR-35, BR-151) with an Idempotency-Key, through
+ * the LiveOrderAction the flow supplies (useOrdersData.ts, same as Packing).
+ * The cancelled result is reached ONLY after the server answered 2xx; a
+ * failure stays on the confirm step with the error shown. The result card
+ * shows the order's real status as the server last sent it. The reason list is
+ * the design's; the spec has no cancellation-reason enum, so the reason
+ * the admin picked is sent as free text (1 to 500 characters).
  */
 // Design id: M5S17 (M5S17_CancelOrder)
 import React, { useState } from 'react';
@@ -20,26 +31,34 @@ import {
   adminShadow,
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
-import { SAMPLE_CANCELLATION } from './fixtures';
-import type { OrderScreenBaseProps } from './types';
+import type { CancelOrderBody } from '../../../api/orders';
+import { adminErrorKey } from '../../../api/errors';
+import { t, type TranslationKey } from '../../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { orderStatusLabel } from './mappers';
+import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
+import type { LiveOrderAction } from './useOrdersData';
 
 /** CancelOrderScreen steps: reason form, confirmation, cancelled result. */
 export type CancelOrderStep = 'form' | 'confirm' | 'cancelled';
 
-export interface CancelOrderScreenProps extends OrderScreenBaseProps {
+export interface CancelOrderScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
   initialStep?: CancelOrderStep | undefined;
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
+  /** POST .../cancel. */
+  cancel?: LiveOrderAction<CancelOrderBody> | undefined;
 }
 
-const REASON_PLACEHOLDER = 'Select cancellation reason';
-
-const REASONS = [
-  'Customer Requested Cancellation',
-  'Item Out of Stock',
-  'Delivery Unserviceable',
-  'Duplicate Order',
-  'Payment Failed',
-  'Customer Unreachable',
-  'Other Operational Reason',
+const REASONS: readonly TranslationKey[] = [
+  'orders.cancel.reason.customerRequested',
+  'orders.cancel.reason.outOfStock',
+  'orders.cancel.reason.unserviceable',
+  'orders.cancel.reason.duplicate',
+  'orders.cancel.reason.paymentFailed',
+  'orders.cancel.reason.unreachable',
+  'orders.cancel.reason.other',
 ];
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -156,40 +175,85 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
   );
 }
 
+/** A refused or failed write, worded for warehouse staff (adminErrorKey), never the server's detail. */
+function WriteError({ error }: { error: unknown }) {
+  if (error === null || error === undefined) return null;
+  return (
+    <View style={styles.errorBox}>
+      <Text style={styles.errorText}>{t(adminErrorKey(error))}</Text>
+    </View>
+  );
+}
+
 export function CancelOrderScreen({
+  can,
   onBack,
   onNavigate,
-  orderId = 'ORD-1024',
+  order,
+  cancel,
   initialStep = 'form',
+  isLoading = false,
+  error,
+  onRetry,
 }: CancelOrderScreenProps) {
   const [step, setStep] = useState<CancelOrderStep>(initialStep);
-  const [reason, setReason] = useState(REASON_PLACEHOLDER);
+  const canCancel = can('order.cancel');
+  // True only after POST .../cancel answered 2xx from this screen.
+  const [cancelledHere, setCancelledHere] = useState(false);
+  const [reason, setReason] = useState<TranslationKey | null>(null);
   const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
+  // The reason as the admin read it; null until one is picked.
+  const reasonText = reason === null ? null : t(reason);
 
-  // ─── STEP 3: Order Cancelled ─────────────────────────────────────────────
-  if (step === 'cancelled') {
+  if (view !== 'ready' || order === undefined || cancel === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <Header title="Order Cancelled" onBack={() => onNavigate?.('M5S01')} />
+          <Header title={t('orders.cancel.title')} onBack={onBack} />
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+            <AdminEmptyState title={t('orders.empty.notFound')} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── STEP 3: Order Cancelled ─────────────────────────────────────────────
+  // Only once the server cancelled it: this screen got the 2xx (cancelledHere,
+  // set in onDone below), or the order itself already reads CANCELLED. A deep
+  // link with initialStep 'cancelled' for an order that is not cancelled falls
+  // through to the form instead of claiming a cancellation nobody made.
+  if (step === 'cancelled' && (cancelledHere || order.status === 'cancelled')) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Header title={t('orders.cancel.cancelledTitle')} onBack={() => onNavigate?.('M5S01')} />
 
           <View style={styles.contentPacked}>
             <View style={styles.heroContainer}>
               <View style={styles.cancelCircleBadge}>
                 <BigCrossCircleIcon />
               </View>
-              <Text style={styles.heroTitle}>Order Cancelled</Text>
+              <Text style={styles.heroTitle}>{t('orders.cancel.cancelledTitle')}</Text>
             </View>
 
             <View style={styles.card}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
-                  <Text style={styles.fieldLabel}>Order</Text>
-                  <Text style={styles.fieldValue}>{orderId}</Text>
+                  <Text style={styles.fieldLabel}>{t('orders.cancel.field.order')}</Text>
+                  <Text style={styles.fieldValue}>{order.orderNumber}</Text>
                 </View>
                 <View style={styles.col}>
-                  <Text style={styles.fieldLabel}>Status</Text>
-                  <Text style={styles.fieldValue}>Cancelled</Text>
+                  <Text style={styles.fieldLabel}>{t('orders.cancel.field.status')}</Text>
+                  <Text style={styles.fieldValue}>
+                    {/* The refetch of the order may lag the 2xx by a moment; the server just said CANCELLED. */}
+                    {cancelledHere ? orderStatusLabel('cancelled') : order.statusLabel}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -198,7 +262,7 @@ export function CancelOrderScreen({
           <View style={styles.bottomBar}>
             <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={() => onNavigate?.('M5S01')}>
               <DocumentIcon />
-              <Text style={styles.primaryBtnText}>Back to Orders</Text>
+              <Text style={styles.primaryBtnText}>{t('orders.cancel.backToOrders')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -207,41 +271,52 @@ export function CancelOrderScreen({
   }
 
   // ─── STEP 2: Confirm Cancellation ─────────────────────────────────────────
-  if (step === 'confirm') {
+  // No reason yet (a deep link straight to the confirm step): back to the form, which asks for one.
+  if (step === 'confirm' && reasonText !== null) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <Header title="Confirm Cancellation" onBack={() => setStep('form')} />
+          <Header title={t('orders.cancel.confirmTitle')} onBack={() => setStep('form')} />
 
           <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
             <View style={styles.confirmPromptBox}>
               <WarningTriangleIcon />
-              <Text style={styles.confirmPromptText}>Cancel this order?</Text>
+              <Text style={styles.confirmPromptText}>{t('orders.cancel.prompt')}</Text>
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.fieldLabel}>Order</Text>
-              <Text style={styles.fieldValueBold}>{orderId}</Text>
+              <Text style={styles.fieldLabel}>{t('orders.cancel.field.order')}</Text>
+              <Text style={styles.fieldValueBold}>{order.orderNumber}</Text>
             </View>
 
             <View style={styles.dangerAlertBox}>
               <InfoCircleDangerIcon />
-              <Text style={styles.dangerAlertText}>
-                This action cannot be undone. No refund logic is created here unless the payment/refund service supports it.
-              </Text>
+              <Text style={styles.dangerAlertText}>{t('orders.cancel.irreversible')}</Text>
             </View>
 
             <View style={styles.scrollTail} />
           </ScrollView>
 
           <View style={styles.bottomBarStacked}>
-            <TouchableOpacity style={styles.confirmCancelBtn} activeOpacity={0.8} onPress={() => setStep('cancelled')}>
-              <CheckmarkIcon />
-              <Text style={styles.primaryBtnText}>Cancel Order</Text>
-            </TouchableOpacity>
+            <WriteError error={cancel.error} />
+            {canCancel && reasonText !== null ? (
+              <TouchableOpacity
+                testID="orders.cancel.submit"
+                style={[styles.confirmCancelBtn, cancel.isPending && styles.primaryBtnPending]}
+                activeOpacity={0.8}
+                disabled={cancel.isPending}
+                onPress={() => cancel.run({ reason: reasonText }, () => {
+                  setCancelledHere(true);
+                  setStep('cancelled');
+                })}
+              >
+                <CheckmarkIcon />
+                <Text style={styles.primaryBtnText}>{cancel.isPending ? t('orders.action.saving') : t('orders.cancel.confirm')}</Text>
+              </TouchableOpacity>
+            ) : null}
 
-            <TouchableOpacity style={styles.keepOrderBtn} activeOpacity={0.8} onPress={() => setStep('form')}>
-              <Text style={styles.keepOrderBtnText}>Keep Order</Text>
+            <TouchableOpacity style={styles.keepOrderBtn} activeOpacity={0.8} disabled={cancel.isPending} onPress={() => setStep('form')}>
+              <Text style={styles.keepOrderBtnText}>{t('orders.cancel.keep')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -253,32 +328,32 @@ export function CancelOrderScreen({
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <Header title="Cancel Order" onBack={onBack} />
+        <Header title={t('orders.cancel.title')} onBack={onBack} />
 
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{orderId}</Text>
+          <Text style={styles.subtitleText}>{order.orderNumber}</Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
+          <Text style={styles.sectionTitle}>{t('orders.cancel.summary')}</Text>
           <View style={styles.card}>
             <View style={styles.twoColRow}>
               <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Customer</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_CANCELLATION.customer}</Text>
+                <Text style={styles.fieldLabel}>{t('orders.cancel.field.customer')}</Text>
+                <Text style={styles.fieldValue}>{order.buyerName}</Text>
               </View>
               <View style={styles.col}>
-                <Text style={styles.fieldLabel}>Total</Text>
-                <Text style={styles.fieldValue}>{SAMPLE_CANCELLATION.total}</Text>
+                <Text style={styles.fieldLabel}>{t('orders.cancel.field.total')}</Text>
+                <Text style={styles.fieldValue}>{order.totals.totalLabel}</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Cancellation Reason</Text>
-          <TouchableOpacity style={styles.dropdownBox} activeOpacity={0.7} onPress={() => setShowReasonPicker(true)}>
+          <Text style={styles.sectionTitle}>{t('orders.cancel.reasonSection')}</Text>
+          <TouchableOpacity testID="orders.cancel.reasonPicker" style={styles.dropdownBox} activeOpacity={0.7} onPress={() => setShowReasonPicker(true)}>
             <View style={styles.dropdownContent}>
-              <Text style={styles.dropdownLabel}>REASON</Text>
-              <Text style={styles.dropdownValue}>{reason}</Text>
+              <Text style={styles.dropdownLabel}>{t('orders.cancel.reasonCaption')}</Text>
+              <Text style={styles.dropdownValue}>{reason === null ? t('orders.cancel.reasonPlaceholder') : t(reason)}</Text>
             </View>
             <ChevronDownIcon />
           </TouchableOpacity>
@@ -286,12 +361,24 @@ export function CancelOrderScreen({
           <View style={styles.scrollTail} />
         </ScrollView>
 
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={() => setStep('confirm')}>
-            <CancelCircleIcon />
-            <Text style={styles.primaryBtnText}>Cancel Order</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Hidden without order.cancel; disabled until a reason is picked (the server needs one, 1 to 500 characters). */}
+        {canCancel ? (
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              testID="orders.cancel.open"
+              style={[styles.primaryBtn, reasonText === null && styles.primaryBtnPending]}
+              activeOpacity={0.8}
+              disabled={reasonText === null}
+              onPress={() => {
+                cancel.reset();
+                setStep('confirm');
+              }}
+            >
+              <CancelCircleIcon />
+              <Text style={styles.primaryBtnText}>{t('orders.cancel.confirm')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         <Modal
           visible={showReasonPicker}
@@ -301,17 +388,18 @@ export function CancelOrderScreen({
         >
           <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowReasonPicker(false)}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Select Cancellation Reason</Text>
+              <Text style={styles.modalTitle}>{t('orders.cancel.reasonPickerTitle')}</Text>
               {REASONS.map((r) => (
                 <TouchableOpacity
                   key={r}
+                  testID={r}
                   style={[styles.modalOption, reason === r && styles.modalOptionSelected]}
                   onPress={() => {
                     setReason(r);
                     setShowReasonPicker(false);
                   }}
                 >
-                  <Text style={[styles.modalOptionText, reason === r && styles.modalOptionTextSelected]}>{r}</Text>
+                  <Text style={[styles.modalOptionText, reason === r && styles.modalOptionTextSelected]}>{t(r)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -436,6 +524,15 @@ const styles = StyleSheet.create({
     ...adminShadow.md,
   },
   primaryBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
+  primaryBtnPending: { backgroundColor: adminColors.brandTint },
+  errorBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
+  },
+  errorText: { ...adminType.body, color: adminColors.danger.text },
   confirmCancelBtn: {
     backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,

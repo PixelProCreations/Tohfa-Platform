@@ -6,18 +6,22 @@
  *   GET  /retail-prices          pricing.retail_price.view  (BR-09)
  *   POST /retail-prices          pricing.retail_price.set   (SUPER_ADMIN only, BR-09)
  *
- * Deliberately absent: POST /fair-prices and POST /fair-prices/bulk. Setting
- * and bulk-updating a ceiling is Super Admin price management, whose screens
- * the team is still designing; a client for them belongs with those screens.
+ *   POST /fair-prices            pricing.fair_price.set         (BR-08)
+ *   POST /fair-prices/bulk       pricing.fair_price.bulk_update (BR-08)
+ *
+ * The two ceiling writes are SUPER_ADMIN only in docs/rbac.json; the screens
+ * that use them (Update Fair Price, Bulk Price Update) now exist, so the
+ * clients live here with the reads rather than beside one screen.
  *
  * Every list is cursor paged (`{ items, page }`), default 20, max 100.
  * Money arrives as a 2-dp decimal string (`Money`) and is never turned into a
  * float here (root CLAUDE.md 2.2).
  *
- * Idempotency: the spec declares a required Idempotency-Key on
- * POST /retail-prices, so the client always sends one. As of this writing the
- * pricing route does not read it (pricing.routes.ts has no idempotency
- * handling); sending it costs nothing and is correct once the server honours it.
+ * Idempotency: the spec declares a required Idempotency-Key on POST
+ * /retail-prices, POST /fair-prices and POST /fair-prices/bulk, so the client
+ * always sends one. As of this writing the pricing route does not read it
+ * (pricing.routes.ts has no idempotency handling); sending it costs nothing
+ * and is correct once the server honours it.
  *
  * No UI imports, so any admin area can reuse it.
  */
@@ -55,6 +59,29 @@ export interface FairPriceDto {
 }
 
 export type FairPricePage = Page<FairPriceDto>;
+
+/**
+ * docs/openapi.yaml `FairPriceCreate`. Build it with buildFairPriceBody
+ * (pricingMappers.ts) so the amount is never a float (root CLAUDE.md 2.2).
+ */
+export interface FairPriceCreateBody {
+  cropId: string;
+  grade: PricingGrade;
+  /** > 0, at most 2 decimals. BR-07: every listing is bounded by this. */
+  ceilingPrice: Money | string;
+  /** Server default WEEKLY (BR-08). */
+  frequency?: FairPriceFrequency | undefined;
+  /** YYYY-MM-DD. Posting a window closes the open one the day before (BR-08). */
+  effectiveFrom: string;
+  /** At most 300 characters. */
+  notes?: string | undefined;
+}
+
+/** docs/openapi.yaml: the 200 body of POST /fair-prices/bulk. */
+export interface BulkFairPriceResult {
+  applied: number;
+  items: FairPriceDto[];
+}
 
 /** docs/openapi.yaml `RetailPrice`. */
 export interface RetailPriceDto {
@@ -119,6 +146,9 @@ export interface CreateRetailPriceBody {
 /** API validation limit (pricing.schema.ts), not a business threshold. */
 export const PRICING_LIST_MAX_LIMIT = 100;
 
+/** docs/openapi.yaml `maxItems` on POST /fair-prices/bulk: a request-size limit, not a business threshold. */
+export const FAIR_PRICE_BULK_MAX_ITEMS = 500;
+
 /** Problem codes these routes document or the service throws. */
 export const ERROR_CODES: readonly (GenericProblemCode | ErrorCode)[] = [
   'UNAUTHENTICATED',
@@ -178,6 +208,27 @@ export function listRetailPrices(params: ListRetailPricesParams = {}, signal?: A
  */
 export function createRetailPrice(body: CreateRetailPriceBody, idempotencyKey: string): Promise<RetailPriceDto> {
   return adminPost<RetailPriceDto>('/retail-prices', body, { idempotencyKey });
+}
+
+/**
+ * Sets a fair price ceiling (201 with the FairPrice). BR-08: SUPER_ADMIN only,
+ * so anyone else is 403; an overlapping window for the same crop and grade is
+ * 409, and a malformed amount or date 422.
+ */
+export function createFairPrice(body: FairPriceCreateBody, idempotencyKey: string): Promise<FairPriceDto> {
+  return adminPost<FairPriceDto>('/fair-prices', body, { idempotencyKey });
+}
+
+/**
+ * Bulk ceiling update (200 with `applied` and the stored rows). All-or-nothing:
+ * one invalid row rejects the whole batch and the server reports it per index
+ * in `Problem.errors`. BR-08: SUPER_ADMIN only (pricing.fair_price.bulk_update).
+ */
+export function bulkUpsertFairPrices(
+  items: readonly FairPriceCreateBody[],
+  idempotencyKey: string,
+): Promise<BulkFairPriceResult> {
+  return adminPost<BulkFairPriceResult>('/fair-prices/bulk', { items }, { idempotencyKey });
 }
 
 export interface PriceAboveCeilingDetails {

@@ -7,7 +7,7 @@
  * is used instead; the sheet's 24px top radius is adminSpacing.xl.
  */
 import { StyleSheet } from 'react-native';
-import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { ADMIN_BUTTON_HEIGHT, adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { PricingTone } from './pricingLogic';
 
 /** Header icon button size, built from the spacing scale (36). */
@@ -393,5 +393,199 @@ export const styles = StyleSheet.create({
   resetBtnText: {
     ...adminType.rowTitle,
     color: adminColors.ink,
+  },
+
+  // Super Admin & Farmer Admin ceiling styles
+  saKpiRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  saKpiCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.xs,
+    alignItems: 'center',
+  },
+  saKpiValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  saKpiLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs / 2,
+  },
+  saFilterCountText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
+  },
+  saFilterRowBoxes: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  saFilterBoxBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.sm,
+  },
+  saFilterBoxText: {
+    ...adminType.caption,
+    color: adminColors.ink,
+  },
+  saCropCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  saCropCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: adminSpacing.sm,
+    borderBottomWidth: 0.5,
+    borderBottomColor: adminColors.border,
+    marginBottom: adminSpacing.sm,
+  },
+  saCropTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  saCropGradeSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 1,
+  },
+  saCropGradesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  saGradeColWithBorder: {
+    flex: 1,
+    alignItems: 'flex-start',
+    borderRightWidth: 1,
+    borderRightColor: adminColors.border,
+    paddingRight: adminSpacing.sm,
+  },
+  saBadgeColRight: {
+    paddingLeft: adminSpacing.sm,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  saGradeColLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  saGradeColPrice: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: 2,
+  },
+  saFreqBadgeWeekly: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs / 2,
+  },
+  saFreqTextWeekly: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+  },
+  saFreqBadgeDaily: {
+    backgroundColor: adminColors.purple.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs / 2,
+  },
+  saFreqTextDaily: {
+    ...adminType.caption,
+    color: adminColors.purple.text,
+  },
+  saBottomBar: {
+    backgroundColor: adminColors.card,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    ...adminShadow.md,
+  },
+  saBottomButton: {
+    backgroundColor: adminColors.brand,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saBottomButtonText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+  },
+  faCeilingCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  faCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  faCardTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  faActivePill: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs / 2,
+  },
+  faActivePillText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+  },
+  faCardSubtitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
+  },
+  faPriceColsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: adminSpacing.sm,
+  },
+  faPriceCol: {
+    flex: 1,
+  },
+  faPriceColLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  faPriceColValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: 2,
   },
 });
