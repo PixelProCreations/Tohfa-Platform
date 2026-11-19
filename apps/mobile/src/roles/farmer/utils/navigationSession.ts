@@ -78,8 +78,40 @@ export function resetsHistoryOn(screen: string): boolean {
     screen === 'Welcome' ||
     screen === 'MainTabs' ||
     screen === 'AdminMain' ||
-    screen === 'Login'
+    screen === 'Login' ||
+    // BR-142: reached right after a sign-in; nothing behind it may be popped
+    // back into, or the user would skip creating their first password.
+    screen === 'CreatePassword'
   );
+}
+
+/**
+ * Profile's "Farm & FMB" setup, in order: FMB Sketch -> (Save FMB) Field
+ * Context -> (Save) Zones. Each step pushes the next, so Back steps through
+ * them one at a time. Zones is the last step: its "Save Zones" must leave the
+ * whole setup, not just pop one entry -- popping returned the farmer to Field
+ * Context, whose Save sends them to Zones again (a Zones <-> Field Context
+ * loop with no way forward but Back).
+ */
+export const FARM_SETUP_FLOW: readonly string[] = ['FMBSketch', 'FieldContext', 'Zones'];
+
+/**
+ * Leaving a multi-screen flow: the newest history entry that is not one of
+ * `flow`'s screens (where the user was before entering the flow) and the stack
+ * below it. `target` is undefined when every entry belongs to the flow (or the
+ * history is empty); the caller then falls back to emptyHistoryBackTarget.
+ */
+export function popPastFlow<T extends { screen: string }>(
+  history: readonly T[],
+  flow: readonly string[],
+): { target: T | undefined; rest: T[] } {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i] as T;
+    if (!flow.includes(entry.screen)) {
+      return { target: entry, rest: history.slice(0, i) };
+    }
+  }
+  return { target: undefined, rest: [] };
 }
 
 const AUTH_SCREENS: readonly string[] = [
@@ -93,7 +125,9 @@ const AUTH_SCREENS: readonly string[] = [
   'ApplicationStatus',
 ];
 
-const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', ...ADMIN_DASHBOARDS];
+// CreatePassword is a root (BR-142): with an empty stack Android back leaves the
+// app instead of falling through to MainTabs, which would skip the screen.
+const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', 'CreatePassword', ...ADMIN_DASHBOARDS];
 
 /**
  * Where back goes when the history stack is empty, or null to stay put. A

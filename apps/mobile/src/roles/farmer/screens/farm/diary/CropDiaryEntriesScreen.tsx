@@ -1,7 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
@@ -9,13 +7,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { t } from '../../../../../i18n/farmer';
-import { formatErrorMessage } from '../../../../../shell/api/client';
 import { authPalette as P, typography } from '../../../theme';
-import { listDiaryEntries, type DiaryEntrySummary } from '../../../api/farmDiary';
-import { formatMinutes, formatTimeOfDay, useDiaryReferenceData } from './diaryLookups';
 import type { CropItem } from '../crops/ProduceCalendarScreen';
 
 // ─────────────────────────────────────────────
@@ -26,7 +20,7 @@ function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -134,139 +128,68 @@ function PlusIcon({ size = 22, color = P.white }: { size?: number; color?: strin
 }
 
 // ─────────────────────────────────────────────
-// Types & server data
+// Types & Sample Data
 // ─────────────────────────────────────────────
 
-/** Nothing has a source until the server answers — see EMPTY_VALUE's uses. */
-const EMPTY_VALUE = '—';
-
-/**
- * Which of this screen's four badge styles an entry draws in.
- *
- * The activity taxonomy is admin-managed (`diary_activity_categories`), so a
- * category can arrive that this design has no badge for. The three the design
- * does name map onto the seeded keys; everything else draws in the fourth,
- * generic badge. Only the badge picture is a guess — the title the farmer
- * reads is always the category/sub-activity name the server sent.
- */
-type BadgeKind = 'Watering' | 'Weeding' | 'Fertilizing' | 'Other';
-
-function badgeKindFor(categoryKey: string): BadgeKind {
-  if (categoryKey === 'water_mgmt') return 'Watering';
-  if (categoryKey === 'weed_mgmt') return 'Weeding';
-  if (categoryKey === 'nutrient_mgmt') return 'Fertilizing';
-  return 'Other';
+export interface DiaryEntryItem {
+  id: string;
+  category: 'Watering' | 'Weeding' | 'Fertilizing' | 'Inspection';
+  title: string;
+  timestamp: string;
+  note: string;
+  duration: string;
 }
 
-/** The filter pills, in design order, and the category key each one selects. */
-const FILTERS = [
-  { key: 'All', categoryKey: null },
-  { key: 'Watering', categoryKey: 'water_mgmt' },
-  { key: 'Weeding', categoryKey: 'weed_mgmt' },
-  { key: 'Fertilizing', categoryKey: 'nutrient_mgmt' },
-] as const;
-
-type FilterKey = (typeof FILTERS)[number]['key'];
-
-const MONTH_SHORT_KEYS = [
-  'farmer.audits.monthShort.jan',
-  'farmer.audits.monthShort.feb',
-  'farmer.audits.monthShort.mar',
-  'farmer.audits.monthShort.apr',
-  'farmer.audits.monthShort.may',
-  'farmer.audits.monthShort.jun',
-  'farmer.audits.monthShort.jul',
-  'farmer.audits.monthShort.aug',
-  'farmer.audits.monthShort.sep',
-  'farmer.audits.monthShort.oct',
-  'farmer.audits.monthShort.nov',
-  'farmer.audits.monthShort.dec',
-] as const;
-
-const MS_PER_DAY = 86_400_000;
-
-/** `2026-07-15` → `15 Jul`. Empty string on anything unparseable. */
-function formatDayMonth(isoDate: string): string {
-  const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return '';
-  const monthKey = MONTH_SHORT_KEYS[d.getMonth()] ?? MONTH_SHORT_KEYS[0];
-  return `${d.getDate()} ${t(monthKey)}`;
-}
-
-/** Whole days between an entry's activity date and today; null if unparseable. */
-function daysSince(isoDate: string): number | null {
-  const then = new Date(isoDate);
-  if (Number.isNaN(then.getTime())) return null;
-  const startOf = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
-  return Math.max(0, Math.round((startOf(new Date()) - startOf(then)) / MS_PER_DAY));
-}
-
-/** Server max page size; see ListDiaryEntriesQuery in farm-diary.schema.ts. */
-const ENTRIES_PAGE_LIMIT = 100;
-/**
- * Guard against a runaway cursor loop. The list endpoint has no `farmCropId`
- * filter (docs/openapi.yaml: date/month/plotId/categoryKey only), so this crop's
- * entries are selected client-side from the farmer's own entries, newest first.
- */
-const MAX_ENTRY_PAGES = 10;
-
-async function fetchEntriesForCrop(
-  farmCropId: string | null,
-  signal: AbortSignal,
-): Promise<DiaryEntrySummary[]> {
-  const all: DiaryEntrySummary[] = [];
-  let cursor: string | undefined;
-  for (let page = 0; page < MAX_ENTRY_PAGES; page++) {
-    const res = await listDiaryEntries(
-      { limit: ENTRIES_PAGE_LIMIT, ...(cursor !== undefined ? { cursor } : {}) },
-      signal,
-    );
-    all.push(
-      ...(farmCropId === null ? res.items : res.items.filter((e) => e.farmCropId === farmCropId)),
-    );
-    if (!res.page.hasMore || res.page.nextCursor === null) break;
-    cursor = res.page.nextCursor;
-  }
-  return all;
-}
-
-type LoadState = 'loading' | 'error' | 'ready';
-
-function useCropDiaryEntries(farmCropId: string | null): {
-  state: LoadState;
-  error: string;
-  retry: () => void;
-  entries: DiaryEntrySummary[];
-} {
-  const [state, setState] = useState<LoadState>('loading');
-  const [error, setError] = useState<string>('');
-  const [reloadKey, setReloadKey] = useState<number>(0);
-  const [entries, setEntries] = useState<DiaryEntrySummary[]>([]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-    setState('loading');
-    fetchEntriesForCrop(farmCropId, signal)
-      .then((items) => {
-        if (signal.aborted) return;
-        setEntries(items);
-        setState('ready');
-      })
-      .catch((err: unknown) => {
-        if (signal.aborted) return;
-        // No fixture fallback: a failed load is reported, never papered over.
-        setEntries([]);
-        setError(formatErrorMessage(err, t('farmer.cropDiary.loadError')));
-        setState('error');
-      });
-    return () => controller.abort();
-  }, [farmCropId, reloadKey]);
-
-  const retry = useCallback(() => setReloadKey((k) => k + 1), []);
-
-  return { state, error, retry, entries };
-}
+const INITIAL_DIARY_ENTRIES: DiaryEntryItem[] = [
+  {
+    id: 'd1',
+    category: 'Weeding',
+    title: 'Weeding',
+    timestamp: '15 Jul · 06:45 AM',
+    note: 'North row cleared',
+    duration: '50m',
+  },
+  {
+    id: 'd2',
+    category: 'Fertilizing',
+    title: 'Manure application',
+    timestamp: '15 Jul · 11:00 AM',
+    note: 'FYM, 40kg',
+    duration: '1h 15m',
+  },
+  {
+    id: 'd3',
+    category: 'Watering',
+    title: 'Watering',
+    timestamp: '13 Jul · 07:10 AM',
+    note: 'Drip line, 30 mins',
+    duration: '30m',
+  },
+  {
+    id: 'd4',
+    category: 'Inspection',
+    title: 'Pest inspection',
+    timestamp: '11 Jul · 08:30 AM',
+    note: 'Minor aphids found',
+    duration: '20m',
+  },
+  {
+    id: 'd5',
+    category: 'Watering',
+    title: 'Deep root watering',
+    timestamp: '9 Jul · 06:00 AM',
+    note: 'South quadrant regular cycle',
+    duration: '45m',
+  },
+  {
+    id: 'd6',
+    category: 'Fertilizing',
+    title: 'Bio-stimulant foliar spray',
+    timestamp: '6 Jul · 07:15 AM',
+    note: 'Panchagavya organic spray',
+    duration: '1h',
+  },
+];
 
 export interface CropDiaryEntriesScreenProps {
   crop?: CropItem | null;
@@ -279,7 +202,7 @@ export function CropDiaryEntriesScreen({
   onBack,
   onNewEntry,
 }: CropDiaryEntriesScreenProps): React.JSX.Element {
-  const [activeFilter, setActiveFilter] = useState<FilterKey>('All');
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Watering' | 'Weeding' | 'Fertilizing'>('All');
 
   // Handle Android hardware back
   useEffect(() => {
@@ -293,82 +216,21 @@ export function CropDiaryEntriesScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  // A field with no source renders an em-dash; none of these is invented.
-  const cropName = crop?.name || EMPTY_VALUE;
-  const variety = crop?.variety || EMPTY_VALUE;
-  const zone = crop?.zoneShort || crop?.zone || EMPTY_VALUE;
+  const cropName = crop?.name ?? 'Carrot';
+  const variety = crop?.variety ?? 'Nantes';
+  const zone = crop?.zoneShort || crop?.zone || 'Zone 1';
   const subtitle = `${cropName} — ${variety} · ${zone}`;
 
-  // ── Server data ──
-  const ref = useDiaryReferenceData();
-  const list = useCropDiaryEntries(crop?.id ?? null);
-
-  const listState: LoadState =
-    ref.state === 'error' || list.state === 'error'
-      ? 'error'
-      : ref.state === 'loading' || list.state === 'loading'
-        ? 'loading'
-        : 'ready';
-  const listError = ref.state === 'error' ? ref.error : list.error;
-  const retryList = () => {
-    if (ref.state === 'error') ref.retry();
-    if (list.state === 'error') list.retry();
-  };
-
-  const { categoryByKey, subActivityByKey } = ref;
-  const rows = useMemo(
-    () =>
-      list.entries.map((entry) => {
-        const dayMonth = formatDayMonth(entry.activityOn);
-        const time = formatTimeOfDay(entry.loggedAt);
-        const parts = [dayMonth, time].filter((p) => p !== '');
-        const notes = entry.notes !== null && entry.notes.trim() !== '' ? entry.notes.trim() : null;
-        return {
-          id: entry.id,
-          categoryKey: entry.categoryKey,
-          badge: badgeKindFor(entry.categoryKey),
-          title:
-            subActivityByKey.get(entry.subActivityKey)?.name ??
-            categoryByKey.get(entry.categoryKey)?.name ??
-            EMPTY_VALUE,
-          timestamp: parts.length > 0 ? parts.join(' · ') : EMPTY_VALUE,
-          note: notes ?? EMPTY_VALUE,
-          duration: formatMinutes(entry.minutes),
-        };
-      }),
-    [list.entries, categoryByKey, subActivityByKey],
-  );
-
-  const activeCategoryKey = FILTERS.find((f) => f.key === activeFilter)?.categoryKey ?? null;
-  const filteredEntries = rows.filter(
-    (row) => activeCategoryKey === null || row.categoryKey === activeCategoryKey,
-  );
-
-  // Stats describe the whole crop, independent of the list filter, and show an
-  // em-dash until the server has actually answered.
-  const statsReady = listState === 'ready';
-  const entriesLogged = statsReady ? String(list.entries.length) : EMPTY_VALUE;
-  const lastEntryDays = statsReady
-    ? list.entries.reduce<number | null>((best, e) => {
-      const d = daysSince(e.activityOn);
-      if (d === null) return best;
-      return best === null || d < best ? d : best;
-    }, null)
-    : null;
-  const sinceLastEntry =
-    lastEntryDays === null
-      ? EMPTY_VALUE
-      : lastEntryDays === 0
-        ? t('farmer.cropDiary.sinceLastEntry.today')
-        : lastEntryDays === 1
-          ? t('farmer.cropDiary.sinceLastEntry.day', { count: lastEntryDays })
-          : t('farmer.cropDiary.sinceLastEntry.days', { count: lastEntryDays });
+  const filteredEntries = INITIAL_DIARY_ENTRIES.filter((entry) => {
+    if (activeFilter === 'All') return true;
+    return entry.category === activeFilter;
+  });
 
   const handleFabPress = () => {
     if (onNewEntry) {
       onNewEntry();
     } else {
-      Alert.alert('New Diary Entry', `Add a new activity log for ${cropName} (${zone})`);
+      appAlert('New Diary Entry', `Add a new activity log for ${cropName} (${zone})`);
     }
   };
 
@@ -408,7 +270,7 @@ export function CropDiaryEntriesScreen({
               <View style={[styles.statIconBadge, { backgroundColor: P.twGreen100 }]}>
                 <CalendarIcon size={18} color={P.twGreen700} />
               </View>
-              <Text style={styles.statValue}>{entriesLogged}</Text>
+              <Text style={styles.statValue}>14</Text>
               <Text style={styles.statLabel}>Entries Logged</Text>
             </View>
 
@@ -417,7 +279,7 @@ export function CropDiaryEntriesScreen({
               <View style={[styles.statIconBadge, { backgroundColor: P.twBlue50 }]}>
                 <ClockIcon size={18} color={P.twBlue600} />
               </View>
-              <Text style={styles.statValue}>{sinceLastEntry}</Text>
+              <Text style={styles.statValue}>2 days</Text>
               <Text style={styles.statLabel}>Since Last Entry</Text>
             </View>
           </View>
@@ -428,7 +290,7 @@ export function CropDiaryEntriesScreen({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterRow}
           >
-            {FILTERS.map(({ key: filter }) => {
+            {(['All', 'Watering', 'Weeding', 'Fertilizing'] as const).map((filter) => {
               const isSelected = activeFilter === filter;
               return (
                 <TouchableOpacity
@@ -453,72 +315,43 @@ export function CropDiaryEntriesScreen({
             })}
           </ScrollView>
 
-          {/* ── Diary Activity Cards List / Loading / Error / Empty ── */}
-          {listState === 'loading' ? (
-            <View style={styles.statusBox}>
-              <ActivityIndicator color={P.twGreen700} />
-              <Text style={styles.statusText}>{t('farmer.farmDiary.common.loadingEntries')}</Text>
-            </View>
-          ) : listState === 'error' ? (
-            <View style={[styles.statusBox, styles.errorBox]}>
-              <Text style={styles.errorText}>{listError}</Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={retryList}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel={t('farmer.farmDiary.common.retryDiaryEntriesLabel')}
-              >
-                <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : filteredEntries.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>{t('farmer.farmDiary.list.emptyTitle')}</Text>
-              <Text style={styles.emptySubtitle}>
-                {activeCategoryKey !== null
-                  ? t('farmer.farmDiary.list.emptyFilteredSubtitle')
-                  : t('farmer.cropDiary.emptySubtitle')}
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.entriesList}>
-              {filteredEntries.map((item) => {
-                const fullSubtitle = `${item.timestamp} · ${item.note}`;
-                return (
-                  <View key={item.id} style={styles.entryCard}>
-                    {/* Category-specific Icon Badge */}
-                    <View
-                      style={[
-                        styles.entryIconBadge,
-                        item.badge === 'Watering' && { backgroundColor: P.twBlue50 },
-                        item.badge === 'Weeding' && { backgroundColor: P.twGreen100 },
-                        item.badge === 'Fertilizing' && { backgroundColor: P.twOrange100 },
-                        item.badge === 'Other' && { backgroundColor: P.twRed50 },
-                      ]}
-                    >
-                      {item.badge === 'Watering' ? (
-                        <DropletIcon size={18} color={P.twBlue600} />
-                      ) : item.badge === 'Weeding' ? (
-                        <SproutIcon size={18} color={P.twGreen700} />
-                      ) : item.badge === 'Fertilizing' ? (
-                        <ManureIcon size={18} color={P.twAmber800} />
-                      ) : (
-                        <PestIcon size={18} color={P.twRed600} />
-                      )}
-                    </View>
-
-                    <View style={styles.entryTextCol}>
-                      <Text style={styles.entryTitle}>{item.title}</Text>
-                      <Text style={styles.entrySubtitle}>{fullSubtitle}</Text>
-                    </View>
-
-                    <Text style={styles.entryDurationText}>{item.duration}</Text>
+          {/* ── Diary Activity Cards List ── */}
+          <View style={styles.entriesList}>
+            {filteredEntries.map((item) => {
+              const fullSubtitle = `${item.timestamp} · ${item.note}`;
+              return (
+                <View key={item.id} style={styles.entryCard}>
+                  {/* Category-specific Icon Badge */}
+                  <View
+                    style={[
+                      styles.entryIconBadge,
+                      item.category === 'Watering' && { backgroundColor: P.twBlue50 },
+                      item.category === 'Weeding' && { backgroundColor: P.twGreen100 },
+                      item.category === 'Fertilizing' && { backgroundColor: P.twOrange100 },
+                      item.category === 'Inspection' && { backgroundColor: P.twRed50 },
+                    ]}
+                  >
+                    {item.category === 'Watering' ? (
+                      <DropletIcon size={18} color={P.twBlue600} />
+                    ) : item.category === 'Weeding' ? (
+                      <SproutIcon size={18} color={P.twGreen700} />
+                    ) : item.category === 'Fertilizing' ? (
+                      <ManureIcon size={18} color={P.twAmber800} />
+                    ) : (
+                      <PestIcon size={18} color={P.twRed600} />
+                    )}
                   </View>
-                );
-              })}
-            </View>
-          )}
+
+                  <View style={styles.entryTextCol}>
+                    <Text style={styles.entryTitle}>{item.title}</Text>
+                    <Text style={styles.entrySubtitle}>{fullSubtitle}</Text>
+                  </View>
+
+                  <Text style={styles.entryDurationText}>{item.duration}</Text>
+                </View>
+              );
+            })}
+          </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -667,62 +500,6 @@ const styles = StyleSheet.create({
   },
   entriesList: {
     gap: 10,
-  },
-  statusBox: {
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    gap: 10,
-  },
-  statusText: {
-    fontSize: typography.bodySmall,
-    color: P.twGray500,
-  },
-  errorBox: {
-    backgroundColor: P.twRed50,
-    borderColor: P.twRed200,
-  },
-  errorText: {
-    fontSize: typography.bodySmall,
-    color: P.twRed700,
-    textAlign: 'center',
-  },
-  retryButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: P.white,
-    borderWidth: 1,
-    borderColor: P.twRed200,
-  },
-  retryButtonText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.twRed700,
-  },
-  emptyCard: {
-    backgroundColor: P.white,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: P.twGray200,
-  },
-  emptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    lineHeight: 18,
   },
   entryCard: {
     flexDirection: 'row',

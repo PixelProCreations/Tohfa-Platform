@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import {
@@ -403,7 +402,7 @@ export function AnimalDetailScreen({
       };
       onNavigateToEdit(formData);
     } else {
-      Alert.alert('Edit Animal', `Editing profile for ${displayName} (${displayCode})`);
+      appAlert('Edit Animal', `Editing profile for ${displayName} (${displayCode})`, undefined, { tone: 'info' });
     }
   };
 
@@ -411,10 +410,15 @@ export function AnimalDetailScreen({
     if (onNavigateToSale) {
       onNavigateToSale();
     } else {
-      Alert.alert('Animal Options', `Options for ${displayName} (${displayCode})`, [
-        { text: 'Edit Profile', onPress: handleEdit },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      appAlert(
+        'Animal Options',
+        `Options for ${displayName} (${displayCode})`,
+        [
+          { text: 'Edit Profile', onPress: handleEdit },
+          { text: 'Cancel', style: 'cancel' },
+        ],
+        { tone: 'info' },
+      );
     }
   };
 
@@ -432,7 +436,7 @@ export function AnimalDetailScreen({
         organicStatus: 'Organic',
       });
     } else {
-      Alert.alert('Register Offspring', 'Opening registration form for newborn calf.');
+      appAlert('Register Offspring', 'Opening registration form for newborn calf.', undefined, { tone: 'info' });
     }
   };
 

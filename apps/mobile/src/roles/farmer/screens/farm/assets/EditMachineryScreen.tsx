@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
@@ -15,6 +16,8 @@ import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatSafeDate } from '../../../polyfills';
 import { t } from '../../../../../i18n/farmer';
+import { useFieldValidation } from '../../../utils/validation';
+import { MACHINERY_RULES, ASSET_NAME_MAX_LENGTH, ASSET_MAKE_MODEL_MAX_LENGTH, ASSET_FUEL_TYPE_MAX_LENGTH, ASSET_INTERVAL_MAX_DIGITS } from './assetFormRules';
 import { extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarmAsset, updateFarmAsset } from '../../../api/farmAssets';
 import {
@@ -149,6 +152,7 @@ export function EditMachineryScreen({
   onSave,
   onRemove,
 }: EditMachineryScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const assetId = machinery?.id;
 
   const [loading, setLoading] = useState(true);
@@ -164,6 +168,12 @@ export function EditMachineryScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validation = useFieldValidation<'name' | 'makeModel' | 'fuelType' | 'serviceInterval'>({
+    values: { name, makeModel, fuelType, serviceInterval },
+    rules: MACHINERY_RULES,
+    order: ['name', 'makeModel', 'fuelType', 'serviceInterval'],
+  });
 
   const loadAsset = useCallback(async () => {
     if (!assetId) {
@@ -206,9 +216,9 @@ export function EditMachineryScreen({
 
   async function handleSave(): Promise<void> {
     if (isSaving || !assetId) return;
-    if (!name.trim() || !serviceInterval.trim()) return;
     setSaveError('');
     setFieldErrors({});
+    if (!validation.validateAll().valid) return;
 
     const intervalDays = Number(serviceInterval.trim());
     if (!Number.isInteger(intervalDays) || intervalDays <= 0) {
@@ -308,8 +318,13 @@ export function EditMachineryScreen({
             onChangeText={setName}
             placeholder="e.g. Power Tiller"
             placeholderTextColor={P.twGray400}
+            maxLength={ASSET_NAME_MAX_LENGTH}
+            onBlur={() => validation.onBlur('name')}
           />
         </View>
+        {validation.messageFor('name') ?? fieldErrors.name ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('name') ?? fieldErrors.name}</Text>
+        ) : null}
 
         {/* Make / Model Field */}
         <Text style={styles.fieldLabel}>Make / Model</Text>
@@ -320,8 +335,13 @@ export function EditMachineryScreen({
             onChangeText={setMakeModel}
             placeholder="e.g. VST Shakti MX 130"
             placeholderTextColor={P.twGray400}
+            maxLength={ASSET_MAKE_MODEL_MAX_LENGTH}
+            onBlur={() => validation.onBlur('makeModel')}
           />
         </View>
+        {validation.messageFor('makeModel') ?? fieldErrors.makeModel ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('makeModel') ?? fieldErrors.makeModel}</Text>
+        ) : null}
 
         {/* Purchase Date Field */}
         <Text style={styles.fieldLabel}>Purchase date</Text>
@@ -351,8 +371,13 @@ export function EditMachineryScreen({
             onChangeText={setFuelType}
             placeholder="e.g. Diesel"
             placeholderTextColor={P.twGray400}
+            maxLength={ASSET_FUEL_TYPE_MAX_LENGTH}
+            onBlur={() => validation.onBlur('fuelType')}
           />
         </View>
+        {validation.messageFor('fuelType') ?? fieldErrors.fuelType ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('fuelType') ?? fieldErrors.fuelType}</Text>
+        ) : null}
 
         {/* Service Interval Field */}
         <Text style={styles.fieldLabel}>
@@ -366,11 +391,13 @@ export function EditMachineryScreen({
             placeholder="e.g. 60"
             placeholderTextColor={P.twGray400}
             keyboardType="numeric"
+            maxLength={ASSET_INTERVAL_MAX_DIGITS}
+            onBlur={() => validation.onBlur('serviceInterval')}
           />
         </View>
-        {fieldErrors.serviceInterval && (
-          <Text style={styles.fieldErrorText}>{fieldErrors.serviceInterval}</Text>
-        )}
+        {validation.messageFor('serviceInterval') ?? fieldErrors.serviceInterval ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('serviceInterval') ?? fieldErrors.serviceInterval}</Text>
+        ) : null}
 
         {/* Info Note */}
         <View style={styles.infoRow}>
@@ -397,8 +424,8 @@ export function EditMachineryScreen({
 
       {/* Purchase Date Calendar Modal */}
       {showCalendar ? (
-        <Modal transparent visible animationType="fade" onRequestClose={() => setShowCalendar(false)}>
-          <View style={styles.calendarOverlay}>
+        <Modal statusBarTranslucent navigationBarTranslucent transparent visible animationType="fade" onRequestClose={() => setShowCalendar(false)}>
+          <View style={[styles.calendarOverlay, { paddingBottom: insets.bottom }]}>
             <View style={styles.calendarScrim} pointerEvents="none" />
             <TouchableOpacity
               style={styles.calendarBackdrop}

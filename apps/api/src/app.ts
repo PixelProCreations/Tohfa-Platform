@@ -83,6 +83,7 @@ import { adminDiaryTaxonomyRouter } from './modules/farm-diary/farm-diary.admin.
 import { farmsRouter } from './modules/farms/farms.routes.js';
 import { cropsRouter } from './modules/crops/crops.routes.js';
 import { adminCropMasterRouter } from './modules/crops/crops.admin.routes.js';
+import { adminProduceRouter } from './modules/admin-produce/admin-produce.routes.js';
 import { livestockRouter } from './modules/livestock/livestock.routes.js';
 import { livestockAdminRouter } from './modules/livestock/livestock.admin.routes.js';
 import { farmAssetsRouter } from './modules/farm-assets/farm-assets.routes.js';
@@ -142,8 +143,12 @@ import { adminMarketDaysRouter } from './modules/market-days/market-days.routes.
 import { adminPaymentMethodsRouter } from './modules/payment-methods/payment-methods.routes.js';
 import { adminPromotionsRouter } from './modules/admin-promotions/admin-promotions.routes.js';
 import { rolesRouter } from './modules/roles/roles.routes.js';
+import { storageReadRouter } from './storage/storage.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
+
+/** Where storage/storage.routes.ts is mounted; the contract test walks the same prefix. */
+export const STORAGE_READ_PREFIX = '/storage';
 
 /**
  * Every router the API exposes, with the path prefix it is mounted under.
@@ -230,6 +235,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farms', router: farmsRouter },
   { prefix: '/v1/farmers/me', router: cropsRouter },
   { prefix: '/v1/admin/crop-master', router: adminCropMasterRouter },
+  { prefix: '/v1/admin/produce', router: adminProduceRouter },
   { prefix: '/v1/farmers/me', router: farmAssetsRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmAssetsRouter },
   { prefix: '/v1/farmers/me/livestock', router: livestockRouter },
@@ -318,6 +324,10 @@ export function createApp(): Express {
 
   // Probes are unversioned: orchestrators should not care about the API version.
   app.use(healthRouter);
+
+  // Dev/test storage reads (signed URLs only; 404 for everything when Azure is configured).
+  // Unversioned like the probes: `/storage/<key>` is the URL shape the local storage mints.
+  app.use(STORAGE_READ_PREFIX, storageReadRouter);
 
   // Every business router, mounted from the same table the contract test reads.
   for (const { prefix, router } of API_MOUNTS) {

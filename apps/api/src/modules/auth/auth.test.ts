@@ -2,16 +2,19 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
+import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
-import { signOAuthLinkToken, signRefreshToken, verifyOAuthLinkToken } from '../../auth/jwt.js';
+import { signAccessToken, signOAuthLinkToken, signRefreshToken, verifyOAuthLinkToken } from '../../auth/jwt.js';
 import { isAccessTokenInvalidated } from '../../auth/tokenInvalidation.js';
+import { pool } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { pingRedis } from '../../redis.js';
 import { createAuthService } from './auth.service.js';
-import { changePasswordBody } from './auth.schema.js';
-import type { AuthRepo, OAuthIdentityRow, OtpVerificationRow, RefreshTokenRow } from './auth.repo.js';
+import { changePasswordBody, setPasswordBody } from './auth.schema.js';
+import type { AuthRepo, OAuthIdentityRow, OtpVerificationRow, RefreshTokenRow, UserRow } from './auth.repo.js';
 import type { OAuthProviderClient } from './oauth.providers.js';
-import { anActor, databaseReady, describeIfDatabase } from '../../test/factories.js';
+import { aScope, anActor, databaseReady, describeIfDatabase } from '../../test/factories.js';
+import { randomMobile, requireDatabaseTables } from '../../test/dbFixtures.js';
 
 /**
  * The password tests hash and compare with real cost-12 bcrypt (bcryptjs, pure JS) several times;
@@ -60,6 +63,7 @@ function mockRepo(overrides: Partial<AuthRepo> = {}): AuthRepo {
       created_at: new Date(),
     }),
     updateUserPassword: async () => {},
+    setInitialPassword: async () => true,
     updateUserStatus: async () => {},
     updateUserLastLogin: async () => {},
     createSession: async (_db, params) => ({
@@ -1112,6 +1116,166 @@ describe('Auth Module & BR-32 Test Contract', () => {
           const iatAfterChange = Math.floor(Date.now() / 1000) + 5;
           await expect(isAccessTokenInvalidated(userId, iatAfterChange)).resolves.toBe(false);
         }
+      }, BCRYPT_TEST_TIMEOUT_MS);
+    });
+  });
+
+  /**
+   * BR-142: a first sign-in by OTP leads to creating a password. The server half is
+   * `hasPassword` on GET /auth/me (derived from password_hash, no new column) and
+   * POST /auth/me/set-password, which only ever sets a FIRST password.
+   */
+  describe('BR-142: first password after an OTP sign-in', () => {
+    const userId = '00000000-0000-4000-8000-000000000142';
+
+    function userRow(passwordHash: string | null): UserRow {
+      return {
+        id: userId,
+        mobile: '+919000000142',
+        email: null,
+        password_hash: passwordHash,
+        full_name: 'First Password User',
+        preferred_locale: 'en',
+        user_type: 'FARMER',
+        status: 'ACTIVE',
+        mfa_enabled: false,
+        last_login_at: null,
+        created_at: new Date(),
+      };
+    }
+
+    it('BR-142a: GET /auth/me says hasPassword false for an account with no password, and never carries the hash', async () => {
+      const service = createAuthService(mockRepo({ findUserById: async () => userRow(null) }));
+      const me = (await service.getMe(anActor({ userId }))) as Record<string, unknown>;
+
+      expect(me['hasPassword']).toBe(false);
+      expect(me).not.toHaveProperty('password_hash');
+      expect(me).not.toHaveProperty('passwordHash');
+    });
+
+    it('BR-142a: GET /auth/me says hasPassword true once a password is set, and never carries the hash', async () => {
+      const service = createAuthService(mockRepo({ findUserById: async () => userRow('$2a$12$existinghash') }));
+      const me = (await service.getMe(anActor({ userId }))) as Record<string, unknown>;
+
+      expect(me['hasPassword']).toBe(true);
+      expect(JSON.stringify(me)).not.toContain('$2a$12$existinghash');
+    });
+
+    it('BR-142b: setting a first password on an account that already has one is 409 PASSWORD_ALREADY_SET and writes nothing', async () => {
+      let written = false;
+      const repo = mockRepo({
+        findUserById: async () => userRow('$2a$12$existinghash'),
+        updateUserPassword: async () => {
+          written = true;
+        },
+        setInitialPassword: async () => {
+          written = true;
+          return true;
+        },
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.setInitialPassword(aScope({ userId, roleCode: RoleCode.FARMER }), { newPassword: 'BrandNewPassword1' }),
+      ).rejects.toMatchObject({ code: 'PASSWORD_ALREADY_SET', status: 409 });
+      expect(written).toBe(false);
+    });
+
+    it('BR-142b: an unknown caller is UNAUTHENTICATED and nothing is written', async () => {
+      let written = false;
+      const repo = mockRepo({
+        findUserById: async () => null,
+        setInitialPassword: async () => {
+          written = true;
+          return true;
+        },
+      });
+      const service = createAuthService(repo);
+
+      await expect(
+        service.setInitialPassword(aScope({ userId, roleCode: RoleCode.FARMER }), { newPassword: 'BrandNewPassword1' }),
+      ).rejects.toMatchObject({ code: 'UNAUTHENTICATED' });
+      expect(written).toBe(false);
+    });
+
+    it('BR-142d: the set-password body uses the same length policy as reset and change (10 to 128)', () => {
+      expect(setPasswordBody.safeParse({ newPassword: 'short9chr' }).success).toBe(false);
+      expect(setPasswordBody.safeParse({ newPassword: 'x'.repeat(129) }).success).toBe(false);
+      expect(setPasswordBody.safeParse({}).success).toBe(false);
+      expect(setPasswordBody.safeParse({ newPassword: 'tenchars10' }).success).toBe(true);
+    });
+
+    describeIfDatabase('real router, real database', () => {
+      const app = createApp();
+
+      it('BR-142d: POST /v1/auth/me/set-password without a token is 401', async () => {
+        const res = await request(app).post('/v1/auth/me/set-password').send({ newPassword: 'BrandNewPassword1' });
+        expect(res.status).toBe(401);
+      });
+
+      it('BR-142c: sets the first password once (204, bcrypt, audited), then 409 PASSWORD_ALREADY_SET; /auth/me flips hasPassword', async () => {
+        if (!(await requireDatabaseTables('users', 'audit_log'))) return;
+
+        const mobile = randomMobile();
+        const inserted = await pool.query<{ id: string }>(
+          `INSERT INTO users (mobile, full_name, user_type, status)
+           VALUES ($1, 'BR-142 First Password', 'FARMER'::user_type, 'ACTIVE')
+           RETURNING id`,
+          [mobile],
+        );
+        const id = inserted.rows[0]!.id;
+        const token = signAccessToken({ sub: id, roles: [{ code: RoleCode.FARMER }], farmerId: null, customerId: null });
+        const newPassword = 'FirstPassword142';
+
+        const before = await request(app).get('/v1/auth/me').set('Authorization', `Bearer ${token}`);
+        expect(before.status).toBe(200);
+        expect(before.body.hasPassword).toBe(false);
+
+        const first = await request(app)
+          .post('/v1/auth/me/set-password')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ newPassword });
+        expect(first.status).toBe(204);
+
+        const stored = await pool.query<{ password_hash: string | null }>(
+          'SELECT password_hash FROM users WHERE id = $1',
+          [id],
+        );
+        const hash = stored.rows[0]!.password_hash;
+        expect(hash).toBeTypeOf('string');
+        expect(hash).not.toBe(newPassword);
+        expect(await bcrypt.compare(newPassword, hash as string)).toBe(true);
+
+        const audit = await pool.query<{ actor_id: string; entity_id: string; after: unknown; before: unknown }>(
+          `SELECT actor_id, entity_id, after, before FROM audit_log
+            WHERE action_code = 'auth.password.set_initial' AND entity_id = $1`,
+          [id],
+        );
+        expect(audit.rowCount).toBe(1);
+        expect(audit.rows[0]!.actor_id).toBe(id);
+        expect(JSON.stringify(audit.rows[0])).not.toContain(newPassword);
+        expect(JSON.stringify(audit.rows[0])).not.toContain(hash as string);
+
+        const second = await request(app)
+          .post('/v1/auth/me/set-password')
+          .set('Authorization', `Bearer ${token}`)
+          .send({ newPassword: 'AnotherPassword142' });
+        expect(second.status).toBe(409);
+        expect(second.body.code).toBe('PASSWORD_ALREADY_SET');
+        const unchanged = await pool.query<{ password_hash: string | null }>(
+          'SELECT password_hash FROM users WHERE id = $1',
+          [id],
+        );
+        expect(unchanged.rows[0]!.password_hash).toBe(hash);
+
+        const after = await request(app).get('/v1/auth/me').set('Authorization', `Bearer ${token}`);
+        expect(after.status).toBe(200);
+        expect(after.body.hasPassword).toBe(true);
+        expect(JSON.stringify(after.body)).not.toContain(hash as string);
+
+        const login = await request(app).post('/v1/auth/login').send({ mobile, password: newPassword });
+        expect(login.status).toBe(200);
+        expect(login.body.accessToken).toBeTypeOf('string');
       }, BCRYPT_TEST_TIMEOUT_MS);
     });
   });

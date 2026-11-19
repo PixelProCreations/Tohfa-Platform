@@ -71,6 +71,12 @@ export interface UserMe {
   status?: string;
   farmerId?: string | null;
   applicationId?: string | null;
+  /**
+   * BR-142: false when the account has no password yet (it signed in by OTP).
+   * Optional because an older server does not send it; only an explicit
+   * `false` routes to Create Password (see `resolveRouteAfterAuth`).
+   */
+  hasPassword?: boolean;
   roles: UserRole[];
   permissions?: string[];
 }
@@ -200,6 +206,22 @@ export interface RoleSelectionRequired {
 export type LoginOutcome = TokenResponse | RoleSelectionRequired;
 
 /**
+ * `POST /auth/otp/verify` for a correct code on a mobile number with no
+ * account (and no BR-39 linkToken): verified, but no account is created and no
+ * tokens are issued (openapi `OtpVerifiedNoAccount`, BR-142).
+ */
+export interface OtpVerifiedNoAccount {
+  verified: true;
+  mobile: string;
+  purpose: string;
+}
+
+/** True for the no-account verify answer: it carries no access token. */
+export function isOtpVerifiedNoAccount(res: LoginOutcome | OtpVerifiedNoAccount): boolean {
+  return (res as Partial<OtpVerifiedNoAccount>).verified === true && !(res as Partial<TokenResponse>).accessToken;
+}
+
+/**
  * The ONLY safe way to tell the two login outcomes apart. Never use
  * `'requiresRoleSelection' in outcome`: the success response carries that key
  * with the value `false`, so the `in` test is true for both outcomes and the
@@ -258,9 +280,16 @@ export function renderOtpState(input: RenderOtpStateInput): RenderOtpStateResult
 }
 
 export function resolveRouteAfterAuth(me: UserMe): {
-  name: 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'AdminMain' | 'Unsupported';
+  name: 'CreatePassword' | 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'AdminMain' | 'Unsupported';
   params?: { applicationId?: string; adminRole?: AdminRoleCode };
 } {
+  // BR-142: an account with no password (a first sign-in by OTP) sets one
+  // before reaching any role shell. Checked here, not only on the OTP screen,
+  // because every sign-in path and the Splash session restore route through
+  // this function: killing the app on Create Password lands on it again.
+  if (me.hasPassword === false) {
+    return { name: 'CreatePassword' };
+  }
   // No default admin role: a role this app does not recognise is
   // 'Unsupported' below, never the Super Admin shell.
   const adminRole = getPrimaryAdminRole(me.roles);
@@ -374,6 +403,12 @@ export async function verifyOtp(body: {
 }): Promise<LoginOutcome> {
   // `body` is forwarded by reference, not rebuilt, so an absent `linkToken`
   // stays absent from the JSON rather than becoming an explicit null.
+  //
+  // The declared type omits the third 200 shape, `OtpVerifiedNoAccount` (no
+  // account for this number, no tokens): widening it here would ripple into
+  // every caller's narrowing. Nothing is stored in that case (the token check
+  // below fails), and callers that must tell it apart use
+  // `isOtpVerifiedNoAccount` (BR-142).
   const res = (await apiVerifyOtp(body)) as unknown as LoginOutcome;
   if (!isRoleSelectionRequired(res) && res.accessToken && res.refreshToken) {
     setAccessToken(res.accessToken);
@@ -430,6 +465,19 @@ export async function changePassword(body: {
   });
   setAccessToken(null);
   await clearTokens();
+}
+
+/**
+ * BR-142: `POST /auth/me/set-password`, the FIRST password of an account that
+ * signed in by OTP and has none. Unlike `changePassword` the server revokes no
+ * session here, so the tokens this app holds stay valid and nothing is cleared.
+ * 409 `PASSWORD_ALREADY_SET` once a password exists.
+ */
+export async function setInitialPassword(body: { newPassword: string }): Promise<void> {
+  await request<void>('/auth/me/set-password', {
+    method: 'POST',
+    body,
+  });
 }
 
 export async function fetchMe(): Promise<UserMe> {

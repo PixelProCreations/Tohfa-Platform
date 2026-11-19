@@ -92,6 +92,15 @@ export const changePasswordBody = z.object({
 export type ChangePasswordBody = z.infer<typeof changePasswordBody>;
 
 /**
+ * BR-142: the first password of an account that has none (it signed in by OTP).
+ * Same length policy as reset and change. No `currentPassword`: there is none.
+ */
+export const setPasswordBody = z.object({
+  newPassword: z.string().min(10).max(128),
+});
+export type SetPasswordBody = z.infer<typeof setPasswordBody>;
+
+/**
  * BR-82: the admin's own-profile edit. `mobile` and `email` are accepted by the
  * SHAPE only so the service can refuse them with 403 FIELD_LOCKED (BR-33)
  * instead of the schema masking the lock as a 422; any other key is a 422.

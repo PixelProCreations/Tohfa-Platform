@@ -9,12 +9,16 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  getAnimal,
+  listAnimals,
   listBreedingRecords,
   listFeedLogs,
   listFeedPlans,
   listHealthRecords,
   listHousingRecords,
   listHygieneLogs,
+  listProductionLogs,
+  type AnimalResponse,
   type LivestockBreedingRecord,
   type LivestockFeedLog,
   type LivestockFeedPlan,
@@ -22,25 +26,91 @@ import {
   type HousingRecordsPage,
   type LivestockHousingListItem,
   type LivestockHygieneLog,
+  type ProductionLogResponse,
   type RecordsPage,
 } from '../../../api/livestock';
+import { addDaysIso, localTodayIso } from './animalRecordView';
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
+
+// ── The animal itself ───────────────────────────────────────────────────────
+
+export interface AnimalState {
+  state: LoadState;
+  animal: AnimalResponse | null;
+  error: unknown;
+  /** Full reload with the loading state (after an error). */
+  retry: () => void;
+  /** Re-fetch keeping the current animal on screen (pull-to-refresh, after a withdrawal-moving save). */
+  refresh: () => void;
+}
+
+export class MissingAnimalIdError extends Error {
+  constructor() {
+    super('missing animal id');
+    this.name = 'MissingAnimalIdError';
+  }
+}
+
+export function useAnimal(animalId: string | undefined): AnimalState {
+  const [state, setState] = useState<LoadState>('loading');
+  const [animal, setAnimal] = useState<AnimalResponse | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const silentRef = useRef(false);
+
+  useEffect(() => {
+    if (!animalId) {
+      setAnimal(null);
+      setError(new MissingAnimalIdError());
+      setState('error');
+      return undefined;
+    }
+    const controller = new AbortController();
+    if (!silentRef.current) setState('loading');
+    getAnimal(animalId, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setAnimal(result);
+        setError(null);
+        setState('ready');
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        // A failed silent refresh keeps the animal already on screen.
+        if (!silentRef.current) {
+          setAnimal(null);
+          setError(err);
+          setState('error');
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) silentRef.current = false;
+      });
+    return () => controller.abort();
+  }, [animalId, reloadKey]);
+
+  const retry = useCallback(() => {
+    silentRef.current = false;
+    setReloadKey((k) => k + 1);
+  }, []);
+  const refresh = useCallback(() => {
+    silentRef.current = true;
+    setReloadKey((k) => k + 1);
+  }, []);
+
+  return { state, animal, error, retry, refresh };
+}
 
 // ── Generic paged list ──────────────────────────────────────────────────────
 
 export interface PagedRecords<T, R extends RecordsPage<T> = RecordsPage<T>> {
   state: LoadState;
   items: T[];
-  /**
-   * The page-one failure while `state` is 'error' (an ApiError carries the
-   * problem code),
-   * so a section can say why instead of a generic message. Null otherwise.
-   */
   error: unknown;
   /**
    * The latest page-one response as received, for fields the server sends
-   * beside the page (the housing list's BR-141 `spaceStandard`). Null until
+   * beside the page (the housing list's BR-140 `spaceStandard`). Null until
    * page one loads and after it fails.
    */
   firstPage: R | null;
@@ -89,13 +159,8 @@ export function usePagedRecords<T, R extends RecordsPage<T> = RecordsPage<T>>(
   useEffect(() => {
     if (!active || !animalId) return undefined;
     const controller = new AbortController();
-    // An aborted load-more skips its own `finally`, so clear its spinner here
-    // or `loadingMore` stays true and blocks every later loadMore().
-    if (moreControllerRef.current) {
-      moreControllerRef.current.abort();
-      moreControllerRef.current = null;
-      setLoadingMore(false);
-    }
+    moreControllerRef.current?.abort();
+    setLoadingMore(false);
     if (!refreshingRef.current) setState('loading');
     fetchPage(animalId, undefined, controller.signal)
       .then((page) => {
@@ -183,12 +248,14 @@ const fetchFeedLogs: PageFetcher<LivestockFeedLog> = (id, cursor, signal) =>
 /**
  * Only the current housing is shown: the list is ordered startDate DESC, so
  * the single row of page one is the newest startDate. The page also carries
- * the BR-141 `spaceStandard` (read via `firstPage`).
+ * the BR-140 `spaceStandard` (read via `firstPage`).
  */
 const fetchHousing: PageFetcher<LivestockHousingListItem, HousingRecordsPage> = (id, cursor, signal) =>
   listHousingRecords(id, { limit: 1, ...(cursor ? { cursor } : {}) }, signal);
 const fetchHygiene: PageFetcher<LivestockHygieneLog> = (id, cursor, signal) =>
   listHygieneLogs(id, { limit: LOG_PAGE_SIZE, ...(cursor ? { cursor } : {}) }, signal);
+const fetchProduction: PageFetcher<ProductionLogResponse> = (id, cursor, signal) =>
+  listProductionLogs({ animalId: id, limit: LOG_PAGE_SIZE, ...(cursor ? { cursor } : {}) }, signal);
 
 export const useAnimalHealthRecords = (animalId: string | undefined, enabled: boolean) =>
   usePagedRecords(animalId, fetchHealth, enabled);
@@ -202,3 +269,65 @@ export const useAnimalHousing = (animalId: string | undefined, enabled: boolean)
   usePagedRecords(animalId, fetchHousing, enabled);
 export const useAnimalHygieneLogs = (animalId: string | undefined, enabled: boolean) =>
   usePagedRecords(animalId, fetchHygiene, enabled);
+export const useAnimalProductionLogs = (animalId: string | undefined, enabled: boolean) =>
+  usePagedRecords(animalId, fetchProduction, enabled);
+
+/** Milk logs for the 7 days ending today (sparkline + today's yield). Follows every page. */
+export const MILK_SERIES_DAYS = 7;
+
+const fetchMilkWindow: PageFetcher<ProductionLogResponse> = async (id, _cursor, signal) => {
+  const today = localTodayIso();
+  const items: ProductionLogResponse[] = [];
+  let cursor: string | undefined;
+  // Bounded: 7 days of per-animal milk logs fit in one 100-row page in practice;
+  // the cap only stops a runaway loop.
+  for (let page = 0; page < 10; page += 1) {
+    const result = await listProductionLogs(
+      {
+        animalId: id,
+        productType: 'MILK',
+        dateFrom: addDaysIso(today, -(MILK_SERIES_DAYS - 1)),
+        dateTo: today,
+        limit: 100,
+        ...(cursor ? { cursor } : {}),
+      },
+      signal,
+    );
+    items.push(...result.items);
+    if (!result.page.hasMore || result.page.nextCursor === null) break;
+    cursor = result.page.nextCursor;
+  }
+  return { items, page: { nextCursor: null, hasMore: false } };
+};
+
+export const useAnimalMilkWindow = (animalId: string | undefined, enabled: boolean) =>
+  usePagedRecords(animalId, fetchMilkWindow, enabled);
+
+// ── Sire options (HEAT form) ────────────────────────────────────────────────
+
+/**
+ * Male animals of the herd, offered as the sire for a heat record. Replaces a
+ * hard-coded "Bull #01 (Sahiwal)" list. Same species only. Loaded when the
+ * breeding modal opens; a failure leaves just the "external" option.
+ */
+export function useSireOptions(species: AnimalResponse['species'] | undefined, enabled: boolean): string[] {
+  const [options, setOptions] = useState<string[]>([]);
+  useEffect(() => {
+    if (!enabled || species === undefined) return undefined;
+    const controller = new AbortController();
+    listAnimals({ species, limit: 100 }, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setOptions(
+          result.items
+            .filter((a) => a.gender === 'MALE')
+            .map((a) => (a.name ? `${a.name} (${a.tag})` : a.tag)),
+        );
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setOptions([]);
+      });
+    return () => controller.abort();
+  }, [enabled, species]);
+  return options;
+}

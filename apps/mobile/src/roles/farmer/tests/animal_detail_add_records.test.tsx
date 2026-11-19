@@ -47,6 +47,7 @@ vi.mock('@tohfa/mobile-ui', () => ({
   Skeleton: 'Skeleton',
   SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
+  ModalSafeArea: 'ModalSafeArea',
 }));
 
 const attachment = vi.hoisted(() => ({
@@ -222,6 +223,63 @@ beforeEach(() => {
 
 afterEach(() => {
   setLocale('en');
+});
+
+describe('health: field errors on blur and focus on first invalid field', () => {
+  async function blur(tree: renderer.ReactTestRenderer, field: string): Promise<void> {
+    const node = tree.root.findByProps({ testID: `animalRecordForm.field.${field}` });
+    await act(async () => {
+      (node.props as { onBlur: () => void }).onBlur();
+    });
+  }
+
+  it('shows a field error on blur, before any submit, and clears it once the value is valid', async () => {
+    const tree = await mount();
+    await press(tree, 'animalDetail.health.add');
+    expect(has(tree, 'animalRecordForm.fieldError.vaccineName')).toBe(false);
+    await blur(tree, 'vaccineName');
+    expect(textWithin(tree, 'animalRecordForm.fieldError.vaccineName')).toBe(t('farmer.livestock.detail.form.error.required'));
+    expect(has(tree, 'animalRecordForm.fieldError.veterinarian')).toBe(false);
+    await type(tree, 'vaccineName', 'HS vaccine');
+    expect(has(tree, 'animalRecordForm.fieldError.vaccineName')).toBe(false);
+    expect(apiPost).not.toHaveBeenCalled();
+  });
+
+  it('keeps showing an error while the typed value is still invalid', async () => {
+    const tree = await mount();
+    await press(tree, 'animalDetail.health.add');
+    await type(tree, 'doseValue', 'abc');
+    await blur(tree, 'doseValue');
+    expect(textWithin(tree, 'animalRecordForm.fieldError.doseValue')).toBe(t('farmer.livestock.detail.form.error.number'));
+    await type(tree, 'doseValue', 'ab');
+    expect(has(tree, 'animalRecordForm.fieldError.doseValue')).toBe(true);
+    await type(tree, 'doseValue', '5');
+    expect(has(tree, 'animalRecordForm.fieldError.doseValue')).toBe(false);
+  });
+
+  it('scrolls to the first invalid field, in form order, when a submit fails', async () => {
+    const scrollTo = vi.fn();
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<AnimalDetailScreen animalId={A} />, { createNodeMock: () => ({ scrollTo, focus: vi.fn() }) });
+    });
+    await settle();
+    await press(tree, 'animalDetail.health.add');
+    const layout = async (field: string, y: number) => {
+      const block = tree.root.findByProps({ testID: `animalRecordForm.block.${field}` });
+      await act(async () => {
+        (block.props as { onLayout: (e: unknown) => void }).onLayout({ nativeEvent: { layout: { x: 0, y, width: 1, height: 1 } } });
+      });
+    };
+    await layout('recordDate', 40);
+    await layout('vaccineName', 300);
+    await type(tree, 'recordDate', 'not-a-date');
+    await press(tree, 'animalRecordForm.submit');
+    expect(apiPost).not.toHaveBeenCalled();
+    expect(scrollTo).toHaveBeenCalled();
+    expect((scrollTo.mock.calls.at(-1)![0] as { y: number }).y).toBeLessThan(300);
+    expect((scrollTo.mock.calls.at(-1)![0] as { y: number }).y).toBeLessThanOrEqual(40);
+  });
 });
 
 describe('health: add a record', () => {

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -9,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';
@@ -30,7 +29,7 @@ function ArrowBackIcon({ size = 20, color = P.deepGreen }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -300,26 +299,31 @@ export function PayrollScreen({ farmId, onBack, onNavigateToWorkerDetail }: Payr
         },
         idempotencyKey,
       );
-      Alert.alert('Payment Successful', `Payout of ${formatPaiseFull(row.netPayablePaise)} recorded for ${row.name}.`);
+      appAlert('Payment Successful', `Payout of ${formatPaiseFull(row.netPayablePaise)} recorded for ${row.name}.`, undefined, {
+        tone: 'success',
+      });
       await loadPayroll();
     } catch (err) {
       // The backend rejects an overpayment (422) and a duplicate payout for
       // the same period (409) -- both land here as a real error, not a
       // silent success like the old mock assumed.
-      Alert.alert('Payout Failed', formatErrorMessage(err, 'Could not record this payout. Please try again.'));
+      appAlert('Payout Failed', formatErrorMessage(err, 'Could not record this payout. Please try again.'), undefined, {
+        tone: 'error',
+      });
     } finally {
       setPayingId(null);
     }
   };
 
   const handlePayout = (row: WorkerPayrollRow) => {
-    Alert.alert(
+    appAlert(
       'Process Payout',
       `Confirm payout of ${formatPaiseFull(row.netPayablePaise)} to ${row.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Pay via UPI', onPress: () => void submitPayout(row) },
       ],
+      { tone: 'warning' },
     );
   };
 

@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { ModalSafeArea, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, radius, spacing, typography } from '../../theme';
@@ -455,8 +455,15 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
 
       {/* Filter picker sheet (same Modal + backdrop pattern as AddPlantingScreen's date sheet) */}
       {openFilter !== null && !filtersUnavailable ? (
-        <Modal transparent visible animationType="fade" onRequestClose={() => setOpenFilter(null)}>
-          <View style={styles.sheetOverlay}>
+        <Modal
+          transparent
+          visible
+          animationType="fade"
+          statusBarTranslucent
+          navigationBarTranslucent
+          onRequestClose={() => setOpenFilter(null)}
+        >
+          <ModalSafeArea edges={['bottom']} style={styles.sheetOverlay}>
             <View style={[StyleSheet.absoluteFill, styles.sheetScrim]} pointerEvents="none" />
             <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setOpenFilter(null)} />
             <View style={styles.sheet}>
@@ -486,7 +493,7 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
                 ))}
               </ScrollView>
             </View>
-          </View>
+          </ModalSafeArea>
         </Modal>
       ) : null}
     </SafeAreaView>
@@ -879,8 +886,12 @@ const styles = StyleSheet.create({
   },
   // Positioned by StyleSheet.absoluteFill at the call site.
   sheetScrim: {
+    ...StyleSheet.absoluteFill,
     backgroundColor: P.black,
     opacity: 0.4,
+  },
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFill,
   },
   sheet: {
     backgroundColor: P.white,

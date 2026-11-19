@@ -72,6 +72,16 @@ if (isMapboxAvailable && Mapbox && typeof Mapbox.setAccessToken === 'function') 
   }
 }
 
+/**
+ * Whether a `FarmBoundaryMap` can show real map tiles in this build: the native SDK is linked AND
+ * a Mapbox token was inlined. Without a token the native MapView still mounts but every style
+ * request is refused, so it renders as a blank panel -- a small embedded preview (Profile's Farm &
+ * FMB card) checks this to show its own placeholder instead of an empty map-shaped box.
+ */
+export function isFarmMapAvailable(): boolean {
+  return isMapboxAvailable && PUBLIC_MAPBOX_TOKEN.length > 0;
+}
+
 /** Idempotent — safe to call from every mount of every map on screen. */
 function ensureMapboxConfigured(): void {
   if (mapboxConfigured || !isMapboxAvailable || !Mapbox) return;
@@ -242,14 +252,29 @@ export interface FarmBoundaryMapProps {
    * changing the zoom every other caller already relies on.
    */
   initialZoom?: number;
+  /**
+   * Forwarded from the native MapView's `onMapLoadingError`. Mapbox fires it for every kind of
+   * load failure -- a single missing tile as well as a refused style (bad/missing token, offline
+   * on first launch) -- so the payload's `type` is passed through for the caller to judge. Not
+   * passed (the default) leaves the native MapView's props exactly as before.
+   */
+  onMapLoadError?: (error?: FarmBoundaryMapLoadError) => void;
   testID?: string;
+}
+
+/** What `onMapLoadError` receives; `type` is the Mapbox SDK's error kind, when it reports one. */
+export interface FarmBoundaryMapLoadError {
+  error: string;
+  type?: 'style' | 'sprite' | 'source' | 'glyphs' | 'tile';
 }
 
 // Nilgiris — used only as a last-resort camera center when the caller passes
 // no `initialCenter` AND device GPS is unavailable/denied. Not a business
 // threshold, just a sane default so the map never renders centered on
-// [0, 0] (Null Island).
-const FALLBACK_CENTER: LngLat = [76.6932, 11.4064];
+// [0, 0] (Null Island). Exported so a caller that must NOT trigger the GPS
+// prompt (a passive preview) can pass the same default region explicitly.
+export const FARM_MAP_FALLBACK_CENTER: LngLat = [76.6932, 11.4064];
+const FALLBACK_CENTER: LngLat = FARM_MAP_FALLBACK_CENTER;
 const DEFAULT_ZOOM = 17;
 // Mapbox GL's own range is 0-22, but there is no reason for a farm-boundary-drawing screen to
 // zoom out past "see the whole village" or in past "see a single vertex with room to spare" --
@@ -331,6 +356,7 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
       onRejectedPoint,
       gesturesEnabled = true,
       initialZoom = DEFAULT_ZOOM,
+      onMapLoadError,
       testID,
     },
     ref,
@@ -651,6 +677,7 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
           scaleBarEnabled={false}
           // Spread only when disabling, so the default leaves the native MapView's props untouched.
           {...(gesturesEnabled ? {} : DISABLED_CAMERA_GESTURES)}
+          {...(onMapLoadError ? { onMapLoadingError: onMapLoadError } : {})}
           testID={testID ? `${testID}.map` : undefined}
         >
           <Camera

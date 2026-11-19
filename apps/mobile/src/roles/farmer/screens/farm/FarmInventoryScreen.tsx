@@ -11,6 +11,7 @@ import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../theme';
 import { listFarmAssets } from '../../api/farmAssets';
+import { listAllTreePlantings } from '../../api/treePlantings';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -99,18 +100,10 @@ interface CategoryData {
 }
 
 /**
- * Real farm_assets-backed counts for Tools/Equipment/Machinery (fetched
- * below). "Trees" has no backend (TreesListScreen.tsx is a separate
- * plantings concept — see farm-assets migration's header comment) so it
- * stays exactly the hardcoded row the mock always showed.
+ * Tools/Equipment/Machinery counts come from farm_assets; Trees come from the
+ * tree-plantings list (BR-55). Tree plantings carry no service status, so the
+ * Trees card never shows a "due" badge.
  */
-const TREES_CATEGORY: CategoryData = {
-  name: 'Trees',
-  count: '3 plantings',
-  dueCount: 2,
-  icon: <TreesIcon />,
-  iconBg: P.paleMintBg,
-};
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -123,6 +116,7 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
   const [toolsCategory, setToolsCategory] = useState<CategoryData | null>(null);
   const [equipmentCategory, setEquipmentCategory] = useState<CategoryData | null>(null);
   const [machineryCategory, setMachineryCategory] = useState<CategoryData | null>(null);
+  const [treesCategory, setTreesCategory] = useState<CategoryData | null>(null);
   const [servicingSummary, setServicingSummary] = useState<{
     dueSoonCount: number;
     overdueCount: number;
@@ -135,10 +129,11 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
     setLoading(true);
     setError(null);
     try {
-      const [tools, equipment, machinery] = await Promise.all([
+      const [tools, equipment, machinery, trees] = await Promise.all([
         listFarmAssets({ category: 'TOOL', limit: 100 }),
         listFarmAssets({ category: 'EQUIPMENT', limit: 100 }),
         listFarmAssets({ category: 'MACHINERY', limit: 100 }),
+        listAllTreePlantings(),
       ]);
 
       const allAssets = [...tools.items, ...equipment.items, ...machinery.items];
@@ -163,6 +158,13 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
         dueCount: equipment.items.filter((item) => item.status !== 'OK').length,
         icon: <EquipmentIcon />,
         iconBg: P.lightGreen,
+      });
+      setTreesCategory({
+        name: 'Trees',
+        count: `${trees.length} plantings`,
+        dueCount: 0,
+        icon: <TreesIcon />,
+        iconBg: P.paleMintBg,
       });
       setMachineryCategory({
         name: 'Machinery',
@@ -216,12 +218,12 @@ export function FarmInventoryScreen({ onNavigateBack, onNavigateToCategory }: Fa
   }
 
   // Real Tools/Equipment/Machinery categories are guaranteed non-null once
-  // loading finishes without an error (loadCounts always sets all three
-  // together); Trees stays the hardcoded row.
+  // loading finishes without an error (loadCounts always sets all four
+  // together).
   const categories: CategoryData[] = [
     toolsCategory ?? { name: 'Tools', count: '0 items', dueCount: 0, icon: <ToolsIcon />, iconBg: P.twGreen100 },
     equipmentCategory ?? { name: 'Equipment', count: '0 items', dueCount: 0, icon: <EquipmentIcon />, iconBg: P.lightGreen },
-    TREES_CATEGORY,
+    treesCategory ?? { name: 'Trees', count: '0 plantings', dueCount: 0, icon: <TreesIcon />, iconBg: P.paleMintBg },
     machineryCategory ?? { name: 'Machinery', count: '0 items', dueCount: 0, icon: <MachineryIcon />, iconBg: P.sageTintBg },
   ];
 

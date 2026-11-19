@@ -163,6 +163,19 @@ export const adminListCertificationsQuery = z.object({
 });
 export type AdminListCertificationsQuery = z.infer<typeof adminListCertificationsQuery>;
 
+/**
+ * GET /farmers/me/certifications/{id}/document (BR-142): a short-lived signed
+ * read URL for the certificate's file. Allow-list: the stored (permanent)
+ * documentUrl and the storage key are never part of this response.
+ */
+export const certificationDocumentResponse = z
+  .object({
+    readUrl: z.string().url(),
+    expiresAt: z.string().datetime(),
+  })
+  .strict();
+export type CertificationDocumentResponse = z.infer<typeof certificationDocumentResponse>;
+
 export const farmerConfigResponse = z.object({
   certExpiryWarningDays: z.number().int().positive(),
   certExpiryMaxPastDays: z.number().int().nonnegative(),

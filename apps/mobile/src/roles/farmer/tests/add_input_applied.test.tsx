@@ -11,7 +11,6 @@ import renderer, { act, type ReactTestRendererJSON } from 'react-test-renderer';
 
 const alert = vi.hoisted(() => vi.fn());
 vi.mock('react-native', () => ({
-  Alert: { alert },
   BackHandler: { addEventListener: () => ({ remove: () => undefined }) },
   Modal: 'Modal',
   Platform: { OS: 'ios', select: (obj: Record<string, unknown>) => obj['ios'] ?? obj['default'] },
@@ -30,6 +29,7 @@ vi.mock('react-native-svg', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  appAlert: alert,
   Button: 'Button',
   ErrorState: 'ErrorState',
   SafeAreaView: 'SafeAreaView',
@@ -230,7 +230,7 @@ describe('AddInputAppliedScreen (BR-56)', () => {
     const tree = await mount({ initialInputType: 'Fertigation' });
     await fillValid(tree, '2026-07-12');
     await pressLabel(tree, 'Save Input');
-    expect(alert).toHaveBeenCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.saveFailed'));
+    expect(alert).toHaveBeenCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.saveFailed'), undefined, { tone: 'error' });
     await pressLabel(tree, 'Save Input');
     expect(apiPost).toHaveBeenCalledTimes(2);
     expect(apiPost.mock.calls[1]![2]).toBe(apiPost.mock.calls[0]![2]);
@@ -244,18 +244,18 @@ describe('AddInputAppliedScreen (BR-56)', () => {
       await pressLabel(tree, 'Save Input');
     }
     expect(apiPost).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.quantity'));
+    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.quantity'), undefined, { tone: 'error' });
   });
 
   it('BR-56b: rejects a future or non-calendar date without calling the API', async () => {
     const tree = await mount({ initialInputType: 'Fertigation' });
     await fillValid(tree, addDaysIso(todayInKolkata(), 1));
     await pressLabel(tree, 'Save Input');
-    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.futureDate'));
+    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.futureDate'), undefined, { tone: 'error' });
     for (const bad of ['30 Feb 2026', '2026-02-30', 'yesterday', '']) {
       await type(tree, 'Date and Time', bad);
       await pressLabel(tree, 'Save Input');
-      expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.date'));
+      expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.date'), undefined, { tone: 'error' });
     }
     expect(apiPost).not.toHaveBeenCalled();
   });
@@ -265,7 +265,7 @@ describe('AddInputAppliedScreen (BR-56)', () => {
     await type(tree, 'Quantity', '4');
     await type(tree, 'Date and Time', '2026-07-12');
     await pressLabel(tree, 'Save Input');
-    expect(alert).toHaveBeenLastCalledWith('Required Field', 'Please enter a product or input name.');
+    expect(alert).toHaveBeenLastCalledWith('Required Field', 'Please enter a product or input name.', undefined, { tone: 'warning' });
     expect(apiPost).not.toHaveBeenCalled();
   });
 
@@ -275,7 +275,7 @@ describe('AddInputAppliedScreen (BR-56)', () => {
     await fillValid(tree, '2026-07-12');
     await pressLabel(tree, 'Save Input');
     expect(apiPost).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.noCrop'));
+    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.noCrop'), undefined, { tone: 'error' });
   });
 
   it('BR-56: opened farm-wide (no crop), the farmer picks the crop and Save posts against it', async () => {
@@ -315,7 +315,7 @@ describe('AddInputAppliedScreen (BR-56)', () => {
     for (const bad of ['4.555', '0.001', '1e3']) {
       await type(tree, 'Quantity', bad);
       await pressLabel(tree, 'Save Input');
-      expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.quantity'));
+      expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.quantity'), undefined, { tone: 'error' });
     }
     expect(apiPost).not.toHaveBeenCalled();
 

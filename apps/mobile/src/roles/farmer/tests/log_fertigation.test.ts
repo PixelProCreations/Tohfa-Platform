@@ -15,7 +15,6 @@ import renderer, { act, type ReactTestRendererJSON } from 'react-test-renderer';
 const alertSpy = vi.hoisted(() => vi.fn());
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
-  Alert: { alert: alertSpy },
   BackHandler: { addEventListener: () => ({ remove: () => undefined }) },
   Modal: 'Modal',
   Platform: { OS: 'ios', select: (obj: Record<string, unknown>) => obj['ios'] ?? obj['default'] },
@@ -34,7 +33,11 @@ vi.mock('react-native-svg', () => ({
   Path: 'Path',
   Rect: 'Rect',
 }));
-vi.mock('@tohfa/mobile-ui', () => ({ SafeAreaView: 'SafeAreaView', ScreenStatusBar: 'ScreenStatusBar' }));
+vi.mock('@tohfa/mobile-ui', () => ({
+  SafeAreaView: 'SafeAreaView',
+  ScreenStatusBar: 'ScreenStatusBar',
+  appAlert: alertSpy,
+}));
 const cropItemsState = vi.hoisted(() => ({
   items: [] as unknown[],
   loading: false,

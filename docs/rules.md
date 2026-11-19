@@ -1622,6 +1622,7 @@ See also BR-66.
 - `BR-69e` A bad `aadhaarLast4` or `dob` is 422 and the value is not echoed.
 - `BR-69f` Unknown keys are 422 on every step.
 - `BR-69g` Bad coordinates, an unclosed ring, or a missing `id` / `label` / `areaAcres` are 422.
+- `BR-69h` (added 2026-11-11, spec gap: no rule covered approval onto an existing `farmers` row) When a `farmers` row already exists for the applicant's user, approval fills each step-1/step-2 data column (`dob`, `gender`, `pincode`, `address_line1`, `village`, `taluk`, `district`, `aadhaar_last4`, `farming_experience_years`, `zone_id`) only where it is still NULL, and never overwrites a value the row already holds; status columns are set as before. Tests: `farmer-applications.test.ts` (unit SQL shape, and a PostgreSQL round trip).
 
 ---
 
@@ -3366,6 +3367,44 @@ Every other place that adds a role creates a brand-new account in the same trans
 - `BR-136j` (PostgreSQL) A farm with a NULL or blank taluk falls back to `farmers.taluk` in both the summary and the filter options; a farm taluk, when present, wins over the profile taluk.
 - `BR-136k` (PostgreSQL) A PLANNED planting with no `planted_on` counts in the unfiltered summary and matches none of the 12 months.
 
+### BR-142 — Produce Control Calendar read-only views, scope, allow-list, and recorded-events tracking
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-10): mobile `TohfaAdminDashboardScreen.tsx` (T:1143-2778) and `FarmerAdminDashboardScreen.tsx` (FA:2061-2160) Produce Control Calendar screens; `docs/rbac.json` `produce.calendar.view_consolidated`; aligns with BR-108a (farmer directory scope) and BR-57 (milestone tracking) |
+| **Status** | DERIVED (owner-approved scope pattern P1 / BR-108a; see open contradiction 36) |
+| **Layer** | Server-side: `apps/api/src/modules/admin-produce/` (`adminProduceRepo`, `adminProduceService`, `adminProduceRoutes`); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /v1/admin/produce/records`, `GET /v1/admin/produce/records/{id}`, `GET /v1/admin/produce/calendar`, `GET /v1/admin/produce/calendar/events`, and `GET /v1/admin/produce/filter-options` provide scoped, read-only produce and crop planting data for the admin Produce Control Calendar.
+1. **Permission and grants.** Gated by `produce.calendar.view_consolidated`: SUPER_ADMIN `all`, TOHFA_ADMIN `all`, FARMER_ADMIN `view`, MAIN_WH_ADMIN `view`, SUB_WH_ADMIN `view`. FARMER and CUSTOMER roles have no grant (403). Unauthenticated requests are 401.
+2. **Scope (BR-108a pattern).** A crop record is visible to the caller exactly when its farmer is visible to the caller in `GET /admin/farmers`:
+   - SUPER_ADMIN, TOHFA_ADMIN, and MAIN_WH_ADMIN see all active, undeleted records.
+   - FARMER_ADMIN sees only records belonging to farmers whose current `farmers.zone_id` matches one of the caller's assigned zones (`scope.zoneIds`).
+   - SUB_WH_ADMIN sees only records belonging to farmers whose current `farmers.zone_id` belongs to zones associated with the caller's warehouse (`zones.warehouse_id = scope.warehouseId`).
+   - Reuses `farmerScopeFilter` (shared with `admin-farmers`) so scoping logic is identical across admin modules.
+3. **Row visibility.** A crop record is visible only when `farm_crops`, its `plots`, its `farms`, and the associated `farmers` all have `deleted_at IS NULL`, and the farmer is within the caller's scope.
+4. **Absent, not forbidden.** An `id` outside the caller's scope, soft-deleted, or nonexistent returns 404 `NOT_FOUND` on detail reads (`GET /admin/produce/records/{id}`). In list queries, filter parameters (`farmerId`, `zoneId`) specifying an entity outside the caller's scope return an empty result (`items: []`, `total: 0`), never 403.
+5. **Read-only and no auto-initialisation.** All endpoints are strictly read-only. No row is written to `farm_crop_milestones`, `audit_log`, or any other table. In particular, `GET /admin/produce/records/{id}` does not auto-initialize milestone templates (unlike farmer-facing crop detail, BR-57 rule 2); if no milestone rows exist, it returns `stages: []`.
+6. **Field allow-list.** Response objects are explicitly mapped and parsed through strict Zod schemas. Sensitive farmer PII (mobile, email, Aadhaar, address), GPS coordinates (centroid_lat/lng, farm boundary, plot boundary), storage keys, and diary photos are never returned.
+7. **Recorded events only.** Calendar month markers (`GET /admin/produce/calendar`) and calendar day events (`GET /admin/produce/calendar/events`) count and list only recorded historical events:
+   - `planting`: `farm_crops.planted_on = date`
+   - `growthStage`: `farm_crop_milestones.status = 'COMPLETED' AND completed_on = date` (only COMPLETED milestones count towards progress, BR-57 rule 3; PENDING and SKIPPED milestones are never counted even if they carry a date)
+   - `harvest`: `farm_crops.actual_harvest_on = date`
+   - `expected_harvest_on` is a forecast and is NEVER counted as a harvest or shown as an event marker (binding design footnote T:1391).
+8. **Filter options.** `GET /admin/produce/filter-options` returns active, undeleted `zones` within the caller's visibility scope (all for SA/TA/Main; assigned zones for Farmer Admin; warehouse zones for Sub WH Admin) and active, undeleted `crop_master` rows.
+
+**Failure mode if unenforced.** A Farmer Admin could inspect crop plantings and harvest schedules of farmers outside their assigned zones; forecasts could be presented as confirmed harvests; or sensitive farmer PII and GPS boundary data could leak through admin produce endpoints.
+
+**Test contract.** (`apps/api/src/modules/admin-produce/admin-produce.test.ts`)
+- `BR-142a` Farmer Admin sees only records of farmers in its assigned zones in records list, calendar month summary, day events, and filter-options; another zone's record id in detail read returns 404; filtering by another zone or out-of-scope farmerId returns empty list / zero total, not 403.
+- `BR-142b` Sub WH Admin sees only records in its warehouse's zones; Super Admin, Tohfa Admin, and Main WH Admin see all; FARMER and CUSTOMER roles receive 403; unauthenticated requests receive 401.
+- `BR-142c` `page.total` (when `includeTotal=true`) equals the exact count of records visible to the caller's scope and filters; out-of-scope records are never counted.
+- `BR-142d` Soft-deleted `farm_crops`, `plots`, `farms`, `farmers`, and milestone rows are excluded from all lists, calendar markers, day events, and detail lookups.
+- `BR-142e` Detail read on a record without milestones returns `stages: []` and writes 0 rows to `farm_crop_milestones` and `audit_log`.
+- `BR-142f` Calendar month grid and day events count only recorded events (planting via `planted_on`, completed milestone via `completed_on`, harvest via `actual_harvest_on`); expected harvests produce no marker and no event; PENDING or SKIPPED milestones are excluded.
+- `BR-142g` Allow-list enforcement: injected extra fields (mobile, email, centroid, boundaries) do not appear in serialized responses and key sets match documented specification.
+- `BR-142h` Input validation: invalid month format, invalid date format, invalid UUIDs, invalid statuses, limit < 1 or > 100, and unknown query parameters return 422 `VALIDATION_FAILED`.
+
 ---
 
 ### BR-137 — Animal records are owner-scoped and farm-side only
@@ -4087,6 +4126,63 @@ RMA return requests and detail responses:
 
 ---
 
+### BR-142 — A certificate's document is read only through a short-lived signed URL, issued to the farmer who uploaded it
+| | |
+|---|---|
+| **Source** | Specification gap, 2026-11-11: the farmer app's Certifications "View" opened the certificate's `documentUrl`, the permanent storage URL from `POST /uploads/sign`, which is not readable (private container; in dev nothing served `/storage/*`, so every View was a 404). Extends BR-36 and BR-54's signed-URL doctrine (BR-54c) to every certificate, not only the first one shown in `GET /farmers/me/documents`. |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `GET /farmers/me/certifications/{id}/document` (`certification.manage_own`, FARMER `own`): `certificationsService.getMyCertificationDocument`, `certificationsRepo.findOwnCertificateDocument` / `isUploadOwnedBy`. Dev/test storage: `BlobStorage.storageKeyFromUrl`, the HMAC-signed local read URL (`LocalDiskBlobStorage` / `InMemoryBlobStorage`) and `GET /storage/*` (`apps/api/src/storage/storage.routes.ts`). Mobile: `getCertificationDocumentReadUrl` (farmer `api/farmer.ts`), fetched on each View tap. |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Own certificate only (`BR-142b`).** The endpoint answers for the caller's own live certificate. Another farmer's certificate, a soft-deleted one (BR-50), an unknown id and a certificate with no document are all 404 `NOT_FOUND`, never 403 (BR-36).
+2. **Signed, short-lived (`BR-142a`).** The response is `{ readUrl, expiresAt }` only: a signed read URL valid for 15 minutes (BR-54c's lifetime) and its expiry. The stored permanent URL and the storage key are never returned; the response carries `Cache-Control: no-store`. The app requests a fresh URL on every View and never logs or displays it.
+3. **The file must be the caller's upload (`BR-142c`).** `documentUrl` is client input. A key is derived from it only when it is this platform's own storage URL (or a bare key); an external URL, a non-storage path or a `..` segment is 404 and never fetched or echoed. The key is signed only when a live `uploads` row for exactly that key has `uploaded_by` = the caller, so a farmer cannot record another user's upload on their certificate and read it.
+4. **Dev/test storage serves only signed reads (`BR-142d`).** Without Azure, read URLs are `/storage/<key>?expires=<ISO>&sig=<HMAC-SHA256 over key and expiry>`, and `GET /storage/*` returns the bytes `PUT /v1/uploads/mock/*` stored only for an unexpired, exact signature; the unsigned permanent URL, a tampered or expired signature, another key and a missing file are the same 404. PDFs and images are served inline with their type, anything else as an `application/octet-stream` attachment, never cached. With Azure configured the read URL is an Azure read SAS and `/storage/*` answers 404.
+
+**Failure mode if unenforced.** Without a signed read the View button can never open a private document; a long-lived or permanent URL is a standing bearer link to a farmer's certificate; signing whatever URL the certificate holds lets one farmer read another's (or an arbitrary) file through the platform; a dev route serving unsigned paths exposes every stored KYC document to anyone who can guess a key.
+
+**Known limitations.** The admin certification views still show the stored `documentUrl` (not covered here). `GET /farmers/me/documents`' CERTIFICATE slot signs `farmer_documents.storage_key` as a key, but the certificate create path stores the full public URL there, so that slot's `readUrl` is malformed for app-created certificates; it should use `storageKeyFromUrl` plus the BR-142c ownership check (open item).
+
+**Test contract.** (`apps/api/src/modules/certifications/certifications.test.ts`, `apps/api/src/storage/blobStorage.test.ts`, mobile `apps/mobile/src/roles/farmer/tests/certification_document.test.ts`)
+- `BR-142a` The owner gets `{ readUrl, expiresAt }` only, with a signature and a ~15-minute expiry; the stored URL is never returned; a bare-key document is signed the same way.
+- `BR-142b` Another farmer's, an unknown and a soft-deleted certificate, and one with no document, are 404 (unit and PostgreSQL).
+- `BR-142c` An external URL, a non-storage path, a traversal and another user's upload planted on the certificate are 404 and never signed (unit and PostgreSQL, including a soft-deleted upload row).
+- `BR-142d` `storageKeyFromUrl` accepts only this storage's own URL; a read URL verifies only for its exact key and unexpired expiry and secret; `GET /storage/*` serves the PUT bytes with the extension's type and `no-store` on a valid signature, and 404s the unsigned URL, a tampered or expired signature, another key and a missing file; unknown types are an `octet-stream` attachment.
+- `BR-142e` Wiring: 401 without a token; 403 for every role without `certification.manage_own`; 422 on a malformed id.
+- `BR-142f` (mobile) View fetches a fresh signed URL each time, shows a loading state, and on failure shows the shared error dialog without the URL; a 404 shows the "no document" dialog.
+
+---
+
+### BR-142 — A first sign-in by OTP leads to creating a password; afterwards password and OTP both sign in
+| | |
+|---|---|
+| **Source** | Product decision, 2026-11-10 (owner): "A first-time user does not have a password. They log in with OTP, are then taken to Create password, and from then on may sign in with password or OTP. A returning user who already has a password and signs in with OTP is not asked again." Extends BR-32 (OTP), BR-81a / BR-112c (accounts created with no password) |
+| **Status** | DERIVED (product decision); the scope questions in contradiction 36 are open |
+| **Layer** | Server-side: `auth.service.ts` `buildMe` (`hasPassword`) and `setInitialPassword`, `POST /auth/me/set-password`. Client: `apps/mobile/src/roles/farmer/api/auth.ts` `resolveRouteAfterAuth`, `CreatePasswordScreen` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Whether a password exists.** `GET /auth/me` (and the `PATCH /auth/me` answer, which is the same shape) carries `hasPassword: boolean`, true exactly when `users.password_hash` is not null. It is derived from the existing column; there is no new column and the hash itself never leaves the server.
+2. **Setting the first password.** `POST /auth/me/set-password` `{ newPassword }` (permission `auth.password.change_own`, the caller's own account only, user id from the token) stores a bcrypt hash of `newPassword` only while the account has no password. If one is already set it is 409 `PASSWORD_ALREADY_SET` and nothing is written: changing a password still needs the current one (`/auth/me/change-password`) or an OTP reset (`/auth/reset-password`). The write is a single conditional `UPDATE ... WHERE password_hash IS NULL`, so two concurrent requests set it once and the loser gets the 409. The length policy is the one reset and change already use (10 to 128 characters, 422 otherwise). No session is revoked: the caller has just proved the mobile number by OTP and there was no earlier credential that could have leaked. One `audit_log` row (`auth.password.set_initial`, entity `user`, no password material) is written in the same transaction.
+3. **Password login is unchanged.** `POST /auth/login` for an account with no password stays 401 `UNAUTHENTICATED` with the same detail as an unknown mobile or a wrong password, so the response never reveals that an account exists or has no password. The mobile Login screen shows, for every `UNAUTHENTICATED`, a message that also points to OTP sign-in.
+4. **Client routing.** Whenever the mobile app resolves a signed-in account from `/auth/me` (after an OTP verify, on session restore from Splash, after a social login) and `hasPassword` is `false`, it opens Create Password before any role shell. The screen has no back or skip control; it starts a fresh back stack, so Android back leaves the app instead of reaching the shell, and the next cold start (Splash, same `/auth/me`) opens it again. When `hasPassword` is `true`, or absent (an older server), the account goes straight to its role route. After a successful set the app reloads `/auth/me` and continues through the normal role routing.
+5. **Unknown number.** `POST /auth/otp/verify` for a mobile with no account answers `{ verified: true, mobile, purpose }` with no tokens (unchanged). The OTP screen shows that no account uses this number and does not call `/auth/me`; no account is created.
+
+**Failure mode if unenforced.** An account created without a password (farmer onboarding, an admin-created Sub Warehouse Admin, an OAuth-created customer) can never use password sign-in unless the user discovers forgot-password; or a set-password endpoint without the "no password yet" check lets anyone holding a stolen access token replace the password without knowing the old one (account takeover).
+
+**Test contract.** (`apps/api/src/modules/auth/auth.test.ts`, `apps/mobile/src/roles/farmer/tests/create_password_routing.test.ts`, `apps/mobile/src/roles/farmer/tests/create_password_flow.test.tsx`)
+- `BR-142a` `GET /auth/me` carries `hasPassword: false` for an account whose `password_hash` is null and `true` otherwise, and never a `passwordHash` / `password_hash` field.
+- `BR-142b` `setInitialPassword` on an account that already has a password is 409 `PASSWORD_ALREADY_SET`; nothing is hashed or written.
+- `BR-142c` `POST /auth/me/set-password` on a no-password account returns 204, stores a bcrypt hash of `newPassword` (password login then succeeds), writes one `auth.password.set_initial` audit row without password material, and a second call is 409 `PASSWORD_ALREADY_SET` (real database).
+- `BR-142d` A `newPassword` shorter than 10 characters is refused by the schema (422); the route requires authentication (401 without a token).
+- `BR-142e` Client: `resolveRouteAfterAuth` sends `hasPassword: false` to `CreatePassword` for every role, and `true` or absent to the role's own route.
+- `BR-142f` Client: Create Password sends the password once, then reloads `/auth/me` and navigates to the role route; mismatched entries send nothing; the screen renders no back control.
+- `BR-142g` Client: an OTP verify that returns no tokens shows the no-account message and never calls `/auth/me`.
+- `BR-142h` Client: a password login refused with `UNAUTHENTICATED` shows the message that points to OTP sign-in.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -4125,6 +4221,7 @@ RMA return requests and detail responses:
 | 35 | Crop nutrient requirement targets and status bands (BR-56f, NPK Contribution screen) | Not stated | Not stated | `GET /farmers/me/crops/:farmCropId/npk-contribution` returns only the cumulative N, P and K applied (kg); no table, `system_config` key or endpoint holds a per-crop nutrient requirement (kg per area), nor the bands that would colour a nutrient as low / medium / met or raise a "running low" alert. The design shows "REQUIREMENT MET" percentages ("16 of 40 kg/ha"), coloured bars and an "N of 5 nutrients running low" alert (also Magnesium and Sulphur, which the API does not total); the rejected PR #160 hard-coded per-crop targets (carrot 40/30/50, tomato 65/45/70, cabbage 55/35/60 kg) and 50% / 80% bands in the screen. Implemented now: no targets are invented; the screen shows the real N/P/K totals and contributing inputs, and the requirement section is a neutral "targets are not set" note with no percentage, band, alert, Magnesium or Sulphur. It is also unconfirmed whether the phosphorus and potassium totals are P₂O₅ / K₂O (as the screen labels them) or elemental P / K | requires owner to supply per-crop targets (unit, per-area basis, which nutrients) and the band thresholds, to be stored in `system_config` or a reference table |
 | 36 | Manual farmer rating edit (BR-06, BR-04, BR-35) | Reqs 6.1 (via rbac.json `conflicts`): SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone | Not separately stated | `farmer.rating.edit` reinstated 2026-11-09 by owner decision ("Edit Rating: super admin and tohfa admin can edit"): SUPER_ADMIN and TOHFA_ADMIN `all`, every other role `none` (reqs 6.1's FARMER_ADMIN own-zone grant is NOT restored). Status: reinstated by owner decision, details open. No endpoint exists yet; the mobile Save is not wired. UNDECIDED, none of it implemented or assumed: (a) which values are editable (the 10 category scores, the overall score, or something else); (b) whether a reason is mandatory; (c) whether each edit is audit-logged (BR-35); (d) how an edit interacts with the rating computed from completed INTERNAL audits (BR-04/BR-06): whether it overrides the computed rating, and for how long | requires owner decision (a to d) |
 | 37 | Produce calendar permission scope (BR-142 vs rbac.json description) | produce.calendar.view_consolidated description says "across all farmers" | Docs / BR-108a scope confinement | The permission description in docs/rbac.json says "across all farmers" (matrix §3), but the admin screens show farmer names and the endpoint scope follows BR-108a (owner decision: Farmer Admin sees only farmers in its own assigned zones; Sub WH Admin only its warehouse's zones; Main WH, Tohfa Admin and Super Admin see all). Farmer and Customer roles have no grant (403). The rbac.json description text is left unchanged | **Resolved 2026-11-10** (owner decision, P1 of the Produce Calendar API prompt: scope follows the BR-108a pattern) |
+| 38 | First-password creation scope (BR-142 vs BR-81a, BR-112c) | Not stated | Not stated | The owner's rule (2026-11-10) speaks of first-time users. Implemented for every account whose `/auth/me` says `hasPassword: false`, whatever its role and however it signed in: OTP, session restore, or a social login of an OAuth-only account. BR-81a and BR-112c say an admin created with no password "signs in only after the forgot-password flow"; `POST /auth/otp/verify` (unchanged, pre-existing) already issues tokens to any existing account for an OTP challenge, so such an admin can now sign in by OTP and is sent to Create Password. Setting the first password reuses `auth.password.change_own` (granted to every role) instead of a new permission code, and revokes no session. The password policy is the existing one (10 to 128 characters, no complexity rule) | requires owner confirmation (whether admins and OAuth-only accounts should be routed to Create Password, whether OTP sign-in should be allowed for admin roles at all, and the password policy) |
 
 ---
 

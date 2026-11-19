@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -11,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';
@@ -25,7 +24,7 @@ function ArrowBackIcon({ size = 20, color = P.twGreen800 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -185,7 +184,7 @@ export function ErosionConservationScreen({
     if (onLogErosionNote) {
       onLogErosionNote();
     } else {
-      Alert.alert(
+      appAlert(
         'Log Erosion Note',
         'Record erosion observations or updated conservation measures for a zone.',
         [{ text: 'OK' }],

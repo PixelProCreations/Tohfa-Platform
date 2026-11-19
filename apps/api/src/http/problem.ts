@@ -98,6 +98,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   ZONE_NOT_RESOLVED: 422,
   ZONE_NOT_FOUND: 422,
   COMMUNITY_PLANTING_NOT_CONFIGURED: 503,
+  PASSWORD_ALREADY_SET: 409,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -167,6 +168,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   ZONE_NOT_RESOLVED: 'Taluk could not be mapped to an active zone',
   ZONE_NOT_FOUND: 'Taluk could not be mapped to an active zone',
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'Community planting summary is not configured',
+  PASSWORD_ALREADY_SET: 'A password is already set for this account',
 };
 
 /**

@@ -1,7 +1,5 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -12,23 +10,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
-import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
-import { t } from '../../../../i18n/farmer';
-import {
-  getMyUpiPreference,
-  setMyUpiPreference,
-  type FarmerUpiPreference,
-  type SetFarmerUpiInput,
-} from '../../api/payoutDestinations';
+import { useFieldValidation } from '../../utils/validation';
+import { UPI_MAX, upiRules, type UpiField } from './paymentValidation';
 
 function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -71,45 +63,10 @@ export function UpiIdScreen({
   onBack,
   onSaveSuccess,
 }: UpiIdScreenProps): React.JSX.Element {
-  // The saved UPI id comes from GET /farmers/me/upi. A 404 there means none is registered yet,
-  // which is a normal empty state, not an error.
-  const [saved, setSaved] = useState<FarmerUpiPreference | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const [upiId, setUpiId] = useState('');
-  const [isDefault, setIsDefault] = useState(false);
-  // `isDefault` is sent only if the farmer touched the switch: omitting it lets the server make
-  // a first-ever payout destination the default and keeps the flag on an existing one (BR-53i).
-  const [defaultTouched, setDefaultTouched] = useState(false);
-
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const loadUpi = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const pref = await getMyUpiPreference();
-      setSaved(pref);
-      if (pref !== null) {
-        setUpiId(pref.upiVpa);
-        setIsDefault(pref.isDefault);
-      }
-    } catch (err) {
-      if (err instanceof ApiError && err.problem.status === 404) {
-        setSaved(null);
-      } else {
-        setLoadError(formatErrorMessage(err, t('farmer.payment.loadFailed')));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadUpi();
-  }, [loadUpi]);
+  const [upiId, setUpiId] = useState('murugan.r@okhdfcbank');
+  const [isDefault, setIsDefault] = useState(true);
+  const validation = useFieldValidation<UpiField>({ values: { upi: upiId }, rules: upiRules });
+  const upiError = validation.messageFor('upi');
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -122,48 +79,22 @@ export function UpiIdScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const handleSave = async () => {
-    if (saving) return;
-    setSaveError(null);
-
-    const upiVpa = upiId.trim();
-    if (!upiVpa) {
-      setSaveError(t('farmer.payment.upi.required'));
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const body: SetFarmerUpiInput = {
-        upiVpa,
-        ...(defaultTouched ? { isDefault } : {}),
-      };
-      const result = await setMyUpiPreference(body);
-
-      // Success only after a real 2xx.
-      setSaved(result);
-      setUpiId(result.upiVpa);
-      setIsDefault(result.isDefault);
-      setDefaultTouched(false);
-      Alert.alert(
-        'UPI ID Saved',
-        'Your UPI ID has been submitted for manual admin verification.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              if (onSaveSuccess) onSaveSuccess();
-              else if (onBack) onBack();
-            },
+  const handleSave = () => {
+    if (!validation.validateAll().valid) return;
+    appAlert(
+      'UPI ID Saved',
+      'Your UPI ID has been submitted for manual admin verification.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onSaveSuccess) onSaveSuccess();
+            else if (onBack) onBack();
           },
-        ]
-      );
-    } catch (err) {
-      // Stay on the form with the typed value intact.
-      setSaveError(formatErrorMessage(err, t('farmer.payment.upi.saveFailed')));
-    } finally {
-      setSaving(false);
-    }
+        },
+      ],
+      { tone: 'success' },
+    );
   };
 
   return (
@@ -194,40 +125,10 @@ export function UpiIdScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <View style={styles.loadingRow} accessibilityLabel={t('farmer.payment.loading')}>
-            <ActivityIndicator size="small" color={P.forestGreen} />
-          </View>
-        ) : null}
-        {loadError ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{loadError}</Text>
-            <TouchableOpacity
-              onPress={() => void loadUpi()}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={t('farmer.payment.retry')}
-            >
-              <Text style={styles.errorRetryText}>{t('farmer.payment.retry')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-        {saveError ? (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{saveError}</Text>
-          </View>
-        ) : null}
-
-        {/* Status Pill: the server's isVerified, never assumed */}
+        {/* Status Pill */}
         <View style={styles.statusRow}>
           <View style={styles.pendingPill}>
-            <Text style={styles.pendingPillText}>
-              {!saved
-                ? t('farmer.payment.status.notAdded')
-                : saved.isVerified
-                  ? 'Verified'
-                  : 'Pending Verification'}
-            </Text>
+            <Text style={styles.pendingPillText}>Pending Verification</Text>
           </View>
         </View>
 
@@ -240,13 +141,20 @@ export function UpiIdScreen({
             <TextInput
               style={styles.input}
               value={upiId}
-              onChangeText={setUpiId}
-              editable={!saving}
+              onChangeText={(text) => setUpiId(text.replace(/\s/g, ''))}
+              onBlur={() => validation.onBlur('upi')}
+              maxLength={UPI_MAX}
+              autoCorrect={false}
               placeholder="e.g. yourname@okhdfcbank"
               placeholderTextColor={P.twGray400}
               autoCapitalize="none"
               keyboardType="email-address"
             />
+            {upiError ? (
+              <Text accessibilityRole="alert" style={styles.fieldError}>
+                {upiError}
+              </Text>
+            ) : null}
           </View>
 
           {/* Info note */}
@@ -264,11 +172,7 @@ export function UpiIdScreen({
             <Text style={styles.toggleLabel}>Set as default payout method</Text>
             <Switch
               value={isDefault}
-              onValueChange={(value) => {
-                setIsDefault(value);
-                setDefaultTouched(true);
-              }}
-              disabled={saving}
+              onValueChange={setIsDefault}
               trackColor={{ false: P.twGray300, true: P.forestGreen }}
               thumbColor={P.white}
             />
@@ -281,7 +185,6 @@ export function UpiIdScreen({
         <TouchableOpacity
           style={styles.cancelBtn}
           onPress={onBack}
-          disabled={saving}
           activeOpacity={0.7}
           accessibilityRole="button"
           accessibilityLabel="Cancel"
@@ -290,19 +193,13 @@ export function UpiIdScreen({
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.saveBtn, (saving || loading || !!loadError) && styles.saveBtnBusy]}
-          onPress={() => void handleSave()}
-          disabled={saving || loading || !!loadError}
+          style={styles.saveBtn}
+          onPress={handleSave}
           activeOpacity={0.88}
           accessibilityRole="button"
           accessibilityLabel="Save Changes"
-          accessibilityState={{ disabled: saving || loading || !!loadError, busy: saving }}
         >
-          {saving ? (
-            <ActivityIndicator size="small" color={P.white} />
-          ) : (
-            <CheckmarkIcon size={16} color={P.white} />
-          )}
+          <CheckmarkIcon size={16} color={P.white} />
           <Text style={styles.saveBtnText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
@@ -376,29 +273,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.twAmber900,
   },
-  loadingRow: {
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  errorBanner: {
-    backgroundColor: P.twRed50,
-    borderColor: P.twRed200,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 14,
-    gap: 6,
-  },
-  errorBannerText: {
-    color: P.twRed700,
-    fontSize: typography.bodySmall,
-    fontWeight: '600',
-  },
-  errorRetryText: {
-    color: P.twRed700,
-    fontSize: typography.bodySmall,
-    fontWeight: '800',
-  },
   formContainer: {
     gap: 16,
   },
@@ -423,6 +297,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '500',
+  },
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
   },
   infoNote: {
     flexDirection: 'row',
@@ -498,9 +377,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
-  },
-  saveBtnBusy: {
-    opacity: 0.7,
   },
   saveBtnText: {
     fontSize: typography.bodyLarge,

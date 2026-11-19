@@ -29,7 +29,7 @@ function ArrowBackIcon({ size = 20, color = P.deepGreen }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -634,6 +634,8 @@ export function WorkerDetailScreen({
           visible={isMonthPickerOpen}
           transparent
           animationType="fade"
+          statusBarTranslucent
+          navigationBarTranslucent
           onRequestClose={() => setIsMonthPickerOpen(false)}
         >
           <TouchableOpacity
@@ -674,6 +676,8 @@ export function WorkerDetailScreen({
           visible={isCropPickerOpen}
           transparent
           animationType="fade"
+          statusBarTranslucent
+          navigationBarTranslucent
           onRequestClose={() => setIsCropPickerOpen(false)}
         >
           <TouchableOpacity

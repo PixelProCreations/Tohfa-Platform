@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { formatMoneyAmount } from '../../api/wallet';
+import { decimal, errorMessage, runRules } from '../../utils/validation';
 import {
   buildCreateListingInput,
   checkAskingPrice,
@@ -25,6 +26,11 @@ import {
 import { gradeLabel, moneyOrDash, tk } from './listingFormat';
 
 // Custom Icons
+/** docs/openapi.yaml `Quantity` (9 integer digits, 3 decimals) and `Money` (10 integer digits, 2 decimals). */
+const QUANTITY_SHAPE_RULE = decimal({ maxIntegerDigits: 9, maxDecimals: 3 });
+/** Longest well-formed value for either field: 10 + '.' + 2 for Money; Quantity is shorter. */
+const DECIMAL_INPUT_MAX_LENGTH = 13;
+
 const ChevronLeft = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -177,6 +183,11 @@ export function CreateListingStep2Screen({
   const ceilingPrice = ceiling.status === 'found' ? ceiling.price : null;
   const quantityCheck = checkQuantity(quantityInput);
   const priceCheck = checkAskingPrice(priceInput, ceilingPrice);
+  // docs/openapi.yaml `Quantity`: at most 9 integer digits and 3 decimals. `checkQuantity` only
+  // knows the decimals, so an over-long whole part is caught here (and blocks submit below).
+  const quantityShapeError =
+    quantityCheck === 'OK' ? runRules(quantityInput.trim(), [QUANTITY_SHAPE_RULE]) : null;
+  const quantityShapeMessage = errorMessage(quantityShapeError, t);
   const priceOk = priceCheck === 'WITHIN_CEILING' || priceCheck === 'NO_CEILING';
   const estimatedTotal =
     quantityCheck === 'OK' && priceOk ? lineTotal(priceInput, quantityInput) : null;
@@ -185,11 +196,11 @@ export function CreateListingStep2Screen({
 
   const openGradePicker = () => {
     // Exactly three sellable grades, which fits Android's three-button alert.
-    Alert.alert(
+    appAlert(
       t('farmer.listings.create.step2.gradePickerTitle'),
       t('farmer.listings.create.step2.gradePickerBody'),
       SELLABLE_GRADES.map((g) => ({ text: gradeLabel(g), onPress: () => setGrade(g) })),
-      { cancelable: true },
+      { cancelable: true, tone: 'info' },
     );
   };
 
@@ -205,9 +216,9 @@ export function CreateListingStep2Screen({
         ceiling.status === 'found' || ceiling.status === 'none' ? ceiling : { status: 'unknown' },
     });
     if (!result.ok) {
-      Alert.alert(t('farmer.listings.create.step2.submitErrorTitle'), t(tk(formErrorKey(result.error))), [
+      appAlert(t('farmer.listings.create.step2.submitErrorTitle'), t(tk(formErrorKey(result.error))), [
         { text: t('farmer.common.ok') },
-      ]);
+      ], { tone: 'error' });
       return;
     }
     inFlightRef.current = true;
@@ -226,10 +237,11 @@ export function CreateListingStep2Screen({
       inFlightRef.current = false;
       if (!mountedRef.current) return;
       setSubmitting(false);
-      Alert.alert(
+      appAlert(
         t('farmer.listings.create.step2.submitErrorTitle'),
         t(tk(listingErrorMessageKey(error, 'farmer.listings.error.generic'))),
         [{ text: t('farmer.common.ok') }],
+        { tone: 'error' },
       );
     }
   };
@@ -297,7 +309,8 @@ export function CreateListingStep2Screen({
             ? t('farmer.listings.create.step2.noCeiling')
             : null;
 
-  const submitDisabled = submitting || ceiling.status === 'loading';
+  const submitDisabled =
+    submitting || ceiling.status === 'loading' || quantityShapeError !== null;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -352,12 +365,18 @@ export function CreateListingStep2Screen({
               <Text style={{ color: P.red700 }}>{t('farmer.listings.create.step2.requiredMark')}</Text>
             </Text>
           </View>
-          <View style={[styles.inputWrapper, quantityCheck === 'INVALID' ? styles.inputWrapperError : null]}>
+          <View
+            style={[
+              styles.inputWrapper,
+              quantityCheck === 'INVALID' || quantityShapeMessage !== undefined ? styles.inputWrapperError : null,
+            ]}
+          >
             <TextInput
               style={styles.input}
               value={quantityInput}
               onChangeText={setQuantityInput}
               keyboardType="decimal-pad"
+              maxLength={DECIMAL_INPUT_MAX_LENGTH}
               editable={!submitting}
               accessibilityLabel={t('farmer.listings.create.step2.quantityLabel')}
             />
@@ -365,6 +384,10 @@ export function CreateListingStep2Screen({
           {quantityCheck === 'INVALID' ? (
             <View style={styles.validationRow}>
               <Text style={styles.validationErrorText}>{t('farmer.listings.create.step2.quantityInvalid')}</Text>
+            </View>
+          ) : quantityShapeMessage !== undefined ? (
+            <View style={styles.validationRow}>
+              <Text style={styles.validationErrorText}>{quantityShapeMessage}</Text>
             </View>
           ) : null}
         </View>
@@ -410,6 +433,7 @@ export function CreateListingStep2Screen({
               value={priceInput}
               onChangeText={setPriceInput}
               keyboardType="decimal-pad"
+              maxLength={DECIMAL_INPUT_MAX_LENGTH}
               editable={!submitting}
               accessibilityLabel={t('farmer.listings.create.step2.priceLabel')}
             />

@@ -168,6 +168,8 @@ export interface CurrentUserProfile {
   email?: string | undefined;
   userType: string;
   preferredLocale: string;
+  /** BR-142: false when the account has no password yet (it signed in by OTP). Absent from older servers. */
+  hasPassword?: boolean | undefined;
   roles: CurrentUserRoleAssignment[];
   permissions: string[];
 }

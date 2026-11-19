@@ -16,6 +16,7 @@ import type {
   FeedLogUnit,
   FeedType,
   GrazingDurationUnit,
+  HousingType,
   HousingSpaceStandard,
   InseminationType,
   LivestockBreedingRecord,
@@ -24,6 +25,10 @@ import type {
   LivestockHousingListItem,
   Measured,
   PregnancyResult,
+  ProductionLogResponse,
+  ProductionProductType,
+  ProductionSession,
+  ProductionUnit,
   SpaceUnit,
   WaterSource,
 } from '../../../api/livestock';
@@ -81,9 +86,15 @@ export function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000);
 }
 
+export function addDaysIso(iso: string, days: number): string {
+  const [y, m, d] = isoParts(iso);
+  const date = new Date(Date.UTC(y, m - 1, d + days));
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(date.getUTCDate()).padStart(2, '0')}`;
+}
+
 // ── Enum labels ─────────────────────────────────────────────────────────────
 
-const CHECKUP_TYPE_KEYS: Record<CheckupType, TranslationKey> = {
+const CHECKUP_TYPE_KEYS: Record<CheckupType, string> = {
   ROUTINE: 'farmer.livestock.detail.checkupType.ROUTINE',
   EMERGENCY: 'farmer.livestock.detail.checkupType.EMERGENCY',
   PRE_BREEDING: 'farmer.livestock.detail.checkupType.PRE_BREEDING',
@@ -91,7 +102,7 @@ const CHECKUP_TYPE_KEYS: Record<CheckupType, TranslationKey> = {
   FOLLOW_UP: 'farmer.livestock.detail.checkupType.FOLLOW_UP',
 };
 
-const FEED_TYPE_KEYS: Record<FeedType, TranslationKey> = {
+const FEED_TYPE_KEYS: Record<FeedType, string> = {
   GREEN_FODDER: 'farmer.livestock.detail.feedType.GREEN_FODDER',
   DRY_FODDER: 'farmer.livestock.detail.feedType.DRY_FODDER',
   CONCENTRATE_MIX: 'farmer.livestock.detail.feedType.CONCENTRATE_MIX',
@@ -100,7 +111,7 @@ const FEED_TYPE_KEYS: Record<FeedType, TranslationKey> = {
   PASTURE_GRAZING: 'farmer.livestock.detail.feedType.PASTURE_GRAZING',
 };
 
-const WATER_SOURCE_KEYS: Record<WaterSource, TranslationKey> = {
+const WATER_SOURCE_KEYS: Record<WaterSource, string> = {
   BOREWELL: 'farmer.livestock.detail.waterSource.BOREWELL',
   WELL: 'farmer.livestock.detail.waterSource.WELL',
   CANAL: 'farmer.livestock.detail.waterSource.CANAL',
@@ -109,46 +120,81 @@ const WATER_SOURCE_KEYS: Record<WaterSource, TranslationKey> = {
   RAINWATER_STORAGE: 'farmer.livestock.detail.waterSource.RAINWATER_STORAGE',
 };
 
-const GRAZING_KEYS: Record<GrazingDurationUnit, TranslationKey> = {
+const GRAZING_KEYS: Record<GrazingDurationUnit, string> = {
   HOURS_PER_DAY: 'farmer.livestock.detail.grazing.HOURS_PER_DAY',
   HOURS_PER_WEEK: 'farmer.livestock.detail.grazing.HOURS_PER_WEEK',
 };
 
-const FEED_LOG_UNIT_KEYS: Record<FeedLogUnit, TranslationKey> = {
+const FEED_LOG_UNIT_KEYS: Record<FeedLogUnit, string> = {
   KG: 'farmer.livestock.detail.unit.KG',
   G: 'farmer.livestock.detail.unit.G',
   BUNDLES: 'farmer.livestock.detail.unit.BUNDLES',
 };
 
-const PREGNANCY_RESULT_KEYS: Record<PregnancyResult, TranslationKey> = {
+const PRODUCTION_UNIT_KEYS: Record<ProductionUnit, string> = {
+  LITERS: 'farmer.livestock.detail.unit.LITERS',
+  KG: 'farmer.livestock.detail.unit.KG',
+  COUNT: 'farmer.livestock.detail.unit.COUNT',
+};
+
+const PRODUCT_KEYS: Record<ProductionProductType, string> = {
+  MILK: 'farmer.livestock.detail.product.MILK',
+  CURD: 'farmer.livestock.detail.product.CURD',
+  PANEER: 'farmer.livestock.detail.product.PANEER',
+  BUTTER: 'farmer.livestock.detail.product.BUTTER',
+  GHEE: 'farmer.livestock.detail.product.GHEE',
+  BUTTERMILK: 'farmer.livestock.detail.product.BUTTERMILK',
+  CHEESE: 'farmer.livestock.detail.product.CHEESE',
+  EGGS: 'farmer.livestock.detail.product.EGGS',
+  MEAT: 'farmer.livestock.detail.product.MEAT',
+  WOOL: 'farmer.livestock.detail.product.WOOL',
+  MANURE: 'farmer.livestock.detail.product.MANURE',
+};
+
+const SESSION_KEYS: Record<ProductionSession, string> = {
+  MORNING: 'farmer.livestock.detail.session.MORNING',
+  AFTERNOON: 'farmer.livestock.detail.session.AFTERNOON',
+  EVENING: 'farmer.livestock.detail.session.EVENING',
+  NIGHT: 'farmer.livestock.detail.session.NIGHT',
+};
+
+const PREGNANCY_RESULT_KEYS: Record<PregnancyResult, string> = {
   POSITIVE: 'farmer.livestock.detail.pregnancyResult.POSITIVE',
   NEGATIVE: 'farmer.livestock.detail.pregnancyResult.NEGATIVE',
   INCONCLUSIVE: 'farmer.livestock.detail.pregnancyResult.INCONCLUSIVE',
 };
 
-const BREEDING_METHOD_KEYS: Record<BreedingMethod, TranslationKey> = {
+const BREEDING_METHOD_KEYS: Record<BreedingMethod, string> = {
   ARTIFICIAL_INSEMINATION: 'farmer.livestock.detail.breedingMethod.ARTIFICIAL_INSEMINATION',
   NATURAL_SERVICE: 'farmer.livestock.detail.breedingMethod.NATURAL_SERVICE',
   EMBRYO_TRANSFER: 'farmer.livestock.detail.breedingMethod.EMBRYO_TRANSFER',
 };
 
-const INSEMINATION_TYPE_KEYS: Record<InseminationType, TranslationKey> = {
+const INSEMINATION_TYPE_KEYS: Record<InseminationType, string> = {
   ARTIFICIAL: 'farmer.livestock.detail.breedingMethod.ARTIFICIAL_INSEMINATION',
   NATURAL: 'farmer.livestock.detail.breedingMethod.NATURAL_SERVICE',
 };
 
-const CALVING_OUTCOME_KEYS: Record<CalvingOutcome, TranslationKey> = {
+const CALVING_OUTCOME_KEYS: Record<CalvingOutcome, string> = {
   LIVE_BIRTH: 'farmer.livestock.detail.calvingOutcome.LIVE_BIRTH',
   STILLBIRTH: 'farmer.livestock.detail.calvingOutcome.STILLBIRTH',
   OTHER: 'farmer.livestock.detail.calvingOutcome.OTHER',
 };
 
-const GENDER_KEYS: Record<AnimalGender, TranslationKey> = {
+const GENDER_KEYS: Record<AnimalGender, string> = {
   FEMALE: 'farmer.livestock.detail.gender.FEMALE',
   MALE: 'farmer.livestock.detail.gender.MALE',
 };
 
-const SPACE_UNIT_KEYS: Record<SpaceUnit, TranslationKey> = {
+const HOUSING_TYPE_KEYS: Record<HousingType, string> = {
+  BARN: 'farmer.livestock.detail.housingType.BARN',
+  OPEN_SHED: 'farmer.livestock.detail.housingType.OPEN_SHED',
+  PASTURE_FREE_RANGE: 'farmer.livestock.detail.housingType.PASTURE_FREE_RANGE',
+  COOP_PEN: 'farmer.livestock.detail.housingType.COOP_PEN',
+  STALL: 'farmer.livestock.detail.housingType.STALL',
+};
+
+const SPACE_UNIT_KEYS: Record<SpaceUnit, string> = {
   SQ_FT: 'farmer.livestock.detail.spaceUnit.SQ_FT',
   SQ_M: 'farmer.livestock.detail.spaceUnit.SQ_M',
   ACRES: 'farmer.livestock.detail.spaceUnit.ACRES',
@@ -159,7 +205,7 @@ const SPACE_UNIT_KEYS: Record<SpaceUnit, TranslationKey> = {
  * the forms that take the template's case suffix (மாட்டு + க்கான), so they are
  * keyed to that sentence rather than shared as a general species label.
  */
-const WELFARE_SPECIES_KEYS: Record<AnimalSpecies, TranslationKey> = {
+const WELFARE_SPECIES_KEYS: Record<AnimalSpecies, string> = {
   CATTLE: 'farmer.livestock.detail.housing.welfareSpecies.CATTLE',
   BUFFALO: 'farmer.livestock.detail.housing.welfareSpecies.BUFFALO',
   GOAT: 'farmer.livestock.detail.housing.welfareSpecies.GOAT',
@@ -168,31 +214,42 @@ const WELFARE_SPECIES_KEYS: Record<AnimalSpecies, TranslationKey> = {
 };
 
 /** Every key this module can resolve — for the i18n parity test. */
-export const VIEW_I18N_KEYS: readonly TranslationKey[] = [
+export const VIEW_I18N_KEYS: readonly string[] = [
   ...MONTH_KEYS,
   ...Object.values(CHECKUP_TYPE_KEYS),
   ...Object.values(FEED_TYPE_KEYS),
   ...Object.values(WATER_SOURCE_KEYS),
   ...Object.values(GRAZING_KEYS),
   ...Object.values(FEED_LOG_UNIT_KEYS),
+  ...Object.values(PRODUCTION_UNIT_KEYS),
+  ...Object.values(PRODUCT_KEYS),
+  ...Object.values(SESSION_KEYS),
   ...Object.values(PREGNANCY_RESULT_KEYS),
   ...Object.values(BREEDING_METHOD_KEYS),
   ...Object.values(CALVING_OUTCOME_KEYS),
   ...Object.values(GENDER_KEYS),
+  ...Object.values(HOUSING_TYPE_KEYS),
   ...Object.values(SPACE_UNIT_KEYS),
   ...Object.values(WELFARE_SPECIES_KEYS),
 ];
 
-export const feedTypeLabel = (v: FeedType): string => t(FEED_TYPE_KEYS[v]);
-export const spaceUnitLabel = (v: SpaceUnit): string => t(SPACE_UNIT_KEYS[v]);
-export const welfareSpeciesLabel = (v: AnimalSpecies): string => t(WELFARE_SPECIES_KEYS[v]);
+export const feedTypeLabel = (v: FeedType): string => t(FEED_TYPE_KEYS[v] as any);
+export const waterSourceLabel = (v: WaterSource): string => t(WATER_SOURCE_KEYS[v] as any);
+export const productLabel = (v: ProductionProductType): string => t(PRODUCT_KEYS[v] as any);
+export const productionUnitLabel = (v: ProductionUnit): string => t(PRODUCTION_UNIT_KEYS[v] as any);
+export const sessionLabel = (v: ProductionSession): string => t(SESSION_KEYS[v] as any);
+export const housingTypeLabel = (v: HousingType): string => t(HOUSING_TYPE_KEYS[v] as any);
+export const spaceUnitLabel = (v: SpaceUnit): string => t(SPACE_UNIT_KEYS[v] as any);
+export const welfareSpeciesLabel = (v: AnimalSpecies): string => t(WELFARE_SPECIES_KEYS[v] as any);
+export const pregnancyResultLabel = (v: PregnancyResult): string => t(PREGNANCY_RESULT_KEYS[v] as any);
+export const calvingOutcomeLabel = (v: CalvingOutcome): string => t(CALVING_OUTCOME_KEYS[v] as any);
 
 export function grazingLabel(g: Measured<GrazingDurationUnit>): string {
-  return t(GRAZING_KEYS[g.unit], { value: g.value });
+  return t(GRAZING_KEYS[g.unit] as any, { value: g.value });
 }
 
 export function feedLogAmount(quantity: number, unit: FeedLogUnit): string {
-  return `${quantity} ${t(FEED_LOG_UNIT_KEYS[unit])}`;
+  return `${quantity} ${t(FEED_LOG_UNIT_KEYS[unit] as any)}`;
 }
 
 // ── Health tab ──────────────────────────────────────────────────────────────
@@ -249,7 +306,7 @@ export function splitHealthRecords(records: readonly LivestockHealthRecord[]): H
           id: record.id,
           kind: 'CHECKUP',
           title: t('farmer.livestock.detail.health.rowTitle', {
-            name: t(CHECKUP_TYPE_KEYS[record.checkupType]),
+            name: t(CHECKUP_TYPE_KEYS[record.checkupType] as any),
             date: formatDayMonth(record.recordDate),
           }),
           doctor: record.veterinarian,
@@ -297,9 +354,9 @@ export function deriveCurrentCycle(
 
   let bred: CurrentCycleView['bred'] = null;
   if (service?.recordType === 'HEAT') {
-    bred = { date: formatDayMonth(service.recordDate), method: t(BREEDING_METHOD_KEYS[service.breedingMethod]) };
+    bred = { date: formatDayMonth(service.recordDate), method: t(BREEDING_METHOD_KEYS[service.breedingMethod] as any) };
   } else if (service?.recordType === 'INSEMINATION') {
-    bred = { date: formatDayMonth(service.recordDate), method: t(INSEMINATION_TYPE_KEYS[service.inseminationType]) };
+    bred = { date: formatDayMonth(service.recordDate), method: t(INSEMINATION_TYPE_KEYS[service.inseminationType] as any) };
   }
 
   if (check?.recordType !== 'PREGNANCY_CHECK') {
@@ -318,7 +375,7 @@ export function deriveCurrentCycle(
   }
   return {
     bred,
-    statusLabel: t(PREGNANCY_RESULT_KEYS[check.result]),
+    statusLabel: t(PREGNANCY_RESULT_KEYS[check.result] as any),
     isPregnant: check.result === 'POSITIVE',
     expectedDelivery,
   };
@@ -353,10 +410,10 @@ export function calvingRows(records: readonly LivestockBreedingRecord[]): Calvin
   for (const r of records) {
     if (r.recordType !== 'CALVING') continue;
     const parts = [
-      t(CALVING_OUTCOME_KEYS[r.outcome]),
+      t(CALVING_OUTCOME_KEYS[r.outcome] as any),
       t('farmer.livestock.detail.calving.offspringCount', { count: r.offspringCount }),
     ];
-    if (r.offspringGender) parts.push(t(GENDER_KEYS[r.offspringGender]));
+    if (r.offspringGender) parts.push(t(GENDER_KEYS[r.offspringGender] as any));
     if (r.offspringName) parts.push(r.offspringName);
     rows.push({
       id: r.id,
@@ -386,17 +443,17 @@ export function feedReferenceView(plan: LivestockFeedPlan): FeedReferenceView {
     feedType: plan.planName ? `${feedTypeLabel(plan.feedType)} · ${plan.planName}` : feedTypeLabel(plan.feedType),
     source: plan.source,
     grazing: plan.grazingDuration ? grazingLabel(plan.grazingDuration) : null,
-    waterSource: t(WATER_SOURCE_KEYS[plan.waterSource]),
+    waterSource: waterSourceLabel(plan.waterSource),
   };
 }
 
-// ── Housing tab (BR-141) ────────────────────────────────────────────────────
+// ── Housing tab (BR-140) ────────────────────────────────────────────────────
 
 export type HousingVerdict = 'meets' | 'below' | 'notRecorded';
 
 export interface HousingStandardView {
-  /** The server's threshold, e.g. "12.5" — never a client constant; null while the server has none configured. */
-  value: string | null;
+  /** The server's threshold, e.g. "12.5" — never a client constant. */
+  value: string;
   /** Unit label of the threshold (the server states it in sq.ft per animal). */
   unit: string;
   /** From the current record's server-computed `meetsIndoorSpaceStandard`; no client-side comparison. */
@@ -406,16 +463,15 @@ export interface HousingStandardView {
 /**
  * `current` is the newest-startDate housing record (page one, limit 1) or
  * undefined when none is recorded. The verdict is the server's (it converts
- * SQ_M / ACRES exactly); one standard applies to every species (BR-141).
+ * SQ_M / ACRES exactly); one standard applies to every species (BR-140).
  */
 export function housingStandardView(
   current: LivestockHousingListItem | undefined,
   standard: HousingSpaceStandard | null,
 ): HousingStandardView {
   return {
-    value: standard === null ? null : formatQuantity(standard.minIndoorSqFtPerAnimal),
+    value: standard === null ? '' : formatQuantity(standard.minIndoorSqFtPerAnimal),
     unit: spaceUnitLabel('SQ_FT'),
-    // A null server verdict (no standard configured) is neither "meets" nor "below": no banner.
     verdict:
       current === undefined || current.meetsIndoorSpaceStandard === null
         ? 'notRecorded'
@@ -425,7 +481,83 @@ export function housingStandardView(
   };
 }
 
-/** Drops float noise from a stored numeric (the server keeps at most 3 decimals). */
+// ── Production tab ──────────────────────────────────────────────────────────
+
+/** Sum of quantities in thousandths, so 0.1 + 0.2 shows as 0.3 (server stores 3 dp). */
+function sumMilli(values: readonly number[]): number {
+  return values.reduce((sum, v) => sum + Math.round(v * 1000), 0);
+}
+
 export function formatQuantity(value: number): string {
   return String(Math.round(value * 1000) / 1000);
+}
+
+export interface TodayMilkView {
+  litres: string;
+  sessions: number;
+}
+
+export function todayMilk(logs: readonly ProductionLogResponse[], todayIso: string): TodayMilkView {
+  const today = logs.filter((l) => l.productType === 'MILK' && l.loggedOn === todayIso);
+  const milli = sumMilli(today.map((l) => l.quantity));
+  return {
+    litres: (milli / 1000).toFixed(1),
+    sessions: today.reduce((n, l) => n + (l.sessions ?? 1), 0),
+  };
+}
+
+/**
+ * Daily milk totals (litres) for the `days` days ending today, oldest first.
+ * Returns null when fewer than two days carry any yield — a line through one
+ * point (or none) would be a decoration, not data.
+ */
+export function milkSeries(logs: readonly ProductionLogResponse[], todayIso: string, days = 7): number[] | null {
+  const start = addDaysIso(todayIso, -(days - 1));
+  const totals = new Map<string, number>();
+  for (const log of logs) {
+    if (log.productType !== 'MILK' || log.loggedOn < start || log.loggedOn > todayIso) continue;
+    totals.set(log.loggedOn, (totals.get(log.loggedOn) ?? 0) + Math.round(log.quantity * 1000));
+  }
+  const series: number[] = [];
+  for (let i = 0; i < days; i += 1) series.push((totals.get(addDaysIso(start, i)) ?? 0) / 1000);
+  return series.filter((v) => v > 0).length >= 2 ? series : null;
+}
+
+/** SVG path for `series` inside a `width` x `height` viewBox, with `pad` px of breathing room. */
+export function sparklinePath(series: readonly number[], width = 260, height = 36, pad = 4): string {
+  const max = Math.max(...series);
+  const step = series.length > 1 ? (width - pad * 2) / (series.length - 1) : 0;
+  return series
+    .map((v, i) => {
+      const x = pad + step * i;
+      const y = max > 0 ? height - pad - (v / max) * (height - pad * 2) : height - pad;
+      return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+export interface ProductionRow {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  amount: string;
+  /** BR-139: stored fact on the log (forced true by the server during withdrawal). */
+  restricted: boolean;
+}
+
+export function productionRow(log: ProductionLogResponse): ProductionRow {
+  const titleParts = [productLabel(log.productType), formatDayMonth(log.loggedOn)];
+  if (log.session) titleParts.push(sessionLabel(log.session));
+  else if (log.sessions) titleParts.push(t('farmer.livestock.detail.production.sessions' as any, { count: log.sessions }));
+  const subtitleParts: string[] = [];
+  if (log.qualityGrade) subtitleParts.push(log.qualityGrade);
+  if (log.fatPercent !== null) subtitleParts.push(t('farmer.livestock.detail.production.fat' as any, { value: log.fatPercent }));
+  if (log.notes) subtitleParts.push(log.notes);
+  return {
+    id: log.id,
+    title: titleParts.join(' · '),
+    subtitle: subtitleParts.length > 0 ? subtitleParts.join(' · ') : null,
+    amount: `${formatQuantity(log.quantity)} ${productionUnitLabel(log.unit)}`,
+    restricted: log.restrictedFromSale,
+  };
 }

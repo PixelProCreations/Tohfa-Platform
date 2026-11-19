@@ -4,6 +4,7 @@ import {
   generateBlobSASQueryParameters,
   StorageSharedKeyCredential,
 } from '@azure/storage-blob';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { config } from '../config.js';
@@ -31,17 +32,77 @@ export interface BlobStorage {
   generateUploadTarget(options: GenerateUploadOptions): Promise<SignedUploadTarget>;
   generateReadUrl(key: string, expiresInMinutes?: number): Promise<string>;
   getPublicUrl(key: string): string;
+  /**
+   * The inverse of `getPublicUrl`: the storage key when `url` is THIS storage's
+   * permanent URL for a key, else null (another host, another path, an empty
+   * key, a `..` segment). Query and fragment are ignored. Used to turn a
+   * client-supplied `documentUrl` back into a key that can be signed (BR-142);
+   * it proves only where the URL points, never whose file it is.
+   */
+  storageKeyFromUrl(url: string): string | null;
   upload(key: string, data: Buffer, contentType: string): Promise<string>;
   download(key: string): Promise<Buffer | null>;
   delete(key: string): Promise<void>;
 }
 
-export class InMemoryBlobStorage implements BlobStorage {
+/**
+ * A storage whose files THIS API serves itself (dev/test only), at
+ * `GET /storage/<key>?expires=..&sig=..` (storage.routes.ts). A real provider
+ * (Azure) verifies its own SAS and never implements this.
+ */
+export interface LocallyServedBlobStorage extends BlobStorage {
+  /** True only for an unexpired `expires` and the signature this storage minted for exactly `key` + `expires`. */
+  verifyReadSignature(key: string, expires: string, sig: string): boolean;
+}
+
+export function isLocallyServed(storage: BlobStorage): storage is LocallyServedBlobStorage {
+  return typeof (storage as Partial<LocallyServedBlobStorage>).verifyReadSignature === 'function';
+}
+
+/** Recovers a key from `<prefix><key>[?query][#fragment]`; null for anything else (BR-142d). */
+function keyAfterPrefix(url: string, prefix: string): string | null {
+  if (!url.startsWith(prefix)) return null;
+  const key = url.slice(prefix.length).split(/[?#]/, 1)[0] ?? '';
+  if (key.length === 0) return null;
+  const segments = key.split('/');
+  if (segments.some((s) => s === '' || s === '.' || s === '..' || s.includes('\\'))) return null;
+  return key;
+}
+
+/**
+ * The local stand-in for a provider's read SAS (BR-142d). Before this, a local
+ * read URL was `/storage/<key>?expires=<iso>` -- an expiry nothing checked and
+ * no route served -- so a certificate's View button always 404ed in dev. The
+ * HMAC binds the key and the expiry, so the URL cannot be re-pointed at
+ * another file or extended; `blob-read` separates it from every other HMAC
+ * made with the same secret.
+ */
+function localReadSignature(secret: string, key: string, expires: string): string {
+  return createHmac('sha256', secret).update(`blob-read\n${key}\n${expires}`).digest('hex');
+}
+
+function verifyLocalReadSignature(secret: string, key: string, expires: string, sig: string): boolean {
+  const expiresAt = Date.parse(expires);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return false;
+  if (!/^[0-9a-f]{64}$/.test(sig)) return false;
+  const expected = Buffer.from(localReadSignature(secret, key, expires), 'hex');
+  return timingSafeEqual(expected, Buffer.from(sig, 'hex'));
+}
+
+function localReadUrl(baseUrl: string, secret: string, key: string, expiresInMinutes: number): string {
+  const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
+  const sig = localReadSignature(secret, key, expiresAt);
+  return `${baseUrl}/storage/${key}?expires=${encodeURIComponent(expiresAt)}&sig=${sig}`;
+}
+
+export class InMemoryBlobStorage implements LocallyServedBlobStorage {
   private readonly store = new Map<string, { data: Buffer; contentType: string }>();
   private readonly baseUrl: string;
+  private readonly signingSecret: string;
 
-  constructor(baseUrl = 'http://localhost:3000') {
+  constructor(baseUrl = 'http://localhost:3000', signingSecret = config.JWT_SECRET) {
     this.baseUrl = baseUrl;
+    this.signingSecret = signingSecret;
   }
 
   async generateUploadTarget(options: GenerateUploadOptions): Promise<SignedUploadTarget> {
@@ -64,9 +125,16 @@ export class InMemoryBlobStorage implements BlobStorage {
     return `${this.baseUrl}/storage/${key}`;
   }
 
+  storageKeyFromUrl(url: string): string | null {
+    return keyAfterPrefix(url, `${this.baseUrl}/storage/`);
+  }
+
   async generateReadUrl(key: string, expiresInMinutes = 15): Promise<string> {
-    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
-    return `${this.baseUrl}/storage/${key}?expires=${encodeURIComponent(expiresAt)}`;
+    return localReadUrl(this.baseUrl, this.signingSecret, key, expiresInMinutes);
+  }
+
+  verifyReadSignature(key: string, expires: string, sig: string): boolean {
+    return verifyLocalReadSignature(this.signingSecret, key, expires, sig);
   }
 
   async upload(key: string, data: Buffer, contentType: string): Promise<string> {
@@ -99,13 +167,15 @@ export class InMemoryBlobStorage implements BlobStorage {
  * fallback changes; staging/production always use `AzureBlobStorage` the
  * moment `AZURE_STORAGE_CONNECTION_STRING` is set.
  */
-export class LocalDiskBlobStorage implements BlobStorage {
+export class LocalDiskBlobStorage implements LocallyServedBlobStorage {
   private readonly baseUrl: string;
   private readonly rootDir: string;
+  private readonly signingSecret: string;
 
-  constructor(baseUrl = 'http://localhost:3000', rootDir = LOCAL_UPLOADS_DIR) {
+  constructor(baseUrl = 'http://localhost:3000', rootDir = LOCAL_UPLOADS_DIR, signingSecret = config.JWT_SECRET) {
     this.baseUrl = baseUrl;
     this.rootDir = path.resolve(rootDir);
+    this.signingSecret = signingSecret;
   }
 
   /**
@@ -144,9 +214,16 @@ export class LocalDiskBlobStorage implements BlobStorage {
     return `${this.baseUrl}/storage/${key}`;
   }
 
+  storageKeyFromUrl(url: string): string | null {
+    return keyAfterPrefix(url, `${this.baseUrl}/storage/`);
+  }
+
   async generateReadUrl(key: string, expiresInMinutes = 15): Promise<string> {
-    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000).toISOString();
-    return `${this.baseUrl}/storage/${key}?expires=${encodeURIComponent(expiresAt)}`;
+    return localReadUrl(this.baseUrl, this.signingSecret, key, expiresInMinutes);
+  }
+
+  verifyReadSignature(key: string, expires: string, sig: string): boolean {
+    return verifyLocalReadSignature(this.signingSecret, key, expires, sig);
   }
 
   async upload(key: string, data: Buffer, _contentType: string): Promise<string> {
@@ -212,6 +289,19 @@ export class AzureBlobStorage implements BlobStorage {
   getPublicUrl(key: string): string {
     const containerClient = this.client.getContainerClient(this.containerName);
     return containerClient.getBlockBlobClient(key).url;
+  }
+
+  storageKeyFromUrl(url: string): string | null {
+    const containerUrl = this.client.getContainerClient(this.containerName).url.replace(/\/+$/, '');
+    const key = keyAfterPrefix(url, `${containerUrl}/`);
+    if (key === null) return null;
+    try {
+      // The SDK percent-encodes each path segment of a blob URL.
+      // Re-checked after decoding, so an encoded `..` is refused too.
+      return keyAfterPrefix(decodeURIComponent(key), '');
+    } catch {
+      return null;
+    }
   }
 
   async generateReadUrl(key: string, expiresInMinutes = 15): Promise<string> {

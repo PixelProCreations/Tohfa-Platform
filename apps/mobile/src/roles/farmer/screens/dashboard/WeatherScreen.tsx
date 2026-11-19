@@ -1,3 +1,17 @@
+function ChevronLeft({ size = 20, color = colors.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -241,7 +255,7 @@ export function WeatherScreen({ onNavigateBack }: WeatherScreenProps): React.JSX
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.navCircleButton} onPress={onNavigateBack}>
-          <Text style={styles.navBackIcon}>‹</Text>
+          <ChevronLeft size={20} color={colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerTitleBox}>
           <Text style={styles.headerTitle}>{t('farmer.weather.title')}</Text>

@@ -1,7 +1,5 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -12,18 +10,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../theme';
-import { formatErrorMessage } from '../../../../shell/api/client';
-import { t } from '../../../../i18n/farmer';
+import { useFieldValidation } from '../../utils/validation';
 import {
-  createMyBankAccount,
-  listMyBankAccounts,
-  updateMyBankAccount,
-  type FarmerBankAccount,
-  type UpdateFarmerBankAccountInput,
-} from '../../api/payoutDestinations';
+  ACCOUNT_HOLDER_MAX,
+  ACCOUNT_NUMBER_MAX,
+  BANK_FIELD_ORDER,
+  BANK_NAME_MAX,
+  BRANCH_NAME_MAX,
+  IFSC_LENGTH,
+  bankRules,
+  type BankField,
+} from './paymentValidation';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -97,55 +97,40 @@ export function BankAccountScreen({
   onBack,
   onSaveSuccess,
 }: BankAccountScreenProps): React.JSX.Element {
-  // The saved account comes from the server (GET /farmers/me/bank-accounts). The server only
-  // ever returns the last four digits of the number (BR-53a), so that is all this screen can show.
-  const [account, setAccount] = useState<FarmerBankAccount | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
+  // Stored / saved state
+  const [accountHolder, setAccountHolder] = useState('Murugan R.');
+  const [bankName, setBankName] = useState('HDFC Bank');
+  const [accountNumber, setAccountNumber] = useState('• • • • • • • • 4821');
+  const [ifscCode, setIfscCode] = useState('HDFC0001234');
+  const [branch, setBranch] = useState('Ooty Main Branch');
+  const [verificationStatus, setVerificationStatus] = useState<'Verified' | 'Pending Verification'>('Verified');
 
   // Edit mode toggle
   const [isEditing, setIsEditing] = useState(false);
 
   // Form draft state during editing
-  const [draftHolder, setDraftHolder] = useState('');
-  const [draftBank, setDraftBank] = useState('');
-  const [draftNumber, setDraftNumber] = useState('');
-  const [draftIfsc, setDraftIfsc] = useState('');
-  const [draftBranch, setDraftBranch] = useState('');
+  const [draftHolder, setDraftHolder] = useState(accountHolder);
+  const [draftBank, setDraftBank] = useState(bankName);
+  const [draftNumber, setDraftNumber] = useState(accountNumber);
+  const [draftIfsc, setDraftIfsc] = useState(ifscCode);
+  const [draftBranch, setDraftBranch] = useState(branch);
 
   // Active focused input for border highlight
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  const loadAccount = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const list = await listMyBankAccounts();
-      // Only bank rows (UPI is never listed here, but do not trust a null bank name to render).
-      const banks = list.filter((a) => a.bankName !== null);
-      setAccount(banks.find((a) => a.isDefault) ?? banks[0] ?? null);
-    } catch (err) {
-      setLoadError(formatErrorMessage(err, t('farmer.payment.loadFailed')));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadAccount();
-  }, [loadAccount]);
-
-  // Display values. Nothing is invented: a missing account renders as a dash.
-  const accountHolder = account?.accountHolderName ?? '—';
-  const bankName = account?.bankName ?? '—';
-  const accountNumber = account?.accountNumberLast4
-    ? `• • • • • • • • ${account.accountNumberLast4}`
-    : '—';
-  const ifscCode = account?.ifsc ?? '—';
-  const branch = account?.branchName ?? '—';
+  // Only the last 4 digits of an account number ever come back from the server (BR-53a), so a
+  // number the farmer has not retyped is not re-validated -- only a new one is.
+  const rules = useMemo(() => bankRules(draftNumber === accountNumber), [draftNumber, accountNumber]);
+  const validation = useFieldValidation<BankField>({
+    values: { holder: draftHolder, bank: draftBank, account: draftNumber, ifsc: draftIfsc, branch: draftBranch },
+    rules,
+    order: BANK_FIELD_ORDER,
+  });
+  const holderError = validation.messageFor('holder');
+  const bankError = validation.messageFor('bank');
+  const accountError = validation.messageFor('account');
+  const ifscError = validation.messageFor('ifsc');
+  const branchError = validation.messageFor('branch');
 
   // Hardware back press handling
   useEffect(() => {
@@ -161,22 +146,26 @@ export function BankAccountScreen({
       return false;
     });
     return () => sub.remove();
-  }, [isEditing, onBack, saving]);
+  }, [isEditing, onBack]);
 
   const handleStartEditing = () => {
-    setDraftHolder(account?.accountHolderName ?? '');
-    setDraftBank(account?.bankName ?? '');
-    // The full number is never returned, so it can only be re-entered, never edited in place.
-    setDraftNumber('');
-    setDraftIfsc(account?.ifsc ?? '');
-    setDraftBranch(account?.branchName ?? '');
-    setSaveError(null);
+    setDraftHolder(accountHolder);
+    setDraftBank(bankName);
+    setDraftNumber(accountNumber);
+    setDraftIfsc(ifscCode);
+    setDraftBranch(branch);
+    validation.reset();
     setIsEditing(true);
   };
 
   const handleCancel = () => {
-    if (saving) return;
-    setSaveError(null);
+    // Revert draft values
+    setDraftHolder(accountHolder);
+    setDraftBank(bankName);
+    setDraftNumber(accountNumber);
+    setDraftIfsc(ifscCode);
+    setDraftBranch(branch);
+    validation.reset();
     setIsEditing(false);
   };
 
@@ -188,73 +177,31 @@ export function BankAccountScreen({
     }
   };
 
-  const handleSave = async () => {
-    if (saving) return;
-    setSaveError(null);
+  const handleSave = () => {
+    if (!validation.validateAll().valid) return;
 
-    const holder = draftHolder.trim();
-    const bank = draftBank.trim();
-    const number = draftNumber.replace(/\s/g, '');
-    const ifsc = draftIfsc.trim().toUpperCase();
-    const branchName = draftBranch.trim();
+    // Save changes
+    setAccountHolder(draftHolder.trim());
+    setBankName(draftBank.trim());
+    setAccountNumber(draftNumber.trim());
+    setIfscCode(draftIfsc.trim().toUpperCase());
+    setBranch(draftBranch.trim());
+    setVerificationStatus('Pending Verification');
+    setIsEditing(false);
 
-    // A new account needs the full number; an existing one keeps its number unless re-entered.
-    if (!holder || !bank || !ifsc || (!account && !number)) {
-      Alert.alert('Missing Required Fields', 'Please fill in all required fields marked with *.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      let saved: FarmerBankAccount;
-      if (account) {
-        // Send only what changed: the server resets verification when the number or IFSC change
-        // (BR-53c), and an untouched edit must not look like a re-submission.
-        const patch: UpdateFarmerBankAccountInput = {};
-        if (holder !== account.accountHolderName) patch.accountHolderName = holder;
-        if (bank !== account.bankName) patch.bankName = bank;
-        if (number) patch.accountNumber = number;
-        if (ifsc !== account.ifsc) patch.ifsc = ifsc;
-        if (branchName !== (account.branchName ?? '')) patch.branchName = branchName || null;
-        if (Object.keys(patch).length === 0) {
-          setIsEditing(false);
-          return;
-        }
-        saved = await updateMyBankAccount(account.id, patch);
-      } else {
-        saved = await createMyBankAccount({
-          accountHolderName: holder,
-          accountNumber: number,
-          ifsc,
-          bankName: bank,
-          ...(branchName ? { branchName } : {}),
-        });
-      }
-
-      // Success only after a real 2xx: show what the server stored, not what was typed.
-      const wasNew = !account;
-      setAccount(saved);
-      setIsEditing(false);
-      Alert.alert(
-        wasNew ? t('farmer.payment.bank.addedTitle') : 'Account Updated',
-        wasNew
-          ? t('farmer.payment.bank.addedBody')
-          : 'Your bank account details have been updated and submitted to TOHFA Admin for re-verification.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              if (onSaveSuccess) onSaveSuccess();
-            },
+    appAlert(
+      'Account Updated',
+      'Your bank account details have been updated and submitted to TOHFA Admin for re-verification.',
+      [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (onSaveSuccess) onSaveSuccess();
           },
-        ]
-      );
-    } catch (err) {
-      // Stay in edit mode with the draft intact so nothing the farmer typed is lost.
-      setSaveError(formatErrorMessage(err, t('farmer.payment.bank.saveFailed')));
-    } finally {
-      setSaving(false);
-    }
+        },
+      ],
+      { tone: 'success' },
+    );
   };
 
   return (
@@ -282,7 +229,6 @@ export function BankAccountScreen({
             <TouchableOpacity
               style={styles.circleBtn}
               onPress={handleStartEditing}
-              disabled={loading || !!loadError}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Edit bank account details"
@@ -306,50 +252,25 @@ export function BankAccountScreen({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Load state: real spinner, real server error, never a fabricated account */}
-          {loading ? (
-            <View style={styles.loadingRow} accessibilityLabel={t('farmer.payment.loading')}>
-              <ActivityIndicator size="small" color={P.forestGreen} />
-            </View>
-          ) : null}
-          {loadError ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{loadError}</Text>
-              <TouchableOpacity
-                onPress={() => void loadAccount()}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel={t('farmer.payment.retry')}
-              >
-                <Text style={styles.errorRetryText}>{t('farmer.payment.retry')}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-          {saveError ? (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{saveError}</Text>
-            </View>
-          ) : null}
-
-          {/* Verification Status Badge: the server's isVerified, never assumed */}
+          {/* Verification Status Badge */}
           <View style={styles.statusRow}>
             <View
               style={[
                 styles.statusBadge,
-                account?.isVerified ? styles.verifiedBadge : styles.pendingBadge,
+                verificationStatus === 'Verified'
+                  ? styles.verifiedBadge
+                  : styles.pendingBadge,
               ]}
             >
               <Text
                 style={[
                   styles.statusBadgeText,
-                  account?.isVerified ? styles.verifiedBadgeText : styles.pendingBadgeText,
+                  verificationStatus === 'Verified'
+                    ? styles.verifiedBadgeText
+                    : styles.pendingBadgeText,
                 ]}
               >
-                {!account
-                  ? t('farmer.payment.status.notAdded')
-                  : account.isVerified
-                    ? 'Verified'
-                    : 'Pending Verification'}
+                {verificationStatus}
               </Text>
             </View>
           </View>
@@ -369,16 +290,25 @@ export function BankAccountScreen({
                   ]}
                   value={draftHolder}
                   onChangeText={setDraftHolder}
+                  maxLength={ACCOUNT_HOLDER_MAX}
                   placeholder="Full name as on passbook"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('holder')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('holder');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{accountHolder}</Text>
                 </View>
               )}
+              {holderError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {holderError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 2: Bank Name */}
@@ -394,16 +324,25 @@ export function BankAccountScreen({
                   ]}
                   value={draftBank}
                   onChangeText={setDraftBank}
+                  maxLength={BANK_NAME_MAX}
                   placeholder="Bank name"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('bank')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('bank');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{bankName}</Text>
                 </View>
               )}
+              {bankError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {bankError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 3: Account Number */}
@@ -418,24 +357,26 @@ export function BankAccountScreen({
                     focusedField === 'account' && styles.inputFocused,
                   ]}
                   value={draftNumber}
-                  onChangeText={setDraftNumber}
-                  placeholder={
-                    account
-                      ? t('farmer.payment.bank.accountNumberChangePlaceholder')
-                      : 'Account number'
-                  }
-                  placeholderTextColor={P.twGray400}
+                  onChangeText={(text) => setDraftNumber(text.replace(/\s/g, ''))}
+                  maxLength={ACCOUNT_NUMBER_MAX}
                   keyboardType="number-pad"
+                  placeholder="Account number"
+                  placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('account')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('account');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{accountNumber}</Text>
                 </View>
               )}
-              {isEditing && account ? (
-                <Text style={styles.fieldHint}>{t('farmer.payment.bank.accountNumberHint')}</Text>
+              {accountError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {accountError}
+                </Text>
               ) : null}
             </View>
 
@@ -451,18 +392,28 @@ export function BankAccountScreen({
                     focusedField === 'ifsc' && styles.inputFocused,
                   ]}
                   value={draftIfsc}
-                  onChangeText={(t) => setDraftIfsc(t.toUpperCase())}
+                  onChangeText={(text) => setDraftIfsc(text.replace(/\s/g, '').toUpperCase())}
+                  maxLength={IFSC_LENGTH}
+                  autoCorrect={false}
                   placeholder="IFSC code"
                   placeholderTextColor={P.twGray400}
                   autoCapitalize="characters"
                   onFocus={() => setFocusedField('ifsc')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('ifsc');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{ifscCode}</Text>
                 </View>
               )}
+              {ifscError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {ifscError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 5: Branch (Optional, no star) */}
@@ -476,16 +427,25 @@ export function BankAccountScreen({
                   ]}
                   value={draftBranch}
                   onChangeText={setDraftBranch}
+                  maxLength={BRANCH_NAME_MAX}
                   placeholder="Branch name"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('branch')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('branch');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{branch}</Text>
                 </View>
               )}
+              {branchError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {branchError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Warning / Helper Note */}
@@ -506,7 +466,6 @@ export function BankAccountScreen({
             <TouchableOpacity
               style={styles.cancelBtn}
               onPress={handleCancel}
-              disabled={saving}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Cancel editing"
@@ -515,19 +474,13 @@ export function BankAccountScreen({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.saveBtn, saving && styles.saveBtnBusy]}
-              onPress={() => void handleSave()}
-              disabled={saving}
+              style={styles.saveBtn}
+              onPress={handleSave}
               activeOpacity={0.88}
               accessibilityRole="button"
               accessibilityLabel="Save Changes"
-              accessibilityState={{ disabled: saving, busy: saving }}
             >
-              {saving ? (
-                <ActivityIndicator size="small" color={P.white} />
-              ) : (
-                <CheckmarkIcon size={16} color={P.white} />
-              )}
+              <CheckmarkIcon size={16} color={P.white} />
               <Text style={styles.saveBtnText}>Save Changes</Text>
             </TouchableOpacity>
           </View>
@@ -538,6 +491,11 @@ export function BankAccountScreen({
 }
 
 const styles = StyleSheet.create({
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: P.white,
@@ -664,35 +622,6 @@ const styles = StyleSheet.create({
     borderColor: P.twEmerald800,
     borderWidth: 1.5,
   },
-  loadingRow: {
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  errorBanner: {
-    backgroundColor: P.twRed50,
-    borderColor: P.twRed200,
-    borderWidth: 1,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 14,
-    gap: 6,
-  },
-  errorBannerText: {
-    color: P.twRed700,
-    fontSize: typography.bodySmall,
-    fontWeight: '600',
-  },
-  errorRetryText: {
-    color: P.twRed700,
-    fontSize: typography.bodySmall,
-    fontWeight: '800',
-  },
-  fieldHint: {
-    fontSize: typography.bodySmall,
-    lineHeight: 17,
-    color: P.twGray500,
-    fontWeight: '400',
-  },
   warningNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -750,9 +679,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 2,
-  },
-  saveBtnBusy: {
-    opacity: 0.7,
   },
   saveBtnText: {
     fontSize: typography.bodyLarge,
