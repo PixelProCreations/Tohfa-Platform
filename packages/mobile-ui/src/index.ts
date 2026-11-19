@@ -13,3 +13,7 @@ export * from './pointInRing';
 export * from './DatePicker';
 export * from './SystemBars';
 export * from './SafeAreaView';
+export * from './ModalSafeArea';
+export * from './Dialog';
+export * from './DocumentViewer';
+export * from './documentKind';

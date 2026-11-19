@@ -16,8 +16,10 @@ import {
   type CertificationsRepo,
   type RecomputeResult,
 } from './certifications.repo.js';
+import { InMemoryBlobStorage } from '../../storage/blobStorage.js';
 import {
   certificationCreateSchema,
+  certificationDocumentResponse,
   certificationUpdateSchema,
   type CertificationCreate,
   type CertificationUpdate,
@@ -177,6 +179,13 @@ function mockCertificationsRepo(initialCert?: Partial<CertificationRow>): Certif
       if (cert && cert.id === id) return cert;
       return null;
     },
+    findOwnCertificateDocument: async (_db, id, farmerId) => {
+      const cert = live();
+      if (cert && cert.id === id && cert.farmer_id === farmerId) return { documentRef: cert.document_url };
+      return null;
+    },
+    // No upload belongs to anyone unless a test says so (BR-142c).
+    isUploadOwnedBy: async () => false,
   };
 }
 
@@ -1270,6 +1279,106 @@ describe('Certifications & BR-01/BR-02 Test Contracts', () => {
     });
   });
 
+  describe("BR-142: a certificate's document is read only through a short-lived signed URL, by its owner (GET /farmers/me/certifications/{id}/document)", () => {
+    const BASE = 'http://localhost:3000';
+    const KEY = 'certificate/0b6f2c1e-1111-4222-8333-444455556666.pdf';
+    const farmerActor = () =>
+      anActor({ userId: IDS.userFarmer, roles: [{ code: RoleCode.FARMER }], farmerId: IDS.farmer });
+
+    /** A service over the mock repo whose uploads table holds `ownedKeys`, uploaded by IDS.userFarmer. */
+    function docHarness(cert: Partial<CertificationRow>, ownedKeys: string[] = [KEY]) {
+      const repo = mockCertificationsRepo({ id: CERT_ID, ...cert });
+      const ownershipChecks: Array<[string, string]> = [];
+      repo.isUploadOwnedBy = async (_db, storageKey, userId) => {
+        ownershipChecks.push([storageKey, userId]);
+        return ownedKeys.includes(storageKey) && userId === IDS.userFarmer;
+      };
+      const service = createCertificationsService(repo, runInAuditOnlyTx, {
+        storage: new InMemoryBlobStorage(BASE, 'br-142-test-signing-secret-0123456789'),
+        db: auditOnlyTx,
+      });
+      return { repo, service, ownershipChecks };
+    }
+
+    it("BR-142a: the owner gets a signed, expiring read URL for the certificate's own file; the stored URL is never returned", async () => {
+      const stored = `${BASE}/storage/${KEY}`;
+      const h = docHarness({ document_url: stored });
+      const before = Date.now();
+
+      const res = await h.service.getMyCertificationDocument(farmerActor(), CERT_ID);
+
+      expect(certificationDocumentResponse.safeParse(res).success).toBe(true);
+      expect(Object.keys(res).sort()).toEqual(['expiresAt', 'readUrl']);
+      expect(res.readUrl).toContain(`/storage/${KEY}?expires=`);
+      expect(new URL(res.readUrl).searchParams.get('sig')).toMatch(/^[0-9a-f]{64}$/);
+      expect(res.readUrl).not.toBe(stored);
+      const ttlMs = new Date(res.expiresAt).getTime() - before;
+      expect(ttlMs).toBeGreaterThan(14 * 60_000);
+      expect(ttlMs).toBeLessThanOrEqual(15 * 60_000 + 5_000);
+      // Ownership was checked against the caller's own uploads, by key.
+      expect(h.ownershipChecks).toEqual([[KEY, IDS.userFarmer]]);
+    });
+
+    it('BR-142a: a document recorded as a bare storage key is signed the same way', async () => {
+      const h = docHarness({ document_url: KEY });
+      const res = await h.service.getMyCertificationDocument(farmerActor(), CERT_ID);
+      expect(res.readUrl).toContain(`/storage/${KEY}?expires=`);
+    });
+
+    it("BR-142b: another farmer's certificate, an unknown id and a soft-deleted certificate are 404 NOT_FOUND, never 403", async () => {
+      const foreign = docHarness({ farmer_id: OTHER_FARMER_ID, document_url: `${BASE}/storage/${KEY}` });
+      await expect(foreign.service.getMyCertificationDocument(farmerActor(), CERT_ID)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+
+      const h = docHarness({ document_url: `${BASE}/storage/${KEY}` });
+      await expect(h.service.getMyCertificationDocument(farmerActor(), newId())).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+      await h.service.deleteMyCertification(farmerActor(), CERT_ID);
+      await expect(h.service.getMyCertificationDocument(farmerActor(), CERT_ID)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+      expect(foreign.ownershipChecks).toEqual([]);
+    });
+
+    it('BR-142b: a certificate with no document is 404 NOT_FOUND', async () => {
+      const h = docHarness({});
+      h.repo.findOwnCertificateDocument = async () => ({ documentRef: null });
+      await expect(h.service.getMyCertificationDocument(farmerActor(), CERT_ID)).rejects.toMatchObject({
+        code: 'NOT_FOUND',
+        status: 404,
+      });
+    });
+
+    it('BR-142c: a document URL on another host, a non-storage path, or a file the caller did not upload is never signed (404)', async () => {
+      for (const documentUrl of [
+        'https://evil.example/storage/certificate/x.pdf',
+        `${BASE}/v1/uploads/mock/${KEY}`,
+        `${BASE}/storage/../../secrets.txt`,
+      ]) {
+        const h = docHarness({ document_url: documentUrl });
+        await expect(h.service.getMyCertificationDocument(farmerActor(), CERT_ID)).rejects.toMatchObject({
+          code: 'NOT_FOUND',
+        });
+        expect(h.ownershipChecks).toEqual([]);
+      }
+
+      // A real storage key, but uploaded by somebody else: planted into this farmer's certificate.
+      const planted = docHarness({ document_url: `${BASE}/storage/certificate/someone-elses.pdf` });
+      const err = await planted.service.getMyCertificationDocument(farmerActor(), CERT_ID).then(
+        () => null,
+        (e: unknown) => e,
+      );
+      expect(err).toMatchObject({ code: 'NOT_FOUND', status: 404 });
+      expect(JSON.stringify(err)).not.toContain('someone-elses');
+      expect(planted.ownershipChecks).toEqual([['certificate/someone-elses.pdf', IDS.userFarmer]]);
+    });
+  });
+
   describe('BR-35c: recording, verifying and unverifying a certificate are audited in the same transaction', () => {
     const farmerActor = () =>
       anActor({ userId: IDS.userFarmer, roles: [{ code: RoleCode.FARMER }], farmerId: IDS.farmer });
@@ -1780,6 +1889,29 @@ describe('Certifications & BR-01/BR-02 Test Contracts', () => {
       customerId: null,
     });
 
+    it('BR-142e: GET /v1/farmers/me/certifications/{id}/document is 401 without a token, 403 for every role without certification.manage_own, 422 for a malformed id', async () => {
+      const path = `/v1/farmers/me/certifications/${CERT_ID}/document`;
+      expect((await request(app).get(path)).status).toBe(401);
+
+      for (const code of ['SUPER_ADMIN', 'TOHFA_ADMIN', 'FARMER_ADMIN', 'MAIN_WH_ADMIN', 'SUB_WH_ADMIN', 'CUSTOMER'] as const) {
+        const token = signAccessToken({ sub: IDS.userSuperAdmin, roles: [{ code }], farmerId: null, customerId: null });
+        const res = await request(app).get(path).set('Authorization', `Bearer ${token}`);
+        expect(res.status, code).toBe(403);
+      }
+
+      const farmerToken = signAccessToken({
+        sub: IDS.userFarmer,
+        roles: [{ code: 'FARMER' }],
+        farmerId: IDS.farmer,
+        customerId: null,
+      });
+      const bad = await request(app)
+        .get('/v1/farmers/me/certifications/not-a-uuid/document')
+        .set('Authorization', `Bearer ${farmerToken}`);
+      expect(bad.status).toBe(422);
+      expect(bad.body.errors['params.id']).toEqual([expect.any(String)]);
+    });
+
     it('POST /v1/farmers/me/certifications rejects invalid date ordering (expiresOn <= issuedOn)', async () => {
       const farmerToken = signAccessToken({
         sub: IDS.userFarmer,
@@ -2107,6 +2239,82 @@ describe('Certifications & BR-01/BR-02 Test Contracts', () => {
         expect([200, 404]).toContain(res.status);
       } finally {
         await deleteCommittedTestUser(testAdminId);
+      }
+    });
+
+    it("BR-142 (PostgreSQL): the owner's certificate document is signed from its uploads row; another farmer and a planted key of someone else's upload get 404", async () => {
+      if (!(await databaseReady('certifications')) || !(await databaseReady('uploads'))) return;
+
+      const { pool } = await import('../../db/pool.js');
+      const { certificationsRepo } = await import('./certifications.repo.js');
+      const storage = new InMemoryBlobStorage('http://localhost:3000', 'br-142-test-signing-secret-0123456789');
+
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const seedFarmer = async (tag: string) => {
+          const userId = newId();
+          const farmerId = newId();
+          await client.query(
+            `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, $3, 'FARMER', 'ACTIVE')`,
+            [userId, `+9195${Math.floor(10000000 + Math.random() * 89999999)}`, `Cert Doc ${tag}`],
+          );
+          await client.query(`INSERT INTO farmers (id, user_id, tohfa_farmer_id) VALUES ($1, $2, $3)`, [
+            farmerId,
+            userId,
+            `TOHFA-DOC-${farmerId.slice(0, 8)}`,
+          ]);
+          return { userId, farmerId };
+        };
+        const seedUpload = async (key: string, userId: string) => {
+          await client.query(
+            `INSERT INTO uploads (storage_key, bucket, mime_type, size_bytes, uploaded_by)
+             VALUES ($1, 'test', 'application/pdf', 1024, $2)`,
+            [key, userId],
+          );
+        };
+        const a = await seedFarmer('a');
+        const b = await seedFarmer('b');
+        const aKey = `certificate/${newId()}.pdf`;
+        const bKey = `certificate/${newId()}.pdf`;
+        await seedUpload(aKey, a.userId);
+        await seedUpload(bKey, b.userId);
+
+        const base = { certType: 'PGS' as const, customTypeName: null, issuingBody: 'PGS India', issuedOn: '2026-01-01', expiresOn: '2027-01-01' };
+        const own = await certificationsRepo.createCertification(client, {
+          ...base,
+          farmerId: a.farmerId,
+          certNumber: `PGS/${newId()}`,
+          documentUrl: storage.getPublicUrl(aKey),
+        });
+        // Farmer A records farmer B's real upload as their own certificate's document.
+        const planted = await certificationsRepo.createCertification(client, {
+          ...base,
+          farmerId: a.farmerId,
+          certNumber: `PGS/${newId()}`,
+          documentUrl: storage.getPublicUrl(bKey),
+        });
+
+        const service = createCertificationsService(certificationsRepo, async (fn) => fn(client), {
+          storage,
+          db: client,
+        });
+        const asA = anActor({ userId: a.userId, roles: [{ code: RoleCode.FARMER }], farmerId: a.farmerId });
+        const asB = anActor({ userId: b.userId, roles: [{ code: RoleCode.FARMER }], farmerId: b.farmerId });
+
+        const res = await service.getMyCertificationDocument(asA, own.id);
+        expect(res.readUrl).toContain(`/storage/${aKey}?expires=`);
+        expect(certificationDocumentResponse.safeParse(res).success).toBe(true);
+
+        await expect(service.getMyCertificationDocument(asB, own.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        await expect(service.getMyCertificationDocument(asA, planted.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+        // A soft-deleted upload row is no longer the farmer's file to read.
+        await client.query(`UPDATE uploads SET deleted_at = now() WHERE storage_key = $1`, [aKey]);
+        await expect(service.getMyCertificationDocument(asA, own.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
       }
     });
 

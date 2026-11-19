@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
@@ -15,6 +16,8 @@ import type { DateData } from 'react-native-calendars';
 import { authPalette as P, colors, radius, spacing, typography } from '../../../theme';
 import { formatSafeDate } from '../../../polyfills';
 import { t } from '../../../../../i18n/farmer';
+import { useFieldValidation } from '../../../utils/validation';
+import { TOOL_RULES, ASSET_NAME_MAX_LENGTH, ASSET_INTERVAL_MAX_DIGITS } from './assetFormRules';
 import { ApiError, extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';
 import { createFarmAsset } from '../../../api/farmAssets';
@@ -95,6 +98,7 @@ interface AddToolScreenProps {
 }
 
 export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   // Purchase date is optional in the design (no asterisk), so it starts empty
   // instead of defaulting to today: the farmer opens the calendar and picks.
@@ -105,6 +109,12 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validation = useFieldValidation<'name' | 'serviceInterval'>({
+    values: { name, serviceInterval },
+    rules: TOOL_RULES,
+    order: ['name', 'serviceInterval'],
+  });
 
   const purchaseDateLabel = purchaseDate ? formatSafeDate(purchaseDate) : null;
 
@@ -128,9 +138,10 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
   }
 
   async function handleSave(): Promise<void> {
-    if (isSaving || !name || !serviceInterval) return;
+    if (isSaving) return;
     setSaveError('');
     setFieldErrors({});
+    if (!validation.validateAll().valid) return;
 
     const intervalDays = Number(serviceInterval.trim());
     if (!Number.isInteger(intervalDays) || intervalDays <= 0) {
@@ -213,8 +224,13 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
             onChangeText={setName}
             placeholder="e.g. Pruning Shears"
             placeholderTextColor={P.legal}
+            maxLength={ASSET_NAME_MAX_LENGTH}
+            onBlur={() => validation.onBlur('name')}
           />
         </View>
+        {validation.messageFor('name') ?? fieldErrors.name ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('name') ?? fieldErrors.name}</Text>
+        ) : null}
 
         {/* Purchase Date Field */}
         <Text style={styles.fieldLabel}>Purchase date</Text>
@@ -247,11 +263,13 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
             placeholder="e.g. 90"
             placeholderTextColor={P.legal}
             keyboardType="numeric"
+            maxLength={ASSET_INTERVAL_MAX_DIGITS}
+            onBlur={() => validation.onBlur('serviceInterval')}
           />
         </View>
-        {fieldErrors.serviceInterval && (
-          <Text style={styles.fieldErrorText}>{fieldErrors.serviceInterval}</Text>
-        )}
+        {validation.messageFor('serviceInterval') ?? fieldErrors.serviceInterval ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('serviceInterval') ?? fieldErrors.serviceInterval}</Text>
+        ) : null}
 
         {/* Info Note */}
         <View style={styles.infoRow}>
@@ -272,8 +290,8 @@ export function AddToolScreen({ onNavigateBack, onSave }: AddToolScreenProps): R
         The Modal is what gives the sheet its own layer above the sticky footer.
       */}
       {showPurchaseDateCalendar ? (
-        <Modal transparent visible animationType="fade" onRequestClose={closePurchaseDateCalendar}>
-          <View style={styles.calendarOverlay}>
+        <Modal statusBarTranslucent navigationBarTranslucent transparent visible animationType="fade" onRequestClose={closePurchaseDateCalendar}>
+          <View style={[styles.calendarOverlay, { paddingBottom: insets.bottom }]}>
             <View style={styles.calendarScrim} pointerEvents="none" />
             <TouchableOpacity
               style={styles.calendarBackdrop}

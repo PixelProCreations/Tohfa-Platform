@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -11,15 +10,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { useFieldValidation } from '../../utils/validation';
+import { UPI_MAX, upiRules, type UpiField } from './paymentValidation';
 
 function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -64,6 +65,8 @@ export function UpiIdScreen({
 }: UpiIdScreenProps): React.JSX.Element {
   const [upiId, setUpiId] = useState('murugan.r@okhdfcbank');
   const [isDefault, setIsDefault] = useState(true);
+  const validation = useFieldValidation<UpiField>({ values: { upi: upiId }, rules: upiRules });
+  const upiError = validation.messageFor('upi');
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -77,7 +80,8 @@ export function UpiIdScreen({
   }, [onBack]);
 
   const handleSave = () => {
-    Alert.alert(
+    if (!validation.validateAll().valid) return;
+    appAlert(
       'UPI ID Saved',
       'Your UPI ID has been submitted for manual admin verification.',
       [
@@ -88,7 +92,8 @@ export function UpiIdScreen({
             else if (onBack) onBack();
           },
         },
-      ]
+      ],
+      { tone: 'success' },
     );
   };
 
@@ -136,12 +141,20 @@ export function UpiIdScreen({
             <TextInput
               style={styles.input}
               value={upiId}
-              onChangeText={setUpiId}
+              onChangeText={(text) => setUpiId(text.replace(/\s/g, ''))}
+              onBlur={() => validation.onBlur('upi')}
+              maxLength={UPI_MAX}
+              autoCorrect={false}
               placeholder="e.g. yourname@okhdfcbank"
               placeholderTextColor={P.twGray400}
               autoCapitalize="none"
               keyboardType="email-address"
             />
+            {upiError ? (
+              <Text accessibilityRole="alert" style={styles.fieldError}>
+                {upiError}
+              </Text>
+            ) : null}
           </View>
 
           {/* Info note */}
@@ -284,6 +297,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.twGray900,
     fontWeight: '500',
+  },
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
   },
   infoNote: {
     flexDirection: 'row',

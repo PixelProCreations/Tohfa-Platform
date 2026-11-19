@@ -2,6 +2,7 @@ import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
+import { defaultBlobStorage, type BlobStorage } from '../../storage/blobStorage.js';
 import {
   certificationsRepo,
   type CertificationRow,
@@ -12,6 +13,7 @@ import {
   certificationCreateSchema,
   isCalendarDate,
   type CertificationCreate,
+  type CertificationDocumentResponse,
   type CertificationUpdate,
   type AdminListCertificationsQuery,
   type ListCertificationsQuery,
@@ -262,6 +264,8 @@ export interface CertificationsService {
     id: string,
     body: UnverifyCertificationBody,
   ): Promise<unknown>;
+  /** BR-142: GET /farmers/me/certifications/{id}/document -- a short-lived signed read URL. */
+  getMyCertificationDocument(actor: Actor, id: string): Promise<CertificationDocumentResponse>;
   getConfig(actor: Actor): Promise<{
     certExpiryWarningDays: number;
     certExpiryMaxPastDays: number;
@@ -274,10 +278,29 @@ export interface CertificationsService {
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
 
+export interface CertificationsServiceDeps {
+  /** Where certificate documents live; signs BR-142's read URLs. */
+  storage?: BlobStorage;
+  /** Executor for BR-142's reads, so a test can run them inside its own transaction. */
+  db?: Executor;
+}
+
+/**
+ * BR-142b: how long a certificate document's signed read URL lives -- the same
+ * 15 minutes as every other farmer document's (BR-54c). A link-lifetime
+ * security setting, not a business threshold: the app asks for a fresh one on
+ * every View tap.
+ */
+const DOCUMENT_READ_URL_TTL_MINUTES = 15;
+
 export function createCertificationsService(
   repo: CertificationsRepo = certificationsRepo,
   runTx: TransactionRunner = withTransaction,
+  deps: CertificationsServiceDeps = {},
 ): CertificationsService {
+  const storage = deps.storage ?? defaultBlobStorage;
+  const readDb = deps.db ?? pool;
+
   async function resolveFarmerId(actor: Actor): Promise<string> {
     if (actor.farmerId !== null) return actor.farmerId;
 
@@ -610,6 +633,30 @@ export function createCertificationsService(
       });
 
       return mapCertificationResponse(cert);
+    },
+
+    async getMyCertificationDocument(actor, id) {
+      const notFound = () => new AppError('NOT_FOUND', { detail: 'Certification document not found.' });
+      const farmerId = await resolveFarmerId(actor);
+
+      // BR-142b / BR-36: another farmer's, a deleted or an unknown certificate
+      // and one with no document all look the same -- 404, never 403.
+      const found = await repo.findOwnCertificateDocument(readDb, id, farmerId);
+      const ref = found?.documentRef ?? null;
+      if (ref === null) throw notFound();
+
+      // BR-142c: the recorded value is client input (documentUrl). Only this
+      // storage's own URL (or a bare key) is turned into a key -- an external
+      // URL is never fetched or echoed -- and the key is signed only when the
+      // caller uploaded it, so a certificate cannot be pointed at someone
+      // else's file to read it.
+      const storageKey = ref.includes('://') ? storage.storageKeyFromUrl(ref) : ref;
+      if (storageKey === null) throw notFound();
+      if (!(await repo.isUploadOwnedBy(readDb, storageKey, actor.userId))) throw notFound();
+
+      const expiresAt = new Date(Date.now() + DOCUMENT_READ_URL_TTL_MINUTES * 60 * 1000).toISOString();
+      const readUrl = await storage.generateReadUrl(storageKey, DOCUMENT_READ_URL_TTL_MINUTES);
+      return { readUrl, expiresAt };
     },
 
     // Global config value — not farmer-specific, so no scoping/resolveFarmerId

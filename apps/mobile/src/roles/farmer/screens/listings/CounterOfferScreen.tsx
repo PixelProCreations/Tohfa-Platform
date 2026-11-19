@@ -1,12 +1,26 @@
+import Svg, { Path } from 'react-native-svg';
+
+function ChevronLeft({ size = 20, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  type AlertButton,
 } from 'react-native';
 import {
   createIdempotencyKeyCache,
@@ -22,7 +36,7 @@ import {
   type Listing,
 } from '../../api/listings';
 import { formatMoneyAmount } from '../../api/wallet';
-import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { gradeLabel, kgLabel, moneyOrDash, pricePerKgLabel, timeLeftLabel, tk } from './listingFormat';
@@ -44,6 +58,7 @@ export interface CounterOfferScreenProps {
   /** After a response is recorded (or the offer turned out stale): back to a re-fetched list. */
   onSuccess?: (() => void) | undefined;
   onCancel?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 }
 
 // ─────────────────────────────────────────────
@@ -77,6 +92,7 @@ export function CounterOfferScreen({
   onCounter,
   onSuccess,
   onCancel,
+  onBack,
 }: CounterOfferScreenProps): React.JSX.Element {
   const [state, setState] = useState<LoadState>(
     initialListing ? { kind: 'ready', listing: initialListing } : { kind: 'loading' },
@@ -150,11 +166,11 @@ export function CounterOfferScreen({
       inFlightRef.current = false;
       if (!mountedRef.current) return;
       setSubmitting(null);
-      Alert.alert(
+      appAlert(
         kind === 'accept' ? t('farmer.listings.offer.acceptedTitle') : t('farmer.listings.offer.declinedTitle'),
         kind === 'accept' ? t('farmer.listings.offer.acceptedBody') : t('farmer.listings.offer.declinedBody'),
         [{ text: t('farmer.common.ok'), onPress: () => onSuccess?.() }],
-        { cancelable: false },
+        { cancelable: false, tone: 'success' },
       );
     } catch (error) {
       inFlightRef.current = false;
@@ -162,20 +178,21 @@ export function CounterOfferScreen({
       setSubmitting(null);
       // A stale offer (expired, already answered, listing moved on) cannot be
       // retried from here; OK returns to the list, which re-fetches.
-      const okButton: AlertButton = isStaleListingError(error)
+      const okButton: NonNullable<Parameters<typeof appAlert>[2]>[number] = isStaleListingError(error)
         ? { text: t('farmer.common.ok'), onPress: () => onSuccess?.() }
         : { text: t('farmer.common.ok') };
-      Alert.alert(
+      appAlert(
         t('farmer.listings.offer.actionErrorTitle'),
         t(tk(listingErrorMessageKey(error, 'farmer.listings.error.generic'))),
         [okButton],
+        { tone: 'error' },
       );
     }
   };
 
   const confirmAccept = () => {
     if (offer === null) return;
-    Alert.alert(
+    appAlert(
       t('farmer.listings.offer.acceptConfirmTitle'),
       t('farmer.listings.offer.acceptConfirmBody', {
         qty: formatKg(offer.quantityKg),
@@ -185,25 +202,26 @@ export function CounterOfferScreen({
         { text: t('farmer.common.cancel'), style: 'cancel' },
         { text: t('farmer.listings.offer.confirm'), onPress: () => void respond('accept') },
       ],
+      { tone: 'info' },
     );
   };
 
   const confirmReject = () => {
-    Alert.alert(t('farmer.listings.offer.rejectConfirmTitle'), t('farmer.listings.offer.rejectConfirmBody'), [
+    appAlert(t('farmer.listings.offer.rejectConfirmTitle'), t('farmer.listings.offer.rejectConfirmBody'), [
       { text: t('farmer.common.cancel'), style: 'cancel' },
       { text: t('farmer.listings.offer.confirm'), style: 'destructive', onPress: () => void respond('reject') },
-    ]);
+    ], { tone: 'warning' });
   };
 
   const header = (
     <View style={styles.header}>
       <Pressable
         style={styles.backButton}
-        onPress={onCancel}
+        onPress={onBack ?? onCancel}
         accessibilityRole="button"
         accessibilityLabel={t('farmer.common.back')}
       >
-        <Icon name="arrow_back" size={20} color={colors.brandGreen} />
+        <ChevronLeft size={20} color={colors.brandGreen} />
       </Pressable>
       <View style={styles.headerTextContainer}>
         <Text style={styles.headerTitle}>{t('farmer.listings.offer.title')}</Text>

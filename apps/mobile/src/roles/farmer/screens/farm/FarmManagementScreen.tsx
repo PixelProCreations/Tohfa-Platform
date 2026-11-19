@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -9,13 +8,23 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
+import { maxLength, required, useFieldValidation, type FieldRules } from '../../utils/validation';
 import { getFarmWeather, type FarmWeather } from '../../api/weather';
 import { listAllActiveFarmCrops } from '../../api/crops';
 import { listProductionLogs } from '../../api/livestock';
+import { getFarms } from '../../api/farms';
+import { evalCertificateWarning, FALLBACK_CERT_EXPIRY_WARNING_DAYS, getMyCertifications } from '../../api/farmer';
+import { listMyFarmAttendanceForDate, listMyWorkers } from '../../api/workforce';
+
+/** Quick-diary note: required; 2000 is the diary `notes` limit in docs/openapi.yaml. */
+const DIARY_NOTE_MAX_LENGTH = 2000;
+type DiaryNoteField = 'note';
+const DIARY_NOTE_RULES: FieldRules<DiaryNoteField> = { note: [required(), maxLength(DIARY_NOTE_MAX_LENGTH)] };
 
 // ─────────────────────────────────────────────
 // Inline SVG Icons
@@ -24,7 +33,7 @@ import { listProductionLogs } from '../../api/livestock';
 function ArrowBackIcon({ size = 20, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M5 12L12 19M5 12L12 5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 18L9 12L15 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -184,6 +193,17 @@ function weatherConditionLabel(condition: FarmWeather['current']['condition']): 
   return t(`farmer.weather.condition.${condition}` as TranslationKey);
 }
 
+/** Whole days from today (local) to an ISO date; null when the date is missing or unparsable. */
+function daysUntil(isoDate: string | null | undefined): number | null {
+  if (!isoDate) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate);
+  if (!match) return null;
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const targetUtc = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  return Math.round((targetUtc - todayUtc) / 86400000);
+}
+
 function todayIsoDate(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -233,8 +253,13 @@ export function FarmManagementScreen({
   onNavigateToCertifications,
   onNavigateToProduceCalendar,
 }: FarmManagementScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [isDiaryModalOpen, setIsDiaryModalOpen] = useState(false);
   const [diaryNote, setDiaryNote] = useState('');
+  const diaryValidation = useFieldValidation<DiaryNoteField>({
+    values: { note: diaryNote },
+    rules: DIARY_NOTE_RULES,
+  });
 
   // Weather -- own silent load, same shape as DashboardScreen's weather
   // widget: a failed or slow call just leaves this card showing '—'.
@@ -258,14 +283,78 @@ export function FarmManagementScreen({
   // every plot, the same ACTIVE_FARM_CROP_STATUSES definition the Dashboard's
   // Active Crops card and ActiveCropsScreen use. null = still loading/failed.
   const [activeCropCount, setActiveCropCount] = useState<number | null>(null);
+  // Soonest upcoming harvest among the active crops (null = none known).
+  const [nextHarvest, setNextHarvest] = useState<{ crop: string; days: number } | null>(null);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const result = await listAllActiveFarmCrops();
-        if (!cancelled) setActiveCropCount(result.items.length);
+        if (!cancelled) {
+          setActiveCropCount(result.items.length);
+          let soonest: { crop: string; days: number } | null = null;
+          for (const { crop } of result.items) {
+            const days = daysUntil(crop.expectedHarvestOn);
+            if (days === null || days < 0) continue;
+            if (soonest === null || days < soonest.days) soonest = { crop: crop.cropName, days };
+          }
+          setNextHarvest(soonest);
+        }
       } catch {
-        if (!cancelled) setActiveCropCount(null);
+        if (!cancelled) {
+          setActiveCropCount(null);
+          setNextHarvest(null);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Certificates -- how many of the farmer's own certificates are still valid
+  // (not expired; one expiring soon still counts), by the same server-computed
+  // daysToExpiry the Certifications screen uses. null = loading/failed ('—').
+  const [validCertCount, setValidCertCount] = useState<number | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const res = await getMyCertifications(undefined, 100, controller.signal);
+        const valid = res.items.filter(
+          (cert) => !evalCertificateWarning(cert.daysToExpiry, FALLBACK_CERT_EXPIRY_WARNING_DAYS).isExpired,
+        ).length;
+        if (!controller.signal.aborted) setValidCertCount(valid);
+      } catch {
+        if (!controller.signal.aborted) setValidCertCount(null);
+      }
+    })();
+    return () => controller.abort();
+  }, []);
+
+  // Workforce -- today's real check-in count: workers on the roster vs. attendance
+  // rows marked present today, for the same farm (first farm) the Daily
+  // Attendance screen resolves. null = still loading or failed (shows '—').
+  const [workforceToday, setWorkforceToday] = useState<{ checkedIn: number; total: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const farms = await getFarms();
+        const farm = farms[0];
+        if (!farm) {
+          if (!cancelled) setWorkforceToday({ checkedIn: 0, total: 0 });
+          return;
+        }
+        const [workers, attendance] = await Promise.all([
+          listMyWorkers(farm.id),
+          listMyFarmAttendanceForDate(farm.id, todayIsoDate()),
+        ]);
+        const present = new Set(attendance.filter((row) => row.present).map((row) => row.workerId));
+        const checkedIn = workers.filter((worker) => present.has(worker.id)).length;
+        if (!cancelled) setWorkforceToday({ checkedIn, total: workers.length });
+      } catch {
+        if (!cancelled) setWorkforceToday(null);
       }
     })();
     return () => {
@@ -300,20 +389,23 @@ export function FarmManagementScreen({
   }, []);
 
   const handleSaveDiary = () => {
-    if (!diaryNote.trim()) {
-      Alert.alert(t('farmer.farmManagement.diary.requiredTitle'), t('farmer.farmManagement.diary.requiredBody'));
-      return;
+    if (!diaryValidation.validateAll().valid) {
+      if (!diaryNote.trim()) {
+        appAlert(t('farmer.farmManagement.diary.requiredTitle'), t('farmer.farmManagement.diary.requiredBody'), undefined, { tone: 'warning' });
+      }
+      return; // other failures (too long) show inline under the field
     }
-    Alert.alert(t('farmer.farmManagement.diary.successTitle'), t('farmer.farmManagement.diary.successBody'));
+    appAlert(t('farmer.farmManagement.diary.successTitle'), t('farmer.farmManagement.diary.successBody'), undefined, { tone: 'success' });
     setIsDiaryModalOpen(false);
     setDiaryNote('');
+    diaryValidation.reset();
   };
 
   const handleLivestockReview = () => {
     if (onNavigateToLivestock) {
       onNavigateToLivestock();
     } else {
-      Alert.alert(t('farmer.farmManagement.livestock.alertTitle'), t('farmer.farmManagement.livestock.alertBody'));
+      appAlert(t('farmer.farmManagement.livestock.alertTitle'), t('farmer.farmManagement.livestock.alertBody'));
     }
   };
 
@@ -321,7 +413,7 @@ export function FarmManagementScreen({
     if (onNavigateToLearningHub) {
       onNavigateToLearningHub();
     } else {
-      Alert.alert(t('farmer.farmManagement.learningHub.alertTitle'), t('farmer.farmManagement.learningHub.alertBody'));
+      appAlert(t('farmer.farmManagement.learningHub.alertTitle'), t('farmer.farmManagement.learningHub.alertBody'));
     }
   };
 
@@ -356,7 +448,7 @@ export function FarmManagementScreen({
             accessibilityRole="button"
             accessibilityLabel={t('farmer.farmManagement.stat.activeCrops')}
           >
-            <Text style={styles.summaryStatNumber}>3</Text>
+            <Text style={styles.summaryStatNumber}>{activeCropCount === null ? '—' : activeCropCount}</Text>
             <Text style={styles.summaryStatLabel}>{t('farmer.farmManagement.stat.activeCrops')}</Text>
           </TouchableOpacity>
 
@@ -366,7 +458,7 @@ export function FarmManagementScreen({
             onPress={onNavigateToAttendance}
             accessibilityRole="button"
           >
-            <Text style={styles.summaryStatNumber}>3</Text>
+            <Text style={styles.summaryStatNumber}>{workforceToday === null ? '—' : workforceToday.checkedIn}</Text>
             <Text style={styles.summaryStatLabel}>{t('farmer.farmManagement.stat.workersToday')}</Text>
           </TouchableOpacity>
 
@@ -380,7 +472,7 @@ export function FarmManagementScreen({
             accessibilityRole="button"
 
           >
-            <Text style={styles.summaryStatNumber}>2</Text>
+            <Text style={styles.summaryStatNumber}>{validCertCount === null ? '—' : validCertCount}</Text>
             <Text style={styles.summaryStatLabel}>{t('farmer.farmManagement.stat.certsValid')}</Text>
           </TouchableOpacity>
         </View>
@@ -491,18 +583,22 @@ export function FarmManagementScreen({
 
             <View style={styles.moduleTextSection}>
               <Text style={styles.moduleTitle}>{t('farmer.farmManagement.module.calendar.title')}</Text>
-              <Text style={styles.moduleDesc}>{t('farmer.farmManagement.module.calendar.desc', { count: 3 })}</Text>
+              <Text style={styles.moduleDesc}>
+                {activeCropCount === null ? '—' : t('farmer.farmManagement.module.calendar.desc', { count: activeCropCount })}
+              </Text>
             </View>
 
-            <TouchableOpacity
-              style={styles.producePill}
-              activeOpacity={0.85}
-              onPress={onNavigateToCalendar}
-              accessibilityRole="button"
-            >
-              <CalendarMiniIcon size={12} color={P.deepGreen} />
-              <Text style={styles.producePillText}>{t('farmer.farmManagement.module.calendar.harvestIn', { days: 12 })}</Text>
-            </TouchableOpacity>
+            {nextHarvest !== null && (
+              <TouchableOpacity
+                style={styles.producePill}
+                activeOpacity={0.85}
+                onPress={onNavigateToCalendar}
+                accessibilityRole="button"
+              >
+                <CalendarMiniIcon size={12} color={P.deepGreen} />
+                <Text style={styles.producePillText}>{t('farmer.farmManagement.module.calendar.harvestInNamed', { crop: nextHarvest.crop, days: nextHarvest.days })}</Text>
+              </TouchableOpacity>
+            )}
           </TouchableOpacity>
 
           {/* 4. Crop Management */}
@@ -552,7 +648,16 @@ export function FarmManagementScreen({
 
             <View style={styles.moduleTextSection}>
               <Text style={styles.moduleTitle}>{t('farmer.farmManagement.module.workforce.title')}</Text>
-              <Text style={styles.moduleDesc}>{t('farmer.farmManagement.module.workforce.desc', { checkedIn: 3, total: 3 })}</Text>
+              <Text style={styles.moduleDesc}>
+                {workforceToday === null
+                  ? '—'
+                  : workforceToday.total === 0
+                    ? t('farmer.farmManagement.module.workforce.noWorkers')
+                    : t('farmer.farmManagement.module.workforce.desc', {
+                        checkedIn: workforceToday.checkedIn,
+                        total: workforceToday.total,
+                      })}
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -562,7 +667,11 @@ export function FarmManagementScreen({
               accessibilityRole="button"
             >
               <CheckmarkCircleIcon size={16} color={P.twGreen700} />
-              <Text style={styles.statusRowGreenText}>{t('farmer.farmManagement.module.workforce.upToDate')}</Text>
+              <Text style={styles.statusRowGreenText}>
+                {workforceToday !== null && workforceToday.total > 0 && workforceToday.checkedIn >= workforceToday.total
+                  ? t('farmer.farmManagement.module.workforce.upToDate')
+                  : t('farmer.farmManagement.module.workforce.markAttendance')}
+              </Text>
             </TouchableOpacity>
           </TouchableOpacity>
 
@@ -636,8 +745,8 @@ export function FarmManagementScreen({
       </ScrollView>
 
       {/* ── Modal for Farm Diary Entry ── */}
-      <Modal visible={isDiaryModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal statusBarTranslucent navigationBarTranslucent onRequestClose={() => setIsDiaryModalOpen(false)} visible={isDiaryModalOpen} transparent animationType="slide">
+        <View style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <View>
@@ -663,8 +772,13 @@ export function FarmManagementScreen({
               placeholderTextColor={P.twGray400}
               value={diaryNote}
               onChangeText={setDiaryNote}
+              maxLength={DIARY_NOTE_MAX_LENGTH}
+              onBlur={() => diaryValidation.onBlur('note')}
               accessibilityLabel={t('farmer.farmManagement.diary.fieldLabel')}
             />
+            {diaryValidation.messageFor('note') ? (
+              <Text style={styles.diaryFieldError}>{diaryValidation.messageFor('note')}</Text>
+            ) : null}
 
             <View style={styles.modalActionRow}>
               <TouchableOpacity
@@ -1069,6 +1183,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.twGray700,
     marginBottom: 8,
+  },
+  diaryFieldError: {
+    fontSize: typography.bodySmall,
+    color: P.twRed500,
+    marginTop: 4,
   },
   diaryTextInput: {
     borderWidth: 1,

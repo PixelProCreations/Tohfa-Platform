@@ -85,6 +85,35 @@ export function resetsHistoryOn(screen: string): boolean {
   );
 }
 
+/**
+ * Profile's "Farm & FMB" setup, in order: FMB Sketch -> (Save FMB) Field
+ * Context -> (Save) Zones. Each step pushes the next, so Back steps through
+ * them one at a time. Zones is the last step: its "Save Zones" must leave the
+ * whole setup, not just pop one entry -- popping returned the farmer to Field
+ * Context, whose Save sends them to Zones again (a Zones <-> Field Context
+ * loop with no way forward but Back).
+ */
+export const FARM_SETUP_FLOW: readonly string[] = ['FMBSketch', 'FieldContext', 'Zones'];
+
+/**
+ * Leaving a multi-screen flow: the newest history entry that is not one of
+ * `flow`'s screens (where the user was before entering the flow) and the stack
+ * below it. `target` is undefined when every entry belongs to the flow (or the
+ * history is empty); the caller then falls back to emptyHistoryBackTarget.
+ */
+export function popPastFlow<T extends { screen: string }>(
+  history: readonly T[],
+  flow: readonly string[],
+): { target: T | undefined; rest: T[] } {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i] as T;
+    if (!flow.includes(entry.screen)) {
+      return { target: entry, rest: history.slice(0, i) };
+    }
+  }
+  return { target: undefined, rest: [] };
+}
+
 const AUTH_SCREENS: readonly string[] = [
   'Login',
   'RoleSelection',

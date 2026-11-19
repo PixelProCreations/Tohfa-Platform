@@ -1,0 +1,616 @@
+import { StyleSheet } from 'react-native';
+import { authPalette as P, typography } from '../../../../theme';
+
+// Layout scale for this screen. Named after the dp value so the pixel-for-pixel
+// layout of the original design is preserved exactly.
+const sp = {
+  s2: 2,
+  s4: 4,
+  s6: 6,
+  s8: 8,
+  s10: 10,
+  s12: 12,
+  s13: 13,
+  s14: 14,
+  s16: 16,
+  s18: 18,
+  s20: 20,
+  s24: 24,
+  s40: 40,
+} as const;
+const sz = {
+  s0: 0,
+  s2: 2,
+  s4: 4,
+  s5: 5,
+  s6: 6,
+  s8: 8,
+  s10: 10,
+  s12: 12,
+  s14: 14,
+  s16: 16,
+  s18: 18,
+  s20: 20,
+  s36: 36,
+  s40: 40,
+  s100: 100,
+  s360: 360,
+} as const;
+const border = { thin: 1, thick: 1.5 } as const;
+
+/** Modal scrim; the theme has no overlay token (SPEC GAP, not invented globally). */
+const SCRIM_COLOR = 'rgba(0, 0, 0, 0.45)';
+const DAY_CELL_WIDTH = '14.28%'; // one of 7 weekday columns
+const PICKER_WIDTH = '85%';
+const FULL_WIDTH = '100%';
+const FLEX_WIDE = 1.2;
+const FLEX_SAVE = 1.5;
+const FLEX_APPLY = 1.4;
+const UNIT_SELECTOR_HEIGHT = 48;
+
+export const SKELETON_HEIGHT = 56;
+export const SKELETON_RADIUS = 12;
+export const ICON_SIZE = { back: 20, chevron: 18, chevronSmall: 16, label: 16, hint: 12, suggestion: 14, calendar: 18, nav: 18, action: 18 } as const;
+
+export const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: P.white,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: sp.s16,
+    paddingTop: sp.s10,
+    paddingBottom: sp.s14,
+    backgroundColor: P.white,
+  },
+  backButton: {
+    width: sz.s40,
+    height: sz.s40,
+    borderRadius: sz.s20,
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.white,
+  },
+  headerTitleGroup: {
+    flex: 1,
+    marginLeft: sp.s14,
+  },
+  headerTitle: {
+    fontSize: typography.title,
+    fontWeight: '800',
+    color: P.deepGreen,
+    letterSpacing: -0.2,
+  },
+  headerSubtitle: {
+    fontSize: typography.body,
+    fontWeight: '500',
+    color: P.twGray500,
+    marginTop: sp.s2,
+  },
+  cancelBtn: {
+    paddingHorizontal: sp.s8,
+    paddingVertical: sp.s6,
+  },
+  cancelBtnText: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '600',
+    color: P.twGray600,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    paddingHorizontal: sp.s16,
+    gap: sp.s8,
+    paddingBottom: sp.s12,
+    borderBottomWidth: border.thin,
+    borderBottomColor: P.twGray100,
+    backgroundColor: P.white,
+  },
+  progressBarSegment: {
+    flex: 1,
+    height: sz.s4,
+    borderRadius: sz.s2,
+  },
+  progressBarActive: {
+    backgroundColor: P.deepGreen,
+  },
+  progressBarInactive: {
+    backgroundColor: P.twGray200,
+  },
+  scrollContainer: {
+    flex: 1,
+    backgroundColor: P.white,
+  },
+  scrollContent: {
+    paddingHorizontal: sp.s16,
+    paddingTop: sp.s14,
+    paddingBottom: sp.s40,
+  },
+  hintBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: sp.s6,
+    marginBottom: sp.s16,
+  },
+  hintBannerText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+  },
+  formGroup: {
+    marginBottom: sp.s20,
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: sp.s8,
+    marginBottom: sp.s8,
+  },
+  fieldLabel: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.ink,
+  },
+  requiredStar: {
+    color: P.twRed600,
+  },
+  colLabel: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twGray700,
+    marginBottom: sp.s6,
+  },
+  selectorInput: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    borderRadius: sz.s12,
+    paddingHorizontal: sp.s14,
+    paddingVertical: sp.s13,
+    backgroundColor: P.white,
+  },
+  selectorInputActive: {
+    borderColor: P.twGreen600,
+    borderWidth: border.thick,
+  },
+  selectorInputText: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '600',
+    color: P.twGray900,
+  },
+  helpText: {
+    fontSize: typography.bodySmall,
+    color: P.twGray400,
+    marginTop: sp.s6,
+    lineHeight: 16,
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: sp.s12,
+  },
+  halfCol: {
+    flex: 1,
+  },
+  textInput: {
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    borderRadius: sz.s12,
+    paddingHorizontal: sp.s14,
+    paddingVertical: sp.s12,
+    fontSize: typography.bodyLarge,
+    color: P.twGray900,
+    backgroundColor: P.white,
+  },
+  currencyInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    borderRadius: sz.s12,
+    paddingHorizontal: sp.s14,
+    backgroundColor: P.white,
+  },
+  currencyPrefix: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '600',
+    color: P.twGray900,
+    marginRight: sp.s6,
+  },
+  currencyTextInput: {
+    flex: 1,
+    paddingVertical: sp.s12,
+    fontSize: typography.bodyLarge,
+    color: P.twGray900,
+  },
+  areaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: P.twGray50,
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    borderRadius: sz.s12,
+    paddingHorizontal: sp.s14,
+  },
+  areaTextInput: {
+    flex: 1,
+    paddingVertical: sp.s12,
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.ink,
+  },
+  fromZonePill: {
+    backgroundColor: P.twGray200,
+    paddingHorizontal: sp.s8,
+    paddingVertical: sp.s4,
+    borderRadius: sz.s6,
+  },
+  fromZonePillText: {
+    fontSize: typography.caption,
+    fontWeight: '700',
+    color: P.twGray700,
+    letterSpacing: 0.5,
+  },
+  dateBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    borderRadius: sz.s12,
+    paddingHorizontal: sp.s14,
+    paddingVertical: sp.s12,
+    backgroundColor: P.white,
+  },
+  dateBoxActive: {
+    borderColor: P.twGreen600,
+    borderWidth: border.thick,
+  },
+  dateBoxText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twGray700,
+  },
+  dateBoxTextActive: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.twGray900,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: sp.s6,
+    marginTop: sp.s10,
+  },
+  suggestionText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    color: P.twGreen700,
+  },
+  gradeButtonsRow: {
+    flexDirection: 'row',
+    gap: sp.s12,
+  },
+  gradeButton: {
+    flex: 1,
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    borderRadius: sz.s12,
+    paddingVertical: sp.s12,
+    alignItems: 'center',
+    backgroundColor: P.white,
+  },
+  gradeButtonActive: {
+    borderColor: P.twGreen600,
+    borderWidth: border.thick,
+    backgroundColor: P.twGreen50,
+  },
+  gradeButtonText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twGray700,
+  },
+  gradeButtonTextActive: {
+    fontWeight: '700',
+    color: P.twGreen900,
+  },
+  bottomSpacer: {
+    height: sz.s100,
+  },
+  bottomFooter: {
+    position: 'absolute',
+    bottom: sz.s0,
+    left: sz.s0,
+    right: sz.s0,
+    paddingHorizontal: sp.s16,
+    paddingTop: sp.s12,
+    paddingBottom: sp.s24,
+    backgroundColor: P.white,
+    borderTopWidth: border.thin,
+    borderTopColor: P.twGray100,
+    shadowColor: P.black,
+    shadowOffset: { width: sz.s0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: sz.s5,
+    elevation: sz.s8,
+  },
+  primaryActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.deepGreen,
+    borderRadius: sz.s14,
+    paddingVertical: sp.s14,
+    gap: sp.s8,
+  },
+  primaryActionText: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.white,
+  },
+  twoButtonsFooter: {
+    flexDirection: 'row',
+    gap: sp.s12,
+  },
+  backFooterButton: {
+    flex: 1,
+    borderWidth: border.thin,
+    borderColor: P.twGray300,
+    borderRadius: sz.s14,
+    paddingVertical: sp.s14,
+    alignItems: 'center',
+    backgroundColor: P.white,
+  },
+  backFooterButtonText: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.twGray700,
+  },
+  saveCropButton: {
+    flex: FLEX_SAVE,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.deepGreen,
+    borderRadius: sz.s14,
+    paddingVertical: sp.s14,
+    gap: sp.s8,
+  },
+  saveCropButtonText: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.white,
+  },
+  saveCropButtonDisabled: {
+    opacity: 0.6,
+  },
+  fieldErrorText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed600,
+    marginTop: sp.s6,
+  },
+  submitErrorText: {
+    fontSize: typography.body,
+    color: P.twRed600,
+    textAlign: 'center',
+    marginBottom: sp.s10,
+  },
+  optionsLoadingContainer: {
+    flex: 1,
+    padding: sp.s16,
+    gap: sp.s12,
+    justifyContent: 'center',
+  },
+  optionsErrorContainer: {
+    flex: 1,
+    padding: sp.s24,
+    justifyContent: 'center',
+  },
+  noPlotsText: {
+    fontSize: typography.body,
+    color: P.twGray600,
+    textAlign: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: SCRIM_COLOR,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: sp.s20,
+  },
+  pickerModalContent: {
+    backgroundColor: P.white,
+    borderRadius: sz.s16,
+    width: PICKER_WIDTH,
+    padding: sp.s16,
+    shadowColor: P.black,
+    shadowOffset: { width: sz.s0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: sz.s10,
+    elevation: sz.s8,
+  },
+  pickerTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.ink,
+    marginBottom: sp.s12,
+  },
+  pickerOption: {
+    paddingVertical: sp.s12,
+    paddingHorizontal: sp.s12,
+    borderRadius: sz.s8,
+  },
+  pickerOptionSelected: {
+    backgroundColor: P.twGreen100,
+  },
+  pickerOptionText: {
+    fontSize: typography.bodyLarge,
+    color: P.twGray800,
+  },
+  pickerOptionTextSelected: {
+    fontWeight: '700',
+    color: P.twGreen900,
+  },
+  // Dynamic Calendar Modal Styles
+  calModalOverlay: {
+    flex: 1,
+    backgroundColor: SCRIM_COLOR,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: sp.s16,
+  },
+  calModalCard: {
+    backgroundColor: P.white,
+    borderRadius: sz.s20,
+    width: FULL_WIDTH,
+    maxWidth: sz.s360,
+    padding: sp.s20,
+    shadowColor: P.black,
+    shadowOffset: { width: sz.s0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: sz.s16,
+    elevation: sz.s8,
+  },
+  calHeader: {
+    marginBottom: sp.s14,
+  },
+  calFieldBadge: {
+    fontSize: typography.caption,
+    fontWeight: '700',
+    color: P.twGreen700,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: sp.s4,
+  },
+  calSelectedDateTitle: {
+    fontSize: typography.title,
+    fontWeight: '700',
+    color: P.ink,
+  },
+  calMonthNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: sp.s10,
+    borderTopWidth: border.thin,
+    borderBottomWidth: border.thin,
+    borderColor: P.twGray200,
+    marginBottom: sp.s14,
+  },
+  calNavBtn: {
+    width: sz.s36,
+    height: sz.s36,
+    borderRadius: sz.s18,
+    borderWidth: border.thin,
+    borderColor: P.twGray200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.white,
+  },
+  calMonthYearLabel: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.deepGreen,
+  },
+  calWeekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: sp.s8,
+  },
+  calWeekdayText: {
+    width: DAY_CELL_WIDTH,
+    textAlign: 'center',
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.twGray400,
+  },
+  calDaysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calDayCell: {
+    width: DAY_CELL_WIDTH,
+    height: sz.s40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDayCellEmpty: {
+    width: DAY_CELL_WIDTH,
+    height: sz.s40,
+  },
+  calDayInner: {
+    width: sz.s36,
+    height: sz.s36,
+    borderRadius: sz.s18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calDayInnerSelected: {
+    backgroundColor: P.deepGreen,
+  },
+  calDayInnerToday: {
+    borderWidth: border.thick,
+    borderColor: P.twGreen700,
+  },
+  calDayText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twGray800,
+  },
+  calDayTextSelected: {
+    fontWeight: '700',
+    color: P.white,
+  },
+  calDayTextToday: {
+    color: P.twGreen700,
+    fontWeight: '700',
+  },
+  calFooterActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: sp.s12,
+    marginTop: sp.s18,
+    paddingTop: sp.s14,
+    borderTopWidth: border.thin,
+    borderColor: P.twGray200,
+  },
+  calCancelBtn: {
+    flex: 1,
+    borderWidth: border.thin,
+    borderColor: P.twGray300,
+    borderRadius: sz.s12,
+    paddingVertical: sp.s12,
+    alignItems: 'center',
+    backgroundColor: P.white,
+  },
+  calCancelBtnText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twGray700,
+  },
+  calApplyBtn: {
+    flex: FLEX_APPLY,
+    backgroundColor: P.deepGreen,
+    borderRadius: sz.s12,
+    paddingVertical: sp.s12,
+    alignItems: 'center',
+  },
+  calApplyBtnText: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.white,
+  },
+  quantityInputCol: {
+    flex: FLEX_WIDE,
+  },
+  unitSelector: {
+    flex: 1,
+    height: UNIT_SELECTOR_HEIGHT,
+  },
+});

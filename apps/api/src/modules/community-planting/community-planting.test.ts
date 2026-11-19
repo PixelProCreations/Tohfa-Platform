@@ -713,8 +713,13 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       await farmer(tx, null, plant, { farmerTaluk: taluk });
       await farmer(tx, '   ', plant, { farmerTaluk: taluk.toLowerCase() }); // blank farm taluk = none
       await farmer(tx, taluk, plant); // farm taluk set, profile taluk NULL
-      // A farm taluk, when present, wins over the profile: this one is not in `taluk`.
-      await farmer(tx, `Fxt${letters(10)}`, plant, { farmerTaluk: taluk });
+      // A farm taluk, when present, wins over the profile: these are not in `taluk`. They are k
+      // farmers in one other region, so the region slice also passes the BR-136i differencing
+      // guard (a lone outside-region farmer would rightly withhold the crop from the slice).
+      const elsewhere = `Fxt${letters(10)}`;
+      for (let i = 0; i < 3; i += 1) {
+        await farmer(tx, elsewhere, plant, { farmerTaluk: taluk });
+      }
 
       const service = createCommunityPlantingService({ db: tx });
       const summary = await service.getPlantingSummary(farmerScope(), { region: taluk });

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 
@@ -156,7 +155,7 @@ export function RemoveItemScreen({
   async function handleConfirm() {
     if (isRemoving) return;
     if (isRemoveUnsupported) {
-      Alert.alert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE);
+      appAlert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE, undefined, { tone: 'error' });
       return;
     }
     setIsRemoving(true);

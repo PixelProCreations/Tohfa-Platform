@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,7 @@ import {
 } from 'react-native';
 import DocumentPicker from '../../native/documentPicker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
-import { DatePicker, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { DatePicker, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import {
@@ -30,6 +29,9 @@ import {
   resolveCertificateContentType,
   serverCertificationFieldErrors,
   todayInKolkata,
+  CERT_NUMBER_MAX_LENGTH,
+  CUSTOM_TYPE_NAME_MAX_LENGTH,
+  ISSUING_BODY_MAX_LENGTH,
   validateCertificationForm,
   type CertificationFormField,
   type CertificationFormInput,
@@ -207,7 +209,7 @@ export function AddCertificationScreen({
       const name = picked.name ?? t('farmer.certifications.doc.defaultName');
       const contentType = resolveCertificateContentType(name, picked.type);
       if (contentType === null) {
-        Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.unsupported'));
+        appAlert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.unsupported'), undefined, { tone: 'error' });
         return;
       }
       const sizeMB = ((picked.size ?? 1024 * 1024) / (1024 * 1024)).toFixed(1);
@@ -224,7 +226,7 @@ export function AddCertificationScreen({
       // A cancel is the farmer's own choice. Anything else is a real failure: say
       // so and attach nothing -- never a stand-in document.
       if (!DocumentPicker.isCancel(err)) {
-        Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.pickFailed'));
+        appAlert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.pickFailed'), undefined, { tone: 'error' });
       }
     }
   };
@@ -250,7 +252,7 @@ export function AddCertificationScreen({
     if (mapped === null) return false;
     setFieldErrors(renderFieldErrors(mapped.fields, t));
     if (mapped.other.length > 0) {
-      Alert.alert(t('farmer.certifications.add.errorTitle'), mapped.other.join('\n'));
+      appAlert(t('farmer.certifications.add.errorTitle'), mapped.other.join('\n'), undefined, { tone: 'error' });
     }
     return true;
   };
@@ -292,28 +294,28 @@ export function AddCertificationScreen({
           }
           documentUrl = uploaded.fileUrl;
         } catch {
-          Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.uploadFailed'));
+          appAlert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.uploadFailed'), undefined, { tone: 'error' });
           return;
         }
       }
 
       await createCertification({ ...checked.value, ...(documentUrl === undefined ? {} : { documentUrl }) });
 
-      Alert.alert(
+      appAlert(
         t('farmer.certifications.add.successTitle'),
         t('farmer.certifications.add.successBody'),
-        [{ text: t('farmer.common.ok'), onPress: () => onSuccess?.() }],
+        [{ text: t('farmer.common.ok'), onPress: () => onSuccess?.() }], { tone: 'success' },
       );
     } catch (err) {
       const shown = await showServerFieldErrors(err, formInput);
       if (!shown) {
         // Nothing was saved. If the server could not be reached, say that: the
         // certificate does not exist yet, and the farmer should try again.
-        Alert.alert(
+        appAlert(
           t('farmer.certifications.add.errorTitle'),
           certificationErrorKind(err) === 'network'
             ? t('farmer.listings.error.network')
-            : t('farmer.certifications.add.errorBody'),
+            : t('farmer.certifications.add.errorBody'), undefined, { tone: 'error' },
         );
       }
     } finally {
@@ -403,6 +405,7 @@ export function AddCertificationScreen({
             <TextInput
               style={[E.textInput, fieldErrors.customTypeName ? E.inputError : undefined]}
               value={customTypeName}
+              maxLength={CUSTOM_TYPE_NAME_MAX_LENGTH}
               onChangeText={(v) => { setCustomTypeName(v); clearFieldError('customTypeName'); }}
               placeholder={t('farmer.certifications.add.otherNamePlaceholder')}
               placeholderTextColor={P.twGray400}
@@ -420,6 +423,7 @@ export function AddCertificationScreen({
         <TextInput
           style={[E.textInput, fieldErrors.issuingBody ? E.inputError : undefined]}
           value={issuer}
+          maxLength={ISSUING_BODY_MAX_LENGTH}
           onChangeText={(v) => { setIssuer(v); clearFieldError('issuingBody'); }}
           placeholder={t('farmer.certifications.add.issuerPlaceholder')}
           placeholderTextColor={P.twGray400}
@@ -489,6 +493,7 @@ export function AddCertificationScreen({
         <TextInput
           style={[E.textInput, fieldErrors.certNumber ? E.inputError : undefined]}
           value={certNumber}
+          maxLength={CERT_NUMBER_MAX_LENGTH}
           onChangeText={(v) => { setCertNumber(v); clearFieldError('certNumber'); }}
           placeholder={t('farmer.certifications.add.numberPlaceholder')}
           placeholderTextColor={P.twGray400}

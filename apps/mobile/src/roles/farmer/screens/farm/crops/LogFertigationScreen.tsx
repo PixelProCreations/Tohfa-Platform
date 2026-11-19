@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   BackHandler,
   Modal,
   Platform,
@@ -12,7 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
@@ -29,6 +29,9 @@ import {
   type ApprovedFertigationInput,
 } from './fertigationCatalogue';
 import { parseQuantity } from './fertigationQuantity';
+import { useFieldValidation } from '../../../utils/validation';
+import { FieldErrorText } from '../FieldErrorText';
+import { FERTIGATION_FIELD_ORDER, FERTIGATION_RULES } from './fertigationValidation';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -38,7 +41,7 @@ function ArrowBackIcon({ size = 20, color = P.deepGreen }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -177,6 +180,7 @@ export function LogFertigationScreen({
   onBack,
   onSave,
 }: LogFertigationScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   // Android hardware back
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -209,6 +213,8 @@ export function LogFertigationScreen({
   const [unit, setUnit] = useState<CropInputUnit>(DEFAULT_INPUT.unit);
   const [phiDays, setPhiDays] = useState<string>(DEFAULT_INPUT.phiDays);
   const [isSaving, setIsSaving] = useState(false);
+  const fieldValues = useMemo(() => ({ quantity, phiDays }), [quantity, phiDays]);
+  const validation = useFieldValidation({ values: fieldValues, rules: FERTIGATION_RULES, order: FERTIGATION_FIELD_ORDER });
 
   // One Idempotency-Key per logical save: a retry of the same body after a
   // failure replays the same key, a changed form gets a new one (root CLAUDE.md 2.4).
@@ -259,20 +265,27 @@ export function LogFertigationScreen({
   const handleSave = async () => {
     if (isSaving) return;
     if (!selectedCrop?.id) {
-      Alert.alert(
+      appAlert(
         t('farmer.logFertigation.alert.cropRequiredTitle'),
         t('farmer.logFertigation.alert.cropRequiredBody'),
+        undefined,
+        { tone: 'warning' },
       );
       return;
     }
+    // Inline messages under quantity / PHI; the Alert below stays as the backstop.
+    const { valid: fieldsValid } = validation.validateAll();
     const parsedQuantity = parseQuantity(quantity);
     if (parsedQuantity === null) {
-      Alert.alert(
+      appAlert(
         t('farmer.logFertigation.alert.invalidQuantityTitle'),
         t('farmer.logFertigation.alert.invalidQuantityBody'),
+        undefined,
+        { tone: 'warning' },
       );
       return;
     }
+    if (!fieldsValid) return;
 
     // Only what the farmer chose or typed is recorded. The cost and the NPK
     // percentages are optional in the API and have no real source here, so
@@ -295,7 +308,7 @@ export function LogFertigationScreen({
     try {
       const created = await createCropInput(selectedCrop.id, body, key);
       idempotencyKeys.reset();
-      Alert.alert(
+      appAlert(
         t('farmer.logFertigation.alert.savedTitle'),
         t('farmer.logFertigation.alert.savedBody', { input: selectedInput.name, crop: selectedCrop.name }),
         [
@@ -310,13 +323,14 @@ export function LogFertigationScreen({
             },
           },
         ],
-      );
+    { tone: 'success' },
+  );
     } catch (err: unknown) {
       const message =
         err instanceof ApiError && err.problem.detail
           ? err.problem.detail
           : t('farmer.logFertigation.error.saveFailed');
-      Alert.alert(t('farmer.logFertigation.alert.saveFailedTitle'), message);
+      appAlert(t('farmer.logFertigation.alert.saveFailedTitle'), message, undefined, { tone: 'error' });
     } finally {
       setIsSaving(false);
     }
@@ -491,7 +505,9 @@ export function LogFertigationScreen({
                 style={styles.qtyInput}
                 value={quantity}
                 onChangeText={setQuantity}
-                keyboardType="numeric"
+                onBlur={() => validation.onBlur('quantity')}
+                maxLength={11}
+                keyboardType="decimal-pad"
                 accessibilityLabel={t('farmer.logFertigation.quantity.label')}
               />
               <TouchableOpacity
@@ -504,6 +520,7 @@ export function LogFertigationScreen({
                 <Text style={styles.unitBtnText}>{unitLabel(unit)}</Text>
               </TouchableOpacity>
             </View>
+            <FieldErrorText message={validation.messageFor('quantity')} testID="logFertigation.quantityError" />
           </View>
 
           {/* PHI (days) */}
@@ -513,9 +530,12 @@ export function LogFertigationScreen({
               style={styles.phiInput}
               value={phiDays}
               onChangeText={setPhiDays}
-              keyboardType="numeric"
+              onBlur={() => validation.onBlur('phiDays')}
+              maxLength={3}
+              keyboardType="number-pad"
               accessibilityLabel={t('farmer.logFertigation.phi.a11y')}
             />
+            <FieldErrorText message={validation.messageFor('phiDays')} testID="logFertigation.phiError" />
           </View>
         </View>
 
@@ -582,14 +602,14 @@ export function LogFertigationScreen({
       </ScrollView>
 
       {/* Modal: Select Field / Crop */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={showCropModal}
         transparent
         animationType="fade"
         onRequestClose={() => setShowCropModal(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowCropModal(false)}
         >
@@ -627,14 +647,14 @@ export function LogFertigationScreen({
       </Modal>
 
       {/* Modal: Select Input Name */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={showInputModal}
         transparent
         animationType="fade"
         onRequestClose={() => setShowInputModal(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowInputModal(false)}
         >
@@ -678,14 +698,14 @@ export function LogFertigationScreen({
       </Modal>
 
       {/* Modal: Select Method */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={showMethodModal}
         transparent
         animationType="fade"
         onRequestClose={() => setShowMethodModal(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowMethodModal(false)}
         >
@@ -723,14 +743,14 @@ export function LogFertigationScreen({
       </Modal>
 
       {/* Modal: Select Unit */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={showUnitModal}
         transparent
         animationType="fade"
         onRequestClose={() => setShowUnitModal(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowUnitModal(false)}
         >

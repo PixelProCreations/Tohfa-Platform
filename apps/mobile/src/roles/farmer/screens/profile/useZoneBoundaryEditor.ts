@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { AccessibilityInfo, Alert } from 'react-native';
+import { AccessibilityInfo } from 'react-native';
+import { appAlert } from '@tohfa/mobile-ui';
 import type { FarmBoundaryMapHandle, FarmBoundaryMapMode } from '@tohfa/mobile-ui';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { createPlot, updatePlot, type Plot } from '../../api/farms';
@@ -284,10 +285,10 @@ export function useZoneBoundaryEditor(
   }
 
   function confirmDestructive(title: string, message: string, confirmLabel: string, onConfirm: () => void) {
-    Alert.alert(title, message, [
+    appAlert(title, message, [
       { text: t('farmer.common.cancel'), style: 'cancel' },
       { text: confirmLabel, style: 'destructive', onPress: onConfirm },
-    ]);
+    ], { tone: 'warning' });
   }
 
   /** Back to "no boundary": nothing on the map, no typed points. */

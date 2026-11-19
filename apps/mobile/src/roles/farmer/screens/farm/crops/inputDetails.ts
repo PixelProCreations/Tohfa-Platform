@@ -1,4 +1,4 @@
-import { Alert } from 'react-native';
+import { appAlert } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../../../i18n/farmer';
 
 /**
@@ -76,12 +76,13 @@ export function targetPestLabel(value: string): string {
  * when the farmer taps Delete.
  */
 export function confirmDeleteCropInput(inputName: string, onConfirm: () => void): void {
-  Alert.alert(
+  appAlert(
     t('farmer.inputHistory.deleteConfirm.title'),
     t('farmer.inputHistory.deleteConfirm.body', { name: inputName }),
     [
       { text: t('farmer.common.cancel'), style: 'cancel' },
       { text: t('farmer.inputHistory.deleteConfirm.confirm'), style: 'destructive', onPress: onConfirm },
     ],
+    { tone: 'warning' },
   );
 }

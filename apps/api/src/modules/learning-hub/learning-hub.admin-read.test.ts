@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, beforeAll } from 'vitest';
+import { describe, expect, it, vi, afterEach, beforeEach, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { RoleCode } from '@tohfa/shared-types';
@@ -38,6 +38,14 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
   const testId = newId();
 
   describe('Authorization: learning.admin.manage on admin read routes and farmer.learning.view on group detail', () => {
+    // These spies replace methods on the shared learningHubService singleton. Restore them, or
+    // they leak into the Real SQL suite below, whose listAdmin* calls would hit the stub ([]).
+    // Restore only these spies: vi.restoreAllMocks() would also strip the module-mock defaults.
+    const spies: { mockRestore(): void }[] = [];
+    afterEach(() => {
+      for (const spy of spies.splice(0)) spy.mockRestore();
+    });
+
     const adminReadPaths = [
       '/v1/admin/learning/articles',
       `/v1/admin/learning/articles/${testId}`,
@@ -62,14 +70,16 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
     });
 
     it.each(adminReadPaths)('authorized roles (SUPER_ADMIN, TOHFA_ADMIN) receive 200 on %s', async (path) => {
-      vi.spyOn(learningHubService, 'listAdminArticles').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-      vi.spyOn(learningHubService, 'getAdminArticle').mockResolvedValue({ id: testId } as never);
-      vi.spyOn(learningHubService, 'listAdminVideos').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-      vi.spyOn(learningHubService, 'getAdminVideo').mockResolvedValue({ id: testId } as never);
-      vi.spyOn(learningHubService, 'listAdminTrainings').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-      vi.spyOn(learningHubService, 'getAdminTraining').mockResolvedValue({ id: testId } as never);
-      vi.spyOn(learningHubService, 'listAdminGroups').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
-      vi.spyOn(learningHubService, 'getAdminGroup').mockResolvedValue({ id: testId } as never);
+      spies.push(
+        vi.spyOn(learningHubService, 'listAdminArticles').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+        vi.spyOn(learningHubService, 'getAdminArticle').mockResolvedValue({ id: testId } as never),
+        vi.spyOn(learningHubService, 'listAdminVideos').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+        vi.spyOn(learningHubService, 'getAdminVideo').mockResolvedValue({ id: testId } as never),
+        vi.spyOn(learningHubService, 'listAdminTrainings').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+        vi.spyOn(learningHubService, 'getAdminTraining').mockResolvedValue({ id: testId } as never),
+        vi.spyOn(learningHubService, 'listAdminGroups').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 }),
+        vi.spyOn(learningHubService, 'getAdminGroup').mockResolvedValue({ id: testId } as never),
+      );
 
       for (const roleToken of [tokens.superAdmin, tokens.tohfaAdmin]) {
         const res = await request(app).get(path).set('Authorization', `Bearer ${roleToken}`);
@@ -86,7 +96,7 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
     });
 
     it('farmer group detail /v1/farmers/me/learning/groups/:id passes auth for FARMER and returns 200', async () => {
-      vi.spyOn(learningHubService, 'getFarmerGroup').mockResolvedValue({ id: testId } as never);
+      spies.push(vi.spyOn(learningHubService, 'getFarmerGroup').mockResolvedValue({ id: testId } as never));
       const res = await request(app)
         .get(`/v1/farmers/me/learning/groups/${testId}`)
         .set('Authorization', `Bearer ${tokens.farmer}`);

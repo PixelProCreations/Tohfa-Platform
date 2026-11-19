@@ -2685,6 +2685,57 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/certifications/{id}/document:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getMyCertificationDocument
+      summary: Signed read URL for an own certificate's document
+      description: |
+        Returns a short-lived signed read URL for the file attached to one of the caller's own
+        certificates (BR-142). The certificate's `documentUrl` is the permanent storage URL
+        from `POST /uploads/sign`, which is not readable on its own (a private container); the
+        app asks for this URL each time the farmer taps View, and opens it (an image in-app,
+        a PDF in the phone's reader).
+
+        * `readUrl` expires 15 minutes after issue (`expiresAt`), the same lifetime as
+          `GET /farmers/me/documents` (BR-54c). It is a bearer link to the one file and is
+          sent with `Cache-Control: no-store`; clients must not log or display it.
+        * Another farmer's certificate, a deleted one, an unknown id and a certificate with
+          no document all return 404, never 403 (BR-36, BR-142b).
+        * The recorded `documentUrl` is client input, so it is signed only when it is this
+          platform's own storage URL (or key) AND the caller uploaded that file
+          (`uploads.uploaded_by`); an external URL, or another user's upload recorded on
+          this certificate, is 404 and is never echoed (BR-142c).
+      x-permission: certification.manage_own
+      x-business-rules: [BR-36, BR-142]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: A signed read URL for the certificate's file.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [readUrl, expiresAt]
+                properties:
+                  readUrl:
+                    type: string
+                    format: uri
+                    description: Short-lived signed URL of the file; its path keeps the file's extension.
+                  expiresAt:
+                    type: string
+                    format: date-time
+              example:
+                readUrl: https://tohfadocs.blob.core.windows.net/uploads/certificate/7a0b0f10-b331-4e3b-bb66-b9831ec80517.pdf?sv=2024-05-04&se=2026-11-11T07%3A15%3A00Z&sr=b&sp=r&sig=REDACTED
+                expiresAt: '2026-11-11T07:15:00.000Z'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /config/farmer:
     get:
       tags: [Farmer Profile & Certifications]
@@ -15948,6 +15999,42 @@ paths:
                 properties:
                   fileUrl: { type: string, format: uri }
         '400': { $ref: '#/components/responses/BadRequest' }
+
+  /storage/*:
+    get:
+      tags: [Platform]
+      operationId: localStorageRead
+      summary: Dev/test-only read of a stored file through a signed read URL
+      description: |
+        Served at the origin root (`/storage/<key>`, not under `/v1`), like `/healthz`. The read
+        half of the dev/test storage stand-in whose write half is `PUT /uploads/mock/*`: when
+        `AZURE_STORAGE_CONNECTION_STRING` is unset, read URLs minted by the API (e.g.
+        `GET /farmers/me/certifications/{id}/document`, `GET /farmers/me/documents`) point here
+        as `/storage/<key>?expires=<ISO time>&sig=<HMAC>`. With Azure configured, read URLs are
+        Azure SAS URLs and this route answers 404 to everything.
+
+        No auth: like a provider SAS URL, the signature is the authorization. It binds the key
+        and the expiry, and is only minted after the minting endpoint has authorized the caller
+        for that file (BR-142d). The permanent public URL (no signature), a tampered or expired
+        signature and a missing file are all the same 404. PDFs and images are served inline
+        with their type; any other extension as an `application/octet-stream` attachment.
+        Always `Cache-Control: private, no-store`.
+      x-permission: public
+      x-business-rules: [BR-142]
+      parameters:
+        - { name: expires, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: sig, in: query, required: true, schema: { type: string, pattern: '^[0-9a-f]{64}$' } }
+      responses:
+        '200':
+          description: The stored bytes.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            image/*:
+              schema: { type: string, format: binary }
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /admin/customers:
     get:

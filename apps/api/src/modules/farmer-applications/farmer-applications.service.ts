@@ -693,6 +693,13 @@ export function createFarmerApplicationsService(
         // the step-2 JSONB as a claim; `farms.area_acres` below keeps coming from each
         // location's own measured `areaAcres`. Collapsing the two would erase the
         // claim-vs-ground discrepancy that FARM_VERIFICATION exists to look at.
+        //
+        // BR-69h: a farmers row can already exist for this user (pre-created, or left by an
+        // earlier flow). The conflict branch used to set only the status columns, silently
+        // dropping every step-1 value, so the farmer's profile read "Not provided" for data
+        // they had typed. Each data column is now filled only where it is still NULL --
+        // COALESCE(existing, application) -- so a value the row already holds is never
+        // overwritten. Status columns keep their original behaviour.
         const farmerRes = await tx.query<{ id: string }>(
           `INSERT INTO farmers (
              user_id, tohfa_farmer_id, zone_id, farming_experience_years,
@@ -707,7 +714,17 @@ export function createFarmerApplicationsService(
            ON CONFLICT (user_id) DO UPDATE SET
              application_status = 'APPROVED',
              kyc_status = 'VERIFIED',
-             tohfa_farmer_id = EXCLUDED.tohfa_farmer_id
+             tohfa_farmer_id = EXCLUDED.tohfa_farmer_id,
+             zone_id = COALESCE(farmers.zone_id, EXCLUDED.zone_id),
+             farming_experience_years = COALESCE(farmers.farming_experience_years, EXCLUDED.farming_experience_years),
+             address_line1 = COALESCE(farmers.address_line1, EXCLUDED.address_line1),
+             village = COALESCE(farmers.village, EXCLUDED.village),
+             taluk = COALESCE(farmers.taluk, EXCLUDED.taluk),
+             district = COALESCE(farmers.district, EXCLUDED.district),
+             aadhaar_last4 = COALESCE(farmers.aadhaar_last4, EXCLUDED.aadhaar_last4),
+             dob = COALESCE(farmers.dob, EXCLUDED.dob),
+             gender = COALESCE(farmers.gender, EXCLUDED.gender),
+             pincode = COALESCE(farmers.pincode, EXCLUDED.pincode)
            RETURNING id`,
           [
             userId,

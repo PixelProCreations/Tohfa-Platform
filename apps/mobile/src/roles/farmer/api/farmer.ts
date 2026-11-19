@@ -577,6 +577,39 @@ export async function deleteCertification(id: string): Promise<void> {
   cacheRemoveCertification(id);
 }
 
+export interface CertificationDocumentReadUrl {
+  /** Short-lived signed URL of the file. A bearer link: never log or display it. */
+  readUrl: string;
+  expiresAt: string;
+}
+
+/**
+ * A fresh signed read URL for one own certificate's document (BR-142):
+ * GET /farmers/me/certifications/{id}/document. Called on every View tap and
+ * never cached -- the URL expires (15 minutes), and `documentUrl` itself is the
+ * permanent storage URL, which is not readable. Throws ApiError (404 = no
+ * document / not yours / deleted) or NetworkError. A 200 whose `readUrl` is not
+ * an http(s) URL is reported as an ApiError so it never reaches the viewer.
+ * x-permission: certification.manage_own
+ */
+export async function getCertificationDocumentReadUrl(
+  id: string,
+  signal?: AbortSignal,
+): Promise<CertificationDocumentReadUrl> {
+  const path = `/farmers/me/certifications/${encodeURIComponent(id)}/document`;
+  const res = await api.get<Partial<CertificationDocumentReadUrl> | null>(path, signal);
+  const readUrl = res?.readUrl;
+  if (typeof readUrl !== 'string' || !/^https?:\/\//i.test(readUrl)) {
+    throw new ApiError({
+      type: 'about:blank',
+      title: 'Unexpected response from GET /farmers/me/certifications/{id}/document',
+      status: 200,
+      code: 'INTERNAL',
+    });
+  }
+  return { readUrl, expiresAt: typeof res?.expiresAt === 'string' ? res.expiresAt : '' };
+}
+
 export interface UploadCertificateDocumentInput {
   /** The picker's local file URI (read with fetch, as the soil / pest uploads do). */
   uri: string;

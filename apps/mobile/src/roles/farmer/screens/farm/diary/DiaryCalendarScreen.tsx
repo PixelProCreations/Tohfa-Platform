@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
@@ -28,7 +29,7 @@ function ArrowBackIcon({ size = 20, color = P.deepGreen }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -91,6 +92,7 @@ export function DiaryCalendarScreen({
   onBack,
   onNavigateToEntryDetail: _onNavigateToEntryDetail,
 }: DiaryCalendarScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [today] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   /** Plot id, or null for "All fields". */
@@ -434,14 +436,14 @@ export function DiaryCalendarScreen({
       </ScrollView>
 
       {/* Filter Modal for Fields / Activity */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={filterModalVisible !== null}
         transparent
         animationType="fade"
         onRequestClose={() => setFilterModalVisible(null)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setFilterModalVisible(null)}
         >
