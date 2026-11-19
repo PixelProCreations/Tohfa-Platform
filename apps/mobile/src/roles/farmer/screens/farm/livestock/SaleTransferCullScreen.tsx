@@ -1,4 +1,4 @@
-import { ScreenStatusBar as StatusBar, appAlert } from '@tohfa/mobile-ui';
+import { appAlert } from '@tohfa/mobile-ui';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,

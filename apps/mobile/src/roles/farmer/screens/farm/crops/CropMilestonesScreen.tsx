@@ -1,4 +1,3 @@
-import { ScreenStatusBar as StatusBar } from '@tohfa/mobile-ui';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
