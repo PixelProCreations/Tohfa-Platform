@@ -18,7 +18,11 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
-import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import {
+  OverviewDashboardCard,
+  OverviewCardsGrid,
+  OverviewActionCard,
+} from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -405,28 +409,41 @@ export function MarketPricingHomeScreen({
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollPad}
+          contentContainerStyle={styles.saScrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* 4 KPI Cards in 2x2 Grid */}
-          <View style={styles.saKpiGrid}>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>236</Text>
-              <Text style={styles.saKpiSub}>Active Fair-price ceilings</Text>
-            </View>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>182</Text>
-              <Text style={styles.saKpiSub}>Retail prices</Text>
-            </View>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>24</Text>
-              <Text style={styles.saKpiSub}>Pending Listing Reviews</Text>
-            </View>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>17</Text>
-              <Text style={styles.saKpiSub}>Recent Price changes (30Days)</Text>
-            </View>
-          </View>
+          {/* 4 KPI Cards in 2x2 Grid using Reusable OverviewDashboardCard */}
+          <OverviewCardsGrid style={styles.saKpiGrid}>
+            <OverviewDashboardCard
+              value="236"
+              title="Active Fair-price ceilings"
+              subtitle="Verified ceilings"
+              icon="market"
+              preserveCase
+            />
+            <OverviewDashboardCard
+              value="182"
+              title="Retail prices"
+              subtitle="Active consumer prices"
+              icon="card"
+              preserveCase
+            />
+            <OverviewDashboardCard
+              value="24"
+              title="Pending Listing Reviews"
+              subtitle="Awaiting review"
+              icon="clipboard"
+              tone="warning"
+              preserveCase
+            />
+            <OverviewDashboardCard
+              value="17"
+              title="Recent Price changes (30Days)"
+              subtitle="Past 30 days"
+              icon="history"
+              preserveCase
+            />
+          </OverviewCardsGrid>
 
           {/* Action Buttons */}
           <TouchableOpacity
@@ -523,62 +540,31 @@ export function MarketPricingHomeScreen({
           </View>
 
           {/* Section: Quick Actions */}
-          <Text style={[styles.saSectionHeading, { marginTop: 20 }]}>Quick actions</Text>
+          <Text style={[styles.saSectionHeading, { marginTop: adminSpacing.lg }]}>Quick actions</Text>
           <View style={styles.saQuickGrid}>
-            <TouchableOpacity
-              style={styles.saQuickCard}
+            <OverviewActionCard
+              title="Fair Prices"
+              icon={<FairPriceIcon size={24} color={adminColors.brand} />}
               onPress={onNavigateToFairPrice}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Fair Prices"
-            >
-              <View style={styles.saQuickIconBox}>
-                <FairPriceIcon size={24} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>Fair Prices</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={styles.saQuickCard}
+            />
+
+            <OverviewActionCard
+              title="Manage Retail Prices"
+              icon={<BanknotesIcon size={24} color={adminColors.brand} />}
               onPress={onNavigateToRetailPricing}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Manage Retail Prices"
-            >
-              <View style={styles.saQuickIconBox}>
-                <BanknotesIcon size={24} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>Manage Retail Prices</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={styles.saQuickCard}
-              onPress={onNavigateToListingApproval}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Listings Queue"
-            >
-              <View style={styles.saQuickIconBox}>
-                <ListingsQueueIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>Listings Queue</Text>
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity
-              style={styles.saQuickCard}
+            <OverviewActionCard
+              title="Price History & Counter-offer"
+              icon={<PriceHistoryCounterOfferIcon size={22} color={adminColors.brand} />}
               onPress={onNavigateToPriceHistory}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel="Price History & Counter-offer"
-            >
-              <View style={styles.saQuickIconBox}>
-                <PriceHistoryCounterOfferIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>Price History & Counter-offer</Text>
-            </TouchableOpacity>
+              style={styles.saQuickCardFull}
+            />
           </View>
 
-          <View style={{ height: 20 }} />
+          <View style={{ height: adminSpacing.xl }} />
         </ScrollView>
 
       </SafeAreaView>
@@ -1479,11 +1465,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  saScrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxxl * 2,
+  },
   saKpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
+    marginBottom: adminSpacing.md,
   },
   saKpiCard: {
     width: '48%',
@@ -1509,10 +1497,10 @@ const styles = StyleSheet.create({
   saPrimaryBtn: {
     backgroundColor: adminColors.brand,
     height: 48,
-    borderRadius: adminRadius.sm,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
     ...adminShadow.sm,
   },
   saPrimaryBtnText: {
@@ -1524,14 +1512,14 @@ const styles = StyleSheet.create({
   saSecondaryBtn: {
     backgroundColor: adminColors.card,
     height: 48,
-    borderRadius: adminRadius.sm,
+    borderRadius: 14,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
   },
   saSecondaryBtnText: {
     color: adminColors.brand,
@@ -1543,11 +1531,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: adminSpacing.sm,
   },
   saSectionHeading: {
     color: adminColors.brandDeep,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     includeFontPadding: false,
   },
@@ -1569,28 +1557,28 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EFE6DC',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 10,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     ...adminShadow.sm,
   },
   saBadgeBoxSuccess: {
-    backgroundColor: '#EAF7EE',
-    borderRadius: 8,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.sm,
     paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   saBadgeBoxDanger: {
-    backgroundColor: '#FDE8E8',
-    borderRadius: 8,
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.sm,
     paddingVertical: 5,
-    paddingHorizontal: 10,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1683,19 +1671,16 @@ const styles = StyleSheet.create({
   saQuickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: adminSpacing.sm,
   },
   saQuickCard: {
-    width: '48%',
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 80,
+    width: '48.5%',
+    minHeight: 96,
+  },
+  saQuickCardFull: {
+    width: '100%',
+    minHeight: 92,
   },
   saQuickIconBox: {
     height: 30,

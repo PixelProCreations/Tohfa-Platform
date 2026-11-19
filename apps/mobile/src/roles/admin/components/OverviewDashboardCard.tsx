@@ -494,11 +494,11 @@ export function OverviewCardsGrid({
 export interface OverviewActionCardProps {
   title: string;
   icon: React.ReactNode;
-  onPress?: () => void;
-  disabled?: boolean;
-  style?: StyleProp<ViewStyle>;
-  titleStyle?: StyleProp<TextStyle>;
-  accessibilityLabel?: string;
+  onPress?: (() => void) | undefined;
+  disabled?: boolean | undefined;
+  style?: StyleProp<ViewStyle> | undefined;
+  titleStyle?: StyleProp<TextStyle> | undefined;
+  accessibilityLabel?: string | undefined;
 }
 
 /**
