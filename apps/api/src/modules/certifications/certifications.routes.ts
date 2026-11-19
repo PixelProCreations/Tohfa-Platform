@@ -63,6 +63,24 @@ certificationsFarmerRouter.post(
   }),
 );
 
+// BR-142: a short-lived signed read URL for an own certificate's document,
+// minted on demand (the View button) rather than on every list, so it is
+// fresh when used. Not-own / deleted / unknown / no document → 404.
+certificationsFarmerRouter.get(
+  '/:id/document',
+  requireAuth,
+  requirePermission('certification.manage_own'),
+  validate({ params: certificationIdParam }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const { id } = getValidated(req, 'params', certificationIdParam);
+    const result = await certificationsService.getMyCertificationDocument(actor, id);
+    // A signed URL is a bearer credential for the file until it expires.
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(result);
+  }),
+);
+
 // BR-49: edit an own certificate. Any real change resets verification; the
 // merged result is validated like POST. Not-own / deleted / unknown → 404.
 certificationsFarmerRouter.patch(

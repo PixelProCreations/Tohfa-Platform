@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,10 +12,15 @@ import {
   View,
 } from 'react-native';
 import type { TextInputInstance } from 'react-native';
+import { ModalSafeArea } from '@tohfa/mobile-ui';
 import { authPalette as P, useTheme, colors, typography, weights, spacing, radius, MIN_TOUCH_TARGET } from '../../theme';
 import { t } from '../../../../i18n/farmer';
+import { useFieldValidation } from '../../utils/validation';
+import { ZONE_RULES, ZONE_NAME_MAX_LENGTH, type ZoneField } from './profileValidation';
 import { EXPOSURE_OPTIONS, IRRIGATION_OPTIONS, SOIL_OPTIONS, type ZoneOption } from './zoneMap';
 import type { ZoneBoundaryEditor } from './useZoneBoundaryEditor';
+
+const ZONE_FIELD_ORDER: readonly ZoneField[] = ['name', 'areaText'];
 
 interface ZoneDetailsModalProps {
   editor: ZoneBoundaryEditor;
@@ -35,6 +40,20 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
   const areaInputRef = useRef<TextInputInstance>(null);
   const { draft, updateDraft, metrics, submitting } = editor;
   const isConfirmStep = editor.detailsIntent === 'confirm';
+
+  // Name is required (PlotCreate.name 1..120); area, when typed, must be a number above zero. The
+  // editor's own persist() re-checks both, so this gate only keeps a bad value from being committed.
+  const zoneValues = React.useMemo(() => ({ name: draft.name, areaText: draft.areaText }), [draft.name, draft.areaText]);
+  const validation = useFieldValidation<ZoneField>({ values: zoneValues, rules: ZONE_RULES, order: ZONE_FIELD_ORDER });
+  const resetValidation = validation.reset;
+  useEffect(() => {
+    if (editor.isDetailsOpen) resetValidation();
+  }, [editor.isDetailsOpen, resetValidation]);
+
+  function handleSave() {
+    if (!validation.validateAll().valid) return;
+    editor.submitDetails();
+  }
 
   function renderOptionChips(options: readonly ZoneOption[], value: string, onChange: (next: string) => void) {
     return (
@@ -60,7 +79,15 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
   }
 
   return (
-    <Modal visible={editor.isDetailsOpen} transparent={true} animationType="fade" onRequestClose={editor.closeDetails}>
+    <Modal
+      visible={editor.isDetailsOpen}
+      transparent={true}
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={editor.closeDetails}
+    >
+      <ModalSafeArea style={styles.modalSafeRoot}>
       <KeyboardAvoidingView style={styles.modalRoot} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.modalScrim} pointerEvents="none" />
         <View style={styles.detailsCard}>
@@ -77,6 +104,8 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
               style={styles.detailsInput}
               value={draft.name}
               onChangeText={(name) => updateDraft({ name })}
+              onBlur={() => validation.onBlur('name')}
+              maxLength={ZONE_NAME_MAX_LENGTH}
               placeholder={t('farmer.zones.add.namePlaceholder')}
               placeholderTextColor={colors.textPlaceholder}
               autoFocus={!editor.details.name}
@@ -84,6 +113,9 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
               onSubmitEditing={() => areaInputRef.current?.focus()}
               testID="add-zone-name-input"
             />
+            {validation.messageFor('name') ? (
+              <Text style={styles.errorText} testID="add-zone-name-error">{validation.messageFor('name')}</Text>
+            ) : null}
 
             <Text style={[styles.detailsLabel, { color: colors.textBody }]}>{t('farmer.zones.add.areaLabel')}</Text>
             <TextInput
@@ -91,11 +123,16 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
               style={styles.detailsInput}
               value={draft.areaText}
               onChangeText={(areaText) => updateDraft({ areaText })}
+              onBlur={() => validation.onBlur('areaText')}
+              maxLength={12}
               keyboardType="decimal-pad"
               placeholder={t('farmer.zones.add.areaPlaceholder')}
               placeholderTextColor={colors.textPlaceholder}
               testID="add-zone-area-input"
             />
+            {validation.messageFor('areaText') ? (
+              <Text style={styles.errorText} testID="add-zone-area-error">{validation.messageFor('areaText')}</Text>
+            ) : null}
             {metrics.areaAcres > 0 ? (
               <Text style={styles.hintText}>
                 {t('farmer.zones.add.areaMeasuredHint', { value: metrics.areaAcres.toFixed(2) })}
@@ -126,7 +163,7 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
             <TouchableOpacity
               activeOpacity={0.85}
               style={[styles.detailsActionBtn, { backgroundColor: colors.brandGreen, opacity: submitting ? 0.7 : 1 }]}
-              onPress={editor.submitDetails}
+              onPress={handleSave}
               disabled={submitting}
               testID="add-zone-details-save"
             >
@@ -139,11 +176,13 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
           </View>
         </View>
       </KeyboardAvoidingView>
+      </ModalSafeArea>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  modalSafeRoot: { flex: 1 },
   modalRoot: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   modalScrim: {
     ...StyleSheet.absoluteFill,

@@ -1366,6 +1366,50 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const leadingZero = await approveAndReadFarmerParams({ pincode: '012345' });
       expect(leadingZero[FARMER_PINCODE_PARAM_INDEX]).toBeNull();
     });
+
+    /**
+     * When a farmers row already exists for the applicant's user (pre-created, or left
+     * from an earlier flow), the INSERT takes its ON CONFLICT (user_id) branch. That branch
+     * used to set only the status columns, so every step-1 value was silently dropped and
+     * the farmer's profile showed "Not provided" for data they had typed. The branch must
+     * fill each data column that is still NULL, and never overwrite one that has a value.
+     */
+    it('BR-69h: the existing-row branch fills only missing step-1 columns via COALESCE and never overwrites', async () => {
+      const repo = mockFarmerApplicationsRepo({
+        id: APP_ID,
+        user_id: FARMER_USER_ID,
+        status: 'AUDIT',
+        step1_personal: { dob: '08 / 10 / 2003', gender: 'Male', pincode: '643217' },
+        step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
+      });
+      const service = createFarmerApplicationsService(repo);
+      const tx = recordingTx();
+      capture.tx = tx;
+      await service.approveApplication(anActor({ userId: IDS.userSuperAdmin }), APP_ID, {});
+
+      const sql = farmerInsert(tx).sql.replace(/\s+/g, ' ');
+      const conflictClause = sql.slice(sql.indexOf('ON CONFLICT (user_id) DO UPDATE SET'));
+      for (const col of [
+        'zone_id',
+        'farming_experience_years',
+        'address_line1',
+        'village',
+        'taluk',
+        'district',
+        'aadhaar_last4',
+        'dob',
+        'gender',
+        'pincode',
+      ]) {
+        expect(conflictClause, col).toContain(`${col} = COALESCE(farmers.${col}, EXCLUDED.${col})`);
+        // A bare `col = EXCLUDED.col` would overwrite a value the farmer already has.
+        expect(conflictClause, col).not.toMatch(new RegExp(`\\b${col} = EXCLUDED\\.${col}\\b`));
+      }
+      // Status columns keep their existing behaviour.
+      expect(conflictClause).toContain("application_status = 'APPROVED'");
+      expect(conflictClause).toContain("kyc_status = 'VERIFIED'");
+      expect(conflictClause).toContain('tohfa_farmer_id = EXCLUDED.tohfa_farmer_id');
+    });
   });
 
   describe('HTTP Route Integration (Schema Validation)', () => {
@@ -1993,6 +2037,96 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(meRes.status).toBe(200);
       expect(meRes.body).toHaveProperty('dob', null);
       expect(meRes.body).toHaveProperty('gender', null);
+    });
+
+    it('BR-69h: approval onto a pre-existing farmers row fills its NULL step-1 columns and keeps the values it already had', async (ctx) => {
+      if (!(await requireDatabaseTables('farmer_applications', 'farmers', 'users'))) return ctx.skip();
+
+      const { pool } = await import('../../db/pool.js');
+      const { signAccessToken } = await import('../../auth/jwt.js');
+      const suffix = Date.now().toString().slice(-8);
+      const mobile = `+9192${suffix}`;
+
+      // The pre-existing state that triggered the bug: a users row for the applicant's
+      // mobile and a farmers row for it with NULL dob/gender/pincode/address, but a
+      // village it already holds (which must survive).
+      const user = await pool.query<{ id: string }>(
+        `INSERT INTO users (mobile, full_name, preferred_locale, user_type, status)
+         VALUES ($1, 'Arun K', 'en', 'FARMER', 'ACTIVE') RETURNING id`,
+        [mobile],
+      );
+      const userId = user.rows[0]!.id;
+      await pool.query(
+        `INSERT INTO farmers (user_id, tohfa_farmer_id, village)
+         VALUES ($1, $2, 'Existing Village')`,
+        [userId, `TOHFA-F-TEST-${suffix}`],
+      );
+
+      const createRes = await request(app)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: 'Arun K' });
+      expect(createRes.status).toBe(201);
+      const appId = createRes.body.id as string;
+
+      expect(
+        (
+          await request(app)
+            .patch(`/v1/farmers/applications/${appId}/steps/1`)
+            .send({
+              fullName: 'Arun K',
+              dob: '08 / 10 / 2003',
+              gender: 'Male',
+              pincode: '643217',
+              addressLine1: '7 Hill Road',
+              village: 'Application Village',
+              taluk: 'Kotagiri',
+              district: 'The Nilgiris',
+            })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await request(app)
+            .patch(`/v1/farmers/applications/${appId}/steps/3`)
+            .send({ locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, gpsCaptured: true, latitude: 11.41, longitude: 76.69 }] })
+        ).status,
+      ).toBe(200);
+
+      const adminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+      const approveRes = await request(app)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+      expect(approveRes.status).toBe(200);
+
+      const row = await pool.query<{
+        dob: string | null;
+        gender: string | null;
+        pincode: string | null;
+        address_line1: string | null;
+        village: string | null;
+        taluk: string | null;
+        application_status: string;
+      }>(
+        `SELECT dob::text AS dob, gender, pincode, address_line1, village, taluk, application_status
+           FROM farmers WHERE user_id = $1`,
+        [userId],
+      );
+      expect(row.rows).toHaveLength(1);
+      const farmer = row.rows[0]!;
+      expect(farmer.dob).toBe('2003-10-08');
+      expect(farmer.gender).toBe('MALE');
+      expect(farmer.pincode).toBe('643217');
+      expect(farmer.address_line1).toBe('7 Hill Road');
+      expect(farmer.taluk).toBe('Kotagiri');
+      // Never overwrite a value the farmer row already holds.
+      expect(farmer.village).toBe('Existing Village');
+      expect(farmer.application_status).toBe('APPROVED');
     });
   });
 });

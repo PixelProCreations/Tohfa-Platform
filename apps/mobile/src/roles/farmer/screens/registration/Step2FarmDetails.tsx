@@ -14,6 +14,17 @@ import { AREA_COMPARISON_EPSILON_ACRES, roundAcresForDisplay } from './acreage';
 import { useRegistrationDraftStore } from '../../storage/registrationDraft';
 import type { FarmLocationData, Step2FarmData } from '../../storage/registrationDraft';
 
+/** docs/openapi.yaml `farm.farmName`: maxLength 120. */
+const FARM_NAME_MAX_LENGTH = 120;
+/** `farm.experienceYears` is 0..120 -- at most three digits. */
+const EXPERIENCE_MAX_LENGTH = 3;
+/**
+ * Spec gap: `totalAreaAcres` and `numberOfFarms` have no upper bound in docs/openapi.yaml.
+ * These are conservative typing limits (not business thresholds) that stop a runaway paste.
+ */
+const GENERIC_COUNT_MAX_LENGTH = 10;
+const PLOT_COUNT_MAX_LENGTH = 4;
+
 interface Step2Props {
   initialData?: Step2FarmData | undefined;
   onSave: (data: Step2FarmData) => void;
@@ -223,6 +234,7 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
               setFarmName(text);
               clearFieldError('farmName');
             }}
+            maxLength={FARM_NAME_MAX_LENGTH}
             placeholder={t('farmer.registration.step2.farmNamePlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
           />
@@ -303,6 +315,7 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
               clearFieldError('experienceYears');
             }}
             keyboardType="number-pad"
+            maxLength={EXPERIENCE_MAX_LENGTH}
             placeholder={t('farmer.registration.step2.experiencePlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
           />
@@ -342,6 +355,7 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
               clearFieldError('totalAreaAcres');
             }}
             keyboardType="decimal-pad"
+            maxLength={GENERIC_COUNT_MAX_LENGTH}
             placeholder={t('farmer.registration.step2.areaPlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
           />
@@ -394,6 +408,7 @@ export const Step2FarmDetails: React.FC<Step2Props> = ({ initialData, onSave, on
               clearFieldError('numberOfFarms');
             }}
             keyboardType="number-pad"
+            maxLength={PLOT_COUNT_MAX_LENGTH}
             placeholder={t('farmer.registration.step2.numberOfFarmsPlaceholder')}
             placeholderTextColor={colors.textPlaceholder}
           />

@@ -66,7 +66,8 @@ export interface UpdateFarmInput {
   district?: string | undefined;
   waterSources?: string[] | undefined;
   landBoundaryContext?: string[] | undefined;
-  notes?: string | undefined;
+  /** `null` clears saved notes (docs/openapi.yaml `FarmUpdate.notes` is nullable). */
+  notes?: string | null | undefined;
 }
 
 export interface Plot {

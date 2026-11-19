@@ -13,6 +13,7 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { GroupItem } from './GroupsScreen';
 import { colors, authPalette as P, typography } from '../../theme';
+import { LEARNING_MESSAGE_MAX_LENGTH, messageError } from './learningValidation';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -209,7 +210,7 @@ export function GroupDetailScreen({
   };
 
   const handleCreatePost = () => {
-    if (!newPostText.trim()) return;
+    if (messageError(newPostText) !== null) return;
 
     const newPost: FeedPost = {
       id: `post-${Date.now()}`,
@@ -317,6 +318,7 @@ export function GroupDetailScreen({
               placeholderTextColor={P.greyMid2}
               value={newPostText}
               onChangeText={setNewPostText}
+              maxLength={LEARNING_MESSAGE_MAX_LENGTH}
               accessibilityLabel="Share with group"
             />
             <TouchableOpacity

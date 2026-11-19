@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -23,6 +22,13 @@ import {
   maskMobile,
   type FarmerProfile,
 } from '../../api/farmer';
+import { NAME_MAX_LENGTH, useFieldValidation } from '../../utils/validation';
+import {
+  ADDRESS_MAX_LENGTH,
+  PERSONAL_DETAILS_RULES,
+  parseDobInput,
+  type PersonalDetailsField,
+} from './profileValidation';
 
 // ──────────────────────────────────────────────────────────────────────────
 // SVG Icons
@@ -194,27 +200,6 @@ function formatDobDisplay(iso: string | null | undefined): string {
   return `${Number(d)} ${MONTHS[monthIdx]} ${y}`;
 }
 
-/**
- * Inverse of `formatDobDisplay`. DOB feeds the same KYC record Aadhaar does
- * (root CLAUDE.md §2.5 / BR-33 neighbourhood), so a typed value this can't
- * losslessly round-trip back to `YYYY-MM-DD` is treated as invalid and
- * blocks the save with a message, rather than being guessed at or dropped
- * silently.
- */
-function parseDobInput(text: string): string | null {
-  const m = /^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/.exec(text.trim());
-  if (!m) return null;
-  const [, dStr, moStr, yStr] = m;
-  if (!dStr || !moStr || !yStr) return null;
-  const monthIdx = MONTHS.findIndex((mo) => mo.toLowerCase() === moStr.toLowerCase());
-  if (monthIdx < 0) return null;
-  const day = Number(dStr);
-  if (day < 1 || day > 31) return null;
-  const mm = String(monthIdx + 1).padStart(2, '0');
-  const dd = String(day).padStart(2, '0');
-  return `${yStr}-${mm}-${dd}`;
-}
-
 /** `FarmerProfile.gender` display, title-cased for the same free-text field
  * the farmer edits (`normalizeGenderInput` below is the inverse). */
 function genderToDisplay(gender: FarmerProfile['gender']): string {
@@ -243,6 +228,8 @@ function normalizeGenderInput(raw: string): 'MALE' | 'FEMALE' | 'OTHER' | null {
 // Main Screen
 // ──────────────────────────────────────────────────────────────────────────
 
+const FIELD_ORDER: readonly PersonalDetailsField[] = ['fullName', 'dob', 'gender', 'address', 'yearsInOrganic'];
+
 export function PersonalDetailsScreen({
   onBack,
 }: PersonalDetailsScreenProps): React.JSX.Element {
@@ -260,6 +247,13 @@ export function PersonalDetailsScreen({
   });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Inline errors under each field; validateAll() on save reveals every failure and blocks the PATCH.
+  const validation = useFieldValidation<PersonalDetailsField>({
+    values: draft,
+    rules: PERSONAL_DETAILS_RULES,
+    order: FIELD_ORDER,
+  });
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -303,52 +297,40 @@ export function PersonalDetailsScreen({
       yearsInOrganic: profile.farmingExperienceYears != null ? String(profile.farmingExperienceYears) : '',
     });
     setSaveError(null);
+    validation.reset();
     setIsEditing(true);
   };
 
   const cancelEdit = () => {
+    validation.reset();
     setIsEditing(false);
     setSaveError(null);
   };
 
-  const invalidField = (labelKey: Parameters<typeof t>[0]) => {
-    Alert.alert(t(labelKey), t('farmer.profile.personal.invalidFormat'));
-  };
-
   const saveEdit = async () => {
+    // The shared rules mirror FarmerProfileUpdate (name 2..120, years 0..90, address <= 300) and the
+    // screen's own DOB / gender formats, so everything below the gate is known to parse.
+    if (!validation.validateAll().valid) return;
     const fullName = draft.fullName.trim();
-    if (fullName.length < 2) {
-      invalidField('farmer.profile.fullName');
-      return;
-    }
 
     let dob: string | undefined;
     if (draft.dob.trim()) {
       const parsed = parseDobInput(draft.dob);
-      if (!parsed) {
-        invalidField('farmer.profile.dob');
-        return;
-      }
+      if (!parsed) return;
       dob = parsed;
     }
 
     let gender: 'MALE' | 'FEMALE' | 'OTHER' | undefined;
     if (draft.gender.trim()) {
       const normalized = normalizeGenderInput(draft.gender);
-      if (!normalized) {
-        invalidField('farmer.profile.personal.genderLabel');
-        return;
-      }
+      if (!normalized) return;
       gender = normalized;
     }
 
     let farmingExperienceYears: number | undefined;
     if (draft.yearsInOrganic.trim()) {
       const n = Number(draft.yearsInOrganic.trim());
-      if (!Number.isInteger(n) || n < 0 || n > 90) {
-        invalidField('farmer.profile.yearsInOrganicLabel');
-        return;
-      }
+      if (!Number.isInteger(n) || n < 0 || n > 90) return;
       farmingExperienceYears = n;
     }
 
@@ -380,10 +362,12 @@ export function PersonalDetailsScreen({
     opts?: { keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric'; multiline?: boolean; autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'; maxLength?: number },
   ) =>
     isEditing ? (
+      <>
       <TextInput
-        style={[styles.editInput, opts?.multiline && { minHeight: 52 }]}
+        style={[styles.editInput, opts?.multiline && { minHeight: 52 }, validation.errorFor(key) ? styles.editInputError : null]}
         value={draft[key]}
         onChangeText={(v) => setDraft((d) => ({ ...d, [key]: v }))}
+        onBlur={() => validation.onBlur(key)}
         placeholder={placeholder}
         keyboardType={opts?.keyboardType ?? 'default'}
         autoCapitalize={opts?.autoCapitalize ?? 'sentences'}
@@ -391,6 +375,10 @@ export function PersonalDetailsScreen({
         textAlignVertical={opts?.multiline ? 'top' : 'center'}
         maxLength={opts?.maxLength}
       />
+      {validation.messageFor(key) ? (
+        <Text style={styles.fieldErrorText}>{validation.messageFor(key)}</Text>
+      ) : null}
+      </>
     ) : (
       <Text style={styles.detailValue}>{data[key] || notProvidedText}</Text>
     );
@@ -472,7 +460,7 @@ export function PersonalDetailsScreen({
             <View style={styles.detailIcon}><UserIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.fullName')}</Text>
-              {field('fullName', t('farmer.profile.fullName'), { autoCapitalize: 'words', maxLength: 120 })}
+              {field('fullName', t('farmer.profile.fullName'), { autoCapitalize: 'words', maxLength: NAME_MAX_LENGTH })}
             </View>
           </View>
 
@@ -484,7 +472,7 @@ export function PersonalDetailsScreen({
               <View style={styles.detailIcon}><CalendarIcon /></View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('farmer.profile.dob')}</Text>
-                {field('dob', t('farmer.profile.dobPlaceholder'))}
+                {field('dob', t('farmer.profile.dobPlaceholder'), { maxLength: 11 })}
               </View>
             </View>
             <View style={styles.splitCell}>
@@ -498,7 +486,7 @@ export function PersonalDetailsScreen({
               </View>
               <View style={styles.detailContent}>
                 <Text style={styles.detailLabel}>{t('farmer.profile.personal.genderLabel')}</Text>
-                {field('gender', t('farmer.profile.personal.genderPlaceholder'))}
+                {field('gender', t('farmer.profile.personal.genderPlaceholder'), { maxLength: 6 })}
               </View>
             </View>
           </View>
@@ -566,7 +554,7 @@ export function PersonalDetailsScreen({
             <View style={styles.detailIcon}><HomeIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.personal.addressLabel')}</Text>
-              {field('address', t('farmer.profile.farmLocationPlaceholder'), { multiline: true, maxLength: 300 })}
+              {field('address', t('farmer.profile.farmLocationPlaceholder'), { multiline: true, maxLength: ADDRESS_MAX_LENGTH })}
             </View>
           </View>
         </View>
@@ -579,7 +567,7 @@ export function PersonalDetailsScreen({
             <View style={styles.detailIcon}><TrendingUpIcon /></View>
             <View style={styles.detailContent}>
               <Text style={styles.detailLabel}>{t('farmer.profile.yearsInOrganicLabel')}</Text>
-              {field('yearsInOrganic', t('farmer.profile.personal.yearsInOrganicPlaceholder'), { keyboardType: 'numeric' })}
+              {field('yearsInOrganic', t('farmer.profile.personal.yearsInOrganicPlaceholder'), { keyboardType: 'numeric', maxLength: 2 })}
             </View>
           </View>
 
@@ -714,6 +702,8 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: typography.bodyLarge, fontWeight: '600', color: P.twGray900, lineHeight: 21 },
   rowDivider: { height: 1, backgroundColor: P.twGray100, marginHorizontal: 16 },
 
+  editInputError: { borderBottomColor: P.red600 },
+  fieldErrorText: { color: P.red600, fontSize: typography.bodySmall, fontWeight: '600', marginTop: 2 },
   editInput: {
     fontSize: typography.bodyLarge, fontWeight: '600', color: P.twGray900,
     borderBottomWidth: 1.5, borderBottomColor: P.twGreen500,
