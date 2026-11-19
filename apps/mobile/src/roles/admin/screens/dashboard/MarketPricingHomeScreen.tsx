@@ -540,7 +540,9 @@ export function MarketPricingHomeScreen({
           </View>
 
           {/* Section: Quick Actions */}
-          <Text style={[styles.saSectionHeading, { marginTop: adminSpacing.lg }]}>Quick actions</Text>
+          <View style={styles.saQuickHeaderRow}>
+            <Text style={styles.saSectionHeading}>Quick actions</Text>
+          </View>
           <View style={styles.saQuickGrid}>
             <OverviewActionCard
               title="Fair Prices"
@@ -564,7 +566,7 @@ export function MarketPricingHomeScreen({
             />
           </View>
 
-          <View style={{ height: adminSpacing.xl }} />
+          <View style={{ height: adminSpacing.xxxl }} />
         </ScrollView>
 
       </SafeAreaView>
@@ -1668,11 +1670,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
     includeFontPadding: false,
   },
+  saQuickHeaderRow: {
+    marginTop: adminSpacing.xl,
+    marginBottom: adminSpacing.md,
+  },
   saQuickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: adminSpacing.sm,
+    rowGap: 10,
+    marginBottom: adminSpacing.md,
   },
   saQuickCard: {
     width: '48.5%',
