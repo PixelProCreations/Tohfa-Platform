@@ -138,7 +138,10 @@ export type StockMovementKind =
 /** From the sign of the ledger delta itself (BR-37). */
 export type MovementDirection = 'in' | 'out' | 'none';
 
-/** One stock ledger row. Also the Movement Detail's route param (there is no per-id ledger read). */
+/**
+ * One stock ledger row. Also the Movement Detail's route param (GET
+ * /admin/stock-ledger/{id} exists in the spec but the app does not call it yet).
+ */
 export interface StockMovementRow {
   id: string;
   batchId: string;
@@ -162,6 +165,10 @@ export interface StockMovementRow {
   refType?: string | undefined;
   /** The uuid of that record; the API carries no human code for it. */
   refId?: string | undefined;
+  /** Who recorded the row (StockLedgerEntry.createdByName, BR-130). */
+  createdByName?: string | undefined;
+  /** Who approved the stock adjustment that inserted the row (StockLedgerEntry.approvedByName, BR-130). */
+  approvedByName?: string | undefined;
 }
 
 export type AllocationChannelKey = 'online' | 'liveMarket' | 'reserve' | 'buffer' | 'unknown';

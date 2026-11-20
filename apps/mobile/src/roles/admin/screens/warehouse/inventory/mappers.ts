@@ -291,6 +291,8 @@ export function toStockMovementRow(
   const remarks = nonBlank(dto.remarks);
   const refType = nonBlank(dto.refType);
   const refId = nonBlank(dto.refId);
+  const createdByName = nonBlank(dto.createdByName);
+  const approvedByName = nonBlank(dto.approvedByName);
   return {
     id: dto.id,
     batchId: dto.batchId,
@@ -309,6 +311,8 @@ export function toStockMovementRow(
     ...(remarks === undefined ? {} : { remarks }),
     ...(refType === undefined ? {} : { refType }),
     ...(refId === undefined ? {} : { refId }),
+    ...(createdByName === undefined ? {} : { createdByName }),
+    ...(approvedByName === undefined ? {} : { approvedByName }),
   };
 }
 

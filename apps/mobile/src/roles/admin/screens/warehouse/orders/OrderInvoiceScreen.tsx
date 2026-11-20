@@ -11,11 +11,12 @@
  * download. Nothing here is sample data, and there is no Share action: the
  * signed link expires after 5 minutes (see InvoiceDetailScreen).
  *
- * The design's Order No. and Customer are not on the invoice (GET
- * /invoices/{id} has only the order uuid), so the order detail this screen
- * already holds is passed along; the invoice view shows its number and buyer
- * name only when the invoice names this order (invoiceOrderContext). The buyer
- * mobile, masked or not, is never shown there (BR-92).
+ * The design's Order No. is not on the invoice (GET /invoices/{id} has only
+ * the order uuid), so the order detail this screen already holds is passed
+ * along; the invoice view shows its number only when the invoice names this
+ * order (invoiceOrderContext). The Customer is the invoice's own buyerName
+ * (BR-128), with this order's buyer name as the fallback. The buyer mobile,
+ * masked or not, is never shown there (BR-92).
  *
  * Gates (docs/rbac.json; the server re-checks everything, CLAUDE.md 2.1):
  *   - The page itself: `invoice.view_own` (availability.ts 'orderInvoices';

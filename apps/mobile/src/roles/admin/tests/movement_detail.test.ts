@@ -194,13 +194,22 @@ describe('movementDetailRows: only what the ledger row carries', () => {
     expect(labels).toEqual([t('inventory.movementDetail.field.type'), t('inventory.movementDetail.field.performedAt')]);
   });
 
-  it('never shows who performed it (a uuid only) and no movement code the API does not have', () => {
+  it('never shows the performer uuid and no movement code the API does not have', () => {
     const values = movementDetailRows(row(), 'Ooty')
       .flat()
       .map((f) => f.value)
       .join(' ');
     expect(values).not.toContain('66666666');
     expect(values).not.toMatch(/MV-|GRN-/);
+  });
+
+  it('BR-130: shows the recorder and the adjustment approver by name, only when sent', () => {
+    const named = fieldsOf(movementDetailRows(row({ createdByName: 'Ravi Kumar', approvedByName: 'Anand' }), 'Ooty'));
+    expect(named[t('inventory.movementDetail.field.recordedBy')]).toBe('Ravi Kumar');
+    expect(named[t('inventory.movementDetail.field.approvedBy')]).toBe('Anand');
+    const unnamed = fieldsOf(movementDetailRows(row({ createdByName: null, approvedByName: '  ' }), 'Ooty'));
+    expect(unnamed[t('inventory.movementDetail.field.recordedBy')]).toBeUndefined();
+    expect(unnamed[t('inventory.movementDetail.field.approvedBy')]).toBeUndefined();
   });
 });
 

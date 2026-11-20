@@ -866,5 +866,11 @@
   "transfers.summary.lineQty": "{{sent}} இல் {{qty}} பெறப்பட்டது",
   "transfers.summary.done": "முடிந்தது",
   "transfers.inspection.lineBatchMeta": "{{batch}} · {{grade}} · அனுப்பியது {{qty}}",
-  "transfers.summary.receiptNoteValue": "ரசீது குறிப்பு: {{note}}"
+  "transfers.summary.receiptNoteValue": "ரசீது குறிப்பு: {{note}}",
+  "inventory.movementDetail.field.recordedBy": "பதிவு செய்தவர்",
+  "inventory.movementDetail.field.approvedBy": "அங்கீகரித்தவர்",
+  "stockAdj.detail.requestedBy": "கோரியவர்",
+  "stockAdj.detail.approvedBy": "அங்கீகரித்தவர்",
+  "billing.detail.buyerGstin": "வாடிக்கையாளர் GSTIN",
+  "warehouseAdmin.swa.noEditNoteRole": "துணை கிடங்கு நிர்வாகிகளை செயலியில் திருத்த முடியாது. TOHFA நிர்வாகி அல்லது விவசாயி நிர்வாகி மட்டுமே ஒருவரைச் செயலிழக்கச் செய்ய முடியும்."
 }

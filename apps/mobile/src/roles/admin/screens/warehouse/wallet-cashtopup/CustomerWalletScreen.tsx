@@ -23,7 +23,7 @@
  * Nothing is filtered by warehouse here (the ledger is the customer's whole
  * wallet, and the balance is its sum, BR-93e). The read is GET-only (BR-93):
  * no route under /admin/customers moves money. Total Credited / Total Used are
- * hidden in live mode (the API has no such figures).
+ * the summary's totalCredited / totalUsed (BR-129), each drawn only when sent.
  *
  * Without `live` (only customers/CustomerSearchScreen's sample search still
  * does this; the wallet flow never does), the caller passes the customer and
@@ -164,6 +164,12 @@ export function CustomerWalletScreen({
               value={String(live.wallet?.transactionCount ?? noValue)}
             />
             <AmountRow divider label={t('customers.wallet.lastTransaction')} value={live.wallet?.lastTransactionLabel ?? noValue} />
+            {live.wallet?.totalCreditedLabel !== undefined ? (
+              <AmountRow divider label={t('wallet.customer.totalCredited')} value={live.wallet.totalCreditedLabel} />
+            ) : null}
+            {live.wallet?.totalUsedLabel !== undefined ? (
+              <AmountRow divider label={t('wallet.customer.totalUsed')} value={live.wallet.totalUsedLabel} />
+            ) : null}
             <AmountRow divider label={t('wallet.customer.currentBalance')} value={active.balance} emphasis="total" />
           </Card>
         ) : (

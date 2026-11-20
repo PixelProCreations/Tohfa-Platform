@@ -308,7 +308,7 @@ export type AdminCustomerIssue = z.infer<typeof adminCustomerIssueSchema>;
  * where every admin support API says IN_PROGRESS; the service maps it (openapi
  * `AdminCustomerSupportTicket.status`, BR-97).
  */
-export const ticketStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const;
+export const ticketStatuses = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED'] as const;
 export type AdminTicketStatus = (typeof ticketStatuses)[number];
 
 /** `support_tickets.category` CHECK list (0008), returned as `categoryCode`. */

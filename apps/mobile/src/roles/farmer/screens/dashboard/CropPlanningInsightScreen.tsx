@@ -28,13 +28,18 @@ import {
  *
  * The original design compared farm-wide SUPPLY against customer DEMAND per
  * crop ("Under-supplied / Balanced / Over-supplied", kg bars, "plant more /
- * switch crop" advice). No endpoint the farmer app can call exposes market
- * supply or customer demand -- only the farmer's own farm_crops, the
- * crop_master taxonomy, and per-plot rotation history. Those supply/demand
- * elements are therefore removed and replaced by a clearly-labelled
- * "not available yet" banner, rather than faked.
+ * switch crop" advice). No endpoint exposes customer demand, so the
+ * supply/demand comparison is removed and replaced by a clearly-labelled
+ * "not available yet" banner, rather than faked. Not yet wired although the
+ * API has them: community-wide planted supply per crop (GET
+ * /farmers/community/planting-summary, BR-136, already used by the TOHFA
+ * Calendar via api/community.ts), and the server-side aggregate of the
+ * figures below (GET /farmers/me/crop-planning-insight, BR-38:
+ * youGrow, inSeason, activePlots, expectedYieldKg, pastHarvestCount,
+ * lastHarvestedOn, hasConsecutivePlanting).
  *
- * Everything below is derived client-side from those three real sources:
+ * Everything below is derived client-side from the farmer's own farm_crops,
+ * the crop_master taxonomy and per-plot rotation history:
  *   - "You grow this" / currently-on plots / expected yield: the farmer's
  *     PLANNED or GROWING farm_crops for that crop_master id.
  *   - In season / off season: crop_master.seasonMonths vs the current month

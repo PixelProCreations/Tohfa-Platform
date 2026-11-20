@@ -336,6 +336,14 @@
   "admin.error.SALE_CHANNEL_NOT_SUPPORTED": "Sales on this channel are not available yet.",
   "admin.error.COMMUNITY_PLANTING_NOT_CONFIGURED": "The community planting view is not set up yet.",
   "admin.error.PASSWORD_ALREADY_SET": "This account already has a password. Use change password or forgot password instead.",
+  "admin.error.SLOT_FULL": "That delivery slot is full. Choose another slot.",
+  "admin.error.SLOT_CUTOFF_PASSED": "The order cutoff for that slot has passed. Choose a later slot.",
+  "admin.error.EMAIL_NOT_CONFIGURED": "Email is not set up right now. Please try again later.",
+  "admin.error.EMAIL_DELIVERY_FAILED": "The email could not be sent. Please try again.",
+  "admin.error.ROLE_NOT_FOUND": "That role does not exist and cannot be assigned.",
+  "admin.error.WALLET_TRANSFER_DISABLED": "Wallet transfers are switched off right now.",
+  "admin.error.WALLET_TRANSFER_LIMIT_EXCEEDED": "This amount is outside the wallet transfer limits.",
+  "admin.error.WALLET_TRANSFER_SELF": "Money cannot be sent to the same wallet.",
   "admin.error.BAD_REQUEST": "Something in this request is not right. Check it and try again.",
   "admin.error.VALIDATION_FAILED": "Some details are missing or not valid. Check them and try again.",
   "admin.error.UNAUTHENTICATED": "Your session has ended. Please sign in again.",
@@ -3080,5 +3088,11 @@
   "transfers.summary.lineQty": "Received {{qty}} of {{sent}}",
   "transfers.summary.done": "Done",
   "transfers.inspection.lineBatchMeta": "{{batch}} · {{grade}} · sent {{qty}}",
-  "transfers.summary.receiptNoteValue": "Receipt note: {{note}}"
+  "transfers.summary.receiptNoteValue": "Receipt note: {{note}}",
+  "inventory.movementDetail.field.recordedBy": "Recorded by",
+  "inventory.movementDetail.field.approvedBy": "Approved by",
+  "stockAdj.detail.requestedBy": "Requested by",
+  "stockAdj.detail.approvedBy": "Approved by",
+  "billing.detail.buyerGstin": "Customer GSTIN",
+  "warehouseAdmin.swa.noEditNoteRole": "Sub Warehouse Admins cannot be edited from the app. Only a TOHFA Admin or a Farmer Admin can deactivate one."
 }

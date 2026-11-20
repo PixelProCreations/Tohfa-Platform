@@ -65,6 +65,12 @@ export interface WarehouseCapacityDto {
   availableKg: string | null;
   /** usedKg / capacityKg * 100, 2 decimals; above 100 when over capacity; null without a capacity. */
   utilizationPercent: number | null;
+  /**
+   * BR-131: system_config.alert_capacity_utilization_percent (0 to 100), the
+   * level at which CAPACITY_NEAR_FULL is raised; null when that key is unusable.
+   * A display value only: nothing is refused against it.
+   */
+  thresholdPercent?: number | null;
 }
 
 /**

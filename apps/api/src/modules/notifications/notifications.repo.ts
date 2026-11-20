@@ -86,6 +86,14 @@ export interface NotificationsRepo {
   findTemplate(db: Executor, code: string, channel: string, locale: 'en' | 'ta'): Promise<NotificationTemplateRow | null>;
   getUserPreferredLocale(db: Executor, userId: string): Promise<'en' | 'ta'>;
   getUserMobile(db: Executor, userId: string): Promise<string | null>;
+  /** BR-185: the user's email only when it is verified (customers); null otherwise. */
+  getUserVerifiedEmail(db: Executor, userId: string): Promise<string | null>;
+  /** Current delivery status of a notification row, or null if it does not exist. */
+  getDeliveryStatus(db: Executor, id: string): Promise<string | null>;
+  /** BR-185: the user's email only when it is verified (customers); null otherwise. */
+  getUserVerifiedEmail(db: Executor, userId: string): Promise<string | null>;
+  /** Current delivery status of a notification row, or null if it does not exist. */
+  getDeliveryStatus(db: Executor, id: string): Promise<string | null>;
   registerDeviceToken(db: Executor, params: RegisterDeviceTokenParams): Promise<DeviceTokenRow>;
   revokeDeviceToken(db: Executor, token: string, userId: string): Promise<boolean>;
   findActiveDeviceTokens(db: Executor, userId: string, app?: string | undefined): Promise<DeviceTokenRow[]>;
@@ -187,7 +195,9 @@ export const notificationsRepo: NotificationsRepo = {
          user_id, template_id, channel, title, body, locale, data,
          status, provider_message_id, sent_at
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'DELIVERED', $8, now())
+       VALUES ($1, $2, $3::notification_channel, $4, $5, $6, $7,
+               CASE WHEN $3::notification_channel = 'EMAIL' THEN 'QUEUED' ELSE 'DELIVERED' END, $8,
+               CASE WHEN $3::notification_channel = 'EMAIL' THEN NULL ELSE now() END)
        RETURNING id, user_id, template_id, channel, title, body, locale, data,
                  status, provider_message_id, sent_at, read_at, created_at, updated_at`,
       [
@@ -264,6 +274,29 @@ export const notificationsRepo: NotificationsRepo = {
       [userId],
     );
     return result.rows[0]?.mobile ?? null;
+  },
+
+  async getUserVerifiedEmail(db, userId) {
+    const result = await db.query<{ email: string }>(
+      `SELECT u.email
+         FROM users u
+         JOIN customers c ON c.user_id = u.id
+        WHERE u.id = $1
+          AND u.email IS NOT NULL
+          AND c.email_verified_at IS NOT NULL
+          AND c.deleted_at IS NULL
+        LIMIT 1`,
+      [userId],
+    );
+    return result.rows[0]?.email ?? null;
+  },
+
+  async getDeliveryStatus(db, id) {
+    const result = await db.query<{ status: string }>(
+      `SELECT status FROM notifications WHERE id = $1`,
+      [id],
+    );
+    return result.rows[0]?.status ?? null;
   },
 
   async registerDeviceToken(db, params) {

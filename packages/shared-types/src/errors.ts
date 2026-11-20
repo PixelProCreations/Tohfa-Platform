@@ -55,6 +55,10 @@ export const ErrorCode = {
   ALLOCATION_SUM_INVALID: 'ALLOCATION_SUM_INVALID',
   /** The cart's stock reservation lock lapsed before checkout completed. */
   CART_LOCK_EXPIRED: 'CART_LOCK_EXPIRED',
+  /** The chosen delivery slot is fully booked or switched off (BR-201). */
+  SLOT_FULL: 'SLOT_FULL',
+  /** The slot's order cutoff (start minus delivery_slot_cutoff_minutes) has passed (BR-210). */
+  SLOT_CUTOFF_PASSED: 'SLOT_CUTOFF_PASSED',
   /** The supplied OTP did not match the challenge. */
   OTP_INVALID: 'OTP_INVALID',
   /** The OTP challenge is past its validity window. */
@@ -65,6 +69,10 @@ export const ErrorCode = {
   OTP_RESEND_TOO_SOON: 'OTP_RESEND_TOO_SOON',
   /** The configured SMS provider rejected or failed to dispatch the OTP. */
   OTP_SMS_DELIVERY_FAILED: 'OTP_SMS_DELIVERY_FAILED',
+  /** No email transport is configured, so an email cannot be sent. */
+  EMAIL_NOT_CONFIGURED: 'EMAIL_NOT_CONFIGURED',
+  /** The email transport rejected or failed to deliver the message. */
+  EMAIL_DELIVERY_FAILED: 'EMAIL_DELIVERY_FAILED',
   /** A second audit was scheduled for a quarter that already has one. */
   AUDIT_QUARTER_TAKEN: 'AUDIT_QUARTER_TAKEN',
   /** A rating/audit category score falls outside its allowed range. */
@@ -121,6 +129,12 @@ export const ErrorCode = {
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'COMMUNITY_PLANTING_NOT_CONFIGURED',
   /** POST /auth/me/set-password only sets a FIRST password; this account already has one (BR-142). HTTP 409. */
   PASSWORD_ALREADY_SET: 'PASSWORD_ALREADY_SET',
+  /** Customer-to-customer wallet transfers are switched off (system_config wallet_transfer.enabled, BR-150). HTTP 403. */
+  WALLET_TRANSFER_DISABLED: 'WALLET_TRANSFER_DISABLED',
+  /** A wallet transfer breaks the per-transfer minimum/maximum or the sender's daily maximum (BR-150). HTTP 422. */
+  WALLET_TRANSFER_LIMIT_EXCEEDED: 'WALLET_TRANSFER_LIMIT_EXCEEDED',
+  /** A customer tried to send wallet money to themselves (BR-150). HTTP 422. */
+  WALLET_TRANSFER_SELF: 'WALLET_TRANSFER_SELF',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -175,6 +189,12 @@ export interface Problem {
   traceId?: string;
   /** Extra, problem-specific context (e.g. `{ ceilingPaise: 12000 }`). */
   meta?: Record<string, unknown>;
+  /** WALLET_INSUFFICIENT only (BR-192): required - balance, as a decimal money string. */
+  shortfall?: string;
+  /** WALLET_INSUFFICIENT only: the wallet balance when the debit was refused. */
+  balance?: string;
+  /** WALLET_INSUFFICIENT only: the amount the debit needed. */
+  required?: string;
 }
 
 export type ProblemCode = Problem['code'];

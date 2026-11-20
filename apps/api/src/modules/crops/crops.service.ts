@@ -316,8 +316,9 @@ export function createCropTaxonomyAdminService(
           entityType: 'crop_master',
           entityId: id,
           before,
-          after,
-          changedFields: changedFields(before, after),
+          // BR-181: the response omits the display metadata, so audit the requested patch too.
+          after: { ...after, ...patch },
+          changedFields: changedFields(before, { ...after, ...patch }),
         });
         return after;
       });

@@ -1,0 +1,1546 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  StatusBar,
+  ActivityIndicator,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, Circle } from 'react-native-svg';
+import {
+  customerColors,
+  customerFonts,
+  customerRadius,
+  customerShadow,
+  customerSpacing,
+} from '../theme';
+import {
+  branchLeavesTopLeft,
+  profileAvatarMale,
+  profileAvatarFemale,
+  satelliteMapCoimbatore,
+  profileEmailVerified,
+} from '../assets/images';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  displayName,
+  formatMobileDisplay,
+  genderFromApi,
+  genderToApi,
+  profileQueryKeys,
+  requestEmailOtp,
+  useCustomerProfile,
+  useUpdateCustomerProfile,
+  validateAge,
+  verifyEmailOtp,
+  type CustomerProfile,
+  type UpdateCustomerProfileInput,
+} from '../api/profile';
+import {
+  isValidPincode,
+  pickDefaultAddress,
+  toApiAddress,
+  useAddresses,
+  useCreateAddress,
+  useUpdateAddress,
+  type CustomerAddress,
+} from '../api/addresses';
+import { mapProblem } from '../api/problem';
+import { setLocale, t } from '../../../i18n/customer';
+
+export type ProfileScreenMode = 'empty' | 'view' | 'edit';
+
+export interface CustomerProfileData {
+  name: string;
+  phone: string;
+  phoneVerified?: boolean;
+  email: string;
+  emailVerified?: boolean;
+  age: string;
+  language: string;
+  gender: 'male' | 'female' | 'prefer_not_to_say' | '';
+  address: string;
+  city: string;
+  pincode: string;
+  state: string;
+}
+
+export interface CustomerProfileScreenProps {
+  initialMode?: ProfileScreenMode;
+  initialData?: Partial<CustomerProfileData>;
+  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
+  onBack?: () => void;
+  onSave?: (data: CustomerProfileData) => void;
+}
+
+/**
+ * Email OTP length. The authoritative value is `codeLength` on the POST /customers/me/email/otp 202
+ * answer (system_config otp_length, 4..8); this is only the placeholder box count before the first
+ * send, and the fallback if an answer ever arrives without a usable value.
+ */
+const DEFAULT_EMAIL_OTP_LENGTH = 6;
+const EMAIL_OTP_MIN_LENGTH = 4;
+const EMAIL_OTP_MAX_LENGTH = 8;
+const EMAIL_OTP_PATTERN = /^[0-9]+$/;
+
+function normalizeOtpLength(codeLength: unknown): number {
+  return typeof codeLength === 'number' &&
+    Number.isInteger(codeLength) &&
+    codeLength >= EMAIL_OTP_MIN_LENGTH &&
+    codeLength <= EMAIL_OTP_MAX_LENGTH
+    ? codeLength
+    : DEFAULT_EMAIL_OTP_LENGTH;
+}
+/** Local resend cooldown (the email OTP answer carries no `resendAvailableAt`); 429 overrides it. */
+const EMAIL_RESEND_COOLDOWN_S = 60;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const EMPTY_FORM: CustomerProfileData = {
+  name: '',
+  phone: '',
+  phoneVerified: false,
+  email: '',
+  emailVerified: false,
+  age: '',
+  language: '',
+  gender: '',
+  address: '',
+  city: '',
+  pincode: '',
+  state: '',
+};
+
+const joinParts = (parts: Array<string | null | undefined>) =>
+  parts
+    .map((p) => (p ?? '').trim())
+    .filter(Boolean)
+    .join(', ');
+
+/** Server profile + default address -> form values (age is digits only; view mode prefixes "Age"). */
+export function profileToForm(
+  profile: CustomerProfile | undefined,
+  address: CustomerAddress | undefined,
+  overrides?: Partial<CustomerProfileData>,
+): CustomerProfileData {
+  const g = genderFromApi(profile?.gender);
+  return {
+    ...EMPTY_FORM,
+    ...(profile
+      ? {
+          name: displayName(profile),
+          phone: formatMobileDisplay(profile.mobile),
+          phoneVerified: Boolean(profile.mobile),
+          email: profile.email ?? '',
+          emailVerified: Boolean(profile.email) && profile.emailVerified,
+          age: profile.age != null ? String(profile.age) : '',
+          language: profile.preferredLocale === 'ta' ? 'Tamil' : 'English',
+          gender: g === 'other' || g == null ? '' : g,
+        }
+      : {}),
+    ...(address
+      ? {
+          address: joinParts([address.line1, address.line2]),
+          city: address.city,
+          pincode: address.pincode,
+          state: address.state,
+        }
+      : {}),
+    ...(overrides ?? {}),
+  };
+}
+
+/** `suresh@gmail.com` -> `sure**@gmail.com`. */
+export function maskEmail(email: string): string {
+  const at = email.indexOf('@');
+  if (at <= 0) return email;
+  const local = email.slice(0, at);
+  const keep = Math.min(4, Math.max(1, local.length - 1));
+  return `${local.slice(0, keep)}${'*'.repeat(Math.max(1, local.length - keep))}${email.slice(at)}`;
+}
+
+// ── SVG ICONS ─────────────────────────────────────────────────────────────────
+
+const BackArrowSvg = ({ color = customerColors.heading, size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M19 12H5M5 12L12 19M5 12L12 5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const PencilEditSvg = ({ color = customerColors.heading, size = 16 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const CheckCircleSvg = ({ color = customerColors.primary, size = 16 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={10} fill={color} />
+    <Path
+      d="M8 12.5l2.5 2.5 5.5-5.5"
+      stroke={customerColors.white}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ChevronDownSvg = ({ color = customerColors.heading, size = 14 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M6 9l6 6 6-6"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const MapPinSvg = ({ color = customerColors.legacy.red, size = 20 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 21s-6-5.6-6-10a6 6 0 1112 0c0 4.4-6 10-6 10z"
+      fill={color}
+      stroke={customerColors.palette.red.crimson}
+      strokeWidth={1.5}
+    />
+    <Circle cx={12} cy={11} r={2.5} fill={customerColors.white} />
+  </Svg>
+);
+
+const CrosshairSvg = ({ color = customerColors.primary, size = 16 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={8} stroke={color} strokeWidth={1.6} />
+    <Path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+  </Svg>
+);
+
+const CloseSvg = ({ color = customerColors.neutral.neutral600, size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+/**
+ * Customer Profile Management Component
+ * Supports:
+ *  - Screen 74 · Profile Deals - empty (Empty / Create mode)
+ *  - Screen 75 · My Profile (Filled View mode)
+ *  - Screen 76 · Edit Profile (Editable mode with Save Changes)
+ *  - Screen 79 · My Profile (After email verification)
+ *  - Email OTP Verification Modal / Dialog
+ */
+export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
+  initialMode = 'view',
+  initialData,
+  onNavigate,
+  onBack,
+  onSave,
+}) => {
+  const insets = useSafeAreaInsets();
+  const [mode, setMode] = useState<ProfileScreenMode>(initialMode);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
+
+  const queryClient = useQueryClient();
+  const profileQuery = useCustomerProfile();
+  const addressesQuery = useAddresses();
+  const updateProfile = useUpdateCustomerProfile();
+  const updateAddress = useUpdateAddress();
+  const createAddress = useCreateAddress();
+  const profile = profileQuery.data;
+  const defaultAddress = pickDefaultAddress(addressesQuery.data);
+
+  // Form state: mirrors the server (profile + default address) until the user edits.
+  const baseline = useMemo(
+    () => profileToForm(profile, defaultAddress, initialData),
+    [profile, defaultAddress, initialData],
+  );
+  const [formData, setFormData] = useState<CustomerProfileData>(baseline);
+  const [dirty, setDirty] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!dirty) setFormData(baseline);
+  }, [baseline, dirty]);
+
+  const updateForm = (fn: (prev: CustomerProfileData) => CustomerProfileData) => {
+    setDirty(true);
+    setFormData(fn);
+  };
+
+  // Email Verification Flow State (BR-160)
+  const [showEmailOtpModal, setShowEmailOtpModal] = useState(false);
+  const [emailOtpLength, setEmailOtpLength] = useState<number>(DEFAULT_EMAIL_OTP_LENGTH);
+  const [emailOtpPin, setEmailOtpPin] = useState<string[]>(() => Array<string>(DEFAULT_EMAIL_OTP_LENGTH).fill(''));
+  const [showEmailVerifiedSuccess, setShowEmailVerifiedSuccess] = useState(false);
+  const [otpEmail, setOtpEmail] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [emailUnavailable, setEmailUnavailable] = useState(false);
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const id = setTimeout(() => setResendIn((n) => (n > 0 ? n - 1 : 0)), 1000);
+    return () => clearTimeout(id);
+  }, [resendIn]);
+
+  useEffect(() => {
+    setMode(initialMode);
+  }, [initialMode]);
+
+  const resetEdits = () => {
+    setDirty(false);
+    setFieldErrors({});
+    setSaveError(null);
+  };
+
+  const handleHeaderBack = () => {
+    if (mode === 'edit' && initialMode !== 'edit') {
+      resetEdits();
+      setMode('view');
+    } else if (onBack) {
+      onBack();
+    } else {
+      onNavigate?.('CustomerAccount');
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (saving) return;
+    const errs: Record<string, string> = {};
+    const name = formData.name.trim();
+    if (!name) errs.name = t('customer.account.profile.validation.nameRequired');
+    else if (name.length > 120) errs.name = t('customer.account.profile.validation.nameTooLong');
+    const age = validateAge(formData.age);
+    if (age.error) errs.age = age.error;
+
+    const addressText = formData.address.trim();
+    const city = formData.city.trim();
+    const pincode = formData.pincode.trim();
+    const state = formData.state.replace(/,?\s*India$/i, '').trim() || 'Tamil Nadu';
+    const addressChanged =
+      addressText !== baseline.address.trim() ||
+      city !== baseline.city.trim() ||
+      pincode !== baseline.pincode.trim() ||
+      (formData.state.trim() !== '' && state !== baseline.state.trim());
+    const wantsAddress = addressChanged && (addressText !== '' || city !== '' || pincode !== '');
+    if (wantsAddress) {
+      if (!addressText) errs.address = t('customer.account.profile.validation.addressRequired');
+      if (!city) errs.city = t('customer.account.profile.validation.cityRequired');
+      if (!isValidPincode(pincode)) errs.pincode = t('customer.account.profile.validation.pincode');
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+
+    const patch: UpdateCustomerProfileInput = {};
+    if (name !== displayName(profile)) patch.fullName = name;
+    if (age.value !== (profile?.age ?? null)) patch.age = age.value;
+    if (formData.gender) {
+      const g = genderToApi(formData.gender);
+      if (g !== (profile?.gender ?? null)) patch.gender = g;
+    }
+    if (formData.language) {
+      const locale = formData.language === 'Tamil' ? 'ta' : 'en';
+      if (locale !== profile?.preferredLocale) patch.preferredLocale = locale;
+    }
+
+    setSaving(true);
+    setFieldErrors({});
+    setSaveError(null);
+    try {
+      if (Object.keys(patch).length > 0) {
+        const saved = await updateProfile.mutateAsync(patch);
+        if (patch.preferredLocale) setLocale(saved.preferredLocale ?? patch.preferredLocale);
+      }
+      if (wantsAddress) {
+        const line1 = addressText.slice(0, 200);
+        if (defaultAddress) {
+          await updateAddress.mutateAsync({
+            id: defaultAddress.id,
+            input: { line1, line2: null, city: city.slice(0, 100), pincode, state },
+          });
+        } else {
+          await createAddress.mutateAsync(
+            toApiAddress({ flat: line1, city, pincode, state, type: 'Home', isDefault: true }),
+          );
+        }
+      }
+      onSave?.(formData);
+      setDirty(false);
+      setMode('view');
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      const fe = p.fieldErrors;
+      const mapped: Record<string, string> = {};
+      if (fe.fullName) mapped.name = fe.fullName;
+      if (fe.age) mapped.age = fe.age;
+      if (fe.gender) mapped.gender = fe.gender;
+      if (fe.line1) mapped.address = fe.line1;
+      if (fe.city) mapped.city = fe.city;
+      if (fe.pincode) mapped.pincode = fe.pincode;
+      setFieldErrors(mapped);
+      setSaveError(p.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyEmailError = (err: unknown, target: 'email' | 'otp') => {
+    const p = mapProblem(err);
+    if (p.silent) return;
+    if (p.code === 'EMAIL_NOT_CONFIGURED' || p.status === 501) {
+      setEmailUnavailable(true);
+      setShowEmailOtpModal(false);
+      setEmailError(t('customer.account.profile.emailUnavailable'));
+      return;
+    }
+    if (p.action === 'wait' && p.retryAfterSeconds) setResendIn(p.retryAfterSeconds);
+    const msg = p.fieldErrors.email ?? p.fieldErrors.code ?? p.message;
+    if (target === 'email') setEmailError(msg);
+    else setOtpError(msg);
+  };
+
+  const sendEmailOtp = async (email: string, target: 'email' | 'otp') => {
+    setSendingOtp(true);
+    try {
+      const challenge = await requestEmailOtp(email);
+      const codeLength = normalizeOtpLength(challenge.codeLength);
+      setOtpEmail(email);
+      setEmailOtpLength(codeLength);
+      setEmailOtpPin(Array<string>(codeLength).fill(''));
+      setOtpError(null);
+      setEmailError(null);
+      setResendIn(EMAIL_RESEND_COOLDOWN_S);
+      setShowEmailOtpModal(true);
+    } catch (err) {
+      applyEmailError(err, target);
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const handleVerifyNow = () => {
+    if (sendingOtp || emailUnavailable) return;
+    const email = formData.email.trim();
+    if (!EMAIL_PATTERN.test(email) || email.length > 254) {
+      setEmailError(t('customer.account.profile.validation.email'));
+      return;
+    }
+    void sendEmailOtp(email, 'email');
+  };
+
+  const handleResendOtp = () => {
+    if (resendIn > 0 || sendingOtp || !otpEmail) return;
+    void sendEmailOtp(otpEmail, 'otp');
+  };
+
+  const otpCode = emailOtpPin.join('');
+  const otpReady = otpCode.length === emailOtpLength && EMAIL_OTP_PATTERN.test(otpCode);
+
+  const handleVerifyEmailSubmit = async () => {
+    if (!otpReady || verifyingOtp) return;
+    setVerifyingOtp(true);
+    setOtpError(null);
+    try {
+      const updated = await verifyEmailOtp({ email: otpEmail, code: otpCode });
+      queryClient.setQueryData(profileQueryKeys.me, updated);
+      setShowEmailOtpModal(false);
+      setShowEmailVerifiedSuccess(true);
+    } catch (err) {
+      setEmailOtpPin(Array<string>(emailOtpLength).fill(''));
+      applyEmailError(err, 'otp');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, val: string) => {
+    const digits = val.replace(/[^0-9]/g, '');
+    setOtpError(null);
+    setEmailOtpPin((prev) => {
+      const next = [...prev];
+      if (digits.length > 1) {
+        // Pasted code: spread across the boxes.
+        digits
+          .slice(0, emailOtpLength - index)
+          .split('')
+          .forEach((d, i) => {
+            next[index + i] = d;
+          });
+      } else {
+        next[index] = digits;
+      }
+      return next;
+    });
+  };
+
+  const handleContinueAfterVerification = () => {
+    setShowEmailVerifiedSuccess(false);
+    setFormData((prev) => ({ ...prev, email: otpEmail || prev.email, emailVerified: true }));
+  };
+
+  const emailMatchesVerified =
+    Boolean(profile?.emailVerified) && formData.email.trim() !== '' && formData.email.trim() === (profile?.email ?? '');
+  const emailVerifiedNow = emailMatchesVerified || (formData.emailVerified === true && !dirty);
+  const showVerifyNow = Boolean(formData.email.trim()) && !emailVerifiedNow && !emailUnavailable;
+  const loadingProfile = !profile && profileQuery.isPending && !initialData;
+  const profileError = !profile && profileQuery.isError ? mapProblem(profileQuery.error) : null;
+
+  const isEditable = mode === 'edit' || mode === 'empty';
+
+  return (
+    <View style={styles.container}>
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <View style={styles.headerLeftGroup}>
+          {/* Back Button */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={handleHeaderBack}
+            style={styles.circleIconButton}
+            accessibilityLabel={t('customer.common.back')}
+          >
+            <BackArrowSvg color={customerColors.heading} size={18} />
+          </TouchableOpacity>
+
+          {/* Screen Title - positioned adjacent to Back button (exact Figma spec) */}
+          <Text style={styles.headerTitle}>
+            {mode === 'edit' ? t('customer.account.profile.editTitle') : t('customer.account.profile.viewTitle')}
+          </Text>
+        </View>
+
+        {/* Top Right Edit Pencil Icon */}
+        {mode !== 'edit' ? (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => setMode('edit')}
+            style={styles.circleIconButton}
+            accessibilityLabel={t('customer.account.profile.editTitle')}
+          >
+            <PencilEditSvg color={customerColors.heading} size={16} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerPlaceholder} />
+        )}
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Decorative Green Branch Leaf Illustration */}
+        <Image
+          source={branchLeavesTopLeft}
+          style={styles.decorLeavesImage}
+          resizeMode="contain"
+          pointerEvents="none"
+        />
+
+        {/* Subheader */}
+        <Text style={styles.editorialSubheader}>
+          {mode === 'edit' ? t('customer.account.profile.subheaderEdit') : t('customer.account.profile.subheaderView')}
+        </Text>
+
+        {loadingProfile ? (
+          <View style={styles.stateBox} testID="profile-loading">
+            <ActivityIndicator color={customerColors.brand} />
+          </View>
+        ) : profileError && !profileError.silent && !initialData ? (
+          <View style={styles.stateBox} testID="profile-error">
+            <Text style={styles.fieldErrorText} accessibilityRole="alert">
+              {profileError.message}
+            </Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => void profileQuery.refetch()}
+              accessibilityRole="button"
+              accessibilityLabel={t('customer.common.retry')}
+            >
+              <Text style={styles.openMapBtnText}>{t('customer.common.retry')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+        <>
+        {/* ── SECTION 1: PERSONAL DETAILS ────────────────────────────────────── */}
+        <Text style={styles.sectionHeadingUnderlined}>{t('customer.account.profile.personalDetails')}</Text>
+
+        <View style={styles.formSection}>
+          {/* 1. Name */}
+          <View style={styles.fieldRow}>
+            {isEditable ? (
+              <TextInput
+                style={styles.inputField}
+                value={formData.name}
+                onChangeText={text => updateForm(prev => ({ ...prev, name: text }))}
+                placeholder={t('customer.account.profile.namePlaceholder')}
+                placeholderTextColor={customerColors.muted}
+                textAlign="center"
+              />
+            ) : (
+              <Text style={styles.displayFieldText}>
+                {formData.name || t('customer.account.profile.namePlaceholder')}
+              </Text>
+            )}
+          </View>
+          {fieldErrors.name ? (
+            <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="profile-name-error">
+              {fieldErrors.name}
+            </Text>
+          ) : null}
+
+          {/* 2. Number */}
+          <View style={styles.fieldRowWithTrailing}>
+            {/* Mobile is the sign-in identity (BR-33): always read-only. */}
+            <Text
+              style={[styles.displayFieldText, { flex: 1 }, !formData.phone && styles.placeholderText]}
+              accessibilityLabel={t('customer.account.profile.mobileA11y')}
+            >
+              {formData.phone || t('customer.account.profile.phonePlaceholder')}
+            </Text>
+            {formData.phoneVerified && (
+              <View style={styles.trailingIcon}>
+                <CheckCircleSvg size={16} />
+              </View>
+            )}
+          </View>
+
+          {/* 3. Email */}
+          <View style={styles.fieldRowWithTrailing}>
+            {isEditable ? (
+              <TextInput
+                style={[styles.inputField, { flex: 1 }]}
+                value={formData.email}
+                onChangeText={text => updateForm(prev => ({ ...prev, email: text }))}
+                placeholder={t('customer.account.profile.emailPlaceholder')}
+                placeholderTextColor={customerColors.muted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                textAlign="center"
+              />
+            ) : (
+              <Text style={[styles.displayFieldText, { flex: 1 }]}>
+                {formData.email || t('customer.account.profile.emailPlaceholder')}
+              </Text>
+            )}
+
+            {showVerifyNow ? (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleVerifyNow}
+                disabled={sendingOtp}
+                style={styles.verifyBadge}
+                accessibilityLabel={t('customer.account.profile.verifyNowA11y')}
+                accessibilityState={{ disabled: sendingOtp, busy: sendingOtp }}
+              >
+                {sendingOtp ? (
+                  <ActivityIndicator size="small" color={customerColors.heading} />
+                ) : (
+                  <Text style={styles.verifyBadgeText}>{t('customer.account.profile.verifyNow')}</Text>
+                )}
+              </TouchableOpacity>
+            ) : emailVerifiedNow ? (
+              <View style={styles.trailingIcon}>
+                <CheckCircleSvg size={16} />
+              </View>
+            ) : null}
+          </View>
+
+          {emailError ? (
+            <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="email-error">
+              {emailError}
+            </Text>
+          ) : null}
+
+          {/* 4. Age */}
+          <View style={styles.fieldRow}>
+            {isEditable ? (
+              <TextInput
+                style={styles.inputField}
+                value={formData.age}
+                onChangeText={text => updateForm(prev => ({ ...prev, age: text.replace(/[^0-9]/g, '') }))}
+                keyboardType="number-pad"
+                maxLength={3}
+                placeholder={t('customer.account.profile.agePlaceholder')}
+                placeholderTextColor={customerColors.muted}
+                textAlign="center"
+              />
+            ) : (
+              <Text style={styles.displayFieldText}>
+                {formData.age ? t('customer.account.profile.ageValue', { age: formData.age }) : t('customer.account.profile.agePlaceholder')}
+              </Text>
+            )}
+          </View>
+          {fieldErrors.age ? (
+            <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="profile-age-error">
+              {fieldErrors.age}
+            </Text>
+          ) : null}
+
+          {/* 5. Language Dropdown */}
+          <TouchableOpacity
+            activeOpacity={isEditable ? 0.7 : 1}
+            onPress={() => {
+              if (isEditable) {
+                updateForm(prev => ({
+                  ...prev,
+                  language: prev.language === 'Tamil' ? 'English' : 'Tamil',
+                }));
+              }
+            }}
+            style={styles.dropdownFieldRow}
+            accessibilityLabel={t('customer.account.profile.languageA11y')}
+          >
+            <Text
+              style={[
+                styles.displayFieldText,
+                !formData.language && styles.placeholderText,
+              ]}
+            >
+              {formData.language || t('customer.account.profile.selectLanguage')}
+            </Text>
+            <ChevronDownSvg color={customerColors.heading} size={14} />
+          </TouchableOpacity>
+
+          {/* 6. Gender Selector */}
+          <View style={styles.genderRow}>
+            {/* Male */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => isEditable && updateForm(prev => ({ ...prev, gender: 'male' }))}
+              style={[
+                styles.genderChip,
+                formData.gender === 'male' && styles.genderChipSelected,
+              ]}
+              accessibilityLabel={t('customer.account.profile.male')}
+            >
+              <Image
+                source={profileAvatarMale}
+                style={styles.genderAvatarImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.genderLabel}>{t('customer.account.profile.male')}</Text>
+              {formData.gender === 'male' ? (
+                <CheckCircleSvg size={14} />
+              ) : (
+                <Text style={styles.plusSymbol}>+</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Female */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => isEditable && updateForm(prev => ({ ...prev, gender: 'female' }))}
+              style={[
+                styles.genderChip,
+                formData.gender === 'female' && styles.genderChipSelected,
+              ]}
+              accessibilityLabel={t('customer.account.profile.female')}
+            >
+              <Image
+                source={profileAvatarFemale}
+                style={styles.genderAvatarImage}
+                resizeMode="contain"
+              />
+              <Text style={styles.genderLabel}>{t('customer.account.profile.female')}</Text>
+              {formData.gender === 'female' ? (
+                <CheckCircleSvg size={14} />
+              ) : (
+                <Text style={styles.plusSymbol}>+</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Prefer not to say */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => isEditable && updateForm(prev => ({ ...prev, gender: 'prefer_not_to_say' }))}
+              style={[
+                styles.genderChip,
+                formData.gender === 'prefer_not_to_say' && styles.genderChipSelected,
+              ]}
+              accessibilityLabel={t('customer.account.profile.unspecified')}
+            >
+              <Text style={styles.genderLabelSmall}>{t('customer.account.profile.unspecified')}</Text>
+              {formData.gender === 'prefer_not_to_say' ? (
+                <CheckCircleSvg size={14} />
+              ) : (
+                <Text style={styles.plusSymbol}>+</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {fieldErrors.gender ? <Text style={styles.fieldErrorText}>{fieldErrors.gender}</Text> : null}
+        </View>
+
+        {/* ── SECTION 2: ADDRESS DETAILS ────────────────────────────────────── */}
+        <Text style={styles.sectionHeadingUnderlined}>{t('customer.account.profile.addressDetails')}</Text>
+
+        <View style={styles.formSection}>
+          {/* 1. Address */}
+          <View style={styles.fieldRow}>
+            {isEditable ? (
+              <TextInput
+                style={styles.inputField}
+                value={formData.address}
+                onChangeText={text => updateForm(prev => ({ ...prev, address: text }))}
+                placeholder={t('customer.account.profile.addressPlaceholder')}
+                placeholderTextColor={customerColors.muted}
+                textAlign="center"
+              />
+            ) : (
+              <Text style={styles.displayFieldText}>
+                {formData.address || t('customer.account.profile.addressPlaceholder')}
+              </Text>
+            )}
+          </View>
+          {fieldErrors.address ? <Text style={styles.fieldErrorText}>{fieldErrors.address}</Text> : null}
+
+          {/* 2. City */}
+          <View style={styles.dropdownFieldRow}>
+            {isEditable ? (
+              <TextInput
+                style={[styles.inputField, { flex: 1 }]}
+                value={formData.city}
+                onChangeText={text => updateForm(prev => ({ ...prev, city: text }))}
+                placeholder={t('customer.account.profile.selectCity')}
+                placeholderTextColor={customerColors.muted}
+                maxLength={100}
+                textAlign="center"
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.displayFieldText,
+                  !formData.city && styles.placeholderText,
+                ]}
+              >
+                {formData.city || t('customer.account.profile.selectCity')}
+              </Text>
+            )}
+            <ChevronDownSvg color={customerColors.heading} size={14} />
+          </View>
+          {fieldErrors.city ? <Text style={styles.fieldErrorText}>{fieldErrors.city}</Text> : null}
+
+          {/* 3. Pincode */}
+          <View style={styles.fieldRow}>
+            {isEditable ? (
+              <TextInput
+                style={styles.inputField}
+                value={formData.pincode}
+                onChangeText={text => updateForm(prev => ({ ...prev, pincode: text.replace(/[^0-9]/g, '') }))}
+                maxLength={6}
+                placeholder={t('customer.account.profile.pincodePlaceholder')}
+                placeholderTextColor={customerColors.muted}
+                keyboardType="numeric"
+                textAlign="center"
+              />
+            ) : (
+              <Text style={styles.displayFieldText}>
+                {formData.pincode || t('customer.account.profile.pincodePlaceholder')}
+              </Text>
+            )}
+          </View>
+          {fieldErrors.pincode ? (
+            <Text style={styles.fieldErrorText} testID="profile-pincode-error">
+              {fieldErrors.pincode}
+            </Text>
+          ) : null}
+
+          {/* 4. State Dropdown */}
+          <TouchableOpacity
+            activeOpacity={isEditable ? 0.7 : 1}
+            onPress={() => {
+              if (isEditable) {
+                updateForm(prev => ({
+                  ...prev,
+                  state: prev.state || 'Tamil Nadu',
+                }));
+              }
+            }}
+            style={styles.dropdownFieldRow}
+          >
+            <Text
+              style={[
+                styles.displayFieldText,
+                !formData.state && styles.placeholderText,
+              ]}
+            >
+              {formData.state || t('customer.account.profile.selectState')}
+            </Text>
+            <ChevronDownSvg color={customerColors.heading} size={14} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ── SECTION 3: LOCATION ON MAP ─────────────────────────────────────── */}
+        <View style={styles.mapHeaderRow}>
+          <Text style={styles.locationOnMapText}>{t('customer.account.profile.locationOnMap')}</Text>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onNavigate?.('CustomerAddAddress')}
+            style={styles.openMapBtn}
+            accessibilityLabel={t('customer.account.profile.openMapA11y')}
+          >
+            <Text style={styles.openMapBtnText}>{t('customer.account.profile.openMap')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Map Preview Card (Figma Exact Illustrated Card) */}
+        {formData.address ? (
+          <View style={styles.mapCardContainer}>
+            <Image
+              source={satelliteMapCoimbatore}
+              style={styles.mapBackgroundImage}
+              resizeMode="cover"
+            />
+            <View style={styles.mapSoftTint} />
+
+            {/* Red Marker in Center */}
+            <View style={styles.mapMarkerWrap}>
+              <MapPinSvg size={24} />
+            </View>
+
+            {/* Floating Location Tooltip */}
+            <View style={[styles.floatingLocationCard, customerShadow.raised]}>
+              <View style={styles.tooltipIcon}>
+                <MapPinSvg size={14} />
+              </View>
+              <View style={styles.tooltipTextWrap}>
+                <Text style={styles.tooltipTitle}>{t('customer.account.profile.selectedLocation')}</Text>
+                <Text style={styles.tooltipAddress} numberOfLines={2}>
+                  {formData.address}
+                </Text>
+              </View>
+            </View>
+
+            {/* GPS Target Crosshair Button */}
+            <TouchableOpacity style={styles.gpsTargetBtn} activeOpacity={0.8}>
+              <CrosshairSvg size={16} />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {/* ── BOTTOM ACTION BUTTON (IN EDIT / EMPTY MODE) ─────────────────────── */}
+        {isEditable && saveError ? (
+          <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="profile-save-error">
+            {saveError}
+          </Text>
+        ) : null}
+        {isEditable && (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => void handleSaveProfile()}
+            disabled={saving}
+            style={styles.saveChangesButton}
+            accessibilityLabel={t('customer.account.profile.saveChangesA11y')}
+            accessibilityState={{ disabled: saving, busy: saving }}
+          >
+            {saving ? (
+              <ActivityIndicator color={customerColors.white} testID="profile-saving" />
+            ) : (
+              <Text style={styles.saveChangesText}>{t('customer.account.profile.saveChanges')}</Text>
+            )}
+          </TouchableOpacity>
+        )}
+        </>
+        )}
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* ── MODAL 1: EMAIL OTP VERIFICATION (IMAGE 4 LEFT) ─────────────────── */}
+      <Modal visible={showEmailOtpModal} transparent={true} animationType="slide">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.otpModalCard}>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowEmailOtpModal(false)}
+            >
+              <CloseSvg size={18} />
+            </TouchableOpacity>
+
+            <Image
+              source={branchLeavesTopLeft}
+              style={styles.otpLeavesTop}
+              resizeMode="contain"
+            />
+
+            <Text style={styles.otpEditorialTitle}>
+              {t('customer.account.profile.otpTitle', { length: emailOtpLength })}
+            </Text>
+            <View style={styles.emailEditRow}>
+              <Text style={styles.otpMaskedEmail}>
+                {maskEmail(otpEmail)}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowEmailOtpModal(false);
+                  if (mode === 'view') setMode('edit');
+                }}
+                accessibilityLabel={t('customer.account.profile.editEmailA11y')}
+              >
+                <Text style={styles.otpEditText}>{t('customer.account.profile.editEmail')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* PIN Boxes (emailOtpLength, from the OTP-send answer's codeLength) */}
+            <View style={styles.pinBoxesRow}>
+              {emailOtpPin.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  style={styles.pinInput}
+                  keyboardType="numeric"
+                  maxLength={index === 0 ? emailOtpLength : 1}
+                  value={digit}
+                  onChangeText={val => handleOtpChange(index, val)}
+                  accessibilityLabel={t('customer.auth.otp.digitA11y', { number: index + 1 })}
+                  textContentType="oneTimeCode"
+                  textAlign="center"
+                />
+              ))}
+            </View>
+
+            {otpError ? (
+              <Text style={styles.fieldErrorText} accessibilityRole="alert" testID="email-otp-error">
+                {otpError}
+              </Text>
+            ) : null}
+
+            <Text style={styles.resendTimerText}>
+              {t('customer.auth.otp.noPin')}
+              {resendIn > 0 ? (
+                <Text style={{ color: customerColors.muted }}>{t('customer.account.profile.resendIn', { seconds: resendIn })}</Text>
+              ) : (
+                <Text
+                  style={{ color: customerColors.brand }}
+                  onPress={handleResendOtp}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('customer.auth.otp.resendA11y')}
+                >
+                  {t('customer.auth.otp.resendLink')}
+                </Text>
+              )}
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={() => void handleVerifyEmailSubmit()}
+              disabled={!otpReady || verifyingOtp}
+              style={[styles.modalPrimaryBtn, (!otpReady || verifyingOtp) && { opacity: 0.6 }]}
+              accessibilityLabel={t('customer.common.continue')}
+              accessibilityState={{ disabled: !otpReady || verifyingOtp, busy: verifyingOtp }}
+            >
+              {verifyingOtp ? (
+                <ActivityIndicator color={customerColors.white} />
+              ) : (
+                <Text style={styles.modalPrimaryBtnText}>{t('customer.common.continue')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── MODAL 2: EMAIL VERIFIED SUCCESS (IMAGE 4 RIGHT) ────────────────── */}
+      <Modal visible={showEmailVerifiedSuccess} transparent={true} animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.successModalCard}>
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => setShowEmailVerifiedSuccess(false)}
+              accessibilityLabel={t('customer.common.close')}
+            >
+              <Text style={styles.modalCloseText}>✕</Text>
+            </TouchableOpacity>
+
+            <View style={styles.successGraphicWrap}>
+              <Image
+                source={profileEmailVerified}
+                style={styles.verifiedEnvelopeImage}
+                resizeMode="contain"
+              />
+            </View>
+
+            <Text style={styles.successTitle}>{t('customer.account.profile.verifiedTitle')}</Text>
+            <Text style={styles.successDescription}>
+              {t('customer.account.profile.verifiedBody')}
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              onPress={handleContinueAfterVerification}
+              style={styles.modalPrimaryBtn}
+              accessibilityLabel={t('customer.account.profile.continueToProfileA11y')}
+            >
+              <Text style={styles.modalPrimaryBtnText}>{t('customer.account.profile.continueToProfile')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: customerColors.white,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: customerSpacing.base,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
+    paddingBottom: 10,
+    backgroundColor: customerColors.white,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: customerColors.heading,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  headerPlaceholder: {
+    width: 36,
+    height: 36,
+  },
+  headerTitle: {
+    fontSize: 22,
+    color: customerColors.heading,
+    fontFamily: customerFonts.editorial,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: customerSpacing.base,
+    paddingBottom: 40,
+    position: 'relative',
+  },
+  decorLeavesImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 52,
+    height: 85,
+    opacity: 0.9,
+  },
+  editorialSubheader: {
+    fontSize: 18,
+    color: customerColors.brand,
+    fontFamily: customerFonts.editorial,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  sectionHeadingUnderlined: {
+    fontSize: 16,
+    color: customerColors.brand,
+    fontFamily: customerFonts.editorial,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  formSection: {
+    marginTop: 4,
+  },
+  fieldRow: {
+    borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
+    borderBottomColor: customerColors.neutral.neutral300,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fieldRowWithTrailing: {
+    borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
+    borderBottomColor: customerColors.neutral.neutral300,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  dropdownFieldRow: {
+    borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
+    borderBottomColor: customerColors.neutral.neutral300,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  inputField: {
+    fontSize: 13,
+    color: customerColors.body,
+    fontFamily: customerFonts.regular,
+    paddingVertical: 0,
+    width: '100%',
+    textAlign: 'center',
+  },
+  displayFieldText: {
+    fontSize: 13,
+    color: customerColors.body,
+    fontFamily: customerFonts.regular,
+    textAlign: 'center',
+  },
+  placeholderText: {
+    color: customerColors.muted,
+  },
+  fieldErrorText: {
+    fontSize: 12,
+    color: customerColors.shared.error,
+    fontFamily: customerFonts.regular,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  stateBox: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  trailingIcon: {
+    position: 'absolute',
+    right: 8,
+  },
+  verifyBadge: {
+    position: 'absolute',
+    right: 4,
+    backgroundColor: customerColors.palette.red.petal,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: customerRadius.pill,
+  },
+  verifyBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: customerColors.palette.red.signal,
+    fontFamily: customerFonts.semibold,
+  },
+  genderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  genderChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
+    borderBottomColor: customerColors.neutral.neutral300,
+    gap: 4,
+  },
+  genderChipSelected: {
+    borderBottomColor: customerColors.brand,
+  },
+  genderAvatarImage: {
+    width: 18,
+    height: 18,
+  },
+  genderLabel: {
+    fontSize: 11,
+    color: customerColors.body,
+    fontFamily: customerFonts.regular,
+  },
+  genderLabelSmall: {
+    fontSize: 10,
+    color: customerColors.body,
+    fontFamily: customerFonts.regular,
+  },
+  plusSymbol: {
+    fontSize: 12,
+    color: customerColors.muted,
+  },
+  mapHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  locationOnMapText: {
+    fontSize: 15,
+    color: customerColors.brand,
+    fontFamily: customerFonts.editorial,
+  },
+  openMapBtn: {
+    backgroundColor: customerColors.brand,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: customerRadius.pill,
+  },
+  openMapBtnText: {
+    fontSize: 11,
+    color: customerColors.white,
+    fontWeight: '600',
+    fontFamily: customerFonts.semibold,
+  },
+  mapCardContainer: {
+    height: 110,
+    borderRadius: customerRadius.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: customerColors.neutral.neutral300,
+    backgroundColor: customerColors.palette.green.whisper,
+    position: 'relative',
+    marginTop: 4,
+  },
+  mapBackgroundImage: {
+    ...StyleSheet.absoluteFill,
+    width: '100%',
+    height: '100%',
+  },
+  mapSoftTint: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  mapMarkerWrap: {
+    position: 'absolute',
+    top: 36,
+    left: '52%',
+    marginLeft: -12,
+  },
+  floatingLocationCard: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: customerColors.white,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: '58%',
+    gap: 6,
+  },
+  tooltipIcon: {
+    marginTop: 1,
+  },
+  tooltipTextWrap: {
+    flex: 1,
+  },
+  tooltipTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: customerColors.brand,
+    fontFamily: customerFonts.bold,
+  },
+  tooltipAddress: {
+    fontSize: 9,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+    marginTop: 1,
+  },
+  gpsTargetBtn: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: customerColors.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveChangesButton: {
+    backgroundColor: customerColors.brand,
+    borderRadius: customerRadius.pill,
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 20,
+    width: '100%',
+  },
+  saveChangesText: {
+    color: customerColors.white,
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: customerFonts.bold,
+  },
+
+  // ── MODAL STYLES ───────────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: customerColors.overlay.scrim45,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: customerSpacing.base,
+  },
+  otpModalCard: {
+    width: '100%',
+    backgroundColor: customerColors.white,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: -12,
+    right: -12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: customerColors.white,
+    borderWidth: 1,
+    borderColor: customerColors.neutral.neutral300,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: customerColors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 10,
+  },
+  modalCloseText: {
+    fontSize: 13,
+    color: customerColors.neutral.neutral600,
+    fontWeight: '700',
+    lineHeight: 15,
+  },
+  verifiedEnvelopeImage: {
+    width: 84,
+    height: 74,
+  },
+  otpLeavesTop: {
+    width: 50,
+    height: 50,
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    opacity: 0.8,
+  },
+  otpEditorialTitle: {
+    fontSize: 18,
+    color: customerColors.brand,
+    fontFamily: customerFonts.editorial,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  emailEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 4,
+  },
+  otpMaskedEmail: {
+    fontSize: 12,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+  },
+  otpEditText: {
+    fontSize: 12,
+    color: customerColors.brand,
+    fontWeight: '600',
+  },
+  pinBoxesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginVertical: 24,
+  },
+  pinInput: {
+    width: 36,
+    height: 44,
+    borderBottomWidth: 2,
+    borderBottomColor: customerColors.neutral.neutral400,
+    fontSize: 20,
+    fontWeight: '700',
+    color: customerColors.heading,
+  },
+  resendTimerText: {
+    fontSize: 12,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+    marginBottom: 20,
+  },
+  modalPrimaryBtn: {
+    backgroundColor: customerColors.brand,
+    borderRadius: customerRadius.pill,
+    height: 44,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalPrimaryBtnText: {
+    color: customerColors.white,
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: customerFonts.bold,
+  },
+  successModalCard: {
+    width: '100%',
+    backgroundColor: customerColors.white,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  successGraphicWrap: {
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  successTitle: {
+    fontSize: 20,
+    color: customerColors.heading,
+    fontFamily: customerFonts.editorial,
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  successDescription: {
+    fontSize: 12,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
+    paddingHorizontal: 8,
+    marginBottom: 20,
+  },
+});
+

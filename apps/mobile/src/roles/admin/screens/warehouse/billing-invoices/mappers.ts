@@ -202,6 +202,8 @@ export function toInvoiceDetail(dto: InvoiceDetailDto): InvoiceDetailView {
   return {
     ...row,
     orderId: typeof dto.orderId === 'string' && UUID_RE.test(dto.orderId) ? dto.orderId : null,
+    buyerName: typeof dto.buyerName === 'string' && dto.buyerName.trim() !== '' ? dto.buyerName.trim() : null,
+    buyerGstin: typeof dto.buyerGstin === 'string' && dto.buyerGstin.trim() !== '' ? dto.buyerGstin.trim() : null,
     placeOfSupply: typeof dto.placeOfSupply === 'string' && dto.placeOfSupply !== '' ? dto.placeOfSupply : null,
     gstApplicable: dto.gstApplicable === true,
     gstInclusive: dto.gstInclusive === true,
@@ -216,10 +218,12 @@ export function toInvoiceDetail(dto: InvoiceDetailDto): InvoiceDetailView {
 
 /**
  * The Order No. and Customer rows of an order's invoice (M5-18). GET
- * /invoices/{id} carries neither, so they come from the order detail the
- * screen already holds, and only when the invoice names that very order: a
- * stale or mismatched order never labels another invoice. Only the buyer's
- * name is copied; a mobile never reaches the invoice view (BR-92).
+ * /invoices/{id} carries no order number (only the order uuid), so it comes
+ * from the order detail the screen already holds, and only when the invoice
+ * names that very order: a stale or mismatched order never labels another
+ * invoice. The detail screen prefers the invoice's own buyerName (BR-128) and
+ * uses this order's buyer name only as a fallback. A mobile never reaches the
+ * invoice view (BR-92).
  */
 export function invoiceOrderContext(
   invoice: Pick<InvoiceDetailView, 'orderId'>,

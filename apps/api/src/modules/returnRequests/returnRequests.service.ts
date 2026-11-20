@@ -29,14 +29,23 @@ import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { confineToAssignedWarehouses } from '../warehouse-ops/scope.js';
+import { kgToGrams } from '../sales/sales.math.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
+import { defaultBlobStorage } from '../../storage/blobStorage.js';
+import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
 import {
+  findUploadsForReturn,
   returnRequestsRepo,
   type OrderForReturn,
   type ReturnRequestsRepo,
   type ReturnSummaryRowShape,
 } from './returnRequests.repo.js';
 import type {
+  CustomerReturnResponse,
+  CustomerReturnSummaryResponse,
+  ListMyReturnsQuery,
+  ListMyReturnsResponse,
+  ReturnSummaryResponse,
   CreateReturnRequestBody,
   InspectReturnBody,
   ListReturnsQuery,
@@ -56,6 +65,10 @@ export interface ReturnRequestsServiceDeps {
   db: Executor;
   runTx: TransactionRunner;
   walletSvc: WalletService;
+  /** BR-204: upload lookup for photo validation. */
+  findUploads: typeof findUploadsForReturn;
+  /** BR-204: storage key -> short-lived signed read URL. */
+  photoUrl: (storageKey: string) => Promise<string>;
 }
 
 /**
@@ -69,6 +82,37 @@ function orderVisible(scope: ResolvedScope, order: OrderForReturn): boolean {
   if (scope.customerId !== undefined) return order.customerId === scope.customerId;
   if (scope.warehouseIds.length > 0) return scope.warehouseIds.includes(order.warehouseId);
   return false;
+}
+
+/** BR-155: the permission a customer files under; staff file under rma.request.process. */
+export const CUSTOMER_FILE_PERMISSION = 'rma.request.create_own';
+/** BR-155c: a customer may only return what was handed over. */
+const CUSTOMER_RETURNABLE_ORDER_STATUSES: ReadonlySet<string> = new Set(['DELIVERED', 'PICKED_UP']);
+
+/** BR-155f: the customer allow-list. Built field by field so a new internal field cannot leak. */
+function toCustomerSummary(row: ReturnSummaryResponse): CustomerReturnSummaryResponse {
+  return {
+    id: row.id,
+    orderId: row.orderId,
+    status: row.status,
+    reason: row.reason,
+    note: row.note,
+    photos: row.photos,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function toCustomerReturn(row: ReturnRequestResponse): CustomerReturnResponse {
+  return {
+    ...toCustomerSummary(row),
+    items: row.items.map((item) => ({
+      id: item.id,
+      orderItemId: item.orderItemId,
+      requestedQty: item.requestedQty,
+      acceptedQty: item.acceptedQty,
+    })),
+  };
 }
 
 function notFound(id: string): AppError {
@@ -92,6 +136,39 @@ export function createReturnRequestsService(
   const db = deps.db ?? pool;
   const runTx = deps.runTx ?? (deps.db ? <T>(fn: (tx: Executor) => Promise<T>) => fn(deps.db!) : withTransaction);
   const walletSvc = deps.walletSvc ?? walletService;
+  const findUploads = deps.findUploads ?? findUploadsForReturn;
+  const photoUrl = deps.photoUrl ?? ((key: string) => defaultBlobStorage.generateReadUrl(key));
+
+  /** BR-204: the repo carries storage keys; every response carries signed URLs instead. */
+  async function withPhotoUrls<T extends { photos: string[] }>(row: T): Promise<T> {
+    return { ...row, photos: await Promise.all(row.photos.map((key) => photoUrl(key))) };
+  }
+
+  /**
+   * BR-204: the caller's own ISSUE_PHOTO uploads, as storage keys; 422 for anything else (the same
+   * rule as support-ticket photos, customer-support.service resolvePhotos).
+   */
+  async function resolvePhotoKeys(executor: Executor, userId: string, uploadIds: string[]): Promise<string[]> {
+    if (uploadIds.length === 0) return [];
+    const unique = [...new Set(uploadIds)];
+    const byId = new Map((await findUploads(executor, unique)).map((u) => [u.id, u]));
+    return unique.map((id) => {
+      const upload = byId.get(id);
+      if (upload === undefined || upload.uploadedBy !== userId) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'A photo does not reference an upload you own.',
+          errors: { 'body.photoUploadIds': ['Must be uploads you signed yourself.'] },
+        });
+      }
+      if (uploadPurposeOfStorageKey(upload.storageKey) !== UploadPurpose.ISSUE_PHOTO) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'A photo must be an upload signed with purpose ISSUE_PHOTO.',
+          errors: { 'body.photoUploadIds': ['Must be ISSUE_PHOTO uploads.'] },
+        });
+      }
+      return upload.storageKey;
+    });
+  }
 
   // A warehouse admin holds the return permissions at `all`, and `scopedWhere` adds no warehouse
   // clause at `all`, so every read and write below first narrows a scope that carries assigned
@@ -100,21 +177,42 @@ export function createReturnRequestsService(
   async function loadVisible(scope: ResolvedScope, id: string): Promise<ReturnRequestResponse> {
     const found = await repo.findById(db, id, confineToAssignedWarehouses(scope));
     if (found === null) throw notFound(id);
-    return found;
+    return withPhotoUrls(found);
   }
 
   return {
-    async createReturnRequest(actor, scope, orderId, input): Promise<ReturnRequestResponse> {
+    async createReturnRequest(actor, scope, orderId, input) {
+      const orderNotFound = () =>
+        new AppError('NOT_FOUND', { detail: `No order with id ${orderId} is visible to you.` });
+      const asCustomer = scope.permission === CUSTOMER_FILE_PERMISSION;
+      // BR-155b: the customer path fails closed without a customer id, and another customer's
+      // order is the same 404 as an unknown one.
+      if (asCustomer && scope.customerId === undefined) throw orderNotFound();
+
       const order = await repo.findOrderForReturn(db, orderId);
-      if (order === null || !orderVisible(confineToAssignedWarehouses(scope), order)) {
-        throw new AppError('NOT_FOUND', {
-          detail: `No order with id ${orderId} is visible to you.`,
+      const visible =
+        order !== null &&
+        (asCustomer
+          ? order.customerId === scope.customerId
+          : orderVisible(confineToAssignedWarehouses(scope), order));
+      if (!visible || order === null) throw orderNotFound();
+
+      if (asCustomer && !CUSTOMER_RETURNABLE_ORDER_STATUSES.has(order.status)) {
+        throw new AppError('INVALID_STATE_TRANSITION', {
+          status: 409,
+          detail: `Order ${orderId} is ${order.status}; only a DELIVERED or PICKED_UP order can be returned (BR-155).`,
         });
       }
 
       const orderItemIds = input.items.map((item) => item.orderItemId);
+      if (new Set(orderItemIds).size !== orderItemIds.length) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'Each order item may appear only once in a return request.',
+        });
+      }
       const orderItems = await repo.findOrderItemsByIds(db, orderId, orderItemIds);
       const byId = new Map(orderItems.map((item) => [item.id, item]));
+      const alreadyReturned = await repo.sumAlreadyReturnedQty(db, orderId, orderItemIds);
 
       for (const item of input.items) {
         const orderItem = byId.get(item.orderItemId);
@@ -129,12 +227,17 @@ export function createReturnRequestsService(
             detail: `Order item ${item.orderItemId} is already ${orderItem.status} and cannot be returned again.`,
           });
         }
-        if (Number(item.qty) > Number(orderItem.qtyKg) + 0.001) {
+        // BR-155e: integer grams, never floats; returns not REJECTED already claim their share.
+        const remainingGrams =
+          kgToGrams(orderItem.qtyKg) - kgToGrams(alreadyReturned[item.orderItemId] ?? '0');
+        if (kgToGrams(item.qty) > remainingGrams) {
           throw new AppError('VALIDATION_FAILED', {
-            detail: `Requested return quantity (${item.qty}) exceeds the ordered quantity (${orderItem.qtyKg}) for item ${item.orderItemId}.`,
+            detail: `Requested return quantity (${item.qty}) exceeds what is still returnable for item ${item.orderItemId} (ordered ${orderItem.qtyKg}, already on a return ${alreadyReturned[item.orderItemId] ?? '0.000'}).`,
           });
         }
       }
+
+      const photoKeys = await resolvePhotoKeys(db, actor.userId, input.photoUploadIds ?? []);
 
       const { returnRow, items } = await runTx(async (tx) => {
         const inserted = await repo.insertReturnRequest(tx, {
@@ -142,6 +245,7 @@ export function createReturnRequestsService(
           customerId: order.customerId,
           reason: input.reason,
           note: input.note ?? null,
+          photoKeys,
         });
 
         const insertedItems = await repo.insertReturnRequestItems(
@@ -160,7 +264,7 @@ export function createReturnRequestsService(
         await writeAuditLog(tx, {
           actorId: actor.userId,
           actorRole: scope.roleCode,
-          actionCode: 'rma.request.process',
+          actionCode: asCustomer ? CUSTOMER_FILE_PERMISSION : 'rma.request.process',
           entityType: 'return_request',
           entityId: inserted.id,
           warehouseId: order.warehouseId,
@@ -170,13 +274,35 @@ export function createReturnRequestsService(
         return { returnRow: inserted, items: insertedItems };
       });
 
-      return toResponse(returnRow, order.warehouseId, items);
+      const full = await withPhotoUrls(toResponse(returnRow, order.warehouseId, items));
+      return asCustomer ? toCustomerReturn(full) : full;
+    },
+
+    async listOwn(scope, query): Promise<ListMyReturnsResponse> {
+      // BR-155g: no customer id, no rows (fail closed), never a 403.
+      if (scope.customerId === undefined) return { items: [], page: { nextCursor: null, hasMore: false } };
+      const result = await repo.listForCustomer(db, {
+        customerId: scope.customerId,
+        cursor: query.cursor,
+        limit: query.limit,
+      });
+      return {
+        items: await Promise.all(result.items.map(async (row) => toCustomerSummary(await withPhotoUrls(row)))),
+        page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
+      };
+    },
+
+    async getOwn(scope, id): Promise<CustomerReturnResponse> {
+      const found =
+        scope.customerId === undefined ? null : await repo.findByIdForCustomer(db, id, scope.customerId);
+      if (found === null) throw notFound(id);
+      return toCustomerReturn(await withPhotoUrls(found));
     },
 
     async list(scope, query): Promise<ListReturnsResponse> {
       const result = await repo.list(db, { filters: query, scope: confineToAssignedWarehouses(scope) });
       return {
-        items: result.items,
+        items: await Promise.all(result.items.map(withPhotoUrls)),
         page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
       };
     },
@@ -427,6 +553,7 @@ function toResponse(
     status: row.status,
     reason: row.reason,
     note: row.note,
+    photos: row.photoKeys ?? [],
     items,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt === null ? null : row.updatedAt.toISOString(),
@@ -439,7 +566,11 @@ export interface ReturnRequestsService {
     scope: ResolvedScope,
     orderId: string,
     input: CreateReturnRequestBody,
-  ): Promise<ReturnRequestResponse>;
+  ): Promise<ReturnRequestResponse | CustomerReturnResponse>;
+  /** BR-155g: GET /returns/me. */
+  listOwn(scope: ResolvedScope, query: ListMyReturnsQuery): Promise<ListMyReturnsResponse>;
+  /** BR-155h: GET /returns/me/{id}. */
+  getOwn(scope: ResolvedScope, id: string): Promise<CustomerReturnResponse>;
   list(scope: ResolvedScope, query: ListReturnsQuery): Promise<ListReturnsResponse>;
   getById(scope: ResolvedScope, id: string): Promise<ReturnRequestResponse>;
   inspect(

@@ -14,7 +14,7 @@ walletsRouter.get(
   requirePermission('wallet.own.view'),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
-    res.json(await walletService.getWalletForActor(actor));
+    res.json(await walletService.getWalletWithLimits(actor));
   }),
 );
 

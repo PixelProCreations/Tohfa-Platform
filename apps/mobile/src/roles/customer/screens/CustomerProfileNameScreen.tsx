@@ -1,0 +1,283 @@
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  ActivityIndicator,
+} from 'react-native';
+import {
+  customerColors,
+  customerFonts,
+  customerShadow,
+  customerSpacing,
+} from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
+import { displayName, useCustomerProfile, useUpdateCustomerProfile } from '../api/profile';
+import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
+
+interface CustomerProfileNameScreenProps {
+  onNavigate: (screen: 'CustomerProfileAgeGender' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerLogin') => void;
+}
+
+export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps> = ({ onNavigate }) => {
+  const [name, setName] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState(false);
+  const profile = useCustomerProfile();
+  const update = useUpdateCustomerProfile();
+  const saving = update.isPending;
+
+  // BR-190: prefill a real name if one is already saved (never the sign-up placeholder).
+  useEffect(() => {
+    if (prefilled || !profile.data) return;
+    setPrefilled(true);
+    const existing = displayName(profile.data);
+    if (existing) setName((cur) => (cur === '' ? existing : cur));
+  }, [prefilled, profile.data]);
+
+  const trimmed = name.trim();
+  const hasName = trimmed.length > 0;
+
+  const handleNext = async () => {
+    if (!hasName || saving) return;
+    if (trimmed.length > 120) {
+      setError(t('customer.account.setup.name.tooLong'));
+      return;
+    }
+    setError(null);
+    try {
+      await update.mutateAsync({ fullName: trimmed });
+      onNavigate('CustomerProfileAgeGender');
+    } catch (err) {
+      const p = mapProblem(err);
+      if (p.silent) return;
+      setError(p.fieldErrors.fullName ?? p.message);
+    }
+  };
+
+  // Skip sends nothing (works offline).
+  const handleSkip = () => {
+    onNavigate('CustomerLoadingMarket');
+  };
+
+  return (
+    <View style={styles.container}>
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
+      <StatusBar hidden={true} />
+
+      {/* Top Header: 3-Segment Progress Bar + Skip */}
+      <View style={styles.headerRow}>
+        <View style={styles.progressSegmentsWrap}>
+          <View style={[styles.progressSegment, styles.progressSegmentActive]} />
+          <View style={[styles.progressSegment, styles.progressSegmentInactive]} />
+          <View style={[styles.progressSegment, styles.progressSegmentInactive]} />
+        </View>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleSkip}
+          style={styles.skipButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('customer.account.setup.skip')}
+        >
+          <Text style={styles.skipText}>{t('customer.account.setup.skip')}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.contentWrap}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        {/* Main Center Block (349 Fill x 204 Hug from Figma) */}
+        <View style={styles.centerBlock}>
+          <Text style={styles.title}>{t('customer.account.setup.name.title')}</Text>
+
+          {/* Underline Name Input */}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.nameInput}
+              placeholder=""
+              placeholderTextColor={customerColors.neutral.neutral500}
+              value={name}
+              onChangeText={(v) => {
+                setName(v);
+                if (error) setError(null);
+              }}
+              maxLength={120}
+              editable={!saving}
+              accessibilityLabel={t('customer.account.setup.name.inputA11y')}
+              textAlign="center"
+              autoFocus={true}
+              returnKeyType="done"
+              onSubmitEditing={handleNext}
+            />
+            <View style={[styles.underline, error ? styles.underlineError : null]} />
+            {error ? (
+              <Text style={styles.errorText} accessibilityRole="alert" testID="name-error">
+                {error}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        {/* Bottom Button Area (349 Fill x 44 Hug from Figma) */}
+        <View style={styles.bottomArea}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={handleNext}
+            disabled={!hasName || saving}
+            accessibilityState={{ disabled: !hasName || saving, busy: saving }}
+            style={[
+              styles.circularButton,
+              hasName ? styles.circularButtonActive : styles.circularButtonDisabled,
+              hasName && customerShadow.raised,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={t('customer.account.setup.name.continue')}
+          >
+            {saving ? (
+              <ActivityIndicator color={customerColors.white} testID="name-saving" />
+            ) : (
+              <ArrowRightFigmaIcon size={24} color={hasName ? customerColors.white : customerColors.neutral.neutral500} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: customerColors.white,
+    position: 'relative',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: customerSpacing[24],
+    paddingTop: 48,
+    paddingBottom: 16,
+    gap: 16,
+  },
+  progressSegmentsWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressSegment: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  progressSegmentActive: {
+    backgroundColor: customerColors.brand,
+  },
+  progressSegmentInactive: {
+    backgroundColor: customerColors.neutral.neutral300,
+  },
+  skipButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  skipText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 16,
+    color: customerColors.body,
+    fontWeight: '500',
+  },
+  contentWrap: {
+    flex: 1,
+    paddingHorizontal: customerSpacing[24],
+    justifyContent: 'space-between',
+    paddingBottom: 48,
+  },
+  centerBlock: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 349,
+    alignSelf: 'center',
+  },
+  title: {
+    fontFamily: customerFonts.editorial,
+    fontSize: 30,
+    lineHeight: 38,
+    color: customerColors.body,
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  inputContainer: {
+    width: '100%',
+    maxWidth: 300,
+  },
+  nameInput: {
+    fontFamily: customerFonts.regular,
+    fontSize: 20,
+    color: customerColors.body,
+    paddingVertical: 10,
+    textAlign: 'center',
+  },
+  underline: {
+    height: 1,
+    backgroundColor: customerColors.neutral.neutral300,
+    width: '100%',
+  },
+  underlineError: {
+    backgroundColor: customerColors.shared.error,
+  },
+  errorText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 13,
+    color: customerColors.shared.error,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  bottomArea: {
+    width: '100%',
+    maxWidth: 349,
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 54,
+  },
+  circularButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  circularButtonActive: {
+    backgroundColor: customerColors.brand,
+  },
+  circularButtonDisabled: {
+    backgroundColor: customerColors.neutral.neutral300,
+  },
+  arrowText: {
+    color: customerColors.white,
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  homeIndicator: {
+    width: 134,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: customerColors.neutral.black,
+    opacity: 0.8,
+    alignSelf: 'center',
+    marginBottom: 8,
+  },
+});
+

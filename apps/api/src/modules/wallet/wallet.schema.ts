@@ -15,6 +15,9 @@ export const walletTxnTypes = [
   'SALE_CREDIT',
   'SUBSCRIPTION_DEBIT',
   'ADJUSTMENT',
+  // BR-150: the two legs of a customer-to-customer transfer (migration 0110).
+  'TRANSFER_OUT',
+  'TRANSFER_IN',
 ] as const;
 export type WalletTxnType = (typeof walletTxnTypes)[number];
 
@@ -39,6 +42,8 @@ export const walletResponse = z
     currency: z.literal('INR'),
     status: z.enum(walletStatuses),
     updatedAt: z.string().nullable().optional(),
+    /** BR-193: only on GET /wallets/me. */
+    topupLimits: z.object({ min: moneySchema, max: moneySchema }).strict().optional(),
   })
   .strict();
 export type WalletResponse = z.infer<typeof walletResponse>;
@@ -59,9 +64,14 @@ export const walletTransactionResponse = z
     performedAt: z.string(),
     remarks: z.string().nullable(),
     status: z.enum(walletTxnStatuses),
+    /** BR-197: own-ledger display fields. */
+    txnCode: z.string().optional(),
+    orderNumber: z.string().nullable().optional(),
   })
   .strict();
 export type WalletTransactionResponse = z.infer<typeof walletTransactionResponse>;
+
+const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
 
 /** GET /v1/wallets/me/transactions query parameters */
 export const listMyTransactionsQuery = z
@@ -69,8 +79,17 @@ export const listMyTransactionsQuery = z
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     type: z.enum(walletTxnTypes).optional(),
-    from: z.string().datetime().optional(),
-    to: z.string().datetime().optional(),
+    // BR-183: a bare date (YYYY-MM-DD) means the whole UTC day (from = 00:00:00.000Z, to = 23:59:59.999Z).
+    from: z
+      .union([z.string().datetime(), z.string().regex(dateOnly, 'from must be a date or date-time')])
+      .transform((v) => (dateOnly.test(v) ? `${v}T00:00:00.000Z` : v))
+      .optional(),
+    to: z
+      .union([z.string().datetime(), z.string().regex(dateOnly, 'to must be a date or date-time')])
+      .transform((v) => (dateOnly.test(v) ? `${v}T23:59:59.999Z` : v))
+      .optional(),
+    // BR-129: every ledger row is COMPLETED, so this filter only validates the value.
+    status: z.enum(walletTxnStatuses).optional(),
     tab: z.enum(['all', 'credits', 'debits', 'refunds']).default('all'),
   })
   .strict();

@@ -1,6 +1,6 @@
 import type { Executor } from "../../db/pool.js";
-import type { InvoiceType, InvoiceStatus, Money } from "@tohfa/shared-types";
-import type { InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
+import { parseMoney, toPaise, type InvoiceType, type InvoiceStatus, type Money } from "@tohfa/shared-types";
+import type { InvoiceSeller, InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
 
 export interface InvoiceDbRow {
   id: string;
@@ -158,6 +158,22 @@ function listFilterSql(query: InvoiceSummaryQuery, values: unknown[]): string[] 
   return conditions;
 }
 
+async function readSeller(db: Executor): Promise<InvoiceSeller> {
+  const res = await db.query<{ key: string; value: unknown }>(
+    "SELECT key, value FROM system_config WHERE key LIKE 'invoice_seller_%'",
+  );
+  const get = (k: string): string => {
+    const v = res.rows.find((r) => r.key === k)?.value;
+    return typeof v === "string" ? v : "";
+  };
+  return {
+    legalName: get("invoice_seller_legal_name"),
+    gstin: get("invoice_seller_gstin"),
+    address: get("invoice_seller_address"),
+    stateCode: get("invoice_seller_state_code"),
+  };
+}
+
 export const invoicesRepo: InvoicesRepo = {
   async generateInvoiceNumber(db: Executor, fiscalYear: string, type: InvoiceType): Promise<string> {
     const typePrefix =
@@ -256,7 +272,7 @@ export const invoicesRepo: InvoicesRepo = {
       });
     }
 
-    const isGstApplicable = input.invoiceType === "SALE_B2B" || parseFloat(invoice.taxable_amount) > 0;
+    const isGstApplicable = input.invoiceType === "SALE_B2B" || toPaise(parseMoney(invoice.taxable_amount)) > 0;
 
     return {
       id: invoice.id,
@@ -320,7 +336,7 @@ export const invoicesRepo: InvoicesRepo = {
       total: row.total as Money,
     }));
 
-    const isGstApplicable = invoice.invoice_type === "SALE_B2B" || parseFloat(invoice.taxable_amount) > 0;
+    const isGstApplicable = invoice.invoice_type === "SALE_B2B" || toPaise(parseMoney(invoice.taxable_amount)) > 0;
 
     return {
       id: invoice.id,
@@ -343,6 +359,7 @@ export const invoicesRepo: InvoicesRepo = {
       lines,
       buyerName: invoice.buyer_name,
       buyerGstin: invoice.buyer_gstin,
+      seller: await readSeller(db),
     };
   },
 
@@ -384,7 +401,7 @@ export const invoicesRepo: InvoicesRepo = {
       issueDate: r.issue_date,
       taxableAmount: r.taxable_amount as Money,
       totalAmount: r.total_amount as Money,
-      gstApplicable: r.invoice_type === "SALE_B2B" || parseFloat(r.taxable_amount) > 0,
+      gstApplicable: r.invoice_type === "SALE_B2B" || toPaise(parseMoney(r.taxable_amount)) > 0,
       status: r.status,
       pdfUrl: "/v1/invoices/" + r.id + "/download",
     }));

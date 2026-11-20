@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Money } from '@tohfa/shared-types';
+import { parseMoney, type Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type {
@@ -17,6 +17,8 @@ export interface DeliveryConfig {
   deliveryFee: Money;
   freeDeliveryThreshold: Money;
   homeDeliveryEnabled: boolean;
+  /** BR-200: system_config.handling_fee; 0 when the row is missing. */
+  handlingFee: Money;
 }
 
 export interface CartCheckoutItem {
@@ -42,6 +44,13 @@ export interface CartCheckoutRecord {
   items: CartCheckoutItem[];
 }
 
+/** BR-195: one thumbnail source row (catalog name + icon key only; no farm data). */
+export interface OrderThumbRecord {
+  productName: string;
+  iconKey: string | null;
+  cropId: string;
+}
+
 export interface OrderRecord {
   id: string;
   orderNumber: string;
@@ -55,6 +64,8 @@ export interface OrderRecord {
   deliveryDate: string | null;
   subtotal: string;
   deliveryFee: string;
+  /** BR-200 (migration 0170); 0 for orders placed before the column existed. */
+  handlingFee: string;
   discount: string;
   gstAmount: string;
   totalAmount: string;
@@ -66,10 +77,14 @@ export interface OrderRecord {
   placedAt: Date;
   createdAt: Date;
   updatedAt: Date | null;
+  /** Set by listOrders only: up to three items, biggest line first. */
+  thumbs?: OrderThumbRecord[];
 }
 
 export interface OrderItemRecord {
   id: string;
+  /** Catalog icon key, for thumbnails only (never serialised raw). */
+  iconKey?: string | null;
   orderId: string;
   productId: string;
   name: string;
@@ -81,6 +96,18 @@ export interface OrderItemRecord {
 
 export interface OrdersRepo {
   getDeliveryConfig(db: Executor): Promise<DeliveryConfig>;
+
+  /** BR-98 / BR-161: raw system_config.retail_gst_rate_percent value; undefined when the row is missing. */
+  getRetailGstRateRaw(db: Executor): Promise<unknown>;
+
+  /** BR-161: true only for a live (not deleted) address owned by this customer. */
+  isOwnLiveAddress(db: Executor, customerId: string, addressId: string): Promise<boolean>;
+
+  /**
+   * BR-200: the customer's wallet balance, read-only (the quote must not create a wallet the way
+   * walletService.getWalletForActor does). null when the customer has no wallet yet.
+   */
+  getCustomerWalletBalance(db: Executor, customerId: string): Promise<string | null>;
 
   findCartForCheckout(
     db: Executor,
@@ -103,7 +130,8 @@ export interface OrdersRepo {
   findOrderById(
     db: Executor,
     orderId: string,
-    customerId?: string | null,
+    /** BR-36: always the caller's own customer id; there is no unscoped variant (fail closed). */
+    customerId: string,
   ): Promise<{ order: OrderRecord; items: OrderItemRecord[] } | null>;
 
   listOrders(
@@ -133,6 +161,7 @@ export interface OrdersRepo {
       deliverySlot?: DeliverySlot | null | undefined;
       subtotal: Money;
       deliveryFee: Money;
+      handlingFee: Money;
       discount: Money;
       gstAmount: Money;
       totalAmount: Money;
@@ -156,12 +185,13 @@ export const ordersRepo: OrdersRepo = {
   async getDeliveryConfig(db) {
     const res = await db.query<{ key: string; value: unknown }>(
       `SELECT key, value FROM system_config
-        WHERE key IN ('delivery_fee', 'free_delivery_threshold', 'home_delivery_enabled')`,
+        WHERE key IN ('delivery_fee', 'free_delivery_threshold', 'home_delivery_enabled', 'handling_fee')`,
     );
 
     let deliveryFee = '40.00' as Money;
     let freeDeliveryThreshold = '500.00' as Money;
     let homeDeliveryEnabled = true;
+    let handlingFee = '0.00' as Money;
 
     for (const row of res.rows) {
       if (row.key === 'delivery_fee' && (typeof row.value === 'number' || typeof row.value === 'string')) {
@@ -170,10 +200,44 @@ export const ordersRepo: OrdersRepo = {
         freeDeliveryThreshold = String(row.value) as Money;
       } else if (row.key === 'home_delivery_enabled' && typeof row.value === 'boolean') {
         homeDeliveryEnabled = row.value;
+      } else if (row.key === 'handling_fee' && (typeof row.value === 'number' || typeof row.value === 'string')) {
+        // BR-200: a malformed or negative value is ignored (fee 0) rather than charged.
+        try {
+          const fee = parseMoney(String(row.value));
+          if (!fee.startsWith('-')) handlingFee = fee;
+        } catch {
+          handlingFee = '0.00' as Money;
+        }
       }
     }
 
-    return { deliveryFee, freeDeliveryThreshold, homeDeliveryEnabled };
+    return { deliveryFee, freeDeliveryThreshold, homeDeliveryEnabled, handlingFee };
+  },
+
+  async getRetailGstRateRaw(db) {
+    const res = await db.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'retail_gst_rate_percent'`,
+    );
+    return res.rows[0]?.value;
+  },
+
+  async isOwnLiveAddress(db, customerId, addressId) {
+    const res = await db.query(
+      `SELECT 1 FROM customer_addresses
+        WHERE id = $1 AND customer_id = $2 AND deleted_at IS NULL`,
+      [addressId, customerId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  async getCustomerWalletBalance(db, customerId) {
+    const res = await db.query<{ balance: string }>(
+      `SELECT balance::text AS balance FROM wallets
+        WHERE owner_type = 'CUSTOMER' AND customer_id = $1
+        LIMIT 1`,
+      [customerId],
+    );
+    return res.rows[0]?.balance ?? null;
   },
 
   async findCartForCheckout(db, customerId) {
@@ -249,6 +313,7 @@ export const ordersRepo: OrdersRepo = {
               o.fulfilment_type AS "fulfillmentType", o.delivery_address_id AS "deliveryAddressId",
               o.delivery_slot AS "deliverySlot", o.delivery_date::text AS "deliveryDate",
               o.subtotal::text AS subtotal, o.delivery_fee::text AS "deliveryFee",
+              o.handling_fee::text AS "handlingFee",
               o.discount::text AS discount, o.gst_amount::text AS "gstAmount",
               o.total_amount::text AS "totalAmount", o.payment_method AS "paymentMethod",
               o.payment_status AS "paymentStatus", o.status, o.delivery_otp_hash AS "deliveryOtpHash",
@@ -265,7 +330,7 @@ export const ordersRepo: OrdersRepo = {
 
     const itemsRes = await db.query<OrderItemRecord>(
       `SELECT oi.id, oi.order_id AS "orderId", oi.crop_id AS "productId",
-              cm.name, oi.grade, oi.qty_kg::text AS "qtyKg",
+              cm.name, cm.icon_key AS "iconKey", oi.grade, oi.qty_kg::text AS "qtyKg",
               oi.unit_price::text AS "unitPrice", oi.line_total::text AS "lineTotal"
          FROM order_items oi
          JOIN crop_master cm ON cm.id = oi.crop_id
@@ -290,13 +355,11 @@ export const ordersRepo: OrdersRepo = {
     return null;
   },
 
-  async findOrderById(db, orderId, customerId = null) {
-    const params: unknown[] = [orderId];
-    let whereClause = `WHERE o.id = $1`;
-    if (customerId) {
-      params.push(customerId);
-      whereClause += ` AND o.customer_id = $2`;
-    }
+  async findOrderById(db, orderId, customerId) {
+    // BR-36 / BR-187: an empty or missing customer id narrows to NOTHING, never to every order.
+    if (!customerId) return null;
+    const params: unknown[] = [orderId, customerId];
+    const whereClause = `WHERE o.id = $1 AND o.customer_id = $2`;
 
     const res = await db.query<OrderRecord>(
       `SELECT o.id, o.order_number AS "orderNumber", o.customer_id AS "customerId",
@@ -304,6 +367,7 @@ export const ordersRepo: OrdersRepo = {
               o.fulfilment_type AS "fulfillmentType", o.delivery_address_id AS "deliveryAddressId",
               o.delivery_slot AS "deliverySlot", o.delivery_date::text AS "deliveryDate",
               o.subtotal::text AS subtotal, o.delivery_fee::text AS "deliveryFee",
+              o.handling_fee::text AS "handlingFee",
               o.discount::text AS discount, o.gst_amount::text AS "gstAmount",
               o.total_amount::text AS "totalAmount", o.payment_method AS "paymentMethod",
               o.payment_status AS "paymentStatus", o.status, o.delivery_otp_hash AS "deliveryOtpHash",
@@ -357,10 +421,17 @@ export const ordersRepo: OrdersRepo = {
               o.fulfilment_type AS "fulfillmentType", o.delivery_address_id AS "deliveryAddressId",
               o.delivery_slot AS "deliverySlot", o.delivery_date::text AS "deliveryDate",
               o.subtotal::text AS subtotal, o.delivery_fee::text AS "deliveryFee",
+              o.handling_fee::text AS "handlingFee",
               o.discount::text AS discount, o.gst_amount::text AS "gstAmount",
               o.total_amount::text AS "totalAmount", o.payment_method AS "paymentMethod",
               o.payment_status AS "paymentStatus", o.status, o.delivery_otp_hash AS "deliveryOtpHash",
               (SELECT COUNT(*)::int FROM order_items WHERE order_id = o.id) AS "itemCount",
+              (SELECT COALESCE(json_agg(t), '[]'::json) FROM (
+                 SELECT cm.name AS "productName", cm.icon_key AS "iconKey", oi.crop_id AS "cropId"
+                   FROM order_items oi JOIN crop_master cm ON cm.id = oi.crop_id
+                  WHERE oi.order_id = o.id
+                  ORDER BY oi.line_total DESC, oi.id
+                  LIMIT 3) t) AS thumbs,
               o.placed_at AS "placedAt", o.created_at AS "createdAt", o.updated_at AS "updatedAt"
          FROM orders o
         ${whereClause}
@@ -379,8 +450,8 @@ export const ordersRepo: OrdersRepo = {
   },
 
   async checkAndBookDeliverySlot(db, warehouseId, slotDate, slot) {
-    const res = await db.query<{ id: string; capacity_orders: number; booked_orders: number }>(
-      `SELECT id, capacity_orders, booked_orders
+    const res = await db.query<{ id: string; capacity_orders: number; booked_orders: number; is_active: boolean }>(
+      `SELECT id, capacity_orders, booked_orders, is_active
          FROM delivery_slots
         WHERE warehouse_id = $1 AND slot_date = $2 AND slot = $3
         FOR UPDATE`,
@@ -389,7 +460,8 @@ export const ordersRepo: OrdersRepo = {
 
     if (res.rows.length > 0) {
       const slotRow = res.rows[0]!;
-      if (slotRow.booked_orders >= slotRow.capacity_orders) {
+      // BR-161: a slot an admin switched off is as unbookable as a full one.
+      if (!slotRow.is_active || slotRow.booked_orders >= slotRow.capacity_orders) {
         throw new Error('SLOT_CAPACITY_EXCEEDED');
       }
       await db.query(
@@ -416,18 +488,19 @@ export const ordersRepo: OrdersRepo = {
          order_number, customer_id, warehouse_id, cart_id, channel,
          fulfilment_type, delivery_address_id, delivery_date, delivery_slot,
          subtotal, delivery_fee, discount, gst_amount, total_amount,
-         payment_method, payment_status, status, delivery_otp_hash, placed_at
+         payment_method, payment_status, status, delivery_otp_hash, placed_at, handling_fee
        )
        VALUES (
          $1, $2, $3, $4, $5, $6, $7, $8, $9,
          $10::numeric, $11::numeric, $12::numeric, $13::numeric, $14::numeric,
-         $15, 'PAID', 'CONFIRMED', $16, now()
+         $15, 'PAID', 'CONFIRMED', $16, now(), $18::numeric
        )
        RETURNING id, order_number AS "orderNumber", customer_id AS "customerId",
                  warehouse_id AS "warehouseId", cart_id AS "cartId", channel,
                  fulfilment_type AS "fulfillmentType", delivery_address_id AS "deliveryAddressId",
                  delivery_slot AS "deliverySlot", delivery_date::text AS "deliveryDate",
                  subtotal::text AS subtotal, delivery_fee::text AS "deliveryFee",
+                 handling_fee::text AS "handlingFee",
                  discount::text AS discount, gst_amount::text AS "gstAmount",
                  total_amount::text AS "totalAmount", payment_method AS "paymentMethod",
                  payment_status AS "paymentStatus", status, delivery_otp_hash AS "deliveryOtpHash",
@@ -451,6 +524,7 @@ export const ordersRepo: OrdersRepo = {
         params.paymentMethod,
         otpHash,
         params.items.length,
+        params.handlingFee,
       ],
     );
     const order = orderRes.rows[0]!;

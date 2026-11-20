@@ -147,6 +147,12 @@ describe('warehouse list cards', () => {
     });
   });
 
+  it('BR-131: carries the capacity read\'s thresholdPercent in basis points, only when sent', () => {
+    expect(capacityToneInputOf(capacity({ thresholdPercent: 90 })).thresholdBp).toBe(9000);
+    expect(capacityToneInputOf(capacity({ thresholdPercent: null }))).not.toHaveProperty('thresholdBp');
+    expect(capacityToneInputOf(capacity({}))).not.toHaveProperty('thresholdBp');
+  });
+
   it('BR-77: the near-full alerts are read with alert.own.view, a code that exists in docs/rbac.json', () => {
     expect(NEAR_FULL_ALERTS_CODE).toBe('alert.own.view');
     expect(fs.readFileSync(path.join(SRC, '..', '..', '..', 'docs', 'rbac.json'), 'utf8')).toContain('"code": "alert.own.view"');

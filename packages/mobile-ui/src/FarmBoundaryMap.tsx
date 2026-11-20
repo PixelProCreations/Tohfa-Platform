@@ -186,13 +186,13 @@ export interface FarmBoundaryMapProps {
   /** GeoJSON ring — [[lng, lat], ...] — or `null`/empty to start a fresh boundary. */
   initialPolygon?: LngLat[] | null;
   /** Called with the current ring every time a vertex is added, dragged, undone, or cleared. */
-  onPolygonChange: (coordinates: LngLat[]) => void;
+  onPolygonChange?: (coordinates: LngLat[]) => void;
   /** Renders the boundary and satellite map with no draw/edit interaction and no search bar. */
   readOnly?: boolean;
   /** Explicitly hides the place-name search bar even in interactive mode. */
   hideSearchBar?: boolean;
   /** Placeholder text for the built-in place-name search bar. Caller supplies this via `t()`. */
-  searchPlaceholder: string;
+  searchPlaceholder?: string;
   /** Fires whenever draw/edit/view mode changes, so the caller's own buttons can reflect it. */
   onModeChange?: (mode: FarmBoundaryMapMode) => void;
   /**
@@ -260,6 +260,10 @@ export interface FarmBoundaryMapProps {
    */
   onMapLoadError?: (error?: FarmBoundaryMapLoadError) => void;
   testID?: string;
+  /** Called when the map is tapped, with [lng, lat] coordinate of the tap. */
+  onMapPress?: (coords: LngLat) => void;
+  /** Called when the camera position changes (pan/zoom/flyTo). */
+  onCameraChanged?: (center: LngLat) => void;
 }
 
 /** What `onMapLoadError` receives; `type` is the Mapbox SDK's error kind, when it reports one. */
@@ -344,10 +348,10 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
     {
       initialCenter = null,
       initialPolygon = null,
-      onPolygonChange,
+      onPolygonChange = () => {},
       readOnly = false,
       hideSearchBar = false,
-      searchPlaceholder,
+      searchPlaceholder = 'Search location...',
       onModeChange,
       markerCoordinate = null,
       readOnlyOverlays,
@@ -358,6 +362,8 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
       initialZoom = DEFAULT_ZOOM,
       onMapLoadError,
       testID,
+      onMapPress,
+      onCameraChanged,
     },
     ref,
   ) {
@@ -444,16 +450,27 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
 
     const handleMapPress = useCallback(
       (feature: Feature) => {
-        if (readOnly || mode !== 'draw') return;
         if (feature.geometry.type !== 'Point') return;
         const [lng, lat] = (feature.geometry as Point).coordinates as LngLat;
+        onMapPress?.([lng, lat]);
+        if (readOnly || mode !== 'draw') return;
         if (containment && !isPointInRing([lng, lat], containment)) {
           onRejectedPoint?.('tap');
           return;
         }
         emit([...vertices, [lng, lat]]);
       },
-      [containment, emit, mode, onRejectedPoint, readOnly, vertices],
+      [containment, emit, mode, onMapPress, onRejectedPoint, readOnly, vertices],
+    );
+
+    const handleCameraChanged = useCallback(
+      (event: any) => {
+        const center = event?.properties?.center;
+        if (Array.isArray(center) && center.length === 2) {
+          onCameraChanged?.(center as LngLat);
+        }
+      },
+      [onCameraChanged],
     );
 
     const handleVertexDragEnd = useCallback(
@@ -674,6 +691,7 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
           style={styles.map}
           styleURL={Mapbox.StyleURL.SatelliteStreet}
           onPress={handleMapPress}
+          onCameraChanged={onCameraChanged ? handleCameraChanged : undefined}
           scaleBarEnabled={false}
           // Spread only when disabling, so the default leaves the native MapView's props untouched.
           {...(gesturesEnabled ? {} : DISABLED_CAMERA_GESTURES)}

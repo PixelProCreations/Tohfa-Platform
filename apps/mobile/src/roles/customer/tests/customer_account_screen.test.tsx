@@ -1,0 +1,437 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
+import renderer, { act } from 'react-test-renderer';
+import type * as ProfileModule from '../api/profile';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+
+const mocks = vi.hoisted(() => ({
+  fetchProfile: vi.fn(),
+  logout: vi.fn(),
+}));
+
+vi.mock('react-native', () => ({
+  ActivityIndicator: 'ActivityIndicator',
+  Image: 'Image',
+  ImageBackground: 'ImageBackground',
+  Platform: {
+    OS: 'android',
+    select: (obj: Record<string, unknown>) => obj['android'] ?? obj['default'],
+  },
+  Pressable: 'Pressable',
+  ScrollView: 'ScrollView',
+  StyleSheet: {
+    create: (s: Record<string, unknown>) => s,
+    hairlineWidth: 1,
+    absoluteFill: {},
+    absoluteFillObject: {},
+  },
+  Text: 'Text',
+  TextInput: 'TextInput',
+  TouchableOpacity: 'TouchableOpacity',
+  View: 'View',
+  StatusBar: 'StatusBar',
+  Modal: (props: any) => (props.visible ? React.createElement('Modal', props, props.children) : null),
+}));
+
+vi.mock('@tohfa/mobile-ui', () => ({
+  SafeAreaView: 'SafeAreaView',
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
+}));
+
+vi.mock('react-native-svg', () => ({
+  default: 'Svg',
+  Circle: 'Circle',
+  Path: 'Path',
+  Rect: 'Rect',
+}));
+
+vi.mock('../assets/images', () => ({
+  tohfaMarketLogo: 1,
+  profileAdsBanner: 2,
+  profileOrdersIcon: 3,
+  profileWalletIcon: 4,
+  profileWishlistIcon: 5,
+}));
+
+vi.mock('../api/profile', async (importOriginal) => {
+  const actual = await importOriginal<typeof ProfileModule>();
+  return {
+    ...actual,
+    useCustomerProfile: () =>
+      useQuery({ queryKey: actual.profileQueryKeys.me, queryFn: () => mocks.fetchProfile(), retry: false }),
+  };
+});
+vi.mock('../api/auth', () => ({ logout: mocks.logout }));
+
+import { CustomerAccountScreen as RawAccountScreen } from '../screens/CustomerAccountScreen';
+import { ApiError } from '../../../shell/api/client';
+import type { Problem } from '@tohfa/shared-types';
+
+const apiProfile = {
+  id: 'c1',
+  customerCode: 'CUS-1',
+  fullName: 'Meena Raj',
+  mobile: '+919876543210',
+  email: 'meena@example.com',
+  emailVerified: true,
+  age: 34,
+  gender: 'FEMALE',
+  harvestPreferences: [],
+  photoKey: null,
+  customerType: 'RETAIL',
+  businessName: null,
+  gstin: null,
+  gstVerified: false,
+  defaultAddressId: null,
+  preferredLocale: 'en',
+  profileComplete: true,
+  missingFields: [],
+  createdAt: '2026-01-01T00:00:00Z',
+};
+
+// Every render runs inside a fresh QueryClientProvider (the screen reads GET /customers/me).
+const CustomerAccountScreen = (props: React.ComponentProps<typeof RawAccountScreen>) => {
+  const [qc] = React.useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
+  return (
+    <QueryClientProvider client={qc}>
+      <RawAccountScreen {...props} />
+    </QueryClientProvider>
+  );
+};
+const flush = () =>
+  act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+
+describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
+  const mockNavigate = vi.fn();
+  const mockBack = vi.fn();
+  const mockSignOut = vi.fn();
+  const mockViewProfile = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.fetchProfile.mockResolvedValue(apiProfile);
+    mocks.logout.mockResolvedValue(undefined);
+  });
+
+  it('BR-160: shows name, formatted mobile and email from GET /customers/me', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    await flush();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Meena Raj');
+    expect(json).toContain('+91 98765 43210');
+    expect(json).toContain('meena@example.com');
+    expect(json).not.toContain('Suresh');
+  });
+
+  it('BR-190: hides a null email and the sign-up placeholder name; incomplete profile opens Profile in empty mode', async () => {
+    mocks.fetchProfile.mockResolvedValue({
+      ...apiProfile,
+      fullName: 'TOHFA Customer',
+      email: null,
+      emailVerified: false,
+      profileComplete: false,
+    });
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    await flush();
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).not.toContain('TOHFA Customer');
+    expect(json).not.toContain('@');
+    expect(json).toContain('+91 98765 43210');
+    await act(async () => {
+      tree.root.findByProps({ accessibilityLabel: 'View profile' }).props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerProfile', { mode: 'empty' });
+  });
+
+  it('shows a skeleton while loading and error + retry when the profile fails', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    mocks.fetchProfile.mockReturnValue(new Promise(() => undefined));
+    await act(async () => {
+      tree = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    expect(tree.root.findAllByProps({ testID: 'account-profile-skeleton' }).length).toBeGreaterThan(0);
+
+    mocks.fetchProfile.mockRejectedValue(
+      new ApiError({ type: 'about:blank', title: 'x', status: 500, code: 'INTERNAL' } as unknown as Problem),
+    );
+    let tree2!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree2 = renderer.create(<CustomerAccountScreen onNavigate={mockNavigate} />);
+    });
+    await flush();
+    expect(tree2.root.findAllByProps({ testID: 'account-profile-error' }).length).toBeGreaterThan(0);
+    mocks.fetchProfile.mockResolvedValue(apiProfile);
+    await act(async () => {
+      tree2.root.findByProps({ accessibilityLabel: 'Retry loading profile' }).props.onPress();
+    });
+    await flush();
+    expect(JSON.stringify(tree2.toJSON())).toContain('Meena Raj');
+  });
+
+  it('renders user details correctly', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          userName="Suresh"
+          userPhone="+91 99944 99944"
+          userEmail="suresh1234567890@gmail.com"
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+          onViewProfile={mockViewProfile}
+        />
+      );
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Suresh');
+    expect(json).toContain('+91 99944 99944');
+    expect(json).toContain('suresh1234567890@gmail.com');
+    expect(json).toContain('View profile');
+  });
+
+  it('renders 3 summary cards (Orders, Wallet, Wishlist)', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          walletBalance="₹ 1,250"
+          activeOrdersCount="No active Orders"
+          wishlistCount="3 items"
+          onNavigate={mockNavigate}
+        />
+      );
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('No active Orders');
+    expect(json).toContain('Orders');
+    expect(json).toContain('₹ 1,250');
+    expect(json).toContain('Wallet');
+    expect(json).toContain('3 items');
+    expect(json).toContain('Wishlist');
+  });
+
+  it('renders all 6 menu options and footer branding', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('My Orders');
+    expect(json).toContain('Track, Manage and view your order history');
+    expect(json).toContain('My Wallet');
+    expect(json).toContain('Add money, view balance and transaction history');
+    expect(json).toContain('Account settings');
+    expect(json).toContain('Manage language, untis and settings');
+    expect(json).toContain('Contact Support');
+    expect(json).toContain('Get help for Orders, payments and other issues');
+    expect(json).toContain('Help & FAQs');
+    expect(json).toContain('Find answers to common questions');
+    expect(json).toContain('Logout');
+    expect(json).toContain("Come back soon. We'll miss you.");
+    expect(json).toContain('© 2026 TOHFA Market. All rights reserved. App Version 1.0.0');
+    const floatingBtn = tree.root.findByProps({ accessibilityLabel: 'Profile shortcut' });
+    expect(floatingBtn).toBeDefined();
+  });
+
+  it('navigates to OrderHistory when Orders card or menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const ordersBtn = tree.root.findByProps({ accessibilityLabel: 'Orders' });
+    await act(async () => {
+      ordersBtn.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('OrderHistory');
+
+    const myOrdersItem = tree.root.findByProps({ accessibilityLabel: 'My Orders' });
+    await act(async () => {
+      myOrdersItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('OrderHistory');
+  });
+
+  it('navigates to CustomerWallet when Wallet card or menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const walletBtn = tree.root.findByProps({ accessibilityLabel: 'Wallet' });
+    await act(async () => {
+      walletBtn.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerWallet');
+
+    const myWalletItem = tree.root.findByProps({ accessibilityLabel: 'My Wallet' });
+    await act(async () => {
+      myWalletItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerWallet');
+  });
+
+  it('calls onBack when back button is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+        />
+      );
+    });
+
+    const backBtn = tree.root.findByProps({ accessibilityLabel: 'Back' });
+    await act(async () => {
+      backBtn.props.onPress();
+    });
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('navigates to AccountSettings when Account settings menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const settingsBtn = tree.root.findByProps({ accessibilityLabel: 'Account settings' });
+    await act(async () => {
+      settingsBtn.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerAccountSettings');
+  });
+
+  it('opens Logout Confirmation Modal when Logout is pressed and signs out on confirm', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const logoutBtn = tree.root.findByProps({ accessibilityLabel: 'Logout' });
+    await act(async () => {
+      logoutBtn.props.onPress();
+    });
+
+    // Verify modal content
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Log Out?');
+    expect(json).toContain('Are you sure you want to log out of Your TOHFA Market Account?');
+    expect(json).toContain('Cancel');
+    expect(json).toContain('Log out');
+
+    // Confirm logout
+    const confirmBtn = tree.root.findByProps({ accessibilityLabel: 'Log out confirm' });
+    await act(async () => {
+      confirmBtn.props.onPress();
+    });
+    await flush();
+    expect(mocks.logout).toHaveBeenCalledTimes(1);
+    expect(mockSignOut).toHaveBeenCalled();
+  });
+
+  it('navigates to ContactSupport when Contact Support menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const contactSupportItem = tree.root.findByProps({ accessibilityLabel: 'Contact Support' });
+    await act(async () => {
+      contactSupportItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('ContactSupport');
+  });
+
+  it('navigates to ReturnOrder when Returns menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          showReturnsAndReviews={true}
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const returnsItem = tree.root.findByProps({ accessibilityLabel: 'Returns' });
+    await act(async () => {
+      returnsItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('ReturnOrder');
+  });
+
+  it('navigates to ReviewFeedback when Review & Feedback menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          showReturnsAndReviews={true}
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const reviewItem = tree.root.findByProps({ accessibilityLabel: 'Review & Feedback' });
+    await act(async () => {
+      reviewItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('ReviewFeedback');
+  });
+});

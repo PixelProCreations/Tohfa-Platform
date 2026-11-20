@@ -56,7 +56,17 @@ import {
   adminStockLedgerRouter,
 } from './modules/inventory/inventory.routes.js';
 import { catalogRouter } from './modules/catalog/catalog.routes.js';
+import { catalogSearchRouter } from './modules/catalog-search/catalog-search.routes.js';
+import { pickupPointsRouter } from './modules/pickup-points/pickup-points.routes.js';
+import { adminPickupPointsRouter } from './modules/pickup-points/pickup-points.admin.routes.js';
+import {
+  adminServiceAreaRequestsRouter,
+  serviceAreaRequestsRouter,
+  serviceabilityRouter,
+} from './modules/serviceability/serviceability.routes.js';
+import { adminLegalContentRouter, legalContentRouter } from './modules/legal-content/legal-content.routes.js';
 import { walletsRouter } from './modules/wallet/wallet.routes.js';
+import { adminWalletTransfersRouter, walletTransfersRouter } from './modules/wallet-transfers/wallet-transfers.routes.js';
 import {
   adminTopupRouter,
   topupRouter,
@@ -64,6 +74,7 @@ import {
 } from './modules/topup/topup.routes.js';
 import { cartRouter } from './modules/cart/cart.routes.js';
 import { ordersRouter } from './modules/orders/orders.routes.js';
+import { deliverySlotsRouter } from './modules/delivery-slots/delivery-slots.routes.js';
 import {
   adminFulfilmentRouter,
   orderTrackingRouter,
@@ -119,6 +130,7 @@ import {
 
 import {
   adminReturnsRouter,
+  customerReturnsRouter,
   returnRequestsRouter,
 } from './modules/returnRequests/returnRequests.routes.js';
 import { reportsRouter } from './modules/reports/reports.routes.js';
@@ -131,13 +143,24 @@ import {
 } from './modules/warehouse-staff/warehouse-staff.routes.js';
 import { tasksAlertsRouter } from './modules/tasks-alerts/tasks-alerts.routes.js';
 import { adminHelpRouter } from './modules/help-support/help-support.routes.js';
+import { customerSupportRouter } from './modules/customer-support/customer-support.routes.js';
+import { customerHelpRouter } from './modules/customer-help/customer-help.routes.js';
+import { wishlistRouter } from './modules/wishlist/wishlist.routes.js';
+import {
+  adminReviewsRouter,
+  orderReviewsRouter,
+  productReviewsRouter,
+} from './modules/reviews/reviews.routes.js';
 import { reportExportsRouter } from './modules/report-exports/report-exports.routes.js';
 import { auditLogRouter } from './modules/audit-log/audit-log.routes.js';
 import { adminFarmersRouter } from './modules/admin-farmers/admin-farmers.routes.js';
 import { tierConfigRouter } from './modules/tier-config/tier-config.routes.js';
 import { adminAccountsRouter } from './modules/admin-accounts/admin-accounts.routes.js';
 import { adminPromotionsRouter } from './modules/admin-promotions/admin-promotions.routes.js';
+import { adminBannersRouter, adminHomeSectionsRouter } from './modules/home-content/home-content.routes.js';
 import { rolesRouter } from './modules/roles/roles.routes.js';
+import { customerAddressesRouter } from './modules/customer-addresses/customer-addresses.routes.js';
+import { customerProfileRouter } from './modules/customer-profile/customer-profile.routes.js';
 import { storageReadRouter } from './storage/storage.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
@@ -192,17 +215,35 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/sales', router: salesRouter },
   { prefix: '/v1/admin/sales', router: salesReadRouter },
   { prefix: '/v1/catalog', router: catalogRouter },
+  { prefix: '/v1/catalog/search', router: catalogSearchRouter },
+  { prefix: '/v1/pickup-points', router: pickupPointsRouter },
+  { prefix: '/v1/admin/pickup-points', router: adminPickupPointsRouter },
+  { prefix: '/v1/serviceability', router: serviceabilityRouter },
+  { prefix: '/v1/service-area-requests', router: serviceAreaRequestsRouter },
+  { prefix: '/v1/admin/service-area-requests', router: adminServiceAreaRequestsRouter },
+  { prefix: '/v1/legal', router: legalContentRouter },
+  { prefix: '/v1/admin/legal', router: adminLegalContentRouter },
   { prefix: '/v1/wallets', router: walletsRouter },
   { prefix: '/v1/wallets', router: topupRouter },
+  { prefix: '/v1/wallets', router: walletTransfersRouter },
+  { prefix: '/v1/admin/wallet-transfers', router: adminWalletTransfersRouter },
   { prefix: '/v1/webhooks', router: webhookRouter },
   { prefix: '/v1/cart', router: cartRouter },
   { prefix: '/v1/orders', router: ordersRouter },
+  { prefix: '/v1/delivery-slots', router: deliverySlotsRouter },
   { prefix: '/v1/orders', router: orderTrackingRouter },
   { prefix: '/v1/orders', router: returnRequestsRouter },
   { prefix: '/v1/admin/returns', router: adminReturnsRouter },
+  { prefix: '/v1/returns', router: customerReturnsRouter },
   { prefix: '/v1/admin/reports', router: reportsRouter },
   { prefix: '/v1/admin', router: tasksAlertsRouter },
   { prefix: '/v1/admin/help', router: adminHelpRouter },
+  { prefix: '/v1/support', router: customerSupportRouter },
+  { prefix: '/v1/help', router: customerHelpRouter },
+  { prefix: '/v1/wishlist', router: wishlistRouter },
+  { prefix: '/v1/orders', router: orderReviewsRouter },
+  { prefix: '/v1/catalog', router: productReviewsRouter },
+  { prefix: '/v1/admin/reviews', router: adminReviewsRouter },
   { prefix: '/v1/admin/exports', router: reportExportsRouter },
   { prefix: '/v1/admin/audit-log', router: auditLogRouter },
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
@@ -215,6 +256,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin', router: tierConfigRouter },
   { prefix: '/v1/admin/accounts', router: adminAccountsRouter },
   { prefix: '/v1/admin/promotions', router: adminPromotionsRouter },
+  { prefix: '/v1/admin/banners', router: adminBannersRouter },
+  { prefix: '/v1/admin/home-sections', router: adminHomeSectionsRouter },
   { prefix: '/v1/roles', router: rolesRouter },
   { prefix: '/v1/admin/audits', router: adminAuditsRouter },
   { prefix: '/v1/farmers/me/audits', router: farmerAuditsRouter },
@@ -250,6 +293,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/finance', router: adminFinanceRouter },
   { prefix: '/v1/admin/warehouse-staff', router: adminWarehouseStaffRouter },
   { prefix: '/v1/admin/staff-attendance', router: adminStaffAttendanceRouter },
+  { prefix: '/v1/customers/me/addresses', router: customerAddressesRouter },
+  { prefix: '/v1/customers/me', router: customerProfileRouter },
 ];
 
 /**

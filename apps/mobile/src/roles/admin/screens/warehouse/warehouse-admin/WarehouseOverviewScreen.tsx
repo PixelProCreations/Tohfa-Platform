@@ -25,14 +25,19 @@
  * the card pill is the real status (Inactive / Over Capacity / Near Capacity /
  * Active), the SWA shows on every card, and Needs Attention counts warehouses
  * near or over capacity or without a SWA. "Near Capacity" is never a client
- * threshold (root CLAUDE.md 2.7): it is the server's CAPACITY_NEAR_FULL alert,
- * or utilization at or above the thresholdPercent those alerts carry (GET
+ * threshold (root CLAUDE.md 2.7): it is utilization at or above the
+ * thresholdPercent of GET /warehouses/{id}/capacity (BR-131), the server's
+ * CAPACITY_NEAR_FULL alert, or the thresholdPercent those alerts carry (GET
  * /admin/alerts, alert.own.view, BR-77; ./overviewFigures.ts capacityTone).
- * While the alerts are unread, or without the code, no card says "Near
- * Capacity" and the Needs Attention KPI is not drawn.
+ * While the alerts are unread, or without the code, the Needs Attention KPI is
+ * not drawn.
  *
- * Removed with the fixtures, because no endpoint carries them: today's
- * receipts, low-stock trigger and the per-card operating hours. Dropped
+ * Removed with the fixtures and not yet wired, although the API carries them:
+ * today's receipts (GET /warehouses/{id}/performance `receiving.goodsReceipts`,
+ * already read by ./overviewFigures.ts todayReceiptsCount for the Main
+ * dashboard), the low-stock trigger (GET /admin/inventory/overview
+ * `thresholds.lowStockThresholdKg`) and the per-card operating hours (GET
+ * /warehouses/{id} `operatingHours`). Dropped
  * earlier: 'Add Warehouse' (BR-23: four fixed warehouses, no create endpoint;
  * SPEC_GAPS W4x-1; owner decision).
  */

@@ -11,6 +11,8 @@ import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { authProfileRepo, authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
+import { onboardingFieldsByUserId } from './customerOtp.repo.js';
+import { profileCompleteness } from '../customer-profile/customer-profile.completeness.js';
 import { smsTransport } from '../notifications/sms/index.js';
 import type {
   ChangePasswordBody,
@@ -101,6 +103,15 @@ async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<un
   const roles = await repo.getUserRoles(db, user.id);
   const permissions = await repo.getUserPermissions(db, user.id);
 
+  // BR-205: customers also learn whether onboarding is done; other user types are unchanged.
+  const completeness =
+    user.user_type === 'CUSTOMER'
+      ? profileCompleteness({
+          fullName: user.full_name,
+          ...((await onboardingFieldsByUserId(db, user.id)) ?? { age: null, gender: null, harvestPreferences: [] }),
+        })
+      : undefined;
+
   return {
     id: user.id,
     fullName: user.full_name,
@@ -114,6 +125,7 @@ async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<un
     // BR-142: derived from the existing column, never the hash itself. The
     // mobile app routes an account without a password to Create Password.
     hasPassword: user.password_hash !== null,
+    ...completeness,
     roles: roles.map((r) => ({
       code: r.role_code,
       warehouseId: r.warehouse_id ?? undefined,
@@ -533,7 +545,7 @@ export function createAuthService(
     async login(input, ip, userAgent) {
       const user = await repo.findUserByMobile(pool, input.mobile);
       if (user === null || user.password_hash === null) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password.' });
+        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password. An account without a password signs in with OTP.' });
       }
 
       if (user.status === 'DISABLED') {
@@ -542,7 +554,7 @@ export function createAuthService(
 
       const passwordValid = await bcrypt.compare(input.password, user.password_hash);
       if (!passwordValid) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password.' });
+        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password. An account without a password signs in with OTP.' });
       }
 
       const roles = await repo.getUserRoles(pool, user.id);

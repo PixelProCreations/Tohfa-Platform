@@ -2,12 +2,12 @@
   "appName": "TOHFA",
   "bundleId": "in.tohfa.customer",
   "theme": {
-    "primaryColor": "#3F7D32",
-    "primaryColorName": "primary",
-    "backgroundColor": "#F4FBF4",
-    "backgroundColorName": "primaryPale",
-    "accentColor": "#1B6E20",
-    "accentColorName": "primaryDark"
+    "primaryColor": "#2E7D32",
+    "primaryColorName": "green700",
+    "backgroundColor": "#FEFDFA",
+    "backgroundColorName": "warm50",
+    "accentColor": "#205B24",
+    "accentColorName": "green800"
   },
   "icons": {
     "android": [

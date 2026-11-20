@@ -38,6 +38,11 @@ export interface WalletTransactionRow {
   warehouse_id: string | null;
 }
 
+/** BR-197: short display code derived from the ledger id (no stored column): `TXN-` + 10 hex. */
+export function walletTxnCode(id: string): string {
+  return `TXN-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+}
+
 export function toWalletResponse(row: WalletRow): WalletResponse {
   return {
     id: row.id,
@@ -146,6 +151,8 @@ export interface WalletRepo {
     ownerId: string,
   ): Promise<WalletRow>;
 
+  /** Current balance of one wallet (used to build the WALLET_INSUFFICIENT shortfall, BR-192). */
+  findWalletBalance(db: Executor, walletId: string): Promise<string | null>;
   insertTransaction(
     db: Executor,
     data: InsertTransactionData,
@@ -183,6 +190,11 @@ export const walletRepo: WalletRepo = {
       [ownerType, customerId, farmerId],
     );
     return result.rows[0]!;
+  },
+
+  async findWalletBalance(db, walletId) {
+    const res = await db.query<{ balance: string }>(`SELECT balance::text AS balance FROM wallets WHERE id = $1`, [walletId]);
+    return res.rows[0]?.balance ?? null;
   },
 
   async insertTransaction(db, data) {
@@ -264,16 +276,17 @@ export const walletRepo: WalletRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT t.*, tu.fiscal_cash_tag, tu.warehouse_id,
+      SELECT t.*, tu.fiscal_cash_tag, tu.warehouse_id, o.order_number AS order_number,
              to_char(t.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_ts
         FROM wallet_transactions t
         LEFT JOIN topups tu ON tu.wallet_txn_id = t.id
+        LEFT JOIN orders o ON upper(t.ref_type) = 'ORDER' AND o.id = t.ref_id
        WHERE ${where}
        ORDER BY t.created_at DESC, t.id DESC
        LIMIT $${params.length}
     `;
 
-    const result = await db.query<WalletTransactionRow & { cursor_ts: string }>(querySql, params);
+    const result = await db.query<WalletTransactionRow & { cursor_ts: string; order_number: string | null }>(querySql, params);
     const rows = result.rows;
     const hasMore = rows.length > limit;
     const itemsToReturn = hasMore ? rows.slice(0, limit) : rows;
@@ -281,7 +294,12 @@ export const walletRepo: WalletRepo = {
     const nextCursor = hasMore && last !== undefined ? encodeTxnCursor({ ts: last.cursor_ts, id: last.id }) : null;
 
     return {
-      items: itemsToReturn.map(toWalletTransactionResponse),
+      // BR-197: the own ledger adds display fields (never on the shared admin serializer).
+      items: itemsToReturn.map((r) => ({
+        ...toWalletTransactionResponse(r),
+        txnCode: walletTxnCode(r.id),
+        orderNumber: r.order_number ?? null,
+      })),
       nextCursor,
       hasMore,
     };

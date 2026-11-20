@@ -151,6 +151,13 @@ describe('BR-77 / BR-66: the near-full state comes from the server, never from a
     expect(capacityTone({ warehouseId: OOTY, utilizationBp: 9900, availableGrams: 1 }, null)).toBe('neutral');
     expect(capacityTone({ warehouseId: OOTY, utilizationBp: null, availableGrams: null }, nearFullSignal([]))).toBe('neutral');
   });
+
+  it('BR-131: the capacity read\'s own thresholdPercent marks near full, even before the alerts are read', () => {
+    expect(capacityTone({ warehouseId: OOTY, utilizationBp: 9000, availableGrams: 1, thresholdBp: 9000 }, null)).toBe('nearFull');
+    expect(capacityTone({ warehouseId: OOTY, utilizationBp: 8999, availableGrams: 1, thresholdBp: 9000 }, null)).toBe('neutral');
+    expect(capacityTone({ warehouseId: OOTY, utilizationBp: null, availableGrams: null, thresholdBp: 9000 }, null)).toBe('neutral');
+    expect(capacityTone({ warehouseId: OOTY, utilizationBp: 9900, availableGrams: 1, thresholdBp: null }, null)).toBe('neutral');
+  });
 });
 
 describe('BR-84: the staff count is derived from the roll call', () => {

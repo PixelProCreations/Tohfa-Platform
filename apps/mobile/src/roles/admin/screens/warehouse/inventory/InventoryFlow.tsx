@@ -31,7 +31,8 @@
  * never holds it, BR-37a). M3S17 opened without an `adjustmentId` (the Main
  * dashboard's "stock adjustment approval" link) shows the history on PENDING.
  * M3S15 (Movement Detail, design M3-16) renders the ledger row the user
- * tapped, carried in the route params: there is no GET /admin/stock-ledger/{id}.
+ * tapped, carried in the route params (GET /admin/stock-ledger/{id} exists in
+ * the API but is not wired yet).
  * Opened without a row it shows "not found" and fetches nothing. The old
  * sample-data movement detail / receipt screens (M3S15 / M3S18) are deleted.
  */

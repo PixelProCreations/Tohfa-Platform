@@ -16,6 +16,8 @@ export function problemType(code: ProblemCode): string {
   return `${PROBLEM_TYPE_BASE}/${code.toLowerCase().replace(/_/g, '-')}`;
 }
 
+export type ProblemExtensions = Pick<Problem, 'shortfall' | 'balance' | 'required'>;
+
 export interface AppErrorOptions {
   status?: number;
   detail?: string;
@@ -23,6 +25,12 @@ export interface AppErrorOptions {
   errors?: Record<string, string[]>;
   /** Extra machine-readable context clients may use, e.g. `{ ceiling: '120.00' }`. */
   meta?: Record<string, unknown>;
+  /**
+   * RFC 9457 extension members, serialised at the TOP LEVEL of the problem (not under `meta`).
+   * Only members documented on the `Problem` schema in docs/openapi.yaml may be used
+   * (today: `shortfall`, `balance`, `required` on WALLET_INSUFFICIENT, BR-192).
+   */
+  extensions?: ProblemExtensions;
   /** Original error, logged but never serialised to the client. */
   cause?: unknown;
 }
@@ -64,11 +72,15 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   INSUFFICIENT_ALLOCATION: 409,
   ALLOCATION_SUM_INVALID: 422,
   CART_LOCK_EXPIRED: 410,
+  SLOT_FULL: 409,
+  SLOT_CUTOFF_PASSED: 409,
   OTP_INVALID: 422,
   OTP_EXPIRED: 410,
   OTP_LOCKED: 429,
   OTP_RESEND_TOO_SOON: 429,
   OTP_SMS_DELIVERY_FAILED: 502,
+  EMAIL_NOT_CONFIGURED: 503,
+  EMAIL_DELIVERY_FAILED: 502,
   AUDIT_QUARTER_TAKEN: 409,
   SCORE_OUT_OF_RANGE: 422,
   AUDIT_INCOMPLETE: 422,
@@ -97,6 +109,9 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   ROLE_NOT_FOUND: 422,
   COMMUNITY_PLANTING_NOT_CONFIGURED: 503,
   PASSWORD_ALREADY_SET: 409,
+  WALLET_TRANSFER_DISABLED: 403,
+  WALLET_TRANSFER_LIMIT_EXCEEDED: 422,
+  WALLET_TRANSFER_SELF: 422,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -132,11 +147,15 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   INSUFFICIENT_ALLOCATION: 'Channel allocation exhausted',
   ALLOCATION_SUM_INVALID: 'Allocation percentages must sum to 100',
   CART_LOCK_EXPIRED: 'Cart reservation expired',
+  SLOT_FULL: 'Delivery slot is full',
+  SLOT_CUTOFF_PASSED: 'Delivery slot ordering cutoff has passed',
   OTP_INVALID: 'Invalid OTP',
   OTP_EXPIRED: 'OTP has expired',
   OTP_LOCKED: 'OTP challenge is locked',
   OTP_RESEND_TOO_SOON: 'OTP resend requested too soon',
   OTP_SMS_DELIVERY_FAILED: 'Could not send OTP SMS',
+  EMAIL_NOT_CONFIGURED: 'Email delivery is not configured',
+  EMAIL_DELIVERY_FAILED: 'Could not send email',
   AUDIT_QUARTER_TAKEN: 'That quarter already has an audit',
   SCORE_OUT_OF_RANGE: 'Score is outside the allowed range',
   AUDIT_INCOMPLETE: 'Audit is missing category scores',
@@ -165,6 +184,9 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   ROLE_NOT_FOUND: 'Role is not defined',
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'Community planting summary is not configured',
   PASSWORD_ALREADY_SET: 'A password is already set for this account',
+  WALLET_TRANSFER_DISABLED: 'Wallet transfers are not available',
+  WALLET_TRANSFER_LIMIT_EXCEEDED: 'Wallet transfer limit exceeded',
+  WALLET_TRANSFER_SELF: 'Cannot send money to your own wallet',
 };
 
 /**
@@ -183,6 +205,7 @@ export class AppError extends Error {
   readonly detail: string | undefined;
   readonly errors: Record<string, string[]> | undefined;
   readonly meta: Record<string, unknown> | undefined;
+  readonly extensions: ProblemExtensions | undefined;
 
   constructor(code: ProblemCode, options: AppErrorOptions = {}) {
     super(options.detail ?? DEFAULT_TITLE[code]);
@@ -192,6 +215,7 @@ export class AppError extends Error {
     this.detail = options.detail;
     this.errors = options.errors;
     this.meta = options.meta;
+    this.extensions = options.extensions;
     if (options.cause !== undefined) {
       // `cause` is standard on Error in ES2022 but not in the lib typings path
       // we use, so assign it explicitly.
@@ -215,6 +239,7 @@ export class AppError extends Error {
       ...(this.detail === undefined ? {} : { detail: this.detail }),
       ...(instance === undefined ? {} : { instance }),
       ...(this.errors === undefined ? {} : { errors: this.errors }),
+      ...(this.extensions ?? {}),
       ...(this.meta === undefined ? {} : { meta: this.meta }),
       ...(traceId === undefined ? {} : { traceId }),
     };
