@@ -61,8 +61,8 @@ export const AUDIT_12_SECTIONS: AuditInspectionSectionItem[] = [
   { id: 6, title: 'Water Source & Water pH Testing', subtitle: '1 required field left' },
   { id: 7, title: 'Farm Practices Checklist', subtitle: '4 required fields left' },
   { id: 8, title: 'Documents & Findings', subtitle: 'Not started' },
-  { id: 9, title: 'Farm Hygiene & Storage', subtitle: 'Not started' },
-  { id: 10, title: 'Farmer Admin Assessment', subtitle: '1 required field left' },
+  { id: 9, title: 'Farmer Admin Assessment', subtitle: '1 required field left' },
+  { id: 10, title: 'Schedule upcoming Audit', subtitle: '1 required field left' },
   { id: 11, title: 'Add External Audit', subtitle: 'Not started' },
   { id: 12, title: 'Farmer Rating', subtitle: 'Rate the farmer based on the audit inspection.' },
 ];

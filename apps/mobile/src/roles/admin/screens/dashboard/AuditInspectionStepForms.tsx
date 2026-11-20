@@ -209,6 +209,61 @@ function LightbulbIcon({ size = 18, color = adminColors.muted }: { size?: number
   );
 }
 
+function LeafGreenIcon({ size = 18, color = '#2E7D32' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function DocGreenIcon({ size = 18, color = '#2E7D32' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <Path d="M14 2v6h6" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+      <Path d="M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CloudUploadGreenIcon({ size = 18, color = '#2E7D32' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 13v-5m0 0l-2.5 2.5M12 8l2.5 2.5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function MemoGreenIcon({ size = 18, color = '#2E7D32' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M8 10h8M8 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ─── Custom UI Pickers & Helpers ─────────────────────────────────────────────
 
 interface SelectBoxProps {
@@ -436,18 +491,19 @@ export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepF
   const [missingReason, setMissingReason] = useState('Select...');
   const [evidenceNotes, setEvidenceNotes] = useState('');
 
-  // Step 9: Farm Hygiene & Storage
-  const [storageStatus, setStorageStatus] = useState('Select...');
-  const [hygieneStatus, setHygieneStatus] = useState('Select...');
-  const [wasteStatus, setWasteStatus] = useState('Select...');
-  const [hygieneNotes, setHygieneNotes] = useState('');
-
-  // Step 10: Farmer Admin Assessment (M5-S04L)
+  // Step 9: Farmer Admin Assessment (M5-S04L)
   const [overallAssessment, setOverallAssessment] = useState('Select...');
   const [strengthsObserved, setStrengthsObserved] = useState('');
   const [followupRequired, setFollowupRequired] = useState('Select...');
   const [recommendation, setRecommendation] = useState('Select...');
   const [supportingRemarks, setSupportingRemarks] = useState('');
+
+  // Step 10: Schedule upcoming Audit (M5-S04M)
+  const [schedOrg, setSchedOrg] = useState('');
+  const [schedAuditDate, setSchedAuditDate] = useState('');
+  const [schedReportExpiry, setSchedReportExpiry] = useState('');
+  const [schedNextAuditDate, setSchedNextAuditDate] = useState('');
+  const [schedRemarks, setSchedRemarks] = useState('');
 
   // Step 11: Add External Audit (M5-S04M)
   const [extOrg, setExtOrg] = useState('');
@@ -472,13 +528,13 @@ export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepF
     6: 'Water Sources & Water pH Testing',
     7: 'Farm Practices Checklist',
     8: 'Documents & Findings',
-    9: 'Farm Hygiene & Storage',
-    10: 'Farmer Admin Assessment',
+    9: 'Farmer Admin Assessment',
+    10: 'Schedule upcoming Audit',
     11: 'Add External Audit',
     12: 'Farmer Rating',
   };
 
-  const pillLabel = step === 11 ? 'STEP 11' : step === 12 ? 'STEP 12' : `${step}/10`;
+  const pillLabel = step === 10 ? '10/10' : step === 11 ? 'STEP 11' : step === 12 ? 'STEP 12' : `${step}/10`;
   const currentTitle = stepTitles[step] || 'Inspection Step';
 
   const handleSavePress = () => {
@@ -1411,43 +1467,8 @@ export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepF
           </View>
         )}
 
-        {/* ─── STEP 9: Farm Hygiene & Storage ─── */}
+        {/* ─── STEP 9: Farmer Admin Assessment (M5-S04L) ─── */}
         {step === 9 && (
-          <View>
-            <SelectBox
-              label="Produce Storage Facility"
-              value={storageStatus}
-              onSelect={setStorageStatus}
-              options={['Select...', 'Dedicated Clean Room', 'Crates / Pallets on floor', 'Shared Shed']}
-            />
-            <SelectBox
-              label="Sanitization & Equipment Status"
-              value={hygieneStatus}
-              onSelect={setHygieneStatus}
-              options={['Select...', 'Excellent / Sanitized', 'Good', 'Needs Cleaning']}
-            />
-            <SelectBox
-              label="Waste Disposal & Composting"
-              value={wasteStatus}
-              onSelect={setWasteStatus}
-              options={['Select...', 'On-farm Compost Pit', 'Segregated & Recycled', 'Open Dumping']}
-            />
-            <View style={styles.formFieldGroup}>
-              <Text style={styles.formLabel}>Notes</Text>
-              <TextInput
-                style={styles.textareaInput}
-                value={hygieneNotes}
-                onChangeText={setHygieneNotes}
-                multiline
-                placeholder="Enter hygiene notes..."
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* ─── STEP 10: Farmer Admin Assessment (M5-S04L) ─── */}
-        {step === 10 && (
           <View>
             <SelectBox
               label="Overall Assessment"
@@ -1493,6 +1514,150 @@ export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepF
             <View style={styles.formFieldGroup}>
               <Text style={styles.formLabel}>Official Audit Score 🔒</Text>
               <View style={styles.lockedBox}><Text style={styles.lockedText}>Not scored yet</Text></View>
+            </View>
+          </View>
+        )}
+
+        {/* ─── STEP 10: Schedule upcoming Audit (M5-S04M) ─── */}
+        {step === 10 && (
+          <View>
+            {/* Card 1: Farmer & Farm Details */}
+            <View style={styles.cardBox}>
+              <View style={styles.cardHeaderWithIconRow}>
+                <LeafGreenIcon size={20} color="#2D7A4D" />
+                <Text style={styles.cardHeaderTitleWithIcon}>Farmer & Farm Details</Text>
+              </View>
+              <View style={styles.twoColRow}>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.metaLabel}>Farmer ID</Text>
+                  <View style={styles.readOnlyTintedBox}>
+                    <Text style={styles.readOnlyTintedText}>{record?.farmerId || farmerId || 'F-0256'}</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: 8 }}>
+                  <Text style={styles.metaLabel}>Farmer Name</Text>
+                  <View style={styles.readOnlyTintedBox}>
+                    <Text style={styles.readOnlyTintedText}>{record?.farmerName || farmerName || 'Ramesh Kumar'}</Text>
+                  </View>
+                </View>
+              </View>
+              <View style={[styles.threeColRow, { marginTop: 12 }]}>
+                <View style={{ flex: 1, marginRight: 6 }}>
+                  <Text style={styles.metaLabel}>Zone</Text>
+                  <View style={styles.readOnlyTintedBox}>
+                    <Text style={styles.readOnlyTintedText}>{(record as any)?.zone || 'Coonoor'}</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginHorizontal: 4 }}>
+                  <Text style={styles.metaLabel}>Farms</Text>
+                  <View style={styles.readOnlyTintedBox}>
+                    <Text style={styles.readOnlyTintedText}>{(record as any)?.farmCount ? String((record as any).farmCount) : '3'}</Text>
+                  </View>
+                </View>
+                <View style={{ flex: 1, marginLeft: 6 }}>
+                  <Text style={styles.metaLabel}>Total Area</Text>
+                  <View style={styles.readOnlyTintedBox}>
+                    <Text style={styles.readOnlyTintedText}>{(record as any)?.totalArea || '4.25 Acre'}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* Card 2: Internal Audit Information */}
+            <View style={[styles.cardBox, { marginTop: 14 }]}>
+              <View style={styles.cardHeaderWithIconRow}>
+                <DocGreenIcon size={20} color="#2D7A4D" />
+                <Text style={styles.cardHeaderTitleWithIcon}>Internal Audit Information</Text>
+              </View>
+              <View style={styles.formFieldGroup}>
+                <Text style={styles.formLabel}>Issuing Organization <Text style={styles.asterisk}>*</Text></Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={schedOrg}
+                  onChangeText={setSchedOrg}
+                  placeholder="Enter organization name"
+                  placeholderTextColor={adminColors.placeholder}
+                />
+              </View>
+              <View style={styles.twoColRow}>
+                <View style={[styles.formFieldGroup, { flex: 1, marginRight: 8 }]}>
+                  <Text style={styles.formLabel}>Audit Date <Text style={styles.asterisk}>*</Text></Text>
+                  <View style={styles.selectInput}>
+                    <TextInput
+                      style={styles.dateTextInput}
+                      value={schedAuditDate}
+                      onChangeText={setSchedAuditDate}
+                      placeholder="Select audit date"
+                      placeholderTextColor={adminColors.placeholder}
+                    />
+                    <CalendarIcon size={18} />
+                  </View>
+                </View>
+                <View style={[styles.formFieldGroup, { flex: 1, marginLeft: 8 }]}>
+                  <Text style={styles.formLabel}>Report Expiry Date <Text style={styles.asterisk}>*</Text></Text>
+                  <View style={styles.selectInput}>
+                    <TextInput
+                      style={styles.dateTextInput}
+                      value={schedReportExpiry}
+                      onChangeText={setSchedReportExpiry}
+                      placeholder="Select expiry date"
+                      placeholderTextColor={adminColors.placeholder}
+                    />
+                    <CalendarIcon size={18} />
+                  </View>
+                </View>
+              </View>
+              <View style={styles.formFieldGroup}>
+                <Text style={styles.formLabel}>Next Audit Date <Text style={styles.asterisk}>*</Text></Text>
+                <View style={styles.selectInput}>
+                  <TextInput
+                    style={styles.dateTextInput}
+                    value={schedNextAuditDate}
+                    onChangeText={setSchedNextAuditDate}
+                    placeholder="Select next audit date"
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+                  <CalendarIcon size={18} />
+                </View>
+              </View>
+            </View>
+
+            {/* Card 3: Audit Report Upload */}
+            <View style={[styles.cardBox, { marginTop: 14 }]}>
+              <View style={styles.cardHeaderWithIconRow}>
+                <CloudUploadGreenIcon size={20} color="#2D7A4D" />
+                <Text style={styles.cardHeaderTitleWithIcon}>Audit Report Upload</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.dashedUploadBoxLargeGreen}
+                onPress={() => Alert.alert('Upload Document', 'Audit report PDF selected.')}
+                activeOpacity={0.7}
+              >
+                <FileTextIcon size={24} color={adminColors.brand} />
+                <Text style={styles.dashedUploadTitle}>Tap to upload audit report</Text>
+                <Text style={styles.dashedUploadSub}>PDF, JPG, PNG (Max 10 MB)</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Card 4: Additional Details */}
+            <View style={[styles.cardBox, { marginTop: 14 }]}>
+              <View style={styles.cardHeaderWithIconRow}>
+                <MemoGreenIcon size={20} color="#2D7A4D" />
+                <Text style={styles.cardHeaderTitleWithIcon}>Additional Details</Text>
+              </View>
+              <View style={styles.formFieldGroup}>
+                <Text style={styles.formLabel}>Remarks / Notes</Text>
+                <TextInput
+                  style={[styles.textareaInput, { minHeight: 90 }]}
+                  value={schedRemarks}
+                  onChangeText={setSchedRemarks}
+                  placeholder="Enter any remarks or notes (optional)"
+                  placeholderTextColor={adminColors.placeholder}
+                  multiline
+                  maxLength={500}
+                />
+                <Text style={styles.charCountText}>{schedRemarks.length}/500</Text>
+              </View>
             </View>
           </View>
         )}
@@ -2348,5 +2513,40 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.success.text,
+  },
+  cardHeaderWithIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  cardHeaderTitleWithIcon: {
+    ...adminType.rowTitle,
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginLeft: 8,
+  },
+  readOnlyTintedBox: {
+    backgroundColor: '#F3EFE9',
+    borderRadius: adminRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  readOnlyTintedText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  dashedUploadBoxLargeGreen: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#B9DEC0',
+    backgroundColor: '#F8FCF8',
+    borderRadius: adminRadius.lg,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

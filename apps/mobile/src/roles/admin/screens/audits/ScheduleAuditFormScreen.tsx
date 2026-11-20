@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -251,6 +252,9 @@ export function ScheduleAuditFormScreen({
             </TouchableOpacity>
           </View>
         </View>
+
+        <Text style={styles.screenCaption}>M5-S02b · Schedule form</Text>
+        <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
 
       {/* ── Bottom Buttons Matching Image 1 ── */}
@@ -448,10 +452,18 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm + 2,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 20,
     flexDirection: 'row',
     columnGap: 12,
+  },
+  screenCaption: {
+    textAlign: 'center',
+    fontSize: 11.5,
+    color: adminColors.muted,
+    marginTop: adminSpacing.lg,
+    fontWeight: '600',
   },
   scheduleAuditBtn: {
     flex: 1,

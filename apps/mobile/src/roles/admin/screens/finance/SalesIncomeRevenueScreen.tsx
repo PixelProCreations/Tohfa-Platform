@@ -11,7 +11,10 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing } from '../../theme';
-import { OverviewDashboardCard } from '../../components/OverviewDashboardCard';
+import {
+  OverviewCardsGrid,
+  OverviewDashboardCard,
+} from '../../components/OverviewDashboardCard';
 import { SalesOrderDetailScreen, type SalesOrderRecord } from '../sales/SalesOrderDetailScreen';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -247,73 +250,65 @@ export function SalesIncomeRevenueScreen({ onBack }: SalesIncomeRevenueScreenPro
         showsVerticalScrollIndicator={false}
       >
         {/* ── Top KPI Grid: 7 Cards ── */}
-        <View style={styles.kpiGrid}>
+        <OverviewCardsGrid style={styles.kpiGrid}>
           <OverviewDashboardCard
-            title="GROSS SALES VALUE"
             value="₹2,14,600.00"
-            titlePosition="top"
+            title="Gross Sales Value"
+            subtitle="All sales channels"
+            icon="sales"
             preserveCase
-            style={styles.kpiCard}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValue}
           />
           <OverviewDashboardCard
-            title="DISCOUNTS"
             value="₹0.00"
-            titlePosition="top"
+            title="Discounts"
+            subtitle="Applied reductions"
+            icon="cutlery"
             preserveCase
-            style={styles.kpiCard}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValue}
           />
           <OverviewDashboardCard
-            title="REFUNDS"
             value="₹1,840.00"
-            titlePosition="top"
+            title="Refunds"
+            subtitle="Approved returns"
+            icon="alert"
+            tone="warning"
             preserveCase
-            style={styles.kpiCard}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValue}
           />
           <OverviewDashboardCard
-            title="COLLECTED"
             value="₹1,96,900.00"
-            titlePosition="top"
+            title="Collected"
+            subtitle="Settled receivables"
+            icon="wallet"
+            tone="success"
             preserveCase
-            style={styles.kpiCard}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValue}
           />
           <OverviewDashboardCard
-            title="PENDING"
             value="₹15,860.00"
-            titlePosition="top"
+            title="Pending"
+            subtitle="Awaiting clearance"
+            icon="clock"
+            tone="warning"
             preserveCase
-            style={styles.kpiCard}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValue}
           />
           <OverviewDashboardCard
-            title="FAILED"
             value="₹1,840.00"
-            titlePosition="top"
+            title="Failed"
+            subtitle="Payment rejected"
+            icon="alert"
+            tone="danger"
             preserveCase
-            style={styles.kpiCard}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValue}
           />
 
           {/* Full-width card: Net Sales Value */}
           <OverviewDashboardCard
-            title="NET SALES VALUE"
-            value="Not defined"
-            titlePosition="top"
+            value="₹1,95,060.00"
+            title="Net Sales Value"
+            subtitle="Gross earnings less refunds"
+            icon="cash"
+            tone="success"
+            style={{ width: '100%' }}
             preserveCase
-            style={styles.kpiCardFull}
-            titleStyle={styles.kpiTitle}
-            valueStyle={styles.kpiValueSubdued}
           />
-        </View>
+        </OverviewCardsGrid>
 
         {/* ── Search & Filter Bar ── */}
         <View style={styles.searchBarContainer}>
@@ -424,15 +419,13 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    paddingBottom: adminSpacing.xxxl,
+    paddingBottom: adminSpacing.xxxl * 2,
   },
   kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    paddingHorizontal: adminSpacing.md,
-    marginTop: 14,
+    paddingHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.md,
     rowGap: 10,
+    marginBottom: adminSpacing.xs,
   },
   kpiCard: {
     width: '48.5%',
@@ -442,7 +435,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     justifyContent: 'center',
     ...adminShadow.sm,
   },
@@ -454,7 +447,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     justifyContent: 'center',
     ...adminShadow.sm,
   },
@@ -477,16 +470,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '700',
-    color: '#4A4A4A',
+    color: adminColors.ink,
   },
   searchBarContainer: {
     backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
     marginTop: 14,
     paddingHorizontal: 12,
     height: 44,
@@ -507,7 +500,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: adminColors.muted,
-    marginHorizontal: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
     marginTop: 12,
     marginBottom: 10,
   },
@@ -515,10 +508,10 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginHorizontal: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
     marginBottom: 10,
     ...adminShadow.sm,
   },

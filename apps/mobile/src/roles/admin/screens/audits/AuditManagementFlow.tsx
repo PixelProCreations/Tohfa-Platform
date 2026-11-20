@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import type { Can } from '../../permissions/can';
 import { AuditManagementScreen } from './AuditManagementScreen';
 import { AuditScheduleAssignmentScreen } from './AuditScheduleAssignmentScreen';
-import { AuditDetailsFarmerRecordsScreen } from './AuditDetailsFarmerRecordsScreen';
 import { ScheduleAuditFormScreen } from './ScheduleAuditFormScreen';
 import { AuditHistoryComplianceScreen } from './AuditHistoryComplianceScreen';
 import { GenerateAuditReportScreen } from './GenerateAuditReportScreen';
 import { AuditReportsTierConfigScreen } from './AuditReportsTierConfigScreen';
 import { AuditReportHistoryScreen } from './AuditReportHistoryScreen';
+import { AuditScheduleScreen } from '../dashboard/AuditScheduleScreen';
 
 export type AuditSubScreen =
   | 'management'
@@ -51,24 +51,16 @@ export function AuditManagementFlow({
   const [scheduleFormReturnScreen, setScheduleFormReturnScreen] = useState<AuditSubScreen>('management');
   const [reportHistoryReturnScreen, setReportHistoryReturnScreen] = useState<AuditSubScreen>('management');
 
-  // 1. Audit Details & Farmer Records (Images 1 - 5)
+  // 1. Audit Details (Image 2: Left Detail -> Middle Inspection/Findings -> Right Audit Inspection)
   if (currentScreen === 'detailsRecord') {
     return (
-      <AuditDetailsFarmerRecordsScreen
-        auditId={selectedAuditId}
-        can={can}
+      <AuditScheduleScreen
+        key={selectedAuditId}
+        initialView="detail"
+        initialAuditId={selectedAuditId}
         role={role}
         onBack={() => setCurrentScreen(detailsReturnScreen)}
-        onEditSchedule={() => {
-          setScheduleFormReturnScreen('detailsRecord');
-          setCurrentScreen('scheduleForm');
-        }}
-        onReschedule={() => {
-          setScheduleFormReturnScreen('detailsRecord');
-          setCurrentScreen('scheduleForm');
-        }}
-        onCancelSchedule={() => setCurrentScreen(detailsReturnScreen)}
-        onOpenFarmerProfile={onOpenFarmerProfile}
+        onNavigateFarmerProfile={onOpenFarmerProfile}
       />
     );
   }

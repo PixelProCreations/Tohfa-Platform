@@ -14,6 +14,10 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import {
+  OverviewCardsGrid,
+  OverviewDashboardCard,
+} from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -221,18 +225,25 @@ export function PaymentMethodsScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top 2 KPI Cards */}
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCardActive}>
-            <Text style={styles.kpiBigNumber}>{activeCount}</Text>
-            <Text style={styles.kpiSubtitle}>Active Methods</Text>
-          </View>
-
-          <View style={styles.kpiCardDisabled}>
-            <Text style={styles.kpiBigNumber}>{disabledCount}</Text>
-            <Text style={styles.kpiSubtitle}>{disabledCount} Disabled</Text>
-          </View>
-        </View>
+        {/* Top 2 KPI Cards using Reusable OverviewDashboardCard */}
+        <OverviewCardsGrid style={styles.kpiGrid}>
+          <OverviewDashboardCard
+            value={String(activeCount)}
+            title="Active Methods"
+            subtitle="Enabled payment modes"
+            icon="card"
+            tone="success"
+            preserveCase
+          />
+          <OverviewDashboardCard
+            value={String(disabledCount)}
+            title="Disabled"
+            subtitle="Inactive payment modes"
+            icon="alert"
+            tone="warning"
+            preserveCase
+          />
+        </OverviewCardsGrid>
 
         {/* Section Heading */}
         <Text style={styles.sectionHeading}>Available Payment Methods</Text>
@@ -554,8 +565,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: adminSpacing.md,
-    paddingBottom: 90,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxxl * 2,
+  },
+  kpiGrid: {
+    marginBottom: adminSpacing.md,
   },
   kpiRow: {
     flexDirection: 'row',

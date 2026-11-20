@@ -21,7 +21,23 @@ const monorepoRoot = path.resolve(__dirname, '../..');
 const defaultConfig = getDefaultConfig(__dirname);
 const { assetExts, sourceExts } = defaultConfig.resolver;
 
-const exclusionList = require('metro-config/src/defaults/exclusionList');
+function exclusionList(additionalExclusions) {
+  const list = [/\/__tests__\/.*/];
+  const escapeRegExp = (pattern) => {
+    if (Object.prototype.toString.call(pattern) === '[object RegExp]') {
+      return pattern.source.replace(/\/|\\\//g, '\\' + path.sep);
+    } else if (typeof pattern === 'string') {
+      const escaped = pattern.replace(/[\-\[\]\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&');
+      return escaped.replaceAll('/', '\\' + path.sep);
+    }
+    throw new Error('Unexpected exclusion pattern: ' + pattern);
+  };
+  return new RegExp(
+    '(' +
+      (additionalExclusions || []).concat(list).map(escapeRegExp).join('|') +
+      ')$'
+  );
+}
 
 const config = {
   watchFolders: [monorepoRoot],

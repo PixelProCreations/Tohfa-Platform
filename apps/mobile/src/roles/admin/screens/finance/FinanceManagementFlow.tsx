@@ -29,6 +29,9 @@ import { ReturnsRmaRefundsScreen } from './ReturnsRmaRefundsScreen';
 import { SalesIncomeRevenueScreen } from './SalesIncomeRevenueScreen';
 import { TransactionHistoryScreen } from './TransactionHistoryScreen';
 import { WalletDeductionFlow } from './WalletDeductionFlow';
+import { PayoutTransactionsListScreen } from './PayoutTransactionsListScreen';
+import { PayoutBatchListScreen } from './PayoutBatchListScreen';
+import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -167,6 +170,49 @@ function GoToPaymentMethodsIcon({ size = 26, color = adminColors.brand }: { size
   );
 }
 
+function GoToMoneyBagIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 3h6M10 6h4" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+      <Path
+        d="M19 14.5c0 4-3.1 6.5-7 6.5s-7-2.5-7-6.5C5 10 9 6.5 10 6.5h4c1 0 5 3.5 5 8z"
+        stroke={color}
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="14" r="2.5" stroke={color} strokeWidth="1.5" />
+    </Svg>
+  );
+}
+
+function GoToPayoutTransactionsIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h13m0 0l-3.5-3.5M17 8l-3.5 3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 16H7m0 0l3.5-3.5M7 16l3.5 3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToPayoutBatchIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M8 12h8M8 16h5" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function GoToHistoryClockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export type FinanceSubScreen =
   | 'overview'
   | 'profitLoss'
@@ -180,6 +226,8 @@ export type FinanceSubScreen =
   | 'walletDeduction'
   | 'invoicesGst'
   | 'reviewReturns'
+  | 'payoutTransactions'
+  | 'payoutBatch'
   | 'transactionHistory'
   | 'reportExport'
   | 'paymentMethods';
@@ -191,6 +239,7 @@ export interface FinanceManagementFlowProps {
   showBackButton?: boolean;
   onBack: () => void;
   onTabChange?: (tab: string) => void;
+  onSubScreenChange?: (subScreen: FinanceSubScreen) => void;
 }
 
 export function FinanceManagementFlow({
@@ -200,10 +249,20 @@ export function FinanceManagementFlow({
   showBackButton = false,
   onBack,
   onTabChange,
+  onSubScreenChange,
 }: FinanceManagementFlowProps) {
-  const [subScreen, setSubScreen] = useState<FinanceSubScreen>(initialSubScreen);
+  const [subScreen, setSubScreenState] = useState<FinanceSubScreen>(initialSubScreen);
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
   const [showExportToast, setShowExportToast] = useState<boolean>(false);
+
+  const setSubScreen = (newSub: FinanceSubScreen) => {
+    setSubScreenState(newSub);
+    onSubScreenChange?.(newSub);
+  };
+
+  React.useEffect(() => {
+    onSubScreenChange?.(subScreen);
+  }, [subScreen, onSubScreenChange]);
 
   // RBAC checks
   const canConfigurePayments = can('payment.method.configure') || role === 'SUPER_ADMIN';
@@ -241,15 +300,8 @@ export function FinanceManagementFlow({
 
   if (subScreen === 'purchaseSales') {
     return (
-      <SalesFlow
-        scope={{ warehouseId: undefined, warehouseName: undefined }}
-        can={can}
-        role={role}
+      <PurchaseSalesOrdersScreen
         onBack={() => setSubScreen('overview')}
-        onTabChange={(tab) => {
-          onTabChange?.(tab);
-          setSubScreen('overview');
-        }}
       />
     );
   }
@@ -279,6 +331,14 @@ export function FinanceManagementFlow({
 
   if (subScreen === 'reviewReturns') {
     return <ReturnsRmaRefundsScreen can={can} onBack={() => setSubScreen('overview')} />;
+  }
+
+  if (subScreen === 'payoutTransactions') {
+    return <PayoutTransactionsListScreen onBack={() => setSubScreen('overview')} />;
+  }
+
+  if (subScreen === 'payoutBatch') {
+    return <PayoutBatchListScreen onBack={() => setSubScreen('overview')} />;
   }
 
   if (subScreen === 'transactionHistory') {
@@ -534,25 +594,11 @@ export function FinanceManagementFlow({
           </View>
         </View>
 
-        {/* 8. Go to Grid (Rendered cleanly with reusable OverviewActionCard) */}
+        {/* 8. Go to Grid (Rendered cleanly with reusable OverviewActionCard matching M13-S01) */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>Go to</Text>
           <OverviewCardsGrid>
-            <OverviewActionCard
-              title="Profit & loss"
-              icon={<GoToProfitLossIcon size={24} color={adminColors.brand} />}
-              onPress={() => setSubScreen('profitLoss')}
-            />
-            <OverviewActionCard
-              title="Sales Income & Revenue"
-              icon={<GoToSalesIncomeIcon size={24} color={adminColors.brand} />}
-              onPress={() => setSubScreen('salesIncome')}
-            />
-            <OverviewActionCard
-              title="Expenses"
-              icon={<GoToExpensesIcon size={24} color={adminColors.brand} />}
-              onPress={() => setSubScreen('expenses')}
-            />
+            {/* Row 1 */}
             <OverviewActionCard
               title="Purchase & Sales"
               icon={<GoToPurchaseSalesIcon size={24} color={adminColors.brand} />}
@@ -563,11 +609,32 @@ export function FinanceManagementFlow({
               icon={<GoToDuesPayoutsIcon size={24} color={adminColors.brand} />}
               onPress={() => setSubScreen('duesPayouts')}
             />
+
+            {/* Row 2 */}
+            <OverviewActionCard
+              title="Sales Income & Revenue"
+              icon={<GoToSalesIncomeIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('salesIncome')}
+            />
+            <OverviewActionCard
+              title="Profit & loss"
+              icon={<GoToMoneyBagIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('profitLoss')}
+            />
+
+            {/* Row 3 */}
+            <OverviewActionCard
+              title="Expenses"
+              icon={<GoToExpensesIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('expenses')}
+            />
             <OverviewActionCard
               title="Customer Wallet"
               icon={<GoToCustomerWalletIcon size={24} color={adminColors.brand} />}
               onPress={() => setSubScreen('customerWallet')}
             />
+
+            {/* Row 4 */}
             <OverviewActionCard
               title="Create or View Invoice"
               icon={<GoToInvoiceIcon size={24} color={adminColors.brand} />}
@@ -578,9 +645,23 @@ export function FinanceManagementFlow({
               icon={<GoToReviewReturnsIcon size={24} color={adminColors.brand} />}
               onPress={() => setSubScreen('reviewReturns')}
             />
+
+            {/* Row 5 */}
             <OverviewActionCard
-              title="Transaction History"
-              icon={<GoToTransactionHistoryIcon size={24} color={adminColors.brand} />}
+              title="Payout Transactions list"
+              icon={<GoToPayoutTransactionsIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('payoutTransactions')}
+            />
+            <OverviewActionCard
+              title="Payout Batch list"
+              icon={<GoToPayoutBatchIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('payoutBatch')}
+            />
+
+            {/* Row 6 */}
+            <OverviewActionCard
+              title="History"
+              icon={<GoToHistoryClockIcon size={24} color={adminColors.brand} />}
               onPress={() => setSubScreen('transactionHistory')}
             />
             <OverviewActionCard
@@ -588,6 +669,7 @@ export function FinanceManagementFlow({
               icon={<GoToReportExportIcon size={24} color={adminColors.brand} />}
               onPress={() => setSubScreen('reportExport')}
             />
+
             {canConfigurePayments && (
               <OverviewActionCard
                 title="Payment methods"
