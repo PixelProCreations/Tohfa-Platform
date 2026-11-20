@@ -112,6 +112,8 @@ export function PricingFlow({ can, onBack, warehouseId }: PricingFlowProps) {
       onNavigateToCategories={() => setRoute({ screen: 'categories' })}
       onNavigateToPriceHistory={() => setRoute({ screen: 'history' })}
       onNavigateOverview={() => setRoute({ screen: 'retail' })}
+      onSetFairPriceCeiling={() => setRoute({ screen: 'ceiling' })}
+      onBulkUpdateCeilings={() => setRoute({ screen: 'ceiling' })}
     />
   );
 }

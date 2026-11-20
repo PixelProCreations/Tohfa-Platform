@@ -8,6 +8,15 @@
   "pricingRetail.notAvailable.title": "Not available",
   "pricingRetail.notAvailable.subtitle": "Your account does not have access to this pricing view.",
 
+  "pricingRetail.edit.title": "Edit retail price",
+  "pricingRetail.edit.cancel": "Cancel",
+  "pricingRetail.edit.save": "Save Retail Price",
+  "pricingRetail.edit.saving": "Saving…",
+  "pricingRetail.edit.unavailable.title": "This retail price cannot be edited here",
+  "pricingRetail.edit.unavailable.subtitle": "The fair-price ceiling in force for this crop and grade was not loaded, so a new retail price cannot be checked against it. Open the record again from the pricing list.",
+  "pricingRetail.overview.empty.title": "No pricing records",
+  "pricingRetail.overview.empty.subtitle": "No retail prices are in force for this warehouse.",
+
   "pricingRetail.header.title": "Retail Pricing",
   "pricingRetail.header.subtitle": "View current retail prices by crop and grade",
   "pricingRetail.search.placeholder": "Search crop or grade",

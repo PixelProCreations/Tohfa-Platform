@@ -10,6 +10,7 @@ import { fromPaise, parseMoney, toPaise } from '@tohfa/shared-types';
 import { en } from '../i18n';
 import { makeCan } from '../permissions/can';
 import { compareToCeiling, toFairPriceRow, toRetailPriceRow } from '../api/pricingMappers';
+import { PRICING_HOME_KPIS_UNAVAILABLE } from '../api/pricingTypes';
 import {
   FAIR_PRICE_VIEW,
   RETAIL_PRICE_VIEW,
@@ -157,10 +158,25 @@ describe('crop selection for the history screen', () => {
 });
 
 describe('home layout logic', () => {
-  it('every KPI value is the no-value dash (no KPI endpoint)', () => {
-    expect(kpiValueText()).toBe('—');
+  it('a KPI with no counted figure is the no-value dash, never a zero', () => {
+    expect(kpiValueText(null)).toBe('—');
+    expect(kpiValueText(null, 'percent')).toBe('—');
     expect(HOME_KPI_CARDS.length).toBe(7);
     for (const card of HOME_KPI_CARDS) expect(['pricing.fair_price.view', 'pricing.retail_price.view']).toContain(card.code);
+  });
+
+  it('a counted KPI renders the number the list gave, percentages with their sign', () => {
+    expect(kpiValueText(0)).toBe('0');
+    expect(kpiValueText(12)).toBe('12');
+    expect(kpiValueText(98, 'percent')).toBe('98%');
+  });
+
+  it('the cards with no API source keep the dash by construction', () => {
+    // pendingPriceUpdates: no "pending" state exists in the pricing schema.
+    // categoriesAndGrades: categories have no backend (owner decision D6).
+    const unsourced = HOME_KPI_CARDS.filter((c) => c.id === 'pendingPriceUpdates' || c.id === 'categoriesAndGrades');
+    expect(unsourced).toHaveLength(2);
+    for (const card of unsourced) expect(kpiValueText(PRICING_HOME_KPIS_UNAVAILABLE[card.id], card.format)).toBe('—');
   });
 
   it('sections follow their read code; nothing without a code', () => {

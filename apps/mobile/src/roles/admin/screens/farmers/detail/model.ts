@@ -164,11 +164,18 @@ export const FARMER_DETAIL_TABS = [
 export type FarmerDetailTab = (typeof FARMER_DETAIL_TABS)[number];
 
 /** Every tab name a caller may pass: the 9 design tabs plus Dev's 'Overview' and 'Farm' (App.tsx keeps them). */
-export type FarmerDetailTabType = FarmerDetailTab | 'Overview' | 'Farm';
+export type FarmerDetailTabType =
+  | FarmerDetailTab
+  | 'Overview'
+  | 'Farm'
+  | 'Verification & Compliance'
+  | 'Farmer Records';
 
 export function normalizeDetailTab(tab: FarmerDetailTabType | undefined): FarmerDetailTab {
   if (tab === undefined || tab === 'Overview') return 'Personal';
   if (tab === 'Farm') return 'Farm & land';
+  if (tab === 'Verification & Compliance') return 'KYC';
+  if (tab === 'Farmer Records') return 'Audit';
   return tab;
 }
 

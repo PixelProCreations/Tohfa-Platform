@@ -23,6 +23,7 @@ import React, { useState } from 'react';
 import type { Can } from '../../permissions/can';
 import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseOrdersListScreen, type PurchaseOrdersListMode } from './PurchaseOrdersListScreen';
+import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 
 export interface PurchaseOrdersFlowProps {
   /** The signed-in admin's permission check (makeCan(/auth/me permissions)). Required: no default grant exists. */
@@ -32,23 +33,45 @@ export interface PurchaseOrdersFlowProps {
   /** The caller's warehouse; sent as the list's `warehouseId` and used in the cache keys. Scoping is server-side (BR-30). */
   warehouseId?: string | undefined;
   /** Which list the flow opens on. Default 'orders'. */
-  initialView?: PurchaseOrdersListMode | undefined;
+  initialView?: PurchaseOrdersListMode | 'dual' | undefined;
 }
 
-type Route = { screen: 'list' } | { screen: 'detail'; id: string };
+type Route = { screen: 'list' } | { screen: 'detail'; id: string } | { screen: 'dual' };
 
 export function PurchaseOrdersFlow({ can, onBack, warehouseId, initialView = 'orders' }: PurchaseOrdersFlowProps) {
-  const [route, setRoute] = useState<Route>({ screen: 'list' });
+  const [route, setRoute] = useState<Route>(initialView === 'dual' ? { screen: 'dual' } : { screen: 'list' });
+
+  // Fail-closed RBAC: purchase.order.view required
+  if (!can || !can('purchase.order.view')) {
+    return (
+      <PurchaseOrdersListScreen
+        mode={initialView === 'dual' ? 'orders' : initialView}
+        can={can}
+        warehouseId={warehouseId}
+        onBack={onBack}
+        onViewOrder={(id) => setRoute({ screen: 'detail', id })}
+      />
+    );
+  }
+
+  if (route.screen === 'dual') {
+    return (
+      <PurchaseSalesOrdersScreen
+        onBack={onBack}
+        onNavigateOrder={(id) => setRoute({ screen: 'detail', id })}
+      />
+    );
+  }
 
   if (route.screen === 'detail') {
     return (
-      <PurchaseOrderDetailScreen can={can} orderId={route.id} warehouseId={warehouseId} onBack={() => setRoute({ screen: 'list' })} />
+      <PurchaseOrderDetailScreen can={can} orderId={route.id} warehouseId={warehouseId} onBack={() => setRoute(initialView === 'dual' ? { screen: 'dual' } : { screen: 'list' })} />
     );
   }
 
   return (
     <PurchaseOrdersListScreen
-      mode={initialView}
+      mode={initialView === 'dual' ? 'orders' : initialView}
       can={can}
       warehouseId={warehouseId}
       onBack={onBack}

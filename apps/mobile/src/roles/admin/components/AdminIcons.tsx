@@ -268,6 +268,50 @@ export function EyeIcon({ size = 20, color = adminColors.brand }: AdminIconProps
   );
 }
 
+export function EyeOffIcon({ size = 20, color = adminColors.muted }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function UploadIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function ImageIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" />
+      <Circle cx="8.5" cy="8.5" r="1.5" fill={color} />
+      <Path
+        d="M21 15l-5-5L5 21"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function TrashIcon({ size = 20, color = adminColors.danger.text }: AdminIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -355,9 +399,21 @@ export function SwitchArrowsIcon({ size = 20, color = adminColors.brand }: Admin
   );
 }
 
-// ─── Super Admin Dashboard & Nav Icons ───────────────────────────────────────
+export function ShieldIcon({ size = 16, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
-export function ShieldIcon({ size = 20, color = adminColors.onBrand }: AdminIconProps) {
+export function ShieldCheckIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -367,9 +423,133 @@ export function ShieldIcon({ size = 20, color = adminColors.onBrand }: AdminIcon
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Path
+        d="M9 12l2 2 4-4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
+
+export function UsersIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function LocationPinIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+export function DocumentTextIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function CreditCardIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" />
+      <Line x1="2" y1="10" x2="22" y2="10" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+export function PersonIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function GridDashboardIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth="2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+export function BankIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function MenuDotsIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="5" cy="5" r="2" fill={color} />
+      <Circle cx="12" cy="5" r="2" fill={color} />
+      <Circle cx="19" cy="5" r="2" fill={color} />
+      <Circle cx="5" cy="12" r="2" fill={color} />
+      <Circle cx="12" cy="12" r="2" fill={color} />
+      <Circle cx="19" cy="12" r="2" fill={color} />
+      <Circle cx="5" cy="19" r="2" fill={color} />
+      <Circle cx="12" cy="19" r="2" fill={color} />
+      <Circle cx="19" cy="19" r="2" fill={color} />
+    </Svg>
+  );
+}
+
+
+// ─── Super Admin Dashboard & Nav Icons ───────────────────────────────────────
 
 export function UserAvatarIcon({ size = 22, color = adminColors.onBrand }: AdminIconProps) {
   return (

@@ -47,6 +47,7 @@ export type AuditExportFormat = 'csv' | 'pdf' | 'json';
 export interface SystemSettingsFlowProps {
   onBack: () => void;
   can: Can;
+  role?: string | undefined;
   initialScreen?: SystemSettingsEntryScreen | undefined;
   /** Copy a value (log id, sender id, endpoint) to the clipboard. */
   onCopyText?: ((text: string) => void) | undefined;

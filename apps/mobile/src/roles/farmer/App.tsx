@@ -111,21 +111,7 @@ import {
   GSTFilingReportDetailScreen,
   BasicAccountingLedgerScreen,
   AddManualJournalEntryScreen,
-  AdminAllFarmersScreen,
-  AdminFarmerDetailScreen,
-  AdminFarmMapScreen,
-  AdminRatingScorecardScreen,
-  AdminEditFarmerScreen,
-  AdminEditRatingCategoriesScreen,
-  type FarmerDetailTabType,
-  type FarmerListItem,
-  AdminPendingApplicationsScreen,
-  AdminApplicationDetailScreen,
-  type PendingApplicationItem,
-  AdminApplicationRejectScreen,
-  AdminCertVerificationScreen,
   AdminComplianceTiersScreen,
-  AdminKycReviewScreen,
   SalesChannelOverviewScreen,
   SalesOnlineOrdersScreen,
   SalesMarketDayScreen,
@@ -473,9 +459,6 @@ function useAdminSelections() {
   const [auditReportData, setAuditReportData] = useState<AuditReportData | undefined>(undefined);
   const [selectedAuditHistoryRecord, setSelectedAuditHistoryRecord] = useState<AuditHistoryRecord | undefined>(undefined);
   const [selectedPayoutDue, setSelectedPayoutDue] = useState<PayoutDue>(undefined);
-  const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | undefined>(undefined);
-  const [adminFarmerActiveTab, setAdminFarmerActiveTab] = useState<FarmerDetailTabType>('Overview');
-  const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
   // Never set today: a sale opened from history carries its fields as route params (salesParams).
@@ -492,12 +475,6 @@ function useAdminSelections() {
     setSelectedAuditHistoryRecord,
     selectedPayoutDue,
     setSelectedPayoutDue,
-    selectedAdminFarmer,
-    setSelectedAdminFarmer,
-    adminFarmerActiveTab,
-    setAdminFarmerActiveTab,
-    selectedPendingApp,
-    setSelectedPendingApp,
     selectedSalesOrder,
     setSelectedSalesOrder,
     selectedSalesB2B,
@@ -526,12 +503,6 @@ export default function App(): React.JSX.Element {
     setSelectedAuditHistoryRecord,
     selectedPayoutDue,
     setSelectedPayoutDue,
-    selectedAdminFarmer,
-    setSelectedAdminFarmer,
-    adminFarmerActiveTab,
-    setAdminFarmerActiveTab,
-    selectedPendingApp,
-    setSelectedPendingApp,
     selectedSalesOrder,
     setSelectedSalesOrder,
     selectedSalesB2B,
@@ -1680,141 +1651,12 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onSuccess={() => navigate('AuditCalendar')}
           />
-        ) : screen === 'AdminAllFarmers' ? (
-          <AdminAllFarmersScreen
-            onBack={goBack}
-            onNavigateTab={(tab) => {
-              if (tab === 'Dashboard') {
-                navigate('TohfaAdminDashboard');
-              } else if (tab === 'Sales') {
-                navigate('SalesChannelOverview');
-              } else if (tab === 'Reports') {
-                navigate('ReportBuilder');
-              } else if (tab === 'Profile') {
-                // Same as the Profile tab on the other admin shells: the
-                // dashboard's Profile tab (AdminProfileScreen, which owns sign-out).
-                navigate('TohfaAdminDashboard', { initialTab: 'Profile' });
-              }
-            }}
-            onSelectFarmer={(f) => {
-              setSelectedAdminFarmer(f);
-              setAdminFarmerActiveTab('Overview');
-              navigate('AdminFarmerDetail');
-            }}
-          />
-        ) : screen === 'AdminFarmerDetail' ? (
-          <AdminFarmerDetailScreen
-            farmer={selectedAdminFarmer!}
-            initialTab={adminFarmerActiveTab}
-            onTabChange={setAdminFarmerActiveTab}
-            onBack={goBack}
-            onEdit={(tab) => {
-              setAdminFarmerActiveTab(tab);
-              navigate('AdminEditFarmer');
-            }}
-            onOpenFarmMap={() => {
-              setAdminFarmerActiveTab('Farm');
-              navigate('AdminFarmMap');
-            }}
-            onOpenRatingScorecard={() => {
-              setAdminFarmerActiveTab('Ratings');
-              navigate('AdminRatingScorecard');
-            }}
-            onOpenKycReview={() => {
-              setAdminFarmerActiveTab('KYC');
-              navigate('AdminKycReview');
-            }}
-          />
-        ) : screen === 'AdminEditFarmer' ? (
-          <AdminEditFarmerScreen
-            farmer={selectedAdminFarmer!}
-            initialTab={adminFarmerActiveTab}
-            onBack={goBack}
-            onSave={(updated, tab) => {
-              setSelectedAdminFarmer(updated);
-              setAdminFarmerActiveTab(tab);
-              setToast({
-                type: 'approve',
-                title: 'Changes Saved',
-                message: `${tab} details for ${updated.name} updated successfully.`,
-              });
-              goBack();
-            }}
-            onNavigateToEditCategories={() => navigate('AdminEditRatingCategories')}
-          />
-        ) : screen === 'AdminEditRatingCategories' ? (
-          <AdminEditRatingCategoriesScreen
-            farmer={selectedAdminFarmer!}
-            onBack={goBack}
-            onSave={(score, tier) => {
-              if (selectedAdminFarmer) {
-                setSelectedAdminFarmer({
-                  ...selectedAdminFarmer,
-                  rating: score,
-                  ratingTier: tier,
-                });
-              }
-              goBack();
-            }}
-          />
-        ) : screen === 'AdminFarmMap' ? (
-          <AdminFarmMapScreen
-            farmer={selectedAdminFarmer!}
-            onBack={goBack}
-          />
-        ) : screen === 'AdminRatingScorecard' ? (
-          <AdminRatingScorecardScreen
-            farmer={selectedAdminFarmer!}
-            onBack={goBack}
-            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
-            onEditCategories={() => navigate('AdminEditRatingCategories')}
-          />
+        // Farmers Management (list, detail, edit, applications, reject and the
+        // farmer satellites) is the shared FarmersFlow, mounted by each admin
+        // dashboard with the signed-in admin's own permissions; no route here.
         ) : screen === 'AdminComplianceTiers' ? (
           <AdminComplianceTiersScreen
             onBack={goBack}
-          />
-        ) : screen === 'AdminKycReview' ? (
-          <AdminKycReviewScreen
-            farmer={selectedAdminFarmer!}
-            onBack={goBack}
-            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
-          />
-        ) : screen === 'AdminCertVerification' ? (
-          <AdminCertVerificationScreen
-            farmer={selectedAdminFarmer!}
-            onBack={goBack}
-            onVerified={goBack}
-            onUnverified={goBack}
-          />
-        ) : screen === 'AdminPendingApplications' ? (
-          <AdminPendingApplicationsScreen
-            onBack={goBack}
-            onSelectApplication={(item) => {
-              setSelectedPendingApp(item);
-              navigate('AdminApplicationDetail');
-            }}
-          />
-        ) : screen === 'AdminApplicationDetail' ? (
-          <AdminApplicationDetailScreen
-            application={selectedPendingApp!}
-            onBack={goBack}
-            onApprove={() => navigate('AdminApplicationApprove')}
-            onReject={() => navigate('AdminApplicationReject')}
-            onRequestMoreInfo={() => navigate('AdminApplicationRequestInfo')}
-          />
-        ) : screen === 'AdminApplicationReject' ? (
-          <AdminApplicationRejectScreen
-            application={selectedPendingApp!}
-            onBack={goBack}
-            onConfirmReject={(reason) => {
-              const app = selectedPendingApp!;
-              setToast({
-                type: 'reject',
-                title: 'Application Rejected',
-                message: `Notice sent to ${app.name}: ${reason}`,
-              });
-              goBack();
-            }}
           />
         ) : screen === 'MarketPricingHome' ? (
           <MarketPricingHomeScreen

@@ -877,7 +877,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
             value={currentData.newApps}
             title="New Applications"
             subtitle={currentData.newAppsTrend}
-            icon="orders"
+            icon="clipboard"
             titlePosition="bottom"
           />
 
@@ -886,7 +886,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
             value={`${currentData.avgRating}${currentData.avgRatingSub || ''}`}
             title="Average Farm Rating"
             subtitle={currentData.ratingTrend}
-            icon="receiving"
+            icon="orders"
             tone="success"
             titlePosition="bottom"
           />
@@ -906,7 +906,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
             value={currentData.activeFarmers}
             title="Active Farmers"
             subtitle={currentData.activeTrend}
-            icon="pickup"
+            icon="users"
             titlePosition="bottom"
           />
 
@@ -924,7 +924,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
             value={currentData.organicCert}
             title="Organic Certified"
             subtitle={currentData.organicTrend}
-            icon="inventory"
+            icon="receiving"
             tone="success"
             titlePosition="bottom"
           />

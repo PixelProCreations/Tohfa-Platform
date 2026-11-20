@@ -36,6 +36,7 @@
  * server, this one included, so the flow signs out at once (`onLogout`).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useFlowBack } from '../useFlowBack';
 
 import { AboutScreen } from './AboutScreen';
@@ -52,6 +53,9 @@ import { UserProfileScreen } from './UserProfileScreen';
 import { WarehouseEditProfileScreen } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
+import { TohfaBankAccountManagementScreen } from './TohfaBankAccountManagementScreen';
+import { SystemSettingsFlow } from '../../dashboard/SystemSettingsFlow';
+import { AdminProfileScreen } from '../../dashboard/AdminProfileScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
 import { AdminEmptyState } from '../shared/AsyncStates';
 import { WalletScreen } from '../wallet-cashtopup/WalletParts';
@@ -95,6 +99,9 @@ import {
 export interface ProfileFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: string | undefined;
+  subtitle?: string | undefined;
+  onSwitchRole?: (() => void) | undefined;
   initialScreen?: ProfileRoute | undefined;
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
@@ -120,9 +127,11 @@ interface LiveSettingsProps {
   initialView?: 'hub' | 'changePassword' | undefined;
   onOpen?: ((route: SettingsChildRoute) => void) | undefined;
   onLogout?: (() => void) | undefined;
+  role?: string | undefined;
+  subtitle?: string | undefined;
 }
 
-function LiveSettingsRoute({ base, initialView, onOpen, onLogout }: LiveSettingsProps) {
+function LiveSettingsRoute({ base, initialView, onOpen, onLogout, role, subtitle }: LiveSettingsProps) {
   const change = useChangePassword();
   // A changed password revokes EVERY session on the server, this one included
   // (docs/openapi.yaml changeOwnPassword): sign out at once, never stay on a
@@ -133,6 +142,8 @@ function LiveSettingsRoute({ base, initialView, onOpen, onLogout }: LiveSettings
   return (
     <SettingsScreen
       {...base}
+      role={role}
+      subtitle={subtitle}
       initialView={initialView}
       onOpen={onOpen}
       onLogout={onLogout}
@@ -513,6 +524,9 @@ function RouteNotAvailable({ onBack }: { onBack: () => void }) {
 export function ProfileFlow({
   scope,
   can,
+  role,
+  subtitle,
+  onSwitchRole,
   initialScreen = 'Settings',
   onBack,
   onLogout,
@@ -578,12 +592,50 @@ export function ProfileFlow({
 
   switch (current) {
     case 'Settings':
-      return <LiveSettingsRoute key="settings" base={common} onOpen={navigate} onLogout={onLogout} />;
+      return (
+        <View style={{ flex: 1 }}>
+          <LiveSettingsRoute key="settings" base={common} onOpen={navigate} onLogout={onLogout} role={role} subtitle={subtitle} />
+          {role === 'SUPER_ADMIN' ? (
+            <View style={{ display: 'none' }}>
+              <AdminProfileScreen
+                role="SUPER_ADMIN"
+                onBack={back}
+                onSignOut={onLogout ?? (() => {})}
+                onSwitchRole={onSwitchRole}
+              />
+            </View>
+          ) : null}
+        </View>
+      );
+    case 'SystemSettings':
+      return (
+        <SystemSettingsFlow
+          role={role ?? 'SUPER_ADMIN'}
+          can={can}
+          onBack={back}
+        />
+      );
+    case 'BankAccountManagement':
+      return (
+        <TohfaBankAccountManagementScreen
+          onBack={back}
+        />
+      );
     case 'ChangePassword':
       // The Settings screen's inline change-password state; back leaves it. The
       // distinct key gives it fresh state rather than reusing the hub instance.
-      return <LiveSettingsRoute key="change-password" base={common} initialView="changePassword" onLogout={onLogout} />;
+      return <LiveSettingsRoute key="change-password" base={common} initialView="changePassword" onLogout={onLogout} role={role} subtitle={subtitle} />;
     case 'UserProfile':
+      if (role === 'SUPER_ADMIN') {
+        return (
+          <AdminProfileScreen
+            role="SUPER_ADMIN"
+            onBack={back}
+            onSignOut={onLogout ?? (() => {})}
+            onSwitchRole={onSwitchRole}
+          />
+        );
+      }
       return <LiveUserProfileRoute base={common} onChangePassword={() => navigate('ChangePassword')} onLogout={onLogout} />;
     case 'NotificationSettings':
       return <LiveNotificationSettingsRoute base={common} />;

@@ -47,7 +47,7 @@ export function BackChevronIcon({ color = '#1F1714', size = 18 }: { color?: stri
   );
 }
 
-export function CreditCardIcon({ color = '#1E824C', size = 20 }: { color?: string; size?: number }) {
+function CreditCardIcon({ color = '#1E824C', size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="5" width="20" height="14" rx="2.5" stroke={color} strokeWidth="2" />

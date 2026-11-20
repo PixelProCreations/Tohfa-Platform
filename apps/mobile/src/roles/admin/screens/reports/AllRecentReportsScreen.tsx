@@ -9,31 +9,23 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  greenSuccess: '#16A34A',
-  greenBg: '#EDFDF2',
-  blueIconBg: '#EBF3FA',
-  blueIcon: '#1D6399',
-  border: '#F0ECE6',
-};
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-function BackChevronIcon() {
+
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 19L8 12L15 5"
-        stroke="#2B2523"
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -42,7 +34,7 @@ function BackChevronIcon() {
   );
 }
 
-function SearchIcon({ size = 18, color = '#827871' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -51,7 +43,7 @@ function SearchIcon({ size = 18, color = '#827871' }: { size?: number; color?: s
   );
 }
 
-function DocumentTextIcon({ size = 20, color = P.orange }: { size?: number; color?: string }) {
+function DocumentTextIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -69,7 +61,7 @@ function DocumentTextIcon({ size = 20, color = P.orange }: { size?: number; colo
   );
 }
 
-function ChevronRight({ size = 18, color = '#B8AEA8' }: { size?: number; color?: string }) {
+function ChevronRight({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -109,14 +101,14 @@ const RECENT_REPORTS_DATA: RecentReportItem[] = [
     id: 'rep-2',
     title: 'Farmer Performance Summary',
     category: 'Farmers',
-    period: 'Generated Yesterday',
-    typeDesc: 'Farmer Aggregation & Grade A Payouts',
-    fileFormat: 'PDF · 2.4 MB',
+    period: 'Generated 2d ago',
+    typeDesc: 'Yields, Ratings & Disbursals',
+    fileFormat: 'Excel · 2.4 MB',
     actionKey: 'farmer',
   },
   {
     id: 'rep-3',
-    title: 'Warehouse Operations Audit',
+    title: 'Warehouse Hub Operations Audit',
     category: 'Operations',
     period: 'Generated 3d ago',
     typeDesc: 'Kotagiri & Ooty Hub Stock Reconciliations',
@@ -214,38 +206,38 @@ export function AllRecentReportsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Terracotta Header Band matching Admin Standard */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityLabel="Back to Reports"
+          >
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>All Recent Reports</Text>
+        </View>
+        <Text style={styles.headerSubtitle}>
+          Complete archive of generated platform reports & financial statements
+        </Text>
+      </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Row with Back Button */}
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Back to Reports"
-          >
-            <BackChevronIcon />
-          </TouchableOpacity>
-        </View>
-
-        {/* Heading */}
-        <Text style={styles.pageTitle}>All Recent Reports</Text>
-        <Text style={styles.pageSubtitle}>
-          Complete archive of generated platform reports & financial statements
-        </Text>
-
         {/* Search Bar */}
         <View style={styles.searchBar}>
-          <SearchIcon size={18} color="#827871" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search recent reports..."
-            placeholderTextColor="#827871"
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             clearButtonMode="while-editing"
@@ -275,13 +267,13 @@ export function AllRecentReportsScreen({
           })}
         </ScrollView>
 
-        {/* Reports List */}
+        {/* List of Reports */}
         <View style={styles.listSection}>
           {filteredReports.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No matching reports found</Text>
+              <Text style={styles.emptyTitle}>No matching reports</Text>
               <Text style={styles.emptySub}>
-                Try adjusting your search query or filter category.
+                Try adjusting your search query or category filter.
               </Text>
             </View>
           ) : (
@@ -294,20 +286,22 @@ export function AllRecentReportsScreen({
               >
                 <View style={styles.reportLeft}>
                   <View style={styles.docIconSquare}>
-                    <DocumentTextIcon size={22} color={P.orange} />
+                    <DocumentTextIcon size={22} color={adminColors.brand} />
                   </View>
                   <View style={styles.textCol}>
                     <View style={styles.titleRow}>
-                      <Text style={styles.reportTitle}>{report.title}</Text>
+                      <Text style={styles.reportTitle} numberOfLines={1}>
+                        {report.title}
+                      </Text>
                       <View style={styles.badge}>
                         <Text style={styles.badgeText}>{report.category}</Text>
                       </View>
                     </View>
-                    <Text style={styles.reportDate}>{report.period} · {report.typeDesc}</Text>
+                    <Text style={styles.reportDate}>{report.period}</Text>
                     <Text style={styles.fileSizeText}>{report.fileFormat}</Text>
                   </View>
                 </View>
-                <ChevronRight />
+                <ChevronRight size={18} color={adminColors.muted} />
               </TouchableOpacity>
             ))
           )}
@@ -319,68 +313,60 @@ export function AllRecentReportsScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
+  },
+  header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  headerSubtitle: {
+    ...adminType.body,
+    color: adminOverlay.headerSubtitle,
+    marginTop: 4,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 28,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: P.cardBg,
-    borderWidth: 1,
-    borderColor: P.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  pageTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: P.titleBrown,
-    letterSpacing: -0.4,
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 13,
-    color: P.subtitle,
-    marginBottom: 18,
-    lineHeight: 18,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 60,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
     marginBottom: 14,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: P.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     marginLeft: 10,
     padding: 0,
   },
@@ -392,23 +378,22 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 14,
     paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: P.cardBg,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
   },
   chipActive: {
-    backgroundColor: P.orange,
-    borderColor: P.orange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   chipText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: P.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   chipTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: adminColors.onBrand,
+    fontWeight: '700',
   },
   listSection: {
     gap: 12,
@@ -417,16 +402,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: P.cardBg,
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     padding: 14,
     borderWidth: 1,
-    borderColor: P.cardBorder,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   reportLeft: {
     flexDirection: 'row',
@@ -437,8 +418,8 @@ const styles = StyleSheet.create({
   docIconSquare: {
     width: 44,
     height: 44,
-    borderRadius: 12,
-    backgroundColor: P.orangeBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -453,49 +434,50 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   reportTitle: {
+    ...adminType.rowTitle,
     fontSize: 14,
-    fontWeight: '600',
-    color: P.ink,
+    color: adminColors.ink,
     flex: 1,
     marginRight: 6,
   },
   badge: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.brandTint,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: adminRadius.sm,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: P.titleBrown,
+    ...adminType.caption,
+    color: adminColors.brand,
+    fontWeight: '700',
   },
   reportDate: {
-    fontSize: 12,
-    color: P.subtitle,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   fileSizeText: {
-    fontSize: 11,
-    color: '#9CA3AF',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   emptyCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
   },
   emptyTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: P.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   emptySub: {
-    fontSize: 12,
-    color: P.subtitle,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     textAlign: 'center',
   },
 });
+
+export default AllRecentReportsScreen;

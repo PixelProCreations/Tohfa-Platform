@@ -61,7 +61,9 @@ export type TohfaSubFlow =
   /** Produce Calendar and Crop Data (screens/produce); the More menu's Produce row opens this. */
   | { kind: 'produce' }
   /** Audit Management (screens/audits/AuditManagementFlow); the More menu's Audit row opens this. */
-  | { kind: 'audits' };
+  | { kind: 'audits' }
+  /** Inputs & Pest Management (screens/inputs/InputsPestManagementFlow); the More menu's Inputs row opens this. */
+  | { kind: 'inputs' };
 
 export interface TohfaShellState {
   tab: TohfaShellTab;

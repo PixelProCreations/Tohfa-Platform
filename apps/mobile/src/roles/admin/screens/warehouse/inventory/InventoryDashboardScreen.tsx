@@ -1,20 +1,17 @@
 // Design id: M3S01
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, RefreshControl } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
-import { t } from '../../../i18n';
-import { formatKg } from '../../../money/quantity';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { adminColors, adminOverlay, adminSpacing, adminType } from '../../../theme';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
-import { isAreaAvailable } from '../availability';
-import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
-import { queryViewState } from '../shared/queryViewState';
-import type { InventoryLiveStateProps, InventoryScreenBaseProps, StockLevel, StockSummary } from './types';
+import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, StockSummary } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 
-export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps, Partial<InventoryLiveStateProps> {
+  onInitiateTransfer?: (() => void) | undefined;
   /** Stock per product over the ACTIVE batches (useStockSummary). */
   summary?: StockSummary | undefined;
   /** All allocation rows of the warehouse, summed; null = not known. */
@@ -26,15 +23,6 @@ export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps,
   /** RECORDED stock verifications (overview, BR-107); null = not known for this view. */
   verificationPendingCount?: number | null | undefined;
 }
-
-/** How many products "Top Stock Products" lists (a layout choice, not a business rule). */
-const TOP_PRODUCTS = 3;
-
-const LEVEL_LABEL = {
-  inStock: 'inventory.level.inStock',
-  low: 'inventory.level.low',
-  out: 'inventory.level.out',
-} as const satisfies Record<StockLevel, string>;
 
 // ─── Pixel-Perfect Custom SVGs matching Design Mockup ─────────────────────────
 
@@ -86,8 +74,8 @@ function BellIcon({ size = 22, color = adminColors.onBrand }: { size?: number; c
 function LockBadgeIcon({ size = 12, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -163,6 +151,169 @@ function StatStockLedgerIcon({ size = 22, color = adminColors.brandDeep }: { siz
   );
 }
 
+function InfoCircleIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ArrowUpSmallIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 19V5M5 12l7-7 7 7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function Grid4SquaresIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="9" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="14" y="3" width="7" height="5" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="14" y="12" width="7" height="9" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="16" width="7" height="5" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ConsolidatedStockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2L2 7l10 5 10-5-10-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 17l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M2 12l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function WarehouseStockIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 21V8l8-4 8 4v13" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 10.5h.01M15 10.5h.01M9 14.5h.01M15 14.5h.01M9 18.5h.01M15 18.5h.01" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M3 21h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function StockVerificationQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
+      <Path d="M9 13.5l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function AllocationQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 3v9h9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 12l-6.36 6.36" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LowStockQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 7l6 6 4-4 8 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M21 12v5h-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CreateTransferQuickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h14M15 5l3 3-3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 16H6M9 13l-3 3 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+const MAIN_KPIS = [
+  { key: 'total_stock', label: 'Total Stock', value: '12,840 KG', unit: 'KG across warehouses', icon: 'inventory', screen: 'M3S02' },
+  { key: 'available_stock', label: 'Available Stock', value: '9,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+  { key: 'allocated', label: 'Allocated Stock', value: '2,100 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+  { key: 'reserved', label: 'Reserved Stock', value: '1,500 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+  { key: 'low_stock', label: 'Low Stock Items', value: '14', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+  { key: 'pending_verification', label: 'Verification Pending', value: '6', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+  { key: 'variance_detected', label: 'Variance Detected', value: '2', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+  { key: 'pending_adjustments', label: 'Pending Adjustments', value: '3', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+];
+
+const WAREHOUSE_SPECIFIC_KPIS: Record<string, typeof MAIN_KPIS> = {
+  'WH-OOTY': [
+    { key: 'total_stock', label: 'Total Stock', value: '3,420 KG', unit: 'Ooty warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,540 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '580 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '300 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '4', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '2', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '1', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+  'WH-COON': [
+    { key: 'total_stock', label: 'Total Stock', value: '3,180 KG', unit: 'Coonoor warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,310 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '520 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '350 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '3', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '1', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '0', unit: 'Needs review', icon: 'alert', tone: 'default', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+  'WH-KOTA': [
+    { key: 'total_stock', label: 'Total Stock', value: '2,940 KG', unit: 'Kotagiri warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,150 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '490 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '300 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '4', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '2', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '1', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+  'WH-GUDA': [
+    { key: 'total_stock', label: 'Total Stock', value: '3,300 KG', unit: 'Gudalur warehouse', icon: 'inventory', screen: 'M3S02' },
+    { key: 'available_stock', label: 'Available Stock', value: '2,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
+    { key: 'allocated', label: 'Allocated Stock', value: '510 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
+    { key: 'reserved', label: 'Reserved Stock', value: '550 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
+    { key: 'low_stock', label: 'Low Stock Items', value: '3', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
+    { key: 'pending_verification', label: 'Verification Pending', value: '1', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
+    { key: 'variance_detected', label: 'Variance Detected', value: '0', unit: 'Needs review', icon: 'alert', tone: 'default', screen: 'M3S12' },
+    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '0', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
+  ],
+};
+
+const WAREHOUSE_OVERVIEW_ROWS = [
+  { name: 'Ooty', stock: '3,420 KG', warehouseId: 'WH-OOTY' },
+  { name: 'Coonoor', stock: '3,180 KG', warehouseId: 'WH-COON' },
+  { name: 'Kotagiri', stock: '2,940 KG', warehouseId: 'WH-KOTA' },
+  { name: 'Gudalur Market', stock: '3,300 KG', warehouseId: 'WH-GUDA' },
+];
+
+const PENDING_ACTION_ROWS = [
+  { label: 'Verification', count: 6, screen: 'M3S10' },
+  { label: 'Adjustment', count: 3, screen: 'M3S14' },
+  { label: 'Transfer Receiving', count: 2, screen: 'TransferReceiving' },
+  { label: 'Stock Exception', count: 1, screen: 'M3S12' },
+];
+
+const RECENT_MOVEMENT = {
+  id: 'MV-000928',
+  type: 'RECEIPT',
+  warehouse: 'Ooty',
+  produce: 'Tomato',
+  batch: 'BT-000128',
+  qty: '+100 KG',
+};
+
 export function InventoryDashboardScreen({
   scope,
   can,
@@ -170,38 +321,222 @@ export function InventoryDashboardScreen({
   onNavigate,
   onTabChange,
   warehouseOptions,
-  selectedWarehouseId,
-  onSelectWarehouse,
-  summary,
-  allocatedGrams = null,
-  lowStockCount = null,
-  complete = true,
-  verificationPendingCount = null,
-  isLoading = false,
-  error,
-  onRetry,
-  onRefresh,
-  isRefreshing = false,
+  onInitiateTransfer,
 }: InventoryDashboardScreenProps) {
+  // Main (no warehouseId) gets the all-warehouses selector; Sub is locked to its own.
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
   // The ledger tile needs at least the own-warehouse ledger grant (rbac: MAIN all, SUB own).
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
-  // Stock counts (BR-107) are shown only with inventory.stock_verification.perform (availability.ts).
-  const canVerify = isAreaAvailable('stockCounts', can);
-  const products = summary?.products ?? [];
-  // An empty warehouse still shows its zero tiles; only loading and error replace them.
-  const view = queryViewState({ isLoading, error, itemCount: products.length });
-  const kg = (grams: number | null) => (grams === null ? t('inventory.noValue') : formatKg(grams));
-  const count = (value: number | null) => (value === null ? t('inventory.noValue') : String(value).padStart(2, '0'));
-  // Design: "<Name> Warehouse · Assigned Warehouse" on the locked pill.
-  const ownName = scope.warehouseName ?? scope.warehouseId ?? '';
-  const pillName = ownName.includes('Warehouse') ? ownName : t('inventory.dashboard.warehouseNamed', { name: ownName });
+  const isSub = scope.warehouseId !== undefined;
+
+  const renderStatCard = (
+    key: string,
+    icon: React.ReactNode,
+    value: string,
+    label: string,
+    screenKey: string,
+    isAlert?: boolean,
+  ) => {
+    return (
+      <OverviewDashboardCard
+        key={key}
+        value={value}
+        title={label}
+        subtitle={isAlert ? 'Needs attention' : undefined}
+        icon={icon}
+        tone={isAlert ? 'danger' : 'default'}
+        onPress={onNavigate ? () => onNavigate(screenKey) : undefined}
+      />
+    );
+  };
+
+  const quickActions = [
+    { key: 'consolidated', label: 'Consolidated Stock', icon: <ConsolidatedStockIcon size={24} color={adminColors.brand} />, screen: 'M3S02', params: { view: 'consolidated' } },
+    { key: 'warehouse', label: 'Warehouse Stock', icon: <WarehouseStockIcon size={24} color={adminColors.brand} />, screen: 'M3S02', params: { view: 'warehouse' } },
+    { key: 'verification', label: 'Stock Verification', icon: <StockVerificationQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S10' },
+    { key: 'allocation', label: 'Allocation', icon: <AllocationQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S07' },
+    { key: 'low_stock', label: 'Low Stock', icon: <LowStockQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S09' },
+    { key: 'transfer', label: 'Inter-Warehouse Transfers', icon: <CreateTransferQuickIcon size={24} color={adminColors.brand} />, isTransfer: true },
+  ];
+
+  if (isSub) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.container}>
+          {/* Custom Header matching Design Mockup Exactly */}
+          <View style={styles.headerBand}>
+            <View style={styles.header}>
+              <View style={styles.headerTopRow}>
+                <View style={styles.headerTitleGroup}>
+                  {onBack && (
+                    <TouchableOpacity
+                      style={styles.backButton}
+                      onPress={onBack}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      accessibilityLabel="Back to Dashboard"
+                    >
+                      <BackArrowIcon size={22} color={adminColors.onBrand} />
+                    </TouchableOpacity>
+                  )}
+                  <HeaderBoxIcon size={24} color={adminColors.onBrand} />
+                  <Text style={styles.headerTitle}>Inventory & Stock</Text>
+                </View>
+                <TouchableOpacity 
+                  style={styles.notificationButton} 
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <BellIcon size={19} color={adminColors.onBrand} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.warehousePill}>
+                <LockBadgeIcon size={12} color={adminColors.onBrand} />
+                <Text style={styles.warehouseText}>
+                  {`${(scope.warehouseName ?? 'Coonoor Warehouse').includes('Warehouse') ? (scope.warehouseName ?? 'Coonoor Warehouse') : `${scope.warehouseName} Warehouse`} · Assigned Warehouse`}
+                </Text>
+              </View>
+            </View>
+          </View>
+          
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {/* Total Available Stock - White Card with Brown Text */}
+            <View style={styles.totalStockCard}>
+              <Text style={styles.totalStockValue}>1,245 KG</Text>
+              <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
+            </View>
+
+            {/* 6 Stats Grid - 2 columns x 3 rows */}
+            <View style={styles.statsGrid}>
+              {renderStatCard('available', <StatAvailableIcon size={22} color={adminColors.brandDeep} />, '1,245 KG', 'Available', 'M3S02')}
+              {renderStatCard('reserved', <StatReservedIcon size={22} color={adminColors.brandDeep} />, '320 KG', 'Reserved', 'M3S02')}
+              {renderStatCard('allocated', <StatAllocatedIcon size={22} color={adminColors.brandDeep} />, '580 KG', 'Allocated', 'M3S07')}
+              {renderStatCard('low_stock', <StatLowStockIcon size={22} color={adminColors.brandDeep} />, '05', 'Low Stock', 'M3S09', true)}
+              {renderStatCard('verification_pending', <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />, '02', 'Verification Pending', 'M3S10')}
+              {canViewLedger || isSub ? (
+                renderStatCard('stock_ledger', <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />, 'View', 'Stock Ledger', 'M3S06')
+              ) : null}
+            </View>
+
+            {/* Top Stock Products Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Top Stock Products</Text>
+                <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
+                  <Text style={styles.viewAllLink}>View All Stock</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Tomato - Available */}
+              <TouchableOpacity 
+                style={styles.productCard}
+                onPress={() => onNavigate?.('M3S03')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>Tomato</Text>
+                    <Text style={styles.productGrade}>Grade 1</Text>
+                  </View>
+                  <View style={styles.availableBadge}>
+                    <Text style={styles.availableBadgeText}>Available</Text>
+                  </View>
+                </View>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>245 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>50 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>120 KG</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Carrot - Available */}
+              <TouchableOpacity 
+                style={styles.productCard}
+                onPress={() => onNavigate?.('M3S03')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>Carrot</Text>
+                    <Text style={styles.productGrade}>Grade 1</Text>
+                  </View>
+                  <View style={styles.availableBadge}>
+                    <Text style={styles.availableBadgeText}>Available</Text>
+                  </View>
+                </View>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>180 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>20 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>80 KG</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Beans - Low Stock */}
+              <TouchableOpacity 
+                style={styles.productCard}
+                onPress={() => onNavigate?.('M3S09')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.productHeader}>
+                  <View>
+                    <Text style={styles.productName}>Beans</Text>
+                    <Text style={styles.productGrade}>Grade 1</Text>
+                  </View>
+                  <View style={styles.lowStockBadge}>
+                    <Text style={styles.lowStockBadgeText}>Low Stock</Text>
+                  </View>
+                </View>
+                <View style={styles.productStats}>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Available</Text>
+                    <Text style={styles.productStatValue}>95 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Reserved</Text>
+                    <Text style={styles.productStatValue}>10 KG</Text>
+                  </View>
+                  <View style={styles.productStat}>
+                    <Text style={styles.productStatLabel}>Allocated</Text>
+                    <Text style={styles.productStatValue}>30 KG</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+
+          <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Main Warehouse View (All Warehouses) matching Reference Exactly ──────────
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
-        {/* Custom Header matching Design Mockup Exactly */}
         <View style={styles.headerBand}>
           <View style={styles.header}>
-            {/* Top Row: Back Button + Box Icon + "Inventory & Stock" (Left) and Notification Bell (Right) */}
             <View style={styles.headerTopRow}>
               <View style={styles.headerTitleGroup}>
                 {onBack && (
@@ -210,176 +545,166 @@ export function InventoryDashboardScreen({
                     onPress={onBack}
                     activeOpacity={0.7}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    accessibilityLabel={t('inventory.dashboard.backA11y')}
+                    accessibilityLabel="Back to Dashboard"
                   >
                     <BackArrowIcon size={22} color={adminColors.onBrand} />
                   </TouchableOpacity>
                 )}
-                <HeaderBoxIcon size={24} color={adminColors.onBrand} />
-                <Text style={styles.headerTitle}>{t('inventory.dashboard.title')}</Text>
+                <Grid4SquaresIcon size={22} color={adminColors.onBrand} />
+                <Text style={styles.mainHeaderTitle}>Inventory & Stock</Text>
               </View>
-              <TouchableOpacity 
-                style={styles.notificationButton} 
-                activeOpacity={0.7}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <BellIcon size={19} color={adminColors.onBrand} />
-              </TouchableOpacity>
             </View>
 
-            {/* Bottom Row: locked warehouse pill (Sub) or all-warehouses selector (Main) */}
-            {scope.warehouseId !== undefined ? (
-              <View style={styles.warehousePill}>
-                <LockBadgeIcon size={12} color={adminColors.onBrand} />
-                <Text style={styles.warehouseText}>{t('inventory.dashboard.assignedWarehouse', { name: pillName })}</Text>
-              </View>
-            ) : (
-              <WarehouseSelector
-                scope={scope}
-                options={warehouseOptions}
-                selectedId={selectedWarehouseId}
-                onSelect={(id) => onSelectWarehouse?.(id)}
-              />
-            )}
+            <WarehouseSelector
+              scope={scope}
+              options={warehouseOptions ?? WALLET_WAREHOUSES}
+              selectedId={selectedWarehouseId}
+              onSelect={setSelectedWarehouseId}
+            />
           </View>
         </View>
-        
-        <ScrollView
-          style={styles.content}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            onRefresh ? (
-              <RefreshControl
-                refreshing={isRefreshing}
-                onRefresh={onRefresh}
-                colors={[adminColors.brand]}
-                tintColor={adminColors.brand}
-              />
-            ) : undefined
-          }
-        >
-          {view === 'loading' ? (
-            <AdminLoadingState />
-          ) : view === 'error' ? (
-            <AdminErrorState error={error} onRetry={onRetry} />
-          ) : (
-          <>
-          {/* Total Available Stock - White Card with Brown Text */}
-          <View style={styles.totalStockCard}>
-            <Text style={styles.totalStockValue}>{kg(summary?.totalAvailableGrams ?? null)}</Text>
-            <Text style={styles.totalStockLabel}>{t('inventory.dashboard.totalAvailable')}</Text>
-            {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
-          </View>
-          {/* 6 Stats Grid - 2 columns x 3 rows. Design (mod1213farmadmin M3S01 Sub): the
-              shared card with the design's own icons; Low Stock in the danger tone. */}
-          <View style={styles.statsGrid}>
-            {/* Row 1 Left: Available */}
-            <OverviewDashboardCard
-              value={kg(summary?.totalAvailableGrams ?? null)}
-              title={t('inventory.dashboard.available')}
-              icon={<StatAvailableIcon size={22} color={adminColors.brandDeep} />}
-              onPress={() => onNavigate?.('M3S02')}
-            />
 
-            {/* Row 1 Right: Reserved */}
-            <OverviewDashboardCard
-              value={kg(summary?.totalReservedGrams ?? null)}
-              title={t('inventory.dashboard.reserved')}
-              icon={<StatReservedIcon size={22} color={adminColors.brandDeep} />}
-              onPress={() => onNavigate?.('M3S02')}
-            />
-
-            {/* Row 2 Left: Allocated */}
-            <OverviewDashboardCard
-              value={kg(allocatedGrams)}
-              title={t('inventory.dashboard.allocated')}
-              icon={<StatAllocatedIcon size={22} color={adminColors.brandDeep} />}
-              onPress={() => onNavigate?.('M3S07')}
-            />
-
-            {/* Row 2 Right: Low Stock */}
-            <OverviewDashboardCard
-              value={count(lowStockCount)}
-              title={t('inventory.dashboard.lowStock')}
-              subtitle={t('inventory.dashboard.needsAttention')}
-              icon={<StatLowStockIcon size={22} color={adminColors.brandDeep} />}
-              tone="danger"
-              onPress={() => onNavigate?.('M3S09')}
-            />
-
-            {/* Row 3 Left: Verification (gated on stock counts, availability.ts) */}
-            {canVerify ? (
+        <ScrollView style={styles.mainContent} contentContainerStyle={styles.mainScrollPad} showsVerticalScrollIndicator={false}>
+          {/* 8 KPI Cards Grid (2x4) */}
+          <View style={styles.mainKpiGrid}>
+            {(selectedWarehouseId && WAREHOUSE_SPECIFIC_KPIS[selectedWarehouseId] ? WAREHOUSE_SPECIFIC_KPIS[selectedWarehouseId] : MAIN_KPIS).map((kpi) => (
               <OverviewDashboardCard
-                value={count(verificationPendingCount)}
-                title={t('inventory.dashboard.verificationPending')}
-                icon={<StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />}
-                onPress={() => onNavigate?.('M3S10')}
+                key={kpi.key}
+                value={kpi.value}
+                title={kpi.label}
+                subtitle={kpi.unit}
+                icon={kpi.icon}
+                tone={(kpi as any).tone ?? 'default'}
+                onPress={() => onNavigate?.(kpi.screen)}
               />
-            ) : null}
-
-            {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
-            {canViewLedger ? (
-              <OverviewDashboardCard
-                value={t('inventory.dashboard.view')}
-                title={t('inventory.dashboard.stockLedger')}
-                icon={<StatStockLedgerIcon size={22} color={adminColors.brandDeep} />}
-                onPress={() => onNavigate?.('M3S06')}
-              />
-            ) : null}
+            ))}
           </View>
 
-          {/* Top Stock Products Section */}
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>{t('inventory.dashboard.topProducts')}</Text>
-              <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
-                <Text style={styles.viewAllLink}>{t('inventory.dashboard.viewAllStock')}</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Info Banner */}
+          <View style={styles.mainInfoBanner}>
+            <InfoCircleIcon size={18} color={adminColors.warning.text} />
+            <Text style={styles.mainInfoBannerText}>
+              Low-stock thresholds always come from backend configuration — never hard-coded percentages.
+            </Text>
+          </View>
 
-            {products.length === 0 ? <AdminEmptyState title={t('inventory.empty.stock')} /> : null}
-            {products.slice(0, TOP_PRODUCTS).map((product) => (
+          {/* Warehouse Overview */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Warehouse Overview</Text>
+          </View>
+          <View style={styles.mainListCard}>
+            {WAREHOUSE_OVERVIEW_ROWS.map((item, idx) => (
               <TouchableOpacity
-                key={product.key}
-                style={styles.productCard}
-                onPress={() =>
-                  onNavigate?.(product.level === 'low' ? 'M3S09' : 'M3S03', { cropId: product.cropId, grade: product.grade })
-                }
+                key={item.name}
+                style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
+                onPress={() => onNavigate?.('M3S02', { view: 'warehouse', warehouseId: item.warehouseId })}
                 activeOpacity={0.7}
               >
-                <View style={styles.productHeader}>
-                  <View>
-                    <Text style={styles.productName}>{product.productName}</Text>
-                    <Text style={styles.productGrade}>{product.gradeLabel}</Text>
-                  </View>
-                  <View style={product.level === 'inStock' ? styles.availableBadge : styles.lowStockBadge}>
-                    <Text style={product.level === 'inStock' ? styles.availableBadgeText : styles.lowStockBadgeText}>
-                      {t(LEVEL_LABEL[product.level])}
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.productStats}>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>{t('inventory.dashboard.available')}</Text>
-                    <Text style={styles.productStatValue}>{kg(product.availableGrams)}</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>{t('inventory.dashboard.reserved')}</Text>
-                    <Text style={styles.productStatValue}>{kg(product.reservedGrams)}</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>{t('inventory.dashboard.allocated')}</Text>
-                    <Text style={styles.productStatValue}>{kg(product.allocatedGrams)}</Text>
-                  </View>
-                </View>
+                <Text style={styles.mainListItemLabel}>{item.name}</Text>
+                <Text style={styles.mainListItemValue}>{item.stock}</Text>
               </TouchableOpacity>
             ))}
           </View>
-          </>
-          )}
-        </ScrollView>
 
-        <SWABottomNav activeTab="Inventory" onTabChange={onTabChange} />
+          {/* Inventory Health */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Inventory Health</Text>
+          </View>
+          <View style={styles.healthCard}>
+            <View style={styles.healthGrid}>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Normal</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.success.text }]}>62 products</Text>
+              </View>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Low</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.warning.text }]}>14 products</Text>
+              </View>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Critical</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.danger.text }]}>3 products</Text>
+              </View>
+              <View style={styles.healthCell}>
+                <Text style={styles.healthCellLabel}>Verification Pending</Text>
+                <Text style={[styles.healthCellValue, { color: adminColors.ink }]}>6</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Recent Stock Movements */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Recent Stock Movements</Text>
+            <TouchableOpacity onPress={() => onNavigate?.('M3S06')} activeOpacity={0.7}>
+              <Text style={styles.mainSectionLink}>View →</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={styles.recentMovementCard}
+            onPress={() => onNavigate?.('M3S15', { movementId: RECENT_MOVEMENT.id })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.recentMovementBadge}>
+              <ArrowUpSmallIcon size={18} color={adminColors.warning.text} />
+            </View>
+            <View style={styles.recentMovementInfo}>
+              <Text style={styles.recentMovementTitle}>{`${RECENT_MOVEMENT.id} · ${RECENT_MOVEMENT.type}`}</Text>
+              <Text style={styles.recentMovementSub}>{`${RECENT_MOVEMENT.warehouse} · ${RECENT_MOVEMENT.produce} · ${RECENT_MOVEMENT.batch}`}</Text>
+            </View>
+            <Text style={styles.recentMovementQty}>{RECENT_MOVEMENT.qty}</Text>
+          </TouchableOpacity>
+
+          {/* Pending Actions */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Pending Actions</Text>
+            <TouchableOpacity onPress={() => onNavigate?.('M3S10')} activeOpacity={0.7}>
+              <Text style={styles.mainSectionLink}>View →</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.mainListCard}>
+            {PENDING_ACTION_ROWS.map((item, idx) => (
+              <TouchableOpacity
+                key={item.label}
+                style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
+                onPress={() => {
+                  if (item.screen === 'TransferReceiving' || item.screen === 'transfers' || item.screen === 'Transfers') {
+                    onNavigate?.(item.screen);
+                  } else {
+                    onNavigate?.(item.screen);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.mainListItemLabel}>{item.label}</Text>
+                <Text style={styles.mainListItemValue}>{item.count}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.mainSectionHeaderRow}>
+            <Text style={styles.mainSectionTitle}>Quick Actions</Text>
+          </View>
+          <View style={styles.mainQuickActionsGrid}>
+            {quickActions.map((action) => (
+              <TouchableOpacity
+                key={action.key}
+                style={styles.mainQuickActionCard}
+                onPress={() => {
+                  if (action.isTransfer) {
+                    if (onInitiateTransfer) onInitiateTransfer();
+                    else onNavigate?.('Transfers');
+                  } else if (action.screen) {
+                    onNavigate?.(action.screen, (action as any).params);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                {action.icon}
+                <Text style={styles.mainQuickActionLabel}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -423,9 +748,9 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
   },
   notificationButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
     backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -439,7 +764,7 @@ const styles = StyleSheet.create({
     borderColor: adminOverlay.headerPillBorder,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    borderRadius: 20,
+    borderRadius: adminRadius.full,
     marginTop: 10,
     gap: 6,
   },
@@ -473,21 +798,14 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     letterSpacing: 1.4,
   },
-  incompleteNote: {
-    ...adminType.caption,
-    color: adminColors.warning.text,
-    marginTop: adminSpacing.sm,
-    textAlign: 'center',
-  },
   // Stats Grid - 2 columns x 3 rows - WHITE background with subtle borders, LEFT-ALIGNED
-  // Design grid (mod1213farmadmin `statsGrid`): rowGap 12, marginBottom 16; the
-  // card sets its own 48.5% width.
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
     justifyContent: 'space-between',
     rowGap: 12,
+    columnGap: 10,
     marginBottom: 16,
   },
   statCard: {
@@ -598,5 +916,193 @@ const styles = StyleSheet.create({
   productStatValue: {
     ...adminType.sectionHead,
     color: adminColors.ink,
+  },
+  // Main Warehouse Styles (Matching Mockup Exactly)
+  mainContent: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  mainScrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxl,
+  },
+  mainHeaderTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  mainKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: adminSpacing.md,
+  },
+  mainKpiCard: {
+    width: '48.2%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: 2,
+    ...adminShadow.sm,
+  },
+  mainKpiLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    letterSpacing: 0.3,
+  },
+  mainKpiValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+    marginTop: 4,
+  },
+  mainKpiUnit: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+  },
+  mainInfoBanner: {
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.warning.border,
+    padding: adminSpacing.md,
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mainInfoBannerText: {
+    ...adminType.caption,
+    color: adminColors.warning.text,
+    flex: 1,
+    lineHeight: 18,
+  },
+  mainSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  mainSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+  },
+  mainSectionLink: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  mainListCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 2,
+    ...adminShadow.sm,
+  },
+  mainListItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  mainListItemDivider: {
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  mainListItemLabel: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  mainListItemValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  healthCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  healthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+  },
+  healthCell: {
+    width: '48%',
+  },
+  healthCellLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  healthCellValue: {
+    ...adminType.rowTitle,
+  },
+  recentMovementCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    ...adminShadow.sm,
+  },
+  recentMovementBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.warning.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentMovementInfo: {
+    flex: 1,
+  },
+  recentMovementTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  recentMovementSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  recentMovementQty: {
+    ...adminType.rowTitle,
+    color: adminColors.success.text,
+  },
+  mainQuickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
+  },
+  mainQuickActionCard: {
+    width: '48.2%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...adminShadow.sm,
+  },
+  mainQuickActionLabel: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    textAlign: 'center',
   },
 });

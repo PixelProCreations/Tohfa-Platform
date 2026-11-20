@@ -22,6 +22,8 @@ import {
 } from '../../theme';
 import type { PricingRecordItem } from './MarketPricingOverviewScreen';
 import { useCreateRetailPrice } from '../../api/pricingHooks';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 import { parseRupeesToPaise } from '../../money/paise';
 import type { PricingGrade } from '../../api/pricing';
 
@@ -65,18 +67,22 @@ export interface EditRetailPriceScreenProps {
   onSaveSuccess?: ((updatedRecord: PricingRecordItem) => void) | undefined;
 }
 
-const DEFAULT_RECORD: PricingRecordItem = {
-  id: 'pr-1',
-  product: 'Tomato',
-  grade: 'Grade 1',
-  category: 'Vegetables',
-  badge: 'Compliant',
-  ceiling: '₹60.00/kg',
-  retailPrice: '₹55.00/kg',
-  difference: 'Difference ₹5.00 below',
-  updatedAt: '11 Oct 2026, 10:00',
-  pricingUnit: '₹/kg',
-};
+/**
+ * The ceiling the row carries ("₹60.00/kg") as integer paise, or null when the
+ * row does not carry one that can be read.
+ *
+ * There is deliberately no fallback. BR-09a says a retail price must be at or
+ * below the ceiling in force; a guessed ceiling (this screen used to fall back
+ * to 6000 paise, from a fabricated Tomato record) makes the screen tell the
+ * admin a price is "within the applicable ceiling" when the real ceiling is
+ * unknown. The server still enforces BR-09a; this stops the UI lying about the
+ * limit before the request gets there.
+ */
+function ceilingPaiseOf(item: PricingRecordItem | null | undefined): number | null {
+  if (item === null || item === undefined) return null;
+  const match = item.ceiling.match(/[\d.]+/);
+  return match === null ? null : parseRupeesToPaise(match[0]);
+}
 
 export function EditRetailPriceScreen({
   can,
@@ -88,20 +94,65 @@ export function EditRetailPriceScreen({
   const canEdit = can ? can('pricing.retail_price.set') : true;
   const retailWrite = useCreateRetailPrice({ enabled: canEdit });
 
-  const item: PricingRecordItem = record ?? DEFAULT_RECORD;
+  const ceilingPaise = ceilingPaiseOf(record);
+  // No record, or no readable ceiling on it: there is nothing to edit against.
+  const item: PricingRecordItem | null = record ?? null;
+  const editable = item !== null && ceilingPaise !== null;
 
   const [newPrice, setNewPrice] = useState('');
   const [reason, setReason] = useState('');
 
-  // Extract ceiling paise
-  const ceilingPaiseMatch = item.ceiling.match(/[\d.]+/);
-  const ceilingPaise = ceilingPaiseMatch ? parseRupeesToPaise(ceilingPaiseMatch[0]) : 6000;
+  if (!editable || item === null || ceilingPaise === null) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.headerBanner}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.headerBackBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('pricingRetail.back')}
+            >
+              <BackArrowIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {t('pricingRetail.edit.title')}
+            </Text>
+          </View>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          <AdminEmptyState
+            title={t('pricingRetail.edit.unavailable.title')}
+            subtitle={t('pricingRetail.edit.unavailable.subtitle')}
+          />
+
+          <View style={styles.bottomButtonsRow}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={onBack} activeOpacity={0.8}>
+              <Text style={styles.cancelBtnText}>{t('pricingRetail.edit.cancel')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.saveBtn, styles.saveBtnDisabled]}
+              disabled
+              accessibilityState={{ disabled: true }}
+              testID="pricing.editRetail.save"
+            >
+              <Text style={[styles.saveBtnText, styles.saveBtnTextDisabled]}>{t('pricingRetail.edit.save')}</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   const newPaise = parseRupeesToPaise(newPrice);
   const hasProposed = newPaise !== null && newPaise > 0;
   const proposedText = hasProposed ? `₹${(newPaise / 100).toFixed(2)}/kg` : '—';
 
-  const diffPaise = hasProposed && ceilingPaise !== null ? ceilingPaise - newPaise : null;
+  const diffPaise = hasProposed ? ceilingPaise - newPaise : null;
   const diffText =
     diffPaise !== null
       ? diffPaise >= 0
@@ -196,13 +247,13 @@ export function EditRetailPriceScreen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('pricingRetail.back')}
           >
             <BackArrowIcon />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle} numberOfLines={1}>
-            Edit retail price
+            {t('pricingRetail.edit.title')}
           </Text>
         </View>
       </View>
@@ -336,7 +387,7 @@ export function EditRetailPriceScreen({
             onPress={onBack}
             activeOpacity={0.8}
           >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
+            <Text style={styles.cancelBtnText}>{t('pricingRetail.edit.cancel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -347,6 +398,8 @@ export function EditRetailPriceScreen({
             ]}
             onPress={canEdit && hasProposed ? handleSave : undefined}
             disabled={!canEdit || !hasProposed || retailWrite.isPending}
+            accessibilityState={{ disabled: !canEdit || !hasProposed || retailWrite.isPending }}
+            testID="pricing.editRetail.save"
             activeOpacity={0.8}
           >
             <Text
@@ -356,7 +409,7 @@ export function EditRetailPriceScreen({
                 !canEdit && styles.saveBtnTextDisabled,
               ]}
             >
-              {retailWrite.isPending ? 'Saving...' : 'Save Retail Price'}
+              {retailWrite.isPending ? t('pricingRetail.edit.saving') : t('pricingRetail.edit.save')}
             </Text>
           </TouchableOpacity>
         </View>

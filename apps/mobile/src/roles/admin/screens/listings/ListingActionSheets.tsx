@@ -12,6 +12,14 @@
  * Nothing is sent until the draft passes listingsLogic's checks; the server's
  * failure (adminErrorKey) is shown inside the sheet. No ceiling check on the
  * counter price here: BR-07 is the server's.
+ *
+ * BR-07d: the sheet SHOWS the fair price ceiling in force for the listing
+ * (the server sends it on the queue row as `ceilingPricePerKg`) so the admin
+ * is not typing blind and then learning the limit from a 422
+ * PRICE_ABOVE_CEILING. It is a label, not a gate: the price field stays
+ * editable above the ceiling, Confirm stays enabled, and the refusal is still
+ * the server's to make. A row the server sent no ceiling for shows the dash —
+ * no ceiling is ever looked up elsewhere or guessed.
  */
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -19,7 +27,7 @@ import { COUNTER_MESSAGE_MAX, REJECT_REASON_CODES, REJECT_REASON_MAX, REJECT_REA
 import type { CounterOfferBody, RejectListingBody } from '../../api/listings';
 import { t } from '../../i18n';
 import { adminColors } from '../../theme';
-import { formatQuantityKg, validateCounterDraft, validateRejectDraft, type CounterCheck, type RejectCheck } from './listingsLogic';
+import { formatPerKg, formatQuantityKg, validateCounterDraft, validateRejectDraft, type CounterCheck, type RejectCheck } from './listingsLogic';
 import { rejectCodeLabel } from './listingsLabels';
 import { styles } from './listingsStyles';
 
@@ -209,6 +217,14 @@ export function CounterSheet({ row, isPending, errorText, onCancel, onConfirm }:
         />
         <Text style={styles.inputSuffix}>{t('listingsAdmin.counter.priceSuffix')}</Text>
       </View>
+      {/*
+        BR-07d, display only. The limit the server will apply, shown before the
+        admin types rather than only in the 422. Nothing here blocks the input
+        or the Confirm button.
+      */}
+      <Text style={styles.ceilingText}>
+        {t('listingsAdmin.counter.ceiling', { price: formatPerKg(row.ceilingPrice) ?? t('listingsAdmin.noValue') })}
+      </Text>
       {errors.price ? <Text style={styles.fieldError}>{t('listingsAdmin.counter.priceInvalid')}</Text> : null}
 
       <Text style={styles.fieldLabel}>{t('listingsAdmin.counter.quantity')}</Text>

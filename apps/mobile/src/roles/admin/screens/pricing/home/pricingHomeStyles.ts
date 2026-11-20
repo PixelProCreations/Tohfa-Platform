@@ -165,11 +165,13 @@ export const homeStyles = StyleSheet.create({
   },
 
   // Super Admin Home styles
+  saScrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxxl * 2,
+  },
   saKpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
   saKpiCard: {
     width: '48%',
@@ -283,6 +285,20 @@ export const homeStyles = StyleSheet.create({
     color: adminColors.muted,
     textDecorationLine: 'line-through',
   },
+  /**
+   * The previous price when it was not loaded: the dash, muted and with no
+   * strike-through, so it does not read as a real superseded amount. Same for
+   * the delta pill, which gets no success/danger tone because there is no
+   * direction to colour.
+   */
+  saPriceOldUnknown: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  saPillUnknownText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
   saBadgeCol: {
     flex: 1.1,
     alignItems: 'center',
@@ -312,23 +328,24 @@ export const homeStyles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.muted,
   },
+  saQuickHeaderRow: {
+    marginTop: adminSpacing.xl,
+    marginBottom: adminSpacing.md,
+  },
   saQuickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: adminSpacing.md,
   },
   saQuickCard: {
-    width: '48%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 80,
-    ...adminShadow.sm,
+    width: '48.5%',
+    minHeight: 96,
+  },
+  saQuickCardFull: {
+    width: '100%',
+    minHeight: 92,
   },
   saQuickIconBox: {
     height: 30,

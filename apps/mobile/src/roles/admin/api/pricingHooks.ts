@@ -13,7 +13,7 @@
  * logical write (same body), released by `finish()`, so a retry after a lost
  * reply moves the price once.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   bulkUpsertFairPrices,
   createFairPrice,
@@ -30,8 +30,8 @@ import {
   type RetailPriceDto,
   type RetailPricePage,
 } from './pricing';
-import { toCeilingHistory, toFairPriceRow, toRetailPriceRow, todayInIndia } from './pricingMappers';
-import type { CeilingHistoryRowView, FairPriceRowView, RetailPriceRowView } from './pricingTypes';
+import { derivePricingHomeKpis, toCeilingHistory, toFairPriceRow, toRetailPriceRow, todayInIndia } from './pricingMappers';
+import { PRICING_HOME_KPIS_UNAVAILABLE, type CeilingHistoryRowView, type FairPriceRowView, type PricingHomeKpisView, type RetailPriceRowView } from './pricingTypes';
 import { useAdminMutation, useCursorList, useIdempotencyKey, type CursorList } from './hooks';
 import { adminKeys, pricingKeys, PRICING_FAIR_MODULE, PRICING_RETAIL_MODULE } from './queryKeys';
 
@@ -120,6 +120,85 @@ export function useRetailPriceList(
     toRetailPriceRow,
     { enabled: options.enabled ?? true },
   );
+}
+
+// ---------------------------------------------------------------------------
+// Market & Pricing home KPIs
+// ---------------------------------------------------------------------------
+
+export interface PricingHomeKpisOptions {
+  /** pricing.fair_price.view; false means the ceiling list is not requested. */
+  fairEnabled?: boolean | undefined;
+  /** pricing.retail_price.view; false means the retail list is not requested. */
+  retailEnabled?: boolean | undefined;
+}
+
+export interface PricingHomeKpis {
+  kpis: PricingHomeKpisView;
+  /**
+   * The ceiling windows loaded from GET /fair-prices, for the home's recent
+   * price changes list (recentCeilingChanges picks and sorts them). Empty when
+   * the caller does not hold pricing.fair_price.view, so no request was made.
+   */
+  fairRows: FairPriceRowView[];
+  isLoading: boolean;
+  error: unknown;
+}
+
+/**
+ * The home KPI figures, counted from the two list endpoints the home already
+ * reads. There is no KPI endpoint, so this walks the lists the screen has
+ * loaded: `loadMore` is called until the list ends, and until then (and for
+ * any figure with no source at all) the value stays null and the card shows
+ * the dash. No figure here is estimated.
+ *
+ * It shares the query keys of useFairPriceList / useRetailPriceList with no
+ * filters, so a screen that also renders those lists costs no extra request.
+ */
+export function usePricingHomeKpis(warehouseId: string | undefined, options: PricingHomeKpisOptions = {}): PricingHomeKpis {
+  const fairEnabled = options.fairEnabled ?? true;
+  const retailEnabled = options.retailEnabled ?? true;
+  const fair = useFairPriceList(warehouseId, {}, { enabled: fairEnabled });
+  const retail = useRetailPriceList(warehouseId, {}, { enabled: retailEnabled });
+  const today = useMemo(() => todayInIndia(), []);
+
+  // Counting needs the whole list, so the remaining pages are pulled in one at
+  // a time. `loadMore` is a no-op while a page is already in flight
+  // (hookHelpers canLoadMore), and `hasMore` goes false on the last page, so
+  // this walks the list once and stops. The callbacks go through a ref because
+  // useCursorList hands back a fresh closure on every render; only `hasMore`
+  // should wake the effect.
+  const loaders = useRef({ fair: fair.loadMore, retail: retail.loadMore });
+  loaders.current = { fair: fair.loadMore, retail: retail.loadMore };
+  const fairMore = fair.hasMore;
+  const retailMore = retail.hasMore;
+  useEffect(() => {
+    if (fairEnabled && fairMore) loaders.current.fair();
+  }, [fairEnabled, fairMore]);
+  useEffect(() => {
+    if (retailEnabled && retailMore) loaders.current.retail();
+  }, [retailEnabled, retailMore]);
+
+  const kpis = useMemo(
+    () =>
+      derivePricingHomeKpis({
+        fair: fairEnabled ? fair.items : [],
+        fairComplete: fairEnabled && !fair.hasMore && !fair.isLoading,
+        retail: retailEnabled ? retail.items : [],
+        retailComplete: retailEnabled && !retail.hasMore && !retail.isLoading,
+        today,
+      }),
+    [fairEnabled, fair.items, fair.hasMore, fair.isLoading, retailEnabled, retail.items, retail.hasMore, retail.isLoading, today],
+  );
+
+  const fairRows = useMemo(() => (fairEnabled ? fair.items : []), [fairEnabled, fair.items]);
+
+  return {
+    kpis: fairEnabled || retailEnabled ? kpis : PRICING_HOME_KPIS_UNAVAILABLE,
+    fairRows,
+    isLoading: fair.isLoading || retail.isLoading,
+    error: fair.error ?? retail.error,
+  };
 }
 
 // ---------------------------------------------------------------------------

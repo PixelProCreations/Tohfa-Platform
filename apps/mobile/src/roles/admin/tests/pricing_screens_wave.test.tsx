@@ -57,6 +57,31 @@ import {
   type PricingRecordItem,
 } from '../screens/pricing';
 
+/**
+ * Records a caller hands the screen explicitly (the `records` prop). This is
+ * the screen's one legitimate injection point; it is NOT a stand-in for a
+ * server result. The screen used to fall back to a fabricated
+ * INITIAL_PRICING_RECORDS list whenever the live query came back empty, and
+ * these tests asserted that fabrication ("Tomato"), so they were asserting a
+ * bug. They now pass the rows in, and `renders the real empty state…` below
+ * pins what an empty server result actually does.
+ */
+const suppliedRecords: PricingRecordItem[] = [
+  {
+    id: 'rec-1',
+    cropId: 'crop-okra',
+    product: 'Okra Live',
+    grade: 'Grade 1',
+    category: 'Vegetables',
+    badge: 'Compliant',
+    ceiling: '₹61.25/kg',
+    retailPrice: '₹58.00/kg',
+    difference: 'Difference ₹3.25 below',
+    updatedAt: '2026-11-02 00:00',
+    pricingUnit: '₹/kg',
+  },
+];
+
 function withQuery(ui: React.ReactElement): React.ReactElement {
   const client = new QueryClient({
     defaultOptions: {
@@ -83,6 +108,7 @@ describe('MarketPricingOverviewScreen', () => {
             onBack={vi.fn()}
             onEditRetailPrice={vi.fn()}
             onViewBreakdown={vi.fn()}
+            records={suppliedRecords}
           />,
         ),
       );
@@ -94,7 +120,12 @@ describe('MarketPricingOverviewScreen', () => {
 
     expect(texts).toContain('Market & Pricing Overview');
     expect(texts.some((t) => t.includes('pricing records'))).toBe(true);
-    expect(texts.some((t) => t.includes('Tomato'))).toBe(true);
+    // The supplied record, not a fixture. Before this change the assertion
+    // read `expect(texts.some((t) => t.includes('Tomato'))).toBe(true)`, which
+    // only passed because the screen fabricated five records when the query
+    // returned nothing.
+    expect(texts.some((t) => t.includes('Okra Live'))).toBe(true);
+    expect(texts.some((t) => t.includes('Tomato'))).toBe(false);
   });
 
   it('allows clicking Edit Retail Price when holding pricing.retail_price.set', () => {
@@ -109,6 +140,7 @@ describe('MarketPricingOverviewScreen', () => {
             onBack={vi.fn()}
             onEditRetailPrice={onEditRetailPrice}
             onViewBreakdown={vi.fn()}
+            records={suppliedRecords}
           />,
         ),
       );
@@ -139,6 +171,7 @@ describe('MarketPricingOverviewScreen', () => {
             onBack={vi.fn()}
             onEditRetailPrice={onEditRetailPrice}
             onViewBreakdown={vi.fn()}
+            records={suppliedRecords}
           />,
         ),
       );
@@ -164,6 +197,7 @@ describe('MarketPricingOverviewScreen', () => {
             onBack={vi.fn()}
             onEditRetailPrice={vi.fn()}
             onViewBreakdown={vi.fn()}
+            records={suppliedRecords}
           />,
         ),
       );
@@ -183,6 +217,76 @@ describe('MarketPricingOverviewScreen', () => {
       .findAllByType('Text' as React.ElementType)
       .map((t) => [t.props.children].flat().join(''));
     expect(texts).toContain('Pricing details');
+  });
+});
+
+describe('MarketPricingOverviewScreen: an empty server result is an empty state', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('renders the real empty state and NO priced record rows when the server returns nothing', async () => {
+    mockApi.listRetailPrices.mockResolvedValue({ items: [], page: { nextCursor: null, hasMore: false } });
+    const can = makeCan(['pricing.retail_price.view', 'pricing.retail_price.set']);
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        withQuery(
+          <MarketPricingOverviewScreen
+            can={can}
+            onBack={vi.fn()}
+            onEditRetailPrice={vi.fn()}
+            onViewBreakdown={vi.fn()}
+          />,
+        ),
+      );
+    });
+
+    // Let the resolved query settle before reading the rendered state.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const texts = tree.root
+      .findAllByType('Text' as React.ElementType)
+      .map((t) => [t.props.children].flat().join(''));
+
+    expect(texts).toContain('No pricing records');
+    // Not one row of the fabricated list, and not one row action.
+    for (const sample of ['Tomato', 'Beans', 'Cabbage', 'Compliant', 'Action required', 'Over ceiling', 'Ceiling \u20b9']) {
+      expect(texts.some((t) => t.includes(sample)), sample).toBe(false);
+    }
+    expect(texts.some((t) => t.includes('View Details'))).toBe(false);
+    expect(texts.some((t) => t.includes('pricing records') && /\d/.test(t))).toBe(false);
+  });
+
+  it('shows loading, not "no records", while the request is still in flight', async () => {
+    let release: (value: unknown) => void = () => {};
+    mockApi.listRetailPrices.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+    const can = makeCan(['pricing.retail_price.view']);
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        withQuery(
+          <MarketPricingOverviewScreen
+            can={can}
+            onBack={vi.fn()}
+            onEditRetailPrice={vi.fn()}
+            onViewBreakdown={vi.fn()}
+          />,
+        ),
+      );
+    });
+
+    const texts = tree.root
+      .findAllByType('Text' as React.ElementType)
+      .map((t) => [t.props.children].flat().join(''));
+    expect(texts.some((t) => t.includes('No pricing records'))).toBe(false);
+    expect(tree.root.findAllByType('ActivityIndicator' as React.ElementType).length).toBeGreaterThan(0);
+
+    await act(async () => {
+      release({ items: [], page: { nextCursor: null, hasMore: false } });
+    });
   });
 });
 
@@ -314,6 +418,68 @@ describe('EditRetailPriceScreen', () => {
     });
 
     expect(saveBtn?.props.disabled).toBe(true);
+  });
+});
+
+describe('EditRetailPriceScreen with no record (BR-09a)', () => {
+  /*
+   * BR-09a: a retail price must be at or below the fair-price ceiling in
+   * force. The screen used to fall back to a fabricated Tomato record with a
+   * ₹60.00/kg ceiling, and to a 6000-paise ceiling when none could be read,
+   * so the admin typed a real price and saw it validated against an invented
+   * limit. With no ceiling to check against, the screen must not offer the
+   * edit at all.
+   */
+  it('BR-09a: with no record it presents no ceiling to edit against and Save is disabled', () => {
+    const can = makeCan(['pricing.retail_price.set']);
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(withQuery(<EditRetailPriceScreen can={can} onBack={vi.fn()} />));
+    });
+
+    const texts = tree.root
+      .findAllByType('Text' as React.ElementType)
+      .map((t) => [t.props.children].flat().join(''));
+
+    // No invented ceiling, no invented record, and no price form at all.
+    expect(texts.some((t) => t.includes('₹60.00'))).toBe(false);
+    expect(texts.some((t) => t.includes('Tomato'))).toBe(false);
+    expect(texts.some((t) => t.includes('Applicable ceiling'))).toBe(false);
+    expect(tree.root.findAllByType('TextInput' as React.ElementType).length).toBe(0);
+    expect(texts.some((t) => t.includes('cannot be edited'))).toBe(true);
+
+    const [save] = tree.root.findAll(
+      (n) => typeof n.type === 'string' && n.props.testID === 'pricing.editRetail.save',
+    );
+    expect(save).toBeDefined();
+    expect(save?.props.disabled).toBe(true);
+    expect(save?.props.onPress).toBeUndefined();
+  });
+
+  it('BR-09a: a record whose ceiling cannot be read is treated the same way', () => {
+    const can = makeCan(['pricing.retail_price.set']);
+    const noCeiling: PricingRecordItem = {
+      id: 'rec-no-ceiling',
+      product: 'Okra Live',
+      grade: 'Grade 1',
+      category: 'Vegetables',
+      badge: 'No retail price',
+      ceiling: '\u2014',
+      retailPrice: 'none',
+      difference: 'Difference not comparable',
+      updatedAt: '\u2014',
+      pricingUnit: '₹/kg',
+    };
+    let tree!: renderer.ReactTestRenderer;
+    act(() => {
+      tree = renderer.create(withQuery(<EditRetailPriceScreen can={can} onBack={vi.fn()} record={noCeiling} />));
+    });
+
+    expect(tree.root.findAllByType('TextInput' as React.ElementType).length).toBe(0);
+    const [save] = tree.root.findAll(
+      (n) => typeof n.type === 'string' && n.props.testID === 'pricing.editRetail.save',
+    );
+    expect(save?.props.disabled).toBe(true);
   });
 });
 

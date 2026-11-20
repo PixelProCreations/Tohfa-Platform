@@ -22,11 +22,13 @@ import type {
   CeilingWindowStatus,
   FairPriceRowView,
   MarkupBreakdownView,
+  PricingHomeKpisView,
   RetailDraftCheck,
   FairPriceFormValues,
   RetailPriceFormValues,
   RetailPriceRowView,
 } from './pricingTypes';
+import { PRICING_HOME_KPIS_UNAVAILABLE } from './pricingTypes';
 
 // ---------------------------------------------------------------------------
 // Money and dates
@@ -297,4 +299,110 @@ export function buildBulkFairPriceItems(
     });
   }
   return items;
+}
+
+// ---------------------------------------------------------------------------
+// Market & Pricing home KPIs (counted from the list endpoints, never invented)
+// ---------------------------------------------------------------------------
+
+/**
+ * How far back "Recent Changes (7d)" looks, inclusive of today. This is the
+ * card's own label ("7d"), not a business threshold: nothing behaves
+ * differently on either side of it, so it is not a system_config value (root
+ * CLAUDE.md 2.7). Change the label and this together.
+ */
+export const RECENT_CHANGE_WINDOW_DAYS = 7;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The earliest day still inside the window ending on `today`, as YYYY-MM-DD.
+ * Calendar maths on a UTC instant so it does not depend on the device zone;
+ * `today` is already the Asia/Kolkata day (todayInIndia).
+ */
+export function recentChangeCutoff(today: string, days: number = RECENT_CHANGE_WINDOW_DAYS): string {
+  const start = new Date(`${today}T00:00:00Z`).getTime();
+  if (Number.isNaN(start)) return today;
+  return new Date(start - (days - 1) * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The ceiling windows that came into force inside the recent-change window
+ * ending on `today`, newest first, at most `limit` of them. A ceiling change
+ * IS a new window, so this is the honest list behind the recentChanges7d
+ * figure derivePricingHomeKpis counts.
+ *
+ * What it deliberately does NOT carry is the previous ceiling: GET
+ * /fair-prices/history takes one cropId, so a previous window for an
+ * arbitrary set of crops is not fetchable in one request. The caller renders
+ * the previous price and any percentage delta as the dash rather than
+ * computing one from a guess.
+ *
+ * Dates are YYYY-MM-DD, so string order is date order; the sort is on a copy
+ * (filter already made one), and ties keep the server's order.
+ */
+export function recentCeilingChanges(
+  rows: readonly FairPriceRowView[],
+  today: string,
+  limit: number,
+): FairPriceRowView[] {
+  if (limit <= 0) return [];
+  const cutoff = recentChangeCutoff(today);
+  return rows
+    .filter((row) => row.effectiveFrom >= cutoff && row.effectiveFrom <= today)
+    .sort((a, b) => (a.effectiveFrom === b.effectiveFrom ? 0 : a.effectiveFrom < b.effectiveFrom ? 1 : -1))
+    .slice(0, limit);
+}
+
+function distinctCrops(rows: readonly { cropId: string }[]): number {
+  return new Set(rows.map((r) => r.cropId)).size;
+}
+
+/**
+ * BR-09, display only: how many of the retail prices that HAVE a known ceiling
+ * sit at or below it, as a whole percent. null when no loaded row carries a
+ * comparison, because a percentage of nothing is not 100%.
+ */
+export function ceilingCompliancePercent(rows: readonly RetailPriceRowView[]): number | null {
+  const compared = rows.filter((r) => r.ceilingComparison !== null);
+  if (compared.length === 0) return null;
+  const within = compared.filter((r) => r.ceilingComparison?.position !== 'above').length;
+  return Math.round((within * 100) / compared.length);
+}
+
+/** What derivePricingHomeKpis counts, and whether each list was loaded in full. */
+export interface PricingHomeKpiInput {
+  fair: readonly FairPriceRowView[];
+  /**
+   * false while GET /fair-prices still has a next page. Every fair-price KPI
+   * then stays null: a count of the first page is not the count the card
+   * claims, and a wrong number is worse than the dash.
+   */
+  fairComplete: boolean;
+  retail: readonly RetailPriceRowView[];
+  /** false while GET /retail-prices still has a next page; same rule. */
+  retailComplete: boolean;
+  /** todayInIndia(), passed in so this stays pure. */
+  today: string;
+}
+
+/**
+ * The home KPI figures, counted from the rows the screen already loaded. No
+ * new endpoint, no estimate: a figure that cannot be counted honestly is null
+ * and the card renders the dash (kpiValueText).
+ */
+export function derivePricingHomeKpis(input: PricingHomeKpiInput): PricingHomeKpisView {
+  const { fair, fairComplete, retail, retailComplete, today } = input;
+  const cutoff = recentChangeCutoff(today);
+  return {
+    ...PRICING_HOME_KPIS_UNAVAILABLE,
+    totalProducts: fairComplete ? distinctCrops(fair) : null,
+    activeFairPrices: fairComplete ? fair.filter((r) => r.windowStatus === 'current').length : null,
+    // A ceiling change IS a new window, so a window that came into force
+    // inside the look-back period is a change inside it.
+    recentChanges7d: fairComplete ? fair.filter((r) => r.effectiveFrom >= cutoff && r.effectiveFrom <= today).length : null,
+    withRetailPrices: retailComplete ? distinctCrops(retail) : null,
+    retailPriceRecords: retailComplete ? retail.length : null,
+    ceilingCompliance: retailComplete ? ceilingCompliancePercent(retail) : null,
+  };
 }

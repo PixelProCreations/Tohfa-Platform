@@ -25,10 +25,11 @@ export interface OverviewActionCardProps {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
 /** Quick Access tile: round icon over a centred title. */
-export function OverviewActionCard({ title, icon, onPress, disabled = false, style, accessibilityLabel }: OverviewActionCardProps) {
+export function OverviewActionCard({ title, icon, onPress, disabled = false, style, accessibilityLabel, testID }: OverviewActionCardProps) {
   return (
     <TouchableOpacity
       style={[styles.actionCard, style]}
@@ -37,6 +38,7 @@ export function OverviewActionCard({ title, icon, onPress, disabled = false, sty
       disabled={disabled || !onPress}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={accessibilityLabel ?? title}
+      testID={testID}
     >
       <View style={styles.actionIconWrap}>{icon}</View>
       <Text style={styles.actionTitle} numberOfLines={2}>

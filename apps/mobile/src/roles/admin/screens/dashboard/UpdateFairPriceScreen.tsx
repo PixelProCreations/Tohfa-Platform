@@ -37,20 +37,21 @@ import type { FairPriceFrequency, PricingGrade } from '../../api/pricing';
 import { formatPaise, parseRupeesToPaise } from '../../money/paise';
 import { t } from '../../i18n';
 import type { Can } from '../../permissions/can';
+import { adminColors } from '../../theme';
 
 const P = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  orange: '#E8562A',
-  orangeBg: '#FFECE8',
-  ink: '#5D2510',
-  darkBrown: '#5D2510',
-  body: '#6B6560',
-  muted: '#9A8F88',
-  lightGray: '#B0A9A3',
-  border: '#EDE9E4',
-  danger: '#C62828',
-  success: '#2E7D32',
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  ink: adminColors.ink,
+  darkBrown: adminColors.ink,
+  body: adminColors.ink,
+  muted: adminColors.muted,
+  lightGray: adminColors.border,
+  border: adminColors.border,
+  danger: adminColors.danger.text,
+  success: adminColors.success.text,
 };
 
 /** The ceiling row the list handed over. Everything comes from GET /fair-prices. */
@@ -191,9 +192,9 @@ export function UpdateFairPriceScreen({ onBack, can, selection, onSaved }: Updat
             testID="pricingUpdate.fair.save"
           >
             {write.isPending ? (
-              <ActivityIndicator color="#FFFFFF" style={{ marginRight: 8 }} />
+              <ActivityIndicator color={adminColors.onBrand} style={{ marginRight: 8 }} />
             ) : (
-              <Icon name="check_circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Icon name="check_circle" size={18} color={adminColors.onBrand} style={{ marginRight: 8 }} />
             )}
             <Text style={styles.saveBtnText}>
               {write.isPending ? t('pricingUpdate.fair.saving') : t('pricingUpdate.fair.save')}
@@ -330,7 +331,7 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontFamily: 'Manrope, system-ui, sans-serif',
   },
   saveBtnDisabled: {

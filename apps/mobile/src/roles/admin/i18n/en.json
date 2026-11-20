@@ -3934,6 +3934,7 @@
   "produce.ok": "OK",
   "produce.add": "Add",
   "produce.calendar.title": "Produce Calendar",
+  "produce.calendar.titleSuperAdmin": "Crop & Produce Calendar",
   "produce.calendar.subtitle": "{{month}} · {{count}} crop records",
   "produce.calendar.previousMonth": "Previous month",
   "produce.calendar.nextMonth": "Next month",

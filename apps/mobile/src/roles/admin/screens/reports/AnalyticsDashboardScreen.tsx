@@ -9,6 +9,28 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 const P = {
   bg: '#FAF8F5',
@@ -490,7 +512,23 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Terracotta Header Band matching Admin Standard */}
+      <View style={styles.header}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityLabel="Back to reports"
+          >
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Analytics</Text>
+        </View>
+        <Text style={styles.headerSubtitle}>Cross-platform visual metrics & trends</Text>
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -498,29 +536,6 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
         showsVerticalScrollIndicator={true}
         nestedScrollEnabled={true}
       >
-        {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityLabel="Back to reports"
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </TouchableOpacity>
-
-        {/* Page Title Header */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.pageTitle}>Analytics</Text>
-          <Text style={styles.pageSubtitle}>Cross-platform visual metrics & trends</Text>
-        </View>
 
         {/* ─── Category Scope Dropdown Selector ─────────────────────────────── */}
         <TouchableOpacity
@@ -610,7 +625,7 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
                 value={farmerDataMap.kpiApps}
                 title="New Applications"
                 subtitle="↑ Pipeline"
-                icon="orders"
+                icon="clipboard"
                 tone="success"
                 titlePosition="bottom"
               />
@@ -618,7 +633,7 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
                 value={farmerDataMap.kpiRating}
                 title="Avg Rating"
                 subtitle="★ 10-Cat SLA"
-                icon="pickup"
+                icon="users"
                 tone="success"
                 titlePosition="bottom"
               />
@@ -768,7 +783,7 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
                 value={customerDataMap.kpiBuyers}
                 title="Verified Buyers"
                 subtitle="↑ Active"
-                icon="pickup"
+                icon="users"
                 tone="success"
                 titlePosition="bottom"
               />
@@ -776,7 +791,7 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
                 value={customerDataMap.kpiRetention}
                 title="Retention Rate"
                 subtitle="Recurring SLA"
-                icon="orders"
+                icon="clipboard"
                 tone="success"
                 titlePosition="bottom"
               />
@@ -784,7 +799,7 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
                 value={customerDataMap.kpiBasket}
                 title="Avg Basket"
                 subtitle="Organic B2C"
-                icon="sales"
+                icon="wallet"
                 tone="success"
                 titlePosition="bottom"
               />
@@ -792,7 +807,7 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
                 value={customerDataMap.kpiRepeat}
                 title="Repeat Orders"
                 subtitle="Per Month"
-                icon="receiving"
+                icon="orders"
                 titlePosition="bottom"
               />
             </OverviewCardsGrid>
@@ -890,29 +905,41 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
            ══════════════════════════════════════════════════════════════════════ */}
         {selectedCategory === 'Warehouses' && (
           <View style={styles.chartsColumn}>
-            {/* KPI Ribbon Strip */}
-            <View style={styles.kpiRibbon}>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{warehouseDataMap.kpiIntake}</Text>
-                <Text style={styles.kpiLbl}>Total Intake</Text>
-                <Text style={styles.kpiSubGreen}>Volume</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{warehouseDataMap.kpiLoad}</Text>
-                <Text style={styles.kpiLbl}>Capacity Load</Text>
-                <Text style={styles.kpiSubGreen}>Optimal 60-85%</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{warehouseDataMap.kpiTurnaround}</Text>
-                <Text style={styles.kpiLbl}>Turnaround</Text>
-                <Text style={styles.kpiSubGreen}>Dock to Cold</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{warehouseDataMap.kpiLoss}</Text>
-                <Text style={styles.kpiLbl}>Loss/Spoilage</Text>
-                <Text style={styles.kpiSubGreen}>Below 1.5% SLA</Text>
-              </View>
-            </View>
+            {/* KPI Overview Grid */}
+            <OverviewCardsGrid style={{ marginBottom: 16 }}>
+              <OverviewDashboardCard
+                value={warehouseDataMap.kpiIntake}
+                title="Total Intake"
+                subtitle="Volume"
+                icon="receiving"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={warehouseDataMap.kpiLoad}
+                title="Capacity Load"
+                subtitle="Optimal 60-85%"
+                icon="inventory"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={warehouseDataMap.kpiTurnaround}
+                title="Turnaround"
+                subtitle="Dock to Cold"
+                icon="truck"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={warehouseDataMap.kpiLoss}
+                title="Loss/Spoilage"
+                subtitle="Below 1.5% SLA"
+                icon="alert"
+                tone="danger"
+                titlePosition="bottom"
+              />
+            </OverviewCardsGrid>
 
             {/* Chart 1 */}
             <CustomBarChart
@@ -1005,29 +1032,41 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
            ══════════════════════════════════════════════════════════════════════ */}
         {selectedCategory === 'Sales' && (
           <View style={styles.chartsColumn}>
-            {/* KPI Ribbon Strip */}
-            <View style={styles.kpiRibbon}>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{salesDataMap.kpiGmv}</Text>
-                <Text style={styles.kpiLbl}>Total GMV</Text>
-                <Text style={styles.kpiSubGreen}>↑ Volume</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{salesDataMap.kpiRev}</Text>
-                <Text style={styles.kpiLbl}>Platform Rev</Text>
-                <Text style={styles.kpiSubGreen}>Take Rate</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{salesDataMap.kpiNet}</Text>
-                <Text style={styles.kpiLbl}>Net Profit</Text>
-                <Text style={styles.kpiSubGreen}>↑ Margins</Text>
-              </View>
-              <View style={styles.kpiItem}>
-                <Text style={styles.kpiNum}>{salesDataMap.kpiUplift}</Text>
-                <Text style={styles.kpiLbl}>Mandi Uplift</Text>
-                <Text style={styles.kpiSubGreen}>Farmer Bonus</Text>
-              </View>
-            </View>
+            {/* KPI Overview Grid */}
+            <OverviewCardsGrid style={{ marginBottom: 16 }}>
+              <OverviewDashboardCard
+                value={salesDataMap.kpiGmv}
+                title="Total GMV"
+                subtitle="↑ Volume"
+                icon="sales"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={salesDataMap.kpiRev}
+                title="Platform Rev"
+                subtitle="Take Rate"
+                icon="wallet"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={salesDataMap.kpiNet}
+                title="Net Profit"
+                subtitle="↑ Margins"
+                icon="cash"
+                tone="success"
+                titlePosition="bottom"
+              />
+              <OverviewDashboardCard
+                value={salesDataMap.kpiUplift}
+                title="Mandi Uplift"
+                subtitle="Farmer Bonus"
+                icon="box"
+                tone="success"
+                titlePosition="bottom"
+              />
+            </OverviewCardsGrid>
 
             {/* Chart 1 */}
             <CustomBarChart
@@ -1132,7 +1171,32 @@ export function AnalyticsDashboardScreen({ onBack }: AnalyticsDashboardScreenPro
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
+  },
+  header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  headerSubtitle: {
+    ...adminType.body,
+    color: adminOverlay.headerSubtitle,
+    marginTop: 4,
   },
   scroll: {
     flex: 1,

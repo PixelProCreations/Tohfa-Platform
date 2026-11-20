@@ -116,6 +116,31 @@ beforeEach(() => {
   queue({ items: [row()] });
 });
 
+describe('queue card: BR-07d ceiling awareness (display only)', () => {
+  it('BR-07d: a row asking above its ceiling is marked, and the actions are untouched', async () => {
+    queue({ items: [row({ askingPrice: '48.00' as Money, ceilingPrice: '44.00' as Money })] });
+    const tree = await flow();
+    expect(allText(tree)).toContain(t('listingsAdmin.card.aboveCeiling'));
+    // Still approvable / counterable: BR-07 is the server's to enforce.
+    expect(byTestId(tree, 'listingsAdmin.approve.L-live-1')[0]!.props.disabled).toBe(false);
+    expect(byTestId(tree, 'listingsAdmin.counter.L-live-1')[0]!.props.disabled).toBe(false);
+  });
+
+  it('BR-07d: a row at or below its ceiling is not marked', async () => {
+    queue({ items: [row({ askingPrice: '44.00' as Money, ceilingPrice: '44.00' as Money })] });
+    const tree = await flow();
+    expect(allText(tree)).not.toContain(t('listingsAdmin.card.aboveCeiling'));
+  });
+
+  it('BR-07d: no ceiling from the server claims nothing either way', async () => {
+    queue({ items: [row({ ceilingPrice: null })] });
+    const tree = await flow();
+    const text = allText(tree);
+    expect(text).not.toContain(t('listingsAdmin.card.aboveCeiling'));
+    expect(text).toContain(t('listingsAdmin.card.ceiling', { price: t('listingsAdmin.noValue') }));
+  });
+});
+
 describe('queue: live rows only', () => {
   it('renders the live row and none of the design fixtures', async () => {
     const tree = await flow();
@@ -300,6 +325,37 @@ describe('counter', () => {
     await press(tree, 'listingsAdmin.counterSheet.confirm');
     expect(counter.run).not.toHaveBeenCalled();
     expect(allText(tree)).toContain(t('listingsAdmin.counter.priceInvalid'));
+  });
+
+  it('BR-07d: the counter sheet shows the fair price ceiling the server sent for the listing', async () => {
+    const tree = await flow();
+    await press(tree, 'listingsAdmin.counter.L-live-1');
+    expect(allText(tree)).toContain(t('listingsAdmin.counter.ceiling', { price: '₹44' }));
+  });
+
+  it('BR-07d: a listing with no ceiling from the server shows the dash, never a looked-up guess', async () => {
+    queue({ items: [row({ ceilingPrice: null })] });
+    const tree = await flow();
+    await press(tree, 'listingsAdmin.counter.L-live-1');
+    expect(allText(tree)).toContain(t('listingsAdmin.counter.ceiling', { price: t('listingsAdmin.noValue') }));
+  });
+
+  it('BR-07d: showing the ceiling does not gate the sheet — a price above it is still sent (the server refuses)', async () => {
+    const tree = await flow();
+    await press(tree, 'listingsAdmin.counter.L-live-1');
+    // 50.00 is above the row's 44.00 ceiling.
+    await typeInto(tree, 'listingsAdmin.counterSheet.price', '50');
+    await typeInto(tree, 'listingsAdmin.counterSheet.quantity', '75');
+    await press(tree, 'listingsAdmin.counterSheet.confirm');
+    expect(counter.run).toHaveBeenCalledTimes(1);
+    expect(counter.run.mock.calls[0]![1]).toEqual({ pricePerKg: '50.00', quantityKg: '75' });
+  });
+
+  it("BR-07d: the server's 422 PRICE_ABOVE_CEILING is shown in the sheet", async () => {
+    counter.error = new ApiError({ type: 'about:blank', title: 'x', status: 422, code: 'PRICE_ABOVE_CEILING' as never });
+    const tree = await flow();
+    await press(tree, 'listingsAdmin.counter.L-live-1');
+    expect(allText(tree)).toContain(t('admin.error.PRICE_ABOVE_CEILING'));
   });
 
   it('BR-11: rounds exhausted shows the admin error', async () => {

@@ -31,6 +31,7 @@ import type { CustomerRef, CustomersLiveStateProps, PurchaseLineRow, WarehouseSc
 
 export interface PurchaseHistoryScreenProps extends WarehouseScreenBaseProps, CustomersLiveStateProps {
   customer?: CustomerRef | undefined;
+  onOpenFilters?: (() => void) | undefined;
   onSelectPurchase?: ((purchase: PurchaseLineRow) => void) | undefined;
   /** The loaded lines, page by page. */
   purchases?: readonly PurchaseLineRow[] | undefined;

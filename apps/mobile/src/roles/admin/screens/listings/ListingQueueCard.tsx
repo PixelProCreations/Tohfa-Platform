@@ -13,6 +13,7 @@ import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 import type { ListingQueueRow } from '../../api/listings';
+import { compareToCeiling } from '../../api/pricingMappers';
 import { t } from '../../i18n';
 import { adminColors } from '../../theme';
 import { formatPerKg, formatQuantityKg, type ListingAccess } from './listingsLogic';
@@ -33,6 +34,9 @@ export function ListingQueueCard({ row, access, canApprove, busy, onApprove, onC
   const dash = t('listingsAdmin.noValue');
   const price = formatPerKg(row.askingPrice);
   const ceiling = formatPerKg(row.ceilingPrice);
+  // Compared in integer paise by the shared mapper (root CLAUDE.md 2.2); null
+  // when either amount is unknown, and then nothing is claimed either way.
+  const aboveCeiling = compareToCeiling(row.askingPrice, row.ceilingPrice)?.position === 'above';
   const showActions = !row.routedAway && (access.approve || access.counter || access.reject);
   const approveDisabled = busy || !canApprove;
 
@@ -50,6 +54,14 @@ export function ListingQueueCard({ row, access, canApprove, busy, onApprove, onC
           <View style={styles.priceColumn}>
             <Text style={styles.priceAmount}>{price === null ? dash : t('listingsAdmin.card.perKg', { price })}</Text>
             <Text style={styles.ceilingText}>{t('listingsAdmin.card.ceiling', { price: ceiling ?? dash })}</Text>
+            {/*
+              BR-07d, display only: the asking price is already above the
+              ceiling the server reported for this listing, so an approval or a
+              counter at this price will be refused. A label, not a gate — the
+              buttons stay exactly as they were, and a row whose ceiling the
+              server did not send shows nothing extra rather than a guess.
+            */}
+            {aboveCeiling ? <Text style={styles.ceilingOverText}>{t('listingsAdmin.card.aboveCeiling')}</Text> : null}
           </View>
         </View>
 

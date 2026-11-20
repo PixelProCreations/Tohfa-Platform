@@ -189,21 +189,55 @@ export interface BulkCeilingDraftRow {
 }
 
 /**
- * The Market & Pricing home KPIs (Tohfa and Farmer Admin layouts). NONE has an
- * API source: there is no dashboard endpoint, and counting a paged list on the
- * phone would be wrong after the first page.
+ * The Market & Pricing home KPIs (Tohfa and Farmer Admin layouts).
+ *
+ * There is still no dashboard endpoint. What a `number | null` field holds is
+ * COUNTED ON THE PHONE from the list endpoints the screen already reads
+ * (GET /fair-prices, GET /retail-prices), and only once the whole list has
+ * been loaded. While a list still has a next page the count would be a count
+ * of "the rows fetched so far", which is not the figure the card claims, so
+ * the field stays null and the card shows the dash (derivePricingHomeKpis).
+ *
+ * A field typed `null` (the literal type) has NO source at all and can never
+ * hold a number; see each one's comment for why.
  */
 export interface PricingHomeKpisView {
-  totalProducts: null;
-  withRetailPrices: null;
+  /** Distinct crops with a ceiling in force (GET /fair-prices). */
+  totalProducts: number | null;
+  /** Distinct crops with a retail price in force (GET /retail-prices). */
+  withRetailPrices: number | null;
+  /**
+   * Not in the API, and not a defined business term: nothing in the pricing
+   * schema or docs/rules.md gives a price update a "pending" state (a POST
+   * either stores a window or is refused). UNKNOWN — awaiting an owner
+   * decision on what, if anything, this card is meant to count. It is not
+   * filled with a stand-in.
+   */
   pendingPriceUpdates: null;
-  ceilingCompliance: null;
+  /** Percent of retail prices at or below their ceiling (BR-09, display only). */
+  ceilingCompliance: number | null;
+  /**
+   * Not in the API: the card counts categories AND grades, and categories have
+   * no backend at all (owner decision D6, see
+   * screens/pricing/categories/categoriesGradesLogic.ts). The grade enum alone
+   * is not what the card says, so this stays the dash rather than a figure
+   * that silently means something else.
+   */
   categoriesAndGrades: null;
-  recentChanges7d: null;
-  activeFairPrices: null;
+  /** Ceiling windows that came into force in the last 7 days (GET /fair-prices). */
+  recentChanges7d: number | null;
+  /** Ceiling windows in force today (GET /fair-prices). */
+  activeFairPrices: number | null;
+  /** Not in the API: no category model (owner decision D6), as categoriesAndGrades. */
   productCategories: null;
+  /**
+   * Not in the API: an all-crop change feed would need GET
+   * /fair-prices/history per crop (it takes a required cropId), so there is no
+   * one request behind this card. recentChanges7d is the honest neighbour.
+   */
   priceUpdates: null;
-  retailPriceRecords: null;
+  /** Retail price rows in force (GET /retail-prices). */
+  retailPriceRecords: number | null;
 }
 
 export const PRICING_HOME_KPIS_UNAVAILABLE: PricingHomeKpisView = {

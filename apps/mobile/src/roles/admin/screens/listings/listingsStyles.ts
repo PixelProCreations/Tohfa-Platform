@@ -69,6 +69,8 @@ export const styles = StyleSheet.create({
   priceColumn: { alignItems: 'flex-end' },
   priceAmount: { ...adminType.rowTitle, color: adminColors.ink },
   ceilingText: { ...adminType.caption, color: adminColors.muted, marginTop: adminSpacing.xs / 2 },
+  /** Same caption, danger ink: the BR-07d "above the ceiling" note (display only). */
+  ceilingOverText: { ...adminType.caption, color: adminColors.danger.text, marginTop: adminSpacing.xs / 2 },
   farmerInfo: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
   gradeBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm, marginBottom: adminSpacing.sm },
   gradeBadge: {

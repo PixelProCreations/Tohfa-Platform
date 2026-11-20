@@ -92,11 +92,33 @@ export const applicationKeys = {
  * stable.
  */
 /**
- * The market day schedule reads GET /warehouses and keeps the market day
- * venues (api/marketDay.ts); its own module key so a refetch here does not
- * disturb the warehouse screens' caches.
+ * Market day (api/marketDay.ts). Two resources under one module: the recurring
+ * venue flags read from GET /warehouses, and the dated schedule from GET
+ * /admin/market-days. Its own module key so a refetch here does not disturb
+ * the warehouse screens' caches, and so a create or patch on the schedule
+ * refetches both resources (they describe the same thing from two angles).
+ * Unset filters are null so the key shape is stable.
  */
 export const MARKET_DAY_MODULE = 'marketDay';
+
+export interface MarketDayListKeyFilters {
+  warehouseId?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
+export const marketDayKeys = {
+  /** The warehouses flagged as market day venues (GET /warehouses). */
+  venues: () => adminKeys.scoped(MARKET_DAY_MODULE, undefined, { resource: 'venues' }),
+  /** The dated schedule (GET /admin/market-days). */
+  schedule: (warehouseId: string | undefined, filters: MarketDayListKeyFilters = {}) =>
+    adminKeys.scoped(MARKET_DAY_MODULE, warehouseId, {
+      resource: 'schedule',
+      warehouseId: filters.warehouseId ?? null,
+      from: filters.from ?? null,
+      to: filters.to ?? null,
+    }),
+};
 
 export const PRICING_FAIR_MODULE = 'pricingFair';
 export const PRICING_RETAIL_MODULE = 'pricingRetail';

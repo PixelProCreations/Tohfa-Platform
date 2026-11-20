@@ -1,3 +1,4 @@
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -10,19 +11,37 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  border: '#F0ECE6',
-  orangePrimary: '#E85226',
-  orangeLight: '#FFF1EB',
-  greenSuccess: '#16A34A',
-  greenBar: '#2E7D32',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
+  greenBar:      adminColors.success.text,
+  greenSuccess:  adminColors.success.text,
+  orangePrimary: adminColors.brand,
+  textHeading:   adminColors.brandDeep,
+  textSecondary: adminColors.muted,
+  textPrimary:   adminColors.ink,
 };
+const COLORS = PALETTE;
 
 export interface WarehouseOpsReportScreenProps {
   onBack: () => void;
@@ -286,7 +305,7 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M15 19L8 12L15 5"
-                stroke="#2B2523"
+                stroke={adminColors.ink}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -370,59 +389,38 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
         </View>
 
         {/* 4 Metric Cards dynamically matching selected warehouse */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Stock Turnover</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.stockTurnover}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.turnoverTrendType === 'up' ? styles.trendUp : styles.trendDown,
-              ]}
-            >
-              {currentWarehouse.turnoverTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Receiving Volume</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.receivingVolume}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.volumeTrendType === 'up' ? styles.trendUp : styles.trendDown,
-              ]}
-            >
-              {currentWarehouse.volumeTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Rejection Rate</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.rejectionRate}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.rejectionTrendType === 'down' ? styles.trendUp : styles.trendDownAlert,
-              ]}
-            >
-              {currentWarehouse.rejectionTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Pending Transfers</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.pendingTransfers}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.transfersTrendType === 'down' ? styles.trendUp : styles.trendDownAlert,
-              ]}
-            >
-              {currentWarehouse.transfersTrend}
-            </Text>
-          </View>
-        </View>
+        <OverviewCardsGrid style={{ marginBottom: 16 }}>
+          <OverviewDashboardCard
+            value={currentWarehouse.stockTurnover}
+            title="Stock Turnover"
+            subtitle={currentWarehouse.turnoverTrend}
+            icon="inventory"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.receivingVolume}
+            title="Receiving Volume"
+            subtitle={currentWarehouse.volumeTrend}
+            icon="receiving"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.rejectionRate}
+            title="Rejection Rate"
+            subtitle={currentWarehouse.rejectionTrend}
+            icon="alert"
+            tone={currentWarehouse.rejectionTrendType === 'down' ? 'success' : 'danger'}
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.pendingTransfers}
+            title="Pending Transfers"
+            subtitle={currentWarehouse.transfersTrend}
+            icon="truck"
+            tone={currentWarehouse.transfersTrendType === 'down' ? 'default' : 'warning'}
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* Chart: Stock Turnover (Last 6 Months) */}
         <View style={styles.chartCard}>
@@ -554,7 +552,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -567,7 +565,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   exportHeaderBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -596,7 +594,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -623,7 +621,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -639,7 +637,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scopeBadge: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -668,7 +666,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 14,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -706,7 +704,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -724,7 +722,7 @@ const styles = StyleSheet.create({
     color: PALETTE.textPrimary,
   },
   chartScopePill: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -767,7 +765,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -787,7 +785,7 @@ const styles = StyleSheet.create({
   facilityMetric: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     padding: 10,
     borderRadius: 10,
   },
@@ -808,7 +806,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -824,7 +822,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F0E8',
+    borderBottomColor: adminColors.border,
     marginBottom: 8,
   },
   colLabel: {
@@ -837,10 +835,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#FAF8F5',
+    borderBottomColor: adminColors.border,
   },
   tableRowHighlighted: {
-    backgroundColor: '#FFF7F3',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 8,
     paddingHorizontal: 6,
   },
@@ -863,14 +861,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -896,25 +894,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 14,
     fontWeight: '700',
   },
   dropdownBoxOpen: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    borderBottomColor: '#F0EBE1',
+    borderBottomColor: adminColors.border,
     marginBottom: 0,
   },
   inlineDropdownMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderTopWidth: 0,
     borderColor: PALETTE.border,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -928,10 +926,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#FAF6F0',
+    borderBottomColor: adminColors.border,
   },
   inlineDropdownItemActive: {
-    backgroundColor: '#FFF8F4',
+    backgroundColor: adminColors.brandTint,
   },
   inlineDropdownText: {
     fontSize: 14.5,

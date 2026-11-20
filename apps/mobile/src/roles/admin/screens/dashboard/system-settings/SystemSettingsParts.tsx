@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { Modal, SafeAreaView, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar } from '../../../components/AdminStatusBar';
 import { t } from '../../../i18n';
 import { adminColors } from '../../../theme';
 import { BackArrowIcon, CheckmarkIcon, ChevronDownIcon, CopyIcon, InfoCircleIcon } from './systemSettingsIcons';

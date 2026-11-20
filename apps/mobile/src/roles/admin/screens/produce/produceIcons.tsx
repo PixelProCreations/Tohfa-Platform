@@ -193,3 +193,52 @@ export function DownloadIcon({ size = 20, color = adminColors.brand }: AdminIcon
   );
 }
 
+export function Grid4Icon({ size = 20, color = adminColors.onBrand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+export function CheckCircleIcon({ size = 18 }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2" fill={adminColors.success.bg} />
+      <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke={adminColors.success.text} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function CurrentStageIcon({ size = 18 }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={adminColors.brand} strokeWidth="2" fill={adminColors.brandTint} />
+      <Circle cx="12" cy="12" r="4" fill={adminColors.brand} />
+    </Svg>
+  );
+}
+
+export function CompareIcon({ size = 18, color = adminColors.brandDeep }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="7" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Rect x="14" y="4" width="7" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M10 8h4M10 12h4M10 16h4" stroke={color} strokeWidth="1.5" strokeDasharray="1 1" />
+    </Svg>
+  );
+}
+
+export function MoneyNotAvailableIcon({ size = 32, color = adminColors.muted }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="20" height="12" rx="2.5" stroke={color} strokeWidth="1.8" />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.8" />
+      <Path d="M6 6v12M18 6v12" stroke={color} strokeWidth="1.5" strokeDasharray="2 2" />
+    </Svg>
+  );
+}
+

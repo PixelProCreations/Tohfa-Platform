@@ -20,6 +20,7 @@ import {
 import {
   ADMIN_BUTTON_HEIGHT,
   adminColors,
+  adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
@@ -386,15 +387,15 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: adminRadius.sm,
   },
-  badgeActive: { backgroundColor: '#E8F5E9' },
-  badgeInactive: { backgroundColor: '#FFEBEE' },
+  badgeActive: { backgroundColor: adminColors.success.bg },
+  badgeInactive: { backgroundColor: adminColors.danger.bg },
   badgeText: {
     ...adminType.caption,
     fontWeight: '600',
     fontSize: 11,
   },
-  badgeTextActive: { color: '#2E7D32' },
-  badgeTextInactive: { color: '#C62828' },
+  badgeTextActive: { color: adminColors.success.text },
+  badgeTextInactive: { color: adminColors.danger.text },
   divider: {
     height: 1,
     backgroundColor: adminColors.border,
@@ -440,7 +441,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {

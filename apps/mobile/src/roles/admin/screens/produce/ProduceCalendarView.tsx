@@ -142,7 +142,9 @@ export function ProduceCalendarView({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <TractorIcon size={24} color={adminColors.onBrand} />
-          <Text style={styles.headerTitle}>{t('produce.calendar.title')}</Text>
+          <Text style={styles.headerTitle}>
+            {canOpenCropData ? t('produce.calendar.titleSuperAdmin') : t('produce.calendar.title')}
+          </Text>
         </View>
         <Text style={styles.headerSubtitle}>
           {t('produce.calendar.subtitle', { month: monthTitle, count: countText(total) })}

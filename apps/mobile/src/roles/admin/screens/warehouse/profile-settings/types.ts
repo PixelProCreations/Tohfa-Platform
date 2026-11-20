@@ -132,7 +132,9 @@ export type ProfileRoute =
   | 'WarehouseSettings'
   | 'WarehouseEditProfile'
   | 'ReportIssue'
-  | 'IssueSubmitted';
+  | 'IssueSubmitted'
+  | 'SystemSettings'
+  | 'BankAccountManagement';
 
 // ─── Part B: warehouse-facing profile screens ────────────────────────────────
 //

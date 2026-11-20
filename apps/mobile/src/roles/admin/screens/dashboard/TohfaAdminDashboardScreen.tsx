@@ -57,6 +57,7 @@ import { ListingsFlow } from '../listings/ListingsFlow';
 import { PurchaseOrdersFlow } from '../purchase-orders/PurchaseOrdersFlow';
 import { ProduceControlFlow } from '../produce';
 import { AuditManagementFlow } from '../audits/AuditManagementFlow';
+import { InputsPestManagementFlow } from '../inputs';
 import { WorkQueueScreen } from '../work-queue/WorkQueueScreen';
 import type { WarehouseScope } from '../warehouse/finance-expenses/types';
 import { TohfaTabBar } from '../tohfa-shell/TohfaTabBar';
@@ -212,11 +213,13 @@ export function TohfaAdminDashboardScreen({
         // owner to decide the approve destination for all-warehouses admins).
         return <ListingsFlow can={adminCan} onBack={closeFlow} />;
       case 'purchaseOrders':
-        return <PurchaseOrdersFlow can={adminCan} onBack={closeFlow} />;
+        return <PurchaseOrdersFlow can={adminCan} initialView="dual" onBack={closeFlow} />;
       case 'produce':
         return <ProduceControlFlow can={adminCan} onBack={closeFlow} />;
       case 'audits':
         return <AuditManagementFlow can={adminCan} onBack={closeFlow} />;
+      case 'inputs':
+        return <InputsPestManagementFlow can={adminCan} onBack={closeFlow} />;
       default:
         return null;
     }
@@ -263,6 +266,7 @@ export function TohfaAdminDashboardScreen({
               purchase_sales: () => open({ kind: 'purchaseOrders' }),
               produce: () => open({ kind: 'produce' }),
               audit: () => open({ kind: 'audits' }),
+              inputs: () => open({ kind: 'inputs' }),
               pricing: () => open({ kind: 'pricing' }),
               customers: () => open({ kind: 'customersManagement' }),
               allocation: () => open({ kind: 'inventory', screen: 'M3S07' }),

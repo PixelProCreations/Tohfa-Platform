@@ -23,6 +23,9 @@ import {
 } from '../../theme';
 import { useRetailPriceList } from '../../api/pricingHooks';
 import type { RetailPriceRowView } from '../../api/pricingTypes';
+import { t } from '../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -60,7 +63,7 @@ function HorizontalFilterIcon({ size = 18, color = adminColors.brand }: { size?:
   );
 }
 
-// ─── Types & Mock Fallbacks ──────────────────────────────────────────────────
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 export type PricingRecordBadge = 'Compliant' | 'Action required' | 'No retail price' | 'Over ceiling';
 
@@ -78,87 +81,6 @@ export interface PricingRecordItem {
   farmerPurchasePrice?: string | undefined;
   pricingUnit?: string | undefined;
 }
-
-export const INITIAL_PRICING_RECORDS: PricingRecordItem[] = [
-  {
-    id: 'pr-1',
-    product: 'Tomato',
-    grade: 'Grade 1',
-    category: 'Vegetables',
-    badge: 'Compliant',
-    ceiling: '₹60.00/kg',
-    retailPrice: '₹55.00/kg',
-    difference: 'Difference ₹5.00 below',
-    updatedAt: '11 Oct 2026, 10:00',
-    farmerPurchasePrice: '₹42.00/kg',
-    pricingUnit: '₹/kg',
-  },
-  {
-    id: 'pr-2',
-    product: 'Tomato',
-    grade: 'Grade 2',
-    category: 'Vegetables',
-    badge: 'Compliant',
-    ceiling: '₹50.00/kg',
-    retailPrice: '₹50.00/kg',
-    difference: 'Difference ₹0.00 below',
-    updatedAt: '9 Oct 2026, 10:00',
-    farmerPurchasePrice: '₹38.00/kg',
-    pricingUnit: '₹/kg',
-  },
-  {
-    id: 'pr-3',
-    product: 'Tomato',
-    grade: 'Grade 3',
-    category: 'Vegetables',
-    badge: 'Action required',
-    ceiling: '₹40.00/kg',
-    retailPrice: '₹45.00/kg',
-    difference: 'Difference over by ₹5.00',
-    updatedAt: '7 Oct 2026, 10:00',
-    farmerPurchasePrice: '₹30.00/kg',
-    pricingUnit: '₹/kg',
-  },
-  {
-    id: 'pr-4',
-    product: 'Beans',
-    grade: 'Grade 1',
-    category: 'Vegetables',
-    badge: 'Compliant',
-    ceiling: '₹80.00/kg',
-    retailPrice: '₹75.00/kg',
-    difference: 'Difference ₹5.00 below',
-    updatedAt: '5 Oct 2026, 10:00',
-    farmerPurchasePrice: '₹60.00/kg',
-    pricingUnit: '₹/kg',
-  },
-  {
-    id: 'pr-5',
-    product: 'Beans',
-    grade: 'Grade 2',
-    category: 'Vegetables',
-    badge: 'No retail price',
-    ceiling: '₹70.00/kg',
-    retailPrice: 'none',
-    difference: 'Difference not comparable',
-    updatedAt: '1 Apr 2026, 09:00',
-    farmerPurchasePrice: '₹50.00/kg',
-    pricingUnit: '₹/kg',
-  },
-  {
-    id: 'pr-6',
-    product: 'Cabbage',
-    grade: 'Grade 1',
-    category: 'Vegetables',
-    badge: 'Compliant',
-    ceiling: '₹30.00/kg',
-    retailPrice: '₹28.00/kg',
-    difference: 'Difference ₹2.00 below',
-    updatedAt: '1 Oct 2026, 10:00',
-    farmerPurchasePrice: '₹20.00/kg',
-    pricingUnit: '₹/kg',
-  },
-];
 
 function mapDtoToRecordItem(row: RetailPriceRowView): PricingRecordItem {
   let badge: PricingRecordBadge = 'Compliant';
@@ -243,13 +165,28 @@ export function MarketPricingOverviewScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRecordForDetails, setSelectedRecordForDetails] = useState<PricingRecordItem | null>(null);
 
-  const effectiveRecords = useMemo(() => {
-    if (records !== undefined) return records;
-    if (retailQuery.items && retailQuery.items.length > 0) {
-      return retailQuery.items.map(mapDtoToRecordItem);
-    }
-    return INITIAL_PRICING_RECORDS;
-  }, [records, retailQuery.items]);
+  /*
+   * There is no fixture fallback here any more. A genuinely empty result used
+   * to render five invented records — Tomato G1/G2/G3, Beans… — with real
+   * ceilings, retail prices and "Compliant" / "Action required" badges, so an
+   * admin could read, and act on, prices that do not exist. An empty result
+   * is an empty state.
+   *
+   * `records` stays: an explicit list from a caller (a host screen, a test) is
+   * data someone supplied on purpose, not a stand-in for a failed request.
+   */
+  const effectiveRecords = useMemo(
+    () => (records !== undefined ? records : retailQuery.items.map(mapDtoToRecordItem)),
+    [records, retailQuery.items],
+  );
+
+  // Loading, failed and loaded-but-empty are three different things, and only
+  // the last one is "no records". The flags are the query's own.
+  const viewState = queryViewState(
+    records !== undefined
+      ? { isLoading: false, error: null, itemCount: records.length }
+      : { isLoading: retailQuery.isLoading, error: retailQuery.error, itemCount: effectiveRecords.length },
+  );
 
   const filteredRecords = effectiveRecords.filter((item) => {
     if (!searchQuery) return true;
@@ -332,14 +269,25 @@ export function MarketPricingOverviewScreen({
           </TouchableOpacity>
         </View>
 
-        {/* ── Subtitle Count ── */}
-        <Text style={styles.countSubtitle}>
-          {filteredRecords.length} of {effectiveRecords.length} pricing records
-        </Text>
+        {/* ── Subtitle Count — only once there is a loaded result to count ── */}
+        {viewState === 'ready' ? (
+          <Text style={styles.countSubtitle}>
+            {filteredRecords.length} of {effectiveRecords.length} pricing records
+          </Text>
+        ) : null}
+
+        {viewState === 'loading' ? <AdminLoadingState /> : null}
+        {viewState === 'error' ? <AdminErrorState error={retailQuery.error} onRetry={retailQuery.refresh} /> : null}
+        {viewState === 'empty' ? (
+          <AdminEmptyState
+            title={t('pricingRetail.overview.empty.title')}
+            subtitle={t('pricingRetail.overview.empty.subtitle')}
+          />
+        ) : null}
 
         {/* ── Pricing Records List ── */}
         <View style={styles.recordsList}>
-          {filteredRecords.map((item) => {
+          {(viewState === 'ready' ? filteredRecords : []).map((item) => {
             const badgeStyle = getBadgeStyle(item.badge);
             return (
               <View key={item.id} style={styles.pricingCard}>
@@ -623,30 +571,26 @@ const styles = StyleSheet.create({
     color: adminColors.warning.text,
   },
 
-  // Actions Row
+  // 3 Action Buttons Row
   cardActionsRow: {
     flexDirection: 'row',
-    columnGap: 8,
-    marginTop: 4,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: adminSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
   },
   actionBtn: {
-    flex: 1,
-    height: 34,
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
   },
   actionBtnDisabled: {
     opacity: 0.5,
   },
   actionBtnText: {
     ...adminType.caption,
-    color: adminColors.ink,
-    textAlign: 'center',
+    fontWeight: '800',
+    color: adminColors.brandDeep,
   },
   actionBtnTextDisabled: {
     color: adminColors.muted,
@@ -665,9 +609,10 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderTopLeftRadius: adminRadius.xl,
     borderTopRightRadius: adminRadius.xl,
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.lg,
     paddingBottom: adminSpacing.xl,
+    maxHeight: '85%',
     ...adminShadow.md,
   },
   modalTitle: {
@@ -676,18 +621,18 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   detailsCard: {
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     padding: adminSpacing.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    marginBottom: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   detailsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   detailsLabel: {
     ...adminType.caption,
@@ -695,6 +640,7 @@ const styles = StyleSheet.create({
   },
   detailsValue: {
     ...adminType.body,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   tableDivider: {
@@ -705,13 +651,16 @@ const styles = StyleSheet.create({
   modalCloseBtn: {
     height: 44,
     borderRadius: adminRadius.md,
-    backgroundColor: adminColors.brand,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
   },
   modalCloseBtnText: {
     ...adminType.rowTitle,
-    color: adminColors.onBrand,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
 });

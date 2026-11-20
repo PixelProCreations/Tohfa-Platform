@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -61,7 +60,7 @@ import { SuperAdminMoreScreen } from './SuperAdminMoreScreen';
 import { FarmersFlow } from '../farmers/FarmersFlow';
 import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
-import { FinanceBusinessOverviewScreen } from './FinanceBusinessOverviewScreen';
+import { FinanceManagementFlow } from '../finance';
 import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
 import { PricingFlow } from '../pricing/PricingFlow';
 import { ProduceControlFlow } from '../produce';
@@ -70,6 +69,9 @@ import { CustomersManagementFlow } from '../customers-management';
 import { OrdersFlow } from '../warehouse/orders/OrdersFlow';
 import { StaffFlow } from '../warehouse/staff-attendance/StaffFlow';
 import { AuditManagementFlow } from '../audits/AuditManagementFlow';
+import { InputsPestManagementFlow } from '../inputs';
+import { CommunityKnowledgeFlow } from '../community';
+import { AdminZoneManagementScreen } from '../zones';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { CreateAdminAccountScreen, type AdminAccountData } from './CreateAdminAccountScreen';
 import { ManageAdminsScreen } from './ManageAdminsScreen';
@@ -91,7 +93,20 @@ import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
 import { RetailPricingScreen } from './RetailPricingScreen';
 import { ScheduleMarketOpenCloseScreen } from './ScheduleMarketOpenCloseScreen';
 import { TransfersFlow } from '../warehouse/transfers/TransfersFlow';
-import { AdminReportsMainScreen } from '../reports';
+import {
+  AdminReportsMainScreen,
+  AnalyticsDashboardScreen,
+  FarmerPerformanceReportScreen,
+  WarehouseOpsReportScreen,
+  ReportBuilderScreen,
+  SystemAlertsScreen,
+  AnnouncementsScreen,
+  AllRecentReportsScreen,
+} from '../reports';
+import { PLStatementScreen } from '../finance';
+import { ReportsScreen } from '../warehouse/reports/ReportsScreen';
+import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
+import type { ProfileRoute } from '../warehouse/profile-settings/types';
 
 export type SuperAdminTab = 'Overview' | 'Farmers' | 'Warehouse' | 'Finance' | 'Menu';
 
@@ -107,12 +122,14 @@ export interface SuperAdminDashboardScreenProps {
 
 export function SuperAdminDashboardScreen({
   can: propsCan,
+  scope: propsScope,
   onSignOut,
   onSwitchRole,
   onNavigate,
   initialTab = 'Overview',
 }: SuperAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<SuperAdminTab>(initialTab);
+  const [profileInitialScreen, setProfileInitialScreen] = useState<ProfileRoute>('Settings');
   const [user, setUser] = useState<UserMe | null>(null);
   const [lastUpdated, setLastUpdated] = useState('10:45 · All details');
   const [isMarketOpen, setIsMarketOpen] = useState(true);
@@ -178,9 +195,13 @@ export function SuperAdminDashboardScreen({
     | 'schedule_market'
     | 'audit_management'
     | 'produce_control'
+    | 'inputs_pest'
     | 'purchase_orders'
     | 'pricing_flow'
+    | 'community'
+    | 'zone_management'
     | 'reports'
+    | 'reports_main'
     | 'notifications'
     | 'settings'
     | 'config_main'
@@ -193,6 +214,18 @@ export function SuperAdminDashboardScreen({
 
   const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<AdminAccountData | null>(null);
   const [selectedAdminProfile, setSelectedAdminProfile] = useState<AdminAccountData | null>(null);
+  const [activeReportsSub, setActiveReportsSub] = useState<
+    | 'analytics'
+    | 'pl'
+    | 'farmerPerformance'
+    | 'warehouseOps'
+    | 'builder'
+    | 'alerts'
+    | 'announcements'
+    | 'allRecent'
+    | 'operational'
+    | null
+  >(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>('razorpay');
 
   useEffect(() => {
@@ -201,7 +234,8 @@ export function SuperAdminDashboardScreen({
       .catch(() => {});
   }, []);
 
-  const adminCan = useMemo(() => propsCan ?? makeCan(user?.permissions), [propsCan, user]);
+  const adminCan = useMemo(() => makeCan(user?.permissions), [user]);
+  const activeCan = propsCan ?? adminCan;
 
   const allWarehouses = useMemo<WarehouseScope>(
     () => ({ warehouseId: undefined, warehouseName: t('profile.scope.allWarehouses') }),
@@ -214,62 +248,168 @@ export function SuperAdminDashboardScreen({
     return (
       <NotificationsFlow
         scope={{}}
-        can={adminCan}
+        can={activeCan}
         onBack={() => setActiveSubScreen(null)}
       />
     );
   }
 
   if (activeSubScreen === 'pricing_flow') {
-    return <PricingFlow can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <PricingFlow can={activeCan} onBack={() => setActiveSubScreen(null)} />;
+  }
+
+  if (activeSubScreen === 'community') {
+    return <CommunityKnowledgeFlow can={activeCan} onBack={() => setActiveSubScreen(null)} />;
+  }
+
+  if (activeSubScreen === 'zone_management') {
+    return <AdminZoneManagementScreen onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'produce_control') {
-    return <ProduceControlFlow can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <ProduceControlFlow can={activeCan} onBack={() => setActiveSubScreen(null)} />;
+  }
+
+  if (activeSubScreen === 'inputs_pest') {
+    return <InputsPestManagementFlow can={activeCan} onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'purchase_orders') {
-    return <PurchaseOrdersFlow can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <PurchaseOrdersFlow can={activeCan} initialView="dual" onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'audit_management') {
-    return <AuditManagementFlow can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <AuditManagementFlow can={activeCan} onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'customers') {
-    return <CustomersManagementFlow can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <CustomersManagementFlow can={activeCan} onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'orders') {
-    return <OrdersFlow scope={allWarehouses} can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <OrdersFlow scope={allWarehouses} can={activeCan} onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'allocation') {
-    return <InventoryFlow scope={allWarehouses} can={adminCan} initialScreen="M3S07" onBack={() => setActiveSubScreen(null)} />;
+    return <InventoryFlow scope={allWarehouses} can={activeCan} initialScreen="M3S07" onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'transfers_flow') {
-    return <TransfersFlow scope={allWarehouses} can={adminCan} onBack={() => setActiveSubScreen(null)} />;
+    return <TransfersFlow scope={allWarehouses} can={activeCan} onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'staff') {
-    return <StaffFlow scope={allWarehouses} can={adminCan} initialScreen="Staff" onBack={() => setActiveSubScreen(null)} />;
+    return <StaffFlow scope={allWarehouses} can={activeCan} initialScreen="Staff" onBack={() => setActiveSubScreen(null)} />;
   }
 
   if (activeSubScreen === 'reports') {
     return (
+      <View style={{ flex: 1 }}>
+        <ReportsScreen
+          scope={allWarehouses}
+          can={adminCan}
+          canExport={true}
+          onNavigateToNotifications={() => setActiveSubScreen('notifications')}
+          onBack={() => setActiveSubScreen(null)}
+        />
+        <View style={{ display: 'none' }}>
+          <AdminReportsMainScreen
+            onBack={() => setActiveSubScreen(null)}
+            onOpenPLReport={() => {}}
+            onOpenFarmerPerformanceReport={() => {}}
+            onOpenWarehouseOpsReport={() => {}}
+            onOpenAnalyticsDashboard={() => {}}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  if (activeSubScreen === 'reports_main') {
+    if (activeReportsSub === 'analytics') {
+      return <AnalyticsDashboardScreen onBack={() => setActiveReportsSub(null)} />;
+    }
+    if (activeReportsSub === 'pl') {
+      return <PLStatementScreen onBack={() => setActiveReportsSub(null)} />;
+    }
+    if (activeReportsSub === 'farmerPerformance') {
+      return <FarmerPerformanceReportScreen onBack={() => setActiveReportsSub(null)} />;
+    }
+    if (activeReportsSub === 'warehouseOps') {
+      return <WarehouseOpsReportScreen onBack={() => setActiveReportsSub(null)} />;
+    }
+    if (activeReportsSub === 'allRecent') {
+      return (
+        <AllRecentReportsScreen
+          onBack={() => setActiveReportsSub(null)}
+          onOpenPLReport={() => setActiveReportsSub('pl')}
+          onOpenFarmerPerformanceReport={() => setActiveReportsSub('farmerPerformance')}
+          onOpenWarehouseOpsReport={() => setActiveReportsSub('warehouseOps')}
+        />
+      );
+    }
+    if (activeReportsSub === 'builder') {
+      return (
+        <ReportBuilderScreen
+          onBack={() => setActiveReportsSub(null)}
+          onGenerate={(type) => {
+            if (type === 'pl') setActiveReportsSub('pl');
+            else if (type === 'farmer') setActiveReportsSub('farmerPerformance');
+            else if (type === 'warehouse') setActiveReportsSub('warehouseOps');
+          }}
+        />
+      );
+    }
+    if (activeReportsSub === 'alerts') {
+      return <SystemAlertsScreen onBack={() => setActiveReportsSub(null)} />;
+    }
+    if (activeReportsSub === 'announcements') {
+      return <AnnouncementsScreen onBack={() => setActiveReportsSub(null)} />;
+    }
+    if (activeReportsSub === 'operational') {
+      return (
+        <ReportsScreen
+          scope={allWarehouses}
+          can={adminCan}
+          canExport={true}
+          onNavigateToNotifications={() => setActiveSubScreen('notifications')}
+          onBack={() => setActiveReportsSub(null)}
+        />
+      );
+    }
+
+    return (
       <AdminReportsMainScreen
-        onBack={() => setActiveSubScreen(null)}
-        onOpenPLReport={() => {}}
-        onOpenFarmerPerformanceReport={() => {}}
-        onOpenWarehouseOpsReport={() => {}}
-        onOpenAnalyticsDashboard={() => {}}
+        onBack={() => {
+          setActiveReportsSub(null);
+          setActiveSubScreen(null);
+        }}
+        onOpenPLReport={() => setActiveReportsSub('pl')}
+        onOpenFarmerPerformanceReport={() => setActiveReportsSub('farmerPerformance')}
+        onOpenWarehouseOpsReport={() => setActiveReportsSub('warehouseOps')}
+        onOpenAnalyticsDashboard={() => setActiveReportsSub('analytics')}
+        onOpenOperationalReports={() => setActiveSubScreen('reports')}
+        onOpenReportBuilder={() => setActiveReportsSub('builder')}
+        onOpenAllRecentReports={() => setActiveReportsSub('allRecent')}
+        onOpenSystemAlerts={() => setActiveReportsSub('alerts')}
+        onOpenAnnouncements={() => setActiveReportsSub('announcements')}
       />
     );
   }
 
   if (activeSubScreen === 'settings') {
-    return <AdminProfileScreen role="SUPER_ADMIN" onSignOut={onSignOut} onBack={() => setActiveSubScreen(null)} />;
+    return (
+      <ProfileFlow
+        scope={allWarehouses}
+        can={adminCan}
+        role="SUPER_ADMIN"
+        subtitle="Super Admin · All Warehouses"
+        initialScreen={profileInitialScreen}
+        onBack={() => setActiveSubScreen(null)}
+        onLogout={onSignOut}
+        onSwitchRole={onSwitchRole}
+      />
+    );
   }
 
   if (activeSubScreen === 'create_admin') {
@@ -422,7 +562,7 @@ export function SuperAdminDashboardScreen({
         <View style={styles.tabContainer}>
           <InventoryFlow
             scope={allWarehouses}
-            can={adminCan}
+            can={activeCan}
             onBack={() => setActiveTab('Overview')}
           />
         </View>
@@ -431,15 +571,19 @@ export function SuperAdminDashboardScreen({
     );
   }
 
-  // Tab 4: Finance
+  // Tab 4: Finance (Accounts & Finance Dashboard)
   if (activeTab === 'Finance') {
     return (
       <SafeAreaView style={styles.container}>
         <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.tabContainer}>
-          <FinanceBusinessOverviewScreen
+          <FinanceManagementFlow
             can={adminCan}
+            showBackButton={true}
             onBack={() => setActiveTab('Overview')}
+            onTabChange={(tab) => {
+              setActiveTab(tab as any);
+            }}
           />
         </View>
         {renderBottomTabBar(activeTab, setActiveTab)}
@@ -458,15 +602,21 @@ export function SuperAdminDashboardScreen({
             onBack={() => setActiveTab('Overview')}
             onNavigateProduce={() => setActiveSubScreen('produce_control')}
             onNavigateAudit={() => setActiveSubScreen('audit_management')}
+            {...(onNavigate ? { onNavigateInputsPest: () => setActiveSubScreen('inputs_pest') } : {})}
             onNavigateMarketPricing={() => setActiveSubScreen('pricing_flow')}
             onNavigatePurchases={() => setActiveSubScreen('purchase_orders')}
             onNavigateAllocation={() => setActiveSubScreen('allocation')}
             onNavigateSalesOrders={() => setActiveSubScreen('orders')}
             onNavigateCustomers={() => setActiveSubScreen('customers')}
             onNavigateStaff={() => setActiveSubScreen('staff')}
+            {...(onNavigate ? { onNavigateCommunity: () => setActiveSubScreen('community') } : {})}
+            {...(onNavigate ? { onNavigateZoneManagement: () => setActiveSubScreen('zone_management') } : {})}
             onNavigateNotifications={() => setActiveSubScreen('notifications')}
             onNavigateReports={() => setActiveSubScreen('reports')}
-            onNavigateSettings={() => setActiveSubScreen('settings')}
+            onNavigateSettings={() => {
+              setProfileInitialScreen('Settings');
+              setActiveSubScreen('settings');
+            }}
             onLogout={onSignOut}
           />
         </View>
@@ -486,7 +636,10 @@ export function SuperAdminDashboardScreen({
         {renderHeader(
           t('superAdminDashboard.title'),
           () => setActiveSubScreen('notifications'),
-          () => setActiveSubScreen('settings'),
+          () => {
+            setProfileInitialScreen('UserProfile');
+            setActiveSubScreen('settings');
+          },
         )}
 
         <View style={styles.mainContent}>
@@ -792,17 +945,13 @@ export function SuperAdminDashboardScreen({
       </ScrollView>
 
       {/* 3-Dots Schedule Options Popup Modal */}
-      <Modal
-        visible={!!activeScheduleMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveScheduleMenu(null)}
-      >
-        <TouchableOpacity
-          style={styles.popupOverlay}
-          activeOpacity={1}
-          onPress={() => setActiveScheduleMenu(null)}
-        >
+      {activeScheduleMenu ? (
+        <View style={[StyleSheet.absoluteFill, styles.popupOverlay]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setActiveScheduleMenu(null)}
+          />
           <View style={styles.scheduleOptionsMenu}>
             <TouchableOpacity
               style={styles.scheduleOptionItem}
@@ -850,21 +999,17 @@ export function SuperAdminDashboardScreen({
               </Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      ) : null}
 
       {/* Schedule Details Modal */}
-      <Modal
-        visible={!!detailsScheduleItem}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDetailsScheduleItem(null)}
-      >
-        <TouchableOpacity
-          style={styles.popupOverlay}
-          activeOpacity={1}
-          onPress={() => setDetailsScheduleItem(null)}
-        >
+      {detailsScheduleItem ? (
+        <View style={[StyleSheet.absoluteFill, styles.popupOverlay]}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setDetailsScheduleItem(null)}
+          />
           <View style={styles.detailsModalContent}>
             <Text style={styles.detailsModalTitle}>{t('scheduleMarket.details.title')}</Text>
             {detailsScheduleItem ? (
@@ -895,8 +1040,8 @@ export function SuperAdminDashboardScreen({
               <Text style={styles.detailsCloseText}>{t('scheduleMarket.details.close')}</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-      </Modal>
+        </View>
+      ) : null}
 
       {/* Bottom Navigation Bar */}
       {renderBottomTabBar(activeTab, setActiveTab)}

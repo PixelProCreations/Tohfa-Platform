@@ -79,3 +79,24 @@ export interface SalesRouteParams {
   customerName?: string | undefined;
   customerCode?: string | undefined;
 }
+
+export interface PurchaseOrderRecord {
+  id: string;
+  poNumber: string;
+  listingCode: string;
+  farmerName: string;
+  produceName: string;
+  grade: string;
+  quantityKg: number;
+  unitPrice: number;
+  totalPrice: number;
+  warehouse: string;
+  dateStr: string;
+  purchaseStatus: 'Closed' | 'Open' | 'Receipt in progress';
+  receiptStatus: 'Completed' | 'Partial' | 'Not received';
+  payoutId?: string | undefined;
+  farmerId?: string | undefined;
+  goodsReceiptId?: string | undefined;
+  payoutStatus?: string | undefined;
+}
+

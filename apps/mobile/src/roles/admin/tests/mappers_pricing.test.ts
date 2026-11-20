@@ -23,6 +23,7 @@ import {
   toRetailPriceRow,
   todayInIndia,
 } from '../api/pricingMappers';
+import { ceilingCompliancePercent, derivePricingHomeKpis, recentCeilingChanges, recentChangeCutoff } from '../api/pricingMappers';
 import { PRICING_HOME_KPIS_UNAVAILABLE } from '../api/pricingTypes';
 
 const CROP = '11112222-3333-4444-5555-666677778888';
@@ -297,7 +298,131 @@ describe('retail price edit drawer', () => {
 });
 
 describe('home dashboard', () => {
-  it('every KPI the design shows is unavailable from the API (null, never a demo number)', () => {
+  it('the unavailable baseline is all null (never a demo number)', () => {
     for (const value of Object.values(PRICING_HOME_KPIS_UNAVAILABLE)) expect(value).toBeNull();
+  });
+});
+
+describe('home KPIs counted from the lists (no KPI endpoint)', () => {
+  const fair = (over: Partial<FairPriceDto>): FairPriceDto => ({ ...ceiling, ...over });
+  const retailRow = (over: Partial<RetailPriceDto>): RetailPriceDto => ({ ...retail, ...over });
+  const fairRows = [
+    toFairPriceRow(fair({ id: 'f1', cropId: 'crop-a', effectiveFrom: '2026-11-08' }), TODAY),
+    // Same crop, a second grade: one product, two ceilings.
+    toFairPriceRow(fair({ id: 'f2', cropId: 'crop-a', grade: 'GRADE_2', effectiveFrom: '2026-10-01' }), TODAY),
+    toFairPriceRow(fair({ id: 'f3', cropId: 'crop-b', effectiveFrom: '2026-11-04' }), TODAY),
+    // Starts tomorrow: scheduled, so not an active ceiling and not a change inside the window.
+    toFairPriceRow(fair({ id: 'f4', cropId: 'crop-c', effectiveFrom: '2026-11-11' }), TODAY),
+  ];
+  const retailRows = [
+    toRetailPriceRow(retailRow({ id: 'r1', cropId: 'crop-a', price: '40.00', ceilingPrice: '48.00' })),
+    toRetailPriceRow(retailRow({ id: 'r2', cropId: 'crop-a', grade: 'GRADE_2', price: '48.00', ceilingPrice: '48.00' })),
+    toRetailPriceRow(retailRow({ id: 'r3', cropId: 'crop-b', price: '50.00', ceilingPrice: '48.00' })),
+    // No ceiling sent: it is not counted either way, not assumed compliant.
+    toRetailPriceRow(retailRow({ id: 'r4', cropId: 'crop-d', price: '50.00', ceilingPrice: undefined })),
+  ];
+  const complete = { fair: fairRows, fairComplete: true, retail: retailRows, retailComplete: true, today: TODAY };
+
+  it('counts distinct crops, active windows and the last 7 days from GET /fair-prices', () => {
+    const kpis = derivePricingHomeKpis(complete);
+    expect(kpis.totalProducts).toBe(3);
+    expect(kpis.activeFairPrices).toBe(3);
+    // 2026-11-04..2026-11-10 inclusive: f1 and f3; f2 is older, f4 is scheduled.
+    expect(recentChangeCutoff(TODAY)).toBe('2026-11-04');
+    expect(kpis.recentChanges7d).toBe(2);
+  });
+
+  it('counts retail rows and records, and BR-09 compliance over the rows that have a ceiling', () => {
+    const kpis = derivePricingHomeKpis(complete);
+    expect(kpis.withRetailPrices).toBe(3);
+    expect(kpis.retailPriceRecords).toBe(4);
+    // r1 below, r2 at, r3 above, r4 has no ceiling and is left out: 2 of 3.
+    expect(kpis.ceilingCompliance).toBe(67);
+  });
+
+  it('a list that still has a next page counts nothing: the dash, not a first-page total', () => {
+    const partial = derivePricingHomeKpis({ ...complete, fairComplete: false, retailComplete: false });
+    expect(partial.totalProducts).toBeNull();
+    expect(partial.activeFairPrices).toBeNull();
+    expect(partial.recentChanges7d).toBeNull();
+    expect(partial.withRetailPrices).toBeNull();
+    expect(partial.retailPriceRecords).toBeNull();
+    expect(partial.ceilingCompliance).toBeNull();
+  });
+
+  it('no row with a known ceiling is not 100% compliant, it is unknown', () => {
+    const noCeilings = [toRetailPriceRow(retailRow({ id: 'r9', ceilingPrice: undefined }))];
+    expect(ceilingCompliancePercent(noCeilings)).toBeNull();
+    expect(derivePricingHomeKpis({ ...complete, retail: noCeilings }).ceilingCompliance).toBeNull();
+  });
+
+  it('the figures with no API source stay null however complete the lists are', () => {
+    const kpis = derivePricingHomeKpis(complete);
+    // No "pending" state exists in the pricing schema (undefined business term).
+    expect(kpis.pendingPriceUpdates).toBeNull();
+    // Categories have no backend at all (owner decision D6).
+    expect(kpis.categoriesAndGrades).toBeNull();
+    expect(kpis.productCategories).toBeNull();
+    // An all-crop change feed would need a per-crop history call.
+    expect(kpis.priceUpdates).toBeNull();
+  });
+
+  it('an empty list that IS complete counts zero, which is a fact, not a guess', () => {
+    const empty = derivePricingHomeKpis({ fair: [], fairComplete: true, retail: [], retailComplete: true, today: TODAY });
+    expect(empty.totalProducts).toBe(0);
+    expect(empty.retailPriceRecords).toBe(0);
+    // ...but a percentage of no rows is still unknown.
+    expect(empty.ceilingCompliance).toBeNull();
+  });
+});
+
+describe('recentCeilingChanges: the home\'s Recent Price Changes rows', () => {
+  const fair = (over: Partial<FairPriceDto>): FairPriceDto => ({ ...ceiling, ...over });
+  const row = (id: string, cropId: string, effectiveFrom: string) =>
+    toFairPriceRow(fair({ id, cropId, effectiveFrom }), TODAY);
+
+  // Cutoff for TODAY (2026-11-10) is 2026-11-04 (RECENT_CHANGE_WINDOW_DAYS = 7, inclusive).
+  const inside = [row('f1', 'crop-a', '2026-11-08'), row('f3', 'crop-b', '2026-11-04'), row('f5', 'crop-e', '2026-11-10')];
+  const outside = [
+    row('f2', 'crop-a', '2026-11-03'), // one day before the cutoff
+    row('f4', 'crop-c', '2026-11-11'), // starts tomorrow: scheduled, not a change yet
+  ];
+
+  it('returns only the windows inside the cutoff, newest first', () => {
+    const rows = recentCeilingChanges([...outside, ...inside], TODAY, 10);
+    expect(rows.map((r) => r.id)).toEqual(['f5', 'f1', 'f3']);
+  });
+
+  it('respects the cap', () => {
+    expect(recentCeilingChanges([...inside, ...outside], TODAY, 2).map((r) => r.id)).toEqual(['f5', 'f1']);
+    expect(recentCeilingChanges(inside, TODAY, 0)).toEqual([]);
+  });
+
+  it('returns empty when nothing qualifies, never filler', () => {
+    expect(recentCeilingChanges(outside, TODAY, 3)).toEqual([]);
+    expect(recentCeilingChanges([], TODAY, 3)).toEqual([]);
+  });
+
+  it('carries no previous ceiling to invent a delta from', () => {
+    // GET /fair-prices/history needs one cropId, so a previous window for an
+    // arbitrary set of crops is not fetchable in one request; the screen
+    // renders the previous price and the delta as the dash.
+    const rows = recentCeilingChanges(inside, TODAY, 3);
+    expect(rows.length).toBe(3);
+    for (const r of rows) expect(r.ceilingPrice).not.toBeNull();
+    expect(Object.keys(rows[0] ?? {})).not.toContain('previousCeiling');
+  });
+
+  it('agrees with the recentChanges7d KPI about which rows count', () => {
+    const all = [...inside, ...outside];
+    const kpis = derivePricingHomeKpis({ fair: all, fairComplete: true, retail: [], retailComplete: true, today: TODAY });
+    expect(recentCeilingChanges(all, TODAY, 100).length).toBe(kpis.recentChanges7d);
+  });
+
+  it('does not mutate the list it was given', () => {
+    const all = [...outside, ...inside];
+    const order = all.map((r) => r.id);
+    recentCeilingChanges(all, TODAY, 10);
+    expect(all.map((r) => r.id)).toEqual(order);
   });
 });

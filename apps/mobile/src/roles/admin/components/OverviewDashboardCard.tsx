@@ -26,6 +26,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
+  adminRadius,
   adminShadow,
   adminSpacing,
   adminType,
@@ -37,7 +38,35 @@ import {
   type OverviewCardTone,
 } from './overviewDashboardCardStyle';
 
-export type OverviewCardIcon = 'orders' | 'pickup' | 'receiving' | 'inventory' | 'sales' | 'cash' | 'truck' | 'box' | 'alert';
+export type OverviewCardIcon =
+  | 'orders'
+  | 'pickup'
+  | 'payout'
+  | 'pending_payout'
+  | 'receiving'
+  | 'inventory'
+  | 'sales'
+  | 'cash'
+  | 'wallet'
+  | 'truck'
+  | 'box'
+  | 'alert'
+  | 'users'
+  | 'clipboard'
+  | 'categories'
+  | 'history'
+  | 'clock'
+  | 'store'
+  | 'direct'
+  | 'market'
+  | 'horeca'
+  | 'cutlery'
+  | 'b2b'
+  | 'building'
+  | 'invoice'
+  | 'invoices'
+  | 'card'
+  | 'invoiceValue';
 
 export interface OverviewDashboardCardProps {
   /** Main stat/number, e.g. "12", "08", "03", "05", "₹24,850" */
@@ -62,6 +91,10 @@ export interface OverviewDashboardCardProps {
   style?: StyleProp<ViewStyle>;
   /** Custom value style override */
   valueStyle?: StyleProp<TextStyle>;
+  /** Custom title style override */
+  titleStyle?: StyleProp<TextStyle>;
+  /** If true, keeps title exactly as passed without sentence-casing */
+  preserveCase?: boolean | undefined;
   /** Accessibility label */
   accessibilityLabel?: string;
   /** Whether the card is disabled */
@@ -85,6 +118,8 @@ function renderBuiltinIcon(type: string, color: string) {
         </Svg>
       );
     case 'pickup':
+    case 'payout':
+    case 'pending_payout':
       return (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Path
@@ -143,11 +178,128 @@ function renderBuiltinIcon(type: string, color: string) {
         </Svg>
       );
     case 'cash':
+    case 'wallet':
       return (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'users':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+          <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'clipboard':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Rect x="4" y="4" width="16" height="17" rx="2.5" stroke={color} strokeWidth="1.9" />
+          <Path d="M9 2.5h6a1 1 0 0 1 1 1V5H8V3.5a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.9" strokeLinejoin="round" />
+          <Path d="M8.5 13l2.5 2.5 5-5" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'categories':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M12 3.5l4.5 7.5h-9L12 3.5z" stroke={color} strokeWidth="1.9" strokeLinejoin="round" />
+          <Rect x="3.5" y="14" width="6.5" height="6.5" rx="1" stroke={color} strokeWidth="1.9" />
+          <Circle cx="17" cy="17.2" r="3.3" stroke={color} strokeWidth="1.9" />
+        </Svg>
+      );
+    case 'history':
+    case 'clock':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.9" />
+          <Path d="M12 7v5l3 2" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'store':
+    case 'direct':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M3 9a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V5H3v4z"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M4 11.2V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M7 5V3M12 5V3M17 5V3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+        </Svg>
+      );
+    case 'market':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'horeca':
+    case 'cutlery':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M5.5 4v6a2.8 2.8 0 0 0 2.8 2.8v7.2M8.3 4v6M11.1 4v6a2.8 2.8 0 0 1-2.8 2.8"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M18.5 4v16M18.5 4c-3 0-5 2.5-5 6v4h5"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'b2b':
+    case 'building':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 21h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <Path
+            d="M4 21V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 14 5v16"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M14 10h5a1.5 1.5 0 0 1 1.5 1.5V21"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M7 8h3M7 12h3M7 16h3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <Path d="M17 14h1M17 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        </Svg>
+      );
+    case 'invoice':
+    case 'invoices':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 3 2 3-2 3 2 3-2 3 2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M8 13h8M8 17h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'card':
+    case 'invoiceValue':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Rect x="2" y="5" width="20" height="14" rx="3" stroke={color} strokeWidth="1.8" />
+          <Path d="M2 10h20M6 15h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
         </Svg>
       );
     case 'alert':
@@ -223,6 +375,8 @@ export function OverviewDashboardCard({
   onPress,
   style,
   valueStyle,
+  titleStyle,
+  preserveCase = false,
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
@@ -240,7 +394,7 @@ export function OverviewDashboardCard({
 
   const valStr = String(value);
   const isCurrency = valStr.includes('₹') || valStr.length > 5;
-  const displayTitle = toSentenceCase(title);
+  const displayTitle = preserveCase ? title : toSentenceCase(title);
 
   return (
     <TouchableOpacity
@@ -254,7 +408,7 @@ export function OverviewDashboardCard({
       {titlePosition === 'top' ? (
         <>
           <View style={[styles.topRow, !renderedIcon && styles.topRowWithoutIcon]}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={[styles.title, titleStyle]} numberOfLines={2}>
               {displayTitle}
             </Text>
             {renderedIcon ? (
@@ -309,7 +463,7 @@ export function OverviewDashboardCard({
 
           {/* Group title and subtitle cleanly below */}
           <View style={styles.bottomBlock}>
-            <Text style={styles.title} numberOfLines={2}>
+            <Text style={[styles.title, titleStyle]} numberOfLines={2}>
               {displayTitle}
             </Text>
 

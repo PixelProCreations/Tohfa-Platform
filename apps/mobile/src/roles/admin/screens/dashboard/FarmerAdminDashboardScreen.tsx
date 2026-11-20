@@ -42,6 +42,7 @@ import { ProfileFlow } from '../warehouse/profile-settings';
 import { ProduceControlFlow } from '../produce';
 import { AuditManagementFlow } from '../audits/AuditManagementFlow';
 import { PricingFlow } from '../pricing/PricingFlow';
+import { InputsPestManagementFlow } from '../inputs';
 import {
   OverviewDashboardCard,
   OverviewCardsGrid,
@@ -306,7 +307,7 @@ export function FarmerAdminDashboardScreen({
   initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
-  const [subView, setSubView] = useState<'none' | 'notifications' | 'settings' | 'pricing'>('none');
+  const [subView, setSubView] = useState<'none' | 'notifications' | 'settings' | 'pricing' | 'inputs'>('none');
   const [user, setUser] = useState<UserMe | null>(null);
   const [expandedFarmer, setExpandedFarmer] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<{
@@ -367,6 +368,16 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'pricing') {
     return (
       <PricingFlow
+        can={adminCan}
+        onBack={() => setSubView('none')}
+      />
+    );
+  }
+
+  // ─── Sub-view: Inputs & Pest Management ─────────────────────────────────────
+  if (subView === 'inputs') {
+    return (
+      <InputsPestManagementFlow
         can={adminCan}
         onBack={() => setSubView('none')}
       />
@@ -718,6 +729,7 @@ export function FarmerAdminDashboardScreen({
             onLogout={onSignOut}
             hiddenRows={['farmers', 'audit', 'produce']}
             handlers={{
+              inputs: () => setSubView('inputs'),
               pricing: () => setSubView('pricing'),
               notifications: () => setSubView('notifications'),
               settings: () => setSubView('settings'),

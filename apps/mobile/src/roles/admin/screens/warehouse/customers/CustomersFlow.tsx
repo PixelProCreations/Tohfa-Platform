@@ -291,6 +291,7 @@ function LiveOrdersRoute({ base, warehouseId, customer, customerId, params, navi
       notFound={customerId === undefined}
       orders={list.items}
       defaultFilter={params.defaultFilter}
+      onOpenFilters={() => navigate('OrderFilters')}
       onOpenOrder={(order) => navigate('OrderDetail', { order, orderId: order.id, orderNo: order.orderNumber })}
       isLoading={list.isLoading}
       error={list.error}
@@ -311,6 +312,7 @@ function LivePurchasesRoute({ base, warehouseId, customer, customerId, navigate 
       customer={customer}
       notFound={customerId === undefined}
       purchases={list.items}
+      onOpenFilters={() => navigate('PurchaseFilters')}
       onSelectPurchase={(purchase) => navigate('OrderDetail', { orderId: purchase.orderId, orderNo: purchase.orderNumber })}
       isLoading={list.isLoading}
       error={list.error}

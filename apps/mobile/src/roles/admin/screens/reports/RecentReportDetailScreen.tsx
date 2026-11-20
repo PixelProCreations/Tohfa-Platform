@@ -10,28 +10,21 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Line, Path } from 'react-native-svg';
 import type { RecentDocItem } from './AdminReportsMainScreen';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
 
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  greenSuccess: '#16A34A',
-  greenBg: '#EDFDF2',
-  border: '#F0ECE6',
-};
-
-function BackChevronIcon() {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 19L8 12L15 5"
-        stroke="#2B2523"
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -40,7 +33,7 @@ function BackChevronIcon() {
   );
 }
 
-function DownloadIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function DownloadIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -82,41 +75,39 @@ export function RecentReportDetailScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+      {/* Terracotta Header Band matching Admin Standard */}
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleGroup}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to reports"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Report Details</Text>
+          </View>
+          <View style={styles.verifiedTag}>
+            <Text style={styles.verifiedTagText}>✓ SA/TA Verified</Text>
+          </View>
+        </View>
+        <Text style={styles.headerSubtitle}>Official platform archival record & executive audit</Text>
+      </View>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Header Row with Back Button */}
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Back to reports"
-          >
-            <BackChevronIcon />
-          </TouchableOpacity>
-          <View style={styles.topBarRight}>
-            <View style={styles.verifiedTag}>
-              <Text style={styles.verifiedTagText}>✓ SA/TA Verified</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Heading */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.pageTitle}>Recent Report Details</Text>
-          <Text style={styles.pageSubtitle}>Official platform archival record & executive audit</Text>
-        </View>
-
         {/* Main Document Details Card */}
         <View style={styles.mainDocCard}>
           <View style={styles.tagRow}>
-            <View style={[styles.categoryBadge, { borderColor: doc.badgeColor + '30', backgroundColor: doc.badgeColor + '10' }]}>
-              <Text style={[styles.categoryBadgeText, { color: doc.badgeColor }]}>{doc.categoryBadge}</Text>
+            <View style={styles.categoryBadge}>
+              <Text style={styles.categoryBadgeText}>{doc.categoryBadge}</Text>
             </View>
             <View style={styles.formatPill}>
               <Text style={styles.formatPillText}>{doc.fileFormat} · {doc.fileSize}</Text>
@@ -151,7 +142,7 @@ export function RecentReportDetailScreen({
 
           <View style={styles.specRow}>
             <Text style={styles.specKey}>Compliance Status</Text>
-            <Text style={[styles.specVal, { color: P.greenSuccess, fontWeight: '700' }]}>
+            <Text style={[styles.specVal, { color: adminColors.success.text, fontWeight: '700' }]}>
               100% Passed (Statutory & GST)
             </Text>
           </View>
@@ -179,7 +170,7 @@ export function RecentReportDetailScreen({
             onPress={handleDownload}
             activeOpacity={0.85}
           >
-            <DownloadIcon size={20} color="#FFFFFF" />
+            <DownloadIcon size={20} color={adminColors.onBrand} />
             <Text style={styles.downloadPrimaryBtnText}>
               Download {doc.fileFormat.includes('Excel') ? 'Spreadsheet' : 'Document'} ({doc.fileSize})
             </Text>
@@ -203,81 +194,65 @@ export function RecentReportDetailScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
+  },
+  header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  headerSubtitle: {
+    ...adminType.body,
+    color: adminOverlay.headerSubtitle,
+    marginTop: 4,
+  },
+  verifiedTag: {
+    backgroundColor: adminOverlay.whitePill,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: adminRadius.full,
+  },
+  verifiedTagText: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    fontWeight: '700',
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 40,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: P.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  verifiedTag: {
-    backgroundColor: '#EDFDF2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#C6F6D5',
-  },
-  verifiedTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: P.greenSuccess,
-  },
-  headerBlock: {
-    marginBottom: 20,
-  },
-  pageTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: P.titleBrown,
-    letterSpacing: -0.6,
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 13,
-    color: P.subtitle,
-    lineHeight: 18,
-  },
   mainDocCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.cardBorder,
-    padding: 20,
+    borderColor: adminColors.border,
+    padding: 18,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   tagRow: {
     flexDirection: 'row',
@@ -288,47 +263,47 @@ const styles = StyleSheet.create({
   categoryBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
     borderWidth: 1,
+    borderColor: adminColors.brand,
   },
   categoryBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
+    color: adminColors.brand,
     fontWeight: '700',
   },
   formatPill: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   formatPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: P.subtitle,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   docTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: P.ink,
-    letterSpacing: -0.4,
+    ...adminType.rowTitle,
+    fontSize: 18,
+    color: adminColors.ink,
     marginBottom: 6,
   },
   docDate: {
-    fontSize: 12.5,
-    color: P.subtitle,
-    lineHeight: 17,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F5F0E8',
-    marginVertical: 18,
+    backgroundColor: adminColors.border,
+    marginVertical: 16,
   },
   sectionHeading: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: P.titleBrown,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
     marginBottom: 12,
   },
   metricsGrid: {
@@ -337,42 +312,36 @@ const styles = StyleSheet.create({
   },
   metricItem: {
     flex: 1,
-    backgroundColor: '#FAF8F4',
+    backgroundColor: adminColors.canvas,
     padding: 12,
-    borderRadius: 14,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#F0ECE4',
+    borderColor: adminColors.border,
     alignItems: 'center',
   },
   metricLabel: {
-    fontSize: 10.5,
-    color: P.subtitle,
-    fontWeight: '600',
+    ...adminType.caption,
+    color: adminColors.muted,
     textAlign: 'center',
     marginBottom: 4,
   },
   metricVal: {
-    fontSize: 15,
+    ...adminType.rowTitle,
     fontWeight: '800',
-    color: P.ink,
+    color: adminColors.ink,
   },
   specsCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 20,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
     padding: 18,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.sm,
   },
   specsTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: P.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 12,
   },
   specRow: {
@@ -381,16 +350,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#FAF7F2',
+    borderBottomColor: adminColors.border,
   },
   specKey: {
-    fontSize: 12.5,
-    color: P.subtitle,
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.muted,
   },
   specVal: {
-    fontSize: 12.5,
-    color: P.ink,
+    ...adminType.body,
+    color: adminColors.ink,
     fontWeight: '600',
   },
   actionsContainer: {
@@ -400,32 +368,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 16,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     paddingVertical: 15,
     gap: 8,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
   downloadPrimaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '800',
+    color: adminColors.onBrand,
+    ...adminType.rowTitle,
+    fontWeight: '700',
   },
   openLiveBtn: {
-    backgroundColor: '#FAF5EE',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     paddingVertical: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
   },
   openLiveBtnText: {
-    color: P.titleBrown,
-    fontSize: 13.5,
+    color: adminColors.brand,
+    ...adminType.rowTitle,
     fontWeight: '700',
   },
 });

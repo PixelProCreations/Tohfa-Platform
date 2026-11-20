@@ -10,7 +10,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
-import type { RetailPriceRowView } from '../api/pricingTypes';
+import { PRICING_HOME_KPIS_UNAVAILABLE, type RetailPriceRowView } from '../api/pricingTypes';
 
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
@@ -43,14 +43,15 @@ const hooks = vi.hoisted(() => ({
   useFairPriceHistory: vi.fn(),
   useRetailPriceList: vi.fn(),
   useCreateRetailPrice: vi.fn(),
+  usePricingHomeKpis: vi.fn(),
 }));
 vi.mock('../api/pricingHooks', () => hooks);
 
 import { MarketPricingHomeScreen } from '../screens/dashboard/MarketPricingHomeScreen';
-import { toRetailPriceRow } from '../api/pricingMappers';
+import { toFairPriceRow, toRetailPriceRow, todayInIndia } from '../api/pricingMappers';
 import { makeCan } from '../permissions/can';
 import { en } from '../i18n';
-import { DESIGN_SAMPLES, allText, byTestId, cursorList, mount, press, retailDto, textIn } from './pricingCeiling_renderHelpers';
+import { DESIGN_SAMPLES, allText, byTestId, cursorList, fairDto, mount, press, retailDto, textIn } from './pricingCeiling_renderHelpers';
 
 const FAIR = 'pricing.fair_price.view';
 const RETAIL = 'pricing.retail_price.view';
@@ -73,18 +74,47 @@ beforeEach(() => {
   hooks.useFairPriceList.mockReturnValue(cursorList());
   hooks.useFairPriceHistory.mockReturnValue(cursorList());
   hooks.useRetailPriceList.mockReturnValue(cursorList<RetailPriceRowView>());
+  hooks.usePricingHomeKpis.mockReturnValue({ kpis: PRICING_HOME_KPIS_UNAVAILABLE, fairRows: [], isLoading: false, error: null });
 });
 
+function kpiCards(tree: Awaited<ReturnType<typeof mount>>) {
+  // The shared OverviewDashboardCard instances (composite nodes carrying value + title).
+  return tree.root.findAll((n) => typeof n.type === 'function' && 'value' in n.props && 'title' in n.props);
+}
+
 describe('pricing home: KPIs and unavailable feeds', () => {
-  it('every KPI card shows the dash, never a design number', async () => {
+  it('a KPI the hook could not count shows the dash, never a design number', async () => {
     const tree = await mount(<MarketPricingHomeScreen onBack={() => undefined} can={both} />);
-    // The shared OverviewDashboardCard instances (composite nodes carrying value + title).
-    const kpis = tree.root.findAll((n) => typeof n.type === 'function' && 'value' in n.props && 'title' in n.props);
+    const kpis = kpiCards(tree);
     expect(kpis.length).toBe(7);
     for (const k of kpis) expect(k.props.value).toBe('—');
     const titles = kpis.map((k) => k.props.title);
     expect(titles).toContain(en['pricingCeiling.home.kpi.pendingPriceUpdates']);
     expect(titles).toContain(en['pricingCeiling.home.kpi.activeFairPrices']);
+  });
+
+  it('a KPI the lists DID give renders that figure, and the sourceless ones stay dashed', async () => {
+    hooks.usePricingHomeKpis.mockReturnValue({
+      kpis: { ...PRICING_HOME_KPIS_UNAVAILABLE, totalProducts: 12, activeFairPrices: 9, ceilingCompliance: 67 },
+      fairRows: [],
+      isLoading: false,
+      error: null,
+    });
+    const tree = await mount(<MarketPricingHomeScreen onBack={() => undefined} can={both} />);
+    const byTitle = new Map(kpiCards(tree).map((k) => [k.props.title as string, k.props.value as string]));
+    expect(byTitle.get(en['pricingCeiling.home.kpi.totalProducts'])).toBe('12');
+    expect(byTitle.get(en['pricingCeiling.home.kpi.activeFairPrices'])).toBe('9');
+    expect(byTitle.get(en['pricingCeiling.home.kpi.ceilingCompliance'])).toBe('67%');
+    // No "pending" state exists in the pricing schema, and categories have no
+    // backend (owner decision D6): both stay the dash even now.
+    expect(byTitle.get(en['pricingCeiling.home.kpi.pendingPriceUpdates'])).toBe('—');
+    expect(byTitle.get(en['pricingCeiling.home.kpi.categoriesGrades'])).toBe('—');
+  });
+
+  it('the KPI lists are requested only with their read code', async () => {
+    await mount(<MarketPricingHomeScreen onBack={() => undefined} can={makeCan([FAIR])} />);
+    const [, options] = hooks.usePricingHomeKpis.mock.calls[0] as [unknown, { fairEnabled: boolean; retailEnabled: boolean }];
+    expect(options).toEqual({ fairEnabled: true, retailEnabled: false });
   });
 
   it('alerts and recently-updated are empty states (no API feed)', async () => {
@@ -210,5 +240,63 @@ describe('pricing home: navigation and removed rows', () => {
     const tree = await mount(<MarketPricingHomeScreen onBack={onBack} can={both} />);
     await press(tree, 'pricingCeiling.back');
     expect(onBack).toHaveBeenCalled();
+  });
+});
+
+describe('pricing home: Super Admin "Recent Price Changes" (no fabricated deltas)', () => {
+  // The SA layout renders only when the caller may set ceilings AND the host
+  // gave it the management actions.
+  const saProps = { onBack: () => undefined, can: superAdmin, onSetFairPriceCeiling: () => undefined };
+
+  function kpisWith(fairRows: ReturnType<typeof toFairPriceRow>[], over: { isLoading?: boolean; error?: unknown } = {}) {
+    return {
+      kpis: PRICING_HOME_KPIS_UNAVAILABLE,
+      fairRows,
+      isLoading: over.isLoading ?? false,
+      error: over.error ?? null,
+    };
+  }
+
+  it('renders the real crop, grade, ceiling and effective-from of each recent window', async () => {
+    const today = todayInIndia();
+    const rows = [toFairPriceRow(fairDto({ id: 'fp-recent', effectiveFrom: today }), today)];
+    hooks.usePricingHomeKpis.mockReturnValue(kpisWith(rows));
+    const tree = await mount(<MarketPricingHomeScreen {...saProps} />);
+    const card = byTestId(tree, 'pricingHome.sa.recentChange.fp-recent')[0];
+    expect(card, 'the recent-change row should render').toBeDefined();
+    const text = textIn(card!);
+    expect(text).toContain('Okra Live');
+    expect(text).toContain(en['pricingCeiling.grade.GRADE_1']);
+    expect(text).toContain('₹61.25');
+  });
+
+  it('renders the previous price and the change badge as the dash, never an invented delta', async () => {
+    const today = todayInIndia();
+    const rows = [toFairPriceRow(fairDto({ id: 'fp-recent', effectiveFrom: today }), today)];
+    hooks.usePricingHomeKpis.mockReturnValue(kpisWith(rows));
+    const tree = await mount(<MarketPricingHomeScreen {...saProps} />);
+    const text = textIn(byTestId(tree, 'pricingHome.sa.recentChange.fp-recent')[0]!);
+    // Two dashes on the row: the previous price and the percentage badge. A
+    // previous ceiling is not fetchable without a per-crop history call.
+    expect(text.split(en['pricingCeiling.noValue']).length - 1).toBeGreaterThanOrEqual(2);
+    const all = allText(tree);
+    for (const invented of ['+7.7%', '+7.1%', '-6.7%', '-6.8%', '-7.5%', '₹140', '₹130', '₹75', '₹70', '₹50', '₹45']) {
+      expect(all, invented).not.toContain(invented);
+    }
+  });
+
+  it('a window outside the look-back is not shown, and nothing inside it means the empty state', async () => {
+    hooks.usePricingHomeKpis.mockReturnValue(
+      kpisWith([toFairPriceRow(fairDto({ id: 'fp-old', effectiveFrom: '2000-01-01' }), todayInIndia())]),
+    );
+    const tree = await mount(<MarketPricingHomeScreen {...saProps} />);
+    expect(byTestId(tree, 'pricingHome.sa.recentChange.fp-old').length).toBe(0);
+    expect(allText(tree)).toContain('No fair-price ceiling changed in the last 7 days.');
+  });
+
+  it('while the ceiling list is loading it does not claim nothing changed', async () => {
+    hooks.usePricingHomeKpis.mockReturnValue(kpisWith([], { isLoading: true }));
+    const tree = await mount(<MarketPricingHomeScreen {...saProps} />);
+    expect(allText(tree)).not.toContain('No fair-price ceiling changed');
   });
 });

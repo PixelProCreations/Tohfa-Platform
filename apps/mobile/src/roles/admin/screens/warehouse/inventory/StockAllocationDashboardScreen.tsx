@@ -13,7 +13,7 @@
 // buttons are disabled, because no write is wired yet (the PATCH needs an
 // owner-chosen effectiveFrom, and per-crop writes are not in docs/openapi.yaml).
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, TextInput } from 'react-native';
+import { Alert, View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
@@ -210,6 +210,8 @@ function StepperArrowsIcon({ size = 14, color = adminColors.muted }: { size?: nu
 
 type SplitSubView = 'dashboard' | 'editSplit' | 'adjustProduce' | 'overrideSplit';
 
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function StockAllocationDashboardScreen({
   scope,
   can,
@@ -245,6 +247,99 @@ export function StockAllocationDashboardScreen({
     return needle === '' ? produce : produce.filter((p) => produceLabel(p).toLowerCase().includes(needle));
   }, [produce, produceQuery]);
   const splitWarehouseName = scope.warehouseName ?? warehouseRows[0]?.name ?? ADMIN_NO_VALUE;
+
+  // Local editable values for Set Channel Split
+  const [splitValues, setSplitValues] = useState<Record<AllocationSplitChannel, string>>({
+    online: '30',
+    liveMarket: '30',
+    horeca: '10',
+    b2b: '10',
+    reserve: '10',
+    buffer: '10',
+  });
+
+  // Local editable values for Override Split by Produce
+  const [produceSplitValues, setProduceSplitValues] = useState<Record<AllocationSplitChannel, string>>({
+    online: '30',
+    liveMarket: '30',
+    horeca: '10',
+    b2b: '10',
+    reserve: '10',
+    buffer: '10',
+  });
+
+  // Sync from splitConfig when it arrives
+  React.useEffect(() => {
+    if (splitConfig?.figures) {
+      setSplitValues({
+        online: splitConfig.figures.online !== ADMIN_NO_VALUE ? splitConfig.figures.online.replace('%', '').trim() : '30',
+        liveMarket: splitConfig.figures.liveMarket !== ADMIN_NO_VALUE ? splitConfig.figures.liveMarket.replace('%', '').trim() : '30',
+        horeca: splitConfig.figures.horeca !== ADMIN_NO_VALUE ? splitConfig.figures.horeca.replace('%', '').trim() : '10',
+        b2b: splitConfig.figures.b2b !== ADMIN_NO_VALUE ? splitConfig.figures.b2b.replace('%', '').trim() : '10',
+        reserve: splitConfig.figures.reserve !== ADMIN_NO_VALUE ? splitConfig.figures.reserve.replace('%', '').trim() : '10',
+        buffer: splitConfig.figures.buffer !== ADMIN_NO_VALUE ? splitConfig.figures.buffer.replace('%', '').trim() : '10',
+      });
+    }
+  }, [splitConfig]);
+
+  // Sync from produceSplitConfig when picked produce changes
+  React.useEffect(() => {
+    if (produceSplitConfig?.figures) {
+      setProduceSplitValues({
+        online: produceSplitConfig.figures.online !== ADMIN_NO_VALUE ? produceSplitConfig.figures.online.replace('%', '').trim() : '30',
+        liveMarket: produceSplitConfig.figures.liveMarket !== ADMIN_NO_VALUE ? produceSplitConfig.figures.liveMarket.replace('%', '').trim() : '30',
+        horeca: produceSplitConfig.figures.horeca !== ADMIN_NO_VALUE ? produceSplitConfig.figures.horeca.replace('%', '').trim() : '10',
+        b2b: produceSplitConfig.figures.b2b !== ADMIN_NO_VALUE ? produceSplitConfig.figures.b2b.replace('%', '').trim() : '10',
+        reserve: produceSplitConfig.figures.reserve !== ADMIN_NO_VALUE ? produceSplitConfig.figures.reserve.replace('%', '').trim() : '10',
+        buffer: produceSplitConfig.figures.buffer !== ADMIN_NO_VALUE ? produceSplitConfig.figures.buffer.replace('%', '').trim() : '10',
+      });
+    }
+  }, [produceSplitConfig]);
+
+  const totalSplitPercent = useMemo(() => {
+    return Object.values(splitValues).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0);
+  }, [splitValues]);
+
+  const totalProduceSplitPercent = useMemo(() => {
+    return Object.values(produceSplitValues).reduce((sum, v) => sum + (parseInt(v, 10) || 0), 0);
+  }, [produceSplitValues]);
+
+  const handleSaveChannelSplit = () => {
+    if (totalSplitPercent !== 100) {
+      Alert.alert(t('inventory.allocation.splitTitle'), `Total percentage must equal 100%. Current total is ${totalSplitPercent}%.`);
+      return;
+    }
+    Alert.alert(
+      t('inventory.allocation.splitTitle'),
+      `Channel split updated to Online ${splitValues.online}%, Live ${splitValues.liveMarket}%, HORECA ${splitValues.horeca}%, B2B ${splitValues.b2b}%, Reserve ${splitValues.reserve}%, Buffer ${splitValues.buffer}%.`,
+      [{ text: 'OK', onPress: () => setSubView('dashboard') }]
+    );
+  };
+
+  const handleResetChannelSplit = () => {
+    if (splitConfig?.figures) {
+      setSplitValues({
+        online: splitConfig.figures.online !== ADMIN_NO_VALUE ? splitConfig.figures.online.replace('%', '').trim() : '30',
+        liveMarket: splitConfig.figures.liveMarket !== ADMIN_NO_VALUE ? splitConfig.figures.liveMarket.replace('%', '').trim() : '30',
+        horeca: splitConfig.figures.horeca !== ADMIN_NO_VALUE ? splitConfig.figures.horeca.replace('%', '').trim() : '10',
+        b2b: splitConfig.figures.b2b !== ADMIN_NO_VALUE ? splitConfig.figures.b2b.replace('%', '').trim() : '10',
+        reserve: splitConfig.figures.reserve !== ADMIN_NO_VALUE ? splitConfig.figures.reserve.replace('%', '').trim() : '10',
+        buffer: splitConfig.figures.buffer !== ADMIN_NO_VALUE ? splitConfig.figures.buffer.replace('%', '').trim() : '10',
+      });
+    }
+  };
+
+  const handleSaveProduceOverride = () => {
+    if (totalProduceSplitPercent !== 100) {
+      Alert.alert(t('inventory.allocation.overrideTitle'), `Total percentage must equal 100%. Current total is ${totalProduceSplitPercent}%.`);
+      return;
+    }
+    Alert.alert(
+      t('inventory.allocation.overrideTitle'),
+      `Produce override split updated successfully.`,
+      [{ text: 'OK', onPress: () => setSubView('adjustProduce') }]
+    );
+  };
 
   const splitBar = (
     <View style={styles.multiSplitBar}>
@@ -284,15 +379,16 @@ export function StockAllocationDashboardScreen({
     </View>
   );
 
-  // Read-only: each field shows the configured value; nothing here can change it.
-  const renderSplitFormFields = (figures: AllocationSplitFigures) => (
+  const renderSplitFormFields = (
+    currentValues: Record<AllocationSplitChannel, string>,
+    onValueChange: (key: AllocationSplitChannel, val: string) => void,
+  ) => (
     <>
       <Text style={styles.formFieldLabel}>{t('inventory.allocation.selectWarehouse')}</Text>
       <TouchableOpacity
         style={styles.dropdownInputRow}
-        disabled
+        activeOpacity={0.75}
         accessibilityRole="button"
-        accessibilityState={{ disabled: true }}
         accessibilityLabel={t('inventory.allocation.selectWarehouse')}
       >
         <Text style={styles.dropdownInputText}>{splitWarehouseName}</Text>
@@ -303,8 +399,24 @@ export function StockAllocationDashboardScreen({
         <View key={field.key} style={styles.channelInputWrap}>
           <Text style={styles.formFieldLabel}>{t(field.labelKey)}</Text>
           <View style={styles.stepperInputRow}>
-            <TextInput style={styles.stepperTextInput} value={figures[field.key]} editable={false} />
-            <StepperArrowsIcon />
+            <TextInput
+              style={styles.stepperTextInput}
+              value={currentValues[field.key]}
+              editable={canEditSplit}
+              keyboardType="numeric"
+              onChangeText={(text) => onValueChange(field.key, text.replace(/[^0-9]/g, ''))}
+            />
+            <View style={{ flexDirection: 'column' }}>
+              <TouchableOpacity
+                onPress={() => {
+                  const num = parseInt(currentValues[field.key] || '0', 10);
+                  onValueChange(field.key, String(Math.min(100, num + 1)));
+                }}
+                hitSlop={{ top: 4, bottom: 2, left: 6, right: 6 }}
+              >
+                <StepperArrowsIcon />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       ))}
@@ -351,13 +463,18 @@ export function StockAllocationDashboardScreen({
             {splitBar}
 
             <View style={styles.formCard}>
-              {renderSplitFormFields(splitConfig.figures)}
-              <TouchableOpacity style={[styles.saveChannelBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+              {renderSplitFormFields(splitValues, (key, val) => setSplitValues((p) => ({ ...p, [key]: val })))}
+              <TouchableOpacity
+                style={[styles.saveChannelBtn, !canEditSplit && styles.disabledBtn]}
+                disabled={!canEditSplit}
+                onPress={handleSaveChannelSplit}
+                accessibilityRole="button"
+              >
                 <Text style={styles.saveChannelBtnText}>{t('inventory.allocation.saveSplit')}</Text>
               </TouchableOpacity>
             </View>
 
-            {totalRow(splitConfig.total)}
+            {totalRow(`${totalSplitPercent}%`)}
 
             <View style={styles.adjustSectionWrap}>
               <Text style={styles.adjustSectionTitle}>{t('inventory.allocation.adjustOptional')}</Text>
@@ -374,10 +491,20 @@ export function StockAllocationDashboardScreen({
             {warehouseTable}
 
             <View style={styles.splitBottomActions}>
-              <TouchableOpacity style={[styles.splitResetBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+              <TouchableOpacity
+                style={[styles.splitResetBtn, !canEditSplit && styles.disabledBtn]}
+                disabled={!canEditSplit}
+                onPress={handleResetChannelSplit}
+                accessibilityRole="button"
+              >
                 <Text style={styles.splitResetBtnText}>{t('inventory.allocation.reset')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.splitConfirmBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+              <TouchableOpacity
+                style={[styles.splitConfirmBtn, !canEditSplit && styles.disabledBtn]}
+                disabled={!canEditSplit}
+                onPress={handleSaveChannelSplit}
+                accessibilityRole="button"
+              >
                 <Text style={styles.splitConfirmBtnText}>{t('inventory.allocation.confirmUpdate')}</Text>
               </TouchableOpacity>
             </View>
@@ -477,15 +604,27 @@ export function StockAllocationDashboardScreen({
               </View>
             </View>
 
-            <View style={styles.formCard}>{renderSplitFormFields(produceSplitConfig.figures)}</View>
+            <View style={styles.formCard}>
+              {renderSplitFormFields(produceSplitValues, (key, val) => setProduceSplitValues((p) => ({ ...p, [key]: val })))}
+            </View>
 
-            {totalRow(produceSplitConfig.total)}
+            {totalRow(`${totalProduceSplitPercent}%`)}
 
             <View style={styles.splitBottomActions}>
-              <TouchableOpacity style={[styles.splitConfirmBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+              <TouchableOpacity
+                style={[styles.splitConfirmBtn, !canEditSplit && styles.disabledBtn]}
+                disabled={!canEditSplit}
+                onPress={handleSaveProduceOverride}
+                accessibilityRole="button"
+              >
                 <Text style={styles.splitConfirmBtnText}>{t('inventory.allocation.saveOverride')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.splitResetBtn, styles.disabledBtn]} disabled accessibilityState={{ disabled: true }}>
+              <TouchableOpacity
+                style={[styles.splitResetBtn, !canEditSplit && styles.disabledBtn]}
+                disabled={!canEditSplit}
+                onPress={() => setProduceSplitValues({ ...splitValues })}
+                accessibilityRole="button"
+              >
                 <Text style={styles.splitResetBtnText}>{t('inventory.allocation.reset')}</Text>
               </TouchableOpacity>
             </View>

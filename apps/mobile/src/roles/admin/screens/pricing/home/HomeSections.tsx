@@ -4,14 +4,17 @@
  * Farmer Admin layout's Recently Updated Prices and View History. Which
  * sections render is decided by ./pricingHomeLogic.ts from the read codes.
  *
- * Live data: only the overview rows (GET /retail-prices, each with the
- * ceiling in force, BR-09). KPIs, alerts and the recently-updated feed have
- * no API source: the dash or an empty state, never the design's numbers.
+ * Live data: the overview rows (GET /retail-prices, each with the ceiling in
+ * force, BR-09) and the KPI figures that can be counted from the fair-price
+ * and retail lists (usePricingHomeKpis). Alerts, the recently-updated feed and
+ * the KPIs with no source stay an empty state or the dash, never the design's
+ * numbers.
  */
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useRetailPriceList } from '../../../api/pricingHooks';
-import type { RetailPriceRowView } from '../../../api/pricingTypes';
+import { RECENT_CHANGE_WINDOW_DAYS } from '../../../api/pricingMappers';
+import type { FairPriceRowView, PricingHomeKpisView, RetailPriceRowView } from '../../../api/pricingTypes';
 import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors } from '../../../theme';
@@ -22,6 +25,8 @@ import {
   cropGradeTitle,
   dayText,
   diffText,
+  gradeLabel,
+  noValue,
   priceText,
   type PricingAccess,
 } from '../ceiling/pricingLogic';
@@ -40,12 +45,18 @@ import { homeStyles as styles } from './pricingHomeStyles';
 
 export type HomeNavigate = Record<HomeTarget, (() => void) | undefined>;
 
-export function HomeKpiGrid({ access, navigate }: { access: PricingAccess; navigate: HomeNavigate }) {
+export function HomeKpiGrid({ access, navigate, kpis }: { access: PricingAccess; navigate: HomeNavigate; kpis: PricingHomeKpisView }) {
   const cards = HOME_KPI_CARDS.filter((card) => canSee(access, card.code));
   return (
     <OverviewCardsGrid style={styles.kpiGrid}>
       {cards.map((card) => (
-        <OverviewDashboardCard key={card.id} value={kpiValueText()} title={t(card.titleKey)} icon={card.icon} onPress={navigate[card.target]} />
+        <OverviewDashboardCard
+          key={card.id}
+          value={kpiValueText(kpis[card.id], card.format)}
+          title={t(card.titleKey)}
+          icon={card.icon}
+          onPress={navigate[card.target]}
+        />
       ))}
     </OverviewCardsGrid>
   );
@@ -150,6 +161,62 @@ export function LiveOverviewSection({ warehouseId, onViewAll }: { warehouseId: s
         </View>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Super Admin layout "Recent Price Changes": the ceiling windows that came
+ * into force inside the recent-change look-back, newest first (the same fact
+ * the "Recent Changes (7d)" KPI counts). The crop, grade, current ceiling and
+ * effective-from date are the server's.
+ *
+ * The previous price and the percentage delta are the dash on every row, and
+ * that is not a gap to fill in later with arithmetic: a previous ceiling for
+ * an arbitrary set of crops is not fetchable in one request (GET
+ * /fair-prices/history takes one cropId), and an N+1 per-crop fetch is not
+ * what this list is worth. Until a cross-crop history endpoint exists, the
+ * honest render of "we did not load the previous price" is the dash.
+ */
+export function SaRecentChangesSection({
+  rows,
+  isLoading,
+  error,
+}: {
+  rows: readonly FairPriceRowView[];
+  isLoading: boolean;
+  error: unknown;
+}) {
+  const view = queryViewState({ isLoading, error, itemCount: rows.length });
+  if (view === 'loading') return <AdminLoadingState />;
+  if (view === 'error') return <AdminErrorState error={error} />;
+  if (view === 'empty') {
+    return (
+      <View style={styles.emptyCard}>
+        <AdminEmptyState title={t('pricingCeiling.sa.recentChanges.empty', { days: RECENT_CHANGE_WINDOW_DAYS })} />
+      </View>
+    );
+  }
+  return (
+    <>
+      {rows.map((row) => (
+        <View key={row.id} style={styles.saRecentCardItem} testID={`pricingHome.sa.recentChange.${row.id}`}>
+          <View style={styles.saCropInfoCol}>
+            <Text style={styles.saCropName}>{row.cropName ?? noValue()}</Text>
+            <Text style={styles.saCropGrade}>{gradeLabel(row.grade)}</Text>
+          </View>
+          <View style={styles.saPriceCol}>
+            <Text style={styles.saPriceCurrent}>{priceText(row.ceilingPrice)}</Text>
+            <Text style={styles.saPriceOldUnknown}>{noValue()}</Text>
+          </View>
+          <View style={styles.saBadgeCol}>
+            <Text style={styles.saPillUnknownText}>{noValue()}</Text>
+          </View>
+          <View style={styles.saDateCol}>
+            <Text style={styles.saDatePrimary}>{dayText(row.effectiveFrom)}</Text>
+          </View>
+        </View>
+      ))}
+    </>
   );
 }
 

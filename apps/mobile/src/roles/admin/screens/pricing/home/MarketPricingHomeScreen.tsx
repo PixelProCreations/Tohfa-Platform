@@ -19,9 +19,9 @@ import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import type { Can } from '../../../permissions/can';
-import { adminColors } from '../../../theme';
+import { adminColors, adminSpacing } from '../../../theme';
 import { AdminEmptyState } from '../../warehouse/shared/AsyncStates';
-import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
+import { OverviewCardsGrid, OverviewDashboardCard, OverviewActionCard } from '../../../components';
 import { PricingFrame } from '../ceiling/PricingFrame';
 import {
   BackArrowIcon,
@@ -42,9 +42,12 @@ import {
   HomeQuickActions,
   HomeRecentSection,
   LiveOverviewSection,
+  SaRecentChangesSection,
   type HomeNavigate,
 } from './HomeSections';
-import { homeSections } from './pricingHomeLogic';
+import { usePricingHomeKpis } from '../../../api/pricingHooks';
+import { recentCeilingChanges, todayInIndia } from '../../../api/pricingMappers';
+import { homeSections, kpiValueText, HOME_RECENT_CHANGE_ROWS } from './pricingHomeLogic';
 import { homeStyles as styles } from './pricingHomeStyles';
 
 export interface MarketPricingHomeScreenProps {
@@ -87,6 +90,17 @@ export function MarketPricingHomeScreen({
 }: MarketPricingHomeScreenProps) {
   const access = pricingAccess(can);
   const sections = homeSections(access);
+  // Counted from GET /fair-prices and GET /retail-prices (no KPI endpoint
+  // exists); a figure that cannot be counted honestly stays null and renders
+  // as the dash. The lists are requested only with their read code.
+  const { kpis, fairRows, isLoading: kpisLoading, error: kpisError } = usePricingHomeKpis(warehouseId, { fairEnabled: access.canViewFair, retailEnabled: access.canViewRetail });
+  // The same look-back the "Recent Changes (7d)" KPI counts, as rows. The day
+  // is fixed when the screen opens, as the ceiling list's own window status is.
+  const today = React.useMemo(() => todayInIndia(), []);
+  const recentChanges = React.useMemo(
+    () => recentCeilingChanges(fairRows, today, HOME_RECENT_CHANGE_ROWS),
+    [fairRows, today],
+  );
   const navigate: HomeNavigate = {
     fairPrice: onNavigateToFairPrice,
     retail: onNavigateToRetailPricing,
@@ -113,9 +127,9 @@ export function MarketPricingHomeScreen({
   ) : null;
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // 1. SUPER ADMIN LAYOUT (pricing.fair_price.set)
+  // 1. SUPER ADMIN LAYOUT (pricing.fair_price.set with management actions)
   // ═══════════════════════════════════════════════════════════════════════════
-  if (canSetFairPrice) {
+  if (canSetFairPrice && (onSetFairPriceCeiling || onBulkUpdateCeilings)) {
     return (
       <SafeAreaView style={styles.root}>
         <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -147,26 +161,46 @@ export function MarketPricingHomeScreen({
           </TouchableOpacity>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
-          {/* 4 KPI Cards in 2x2 Grid */}
-          <View style={styles.saKpiGrid}>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>{t('pricingCeiling.noValue')}</Text>
-              <Text style={styles.saKpiSub}>{t('pricingCeiling.sa.kpiActiveCeilings')}</Text>
-            </View>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>{t('pricingCeiling.noValue')}</Text>
-              <Text style={styles.saKpiSub}>{t('pricingCeiling.sa.kpiRetailPrices')}</Text>
-            </View>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>{t('pricingCeiling.noValue')}</Text>
-              <Text style={styles.saKpiSub}>{t('pricingCeiling.sa.kpiPendingReviews')}</Text>
-            </View>
-            <View style={styles.saKpiCard}>
-              <Text style={styles.saKpiVal}>{t('pricingCeiling.noValue')}</Text>
-              <Text style={styles.saKpiSub}>{t('pricingCeiling.sa.kpiRecentChanges')}</Text>
-            </View>
-          </View>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.saScrollPad} showsVerticalScrollIndicator={false}>
+          {/* 4 KPI Cards in 2x2 Grid using Reusable OverviewDashboardCard */}
+          <OverviewCardsGrid style={styles.saKpiGrid}>
+            {/*
+              Counted from the live lists, never the design's figures: the
+              236 / 182 / 24 / 17 the mock-up shows were sample data. "Pending
+              Reviews" has no source at all (there is no pending state in the
+              pricing schema), so it keeps the dash — see
+              PricingHomeKpisView.pendingPriceUpdates.
+            */}
+            <OverviewDashboardCard
+              value={kpiValueText(kpis.activeFairPrices)}
+              title={t('pricingCeiling.sa.kpiActiveCeilings')}
+              subtitle={t('pricingCeiling.sa.subActiveCeilings')}
+              icon="market"
+              preserveCase
+            />
+            <OverviewDashboardCard
+              value={kpiValueText(kpis.retailPriceRecords)}
+              title={t('pricingCeiling.sa.kpiRetailPrices')}
+              subtitle={t('pricingCeiling.sa.subRetailPrices')}
+              icon="card"
+              preserveCase
+            />
+            <OverviewDashboardCard
+              value={kpiValueText(kpis.pendingPriceUpdates)}
+              title={t('pricingCeiling.sa.kpiPendingReviews')}
+              subtitle={t('pricingCeiling.sa.subPendingReviews')}
+              icon="clipboard"
+              tone="warning"
+              preserveCase
+            />
+            <OverviewDashboardCard
+              value={kpiValueText(kpis.recentChanges7d)}
+              title={t('pricingCeiling.sa.kpiRecentChanges')}
+              subtitle={t('pricingCeiling.sa.subRecentChanges')}
+              icon="history"
+              preserveCase
+            />
+          </OverviewCardsGrid>
 
           {/* Action Buttons */}
           <TouchableOpacity
@@ -202,126 +236,51 @@ export function MarketPricingHomeScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Recent Price Changes Cards */}
-          <View style={styles.saRecentCardItem}>
-            <View style={styles.saCropInfoCol}>
-              <Text style={styles.saCropName}>{t('pricingCeiling.crop.tomato')}</Text>
-              <Text style={styles.saCropGrade}>{t('pricingCeiling.grade.GRADE_1')}</Text>
-            </View>
-            <View style={styles.saPriceCol}>
-              <Text style={styles.saPriceCurrent}>{t('pricingCeiling.perKg', { price: '₹140' })}</Text>
-              <Text style={styles.saPriceOld}>{t('pricingCeiling.perKg', { price: '₹130' })}</Text>
-            </View>
-            <View style={styles.saBadgeCol}>
-              <View style={styles.saBadgeBoxSuccess}>
-                <Text style={styles.saPillSuccessText}>↑ +7.7%</Text>
-                <Text style={styles.saPillSubDanger}>↓ -7.5%</Text>
-              </View>
-            </View>
-            <View style={styles.saDateCol}>
-              <Text style={styles.saDatePrimary}>{t('pricingCeiling.noValue')}</Text>
-            </View>
-          </View>
+          {/*
+            The design's three cards (Tomato ₹140 from ₹130, "↑ +7.7%", …)
+            were sample data: every figure in them was invented, including the
+            deltas. What the server can actually supply in one request is the
+            ceiling windows in force (GET /fair-prices), so the rows here are
+            the ones that came into force inside the look-back period, newest
+            first. The previous price and the delta stay the dash — see
+            SaRecentChangesSection for why they are not computable here.
+          */}
+          <SaRecentChangesSection rows={recentChanges} isLoading={kpisLoading} error={kpisError} />
 
-          <View style={styles.saRecentCardItem}>
-            <View style={styles.saCropInfoCol}>
-              <Text style={styles.saCropName}>{t('pricingCeiling.crop.carrot')}</Text>
-              <Text style={styles.saCropGrade}>{t('pricingCeiling.grade.GRADE_1')}</Text>
-            </View>
-            <View style={styles.saPriceCol}>
-              <Text style={styles.saPriceCurrent}>{t('pricingCeiling.perKg', { price: '₹75' })}</Text>
-              <Text style={styles.saPriceOld}>{t('pricingCeiling.perKg', { price: '₹70' })}</Text>
-            </View>
-            <View style={styles.saBadgeCol}>
-              <View style={styles.saBadgeBoxSuccess}>
-                <Text style={styles.saPillSuccessText}>↑ +7.1%</Text>
-                <Text style={styles.saPillSubDanger}>↓ -6.8%</Text>
-              </View>
-            </View>
-            <View style={styles.saDateCol}>
-              <Text style={styles.saDatePrimary}>{t('pricingCeiling.noValue')}</Text>
-            </View>
+          {/* Section: Quick Actions */}
+          <View style={styles.saQuickHeaderRow}>
+            <Text style={styles.saSectionHeading}>{t('pricingCeiling.home.quick.title')}</Text>
           </View>
-
-          <View style={styles.saRecentCardItem}>
-            <View style={styles.saCropInfoCol}>
-              <Text style={styles.saCropName}>{t('pricingCeiling.crop.onion')}</Text>
-              <Text style={styles.saCropGrade}>{t('pricingCeiling.grade.GRADE_2')}</Text>
-            </View>
-            <View style={styles.saPriceCol}>
-              <Text style={styles.saPriceCurrent}>{t('pricingCeiling.perKg', { price: '₹50' })}</Text>
-              <Text style={styles.saPriceOld}>{t('pricingCeiling.perKg', { price: '₹45' })}</Text>
-            </View>
-            <View style={styles.saBadgeCol}>
-              <View style={styles.saBadgeBoxDanger}>
-                <Text style={styles.saPillDangerText}>↓ -6.7%</Text>
-                <Text style={styles.saPillSubDanger}>↓ -6.8%</Text>
-              </View>
-            </View>
-            <View style={styles.saDateCol}>
-              <Text style={styles.saDatePrimary}>{t('pricingCeiling.noValue')}</Text>
-            </View>
-          </View>
-
-          {/* Section: Quick Actions Grid */}
-          <Text style={styles.saSectionHeading}>{t('pricingCeiling.home.quick.title')}</Text>
           <View style={styles.saQuickGrid}>
-            <TouchableOpacity
-              style={styles.saQuickCard}
+            <OverviewActionCard
+              title={t('pricingCeiling.sa.fairPrices')}
+              icon={<FairPriceIcon size={22} color={adminColors.brand} />}
               onPress={onNavigateToFairPrice}
-              activeOpacity={0.75}
-              accessibilityRole="button"
+              style={styles.saQuickCard}
               accessibilityLabel={t('pricingCeiling.sa.fairPrices')}
               testID="pricingHome.quick.fairPrices"
-            >
-              <View style={styles.saQuickIconBox}>
-                <FairPriceIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>{t('pricingCeiling.sa.fairPrices')}</Text>
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity
-              style={styles.saQuickCard}
+            <OverviewActionCard
+              title={t('pricingCeiling.sa.manageRetail')}
+              icon={<RetailPricingIcon size={22} color={adminColors.brand} />}
               onPress={onNavigateToRetailPricing}
-              activeOpacity={0.75}
-              accessibilityRole="button"
+              style={styles.saQuickCard}
               accessibilityLabel={t('pricingCeiling.sa.manageRetail')}
               testID="pricingHome.quick.retail"
-            >
-              <View style={styles.saQuickIconBox}>
-                <RetailPricingIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>{t('pricingCeiling.sa.manageRetail')}</Text>
-            </TouchableOpacity>
+            />
 
-            <TouchableOpacity
-              style={styles.saQuickCard}
-              onPress={onNavigateToListingApproval}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-              accessibilityLabel={t('pricingCeiling.sa.listingsQueue')}
-              testID="pricingHome.quick.listings"
-            >
-              <View style={styles.saQuickIconBox}>
-                <ListingsQueueIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>{t('pricingCeiling.sa.listingsQueue')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.saQuickCard}
+            <OverviewActionCard
+              title={t('pricingCeiling.sa.priceHistoryCounterOffer')}
+              icon={<PriceHistoryCounterOfferIcon size={22} color={adminColors.brand} />}
               onPress={onNavigateToPriceHistory}
-              activeOpacity={0.75}
-              accessibilityRole="button"
+              style={styles.saQuickCardFull}
               accessibilityLabel={t('pricingCeiling.sa.priceHistoryCounterOffer')}
               testID="pricingHome.quick.history"
-            >
-              <View style={styles.saQuickIconBox}>
-                <PriceHistoryCounterOfferIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.saQuickLabel}>{t('pricingCeiling.sa.priceHistoryCounterOffer')}</Text>
-            </TouchableOpacity>
+            />
           </View>
+
+          <View style={{ height: adminSpacing.xxxl }} />
         </ScrollView>
       </SafeAreaView>
     );
@@ -340,26 +299,31 @@ export function MarketPricingHomeScreen({
         headerRight={bell}
       >
         <OverviewCardsGrid style={styles.kpiGrid}>
+          {/*
+            Two of the four can be counted from the live lists; Product
+            Categories has no backend (owner decision D6) and Price Updates
+            would need a per-crop history call, so both keep the dash.
+          */}
           <OverviewDashboardCard
-            value={t('pricingCeiling.noValue')}
+            value={kpiValueText(kpis.activeFairPrices)}
             title={t('pricingCeiling.fa.kpiActiveFairPrices')}
             icon="sales"
             onPress={onNavigateToFairPrice}
           />
           <OverviewDashboardCard
-            value={t('pricingCeiling.noValue')}
+            value={kpiValueText(kpis.productCategories)}
             title={t('pricingCeiling.fa.kpiProductCategories')}
             icon="inventory"
             onPress={onNavigateToCategories}
           />
           <OverviewDashboardCard
-            value={t('pricingCeiling.noValue')}
+            value={kpiValueText(kpis.priceUpdates)}
             title={t('pricingCeiling.fa.kpiPriceUpdates')}
             icon="orders"
             onPress={onNavigateToPriceHistory}
           />
           <OverviewDashboardCard
-            value={t('pricingCeiling.noValue')}
+            value={kpiValueText(kpis.retailPriceRecords)}
             title={t('pricingCeiling.fa.kpiRetailRecords')}
             icon="cash"
             onPress={onNavigateToRetailPricing}
@@ -418,7 +382,7 @@ export function MarketPricingHomeScreen({
     >
       {sections.any ? (
         <>
-          <HomeKpiGrid access={access} navigate={navigate} />
+          <HomeKpiGrid access={access} navigate={navigate} kpis={kpis} />
           {sections.alerts ? <HomeAlertsSection /> : null}
           {sections.overview ? <LiveOverviewSection warehouseId={warehouseId} onViewAll={onNavigateOverview ?? onNavigateToRetailPricing} /> : null}
           {sections.recentlyUpdated ? <HomeRecentSection onViewHistory={onNavigateToPriceHistory} /> : null}
