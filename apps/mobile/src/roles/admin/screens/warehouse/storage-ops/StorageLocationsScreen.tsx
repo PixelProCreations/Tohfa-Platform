@@ -88,35 +88,35 @@ const STORAGE_GROUPS: StorageGroup[] = [
     icon: <SnowflakeIcon size={18} color={adminColors.brand} />,
     items: [
       {
-        id: 'CS-A01',
-        title: 'Cold Storage A',
-        code: 'CS-A01',
-        section: 'Rack 02 · Shelf 03 (Section A)',
+        id: 'LOC-COO-A02-S03',
+        title: 'Rack 02 - Shelf 03',
+        code: 'LOC-COO-A02-S03',
+        section: 'Section A',
         status: 'Occupied',
         statusTone: 'danger',
         stockItems: 12,
-        capacityKg: 2000,
-        currentKg: 1850,
+        capacityKg: 500,
+        currentKg: 340,
       },
       {
-        id: 'CS-C01',
-        title: 'Cold Storage C',
-        code: 'CS-C01',
-        section: 'Rack 01 · Shelf 02 (Section C)',
+        id: 'LOC-COO-A01-S01',
+        title: 'Rack 01 - Shelf 01',
+        code: 'LOC-COO-A01-S01',
+        section: 'Section A',
         status: 'Occupied',
-        statusTone: 'warning',
-        stockItems: 8,
-        capacityKg: 1500,
-        currentKg: 1120,
+        statusTone: 'success',
+        stockItems: 6,
+        capacityKg: 500,
+        currentKg: 200,
       },
       {
-        id: 'cs-3',
-        title: 'Cold Storage B (Reserve)',
-        code: 'CS-B02',
-        section: 'Rack 03 · Shelf 02 (Section B)',
+        id: 'LOC-COO-B03-S02',
+        title: 'Rack 03 - Shelf 02',
+        code: 'LOC-COO-B03-S02',
+        section: 'Section B',
         status: 'Empty',
-        statusTone: 'success',
-        capacityKg: 1500,
+        statusTone: 'danger',
+        capacityKg: 500,
         currentKg: 0,
       },
     ],
@@ -126,32 +126,14 @@ const STORAGE_GROUPS: StorageGroup[] = [
     icon: <StorageBoxIcon size={18} color={adminColors.brand} />,
     items: [
       {
-        id: 'DS-B01',
-        title: 'Dry Storage B',
-        code: 'DS-B01',
-        section: 'Rack 01 · Shelf 01 (Section B)',
+        id: 'LOC-COO-C01-S01',
+        title: 'Rack 01 - Shelf 01',
+        code: 'LOC-COO-C01-S01',
+        section: 'Section C',
         status: 'Occupied',
         statusTone: 'success',
-        stockItems: 15,
-        capacityKg: 3000,
-        currentKg: 2200,
-      },
-    ],
-  },
-  {
-    type: 'Bulk Storage',
-    icon: <LayersIcon size={18} color={adminColors.brand} />,
-    items: [
-      {
-        id: 'BS-D01',
-        title: 'Bulk Storage D',
-        code: 'BS-D01',
-        section: 'Bulk Pallet Area (Section D)',
-        status: 'Occupied',
-        statusTone: 'warning',
-        stockItems: 20,
-        capacityKg: 2500,
-        currentKg: 1650,
+        capacityKg: 1000,
+        currentKg: 650,
       },
     ],
   },
@@ -329,51 +311,53 @@ export function StorageLocationsScreen({ scope, onBack, onSelectLocation }: Stor
       headerExtra={isMain ? undefined : <ScopeHeader scope={scope} label={scope.warehouseName ?? 'Coonoor Warehouse'} />}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* ─── Top Summary Metrics Card ─── */}
-        <View style={styles.metricsCard}>
-          <View style={styles.metricCol}>
-            <Text style={styles.metricVal}>{isMain ? '10' : allSubItems.length}</Text>
-            <Text style={styles.metricLbl}>Locations</Text>
+        {/* ─── Top Summary Metrics Card (Main only) ─── */}
+        {isMain && (
+          <View style={styles.metricsCard}>
+            <View style={styles.metricCol}>
+              <Text style={styles.metricVal}>10</Text>
+              <Text style={styles.metricLbl}>Locations</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metricCol}>
+              <Text style={styles.metricVal}>{overallFillPercent}%</Text>
+              <Text style={styles.metricLbl}>Occupancy</Text>
+            </View>
+            <View style={styles.metricDivider} />
+            <View style={styles.metricCol}>
+              <Text style={[styles.metricVal, { color: adminColors.brand }]}>15.5T</Text>
+              <Text style={styles.metricLbl}>Utilized</Text>
+            </View>
           </View>
-          <View style={styles.metricDivider} />
-          <View style={styles.metricCol}>
-            <Text style={styles.metricVal}>{overallFillPercent}%</Text>
-            <Text style={styles.metricLbl}>Occupancy</Text>
-          </View>
-          <View style={styles.metricDivider} />
-          <View style={styles.metricCol}>
-            <Text style={[styles.metricVal, { color: adminColors.brand }]}>
-              {isMain ? '15.5T' : (totalSubCurrent / 1000).toFixed(1) + 'T'}
-            </Text>
-            <Text style={styles.metricLbl}>Utilized</Text>
-          </View>
-        </View>
+        )}
 
         {/* ─── Search Bar ─── */}
         <View style={styles.searchWrap}>
           <SearchBar
             value={query}
             onChangeText={setQuery}
-            placeholder={isMain ? 'Search location, warehouse, rack, shelf' : 'Search location, rack, shelf or code'}
+            placeholder={isMain ? 'Search location, warehouse, rack, shelf' : 'Search location, rack, shelf'}
           />
         </View>
 
-        {/* ─── Filter Pills ─── */}
-        <View style={styles.filterPillsRow}>
-          {(['All', 'Cold Storage', 'Dry Storage', 'Bulk Storage'] as const).map((filter) => {
-            const active = selectedFilter === filter;
-            return (
-              <TouchableOpacity
-                key={filter}
-                style={[styles.filterPill, active && styles.filterPillActive]}
-                onPress={() => setSelectedFilter(filter)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{filter}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        {/* ─── Filter Pills (Main only) ─── */}
+        {isMain && (
+          <View style={styles.filterPillsRow}>
+            {(['All', 'Cold Storage', 'Dry Storage', 'Bulk Storage'] as const).map((filter) => {
+              const active = selectedFilter === filter;
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[styles.filterPill, active && styles.filterPillActive]}
+                  onPress={() => setSelectedFilter(filter)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{filter}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* ─── Main Warehouse Accordion View ─── */}
         {isMain ? (
@@ -481,78 +465,31 @@ export function StorageLocationsScreen({ scope, onBack, onSelectLocation }: Stor
           ) : (
             filteredGroups.map((group) => (
               <View key={group.type} style={styles.groupContainer}>
-                <View style={styles.groupHeader}>
-                  <View style={styles.groupIconBox}>{group.icon}</View>
-                  <Text style={styles.groupTitle}>{group.type}</Text>
-                  <View style={styles.groupCountBadge}>
-                    <Text style={styles.groupCountBadgeText}>{group.items.length}</Text>
-                  </View>
+                <View style={styles.subGroupHeader}>
+                  <View style={styles.subGroupIconBox}>{group.icon}</View>
+                  <Text style={styles.subGroupTitle}>{group.type}</Text>
                 </View>
 
                 <View style={styles.cardsColumn}>
-                  {group.items.map((item) => {
-                    const fillPct =
-                      item.capacityKg && item.capacityKg > 0
-                        ? Math.round(((item.currentKg ?? 0) / item.capacityKg) * 100)
-                        : item.status === 'Occupied'
-                        ? 85
-                        : 0;
-
-                    return (
-                      <TouchableOpacity
-                        key={item.id}
-                        style={styles.cardEnhanced}
-                        onPress={() => onSelectLocation?.(item.id)}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                        accessibilityLabel={item.title}
-                      >
-                        <View style={styles.cardHeaderRow}>
-                          <View style={{ flex: 1 }}>
-                            <View style={styles.titleWithCodeRow}>
-                              <Text style={styles.cardMainTitle}>{item.title}</Text>
-                              {item.code ? (
-                                <View style={styles.codePill}>
-                                  <Text style={styles.codePillText}>{item.code}</Text>
-                                </View>
-                              ) : null}
-                            </View>
-                            <Text style={styles.cardSubtitle}>{item.section}</Text>
-                          </View>
-                          <View style={styles.rightActionCol}>
-                            <StatusBadge label={item.status} tone={item.statusTone} />
-                            <ChevronRightIcon size={16} />
-                          </View>
-                        </View>
-
-                        {/* Capacity Progress Bar */}
-                        {item.capacityKg ? (
-                          <View style={styles.progressContainer}>
-                            <View style={styles.progressBarTrack}>
-                              <View
-                                style={[
-                                  styles.progressBarFill,
-                                  {
-                                    width: `${fillPct}%` as any,
-                                    backgroundColor:
-                                      fillPct > 85 ? '#DC2626' : fillPct > 50 ? '#D97706' : '#16A34A',
-                                  },
-                                ]}
-                              />
-                            </View>
-                            <View style={styles.progressLabelRow}>
-                              <Text style={styles.progressText}>
-                                {item.currentKg ?? 0} / {item.capacityKg} kg ({fillPct}%)
-                              </Text>
-                              {item.stockItems !== undefined && (
-                                <Text style={styles.stockBadgeText}>{item.stockItems} batches</Text>
-                              )}
-                            </View>
-                          </View>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {group.items.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.subLocationCard}
+                      onPress={() => onSelectLocation?.(item.id)}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.title}
+                    >
+                      <View style={styles.cardHeaderRow}>
+                        <Text style={styles.cardMainTitle}>{item.title}</Text>
+                        <StatusBadge label={item.status} tone={item.statusTone} />
+                      </View>
+                      <Text style={styles.cardSubtitle}>{item.section}</Text>
+                      {item.stockItems !== undefined && (
+                        <Text style={styles.subStockText}>Stock items: {item.stockItems}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
             ))
@@ -605,6 +542,39 @@ const styles = StyleSheet.create({
   },
   searchWrap: {
     marginBottom: 12,
+  },
+  subGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    marginTop: 8,
+  },
+  subGroupIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subGroupTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  subLocationCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  subStockText: {
+    fontSize: 12,
+    color: adminColors.muted,
+    marginTop: 4,
   },
   // Filter Pills
   filterPillsRow: {

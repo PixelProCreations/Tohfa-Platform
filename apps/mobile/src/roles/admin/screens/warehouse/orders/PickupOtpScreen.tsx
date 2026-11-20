@@ -339,12 +339,20 @@ function HandoverStep({
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryBtn}
+            style={[styles.primaryBtn, { marginBottom: 10 }]}
             activeOpacity={0.8}
             onPress={() => onNavigate?.('M5S04', { orderId })}
           >
             <DocumentIcon />
             <Text style={styles.primaryBtnText}>View Order</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.outlineBtn, { height: ADMIN_BUTTON_HEIGHT, borderRadius: adminRadius.lg, borderWidth: 1, borderColor: adminColors.border, backgroundColor: adminColors.card, alignItems: 'center', justifyContent: 'center' }]}
+            activeOpacity={0.8}
+            onPress={() => onNavigate?.('M5S18', { orderId })}
+          >
+            <Text style={{ ...adminType.button, color: adminColors.ink }}>View Invoice</Text>
           </TouchableOpacity>
         </View>
       </>

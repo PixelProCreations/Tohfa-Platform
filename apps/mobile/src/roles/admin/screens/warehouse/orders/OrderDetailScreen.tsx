@@ -20,6 +20,8 @@ import type { OrderScreenBaseProps } from './types';
 export interface OrderDetailScreenProps extends OrderScreenBaseProps {
   customerName?: string | undefined;
   role?: string | undefined;
+  status?: string | undefined;
+  routeParams?: Record<string, any> | undefined;
 }
 
 const SAMPLE_ORDER_ID = 'ORD-1024';
@@ -85,6 +87,51 @@ function ChecklistIcon() {
   );
 }
 
+function PackageBoxIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 8H3V4h18v4zM21 8v12H3V8"
+        stroke={adminColors.onBrand}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M10 12h4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PersonCheckIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Circle cx="9" cy="7" r="4" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16 11l2 2 4-4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function DeliveryTruckIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Rect x="1" y="3" width="14" height="13" rx="1" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke={adminColors.onBrand} strokeWidth="2" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function HistoryClockIcon() {
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function OrderDetailScreen({
@@ -93,6 +140,8 @@ export function OrderDetailScreen({
   scope,
   can,
   role,
+  status,
+  routeParams,
   onBack,
   onNavigate,
 }: OrderDetailScreenProps) {
@@ -112,9 +161,56 @@ export function OrderDetailScreen({
   const isInv251 = orderId === 'INV-00251' || orderId === 'ORD-00251';
   const isInv238 = orderId === 'INV-00238' || orderId === 'ORD-00238';
 
+  const rawStatus = status || (routeParams as any)?.status;
+  const displayStatus = rawStatus
+    ? rawStatus
+    : isInv251 || isInv238
+      ? 'Paid · Completed'
+      : orderId === 'ORD-1022'
+        ? 'Packing'
+        : orderId === 'ORD-1023'
+          ? 'Ready for Pickup'
+          : orderId === 'ORD-1021'
+            ? 'Delivery'
+            : 'Confirmed';
+
+  const isPacking = displayStatus.toLowerCase().includes('packing');
+  const isPickup = displayStatus.toLowerCase().includes('ready') || displayStatus.toLowerCase().includes('pickup');
+  const isDelivery = displayStatus.toLowerCase().includes('delivery') || displayStatus.toLowerCase().includes('dispatch');
+  const isCompleted = displayStatus.toLowerCase().includes('completed') || displayStatus.toLowerCase().includes('delivered');
+
+  const primaryBtnConfig = isPacking
+    ? {
+        label: 'Pack Order',
+        icon: <PackageBoxIcon />,
+        onPress: () => onNavigate?.('M5S07', { orderId }),
+      }
+    : isPickup
+      ? {
+          label: 'Verify Pickup',
+          icon: <PersonCheckIcon />,
+          onPress: () => onNavigate?.('M5S10', { orderId, step: 'verify' }),
+        }
+      : isDelivery
+        ? {
+            label: 'Prepare Dispatch',
+            icon: <DeliveryTruckIcon />,
+            onPress: () => onNavigate?.('M5S13', { orderId }),
+          }
+        : isCompleted
+          ? {
+              label: 'View Timeline',
+              icon: <HistoryClockIcon />,
+              onPress: () => onNavigate?.('M5S15', { orderId }),
+            }
+          : {
+              label: 'Check Stock',
+              icon: <ChecklistIcon />,
+              onPress: () => onNavigate?.('M5S05', { orderId }),
+            };
+
   const displayDate = isInv251 ? '24 Sep, 10:42 AM' : isInv238 ? '20 Sep, 11:15 AM' : '24 Sep, 10:32 AM';
   const displayCustomer = customerName || (isInv251 || isInv238 ? 'Rajesh Kumar' : SAMPLE_CUSTOMER);
-  const displayStatus = isInv251 || isInv238 ? 'Paid · Completed' : 'Confirmed';
   // The order's warehouse comes from the viewer's scope; no warehouse name is hard-coded.
   const warehouseName = scope.warehouseName ?? '—';
 
@@ -153,12 +249,21 @@ export function OrderDetailScreen({
               <Text style={styles.headerTitle}>{orderId}</Text>
               <View style={styles.headerStatusRow}>
                 <View style={styles.statusDot} />
-                <Text style={styles.headerStatusText}>{displayStatus}</Text>
+                <Text style={styles.headerStatusText}>• {displayStatus}</Text>
               </View>
             </View>
           </View>
 
-{/* Top 3 dots removed per request */}
+          <TouchableOpacity
+            style={styles.moreButton}
+            activeOpacity={0.7}
+            onPress={() => setShowMenu(true)}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel="More order actions"
+          >
+            <MoreDotsIcon />
+          </TouchableOpacity>
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -356,6 +461,47 @@ export function OrderDetailScreen({
             <Text style={styles.notesText}>Please pack tomatoes separately if possible.</Text>
           </View>
 
+          {/* Workflow Stages Quick Access */}
+          <Text style={styles.sectionHeader}>Workflow Stages</Text>
+          <View style={styles.workflowStagesRow}>
+            <TouchableOpacity
+              style={[styles.stageChip, !isPacking && !isPickup && !isDelivery && !isCompleted && styles.stageChipActive]}
+              activeOpacity={0.75}
+              onPress={() => onNavigate?.('M5S05', { orderId })}
+            >
+              <Text style={[styles.stageChipText, !isPacking && !isPickup && !isDelivery && !isCompleted && styles.stageChipTextActive]}>
+                Stock Check
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.stageChip, isPacking && styles.stageChipActive]}
+              activeOpacity={0.75}
+              onPress={() => onNavigate?.('M5S07', { orderId })}
+            >
+              <Text style={[styles.stageChipText, isPacking && styles.stageChipTextActive]}>
+                Packing
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.stageChip, isPickup && styles.stageChipActive]}
+              activeOpacity={0.75}
+              onPress={() => onNavigate?.('M5S10', { orderId, step: 'verify' })}
+            >
+              <Text style={[styles.stageChipText, isPickup && styles.stageChipTextActive]}>
+                Pickup
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.stageChip, isDelivery && styles.stageChipActive]}
+              activeOpacity={0.75}
+              onPress={() => onNavigate?.('M5S13', { orderId })}
+            >
+              <Text style={[styles.stageChipText, isDelivery && styles.stageChipTextActive]}>
+                Delivery
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.timelineHeaderRow}>
             <Text style={styles.sectionHeaderPlain}>Order Timeline</Text>
             <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S15', { orderId })}>
@@ -402,10 +548,10 @@ export function OrderDetailScreen({
           <TouchableOpacity
             style={styles.primaryCheckBtn}
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S05', { orderId })}
+            onPress={primaryBtnConfig.onPress}
           >
-            <ChecklistIcon />
-            <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
+            {primaryBtnConfig.icon}
+            <Text style={styles.primaryCheckBtnText}>{primaryBtnConfig.label}</Text>
           </TouchableOpacity>
 
           <View style={styles.actionBtnRow}>
@@ -426,6 +572,49 @@ export function OrderDetailScreen({
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* More Actions Modal Menu */}
+        <Modal
+          visible={showMenu}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowMenu(false)}
+        >
+          <TouchableOpacity
+            style={styles.pickerOverlay}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          >
+            <View style={styles.pickerSheet}>
+              <Text style={styles.pickerTitle}>Order Navigation & Actions</Text>
+              {[
+                { label: '1. Stock Check (M5S05)', screen: 'M5S05' },
+                { label: '2. Packing Form (M5S07)', screen: 'M5S07' },
+                { label: '3. Ready for Pickup List (M5S09)', screen: 'M5S09' },
+                { label: '4. Pickup Verification & OTP (M5S10)', screen: 'M5S10', params: { step: 'verify' } },
+                { label: '5. Delivery Preparation (M5S13)', screen: 'M5S13' },
+                { label: '6. Dispatch Order (M5S14)', screen: 'M5S14' },
+                { label: '7. Order Status History / Timeline (M5S15)', screen: 'M5S15' },
+                { label: '8. Report Issue (M5S16)', screen: 'M5S16' },
+                { label: '9. Cancel Order (M5S17)', screen: 'M5S17' },
+                { label: '10. View Invoice (M5S18)', screen: 'M5S18' },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.label}
+                  style={styles.pickerOption}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setShowMenu(false);
+                    onNavigate?.(item.screen, { orderId, ...(item.params ?? {}) });
+                  }}
+                >
+                  <Text style={styles.pickerOptionText}>{item.label}</Text>
+                  <Text style={{ color: adminColors.brandDeep, fontWeight: '700' }}>→</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         {/* Warehouse Selection Picker Modal */}
         <Modal
@@ -784,4 +973,36 @@ const styles = StyleSheet.create({
   modalOptionLast: { borderBottomWidth: 0 },
   modalOptionText: { ...adminType.sectionHead, color: adminColors.ink },
   modalOptionDanger: { color: adminColors.danger.text },
+  workflowStagesRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: adminSpacing.md,
+  },
+  stageChip: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  stageChipActive: {
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+  },
+  stageChipText: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontSize: 11,
+  },
+  stageChipTextActive: {
+    color: adminColors.brandDeep,
+    fontWeight: '700',
+  },
 });

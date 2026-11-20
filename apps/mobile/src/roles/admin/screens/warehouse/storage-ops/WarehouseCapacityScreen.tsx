@@ -18,8 +18,9 @@
 // Design id: M4-S07
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   Card,
   ChipGroup,
@@ -36,9 +37,36 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
+import { StatusMetricCard } from '../../../components';
 import { capacityAlertPercentOf, locationsInScope, STORAGE_LOCATIONS, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
-import { formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
+import { formatKg, HistoryIcon, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
 import type { CapacityFilter, CapacityState, StorageLocationItem, WarehouseScreenBaseProps } from './types';
+
+function SnowflakeIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07l14.14-14.14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M12 6l-2-2m4 0l-2 2M12 18l-2 2m4 0l-2-2M6 12l-2-2m0 4l2-2M18 12l2-2m0 4l-2-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function StorageBoxIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function LayersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 const FILTERS: readonly CapacityFilter[] = ['All', 'Available', 'Occupied', 'Unavailable'];
 
@@ -209,12 +237,19 @@ export function WarehouseCapacityScreen({
           </>
         ) : (
           <>
-            <KpiRow
-              items={[
-                { value: `${sum.percent}%`, label: 'OCCUPIED' },
-                { value: `${100 - sum.percent}%`, label: 'AVAILABLE', tone: 'success' },
-              ]}
-            />
+            <View style={styles.kpiRow}>
+              <StatusMetricCard
+                icon="box"
+                value={`${sum.percent}%`}
+                label="OCCUPIED"
+              />
+              <StatusMetricCard
+                icon="check"
+                value={`${100 - sum.percent}%`}
+                label="AVAILABLE"
+                tone="success"
+              />
+            </View>
 
             {showComparison ? (
               <>
@@ -234,33 +269,104 @@ export function WarehouseCapacityScreen({
             ) : null}
 
             <SectionTitle>Storage Locations</SectionTitle>
-            <KpiRow
-              items={[
-                { value: formatKg(sum.capacityKg), label: 'STORAGE TOTAL' },
-                { value: formatKg(Math.max(0, sum.capacityKg - sum.currentKg)), label: 'AVAILABLE CAPACITY', tone: 'success' },
-              ]}
-            />
-            <SearchBar value={query} onChangeText={setQuery} placeholder="Search storage locations..." />
-            <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
+            <View style={styles.kpiRow}>
+              <StatusMetricCard
+                icon="inventory"
+                value={formatKg(sum.capacityKg)}
+                label="STORAGE TOTAL"
+              />
+              <StatusMetricCard
+                icon="check"
+                value={formatKg(Math.max(0, sum.capacityKg - sum.currentKg))}
+                label="AVAILABLE CAPACITY"
+                tone="success"
+              />
+            </View>
+            <View style={styles.searchWrap}>
+              <SearchBar value={query} onChangeText={setQuery} placeholder="Search storage locations..." />
+            </View>
+            <View style={styles.chipsWrap}>
+              <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
+            </View>
 
             {visible.length === 0 ? (
               <EmptyState title="No storage locations found" subtitle="Try another filter or search." />
             ) : (
-              <View style={styles.list}>
-                {visible.map((loc, index) => {
+              <View style={styles.cardsList}>
+                {visible.map((loc) => {
                   const state = capacityStateOf(loc);
+                  const percent = occupancyPercent(loc.currentKg, loc.capacityKg);
+                  const isCold = loc.name.toLowerCase().includes('cold');
+                  const isDry = loc.name.toLowerCase().includes('dry');
+                  const isBulk = loc.name.toLowerCase().includes('bulk');
+
+                  const iconBg = isCold
+                    ? adminColors.info.bg
+                    : isDry
+                      ? adminColors.warning.bg
+                      : isBulk
+                        ? adminColors.purple.bg
+                        : adminColors.brandTint;
+
+                  const iconColor = isCold
+                    ? adminColors.info.text
+                    : isDry
+                      ? adminColors.warning.text
+                      : isBulk
+                        ? adminColors.purple.text
+                        : adminColors.brand;
+
+                  const progressColor =
+                    state === 'Unavailable'
+                      ? adminColors.danger.text
+                      : percent >= 85
+                        ? adminColors.danger.text
+                        : percent >= 65
+                          ? adminColors.warning.text
+                          : adminColors.success.text;
+
                   return (
-                    <View key={loc.id} style={[styles.item, index > 0 && styles.itemDivider]}>
-                      <View style={styles.itemIcon}>
-                        <WarehouseIcon />
+                    <View key={loc.id} style={styles.locationCard}>
+                      <View style={styles.locationHeaderRow}>
+                        <View style={[styles.locationIconBox, { backgroundColor: iconBg }]}>
+                          {isCold ? (
+                            <SnowflakeIcon size={20} color={iconColor} />
+                          ) : isDry ? (
+                            <StorageBoxIcon size={20} color={iconColor} />
+                          ) : isBulk ? (
+                            <LayersIcon size={20} color={iconColor} />
+                          ) : (
+                            <WarehouseIcon size={20} color={iconColor} />
+                          )}
+                        </View>
+                        <View style={styles.locationHeaderInfo}>
+                          <Text style={styles.locationName}>{loc.name}</Text>
+                          <Text style={styles.locationCode}>Code: {loc.code}</Text>
+                        </View>
+                        <StatusBadge label={state} tone={STATE_TONE[state]} />
                       </View>
-                      <View style={styles.itemText}>
-                        <Text style={styles.itemTitle}>{loc.name}</Text>
-                        <Text style={styles.itemSub}>
-                          Code: {loc.code} · {formatKg(loc.currentKg)} / {formatKg(loc.capacityKg)}
+
+                      <View style={styles.capacityMetaRow}>
+                        <Text style={styles.capacityMetaWeight}>
+                          <Text style={styles.weightCurrent}>{formatKg(loc.currentKg)}</Text>
+                          <Text style={styles.weightTotal}> / {formatKg(loc.capacityKg)}</Text>
+                        </Text>
+                        <Text style={[styles.capacityMetaPercent, { color: progressColor }]}>
+                          {percent}% occupied
                         </Text>
                       </View>
-                      <StatusBadge label={state} tone={STATE_TONE[state]} />
+
+                      <View style={styles.progressBarTrack}>
+                        <View
+                          style={[
+                            styles.progressBarFill,
+                            {
+                              width: `${Math.min(100, Math.max(2, percent))}%`,
+                              backgroundColor: progressColor,
+                            },
+                          ]}
+                        />
+                      </View>
                     </View>
                   );
                 })}
@@ -276,9 +382,10 @@ export function WarehouseCapacityScreen({
               </InfoNote>
             ) : null}
             {onViewHistory ? (
-              <View style={styles.historyButton}>
-                <WalletButton label="View Capacity History" variant="neutral" onPress={onViewHistory} />
-              </View>
+              <TouchableOpacity style={styles.historyBtn} onPress={onViewHistory} accessibilityRole="button">
+                <HistoryIcon size={18} color={adminColors.ink} />
+                <Text style={styles.historyBtnText}>View Capacity History</Text>
+              </TouchableOpacity>
             ) : null}
           </>
         )}
@@ -366,27 +473,136 @@ const styles = StyleSheet.create({
   compareHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   compareName: { ...adminType.body, color: adminColors.ink },
   compareValue: { ...adminType.rowTitle, color: adminColors.ink },
-  list: {
+  kpiRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  kpiCard: {
+    flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.sm,
-    marginBottom: 20,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
   },
-  item: { flexDirection: 'row', alignItems: 'center', padding: adminSpacing.md },
-  itemDivider: { borderTopWidth: 1, borderTopColor: adminColors.border },
-  itemIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: adminRadius.sm,
-    backgroundColor: adminColors.canvas,
+  kpiValueLarge: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: adminColors.ink,
+    lineHeight: 30,
+    marginBottom: 4,
+  },
+  kpiValueMedium: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: adminColors.ink,
+    lineHeight: 24,
+    marginBottom: 4,
+  },
+  kpiLabel: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.muted,
+    letterSpacing: 0.5,
+  },
+  searchWrap: {
+    marginBottom: adminSpacing.xs,
+  },
+  chipsWrap: {
+    marginBottom: adminSpacing.md,
+  },
+  cardsList: {
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
+  },
+  locationCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  locationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: adminSpacing.md,
+  },
+  locationIconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: adminSpacing.md,
   },
-  itemText: { flex: 1, marginRight: adminSpacing.sm },
-  itemTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: 2 },
-  itemSub: { ...adminType.rowMeta, color: adminColors.muted },
+  locationHeaderInfo: {
+    flex: 1,
+    marginRight: adminSpacing.sm,
+  },
+  locationName: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 2,
+  },
+  locationCode: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  capacityMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  capacityMetaWeight: {
+    ...adminType.body,
+  },
+  weightCurrent: {
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  weightTotal: {
+    color: adminColors.muted,
+  },
+  capacityMetaPercent: {
+    ...adminType.caption,
+    fontWeight: '700',
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: adminColors.canvas,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
+  historyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.xl,
+    paddingVertical: adminSpacing.md,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xl,
+    ...adminShadow.sm,
+  },
+  historyBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
   historyButton: { marginTop: adminSpacing.md },
 });

@@ -18,7 +18,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } fr
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import { OverviewDashboardCard } from '../../../components';
+import { OverviewDashboardCard, StatusMetricCard } from '../../../components';
 import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { OrderScreenBaseProps } from './types';
 
@@ -227,57 +227,58 @@ function LockSmallIcon() {
 }
 
 
-function NewBadgeIcon() {
+function NewBadgeIcon({ color = adminColors.brand }: { color?: string }) {
   return (
-    <View style={styles.newBadgeChip}>
-      <Text style={styles.newBadgeText}>NEW</Text>
+    <View style={[styles.newBadgeChip, { borderColor: color }]}>
+      <Text style={[styles.newBadgeText, { color }]}>NEW</Text>
     </View>
   );
 }
 
-function CheckCircleTickIcon() {
+function CheckCircleTickIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Path d="M7.5 12l3 3 6-6" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+      <Path d="M7.5 12l3 3 6.5-6.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function PackageBoxIcon() {
+function PackageBoxIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="2.5" y="5.5" width="19" height="14" rx="2" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Path d="M2.5 10h19M9.5 5.5v4.5" stroke={adminColors.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2.5" y="5.5" width="19" height="14" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M2.5 10.5h19M9.5 5.5v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function ReadyPickupIcon() {
+function ReadyPickupIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="7" r="3" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Path d="M3 19v-1.5a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4V19" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M15 11.5l2 2 4.5-4.5" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="8.5" cy="7" r="3.5" stroke={color} strokeWidth="2" />
+      <Path d="M2.5 19v-1.5a4.5 4.5 0 0 1 4.5-4.5h4a4.5 4.5 0 0 1 4.5 4.5V19" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M15.5 11.5l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function DeliveryTruckIcon() {
+function DeliveryTruckIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M2 4h12v11H2zM14 8.5h4.5l2.5 3.5v3h-7V8.5z" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="6" cy="18" r="2.2" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Circle cx="17" cy="18" r="2.2" stroke={adminColors.ink} strokeWidth="1.8" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="5" width="13" height="11" rx="1.5" stroke={color} strokeWidth="2" />
+      <Path d="M15 9h4l3 3.5v3.5h-7V9z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="6" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
+      <Circle cx="18" cy="18.5" r="2.5" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function ErrorExclamationIcon() {
+function ErrorExclamationIcon({ size = 24, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.danger.text} strokeWidth="1.8" />
-      <Path d="M12 7v5.5M12 15.5h.01" stroke={adminColors.danger.text} strokeWidth="2.2" strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+      <Path d="M12 7.5v5M12 16.2h.01" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -407,6 +408,11 @@ export function OrdersDashboardScreen({
           <View style={styles.header}>
             <View style={styles.headerTopRow}>
               <View style={styles.titleWrap}>
+                {onBack ? (
+                  <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+                    <BackArrowIcon />
+                  </TouchableOpacity>
+                ) : null}
                 <ReceiptHeaderIcon />
                 <Text style={styles.headerTitle}>{role === 'SUPER_ADMIN' ? 'Sales & Orders' : 'Orders'}</Text>
               </View>
@@ -569,85 +575,45 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            {/* 6 Status Cards (2 columns x 3 rows) */}
+            {/* 6 Status Cards (2 columns x 3 rows) using reusable StatusMetricCard */}
             <View style={styles.statusGrid}>
-              {/* 1. New Orders: 12 */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
+              <StatusMetricCard
+                icon={<NewBadgeIcon color={adminColors.brand} />}
+                value={12}
+                label="New Orders"
                 onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'New' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <NewBadgeIcon />
-                </View>
-                <Text style={styles.statusNumber}>12</Text>
-                <Text style={styles.statusLabel}>New Orders</Text>
-              </TouchableOpacity>
-
-              {/* 2. Confirmed: 8 */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
+              />
+              <StatusMetricCard
+                icon={<CheckCircleTickIcon color={adminColors.brand} />}
+                value={8}
+                label="Confirmed"
                 onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Confirmed' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <CheckCircleTickIcon />
-                </View>
-                <Text style={styles.statusNumber}>8</Text>
-                <Text style={styles.statusLabel}>Confirmed</Text>
-              </TouchableOpacity>
-
-              {/* 3. Packing: 5 */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Packing' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <PackageBoxIcon />
-                </View>
-                <Text style={styles.statusNumber}>5</Text>
-                <Text style={styles.statusLabel}>Packing</Text>
-              </TouchableOpacity>
-
-              {/* 4. Ready for Pickup: 7 */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Ready' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <ReadyPickupIcon />
-                </View>
-                <Text style={styles.statusNumber}>7</Text>
-                <Text style={styles.statusLabel}>Ready for Pickup</Text>
-              </TouchableOpacity>
-
-              {/* 5. Delivery: 3 */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Delivery' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <DeliveryTruckIcon />
-                </View>
-                <Text style={styles.statusNumber}>3</Text>
-                <Text style={styles.statusLabel}>Delivery</Text>
-              </TouchableOpacity>
-
-              {/* 6. Order Issues: 2 */}
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S16')}
-              >
-                <View style={styles.statusCardTop}>
-                  <ErrorExclamationIcon />
-                </View>
-                <Text style={[styles.statusNumber, styles.statusNumberDanger]}>2</Text>
-                <Text style={styles.statusLabel}>Order Issues</Text>
-              </TouchableOpacity>
+              />
+              <StatusMetricCard
+                icon={<PackageBoxIcon color={adminColors.brand} />}
+                value={5}
+                label="Packing"
+                onPress={() => onNavigate?.('M5S07', { orderId: 'ORD-1024' })}
+              />
+              <StatusMetricCard
+                icon={<ReadyPickupIcon color={adminColors.brand} />}
+                value={7}
+                label="Ready for Pickup"
+                onPress={() => onNavigate?.('M5S09')}
+              />
+              <StatusMetricCard
+                icon={<DeliveryTruckIcon color={adminColors.brand} />}
+                value={3}
+                label="Delivery"
+                onPress={() => onNavigate?.('M5S13', { orderId: 'ORD-1021' })}
+              />
+              <StatusMetricCard
+                icon={<ErrorExclamationIcon color={adminColors.danger.text} />}
+                value={2}
+                label="Order Issues"
+                tone="danger"
+                onPress={() => onNavigate?.('M5S16', { orderId: 'ORD-1024' })}
+              />
             </View>
 
             {/* Filter Pills */}
@@ -716,6 +682,60 @@ export function OrdersDashboardScreen({
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
+
+            {/* Today's Summary (Matching Screen M5-S01) */}
+            <Text style={styles.subSectionTitle}>Today's Summary</Text>
+            <View style={styles.todaySummaryRow}>
+              <View style={styles.todaySummaryCard}>
+                <Text style={styles.todaySummaryValue}>24</Text>
+                <Text style={styles.todaySummaryLabel}>TODAY'S ORDERS</Text>
+              </View>
+              <View style={styles.todaySummaryCard}>
+                <Text style={styles.todaySummaryValue}>16</Text>
+                <Text style={styles.todaySummaryLabel}>COMPLETED</Text>
+              </View>
+              <View style={styles.todaySummaryCard}>
+                <Text style={styles.todaySummaryValue}>8</Text>
+                <Text style={styles.todaySummaryLabel}>PENDING</Text>
+              </View>
+            </View>
+
+            {/* Quick Actions (Matching Screen M5-S01) */}
+            <Text style={styles.subSectionTitle}>Quick Actions</Text>
+            <View style={styles.subQuickActionsRow}>
+              <TouchableOpacity
+                style={styles.subQuickActionCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S02', listParams())}
+              >
+                <View style={styles.subQuickActionIconWrap}>
+                  <ViewOrdersReceiptIcon />
+                </View>
+                <Text style={styles.subQuickActionLabel}>View Orders</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.subQuickActionCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S09')}
+              >
+                <View style={styles.subQuickActionIconWrap}>
+                  <ReadyPickupIcon />
+                </View>
+                <Text style={styles.subQuickActionLabel}>Ready for Pickup</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.subQuickActionCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S16')}
+              >
+                <View style={styles.subQuickActionIconWrap}>
+                  <ErrorExclamationIcon />
+                </View>
+                <Text style={styles.subQuickActionLabel}>Order Issues</Text>
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
@@ -1038,38 +1058,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: 14,
+    rowGap: 14,
+    marginBottom: 20,
   },
   statusCard: {
-    width: '48.5%',
+    width: '48%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: 14,
-    marginBottom: 10,
+    padding: 16,
+    minHeight: 112,
+    justifyContent: 'space-between',
     ...adminShadow.sm,
   },
   statusCardTop: {
-    height: 22,
+    minHeight: 28,
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   newBadgeChip: {
-    borderWidth: 1.3,
-    borderColor: adminColors.brandDeep,
-    borderRadius: 3.5,
-    paddingHorizontal: adminSpacing.xs,
-    paddingVertical: 1,
-    height: 15,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    height: 18,
     alignSelf: 'flex-start',
     justifyContent: 'center',
     alignItems: 'center',
   },
   newBadgeText: {
-    ...adminType.caption,
-    color: adminColors.brandDeep,
+    fontSize: 10,
+    fontWeight: '800',
+    color: adminColors.brand,
     letterSpacing: 0.6,
     includeFontPadding: false,
     textAlign: 'center',
@@ -1204,6 +1226,70 @@ const styles = StyleSheet.create({
   },
   quickActionText: {
     ...adminType.rowTitle,
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
+  subSectionTitle: {
+    ...adminType.sectionHead,
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+  },
+  todaySummaryRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  todaySummaryCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  todaySummaryValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 4,
+  },
+  todaySummaryLabel: {
+    ...adminType.caption,
+    fontSize: 10,
+    fontWeight: '700',
+    color: adminColors.muted,
+    letterSpacing: 0.5,
+  },
+  subQuickActionsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.xl,
+  },
+  subQuickActionCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  subQuickActionIconWrap: {
+    marginBottom: adminSpacing.xs,
+  },
+  subQuickActionLabel: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '700',
     color: adminColors.ink,
     textAlign: 'center',
   },

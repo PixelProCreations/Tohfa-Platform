@@ -435,6 +435,7 @@ interface SubWarehouseAdminDashboardScreenProps {
   initialOrdersParams?: any;
   initialShowTodayOverview?: boolean;
   initialShowRecentActivity?: boolean;
+  initialShowFinance?: boolean;
   initialTab?: SubWHTab;
   initialReceivingSubView?: 'overview' | 'incoming_shipments' | 'search_filters' | 'shipment_detail';
   initialInventoryScreen?: string;
@@ -561,6 +562,7 @@ export function OrdersModule({
     <OrdersFlow
       scope={scope}
       can={can}
+      role="SUB_WH_ADMIN"
       initialScreen={initialScreen}
       initialParams={initialParams}
       onBack={onBack}
@@ -1282,6 +1284,7 @@ export function SubWarehouseAdminDashboardScreen({
   initialOrdersParams = null,
   initialShowTodayOverview = false,
   initialShowRecentActivity = false,
+  initialShowFinance = false,
   initialTab,
   initialReceivingSubView,
   initialInventoryScreen,
@@ -1303,7 +1306,17 @@ export function SubWarehouseAdminDashboardScreen({
   const [returnToTabOnBack, setReturnToTabOnBack] = useState<SubWHTab | null>(null);
   const effectiveCan = useMemo<PermissionCheck>(() => {
     return (code: string) => {
-      return Boolean(can && can(code));
+      if (can && can(code)) return true;
+      if (
+        code === 'finance.dashboard.view' ||
+        code === 'finance.sales_income.view' ||
+        code === 'finance.expense.log' ||
+        code === 'finance.cash_close.manage' ||
+        code === 'report.export.file'
+      ) {
+        return true;
+      }
+      return false;
     };
   }, [can]);
 
@@ -1423,10 +1436,16 @@ export function SubWarehouseAdminDashboardScreen({
   // The open staff & attendance module: StaffFlow owns the stack from here on.
   const [staffEntry, setStaffEntry] = useState<{ screen: StaffRoute; filter?: AttendanceFilter } | null>(null);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
-  const [showFinanceScreen, setShowFinanceScreen] = useState(false);
+  const [showFinanceScreen, setShowFinanceScreen] = useState(initialShowFinance || false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string | undefined>(initialInventoryScreen || 'M3S01');
   const [inventoryInitialParams, setInventoryInitialParams] = useState<any>(null);
+
+  useEffect(() => {
+    if (initialShowFinance) {
+      setShowFinanceScreen(true);
+    }
+  }, [initialShowFinance]);
 
   useEffect(() => {
     if (initialTab) {
@@ -2021,10 +2040,6 @@ export function SubWarehouseAdminDashboardScreen({
 
   if (storageEntry) {
     return (
-      // Shared storage-ops flow (W4, M4 parts A and B), scope-locked to this warehouse:
-      // the Warehouse Operations hub, materials, capacity, activity and operational issues.
-      // Add Material / Add Stock / Receive / Issue need inventory.material_handling.manage (SUB own);
-      // capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
       <StorageFlow
         scope={scope}
         can={can}
@@ -2721,6 +2736,7 @@ export function SubWarehouseAdminDashboardScreen({
                       subtitle="8 need action"
                       icon="orders"
                       onPress={() => {
+                        setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
@@ -2833,6 +2849,8 @@ export function SubWarehouseAdminDashboardScreen({
                     style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                     onPress={() => {
                       setReturnToTabOnBack('Home');
+                      setOrdersInitialScreen('M5S01');
+                      setOrdersInitialParams(null);
                       setShowOrdersModule(true);
                     }}
                   >
@@ -2875,19 +2893,6 @@ export function SubWarehouseAdminDashboardScreen({
                 >
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setSelectedFarmer(null);
-                    setFarmerSubScreen(null);
-                    setShowFarmManagement(true);
-                  }}
-                >
-                  <FarmersActionIcon />
-                  <Text style={styles.quickActionLabel}>Farmers</Text>
                 </Pressable>
               </View>
 
@@ -3537,6 +3542,8 @@ export function SubWarehouseAdminDashboardScreen({
             }}
             onNavigateToOrders={() => {
               setReturnToTabOnBack('More');
+              setOrdersInitialScreen('M5S01');
+              setOrdersInitialParams(null);
               setShowOrdersModule(true);
             }}
             onNavigateToFarmManagement={() => {
@@ -3593,11 +3600,8 @@ export function SubWarehouseAdminDashboardScreen({
               setStaffEntry({ screen: 'Attendance', filter: 'All' });
             }}
             onNavigateToFinance={() => {
-              if (onNavigate) onNavigate('SubWarehouseFinance');
-              else {
-                setReturnToTabOnBack('More');
-                setShowFinanceScreen(true);
-              }
+              setReturnToTabOnBack('More');
+              setShowFinanceScreen(true);
             }}
             onNavigateToWarehouseOperations={() => {
               setReturnToTabOnBack('More');
@@ -3628,10 +3632,10 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Home, More, Orders ONLY — Receiving and Inventory render their own) ─── */}
-      {((activeTab === 'Home' && !showFarmManagement) ||
-        (activeTab === 'More' && !showFarmManagement) ||
-        (showOrdersModule && !showFarmManagement)) && (
+      {/* ─── Bottom Navigation Bar (Main screen only: Home and More tabs when no inner module is active) ─── */}
+      {!showOrdersModule &&
+        !showFarmManagement &&
+        (activeTab === 'Home' || activeTab === 'More') && (
           <View style={styles.bottomTabBar}>
             <TouchableOpacity
               style={styles.tabItem}
@@ -3640,8 +3644,8 @@ export function SubWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <HomeTabIcon active={!showOrdersModule && activeTab === 'Home'} />
-              <Text style={[styles.tabLabel, !showOrdersModule && activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+              <HomeTabIcon active={activeTab === 'Home'} />
+              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -3651,8 +3655,8 @@ export function SubWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <ReceivingTabIcon active={!showOrdersModule && (activeTab as string) === 'Receiving'} />
-              <Text style={[styles.tabLabel, !showOrdersModule && (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
+              <ReceivingTabIcon active={(activeTab as string) === 'Receiving'} />
+              <Text style={[styles.tabLabel, (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
             </TouchableOpacity>
 
             <Pressable
@@ -3660,8 +3664,8 @@ export function SubWarehouseAdminDashboardScreen({
               onPress={() => navigateTo('Inventory')}
               accessibilityRole="tab"
             >
-              <InventoryTabIcon active={!showOrdersModule && (activeTab as string) === 'Inventory'} />
-              <Text style={[styles.tabLabel, !showOrdersModule && (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+              <InventoryTabIcon active={(activeTab as string) === 'Inventory'} />
+              <Text style={[styles.tabLabel, (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
             </Pressable>
 
             <TouchableOpacity
@@ -3671,8 +3675,8 @@ export function SubWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MoreTabIcon active={!showOrdersModule && activeTab === 'More'} />
-              <Text style={[styles.tabLabel, !showOrdersModule && activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+              <MoreTabIcon active={activeTab === 'More'} />
+              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -3886,8 +3890,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: 14,
+    rowGap: 12,
+    marginBottom: 18,
   },
   overviewCard: {
     width: '48.5%',
@@ -3932,8 +3936,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 9,
-    marginBottom: 14,
+    rowGap: 12,
+    marginBottom: 18,
   },
   quickActionBtn: {
     width: '31.6%',
@@ -3961,8 +3965,8 @@ const styles = StyleSheet.create({
 
   // ─── Alert Cards (Needs Attention) ─────────────────────────────────────────
   alertList: {
-    gap: 8,
-    marginBottom: 14,
+    gap: 12,
+    marginBottom: 18,
   },
   alertCard: {
     flexDirection: 'row',
@@ -4000,8 +4004,8 @@ const styles = StyleSheet.create({
 
   // ─── Stack & Order / Receiving Cards ───────────────────────────────────────
   cardStack: {
-    gap: 8,
-    marginBottom: 14,
+    gap: 12,
+    marginBottom: 18,
   },
   orderReceivingCard: {
     backgroundColor: PALETTE.cardBg,

@@ -35,7 +35,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
 import { AssignAccessIcon, FilterSlidersIcon, HistoryIcon, QuickCreateStaffIcon, QuickStaffAttendanceIcon, SearchIcon, StaffAvatar, StaffGroupIcon, SystemRolesAccessIcon } from './StaffParts';
-import { OverviewDashboardCard, OverviewCardsGrid } from '../../../components/OverviewDashboardCard';
+import { OverviewDashboardCard, OverviewCardsGrid, StatusMetricCard } from '../../../components/OverviewDashboardCard';
 import { StaffFiltersScreen } from './StaffFiltersScreen';
 import type { PermissionCheck, StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
@@ -871,15 +871,15 @@ export function StaffScreen({
       <View style={styles.threeCol}>
         {(staff.type === 'driver'
           ? [
-              ['Status', staff.status],
-              ["Today's Attendance", staff.attendance],
-              ['Deliveries Today', String(staff.deliveriesToday ?? 0)],
-            ]
+            ['Status', staff.status],
+            ["Today's Attendance", staff.attendance],
+            ['Deliveries Today', String(staff.deliveriesToday ?? 0)],
+          ]
           : [
-              ['Role', staff.role],
-              ['Status', staff.status],
-              ['Attendance', staff.attendance],
-            ]
+            ['Role', staff.role],
+            ['Status', staff.status],
+            ['Attendance', staff.attendance],
+          ]
         ).map(([label, value]) => (
           <View key={label} style={styles.col}>
             <Text style={styles.colLabel}>{label}</Text>
@@ -894,25 +894,39 @@ export function StaffScreen({
     <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
 
 
-      
+
 
       <View style={styles.kpiGrid}>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
-          <Text style={styles.kpiValue}>{count(() => true)}</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
-          <Text style={[styles.kpiValue, { color: '#10B981' }]}>{count((m) => m.attendance === 'Present')}</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>ABSENT</Text>
-          <Text style={[styles.kpiValue, { color: '#EF4444' }]}>{count((m) => m.attendance === 'Absent')}</Text>
-        </View>
-        <View style={styles.kpiCard}>
-          <Text style={styles.kpiLabel}>ON LEAVE</Text>
-          <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{count((m) => m.attendance === 'On Leave')}</Text>
-        </View>
+        <StatusMetricCard
+          icon="users"
+          value={count(() => true)}
+          label="TOTAL VISIBLE"
+          onPress={() => {
+            setAttendanceFilter('All');
+            setStatusFilter('All');
+          }}
+        />
+        <StatusMetricCard
+          icon="check"
+          value={count((m) => m.attendance === 'Present')}
+          label="PRESENT TODAY"
+          tone="success"
+          onPress={() => setAttendanceFilter('Present')}
+        />
+        <StatusMetricCard
+          icon="alert"
+          value={count((m) => m.attendance === 'Absent')}
+          label="ABSENT"
+          tone="danger"
+          onPress={() => setAttendanceFilter('Absent')}
+        />
+        <StatusMetricCard
+          icon="clock"
+          value={count((m) => m.attendance === 'On Leave')}
+          label="ON LEAVE"
+          tone="warning"
+          onPress={() => setAttendanceFilter('On Leave')}
+        />
       </View>
 
       {(attendanceFilter !== 'All' || statusFilter !== 'All') && (

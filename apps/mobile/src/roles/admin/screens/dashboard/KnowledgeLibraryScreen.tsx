@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, {
+  Line,
   Path,
   Rect,
 } from 'react-native-svg';
@@ -70,6 +71,15 @@ function SmallArrowRightIcon({ size = 12, color = adminColors.muted }: { size?: 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PlusIcon({ size = 14, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth="2.6" strokeLinecap="round" />
+      <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth="2.6" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -146,6 +156,8 @@ export interface KnowledgeLibraryScreenProps {
 export function KnowledgeLibraryScreen({
   onBack,
   onSelectItem,
+  onNavigateAddVideo: _onNavigateAddVideo,
+  onNavigateCreateContent,
 }: KnowledgeLibraryScreenProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeCategoryTab>('Articles');
   const [searchQuery, setSearchQuery] = useState('');
@@ -192,16 +204,30 @@ export function KnowledgeLibraryScreen({
       {/* ─── Top Terracotta Header (Screenshots 1 & 2) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <BackArrowWhiteIcon size={20} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Knowledge Library</Text>
+          <View style={styles.headerLeft}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon size={20} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Knowledge Library</Text>
+          </View>
+
+          {onNavigateCreateContent && (
+            <TouchableOpacity
+              style={styles.headerAddBtn}
+              onPress={onNavigateCreateContent}
+              activeOpacity={0.8}
+              accessibilityLabel="Add Content"
+            >
+              <PlusIcon size={13} color={adminColors.brand} />
+              <Text style={styles.headerAddBtnText}>Add Content</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -471,7 +497,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
+    flex: 1,
+    marginRight: 8,
   },
   backBtn: {
     width: 32,
@@ -482,8 +515,25 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
+    flexShrink: 1,
+  },
+  headerAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+    ...adminShadow.sm,
+  },
+  headerAddBtnText: {
+    color: adminColors.brand,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
 
   // ─── Scroll Area ───

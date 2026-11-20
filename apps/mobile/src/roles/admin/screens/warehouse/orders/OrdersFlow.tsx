@@ -137,9 +137,11 @@ export function OrdersFlow({
     switch (current.screen) {
       case 'M5S01':
       case 'M5S01_OrdersDashboard':
+      case 'OrdersDashboard':
         return <OrdersDashboardScreen {...common} routeParams={params ?? undefined} onTabChange={onTabChange} />;
       case 'M5S02':
       case 'M5S02_OrdersList':
+      case 'OrdersList':
         return <OrdersListScreen {...common} routeParams={params ?? undefined} />;
       case 'PurchaseOrderDetail':
       case 'M8S02a_PurchaseDetail':
@@ -160,6 +162,7 @@ export function OrdersFlow({
         );
       case 'M5S03':
       case 'M5S03_SearchFilters':
+      case 'SearchFilters':
         // The order-queue filters are the shared OrderFiltersScreen ('order'
         // config, queue variant) since the customers wave folded M5S03 into it.
         return (
@@ -179,7 +182,7 @@ export function OrdersFlow({
               setStack((prev) => {
                 const below = prev.slice(0, -1);
                 const listEntry = below[below.length - 1];
-                if (listEntry && (listEntry.screen === 'M5S02' || listEntry.screen === 'M5S02_OrdersList')) {
+                if (listEntry && (listEntry.screen === 'M5S02' || listEntry.screen === 'M5S02_OrdersList' || listEntry.screen === 'OrdersList')) {
                   return [...below.slice(0, -1), { screen: listEntry.screen, params: { ...listEntry.params, ...listParams } }];
                 }
                 return [...below, { screen: 'M5S02', params: listParams }];
@@ -189,30 +192,55 @@ export function OrdersFlow({
         );
       case 'M5S04':
       case 'M5S04_OrderDetail':
-        return <OrderDetailScreen {...common} orderId={orderId} customerName={params?.customerName} role={role} />;
+      case 'OrderDetail':
+        return (
+          <OrderDetailScreen
+            {...common}
+            orderId={orderId}
+            customerName={params?.customerName}
+            status={params?.status}
+            role={role}
+            routeParams={params ?? undefined}
+          />
+        );
       case 'M5S05':
       case 'M5S05_StockCheck':
+      case 'StockCheck':
         return <StockCheckScreen {...common} orderId={orderId} initialStep={params?.step} />;
+      case 'M5S06':
+      case 'StockShortage':
+        return <StockCheckScreen {...common} orderId={orderId} initialStep="shortage" />;
       case 'M5S07':
       case 'M5S07_Packing':
+      case 'Packing':
         return <PackingScreen {...common} orderId={orderId} initialStep={params?.step} />;
+      case 'M5S08':
+      case 'ConfirmPacking':
+        return <PackingScreen {...common} orderId={orderId} initialStep="confirm" />;
       case 'M5S09':
       case 'M5S09_ReadyForPickup':
+      case 'ReadyForPickup':
         return <ReadyForPickupScreen {...common} />;
+      case 'M5S10':
       case 'M5S11':
       case 'M5S11_PickupOTP':
-        return <PickupOtpScreen {...common} orderId={orderId} initialStep={params?.step} />;
+      case 'PickupOtp':
+        return <PickupOtpScreen {...common} orderId={orderId} initialStep={params?.step ?? (current.screen === 'M5S10' ? 'verify' : undefined)} />;
       case 'M5S13':
       case 'M5S13_DeliveryPreparation':
+      case 'DeliveryPreparation':
         return <DeliveryPreparationScreen {...common} orderId={orderId} />;
       case 'M5S14':
       case 'M5S14_Dispatch':
+      case 'Dispatch':
         return <DispatchScreen {...common} orderId={orderId} initialStep={params?.step} />;
       case 'M5S15':
       case 'M5S15_OrderStatusHistory':
+      case 'OrderStatusHistory':
         return <OrderStatusHistoryScreen {...common} orderId={orderId} />;
       case 'M5S16':
       case 'M5S16_OrderIssue':
+      case 'OrderIssue':
         return (
           <OrderIssueScreen
             {...common}
@@ -224,9 +252,11 @@ export function OrdersFlow({
         );
       case 'M5S17':
       case 'M5S17_CancelOrder':
+      case 'CancelOrder':
         return <CancelOrderScreen {...common} orderId={orderId} />;
       case 'M5S18':
       case 'M5S18_OrderInvoice':
+      case 'OrderInvoice':
         return <OrderInvoiceScreen {...common} orderId={orderId} />;
       default: {
         const external = renderExternalScreen?.(current.screen, params, { navigate, back });

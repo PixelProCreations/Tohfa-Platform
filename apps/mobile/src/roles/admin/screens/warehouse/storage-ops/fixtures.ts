@@ -242,7 +242,7 @@ export const ACTIVITIES: readonly ActivityItem[] = [
 
 /** Operations snapshot per warehouse (demo; summed / averaged for the Main view). */
 export const OPERATIONS_SUMMARY: readonly OperationsSummary[] = [
-  { warehouseId: 'WH-COON', storageLocations: 18, occupancyPercent: 72, materialItems: 42, staffPresent: 8, staffTotal: 10, activitiesToday: 28, historyRecords: 26, receivingShipments: 3, storageMovements: 5, verificationPending: 2 },
+  { warehouseId: 'WH-COON', storageLocations: 18, occupancyPercent: 68, materialItems: 42, staffPresent: 8, staffTotal: 10, activitiesToday: 28, historyRecords: 26, receivingShipments: 3, storageMovements: 5, verificationPending: 2 },
   { warehouseId: 'WH-OOTY', storageLocations: 22, occupancyPercent: 68, materialItems: 38, staffPresent: 7, staffTotal: 9, activitiesToday: 24, historyRecords: 31, receivingShipments: 5, storageMovements: 9, verificationPending: 3 },
   { warehouseId: 'WH-KOTA', storageLocations: 12, occupancyPercent: 61, materialItems: 21, staffPresent: 6, staffTotal: 8, activitiesToday: 14, historyRecords: 15, receivingShipments: 2, storageMovements: 4, verificationPending: 2 },
   { warehouseId: 'WH-GUDA', storageLocations: 10, occupancyPercent: 55, materialItems: 17, staffPresent: 6, staffTotal: 7, activitiesToday: 11, historyRecords: 12, receivingShipments: 2, storageMovements: 3, verificationPending: 1 },

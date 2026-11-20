@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { BackHandler, Platform, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
@@ -152,7 +152,6 @@ import {
   HomeFlow,
   type AttentionFilter,
   MoreScreen,
-  ReceivingFlow,
   StaffFlow,
   type AttendanceFilter,
   type StaffRoute,
@@ -211,7 +210,6 @@ import {
   AdminApplicationDetailScreen,
   type PendingApplicationItem,
   DEMO_PENDING_APPLICATIONS,
-  AdminApplicationApproveScreen,
   AdminApplicationRejectScreen,
   AdminApplicationRequestInfoScreen,
   AdminCertVerificationScreen,
@@ -359,6 +357,7 @@ export type ScreenName =
   | 'SubWarehouseCustomerPurchases'
   | 'SubWarehousePurchaseHistory'
   | 'SubWarehouseCustomerOrders'
+  | 'SubWarehouseOrders'
   | 'SubWarehouseCustomerIssues'
   | 'SubWarehouseCustomerIssueDetail'
   | 'SubWarehouseCustomerSupport'
@@ -740,7 +739,6 @@ const CUSTOMERS_ROUTE_ENTRY: Partial<Record<ScreenName, CustomersRoute>> = {
   SubWarehouseCustomers: 'CustomersList',
   SubWarehouseCustomerDetail: 'CustomerDetails',
   SubWarehouseCustomerDetails: 'CustomerDetails',
-  SubWarehouseCustomerOrders: 'CustomerOrders',
   SubWarehouseOrderFilters: 'OrderFilters',
   SubWarehouseCustomerPurchases: 'PurchaseHistory',
   SubWarehousePurchaseHistory: 'PurchaseHistory',
@@ -1102,8 +1100,8 @@ export default function App(): React.JSX.Element {
       } else {
         const historyParams =
           screen === 'SubWarehouseAdminDashboard' &&
-          !params['initialTab'] &&
-          SUB_WAREHOUSE_MORE_SCREENS.includes(nextScreen)
+            !params['initialTab'] &&
+            SUB_WAREHOUSE_MORE_SCREENS.includes(nextScreen)
             ? { ...params, initialTab: 'More' }
             : params;
         setHistory((prev) => [...prev, { screen, params: historyParams, tab: currentTab }]);
@@ -1311,97 +1309,111 @@ export default function App(): React.JSX.Element {
   // (Children left at their old indentation to keep this diff reviewable.)
   return (
     <SessionQueryProvider sessionKey={sessionEpoch}>
-    <SafeAreaView style={[styles.screen, isAuthLanding && styles.screenSplash]}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={isAuthLanding ? SPLASH_DARK : isSubWarehouse ? adminColors.brand : colors.primaryPressed}
-      />
+      <SafeAreaView style={[styles.screen, isAuthLanding && styles.screenSplash]}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={isAuthLanding ? SPLASH_DARK : isSubWarehouse ? adminColors.brand : colors.primaryPressed}
+        />
 
-      <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
+        <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
 
-      <View style={styles.content}>
-        {screen === 'Splash' ? (
-          <SplashScreen onNavigate={(s, p) => navigate(s, p)} />
-        ) : screen === 'Welcome' ? (
-          <WelcomeScreen onNavigate={(s) => navigate(s)} />
-        ) : screen === 'Login' ? (
-          <LoginScreen onNavigate={(s, p) => navigate(s, p)} />
-        ) : screen === 'RoleSelection' ? (
-          <RoleSelectionScreen onNavigate={(s) => navigate(s)} />
-        ) : screen === 'Register' ? (
-          <RegistrationFlowScreen onNavigate={(s, p) => navigate(s, p)} />
-        ) : screen === 'Otp' ? (
-          <OtpScreen
-            mobile={String(params['mobile'] ?? '')}
-            challengeId={typeof params['challengeId'] === 'string' ? params['challengeId'] : undefined}
-            resendAvailableAt={
-              typeof params['resendAvailableAt'] === 'string'
-                ? params['resendAvailableAt']
-                : undefined
-            }
-            attemptsRemaining={
-              typeof params['attemptsRemaining'] === 'number'
-                ? params['attemptsRemaining']
-                : undefined
-            }
-            purpose={
-              (params['purpose'] as 'LOGIN' | 'PASSWORD_RESET') ?? 'LOGIN'
-            }
-            linkToken={typeof params['linkToken'] === 'string' ? params['linkToken'] : undefined}
-            onNavigate={(s, p) => navigate(s, p)}
-          />
-        ) : screen === 'ForgotPassword' ? (
-          <ForgotPasswordScreen onNavigate={(s, p) => navigate(s, p)} />
-        ) : screen === 'ResetPassword' ? (
-          <ResetPasswordScreen
-            challengeId={String(params['challengeId'] ?? '')}
-            code={String(params['code'] ?? '')}
-            onNavigate={(s) => navigate(s)}
-          />
-        ) : screen === 'PasswordChangedSuccess' ? (
-          <PasswordChangedSuccessScreen onNavigate={(s) => navigate(s)} />
-        ) : screen === 'ApplicationStatus' ? (
-          <ApplicationStatusScreen
-            applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
-            onNavigate={(s) => navigate(s)}
-          />
-        ) : screen === 'AdminMain' && adminShell !== null ? (
-          adminShell === 'TOHFA_ADMIN' || adminShell === 'FARMER_ADMIN' ? (
-            <UnifiedAdminDashboardScreen
-              initialRole={adminShell}
-              initialTab={params['initialTab'] as any}
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s) => navigate(s as ScreenName)}
-              onSwitchRole={() => {
-                setCurrentTab('Home');
-                navigate('MainTabs');
-              }}
+        <View style={styles.content}>
+          {screen === 'Splash' ? (
+            <SplashScreen onNavigate={(s, p) => navigate(s, p)} />
+          ) : screen === 'Welcome' ? (
+            <WelcomeScreen onNavigate={(s) => navigate(s)} />
+          ) : screen === 'Login' ? (
+            <LoginScreen onNavigate={(s, p) => navigate(s, p)} />
+          ) : screen === 'RoleSelection' ? (
+            <RoleSelectionScreen onNavigate={(s) => navigate(s)} />
+          ) : screen === 'Register' ? (
+            <RegistrationFlowScreen onNavigate={(s, p) => navigate(s, p)} />
+          ) : screen === 'Otp' ? (
+            <OtpScreen
+              mobile={String(params['mobile'] ?? '')}
+              challengeId={typeof params['challengeId'] === 'string' ? params['challengeId'] : undefined}
+              resendAvailableAt={
+                typeof params['resendAvailableAt'] === 'string'
+                  ? params['resendAvailableAt']
+                  : undefined
+              }
+              attemptsRemaining={
+                typeof params['attemptsRemaining'] === 'number'
+                  ? params['attemptsRemaining']
+                  : undefined
+              }
+              purpose={
+                (params['purpose'] as 'LOGIN' | 'PASSWORD_RESET') ?? 'LOGIN'
+              }
+              linkToken={typeof params['linkToken'] === 'string' ? params['linkToken'] : undefined}
+              onNavigate={(s, p) => navigate(s, p)}
             />
-          ) : adminShell === 'MAIN_WH_ADMIN' ? (
-            <MainWarehouseAdminDashboardScreen
-              initialTab={params['initialTab'] as any}
-              initialMoreSubScreen={params['initialMoreSubScreen'] ?? (params['moreSubScreen'] as any)}
-              initialWhSubView={params['initialWhSubView'] ?? (params['whSubView'] as any)}
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s) => navigate(s as ScreenName)}
+          ) : screen === 'ForgotPassword' ? (
+            <ForgotPasswordScreen onNavigate={(s, p) => navigate(s, p)} />
+          ) : screen === 'ResetPassword' ? (
+            <ResetPasswordScreen
+              challengeId={String(params['challengeId'] ?? '')}
+              code={String(params['code'] ?? '')}
+              onNavigate={(s) => navigate(s)}
             />
-          ) : adminShell === 'SUB_WH_ADMIN' ? (
-            <SubWarehouseAdminDashboardScreen
-              scope={SUB_WAREHOUSE_SCOPE}
-              can={warehouseCan}
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s, p) => navigate(s as ScreenName, p)}
-              onBack={goBack}
-              onTabChange={handleSubWHTabChange}
-              initialTab={params['initialTab'] as any}
-              initialReceivingSubView={params['initialReceivingSubView'] as any}
-              initialInventoryScreen={params['initialInventoryScreen'] as any}
-              initialShowOrders={!!params['showOrders']}
-              initialOrdersScreen={params['ordersInitialScreen'] as any}
-              initialOrdersParams={params['ordersInitialParams'] as any}
+          ) : screen === 'PasswordChangedSuccess' ? (
+            <PasswordChangedSuccessScreen onNavigate={(s) => navigate(s)} />
+          ) : screen === 'ApplicationStatus' ? (
+            <ApplicationStatusScreen
+              applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
+              onNavigate={(s) => navigate(s)}
             />
-          ) : (
-            // adminShell is 'SUPER_ADMIN' here: null never reaches this branch.
+          ) : screen === 'AdminMain' && adminShell !== null ? (
+            adminShell === 'TOHFA_ADMIN' || adminShell === 'FARMER_ADMIN' ? (
+              <UnifiedAdminDashboardScreen
+                initialRole={adminShell}
+                initialTab={params['initialTab'] as any}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s) => navigate(s as ScreenName)}
+                onSwitchRole={() => {
+                  setCurrentTab('Home');
+                  navigate('MainTabs');
+                }}
+              />
+            ) : adminShell === 'MAIN_WH_ADMIN' ? (
+              <MainWarehouseAdminDashboardScreen
+                initialTab={params['initialTab'] as any}
+                initialMoreSubScreen={params['initialMoreSubScreen'] ?? (params['moreSubScreen'] as any)}
+                initialWhSubView={params['initialWhSubView'] ?? (params['whSubView'] as any)}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s) => navigate(s as ScreenName)}
+              />
+            ) : adminShell === 'SUB_WH_ADMIN' ? (
+              <SubWarehouseAdminDashboardScreen
+                scope={SUB_WAREHOUSE_SCOPE}
+                can={warehouseCan}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s, p) => navigate(s as ScreenName, p)}
+                onBack={goBack}
+                onTabChange={handleSubWHTabChange}
+                initialTab={params['initialTab'] as any}
+                initialReceivingSubView={params['initialReceivingSubView'] as any}
+                initialInventoryScreen={params['initialInventoryScreen'] as any}
+                initialShowOrders={!!params['showOrders']}
+                initialOrdersScreen={params['ordersInitialScreen'] as any}
+                initialOrdersParams={params['ordersInitialParams'] as any}
+                initialShowFinance={!!params['showFinance']}
+              />
+            ) : (
+              // adminShell is 'SUPER_ADMIN' here: null never reaches this branch.
+              <SuperAdminDashboardScreen
+                can={warehouseCan}
+                scope={{ warehouseName: 'All Warehouses' }}
+                role="SUPER_ADMIN"
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s) => navigate(s as ScreenName)}
+                onSwitchRole={() => {
+                  setCurrentTab('Home');
+                  navigate('MainTabs');
+                }}
+              />
+            )
+          ) : screen === 'SuperAdminDashboard' ? (
             <SuperAdminDashboardScreen
               can={warehouseCan}
               scope={{ warehouseName: 'All Warehouses' }}
@@ -1413,45 +1425,22 @@ export default function App(): React.JSX.Element {
                 navigate('MainTabs');
               }}
             />
-          )
-        ) : screen === 'SuperAdminDashboard' ? (
-          <SuperAdminDashboardScreen
-            can={warehouseCan}
-            scope={{ warehouseName: 'All Warehouses' }}
-            role="SUPER_ADMIN"
-            onSignOut={() => signOutTo('Welcome')}
-            onNavigate={(s) => navigate(s as ScreenName)}
-            onSwitchRole={() => {
-              setCurrentTab('Home');
-              navigate('MainTabs');
-            }}
-          />
-        ) : screen === 'TohfaAdminDashboard' ? (
-          <TohfaAdminDashboardScreen
-            initialTab={params['initialTab'] === 'Profile' ? 'Profile' : undefined}
-            onSignOut={() => signOutTo('Welcome')}
-            onNavigate={(s) => navigate(s as ScreenName)}
-          />
-        ) : screen === 'FarmerAdminDashboard' ? (
-          <FarmerAdminDashboardScreen
-            onSignOut={() => signOutTo('Welcome')}
-            onNavigate={(s) => navigate(s as ScreenName)}
-            onSwitchRole={() => {
-              setCurrentTab('Home');
-              navigate('MainTabs');
-            }}
-          />
-        ) : screen === 'MainWarehouseAdminDashboard' ? (
-          <MainWarehouseAdminDashboardScreen
-            initialTab={params?.['initialTab'] as any}
-            initialMoreSubScreen={params?.['initialMoreSubScreen'] ?? (params?.['moreSubScreen'] as any)}
-            initialWhSubView={params?.['initialWhSubView'] ?? (params?.['whSubView'] as any)}
-            onSignOut={() => signOutTo('Welcome')}
-            onNavigate={(s) => navigate(s as ScreenName)}
-          />
-        ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' || screen === 'SubWarehouseRecentActivity' ? (
-          // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
-          params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN' ? (
+          ) : screen === 'TohfaAdminDashboard' ? (
+            <TohfaAdminDashboardScreen
+              initialTab={params['initialTab'] === 'Profile' ? 'Profile' : undefined}
+              onSignOut={() => signOutTo('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : screen === 'FarmerAdminDashboard' ? (
+            <FarmerAdminDashboardScreen
+              onSignOut={() => signOutTo('Welcome')}
+              onNavigate={(s) => navigate(s as ScreenName)}
+              onSwitchRole={() => {
+                setCurrentTab('Home');
+                navigate('MainTabs');
+              }}
+            />
+          ) : screen === 'MainWarehouseAdminDashboard' ? (
             <MainWarehouseAdminDashboardScreen
               initialTab={params?.['initialTab'] as any}
               initialMoreSubScreen={params?.['initialMoreSubScreen'] ?? (params?.['moreSubScreen'] as any)}
@@ -1459,1925 +1448,1943 @@ export default function App(): React.JSX.Element {
               onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
-          ) : (
-            <SubWarehouseAdminDashboardScreen
+          ) : screen === 'SubWarehouseAdminDashboard' || screen === 'SubWarehouseTodayOverview' || screen === 'SubWarehouseRecentActivity' ? (
+            // 'SubWarehouseTodayOverview' kept as a key: that screen was absorbed by the shell's Home (FINAL_LIST 26).
+            params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN' ? (
+              <MainWarehouseAdminDashboardScreen
+                initialTab={params?.['initialTab'] as any}
+                initialMoreSubScreen={params?.['initialMoreSubScreen'] ?? (params?.['moreSubScreen'] as any)}
+                initialWhSubView={params?.['initialWhSubView'] ?? (params?.['whSubView'] as any)}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s) => navigate(s as ScreenName)}
+              />
+            ) : (
+              <SubWarehouseAdminDashboardScreen
+                scope={SUB_WAREHOUSE_SCOPE}
+                can={warehouseCan}
+                initialTab={params?.initialTab as any}
+                initialReceivingSubView={params?.initialReceivingSubView as any}
+                initialInventoryScreen={params?.initialInventoryScreen as any}
+                initialShowOrders={!!params?.showOrders}
+                initialOrdersScreen={params?.ordersInitialScreen as any}
+                initialOrdersParams={params?.ordersInitialParams as any}
+                initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
+                initialShowFinance={!!params?.showFinance}
+                onSignOut={() => signOutTo('Welcome')}
+                onNavigate={(s, p) => navigate(s as ScreenName, p)}
+                onBack={goBack}
+                onTabChange={handleSubWHTabChange}
+              />
+            )
+          ) : screen === 'SubWarehouseOverview' ? (
+            // Was SubWarehouseOverviewScreen: the shared single-warehouse WarehouseSnapshotScreen (W4), scope-locked.
+            <HomeFlow
               scope={SUB_WAREHOUSE_SCOPE}
               can={warehouseCan}
-              initialTab={params?.initialTab as any}
-              initialReceivingSubView={params?.initialReceivingSubView as any}
-              initialInventoryScreen={params?.initialInventoryScreen as any}
-              initialShowOrders={!!params?.showOrders}
-              initialOrdersScreen={params?.ordersInitialScreen as any}
-            initialOrdersParams={params?.ordersInitialParams as any}
-            initialShowTodayOverview={screen === 'SubWarehouseTodayOverview' || !!params?.showTodayOverview}
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s, p) => navigate(s as ScreenName, p)}
+              initialScreen="WarehouseSnapshot"
               onBack={goBack}
-              onTabChange={handleSubWHTabChange}
+              onTabChange={(tab) => {
+                // More from the Snapshot opens Wallet Operations (unchanged); every other tab is the shared handler.
+                if (tab === 'More') navigate('WarehouseWalletOperations');
+                else openWarehouseTab(tab);
+              }}
+              onOpenTarget={(target) => {
+                if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+                else if (target === 'ReceivingDashboard') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+                else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+                else if (target === 'Operations') navigate('SubWarehouseWarehouseOperations');
+              }}
             />
-          )
-        ) : screen === 'SubWarehouseOverview' ? (
-          // Was SubWarehouseOverviewScreen: the shared single-warehouse WarehouseSnapshotScreen (W4), scope-locked.
-          <HomeFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="WarehouseSnapshot"
-            onBack={goBack}
-            onTabChange={(tab) => {
-              // More from the Snapshot opens Wallet Operations (unchanged); every other tab is the shared handler.
-              if (tab === 'More') navigate('WarehouseWalletOperations');
-              else openWarehouseTab(tab);
-            }}
-            onOpenTarget={(target) => {
-              if (target === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              else if (target === 'ReceivingDashboard') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              else if (target === 'Operations') navigate('SubWarehouseWarehouseOperations');
-            }}
-          />
-        ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
-          // The notification screens live in the shared warehouse/notifications area
-          // (W4); each old notification key opens NotificationsFlow on the matching
-          // route. System Messages / Message History are filter tabs of the list.
-          <NotificationsFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={NOTIFICATIONS_ROUTE_ENTRY[screen]}
-            initialParams={notificationsParamsFor(screen, params)}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onOpenTarget={(target) => {
-              if (target === 'ReviewReceiving') navigate('SubWarehouseReviewReceiving');
-              else if (target === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
-              else if (target === 'Stock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
-              else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
-              else if (target === 'Wallet') navigate('WarehouseWalletOperations');
-              else navigate('SubWarehouseReturnsIssues');
-            }}
-            onOpenAlertRecord={(alert) => {
-              if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
-              else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
-              else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
-              else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer', { transferScope: 'sub' });
-            }}
-          />
-        ) : screen === 'SubWarehouseReviewReceiving' ? (
-          // SubWarehouseReviewReceivingScreen was absorbed as the wizard's Review step (W4 receiving-qc).
-          <GoodsReceivingWizardScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialStep="review_receiving"
-            shipment={DEMO_SHIPMENT}
-            onBack={goBack}
-            onFinish={() => navigate('SubWarehouseAdminDashboard')}
-          />
-        ) : screen === 'SubWarehouseNeedsAttention' ? (
-          // Shared dashboard-home-more NeedsAttentionScreen through HomeFlow (W4), own warehouse only.
-          <HomeFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="NeedsAttention"
-            initialParams={{ category: params['category'] as AttentionFilter | undefined }}
-            onBack={goBack}
-          />
-        ) : SALES_ROUTE_ENTRY[screen] !== undefined ? (
-          // The direct sales screens live in the shared warehouse/sales-direct area
-          // (W4); each old 'SubWarehouseXxx' key opens SalesFlow on the matching route.
-          <SalesFlow
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            initialScreen={SALES_ROUTE_ENTRY[screen]}
-            initialParams={salesParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToNeedsAttention={(category) => navigate('SubWarehouseNeedsAttention', category ? { category } : {})}
-          />
-        ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
-          <ChannelSalesScreen
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            channel={channelForRoute(screen)}
-            onBack={goBack}
-            onSelectOrder={(ord) => {
-              setSelectedChannelOrder(ord);
-              navigate(ord.channel === 'B2B' ? 'SubWarehouseB2BDetail' : 'SubWarehouseHorecaDetail');
-            }}
-          />
-        ) : screen === 'SubWarehouseB2BDetail' || screen === 'SubWarehouseHorecaDetail' ? (
-          <ChannelOrderDetailScreen
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            channel={channelForRoute(screen)}
-            // Only reuse the selection if it belongs to this route's channel.
-            order={selectedChannelOrder?.channel === channelForRoute(screen) ? selectedChannelOrder : undefined}
-            onBack={goBack}
-            onNavigate={(next, nextParams) => navigate(next as ScreenName, nextParams)}
-            onViewInvoice={(invoiceId) => navigate('SubWarehouseInvoiceDetail', { invoiceId })}
-            onViewStatus={(orderId) => {
-              setSelectedStatusOrderId(orderId);
-              navigate('SubWarehouseOrderStatusHistory');
-            }}
-          />
-        ) : screen === 'SubWarehouseOrderStatusHistory' ? (
-          <OrderStatusHistoryScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            orderId={selectedStatusOrderId || (params?.orderId as string) || 'ORD-1024'}
-            onNavigate={(nextScreen) => navigate(nextScreen as ScreenName)}
-            onBack={goBack}
-          />
-        ) : PROFILE_ROUTE_ENTRY[screen] !== undefined ? (
-          // The account screens live in the shared warehouse/profile-settings area
-          // (W4); 'SubWarehouseSettings' opens the hub, 'SubWarehouseHelpSupport'
-          // the help centre, 'SubWarehouseProfile' / 'SubWarehouseStorageInfo' / ...
-          // the warehouse-facing screens (part B; a location's detail stays here).
-          // Report an issue is offered by the screen only with
-          // support.ticket.create_own (none for warehouse admins today).
-          <ProfileFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={PROFILE_ROUTE_ENTRY[screen]}
-            onBack={goBack}
-            onLogout={() => signOutTo('Login')}
-            onReportIssue={() => navigate('SubWarehouseReportIssue')}
-            onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
-            onTabChange={openWarehouseTab}
-          />
-        ) : screen === 'WarehouseMore' ? (
-          <MoreScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onNavigateToDashboard={() => navigate('SubWarehouseAdminDashboard')}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
-            // Wallet and Profile rows: same targets as the Sub shell's More tab
-            // (they only showed an "Opening ..." alert here before).
-            onNavigateToWallet={() => navigate('WarehouseWalletOperations')}
-            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
-            onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
-            onNavigateToOrders={() => navigate('SubWarehouseCustomerOrders')}
-            onNavigateToSales={() => navigate('SubWarehouseSales')}
-            onNavigateToReturns={() => navigate('SubWarehouseReturnsIssues')}
-            onNavigateToReturnHistory={() => navigate('SubWarehouseReturnHistory')}
-            onNavigateToFinance={() => navigate('SubWarehouseFinance')}
-            onNavigateToReports={() => navigate('SubWarehouseReports')}
-            onNavigateToStaff={() => navigate('SubWarehouseStaff')}
-            onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
-            onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
-            onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
-            onNavigateToSettings={() => navigate('SubWarehouseSettings')}
-            onLogout={() => signOutTo('Login')}
-          />
-        ) : CUSTOMERS_ROUTE_ENTRY[screen] !== undefined ? (
-          // The customer screens live in the shared warehouse/customers area (W4);
-          // each old 'SubWarehouseXxx' key opens CustomersFlow on the matching route.
-          // Wallet, cash top-up, new sale, order detail and RMA stay App routes.
-          <CustomersFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={CUSTOMERS_ROUTE_ENTRY[screen]}
-            initialParams={customersParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
-              const customerName = p.customer?.name;
-              const customerCode = p.customer?.code ?? p.customer?.id;
-              if (target === 'CustomerWallet') {
-                navigate('SubWarehouseCustomerWallet', {
-                  customerName,
-                  name: customerName,
-                  id: customerCode,
-                  customerId: customerCode,
-                  mobile: p.customer?.phone,
-                  balance: p.customer?.walletBalance,
-                });
-              } else if (target === 'CashTopUp') {
-                navigate('SubWarehouseCashTopUp', {
-                  customerName,
-                  customerCode,
-                  currentBalance: p.customer?.walletBalance,
-                });
-              } else if (target === 'NewSale') {
-                navigate('SubWarehouseNewSale', { customerName });
-              } else if (target === 'OrderDetail') {
-                navigate('SubWarehouseOrderDetail', {
-                  orderNo: p.order?.orderNo ?? p.orderNo,
-                  orderStatus: p.order?.status,
-                  orderItems: p.order?.items,
-                  orderPrice: p.order?.price,
-                  orderDate: p.order?.date,
-                  orderType: p.order?.type,
-                  customerName,
-                });
-              } else if (target === 'RmaDetail') {
-                navigate('SubWarehouseReturnsIssues');
+          ) : NOTIFICATIONS_ROUTE_ENTRY[screen] !== undefined ? (
+            // The notification screens live in the shared warehouse/notifications area
+            // (W4); each old notification key opens NotificationsFlow on the matching
+            // route. System Messages / Message History are filter tabs of the list.
+            <NotificationsFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={NOTIFICATIONS_ROUTE_ENTRY[screen]}
+              initialParams={notificationsParamsFor(screen, params)}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onOpenTarget={(target) => {
+                if (target === 'ReviewReceiving') navigate('SubWarehouseReviewReceiving');
+                else if (target === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'overview' });
+                else if (target === 'Stock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' });
+                else if (target === 'Orders') navigate('SubWarehouseAdminDashboard', { showOrders: true });
+                else if (target === 'Wallet') navigate('WarehouseWalletOperations');
+                else navigate('SubWarehouseReturnsIssues');
+              }}
+              onOpenAlertRecord={(alert) => {
+                if (alert.record === 'ExpenseRecord') navigate('SubWarehouseExpenseRecord');
+                else if (alert.record === 'GoodsReceipt') navigate('SubWarehouseGoodsReceiptDetail');
+                else if (alert.record === 'LowStock') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S09' });
+                else if (alert.record === 'Transfer') navigate('InterWarehouseTransfer', { transferScope: 'sub' });
+              }}
+            />
+          ) : screen === 'SubWarehouseReviewReceiving' ? (
+            // SubWarehouseReviewReceivingScreen was absorbed as the wizard's Review step (W4 receiving-qc).
+            <GoodsReceivingWizardScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialStep="review_receiving"
+              shipment={DEMO_SHIPMENT}
+              onBack={goBack}
+              onFinish={() => navigate('SubWarehouseAdminDashboard')}
+            />
+          ) : screen === 'SubWarehouseNeedsAttention' ? (
+            // Shared dashboard-home-more NeedsAttentionScreen through HomeFlow (W4), own warehouse only.
+            <HomeFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen="NeedsAttention"
+              initialParams={{ category: params['category'] as AttentionFilter | undefined }}
+              onBack={goBack}
+            />
+          ) : SALES_ROUTE_ENTRY[screen] !== undefined ? (
+            // The direct sales screens live in the shared warehouse/sales-direct area
+            // (W4); each old 'SubWarehouseXxx' key opens SalesFlow on the matching route.
+            <SalesFlow
+              scope={
+                params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
+                  ? MAIN_WAREHOUSE_SCOPE
+                  : SUB_WAREHOUSE_SCOPE
               }
-            }}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : screen === 'WarehouseCustomerSearch' ? (
-          <CustomerSearchScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onNavigateToWallet={(cust) => {
-              navigate('SubWarehouseCustomerWallet', {
-                customerName: cust.name,
-                name: cust.name,
-                id: cust.code,
-                customerId: cust.code,
-                mobile: cust.phone || '+91 98765 43210',
-                balance: cust.balance,
-              });
-            }}
-            onSelectCustomer={(custOrName: any, id?: string) => {
-              if (typeof custOrName === 'string') {
-                navigate('SubWarehouseCustomerDetail', { customerName: custOrName, customerId: id });
-              } else {
-                navigate('SubWarehouseCustomerWallet', {
-                  customerName: custOrName.name,
-                  name: custOrName.name,
-                  id: custOrName.code,
-                  customerId: custOrName.code,
-                  mobile: custOrName.phone || '+91 98765 43210',
-                  balance: custOrName.balance,
-                });
+              can={warehouseCan}
+              initialScreen={SALES_ROUTE_ENTRY[screen]}
+              initialParams={salesParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onNavigateToNeedsAttention={(category) => navigate('SubWarehouseNeedsAttention', category ? { category } : {})}
+            />
+          ) : screen === 'SubWarehouseB2BSales' || screen === 'SubWarehouseHorecaSales' ? (
+            <ChannelSalesScreen
+              scope={
+                params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
+                  ? MAIN_WAREHOUSE_SCOPE
+                  : SUB_WAREHOUSE_SCOPE
               }
-            }}
-            onNavigateToCashTopUp={(cust) =>
-              navigate('SubWarehouseCashTopUp', cust ? {
-                customerName: cust.name,
-                customerCode: cust.code,
-                currentBalance: cust.balance,
-              } : undefined)
-            }
-          />
-        ) : FINANCE_ROUTE_ENTRY[screen] !== undefined ? (
-          // The finance screens live in the shared warehouse/finance-expenses area
-          // (W4); each old finance key opens FinanceFlow on the matching route.
-          <FinanceFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={FINANCE_ROUTE_ENTRY[screen]}
-            initialParams={financeParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onOpenWallet={() => navigate('WarehouseWalletOperations')}
-            onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
-            onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
-          />
-        ) : WALLET_ROUTE_ENTRY[screen] !== undefined ? (
-          // The wallet & cash top-up screens live in the shared warehouse/wallet-cashtopup
-          // area (W4); each old wallet key opens WalletFlow on the matching route.
-          <WalletFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={WALLET_ROUTE_ENTRY[screen]}
-            initialParams={walletParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-            onNavigateToProfile={() => navigate('SubWarehouseProfile')}
-          />
-        ) : BILLING_ROUTE_ENTRY[screen] !== undefined ? (
-          // The billing & invoice screens live in the shared warehouse/billing-invoices
-          // area (W4); each old 'SubWarehouseXxx' key opens BillingFlow on the matching route.
-          <BillingFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={BILLING_ROUTE_ENTRY[screen]}
-            initialParams={billingParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : screen === 'SubWarehouseTaskActionCenter' || screen === 'SubWarehouseTaskDetail' ? (
-          // Shared task screens through HomeFlow (W4): the list opens Task Details inside the
-          // flow; an order task hands its order id to the Sub order detail. No task rbac code (ungated).
-          <HomeFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={screen === 'SubWarehouseTaskDetail' ? 'TaskDetail' : 'TaskActionCenter'}
-            initialParams={screen === 'SubWarehouseTaskDetail' ? { id: (params['taskId'] as string | undefined) ?? 'TSK-001' } : undefined}
-            onBack={goBack}
-            onOpenTarget={(target, ref) => {
-              if (target === 'OrderDetail') navigate('SubWarehouseOrderDetail', ref ? { orderNo: ref } : {});
-            }}
-          />
-        ) : screen === 'SubWarehouseOrderDetail' ? (
-          <OrdersModule
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="M5S04"
-            initialParams={{
-              orderId: (params['orderNo'] as string) || 'ORD-00251',
-              customerName: (params['customerName'] as string) || 'Rajesh Kumar',
-            }}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-          />
-        ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
-          // SubWarehouseGoodsReceiptDetailScreen was absorbed by the shared receipt detail (W4 receiving-qc).
-          <ReceivingHistoryDetailScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            receiptId={ALERT_RECEIPT_ID}
-            onBack={goBack}
-            onTakeAction={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving' })}
-          />
-        ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
-          // The RMA screens live in the shared warehouse/returns-rma area (W4);
-          // each old 'SubWarehouseXxx' key opens ReturnsFlow on the matching route.
-          <ReturnsFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={RETURNS_ROUTE_ENTRY[screen]}
-            initialParams={params}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : STAFF_ROUTE_ENTRY[screen] !== undefined ? (
-          // The staff & attendance screens live in the shared warehouse/staff-attendance
-          // area (W4); each old key opens StaffFlow on the matching route.
-          <StaffFlow
-            scope={
-              params?.['adminRole'] === 'MAIN_WH_ADMIN' ||
-              lastAdminRole === 'MAIN_WH_ADMIN' ||
-              adminShell === 'MAIN_WH_ADMIN' ||
-              screen.startsWith('MainWarehouse')
-                ? MAIN_WAREHOUSE_SCOPE
-                : SUB_WAREHOUSE_SCOPE
-            }
-            can={warehouseCan}
-            initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
-            initialParams={staffParams}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onAssignDelivery={() => {
-              const isMain =
+              can={warehouseCan}
+              channel={channelForRoute(screen)}
+              onBack={goBack}
+              onSelectOrder={(ord) => {
+                setSelectedChannelOrder(ord);
+                navigate(ord.channel === 'B2B' ? 'SubWarehouseB2BDetail' : 'SubWarehouseHorecaDetail');
+              }}
+            />
+          ) : screen === 'SubWarehouseB2BDetail' || screen === 'SubWarehouseHorecaDetail' ? (
+            <ChannelOrderDetailScreen
+              scope={
+                params?.['adminRole'] === 'MAIN_WH_ADMIN' || lastAdminRole === 'MAIN_WH_ADMIN'
+                  ? MAIN_WAREHOUSE_SCOPE
+                  : SUB_WAREHOUSE_SCOPE
+              }
+              can={warehouseCan}
+              channel={channelForRoute(screen)}
+              // Only reuse the selection if it belongs to this route's channel.
+              order={selectedChannelOrder?.channel === channelForRoute(screen) ? selectedChannelOrder : undefined}
+              onBack={goBack}
+              onNavigate={(next, nextParams) => navigate(next as ScreenName, nextParams)}
+              onViewInvoice={(invoiceId) => navigate('SubWarehouseInvoiceDetail', { invoiceId })}
+              onViewStatus={(orderId) => {
+                setSelectedStatusOrderId(orderId);
+                navigate('SubWarehouseOrderStatusHistory');
+              }}
+            />
+          ) : screen === 'SubWarehouseOrderStatusHistory' ? (
+            <OrderStatusHistoryScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              orderId={selectedStatusOrderId || (params?.orderId as string) || 'ORD-1024'}
+              onNavigate={(nextScreen) => navigate(nextScreen as ScreenName)}
+              onBack={goBack}
+            />
+          ) : PROFILE_ROUTE_ENTRY[screen] !== undefined ? (
+            // The account screens live in the shared warehouse/profile-settings area
+            // (W4); 'SubWarehouseSettings' opens the hub, 'SubWarehouseHelpSupport'
+            // the help centre, 'SubWarehouseProfile' / 'SubWarehouseStorageInfo' / ...
+            // the warehouse-facing screens (part B; a location's detail stays here).
+            // Report an issue is offered by the screen only with
+            // support.ticket.create_own (none for warehouse admins today).
+            <ProfileFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={PROFILE_ROUTE_ENTRY[screen]}
+              onBack={goBack}
+              onLogout={() => signOutTo('Login')}
+              onReportIssue={() => navigate('SubWarehouseReportIssue')}
+              onSelectStorageLocation={(id) => navigate('SubWarehouseStorageLocationDetail', { locationId: id })}
+              onTabChange={openWarehouseTab}
+            />
+          ) : screen === 'WarehouseMore' ? (
+            <MoreScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              onBack={goBack}
+              onNavigateToDashboard={() => navigate('SubWarehouseAdminDashboard')}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onNavigateToCustomers={() => navigate('SubWarehouseCustomerList')}
+              // Wallet and Profile rows: same targets as the Sub shell's More tab
+              // (they only showed an "Opening ..." alert here before).
+              onNavigateToWallet={() => navigate('WarehouseWalletOperations')}
+              onNavigateToProfile={() => navigate('SubWarehouseProfile')}
+              onNavigateToBilling={() => navigate('SubWarehouseBillingHub')}
+              onNavigateToOrders={() => navigate('SubWarehouseCustomerOrders')}
+              onNavigateToSales={() => navigate('SubWarehouseSales')}
+              onNavigateToReturns={() => navigate('SubWarehouseReturnsIssues')}
+              onNavigateToReturnHistory={() => navigate('SubWarehouseReturnHistory')}
+              onNavigateToFinance={() => navigate('SubWarehouseFinance')}
+              onNavigateToReports={() => navigate('SubWarehouseReports')}
+              onNavigateToStaff={() => navigate('SubWarehouseStaff')}
+              onNavigateToAttendance={() => navigate('SubWarehouseAttendance')}
+              onNavigateToWarehouseOperations={() => navigate('SubWarehouseWarehouseOperations')}
+              onNavigateToStorageLocations={() => navigate('SubWarehouseStorageInfo')}
+              onNavigateToSettings={() => navigate('SubWarehouseSettings')}
+              onLogout={() => signOutTo('Login')}
+            />
+          ) : CUSTOMERS_ROUTE_ENTRY[screen] !== undefined ? (
+            // The customer screens live in the shared warehouse/customers area (W4);
+            // each old 'SubWarehouseXxx' key opens CustomersFlow on the matching route.
+            // Wallet, cash top-up, new sale, order detail and RMA stay App routes.
+            <CustomersFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={CUSTOMERS_ROUTE_ENTRY[screen]}
+              initialParams={customersParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onOpenExternal={(target: CustomersExternalRoute, p: CustomersRouteParams) => {
+                const customerName = p.customer?.name;
+                const customerCode = p.customer?.code ?? p.customer?.id;
+                if (target === 'CustomerWallet') {
+                  navigate('SubWarehouseCustomerWallet', {
+                    customerName,
+                    name: customerName,
+                    id: customerCode,
+                    customerId: customerCode,
+                    mobile: p.customer?.phone,
+                    balance: p.customer?.walletBalance,
+                  });
+                } else if (target === 'CashTopUp') {
+                  navigate('SubWarehouseCashTopUp', {
+                    customerName,
+                    customerCode,
+                    currentBalance: p.customer?.walletBalance,
+                  });
+                } else if (target === 'NewSale') {
+                  navigate('SubWarehouseNewSale', { customerName });
+                } else if (target === 'OrderDetail') {
+                  navigate('SubWarehouseOrderDetail', {
+                    orderNo: p.order?.orderNo ?? p.orderNo,
+                    orderStatus: p.order?.status,
+                    orderItems: p.order?.items,
+                    orderPrice: p.order?.price,
+                    orderDate: p.order?.date,
+                    orderType: p.order?.type,
+                    customerName,
+                  });
+                } else if (target === 'RmaDetail') {
+                  navigate('SubWarehouseReturnsIssues');
+                }
+              }}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ) : screen === 'WarehouseCustomerSearch' ? (
+            <CustomerSearchScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              onBack={goBack}
+              onNavigateToWallet={(cust) => {
+                navigate('SubWarehouseCustomerWallet', {
+                  customerName: cust.name,
+                  name: cust.name,
+                  id: cust.code,
+                  customerId: cust.code,
+                  mobile: cust.phone || '+91 98765 43210',
+                  balance: cust.balance,
+                });
+              }}
+              onSelectCustomer={(custOrName: any, id?: string) => {
+                if (typeof custOrName === 'string') {
+                  navigate('SubWarehouseCustomerDetail', { customerName: custOrName, customerId: id });
+                } else {
+                  navigate('SubWarehouseCustomerWallet', {
+                    customerName: custOrName.name,
+                    name: custOrName.name,
+                    id: custOrName.code,
+                    customerId: custOrName.code,
+                    mobile: custOrName.phone || '+91 98765 43210',
+                    balance: custOrName.balance,
+                  });
+                }
+              }}
+              onNavigateToCashTopUp={(cust) =>
+                navigate('SubWarehouseCashTopUp', cust ? {
+                  customerName: cust.name,
+                  customerCode: cust.code,
+                  currentBalance: cust.balance,
+                } : undefined)
+              }
+            />
+          ) : FINANCE_ROUTE_ENTRY[screen] !== undefined ? (
+            // The finance screens live in the shared warehouse/finance-expenses area
+            // (W4); each old finance key opens FinanceFlow on the matching route.
+            <FinanceFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={FINANCE_ROUTE_ENTRY[screen]}
+              initialParams={financeParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onOpenWallet={() => navigate('WarehouseWalletOperations')}
+              onNavigateToCustomerOrders={() => navigate('SubWarehouseCustomerOrders')}
+              onNavigateToInvoiceList={() => navigate('SubWarehouseInvoiceList')}
+            />
+          ) : WALLET_ROUTE_ENTRY[screen] !== undefined ? (
+            // The wallet & cash top-up screens live in the shared warehouse/wallet-cashtopup
+            // area (W4); each old wallet key opens WalletFlow on the matching route.
+            <WalletFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={WALLET_ROUTE_ENTRY[screen]}
+              initialParams={walletParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+              onNavigateToProfile={() => navigate('SubWarehouseProfile')}
+            />
+          ) : BILLING_ROUTE_ENTRY[screen] !== undefined ? (
+            // The billing & invoice screens live in the shared warehouse/billing-invoices
+            // area (W4); each old 'SubWarehouseXxx' key opens BillingFlow on the matching route.
+            <BillingFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={BILLING_ROUTE_ENTRY[screen]}
+              initialParams={billingParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ) : screen === 'SubWarehouseTaskActionCenter' || screen === 'SubWarehouseTaskDetail' ? (
+            // Shared task screens through HomeFlow (W4): the list opens Task Details inside the
+            // flow; an order task hands its order id to the Sub order detail. No task rbac code (ungated).
+            <HomeFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={screen === 'SubWarehouseTaskDetail' ? 'TaskDetail' : 'TaskActionCenter'}
+              initialParams={screen === 'SubWarehouseTaskDetail' ? { id: (params['taskId'] as string | undefined) ?? 'TSK-001' } : undefined}
+              onBack={goBack}
+              onOpenTarget={(target, ref) => {
+                if (target === 'OrderDetail') navigate('SubWarehouseOrderDetail', ref ? { orderNo: ref } : {});
+              }}
+            />
+          ) : screen === 'SubWarehouseCustomerOrders' || screen === 'SubWarehouseOrders' ? (
+            <OrdersModule
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={(params?.['ordersInitialScreen'] as string) || 'M5S01'}
+              initialParams={params?.['ordersInitialParams'] ?? null}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToOperationalIssues={() => navigate('SubWarehouseReportIssue')}
+            />
+          ) : screen === 'SubWarehouseOrderDetail' ? (
+            <OrdersModule
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen="M5S04"
+              initialParams={{
+                orderId: (params['orderNo'] as string) || 'ORD-00251',
+                customerName: (params['customerName'] as string) || 'Rajesh Kumar',
+              }}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+            />
+          ) : screen === 'SubWarehouseGoodsReceiptDetail' ? (
+            // SubWarehouseGoodsReceiptDetailScreen was absorbed by the shared receipt detail (W4 receiving-qc).
+            <ReceivingHistoryDetailScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              receiptId={ALERT_RECEIPT_ID}
+              onBack={goBack}
+              onTakeAction={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving' })}
+            />
+          ) : RETURNS_ROUTE_ENTRY[screen] !== undefined ? (
+            // The RMA screens live in the shared warehouse/returns-rma area (W4);
+            // each old 'SubWarehouseXxx' key opens ReturnsFlow on the matching route.
+            <ReturnsFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={RETURNS_ROUTE_ENTRY[screen]}
+              initialParams={params}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ) : STAFF_ROUTE_ENTRY[screen] !== undefined ? (
+            // The staff & attendance screens live in the shared warehouse/staff-attendance
+            // area (W4); each old key opens StaffFlow on the matching route.
+            <StaffFlow
+              scope={
                 params?.['adminRole'] === 'MAIN_WH_ADMIN' ||
-                lastAdminRole === 'MAIN_WH_ADMIN' ||
-                adminShell === 'MAIN_WH_ADMIN' ||
-                screen.startsWith('MainWarehouse');
-              navigate(isMain ? 'MainWarehouseAdminDashboard' : 'SubWarehouseAdminDashboard', {
-                showOrders: true,
-                initialTab: 'Home',
-                ordersInitialScreen: isMain ? 'M5S01' : 'M5S02',
-                ordersInitialParams: { fulfillment: 'Delivery' },
-              });
-            }}
-          />
-        ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
-          // The storage-ops screens live in the shared warehouse/storage-ops area
-          // (W4, M4 parts A and B); each old key opens StorageFlow on the matching route.
-          <StorageFlow
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
-            initialParams={storageParams}
-            onBack={() => goBack(STORAGE_ROUTE_ENTRY[screen]?.back)}
-            onOpenNotifications={() => navigate('SubWarehouseNotifications')}
-            onSupportRequestDone={() => navigate('SubWarehouseSettings')}
-            onOpenModule={openSubWarehouseModule}
-            onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
-            onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
-            onTabChange={(tab) => {
-              if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
-              else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
-              else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
-              // More from the hub itself returns to the dashboard's More tab, as the old hub did.
-              else if (tab === 'More')
-                navigate(screen === 'SubWarehouseWarehouseOperations' ? 'SubWarehouseAdminDashboard' : 'SubWarehouseWarehouseOperations', screen === 'SubWarehouseWarehouseOperations' ? { initialTab: 'More' } : {});
-            }}
-          />
-        ) : screen === 'SubWarehouseReports' ? (
-          <ReportsScreen
-            scope={SUB_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            canExport={warehouseCan('report.export.file')}
-            onBack={goBack}
-            onTabChange={openWarehouseTab}
-            onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
-          />
-        ) : screen === 'WarehouseOverview' ? (
-          // Main-only warehouse-admin flow (W4): overview -> city detail ->
-          // settings / capacity / performance / documents, overview -> manage SWAs.
-          // Route-guarded on warehouse.all.view (Manage SWAs: admin.sub_wh_admin.create).
-          // Comparison opens the consolidated stock ledger, as the old tile fallback did.
-          <WarehouseAdminFlow
-            scope={MAIN_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            onBack={goBack}
-            onNavigateComparison={() => navigate('StockLedger')}
-          />
-        ) : screen === 'StockLedger' ||
-          screen === 'VerifyStock' ||
-          screen === 'StockAdjustmentApproval' ||
-          screen === 'LowStockAlerts' ? (
-          // The Main-only inventory screens were folded into the shared
-          // warehouse/inventory area; the old keys open the flow on the survivor.
-          <InventoryFlow
-            scope={MAIN_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={INVENTORY_ROUTE_ENTRY[screen]}
-            initialParams={params}
-            onBack={goBack}
-            onInitiateTransfer={() => navigate('InterWarehouseTransfer')}
-          />
-        ) : screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer' ? (
-          // Shared transfers flow (W4). The key is reached from the Main
-          // inventory flow and from a Sub transfer alert; the Sub entries pass
-          // { transferScope: 'sub' } so the list shows only incoming transfers.
-          // Initiate is refused by the flow without transfer.inter_warehouse.initiate.
-          <TransfersFlow
-            scope={params['transferScope'] === 'sub' ? SUB_WAREHOUSE_SCOPE : MAIN_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen={screen === 'InitiateNewTransfer' ? 'InitiateNewTransfer' : 'Transfers'}
-            onBack={goBack}
-          />
-        ) : screen === 'WarehouseSettings' ? (
-          // Main-only warehouse settings now live in the shared profile-settings
-          // area; ProfileFlow opens them for the Main scope (the screen is
-          // route-guarded on warehouse.capacity.set).
-          <ProfileFlow
-            scope={MAIN_WAREHOUSE_SCOPE}
-            can={warehouseCan}
-            initialScreen="WarehouseSettings"
-            onBack={goBack}
-          />
-        ) : screen === 'SalesChannelOverview' ? (
-          <SalesChannelOverviewScreen
-            onBack={goBack}
-            onSelectChannel={(channel) => {
-              if (channel === 'online') navigate('SalesOnlineOrders');
-              else if (channel === 'market') navigate('SalesMarketDay');
-              else if (channel === 'horeca') navigate('SalesHorecaOrders');
-              else if (channel === 'b2b') navigate('SalesB2BOrders');
-            }}
-            onOpenFulfillment={() => navigate('SalesFulfillmentAssignment')}
-            onOpenReturns={() => navigate('SalesReturnsRefunds')}
-          />
-        ) : screen === 'SalesOnlineOrders' ? (
-          <SalesOnlineOrdersScreen
-            onBack={goBack}
-            onSelectOrder={(ord) => {
-              setSelectedSalesOrder(ord);
-              navigate('SalesFulfillmentAssignment');
-            }}
-            onOpenInvoice={(ord) => {
-              setSelectedSalesOrder(ord);
-              navigate('SalesInvoice');
-            }}
-          />
-        ) : screen === 'SalesMarketDay' ? (
-          <SalesMarketDayScreen onBack={goBack} />
-        ) : screen === 'SalesHorecaOrders' ? (
-          <SalesHorecaOrdersScreen onBack={goBack} />
-        ) : screen === 'SalesB2BOrders' ? (
-          <SalesB2BOrdersScreen
-            onBack={goBack}
-            onOpenInvoice={(acc) => {
-              setSelectedSalesB2B(acc);
-              navigate('SalesInvoice');
-            }}
-          />
-        ) : screen === 'SalesFulfillmentAssignment' ? (
-          <SalesFulfillmentAssignmentScreen
-            onBack={goBack}
-            orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
-            customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
-            onNavigateToInvoice={() => navigate('SalesInvoice')}
-          />
-        ) : screen === 'SalesInvoice' ? (
-          <SalesInvoiceScreen
-            onBack={goBack}
-            orderNumber={
-              selectedSalesOrder?.orderNumber ??
-              (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
-            }
-            customerName={
-              selectedSalesOrder?.customerName ??
-              (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
-            }
-          />
-        ) : screen === 'SalesReturnsRefunds' ? (
-          <SalesReturnsRefundsScreen onBack={goBack} />
-        ) : screen === 'FinancialDashboard' ? (
-          <FinancialDashboardScreen
-            onBack={goBack}
-            onNavigate={(s) => navigate(s as ScreenName)}
-          />
-        ) : screen === 'ScheduleAudit' ? (
-          <FinancialDashboardScreen
-            title="Schedule Audit"
-            subtitle="Platform-wide audit schedule & compliance overview · September 2026"
-            onBack={goBack}
-            onNavigate={(s) => navigate(s as ScreenName)}
-          />
-        ) : screen === 'AdminSupport' ? (
-          <AdminSupportScreen onBack={goBack} />
-        ) : screen === 'ReportBuilder' ? (
-          <ReportBuilderScreen onBack={goBack} />
-        ) : screen === 'PLStatement' ? (
-          <PLStatementScreen
-            onBack={goBack}
-          />
-        ) : screen === 'FarmerPayoutDues' ? (
-          <FarmerPayoutDuesScreen
-            onBack={goBack}
-            onNavigateToProcessing={(due) => {
-              if (due) setSelectedPayoutDue(due);
-              navigate('PayoutProcessing');
-            }}
-          />
-        ) : screen === 'PayoutProcessing' ? (
-          <PayoutProcessingScreen
-            onBack={goBack}
-            payoutAmount={selectedPayoutDue?.amount ?? 15400}
-            farmerName={selectedPayoutDue?.farmerName ?? 'Ramasamy S.'}
-            farmerId={selectedPayoutDue?.farmId ?? '#TOHFA-F-00189'}
-            zone={selectedPayoutDue?.location ?? 'Coonoor'}
-            onApprovedSuccess={goBack}
-          />
-        ) : screen === 'Expenses' ? (
-          <ExpensesScreen
-            onBack={goBack}
-            onNavigateToAddExpense={() => navigate('AddExpense')}
-          />
-        ) : screen === 'AddExpense' ? (
-          <AddExpenseScreen
-            onBack={goBack}
-            onSuccess={goBack}
-          />
-        ) : screen === 'GSTAccounting' ? (
-          <GSTAccountingScreen
-            onBack={goBack}
-            onNavigateToReport={() => navigate('GSTFilingReportDetail')}
-            onNavigateToLedger={() => navigate('BasicAccountingLedger')}
-          />
-        ) : screen === 'GSTFilingReportDetail' ? (
-          <GSTFilingReportDetailScreen
-            onBack={goBack}
-          />
-        ) : screen === 'BasicAccountingLedger' ? (
-          <BasicAccountingLedgerScreen
-            onBack={goBack}
-            onNavigateToAddEntry={() => navigate('AddManualJournalEntry')}
-          />
-        ) : screen === 'AddManualJournalEntry' ? (
-          <AddManualJournalEntryScreen
-            onBack={goBack}
-            onSuccess={goBack}
-          />
-        ) : screen === 'AuditCalendar' ? (
-          <AuditCalendarScreen
-            onBack={goBack}
-            onAddAudit={() => navigate('ScheduleNewAudit')}
-            onSelectAudit={(entry) => {
-              setSelectedAuditEntry(entry);
-              navigate('AuditInspection');
-            }}
-            onBulkReschedule={() => navigate('BulkRescheduleAudits')}
-            onResolveCompliance={() => navigate('ComplianceAlertResolution')}
-          />
-        ) : screen === 'ScheduleNewAudit' ? (
-          <ScheduleNewAuditScreen
-            onBack={goBack}
-            onSuccess={() => navigate('AuditCalendar')}
-          />
-        ) : screen === 'AuditInspection' ? (
-          <AuditInspectionScreen
-            onBack={goBack}
-            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
-            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
-            zone={selectedAuditEntry?.location ?? 'Ooty'}
-            onSubmitted={(data: AuditReportData) => {
-              setAuditReportData(data);
-              navigate('AuditReport');
-            }}
-          />
-        ) : screen === 'AuditReport' ? (
-          <AuditReportScreen
-            onBack={goBack}
-            report={auditReportData}
-            onNavigateToPdfPreview={() => navigate('AuditPdfPreview')}
-            onNavigateToAuditHistory={() => navigate('FarmerAuditHistory')}
-          />
-        ) : screen === 'FarmerAuditHistory' ? (
-          <FarmerAuditHistoryScreen
-            onBack={goBack}
-            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
-            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
-            zone={selectedAuditEntry?.location ?? 'Ooty'}
-            onSelectAuditRecord={(record: any) => {
-              setSelectedAuditHistoryRecord(record);
-              navigate('AuditDetailRecord');
-            }}
-          />
-        ) : screen === 'AuditDetailRecord' ? (
-          <AuditDetailRecordScreen
-            onBack={goBack}
-            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
-            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
-            record={selectedAuditHistoryRecord}
-          />
-        ) : screen === 'BulkRescheduleAudits' ? (
-          <BulkRescheduleAuditsScreen
-            onBack={goBack}
-            onSuccess={() => navigate('AuditCalendar')}
-          />
-        ) : screen === 'AuditPdfPreview' ? (
-          <AuditPdfPreviewScreen
-            onBack={goBack}
-            farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
-            farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
-            score={auditReportData?.totalScore ?? 86}
-          />
-        ) : screen === 'ComplianceAlertResolution' ? (
-          <ComplianceAlertResolutionScreen
-            onBack={goBack}
-            onSuccess={() => navigate('AuditCalendar')}
-          />
-        ) : screen === 'AdminAllFarmers' ? (
-          <AdminAllFarmersScreen
-            onBack={goBack}
-            initialTab={(params?.['initialTab'] as any) ?? 'farmers'}
-            onNavigateTab={(tab) => {
-              if (tab === 'Dashboard') {
-                navigate('TohfaAdminDashboard');
-              } else if (tab === 'Sales') {
-                navigate('SalesChannelOverview');
-              } else if (tab === 'Reports') {
-                navigate('ReportBuilder');
-              } else if (tab === 'Profile') {
-                navigate('TohfaAdminDashboard', { initialTab: 'Profile' });
+                  lastAdminRole === 'MAIN_WH_ADMIN' ||
+                  adminShell === 'MAIN_WH_ADMIN' ||
+                  screen.startsWith('MainWarehouse')
+                  ? MAIN_WAREHOUSE_SCOPE
+                  : SUB_WAREHOUSE_SCOPE
               }
-            }}
-            onSelectFarmer={(f) => {
-              setSelectedAdminFarmer(f);
-              setAdminFarmerActiveTab('Overview');
-              navigate('AdminFarmerDetail');
-            }}
-            onReviewApplication={(app) => {
-              setSelectedPendingApp(app as any);
-              navigate('AdminApplicationDetail');
-            }}
-          />
-        ) : screen === 'AdminFarmerDetail' ? (
-          <AdminFarmerDetailScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            initialTab={adminFarmerActiveTab}
-            onTabChange={setAdminFarmerActiveTab}
-            onBack={goBack}
-            onEdit={(tab) => {
-              setAdminFarmerActiveTab(tab);
-              navigate('AdminEditFarmer');
-            }}
-            onOpenFarmMap={() => {
-              setAdminFarmerActiveTab('Farm');
-              navigate('AdminFarmMap');
-            }}
-            onOpenRatingScorecard={() => {
-              setAdminFarmerActiveTab('Ratings');
-              navigate('AdminRatingScorecard');
-            }}
-            onOpenKycReview={() => {
-              setAdminFarmerActiveTab('KYC');
-              navigate('AdminKycReview');
-            }}
-          />
-        ) : screen === 'AdminEditFarmer' ? (
-          <AdminEditFarmerScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            initialTab={adminFarmerActiveTab}
-            onBack={goBack}
-            onSave={(updated, tab) => {
-              setSelectedAdminFarmer(updated);
-              setAdminFarmerActiveTab(tab);
-              setToast({
-                type: 'approve',
-                title: 'Changes Saved',
-                message: `${tab} details for ${updated.name} updated successfully.`,
-              });
-              goBack();
-            }}
-            onNavigateToEditCategories={() => navigate('AdminEditRatingCategories')}
-          />
-        ) : screen === 'AdminEditRatingCategories' ? (
-          <AdminEditRatingCategoriesScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onSave={(score, tier) => {
-              if (selectedAdminFarmer) {
-                setSelectedAdminFarmer({
-                  ...selectedAdminFarmer,
-                  rating: score,
-                  ratingTier: tier,
+              can={warehouseCan}
+              initialScreen={STAFF_ROUTE_ENTRY[screen]?.route}
+              initialParams={staffParams}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onAssignDelivery={() => {
+                const isMain =
+                  params?.['adminRole'] === 'MAIN_WH_ADMIN' ||
+                  lastAdminRole === 'MAIN_WH_ADMIN' ||
+                  adminShell === 'MAIN_WH_ADMIN' ||
+                  screen.startsWith('MainWarehouse');
+                navigate(isMain ? 'MainWarehouseAdminDashboard' : 'SubWarehouseAdminDashboard', {
+                  showOrders: true,
+                  initialTab: 'Home',
+                  ordersInitialScreen: isMain ? 'M5S01' : 'M5S02',
+                  ordersInitialParams: { fulfillment: 'Delivery' },
                 });
+              }}
+            />
+          ) : STORAGE_ROUTE_ENTRY[screen] !== undefined ? (
+            // The storage-ops screens live in the shared warehouse/storage-ops area
+            // (W4, M4 parts A and B); each old key opens StorageFlow on the matching route.
+            <StorageFlow
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={STORAGE_ROUTE_ENTRY[screen]?.route}
+              initialParams={storageParams}
+              onBack={() => goBack(STORAGE_ROUTE_ENTRY[screen]?.back)}
+              onOpenNotifications={() => navigate('SubWarehouseNotifications')}
+              onSupportRequestDone={() => navigate('SubWarehouseSettings')}
+              onOpenModule={openSubWarehouseModule}
+              onViewStock={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
+              onViewProductDetail={() => navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S02' })}
+              onTabChange={(tab) => {
+                if (tab === 'Home') navigate('SubWarehouseAdminDashboard', { initialTab: 'Home' });
+                else if (tab === 'Receiving') navigate('SubWarehouseAdminDashboard', { initialTab: 'Receiving', initialReceivingSubView: 'incoming_shipments' });
+                else if (tab === 'Inventory') navigate('SubWarehouseAdminDashboard', { initialTab: 'Inventory', initialInventoryScreen: 'M3S01' });
+                // More from the hub itself returns to the dashboard's More tab, as the old hub did.
+                else if (tab === 'More')
+                  navigate(screen === 'SubWarehouseWarehouseOperations' ? 'SubWarehouseAdminDashboard' : 'SubWarehouseWarehouseOperations', screen === 'SubWarehouseWarehouseOperations' ? { initialTab: 'More' } : {});
+              }}
+            />
+          ) : screen === 'SubWarehouseReports' ? (
+            <ReportsScreen
+              scope={SUB_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              canExport={warehouseCan('report.export.file')}
+              onBack={goBack}
+              onTabChange={openWarehouseTab}
+              onNavigateToNotifications={() => navigate('SubWarehouseNotifications')}
+            />
+          ) : screen === 'WarehouseOverview' ? (
+            // Main-only warehouse-admin flow (W4): overview -> city detail ->
+            // settings / capacity / performance / documents, overview -> manage SWAs.
+            // Route-guarded on warehouse.all.view (Manage SWAs: admin.sub_wh_admin.create).
+            // Comparison opens the consolidated stock ledger, as the old tile fallback did.
+            <WarehouseAdminFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              onBack={goBack}
+              onNavigateComparison={() => navigate('StockLedger')}
+            />
+          ) : screen === 'StockLedger' ||
+            screen === 'VerifyStock' ||
+            screen === 'StockAdjustmentApproval' ||
+            screen === 'LowStockAlerts' ? (
+            // The Main-only inventory screens were folded into the shared
+            // warehouse/inventory area; the old keys open the flow on the survivor.
+            <InventoryFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={INVENTORY_ROUTE_ENTRY[screen]}
+              initialParams={params}
+              onBack={goBack}
+              onInitiateTransfer={() => navigate('InterWarehouseTransfer')}
+            />
+          ) : screen === 'InterWarehouseTransfer' || screen === 'InitiateNewTransfer' ? (
+            // Shared transfers flow (W4). The key is reached from the Main
+            // inventory flow and from a Sub transfer alert; the Sub entries pass
+            // {transferScope: 'sub' } so the list shows only incoming transfers.
+            // Initiate is refused by the flow without transfer.inter_warehouse.initiate.
+            <TransfersFlow
+              scope={params['transferScope'] === 'sub' ? SUB_WAREHOUSE_SCOPE : MAIN_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen={screen === 'InitiateNewTransfer' ? 'InitiateNewTransfer' : 'Transfers'}
+              onBack={goBack}
+            />
+          ) : screen === 'WarehouseSettings' ? (
+            // Main-only warehouse settings now live in the shared profile-settings
+            // area; ProfileFlow opens them for the Main scope (the screen is
+            // route-guarded on warehouse.capacity.set).
+            <ProfileFlow
+              scope={MAIN_WAREHOUSE_SCOPE}
+              can={warehouseCan}
+              initialScreen="WarehouseSettings"
+              onBack={goBack}
+            />
+          ) : screen === 'SalesChannelOverview' ? (
+            <SalesChannelOverviewScreen
+              onBack={goBack}
+              onSelectChannel={(channel) => {
+                if (channel === 'online') navigate('SalesOnlineOrders');
+                else if (channel === 'market') navigate('SalesMarketDay');
+                else if (channel === 'horeca') navigate('SalesHorecaOrders');
+                else if (channel === 'b2b') navigate('SalesB2BOrders');
+              }}
+              onOpenFulfillment={() => navigate('SalesFulfillmentAssignment')}
+              onOpenReturns={() => navigate('SalesReturnsRefunds')}
+            />
+          ) : screen === 'SalesOnlineOrders' ? (
+            <SalesOnlineOrdersScreen
+              onBack={goBack}
+              onSelectOrder={(ord) => {
+                setSelectedSalesOrder(ord);
+                navigate('SalesFulfillmentAssignment');
+              }}
+              onOpenInvoice={(ord) => {
+                setSelectedSalesOrder(ord);
+                navigate('SalesInvoice');
+              }}
+            />
+          ) : screen === 'SalesMarketDay' ? (
+            <SalesMarketDayScreen onBack={goBack} />
+          ) : screen === 'SalesHorecaOrders' ? (
+            <SalesHorecaOrdersScreen onBack={goBack} />
+          ) : screen === 'SalesB2BOrders' ? (
+            <SalesB2BOrdersScreen
+              onBack={goBack}
+              onOpenInvoice={(acc) => {
+                setSelectedSalesB2B(acc);
+                navigate('SalesInvoice');
+              }}
+            />
+          ) : screen === 'SalesFulfillmentAssignment' ? (
+            <SalesFulfillmentAssignmentScreen
+              onBack={goBack}
+              orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
+              customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
+              onNavigateToInvoice={() => navigate('SalesInvoice')}
+            />
+          ) : screen === 'SalesInvoice' ? (
+            <SalesInvoiceScreen
+              onBack={goBack}
+              orderNumber={
+                selectedSalesOrder?.orderNumber ??
+                (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
               }
-              goBack();
-            }}
-          />
-        ) : screen === 'AdminFarmMap' ? (
-          <AdminFarmMapScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-          />
-        ) : screen === 'AdminRatingScorecard' ? (
-          <AdminRatingScorecardScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
-            onEditCategories={() => navigate('AdminEditRatingCategories')}
-          />
-        ) : screen === 'AdminComplianceTiers' ? (
-          <AdminComplianceTiersScreen
-            onBack={goBack}
-          />
-        ) : screen === 'AdminKycReview' ? (
-          <AdminKycReviewScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
-          />
-        ) : screen === 'AdminCertVerification' ? (
-          <AdminCertVerificationScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onVerified={goBack}
-            onUnverified={goBack}
-          />
-        ) : screen === 'AdminPendingApplications' ? (
-          <AdminPendingApplicationsScreen
-            onBack={goBack}
-            onSelectApplication={(item) => {
-              setSelectedPendingApp(item);
-              navigate('AdminApplicationDetail');
-            }}
-          />
-        ) : screen === 'AdminApplicationDetail' ? (
-          <AdminApplicationDetailScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            can={() => true}
-            role="TOHFA_ADMIN"
-            onBack={goBack}
-            onApprove={(updatedApp) => {
-              if (updatedApp) {
-                setSelectedPendingApp(updatedApp as any);
+              customerName={
+                selectedSalesOrder?.customerName ??
+                (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
               }
-            }}
-            onReject={() => navigate('AdminApplicationReject')}
-            onRequestMoreInfo={() => navigate('AdminApplicationRequestInfo')}
-          />
-        ) : screen === 'AdminApplicationApprove' ? (
-          <AdminApplicationDetailScreen
-            application={{
-              ...(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!),
-              status: 'Approved',
-              approvedDate: '10 Oct 2026',
-              reviewNotes: 'All requirements met. Ready for approval.',
-            }}
-            can={() => true}
-            role="TOHFA_ADMIN"
-            onBack={goBack}
-          />
-        ) : screen === 'AdminApplicationReject' ? (
-          <AdminApplicationRejectScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onConfirmReject={(reason) => {
-              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
-              setToast({
-                type: 'reject',
-                title: 'Application Rejected',
-                message: `Notice sent to ${app.name}: ${reason}`,
-              });
-              goBack();
-            }}
-          />
-        ) : screen === 'AdminApplicationRequestInfo' ? (
-          <AdminApplicationRequestInfoScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onConfirmRequest={() => {
-              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
-              setToast({
-                type: 'info_request',
-                title: 'Info Request Sent',
-                message: `Checklist sent to ${app.name} via SMS and notification.`,
-              });
-              goBack();
-            }}
-          />
-        ) : screen === 'MarketPricingHome' ? (
-          <MarketPricingHomeScreen
-            onBack={goBack}
-            onNavigateToFairPrice={() => navigate('FairPriceCeiling')}
-            onNavigateToMarketDay={() => navigate('MarketDaySchedule')}
-            onNavigateToListingApproval={() => navigate('ListingApprovalQueue')}
-          />
-        ) : screen === 'FairPriceCeiling' ? (
-          <FairPriceCeilingScreen
-            onBack={goBack}
-            onUpdatePrice={(item) => navigate('UpdateFairPrice')}
-            onBulkUpdate={() => navigate('BulkPriceUpdate')}
-            onViewHistory={(item) => navigate('PriceHistory')}
-          />
-        ) : screen === 'UpdateFairPrice' ? (
-          <UpdateFairPriceScreen
-            onBack={goBack}
-            onSave={(newPrice) => {
-              // Save logic here
-              goBack();
-            }}
-          />
-        ) : screen === 'BulkPriceUpdate' ? (
-          <BulkPriceUpdateScreen
-            onBack={goBack}
-          />
-        ) : screen === 'PriceHistory' ? (
-          <PriceHistoryScreen
-            onBack={goBack}
-          />
-        ) : screen === 'MarketDaySchedule' ? (
-          <MarketDayScheduleScreen
-            onBack={goBack}
-            onAddMarketDay={() => navigate('AddMarketDay')}
-            onToggle={(id, value) => {
-              // Handle toggle
-            }}
-            days={marketDays ?? MOCK_DAYS ?? []}
-            onDaysChange={(updatedDays) => {
-              // Handle days change
-            }}
-          />
-        ) : screen === 'AddMarketDay' ? (
-          <AddMarketDayScreen
-            onBack={goBack}
-            onSave={(marketDay) => {
-              // Save market day logic here
-              navigate('MarketDaySchedule');
-            }}
-          />
-        ) : screen === 'ListingApprovalQueue' ? (
-          <ListingApprovalQueueScreen
-            onBack={goBack}
-            onApprove={(id) => {
-              // Handle approve
-            }}
-            onCounter={(id) => {
-              // Handle counter
-            }}
-            onReject={(id) => {
-              // Handle reject
-            }}
-          />
-        ) : screen === 'CustomerMain' ? (
-          <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
-        ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
-          // 'AdminMain' reaches here only when adminShell is null (an unknown or
-          // missing role): fail closed with the unsupported-account message and
-          // its sign-out, never an admin shell.
-          <View style={styles.unsupportedContainer}>
-            <Icon name="block" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
-            <Text style={styles.unsupportedText}>{t('farmer.app.unsupportedRole')}</Text>
-            <Text style={{ fontSize: typography.caption, color: colors.textMuted, textAlign: 'center', marginTop: 10, marginBottom: 24, paddingHorizontal: 20 }}>
-              This mobile application is built for Farmers and Customers. Administrative and Warehouse accounts operate through the Web Admin Portal.
-            </Text>
-            <Pressable
-              style={({ pressed }) => [
-                {
-                  backgroundColor: pressed ? colors.primaryPressed : colors.primary,
-                  paddingHorizontal: 28,
-                  paddingVertical: 14,
-                  borderRadius: 12,
-                  elevation: 2,
-                },
-              ]}
-              onPress={() => signOutTo('Welcome')}
-            >
-              <Text style={{ color: colors.white, fontWeight: '700', fontSize: typography.body }}>
-                Sign Out & Return to Login
-              </Text>
-            </Pressable>
-          </View>
-        ) : screen === 'Certifications' ? (
-          <CertificationsScreen
-            onBack={goBack}
-            onNavigateToAddCertification={() => navigate('AddCertification')}
-            onNavigateToEditCertification={(certification) => {
-              setSelectedCertification(certification);
-              navigate('EditCertification');
-            }}
-          />
-        ) : screen === 'AddCertification' ? (
-          <AddCertificationScreen
-            onSuccess={goBack}
-            onCancel={goBack}
-          />
-        ) : screen === 'EditCertification' && selectedCertification ? (
-          <EditCertificationScreen
-            certification={selectedCertification}
-            onCancel={() => navigate('Certifications')}
-            // The screen has already saved / deleted through the API; the list reloads on mount.
-            onSaved={() => navigate('Certifications')}
-            onDeleted={() => navigate('Certifications')}
-          />
-        ) : screen === 'CreateListing' ? (
-          <CreateListingScreen
-            onCancel={goBack}
-            onNext={(crop) => {
-              setListingDraftCrop(crop);
-              navigate('CreateListingStep2');
-            }}
-          />
-        ) : screen === 'CreateListingStep2' ? (
-          <CreateListingStep2Screen
-            crop={listingDraftCrop}
-            onCancel={goBack}
-            onBack={goBack}
-            onSuccess={() => {
-              // Land on My Listings (it fetches on mount, so the new listing is
-              // on it) with the create flow dropped from history: Back goes to
-              // the Marketing tab, not to an emptied step 2. The draft crop is
-              // cleared last so step 2 never re-renders without it.
-              setHistory([{ screen: 'MainTabs', params: {}, tab: 'Listings' }]);
-              setCurrentTab('Listings');
-              setParams({});
-              setScreen('MyListings');
-              setListingDraftCrop(null);
-            }}
-          />
-        ) : screen === 'CounterOffer' ? (
-          <CounterOfferScreen
-            listing={selectedListing}
-            listingId={
-              typeof params['listingId'] === 'string' ? params['listingId'] : selectedListing?.id
-            }
-            // The screen we return to re-fetches on mount, so it shows the new
-            // status. selectedListing is left as-is (the next open overwrites it):
-            // clearing it here would re-render this screen as "no longer open"
-            // for a frame before the back navigation lands.
-            onSuccess={() => goBack()}
-            onCancel={goBack}
-          />
-        ) : screen === 'ListingDetail' ? (
-          <ListingDetailScreen listing={selectedListing} onBack={goBack} />
-        ) : screen === 'FMBSketch' ? (
-          <FMBSketchScreen
-            onNavigateBack={goBack}
-            onNavigateToFieldContext={(farmId) => navigate('FieldContext', { farmId })}
-          />
-        ) : screen === 'FieldContext' ? (
-          <FieldContextScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onNavigateBack={goBack}
-            onNavigateToZones={(farmId) => {
-              if (params['returnTo'] === 'UploadNewSoilTest' || params['returnTo'] === 'NewSoilTest') {
+            />
+          ) : screen === 'SalesReturnsRefunds' ? (
+            <SalesReturnsRefundsScreen onBack={goBack} />
+          ) : screen === 'FinancialDashboard' ? (
+            <FinancialDashboardScreen
+              onBack={goBack}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : screen === 'ScheduleAudit' ? (
+            <FinancialDashboardScreen
+              title="Schedule Audit"
+              subtitle="Platform-wide audit schedule & compliance overview · September 2026"
+              onBack={goBack}
+              onNavigate={(s) => navigate(s as ScreenName)}
+            />
+          ) : screen === 'AdminSupport' ? (
+            <AdminSupportScreen onBack={goBack} />
+          ) : screen === 'ReportBuilder' ? (
+            <ReportBuilderScreen onBack={goBack} />
+          ) : screen === 'PLStatement' ? (
+            <PLStatementScreen
+              onBack={goBack}
+            />
+          ) : screen === 'FarmerPayoutDues' ? (
+            <FarmerPayoutDuesScreen
+              onBack={goBack}
+              onNavigateToProcessing={(due) => {
+                if (due) setSelectedPayoutDue(due);
+                navigate('PayoutProcessing');
+              }}
+            />
+          ) : screen === 'PayoutProcessing' ? (
+            <PayoutProcessingScreen
+              onBack={goBack}
+              payoutAmount={selectedPayoutDue?.amount ?? 15400}
+              farmerName={selectedPayoutDue?.farmerName ?? 'Ramasamy S.'}
+              farmerId={selectedPayoutDue?.farmId ?? '#TOHFA-F-00189'}
+              zone={selectedPayoutDue?.location ?? 'Coonoor'}
+              onApprovedSuccess={goBack}
+            />
+          ) : screen === 'Expenses' ? (
+            <ExpensesScreen
+              onBack={goBack}
+              onNavigateToAddExpense={() => navigate('AddExpense')}
+            />
+          ) : screen === 'AddExpense' ? (
+            <AddExpenseScreen
+              onBack={goBack}
+              onSuccess={goBack}
+            />
+          ) : screen === 'GSTAccounting' ? (
+            <GSTAccountingScreen
+              onBack={goBack}
+              onNavigateToReport={() => navigate('GSTFilingReportDetail')}
+              onNavigateToLedger={() => navigate('BasicAccountingLedger')}
+            />
+          ) : screen === 'GSTFilingReportDetail' ? (
+            <GSTFilingReportDetailScreen
+              onBack={goBack}
+            />
+          ) : screen === 'BasicAccountingLedger' ? (
+            <BasicAccountingLedgerScreen
+              onBack={goBack}
+              onNavigateToAddEntry={() => navigate('AddManualJournalEntry')}
+            />
+          ) : screen === 'AddManualJournalEntry' ? (
+            <AddManualJournalEntryScreen
+              onBack={goBack}
+              onSuccess={goBack}
+            />
+          ) : screen === 'AuditCalendar' ? (
+            <AuditCalendarScreen
+              onBack={goBack}
+              onAddAudit={() => navigate('ScheduleNewAudit')}
+              onSelectAudit={(entry) => {
+                setSelectedAuditEntry(entry);
+                navigate('AuditInspection');
+              }}
+              onBulkReschedule={() => navigate('BulkRescheduleAudits')}
+              onResolveCompliance={() => navigate('ComplianceAlertResolution')}
+            />
+          ) : screen === 'ScheduleNewAudit' ? (
+            <ScheduleNewAuditScreen
+              onBack={goBack}
+              onSuccess={() => navigate('AuditCalendar')}
+            />
+          ) : screen === 'AuditInspection' ? (
+            <AuditInspectionScreen
+              onBack={goBack}
+              farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+              farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+              zone={selectedAuditEntry?.location ?? 'Ooty'}
+              onSubmitted={(data: AuditReportData) => {
+                setAuditReportData(data);
+                navigate('AuditReport');
+              }}
+            />
+          ) : screen === 'AuditReport' ? (
+            <AuditReportScreen
+              onBack={goBack}
+              report={auditReportData}
+              onNavigateToPdfPreview={() => navigate('AuditPdfPreview')}
+              onNavigateToAuditHistory={() => navigate('FarmerAuditHistory')}
+            />
+          ) : screen === 'FarmerAuditHistory' ? (
+            <FarmerAuditHistoryScreen
+              onBack={goBack}
+              farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+              farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+              zone={selectedAuditEntry?.location ?? 'Ooty'}
+              onSelectAuditRecord={(record: any) => {
+                setSelectedAuditHistoryRecord(record);
+                navigate('AuditDetailRecord');
+              }}
+            />
+          ) : screen === 'AuditDetailRecord' ? (
+            <AuditDetailRecordScreen
+              onBack={goBack}
+              farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+              farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+              record={selectedAuditHistoryRecord}
+            />
+          ) : screen === 'BulkRescheduleAudits' ? (
+            <BulkRescheduleAuditsScreen
+              onBack={goBack}
+              onSuccess={() => navigate('AuditCalendar')}
+            />
+          ) : screen === 'AuditPdfPreview' ? (
+            <AuditPdfPreviewScreen
+              onBack={goBack}
+              farmerName={selectedAuditEntry?.farmerName ?? 'Vijay Anand'}
+              farmId={selectedAuditEntry?.farmId ?? '#TOHFA-F-00234'}
+              score={auditReportData?.totalScore ?? 86}
+            />
+          ) : screen === 'ComplianceAlertResolution' ? (
+            <ComplianceAlertResolutionScreen
+              onBack={goBack}
+              onSuccess={() => navigate('AuditCalendar')}
+            />
+          ) : screen === 'AdminAllFarmers' ? (
+            <AdminAllFarmersScreen
+              onBack={goBack}
+              initialTab={(params?.['initialTab'] as any) ?? 'farmers'}
+              onNavigateTab={(tab) => {
+                if (tab === 'Dashboard') {
+                  navigate('TohfaAdminDashboard');
+                } else if (tab === 'Sales') {
+                  navigate('SalesChannelOverview');
+                } else if (tab === 'Reports') {
+                  navigate('ReportBuilder');
+                } else if (tab === 'Profile') {
+                  navigate('TohfaAdminDashboard', { initialTab: 'Profile' });
+                }
+              }}
+              onSelectFarmer={(f) => {
+                setSelectedAdminFarmer(f);
+                setAdminFarmerActiveTab('Overview');
+                navigate('AdminFarmerDetail');
+              }}
+              onReviewApplication={(app) => {
+                setSelectedPendingApp(app as any);
+                navigate('AdminApplicationDetail');
+              }}
+            />
+          ) : screen === 'AdminFarmerDetail' ? (
+            <AdminFarmerDetailScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              role="FARMER"
+              initialTab={adminFarmerActiveTab}
+              onTabChange={setAdminFarmerActiveTab}
+              onBack={goBack}
+              onOpenFarmMap={() => {
+                setAdminFarmerActiveTab('Farm');
+                navigate('AdminFarmMap');
+              }}
+              onOpenRatingScorecard={() => {
+                setAdminFarmerActiveTab('Ratings');
+                navigate('AdminRatingScorecard');
+              }}
+              onOpenKycReview={() => {
+                setAdminFarmerActiveTab('KYC');
+                navigate('AdminKycReview');
+              }}
+            />
+          ) : screen === 'AdminEditFarmer' ? (
+            <AdminEditFarmerScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              initialTab={adminFarmerActiveTab}
+              onBack={goBack}
+              onSave={(updated, tab) => {
+                setSelectedAdminFarmer(updated);
+                setAdminFarmerActiveTab(tab);
+                setToast({
+                  type: 'approve',
+                  title: 'Changes Saved',
+                  message: `${tab} details for ${updated.name} updated successfully.`,
+                });
                 goBack();
-              } else {
-                navigate('Zones', { farmId });
-              }
-            }}
-          />
-        ) : screen === 'Zones' ? (
-          <ZonesScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onNavigateBack={goBack}
-            onSave={goBack}
-          />
-        ) : screen === 'PersonalDetails' ? (
-          <PersonalDetailsScreen onBack={goBack} />
-        ) : screen === 'Notifications' ? (
-          <NotificationsScreen
-            onBack={goBack}
-            onNavigateToCounterOffer={(listingId) => {
-              // Only the id is known here; CounterOfferScreen resolves the real
-              // listing from the farmer's own listings (no GET /listings/{id}).
-              setSelectedListing(null);
-              if (listingId) {
-                navigate('CounterOffer', { listingId });
-              } else {
-                setCurrentTab('Listings');
-                navigate('MainTabs');
-              }
-            }}
-          />
-        ) : screen === 'AuditResult' ? (
-          <AuditResultScreen
-            onBack={goBack}
-            auditId={typeof params['auditId'] === 'string' ? params['auditId'] : undefined}
-          />
-        ) : screen === 'Audits' ? (
-          <AuditsScreen
-            onBack={goBack}
-            onNavigateToResult={(auditId) => navigate('AuditResult', { auditId })}
-          />
-        ) : screen === 'CropManagement' ? (
-          <CropManagementScreen
-            onBack={goBack}
-            onNavigateToInputManagement={() => navigate('InputManagement')}
-            onNavigateToSoilManagement={() => navigate('SoilManagement')}
-            onNavigateToPestManagement={() => navigate('PestManagement')}
-          />
-        ) : screen === 'InputManagement' ? (
-          <InputManagementScreen
-            onBack={goBack}
-            onNavigateToLogFertigation={(crop) => {
-              if (crop) setSelectedCrop(crop);
-              navigate('LogFertigation');
-            }}
-            onNavigateToLogPestTreatment={(crop) => {
-              if (crop) setSelectedCrop(crop);
-              navigate('LogPestTreatment');
-            }}
-            onNavigateToLogInput={(crop, inputType) => {
-              if (crop) setSelectedCrop(crop);
-              if (inputType === 'Fertigation') {
-                navigate('LogFertigation');
-              } else if (inputType === 'Pest Treatment') {
-                navigate('LogPestTreatment');
-              } else {
-                navigate('AddInputApplied', { initialInputType: inputType });
-              }
-            }}
-            onNavigateToFullHistory={() => navigate('CropInputsApplied')}
-          />
-        ) : screen === 'LogFertigation' ? (
-          <LogFertigationScreen
-            crop={selectedCrop}
-            onBack={goBack}
-            onSave={() => goBack('InputManagement')}
-          />
-        ) : screen === 'LogPestTreatment' ? (
-          <LogPestTreatmentScreen
-            crop={selectedCrop}
-            onBack={goBack}
-            onSave={() => goBack('InputManagement')}
-          />
-        ) : screen === 'PestManagement' ? (
-          <PestManagementScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
-            onBack={goBack}
-            onNavigateToSchedule={(farmId) => navigate('TreatmentSchedule', { farmId })}
-            onNavigateToPestLibrary={(farmId) => navigate('PestLibrary', { farmId })}
-            onNavigateToWeatherRisk={(farmId) => navigate('WeatherRiskAnalytics', { farmId })}
-          />
-        ) : screen === 'PestLibrary' ? (
-          <PestLibraryScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
-            onBack={goBack}
-            onNavigateToSchedule={() => {
-              navigate('TreatmentSchedule', { farmId: params['farmId'] });
-            }}
-          />
-        ) : screen === 'TreatmentSchedule' ? (
-          <TreatmentScheduleScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
-            onBack={goBack}
-          />
-        ) : screen === 'WeatherRiskAnalytics' ? (
-          <WeatherRiskAnalyticsScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
-            onBack={goBack}
-          />
-        ) : screen === 'FarmManagement' ? (
-          <FarmManagementScreen
-            onBack={() => goBack('MainTabs')}
-            onNavigateToAudits={() => navigate('Audits')}
-            onNavigateToDiary={() => navigate('FarmDiary')}
-            onNavigateToCertifications={() => navigate('Certifications')}
-            onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
-            onNavigateToWeather={() => navigate('Weather')}
-            onNavigateToCalendar={() => navigate('TohfaCalendar')}
-            onNavigateToActiveCrops={() => navigate('ActiveCrops')}
-            onNavigateToCropManagement={() => navigate('CropManagement')}
-            onNavigateToAttendance={() => navigate('DailyAttendance')}
-            onNavigateToWorkforce={() => navigate('Workforce')}
-            onNavigateToLivestock={() => navigate('Livestock')}
-            onNavigateToDairyProduce={() => navigate('DairyProduce')}
-            onNavigateToLearningHub={() => navigate('LearningHub')}
-            onNavigateToSoilManagement={() => navigate('SoilManagement')}
-          />
-        ) : screen === 'DairyProduce' ? (
-          <DairyProduceScreen onBack={goBack} />
-        ) : screen === 'ProduceCalendar' ? (
-          <ProduceCalendarScreen
-            onBack={() => goBack('FarmManagement')}
-            onNavigateToNewCrop={() => navigate('NewCrop')}
-            onNavigateToCropDetail={(item) => {
-              setSelectedCrop(item);
-              navigate('CropDetail');
-            }}
-          />
-        ) : screen === 'CropDetail' ? (
-          <CropDetailScreen
-            crop={selectedCrop}
-            onBack={() => goBack('ProduceCalendar')}
-            onEdit={() => navigate('NewCrop')}
-            onNavigateToMilestones={() => navigate('CropMilestones')}
-            onNavigateToDiary={() => navigate('FarmDiary')}
-            onNavigateToInputs={() => navigate('CropInputsApplied')}
-            onNavigateToWorkforce={() => navigate('CropWorkforceHours')}
-            onNavigateToNPK={() => navigate('CropNPKContribution')}
-          />
-        ) : screen === 'CropMilestones' ? (
-          <CropMilestonesScreen
-            crop={selectedCrop}
-            onBack={() => goBack('CropDetail')}
-          />
-        ) : screen === 'CropDiaryEntries' ? (
-          <CropDiaryEntriesScreen
-            crop={selectedCrop}
-            onBack={() => goBack('CropDetail')}
-            onNewEntry={() => navigate('AddInputApplied', { fromDiary: '1', initialInputType: 'Fertigation' })}
-          />
-        ) : screen === 'CropInputsApplied' ? (
-          <CropInputsAppliedScreen
-            crop={selectedCrop}
-            onBack={goBack}
-            onNewInput={() => navigate('AddInputApplied')}
-          />
-        ) : screen === 'AddInputApplied' ? (
-          <AddInputAppliedScreen
-            crop={selectedCrop}
-            initialInputType={params['initialInputType'] as 'Fertigation' | 'Pest Treatment' | undefined}
-            onBack={goBack}
-            onSave={goBack}
-          />
-        ) : screen === 'CropWorkforceHours' ? (
-          <CropWorkforceHoursScreen
-            crop={selectedCrop}
-            onBack={() => goBack('CropDetail')}
-          />
-        ) : screen === 'CropNPKContribution' ? (
-          <CropNPKContributionScreen
-            crop={selectedCrop}
-            onBack={() => goBack('CropDetail')}
-          />
-        ) : screen === 'NewCrop' ? (
-          <NewCropScreen
-            onBack={() => goBack('ProduceCalendar')}
-            onCancel={() => goBack('ProduceCalendar')}
-            onSaveCrop={() => {
-              // NewCropScreen already persisted the crop via createFarmCrop();
-              // ProduceCalendarScreen re-fetches from the API when it remounts.
-              goBack('ProduceCalendar');
-            }}
-          />
-        ) : screen === 'Livestock' ? (
-          <LivestockScreen
-            onBack={goBack}
-            onNavigateToAddAnimal={() => navigate('RegisterAnimal')}
-            onNavigateToAnimalDetail={(animal) =>
-              navigate('AnimalDetail', {
-                animalId: animal.id,
-                animalName: animal.name,
-                animalCode: animal.code,
-                species: animal.type,
-                breed: animal.breed,
-                gender: animal.gender,
-                age: animal.age,
-                statusBadge: animal.statusBadge,
-              })
-            }
-          />
-        ) : screen === 'AnimalDetail' ? (
-          <AnimalDetailScreen
-            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
-            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
-            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
-            species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
-            breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
-            gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
-            age={typeof params['age'] === 'string' ? params['age'] : '4 yr'}
-            statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : 'Fully Organic'}
-            onBack={goBack}
-            onNavigateToEdit={(animalData) => navigate('EditAnimal', animalData || {})}
-            onNavigateToSale={() =>
-              navigate('SaleTransferCull', {
-                animalId: params['animalId'] || 'a1',
-                animalName: params['animalName'] || 'Lakshmi',
-                animalCode: params['animalCode'] || 'C-014',
-              })
-            }
-          />
-        ) : screen === 'EditAnimal' ? (
-          <EditAnimalScreen
-            initialAnimal={params as any}
-            onBack={goBack}
-            onCancel={goBack}
-            onSave={() => goBack()}
-          />
-        ) : screen === 'SaleTransferCull' ? (
-          <SaleTransferCullScreen
-            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
-            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
-            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
-            onBack={goBack}
-            onSuccess={() => navigate('Livestock')}
-          />
-        ) : screen === 'RegisterAnimal' ? (
-          <RegisterAnimalScreen
-            initialAnimal={params as any}
-            onBack={goBack}
-            onCancel={goBack}
-            onSave={() => goBack()}
-          />
-        ) : screen === 'Workforce' ? (
-          <WorkforceScreen
-            onBack={goBack}
-            onNavigateToAddWorker={(fid) => navigate('AddWorker', { farmId: fid })}
-            onNavigateToTimesheet={() => navigate('DailyAttendance')}
-            onNavigateToPayroll={() => navigate('Payroll')}
-            onNavigateToWorkerDetail={(id, name, role) =>
-              navigate('WorkerDetail', { workerId: id, workerName: name, workerRole: role })
-            }
-          />
-        ) : screen === 'Payroll' ? (
-          <PayrollScreen
-            onBack={goBack}
-            onNavigateToWorkerDetail={(id, name) =>
-              navigate('WorkerDetail', { workerId: id, workerName: name })
-            }
-          />
-        ) : screen === 'WorkerDetail' ? (
-          <WorkerDetailScreen
-            workerId={typeof params['workerId'] === 'string' ? params['workerId'] : 'w1'}
-            workerName={typeof params['workerName'] === 'string' ? params['workerName'] : 'Murugan R.'}
-            workerRole={
-              typeof params['workerRole'] === 'string'
-                ? params['workerRole']
-                : 'Field Worker · Daily wage'
-            }
-            onBack={goBack}
-            onNavigateToEditWorker={(workerData) => navigate('AddWorker', workerData || {})}
-          />
-        ) : screen === 'AddWorker' ? (
-          <AddWorkerScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
-            initialWorker={params as any}
-            onBack={goBack}
-            onCancel={goBack}
-            onSave={() => goBack()}
-          />
-        ) : screen === 'FarmDiary' ? (
-          <FarmDiaryScreen
-            onBack={goBack}
-            onNavigateToNewEntry={() => navigate('NewFarmDiaryEntry')}
-            onNavigateToCalendar={() => navigate('DiaryCalendar')}
-          />
-        ) : screen === 'DiaryCalendar' ? (
-          <DiaryCalendarScreen
-            onBack={goBack}
-          />
-        ) : screen === 'NewFarmDiaryEntry' ? (
-          <NewFarmDiaryEntryScreen
-            crop={selectedCrop}
-            onBack={goBack}
-            onCancel={() => navigate('FarmDiary')}
-            onNext={(data) => {
-              // `navigate` replaces `params` with its second argument, so the
-              // accumulated entry state must be passed forward explicitly.
-              navigate('NewFarmDiaryEntryStep2', {
-                ...params,
-                plotId: data.plotId,
-                plotName: data.plotName,
-                farmCropId: data.farmCropId, // undefined clears a stale pick
-                cropName: data.cropName,
-                date: data.date,
-              });
-            }}
-          />
-        ) : screen === 'NewFarmDiaryEntryStep2' ? (
-          <NewFarmDiaryEntryStep2Screen
-            crop={selectedCrop}
-            categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
-            onChangeCategory={goBack}
-            onBack={goBack}
-            onCancel={() => navigate('FarmDiary')}
-            onNext={(entryData) => {
-              navigate('NewFarmDiaryEntryStep3', {
-                ...params,
-                categoryKey: entryData.categoryKey,
-                categoryName: entryData.categoryName,
-                subActivityKey: entryData.subActivityKey,
-                subActivityName: entryData.subActivityName,
-              });
-            }}
-          />
-        ) : screen === 'NewFarmDiaryEntryStep3' ? (
-          // Ids are passed through without fallbacks: a missing plotId/categoryKey/
-          // subActivityKey is a navigation bug that Step 3 surfaces, not something to mock.
-          <NewFarmDiaryEntryStep3Screen
-            crop={selectedCrop}
-            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
-            farmCropId={typeof params['farmCropId'] === 'string' ? params['farmCropId'] : undefined}
-            categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
-            subActivityKey={typeof params['subActivityKey'] === 'string' ? params['subActivityKey'] : undefined}
-            entryCategory={typeof params['categoryName'] === 'string' ? params['categoryName'] : undefined}
-            entrySubActivity={typeof params['subActivityName'] === 'string' ? params['subActivityName'] : undefined}
-            fieldZone={typeof params['plotName'] === 'string' ? params['plotName'] : undefined}
-            cropName={typeof params['cropName'] === 'string' ? params['cropName'] : undefined}
-            onBack={goBack}
-            onCancel={() => navigate('FarmDiary')}
-            onDone={() => {
-              if (selectedCrop) {
-                navigate('CropDiaryEntries');
-              } else {
-                navigate('FarmDiary');
-              }
-            }}
-            onSave={() => {
-              if (selectedCrop) {
-                navigate('CropDiaryEntries');
-              } else {
-                navigate('FarmDiary');
-              }
-            }}
-          />
-        ) : screen === 'FarmRatings' ? (
-          <FarmRatingsScreen onNavigateBack={goBack} />
-        ) : screen === 'SoilManagement' ? (
-          <SoilManagementScreen
-            onBack={goBack}
-            onNavigateToSoilTestRecords={(farmId) => navigate('SoilTestRecords', { farmId })}
-            onNavigateToSoilHealthTracker={(farmId) => navigate('SoilHealthTracker', { farmId })}
-            onNavigateToSoilTypeClassification={(farmId) => navigate('SoilTypeClassification', { farmId })}
-            onNavigateToAmendments={(farmId) => navigate('SoilAmendmentsLog', { farmId })}
-            onNavigateToCropRotation={(farmId) => navigate('CropRotation', { farmId })}
-            onNavigateToMoistureTracking={(farmId) => navigate('SoilMoistureTracking', { farmId })}
-            onNavigateToErosionConservation={(farmId) => navigate('ErosionConservation', { farmId })}
-            onNavigateToExportReports={(farmId) => navigate('ExportSoilReports', { farmId })}
-            onNavigateToNewSoilTest={(farmId) => navigate('UploadNewSoilTest', { farmId })}
-          />
-        ) : screen === 'SoilTestRecords' ? (
-          <SoilTestRecordsScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-            onNavigateToRecordDetail={() => navigate('SoilTest', { farmId: params['farmId'] })}
-            onUploadNewTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
-          />
-        ) : screen === 'SoilHealthTracker' ? (
-          <SoilHealthTrackerScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-          />
-        ) : screen === 'SoilTypeClassification' ? (
-          <SoilTypeClassificationScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-          />
-        ) : screen === 'SoilAmendmentsLog' ? (
-          <SoilAmendmentsLogScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-            onLogAmendment={() => navigate('CreateSoilAmendment', { farmId: params['farmId'] })}
-          />
-        ) : screen === 'CreateSoilAmendment' || screen === 'LogSoilAmendment' ? (
-          <CreateSoilAmendmentScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
-            onBack={goBack}
-            onSave={goBack}
-          />
-        ) : screen === 'CropRotation' ? (
-          <CropRotationScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-          />
-        ) : screen === 'SoilMoistureTracking' ? (
-          <SoilMoistureTrackingScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-          />
-        ) : screen === 'ErosionConservation' ? (
-          <ErosionConservationScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-            onLogErosionNote={() => navigate('CreateErosionNote', { farmId: params['farmId'] })}
-          />
-        ) : screen === 'CreateErosionNote' || screen === 'LogErosionNote' ? (
-          <CreateErosionNoteScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
-            onBack={goBack}
-            onSave={goBack}
-          />
-        ) : screen === 'ExportSoilReports' ? (
-          <ExportSoilReportsScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-          />
-        ) : screen === 'UploadNewSoilTest' || screen === 'NewSoilTest' ? (
-          <UploadNewSoilTestScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onBack={goBack}
-            onSave={goBack}
-            onNavigateToFieldContext={() => navigate('FieldContext', { farmId: params['farmId'], returnTo: screen })}
-          />
-        ) : screen === 'SoilTest' ? (
-          <SoilTestScreen
-            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
-            onNavigateBack={goBack}
-            onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
-          />
-        ) : screen === 'BankPayment' ? (
-          <BankPaymentScreen
-            onBack={goBack}
-            onNavigateToBankAccount={() => navigate('BankAccount')}
-            onNavigateToUpiId={() => navigate('UpiId')}
-            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
-            onNavigateToWallet={() => navigate('Wallet')}
-          />
-        ) : screen === 'BankAccount' ? (
-          <BankAccountScreen
-            onBack={goBack}
-          />
-        ) : screen === 'UpiId' ? (
-          <UpiIdScreen
-            onBack={goBack}
-            onSaveSuccess={goBack}
-          />
-        ) : screen === 'PayoutHistory' ? (
-          <PayoutHistoryScreen
-            onBack={goBack}
-            onNavigateToDetail={(payout) => navigate('PayoutDetail', payout as any)}
-          />
-        ) : screen === 'PayoutDetail' ? (
-          <PayoutDetailScreen
-            payout={params as any}
-            onBack={goBack}
-          />
-        ) : screen === 'WithdrawFunds' ? (
-          <WithdrawFundsScreen
-            onClose={goBack}
-            onRequestSuccess={goBack}
-          />
-        ) : screen === 'WalletTransactionDetail' ? (
-          <WalletTransactionDetailScreen
-            transaction={params as any}
-            onBack={goBack}
-          />
-        ) : screen === 'AddMoney' ? (
-          <AddMoneyScreen
-            onClose={goBack}
-            onSuccess={goBack}
-            onNavigateToCashTopUp={(data) => navigate('CashTopUp', data)}
-          />
-        ) : screen === 'CashTopUp' ? (
-          <CashTopUpScreen
-            amount={typeof params['amount'] === 'string' ? params['amount'] : '2,000'}
-            referenceCode={typeof params['referenceCode'] === 'string' ? params['referenceCode'] : 'CASH-TU-7734'}
-            onBack={goBack}
-            onDone={goBack}
-          />
-        ) : screen === 'Wallet' ? (
-          <WalletScreen
-            onBack={goBack}
-            onNavigateToAddMoney={() => navigate('AddMoney')}
-            onNavigateToWithdraw={() => navigate('WithdrawFunds')}
-            onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
-            onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
-          />
-        ) : screen === 'Weather' ? (
-          <WeatherScreen
-            onNavigateBack={goBack}
-          />
-        ) : screen === 'ActiveCrops' ? (
-          <ActiveCropsScreen
-            onNavigateBack={goBack}
-            onNavigateToCropDetail={(crop) => {
-              setSelectedCrop(crop);
-              navigate('CropDetail');
-            }}
-            onNavigateToNewCrop={() => navigate('NewCrop')}
-          />
-        ) : screen === 'MyListings' ? (
-          <MyListingsScreen
-            onNavigateBack={goBack}
-            onNavigateToListingDetail={(listing) => {
-              setSelectedListing(listing);
-              navigate('ListingDetail');
-            }}
-            onNavigateToCounterOffer={(listing) => {
-              setSelectedListing(listing);
-              navigate('CounterOffer');
-            }}
-          />
-        ) : screen === 'TohfaCalendar' ? (
-          <TohfaCalendarScreen
-            onNavigateBack={goBack}
-            onNavigateToCropInsight={() => navigate('CropPlanningInsight')}
-          />
-        ) : screen === 'CropPlanningInsight' ? (
-          <CropPlanningInsightScreen onNavigateBack={goBack} />
-        ) : screen === 'FarmInventory' ? (
-          <FarmInventoryScreen
-            onNavigateBack={goBack}
-            onNavigateToCategory={(category) => {
-              if (category === 'Tools') navigate('ToolsList');
-              else if (category === 'Equipment') navigate('EquipmentList');
-              else if (category === 'Trees') navigate('TreesList');
-              else if (category === 'Machinery') navigate('MachineryList');
-            }}
-          />
-        ) : screen === 'ToolsList' ? (
-          <ToolsListScreen
-            onNavigateBack={goBack}
-            onNavigateToAddTool={() => navigate('AddTool')}
-            onNavigateToEditTool={(tool) => {
-              setSelectedToolForEdit(tool);
-              navigate('EditTool');
-            }}
-          />
-        ) : screen === 'AddTool' ? (
-          <AddToolScreen onNavigateBack={goBack} />
-        ) : screen === 'EditTool' ? (
-          <EditToolScreen
-            tool={
-              selectedToolForEdit
-                ? {
-                  id: selectedToolForEdit.id,
-                  name: selectedToolForEdit.name,
-                  purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
-                  serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
+              }}
+              onNavigateToEditCategories={() => navigate('AdminEditRatingCategories')}
+            />
+          ) : screen === 'AdminEditRatingCategories' ? (
+            <AdminEditRatingCategoriesScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              onBack={goBack}
+              onSave={(score, tier) => {
+                if (selectedAdminFarmer) {
+                  setSelectedAdminFarmer({
+                    ...selectedAdminFarmer,
+                    rating: score,
+                    ratingTier: tier,
+                  });
                 }
-                : undefined
-            }
-            onNavigateBack={goBack}
-            onSave={() => goBack()}
-            onRemove={() => {
-              setSelectedItemForRemove({
-                id: selectedToolForEdit?.id,
-                name: selectedToolForEdit?.name || 'Knapsack Sprayer',
-                category: 'Tools',
-                dateInfo: `Tools · ${selectedToolForEdit?.purchaseDate || 'Purchased 04 Jan 2025'}`,
-              });
-              navigate('RemoveItem');
-            }}
-          />
-        ) : screen === 'EquipmentList' ? (
-          <EquipmentListScreen
-            onBack={goBack}
-            onNavigateToAddEquipment={() => navigate('AddEquipment')}
-            onNavigateToEditEquipment={(item) => {
-              setSelectedEquipmentForEdit(item);
-              navigate('EditEquipment');
-            }}
-          />
-        ) : screen === 'AddEquipment' ? (
-          <AddEquipmentScreen onNavigateBack={goBack} onSave={goBack} />
-        ) : screen === 'EditEquipment' ? (
-          <EditEquipmentScreen
-            equipment={
-              selectedEquipmentForEdit
-                ? {
-                  id: selectedEquipmentForEdit.id,
-                  name: selectedEquipmentForEdit.name,
-                  purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
-                  coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
-                  serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
+                goBack();
+              }}
+            />
+          ) : screen === 'AdminFarmMap' ? (
+            <AdminFarmMapScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              onBack={goBack}
+            />
+          ) : screen === 'AdminRatingScorecard' ? (
+            <AdminRatingScorecardScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              onBack={goBack}
+              onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
+              onEditCategories={() => navigate('AdminEditRatingCategories')}
+            />
+          ) : screen === 'AdminComplianceTiers' ? (
+            <AdminComplianceTiersScreen
+              onBack={goBack}
+            />
+          ) : screen === 'AdminKycReview' ? (
+            <AdminKycReviewScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              onBack={goBack}
+              onGoToCertificationVerification={() => navigate('AdminCertVerification')}
+            />
+          ) : screen === 'AdminCertVerification' ? (
+            <AdminCertVerificationScreen
+              farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
+              onBack={goBack}
+              onVerified={goBack}
+              onUnverified={goBack}
+            />
+          ) : screen === 'AdminPendingApplications' ? (
+            <AdminPendingApplicationsScreen
+              onBack={goBack}
+              onSelectApplication={(item) => {
+                setSelectedPendingApp(item);
+                navigate('AdminApplicationDetail');
+              }}
+            />
+          ) : screen === 'AdminApplicationDetail' ? (
+            <AdminApplicationDetailScreen
+              application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              onBack={goBack}
+              onApprove={(updatedApp) => {
+                if (updatedApp) {
+                  setSelectedPendingApp(updatedApp as any);
                 }
-                : undefined
-            }
-            onNavigateBack={goBack}
-            onSave={() => goBack()}
-            onRemove={() => {
-              setSelectedItemForRemove({
-                id: selectedEquipmentForEdit?.id,
-                name: selectedEquipmentForEdit?.name || 'Drip Irrigation Kit',
-                category: 'Equipment',
-                dateInfo: `Equipment · ${selectedEquipmentForEdit?.purchaseDate || 'Purchased 22 Feb 2024'}`,
-              });
-              navigate('RemoveItem');
-            }}
-          />
-        ) : screen === 'TreesList' ? (
-          <TreesListScreen
-            onBack={goBack}
-            onNavigateToAddPlanting={() => navigate('AddPlanting')}
-            onNavigateToEditPlanting={(item) => {
-              setSelectedTreeForEdit(item);
-              navigate('EditPlanting');
-            }}
-          />
-        ) : screen === 'AddPlanting' ? (
-          <AddPlantingScreen onNavigateBack={goBack} onSave={goBack} />
-        ) : screen === 'EditPlanting' ? (
-          <EditPlantingScreen
-            planting={
-              selectedTreeForEdit
-                ? {
-                  id: selectedTreeForEdit.id,
-                  species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
-                  treeCount: selectedTreeForEdit.treeCount ?? 12,
-                  plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
-                  locationZone: selectedTreeForEdit.zoneInfo,
-                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
-                }
-                : undefined
-            }
-            onNavigateBack={goBack}
-            onSave={() => goBack()}
-            onRemove={() => {
-              setSelectedItemForRemove({
-                id: selectedTreeForEdit?.id,
-                name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
-                category: 'Trees',
-                dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
-              });
-              navigate('RemoveItem');
-            }}
-          />
-        ) : screen === 'MachineryList' ? (
-          <MachineryListScreen
-            onBack={goBack}
-            onNavigateToAddMachinery={() => navigate('AddMachinery')}
-            onNavigateToEditMachinery={(item) => {
-              setSelectedMachineryForEdit(item);
-              navigate('EditMachinery');
-            }}
-          />
-        ) : screen === 'AddMachinery' ? (
-          <AddMachineryScreen onNavigateBack={goBack} onSave={goBack} />
-        ) : screen === 'EditMachinery' ? (
-          <EditMachineryScreen
-            machinery={
-              selectedMachineryForEdit
-                ? {
-                  id: selectedMachineryForEdit.id,
-                  name: selectedMachineryForEdit.name,
-                  makeModel: selectedMachineryForEdit.makeModel,
-                  purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
-                  fuelType: selectedMachineryForEdit.fuelType,
-                  serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
-                }
-                : undefined
-            }
-            onNavigateBack={goBack}
-            onSave={() => goBack()}
-            onRemove={() => {
-              setSelectedItemForRemove({
-                id: selectedMachineryForEdit?.id,
-                name: selectedMachineryForEdit?.name || 'Power Tiller',
-                category: 'Machinery',
-                dateInfo: `Machinery · ${selectedMachineryForEdit?.purchaseDate || 'Purchased 08 Feb 2023'}`,
-              });
-              navigate('RemoveItem');
-            }}
-          />
-        ) : screen === 'RemoveItem' ? (
-          <RemoveItemScreen
-            item={selectedItemForRemove ?? undefined}
-            onNavigateBack={goBack}
-            onConfirmRemove={async () => {
-              // canDeleteAsset is the single source of truth for which categories have no
-              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
-              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
-              // not the gate itself.
-              if (
-                selectedItemForRemove?.id &&
-                canDeleteAsset(selectedItemForRemove.category)
-              ) {
-                try {
-                  await deleteFarmAsset(selectedItemForRemove.id);
-                } catch {
-                  // Ignore error and navigate back to list which refreshes
-                }
-              }
-              if (selectedItemForRemove?.category === 'Tools') {
-                navigate('ToolsList');
-              } else if (selectedItemForRemove?.category === 'Equipment') {
-                navigate('EquipmentList');
-              } else {
-                navigate('MachineryList');
-              }
-            }}
-          />
-        ) : screen === 'DailyAttendance' ? (
-          <DailyAttendanceScreen onNavigateBack={goBack} />
-        ) : screen === 'LearningHub' ? (
-          <LearningHubScreen
-            onBack={goBack}
-            onNavigateToContentDetail={(content) => {
-              setSelectedContentDetail(content);
-              navigate('ContentDetail');
-            }}
-            onNavigateToGroups={() => navigate('Groups')}
-            onNavigateToGroupDetail={(group) => {
-              setSelectedGroup(group);
-              navigate('GroupDetail');
-            }}
-          />
-        ) : screen === 'ContentDetail' ? (
-          <ContentDetailScreen
-            content={selectedContentDetail ?? undefined}
-            onBack={goBack}
-          />
-        ) : screen === 'Groups' ? (
-          <GroupsScreen
-            onBack={goBack}
-            onNavigateToGroupDetail={(group) => {
-              setSelectedGroup(group);
-              navigate('GroupDetail');
-            }}
-          />
-        ) : screen === 'GroupDetail' ? (
-          <GroupDetailScreen
-            group={selectedGroup ?? undefined}
-            onBack={goBack}
-          />
-        ) : screen === 'AboutSupport' ? (
-          <AboutSupportScreen onBack={goBack} />
-        ) : screen === 'ChangePassword' ? (
-          <ChangePasswordScreen onBack={goBack} onSuccess={() => navigate('PasswordChangedSuccess')} />
-        ) : screen === 'Settings' ? (
-          <SettingsScreen
-            onBack={goBack}
-            onNavigateToProfile={() => navigate('PersonalDetails')}
-            onNavigateToChangePassword={() => navigate('ChangePassword')}
-            onNavigateToAboutSupport={() => navigate('AboutSupport')}
-            onSignOut={() => signOutTo('Welcome')}
-          />
-        ) : (
-          /* MainTabs layout */
-          <View style={styles.mainTabsContainer}>
-            <View style={styles.tabScreenContainer}>
-              {currentTab === 'Home' ? (
-                <DashboardScreen
-                  onNavigateToCertifications={() => navigate('Certifications')}
-                  onNavigateToCreateListing={() => navigate('CreateListing')}
-                  onNavigateToListings={() => setCurrentTab('Listings')}
-                  onNavigateToWallet={() => setCurrentTab('Wallet')}
-                  onNavigateToProfile={() => setCurrentTab('Profile')}
-                  onNavigateToNotifications={() => navigate('Notifications')}
-                  onNavigateToCounterOffer={(item) => {
-                    // Only a real listing from DashboardScreen's GET /listings opens the
-                    // counter-offer screen; with none, there is nothing to respond to.
-                    if (item && item.id) {
-                      setSelectedListing(item);
-                      navigate('CounterOffer');
-                    } else {
-                      // No specific offer: the Marketing tab lists every one that needs a reply.
-                      setCurrentTab('Listings');
-                    }
-                  }}
-                  onNavigateToFarmManagement={() => navigate('CropManagement')}
-                  onNavigateToCropManagement={() => navigate('CropManagement')}
-                  onNavigateToWeather={() => navigate('Weather')}
-                  onNavigateToActiveCrops={() => navigate('ActiveCrops')}
-                  onNavigateToFarmDiary={() => navigate('FarmDiary')}
-                  onNavigateToMyListings={() => setCurrentTab('Listings')}
-                  onNavigateToAttendance={() => navigate('DailyAttendance')}
-                  onNavigateToTohfaCalendar={() => navigate('TohfaCalendar')}
-                  onNavigateToLearningHub={() => navigate('LearningHub')}
-                  onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
-                  onNavigateToInventory={() => navigate('FarmInventory')}
-                  // The dashboard's crop preview is built from real farm_crops rows
-                  // (listAllActiveFarmCrops + toActiveCropData), so each card carries
-                  // the same CropItem payload ActiveCropsScreen hands CropDetailScreen.
-                  onNavigateToCropDetail={(crop) => {
-                    setSelectedCrop(crop);
-                    navigate('CropDetail');
-                  }}
-                  onNavigateToAudits={() => navigate('Audits')}
-                />
-              ) : currentTab === 'Listings' ? (
-                <ListingsScreen
-                  onNavigateToCreateListing={() => navigate('CreateListing')}
-                  onNavigateToCounterOffer={(listing) => {
-                    setSelectedListing(listing);
-                    navigate('CounterOffer');
-                  }}
-                  onNavigateToListingDetail={(listing) => {
-                    setSelectedListing(listing);
-                    navigate('ListingDetail');
-                  }}
-                  onNavigateToMyListings={() => navigate('MyListings')}
-                />
-              ) : currentTab === 'Wallet' ? (
-                <WalletScreen
-                  onNavigateToAddMoney={() => navigate('AddMoney')}
-                  onNavigateToWithdraw={() => navigate('WithdrawFunds')}
-                  onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
-                  onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
-                />
-              ) : (
-                <ProfileScreen
-                  onNavigateToHome={() => setCurrentTab('Home')}
-                  onNavigateToCertifications={() => navigate('Certifications')}
-                  onNavigateToMarket={() => setCurrentTab('Listings')}
-                  onNavigateToFMBSketch={() => navigate('FMBSketch')}
-                  onNavigateToPersonalDetails={() => navigate('PersonalDetails')}
-                  onNavigateToAudits={() => navigate('Audits')}
-                  onNavigateToFarmRatings={() => navigate('FarmRatings')}
-                  onNavigateToSoilTest={() => navigate('SoilTest')}
-                  onNavigateToSettings={() => navigate('Settings')}
-                  onNavigateToAboutSupport={() => navigate('AboutSupport')}
-                  onNavigateToBankPayment={() => navigate('BankPayment')}
-                  onSignOut={() => signOutTo('Welcome')}
-                />
-              )}
-            </View>
-
-            {/* Bottom Tab Bar */}
-            <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 58 }]}>
+              }}
+              onReject={() => navigate('AdminApplicationReject')}
+              onRequestMoreInfo={() => navigate('AdminApplicationRequestInfo')}
+            />
+          ) : screen === 'AdminApplicationApprove' ? (
+            <AdminApplicationDetailScreen
+              application={{
+                ...(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!),
+                status: 'Approved',
+                approvedDate: '10 Oct 2026',
+                reviewNotes: 'All requirements met. Ready for approval.',
+              }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              onBack={goBack}
+            />
+          ) : screen === 'AdminApplicationReject' ? (
+            <AdminApplicationRejectScreen
+              application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+              onBack={goBack}
+              onConfirmReject={(reason) => {
+                const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
+                setToast({
+                  type: 'reject',
+                  title: 'Application Rejected',
+                  message: `Notice sent to ${app.name}: ${reason}`,
+                });
+                goBack();
+              }}
+            />
+          ) : screen === 'AdminApplicationRequestInfo' ? (
+            <AdminApplicationRequestInfoScreen
+              application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+              onBack={goBack}
+              onConfirmRequest={() => {
+                const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
+                setToast({
+                  type: 'info_request',
+                  title: 'Info Request Sent',
+                  message: `Checklist sent to ${app.name} via SMS and notification.`,
+                });
+                goBack();
+              }}
+            />
+          ) : screen === 'MarketPricingHome' ? (
+            <MarketPricingHomeScreen
+              onBack={goBack}
+              onNavigateToFairPrice={() => navigate('FairPriceCeiling')}
+              onNavigateToMarketDay={() => navigate('MarketDaySchedule')}
+              onNavigateToListingApproval={() => navigate('ListingApprovalQueue')}
+            />
+          ) : screen === 'FairPriceCeiling' ? (
+            <FairPriceCeilingScreen
+              onBack={goBack}
+              onUpdatePrice={(_item) => navigate('UpdateFairPrice')}
+              onBulkUpdate={() => navigate('BulkPriceUpdate')}
+              onViewHistory={(_item) => navigate('PriceHistory')}
+            />
+          ) : screen === 'UpdateFairPrice' ? (
+            <UpdateFairPriceScreen
+              onBack={goBack}
+              onSave={(_newPrice) => {
+                // Save logic here
+                goBack();
+              }}
+            />
+          ) : screen === 'BulkPriceUpdate' ? (
+            <BulkPriceUpdateScreen
+              onBack={goBack}
+            />
+          ) : screen === 'PriceHistory' ? (
+            <PriceHistoryScreen
+              onBack={goBack}
+            />
+          ) : screen === 'MarketDaySchedule' ? (
+            <MarketDayScheduleScreen
+              onBack={goBack}
+              onAddMarketDay={() => navigate('AddMarketDay')}
+              onToggle={(_id, _value) => {
+                // Handle toggle
+              }}
+              days={marketDays ?? MOCK_DAYS ?? []}
+              onDaysChange={(updatedDays) => {
+                setMarketDays(updatedDays);
+              }}
+            />
+          ) : screen === 'AddMarketDay' ? (
+            <AddMarketDayScreen
+              onBack={goBack}
+              onSave={(_marketDay) => {
+                // Save market day logic here
+                navigate('MarketDaySchedule');
+              }}
+            />
+          ) : screen === 'ListingApprovalQueue' ? (
+            <ListingApprovalQueueScreen
+              onBack={goBack}
+              onApprove={(_id) => {
+                // Handle approve
+              }}
+              onCounter={(_id) => {
+                // Handle counter
+              }}
+              onReject={(_id) => {
+                // Handle reject
+              }}
+            />
+          ) : screen === 'CustomerMain' ? (
+            <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
+          ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
+            // 'AdminMain' reaches here only when adminShell is null (an unknown or
+            // missing role): fail closed with the unsupported-account message and
+            // its sign-out, never an admin shell.
+            <View style={styles.unsupportedContainer}>
+              <Icon name="block" size={48} color={colors.danger} style={{ marginBottom: 16 }} />
+              <Text style={styles.unsupportedText}>{t('farmer.app.unsupportedRole')}</Text>
+              <Text style={{ fontSize: typography.caption, color: colors.textMuted, textAlign: 'center', marginTop: 10, marginBottom: 24, paddingHorizontal: 20 }}>
+                This mobile application is built for Farmers and Customers. Administrative and Warehouse accounts operate through the Web Admin Portal.
+              </Text>
               <Pressable
-                style={styles.tabItem}
-                onPress={() => setCurrentTab('Home')}
-                accessibilityRole="tab"
+                style={({ pressed }) => [
+                  {
+                    backgroundColor: pressed ? colors.primaryPressed : colors.primary,
+                    paddingHorizontal: 28,
+                    paddingVertical: 14,
+                    borderRadius: 12,
+                    elevation: 2,
+                  },
+                ]}
+                onPress={() => signOutTo('Welcome')}
               >
-                <HomeIcon size={24} color={currentTab === 'Home' ? colors.brandGreen : colors.onSurfaceVariant} />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    currentTab === 'Home' && styles.tabItemTextActive,
-                    currentTab === 'Home' && { color: colors.brandGreen }
-                  ]}
-                >
-                  Home
+                <Text style={{ color: colors.white, fontWeight: '700', fontSize: typography.body }}>
+                  Sign Out & Return to Login
                 </Text>
               </Pressable>
-
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => navigate('FarmManagement')}
-                accessibilityRole="tab"
-              >
-                <Icon name="eco" size={24} color={colors.onSurfaceVariant} />
-                <Text style={styles.tabItemText}>Farm</Text>
-              </Pressable>
-
-              <View style={styles.centerTabContainer}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.centerAddButton,
-                    pressed && { opacity: 0.88, transform: [{ scale: 0.96 }] },
-                  ]}
-                  onPress={() => navigate('CreateListing')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Create listing"
-                >
-                  <TabPlusIcon size={22} color={colors.white} />
-                </Pressable>
+            </View>
+          ) : screen === 'Certifications' ? (
+            <CertificationsScreen
+              onBack={goBack}
+              onNavigateToAddCertification={() => navigate('AddCertification')}
+              onNavigateToEditCertification={(certification) => {
+                setSelectedCertification(certification);
+                navigate('EditCertification');
+              }}
+            />
+          ) : screen === 'AddCertification' ? (
+            <AddCertificationScreen
+              onSuccess={goBack}
+              onCancel={goBack}
+            />
+          ) : screen === 'EditCertification' && selectedCertification ? (
+            <EditCertificationScreen
+              certification={selectedCertification}
+              onCancel={() => navigate('Certifications')}
+              // The screen has already saved / deleted through the API; the list reloads on mount.
+              onSaved={() => navigate('Certifications')}
+              onDeleted={() => navigate('Certifications')}
+            />
+          ) : screen === 'CreateListing' ? (
+            <CreateListingScreen
+              onCancel={goBack}
+              onNext={(crop) => {
+                setListingDraftCrop(crop);
+                navigate('CreateListingStep2');
+              }}
+            />
+          ) : screen === 'CreateListingStep2' ? (
+            <CreateListingStep2Screen
+              crop={listingDraftCrop}
+              onCancel={goBack}
+              onBack={goBack}
+              onSuccess={() => {
+                // Land on My Listings (it fetches on mount, so the new listing is
+                // on it) with the create flow dropped from history: Back goes to
+                // the Marketing tab, not to an emptied step 2. The draft crop is
+                // cleared last so step 2 never re-renders without it.
+                setHistory([{ screen: 'MainTabs', params: {}, tab: 'Listings' }]);
+                setCurrentTab('Listings');
+                setParams({});
+                setScreen('MyListings');
+                setListingDraftCrop(null);
+              }}
+            />
+          ) : screen === 'CounterOffer' ? (
+            <CounterOfferScreen
+              listing={selectedListing}
+              listingId={
+                typeof params['listingId'] === 'string' ? params['listingId'] : selectedListing?.id
+              }
+              // The screen we return to re-fetches on mount, so it shows the new
+              // status. selectedListing is left as-is (the next open overwrites it):
+              // clearing it here would re-render this screen as "no longer open"
+              // for a frame before the back navigation lands.
+              onSuccess={() => goBack()}
+              onCancel={goBack}
+            />
+          ) : screen === 'ListingDetail' ? (
+            <ListingDetailScreen listing={selectedListing} onBack={goBack} />
+          ) : screen === 'FMBSketch' ? (
+            <FMBSketchScreen
+              onNavigateBack={goBack}
+              onNavigateToFieldContext={(farmId) => navigate('FieldContext', { farmId })}
+            />
+          ) : screen === 'FieldContext' ? (
+            <FieldContextScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onNavigateBack={goBack}
+              onNavigateToZones={(farmId) => {
+                if (params['returnTo'] === 'UploadNewSoilTest' || params['returnTo'] === 'NewSoilTest') {
+                  goBack();
+                } else {
+                  navigate('Zones', { farmId });
+                }
+              }}
+            />
+          ) : screen === 'Zones' ? (
+            <ZonesScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onNavigateBack={goBack}
+              onSave={goBack}
+            />
+          ) : screen === 'PersonalDetails' ? (
+            <PersonalDetailsScreen onBack={goBack} />
+          ) : screen === 'Notifications' ? (
+            <NotificationsScreen
+              onBack={goBack}
+              onNavigateToCounterOffer={(listingId) => {
+                // Only the id is known here; CounterOfferScreen resolves the real
+                // listing from the farmer's own listings (no GET /listings/{id}).
+                setSelectedListing(null);
+                if (listingId) {
+                  navigate('CounterOffer', { listingId });
+                } else {
+                  setCurrentTab('Listings');
+                  navigate('MainTabs');
+                }
+              }}
+            />
+          ) : screen === 'AuditResult' ? (
+            <AuditResultScreen
+              onBack={goBack}
+              auditId={typeof params['auditId'] === 'string' ? params['auditId'] : undefined}
+            />
+          ) : screen === 'Audits' ? (
+            <AuditsScreen
+              onBack={goBack}
+              onNavigateToResult={(auditId) => navigate('AuditResult', { auditId })}
+            />
+          ) : screen === 'CropManagement' ? (
+            <CropManagementScreen
+              onBack={goBack}
+              onNavigateToInputManagement={() => navigate('InputManagement')}
+              onNavigateToSoilManagement={() => navigate('SoilManagement')}
+              onNavigateToPestManagement={() => navigate('PestManagement')}
+            />
+          ) : screen === 'InputManagement' ? (
+            <InputManagementScreen
+              onBack={goBack}
+              onNavigateToLogFertigation={(crop) => {
+                if (crop) setSelectedCrop(crop);
+                navigate('LogFertigation');
+              }}
+              onNavigateToLogPestTreatment={(crop) => {
+                if (crop) setSelectedCrop(crop);
+                navigate('LogPestTreatment');
+              }}
+              onNavigateToLogInput={(crop, inputType) => {
+                if (crop) setSelectedCrop(crop);
+                if (inputType === 'Fertigation') {
+                  navigate('LogFertigation');
+                } else if (inputType === 'Pest Treatment') {
+                  navigate('LogPestTreatment');
+                } else {
+                  navigate('AddInputApplied', { initialInputType: inputType });
+                }
+              }}
+              onNavigateToFullHistory={() => navigate('CropInputsApplied')}
+            />
+          ) : screen === 'LogFertigation' ? (
+            <LogFertigationScreen
+              crop={selectedCrop}
+              onBack={goBack}
+              onSave={() => goBack('InputManagement')}
+            />
+          ) : screen === 'LogPestTreatment' ? (
+            <LogPestTreatmentScreen
+              crop={selectedCrop}
+              onBack={goBack}
+              onSave={() => goBack('InputManagement')}
+            />
+          ) : screen === 'PestManagement' ? (
+            <PestManagementScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+              onBack={goBack}
+              onNavigateToSchedule={(farmId) => navigate('TreatmentSchedule', { farmId })}
+              onNavigateToPestLibrary={(farmId) => navigate('PestLibrary', { farmId })}
+              onNavigateToWeatherRisk={(farmId) => navigate('WeatherRiskAnalytics', { farmId })}
+            />
+          ) : screen === 'PestLibrary' ? (
+            <PestLibraryScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+              onBack={goBack}
+              onNavigateToSchedule={() => {
+                navigate('TreatmentSchedule', { farmId: params['farmId'] });
+              }}
+            />
+          ) : screen === 'TreatmentSchedule' ? (
+            <TreatmentScheduleScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+              onBack={goBack}
+            />
+          ) : screen === 'WeatherRiskAnalytics' ? (
+            <WeatherRiskAnalyticsScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+              onBack={goBack}
+            />
+          ) : screen === 'FarmManagement' ? (
+            <FarmManagementScreen
+              onBack={() => goBack('MainTabs')}
+              onNavigateToAudits={() => navigate('Audits')}
+              onNavigateToDiary={() => navigate('FarmDiary')}
+              onNavigateToCertifications={() => navigate('Certifications')}
+              onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
+              onNavigateToWeather={() => navigate('Weather')}
+              onNavigateToCalendar={() => navigate('TohfaCalendar')}
+              onNavigateToActiveCrops={() => navigate('ActiveCrops')}
+              onNavigateToCropManagement={() => navigate('CropManagement')}
+              onNavigateToAttendance={() => navigate('DailyAttendance')}
+              onNavigateToWorkforce={() => navigate('Workforce')}
+              onNavigateToLivestock={() => navigate('Livestock')}
+              onNavigateToDairyProduce={() => navigate('DairyProduce')}
+              onNavigateToLearningHub={() => navigate('LearningHub')}
+              onNavigateToSoilManagement={() => navigate('SoilManagement')}
+            />
+          ) : screen === 'DairyProduce' ? (
+            <DairyProduceScreen onBack={goBack} />
+          ) : screen === 'ProduceCalendar' ? (
+            <ProduceCalendarScreen
+              onBack={() => goBack('FarmManagement')}
+              onNavigateToNewCrop={() => navigate('NewCrop')}
+              onNavigateToCropDetail={(item) => {
+                setSelectedCrop(item);
+                navigate('CropDetail');
+              }}
+            />
+          ) : screen === 'CropDetail' ? (
+            <CropDetailScreen
+              crop={selectedCrop}
+              onBack={() => goBack('ProduceCalendar')}
+              onEdit={() => navigate('NewCrop')}
+              onNavigateToMilestones={() => navigate('CropMilestones')}
+              onNavigateToDiary={() => navigate('FarmDiary')}
+              onNavigateToInputs={() => navigate('CropInputsApplied')}
+              onNavigateToWorkforce={() => navigate('CropWorkforceHours')}
+              onNavigateToNPK={() => navigate('CropNPKContribution')}
+            />
+          ) : screen === 'CropMilestones' ? (
+            <CropMilestonesScreen
+              crop={selectedCrop}
+              onBack={() => goBack('CropDetail')}
+            />
+          ) : screen === 'CropDiaryEntries' ? (
+            <CropDiaryEntriesScreen
+              crop={selectedCrop}
+              onBack={() => goBack('CropDetail')}
+              onNewEntry={() => navigate('AddInputApplied', { fromDiary: '1', initialInputType: 'Fertigation' })}
+            />
+          ) : screen === 'CropInputsApplied' ? (
+            <CropInputsAppliedScreen
+              crop={selectedCrop}
+              onBack={goBack}
+              onNewInput={() => navigate('AddInputApplied')}
+            />
+          ) : screen === 'AddInputApplied' ? (
+            <AddInputAppliedScreen
+              crop={selectedCrop}
+              initialInputType={params['initialInputType'] as 'Fertigation' | 'Pest Treatment' | undefined}
+              onBack={goBack}
+              onSave={goBack}
+            />
+          ) : screen === 'CropWorkforceHours' ? (
+            <CropWorkforceHoursScreen
+              crop={selectedCrop}
+              onBack={() => goBack('CropDetail')}
+            />
+          ) : screen === 'CropNPKContribution' ? (
+            <CropNPKContributionScreen
+              crop={selectedCrop}
+              onBack={() => goBack('CropDetail')}
+            />
+          ) : screen === 'NewCrop' ? (
+            <NewCropScreen
+              onBack={() => goBack('ProduceCalendar')}
+              onCancel={() => goBack('ProduceCalendar')}
+              onSaveCrop={() => {
+                // NewCropScreen already persisted the crop via createFarmCrop();
+                // ProduceCalendarScreen re-fetches from the API when it remounts.
+                goBack('ProduceCalendar');
+              }}
+            />
+          ) : screen === 'Livestock' ? (
+            <LivestockScreen
+              onBack={goBack}
+              onNavigateToAddAnimal={() => navigate('RegisterAnimal')}
+              onNavigateToAnimalDetail={(animal) =>
+                navigate('AnimalDetail', {
+                  animalId: animal.id,
+                  animalName: animal.name,
+                  animalCode: animal.code,
+                  species: animal.type,
+                  breed: animal.breed,
+                  gender: animal.gender,
+                  age: animal.age,
+                  statusBadge: animal.statusBadge,
+                })
+              }
+            />
+          ) : screen === 'AnimalDetail' ? (
+            <AnimalDetailScreen
+              animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
+              animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
+              animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
+              species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
+              breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
+              gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
+              age={typeof params['age'] === 'string' ? params['age'] : '4 yr'}
+              statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : 'Fully Organic'}
+              onBack={goBack}
+              onNavigateToEdit={(animalData) => navigate('EditAnimal', animalData || {})}
+              onNavigateToSale={() =>
+                navigate('SaleTransferCull', {
+                  animalId: params['animalId'] || 'a1',
+                  animalName: params['animalName'] || 'Lakshmi',
+                  animalCode: params['animalCode'] || 'C-014',
+                })
+              }
+            />
+          ) : screen === 'EditAnimal' ? (
+            <EditAnimalScreen
+              initialAnimal={params as any}
+              onBack={goBack}
+              onCancel={goBack}
+              onSave={() => goBack()}
+            />
+          ) : screen === 'SaleTransferCull' ? (
+            <SaleTransferCullScreen
+              animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
+              animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
+              animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
+              onBack={goBack}
+              onSuccess={() => navigate('Livestock')}
+            />
+          ) : screen === 'RegisterAnimal' ? (
+            <RegisterAnimalScreen
+              initialAnimal={params as any}
+              onBack={goBack}
+              onCancel={goBack}
+              onSave={() => goBack()}
+            />
+          ) : screen === 'Workforce' ? (
+            <WorkforceScreen
+              onBack={goBack}
+              onNavigateToAddWorker={(fid) => navigate('AddWorker', { farmId: fid })}
+              onNavigateToTimesheet={() => navigate('DailyAttendance')}
+              onNavigateToPayroll={() => navigate('Payroll')}
+              onNavigateToWorkerDetail={(id, name, role) =>
+                navigate('WorkerDetail', { workerId: id, workerName: name, workerRole: role })
+              }
+            />
+          ) : screen === 'Payroll' ? (
+            <PayrollScreen
+              onBack={goBack}
+              onNavigateToWorkerDetail={(id, name) =>
+                navigate('WorkerDetail', { workerId: id, workerName: name })
+              }
+            />
+          ) : screen === 'WorkerDetail' ? (
+            <WorkerDetailScreen
+              workerId={typeof params['workerId'] === 'string' ? params['workerId'] : 'w1'}
+              workerName={typeof params['workerName'] === 'string' ? params['workerName'] : 'Murugan R.'}
+              workerRole={
+                typeof params['workerRole'] === 'string'
+                  ? params['workerRole']
+                  : 'Field Worker · Daily wage'
+              }
+              onBack={goBack}
+              onNavigateToEditWorker={(workerData) => navigate('AddWorker', workerData || {})}
+            />
+          ) : screen === 'AddWorker' ? (
+            <AddWorkerScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+              initialWorker={params as any}
+              onBack={goBack}
+              onCancel={goBack}
+              onSave={() => goBack()}
+            />
+          ) : screen === 'FarmDiary' ? (
+            <FarmDiaryScreen
+              onBack={goBack}
+              onNavigateToNewEntry={() => navigate('NewFarmDiaryEntry')}
+              onNavigateToCalendar={() => navigate('DiaryCalendar')}
+            />
+          ) : screen === 'DiaryCalendar' ? (
+            <DiaryCalendarScreen
+              onBack={goBack}
+            />
+          ) : screen === 'NewFarmDiaryEntry' ? (
+            <NewFarmDiaryEntryScreen
+              crop={selectedCrop}
+              onBack={goBack}
+              onCancel={() => navigate('FarmDiary')}
+              onNext={(data) => {
+                // `navigate` replaces `params` with its second argument, so the
+                // accumulated entry state must be passed forward explicitly.
+                navigate('NewFarmDiaryEntryStep2', {
+                  ...params,
+                  plotId: data.plotId,
+                  plotName: data.plotName,
+                  farmCropId: data.farmCropId, // undefined clears a stale pick
+                  cropName: data.cropName,
+                  date: data.date,
+                });
+              }}
+            />
+          ) : screen === 'NewFarmDiaryEntryStep2' ? (
+            <NewFarmDiaryEntryStep2Screen
+              crop={selectedCrop}
+              categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
+              onChangeCategory={goBack}
+              onBack={goBack}
+              onCancel={() => navigate('FarmDiary')}
+              onNext={(entryData) => {
+                navigate('NewFarmDiaryEntryStep3', {
+                  ...params,
+                  categoryKey: entryData.categoryKey,
+                  categoryName: entryData.categoryName,
+                  subActivityKey: entryData.subActivityKey,
+                  subActivityName: entryData.subActivityName,
+                });
+              }}
+            />
+          ) : screen === 'NewFarmDiaryEntryStep3' ? (
+            // Ids are passed through without fallbacks: a missing plotId/categoryKey/
+            // subActivityKey is a navigation bug that Step 3 surfaces, not something to mock.
+            <NewFarmDiaryEntryStep3Screen
+              crop={selectedCrop}
+              plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+              farmCropId={typeof params['farmCropId'] === 'string' ? params['farmCropId'] : undefined}
+              categoryKey={typeof params['categoryKey'] === 'string' ? params['categoryKey'] : undefined}
+              subActivityKey={typeof params['subActivityKey'] === 'string' ? params['subActivityKey'] : undefined}
+              entryCategory={typeof params['categoryName'] === 'string' ? params['categoryName'] : undefined}
+              entrySubActivity={typeof params['subActivityName'] === 'string' ? params['subActivityName'] : undefined}
+              fieldZone={typeof params['plotName'] === 'string' ? params['plotName'] : undefined}
+              cropName={typeof params['cropName'] === 'string' ? params['cropName'] : undefined}
+              onBack={goBack}
+              onCancel={() => navigate('FarmDiary')}
+              onDone={() => {
+                if (selectedCrop) {
+                  navigate('CropDiaryEntries');
+                } else {
+                  navigate('FarmDiary');
+                }
+              }}
+              onSave={() => {
+                if (selectedCrop) {
+                  navigate('CropDiaryEntries');
+                } else {
+                  navigate('FarmDiary');
+                }
+              }}
+            />
+          ) : screen === 'FarmRatings' ? (
+            <FarmRatingsScreen onNavigateBack={goBack} />
+          ) : screen === 'SoilManagement' ? (
+            <SoilManagementScreen
+              onBack={goBack}
+              onNavigateToSoilTestRecords={(farmId) => navigate('SoilTestRecords', { farmId })}
+              onNavigateToSoilHealthTracker={(farmId) => navigate('SoilHealthTracker', { farmId })}
+              onNavigateToSoilTypeClassification={(farmId) => navigate('SoilTypeClassification', { farmId })}
+              onNavigateToAmendments={(farmId) => navigate('SoilAmendmentsLog', { farmId })}
+              onNavigateToCropRotation={(farmId) => navigate('CropRotation', { farmId })}
+              onNavigateToMoistureTracking={(farmId) => navigate('SoilMoistureTracking', { farmId })}
+              onNavigateToErosionConservation={(farmId) => navigate('ErosionConservation', { farmId })}
+              onNavigateToExportReports={(farmId) => navigate('ExportSoilReports', { farmId })}
+              onNavigateToNewSoilTest={(farmId) => navigate('UploadNewSoilTest', { farmId })}
+            />
+          ) : screen === 'SoilTestRecords' ? (
+            <SoilTestRecordsScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+              onNavigateToRecordDetail={() => navigate('SoilTest', { farmId: params['farmId'] })}
+              onUploadNewTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
+            />
+          ) : screen === 'SoilHealthTracker' ? (
+            <SoilHealthTrackerScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+            />
+          ) : screen === 'SoilTypeClassification' ? (
+            <SoilTypeClassificationScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+            />
+          ) : screen === 'SoilAmendmentsLog' ? (
+            <SoilAmendmentsLogScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+              onLogAmendment={() => navigate('CreateSoilAmendment', { farmId: params['farmId'] })}
+            />
+          ) : screen === 'CreateSoilAmendment' || screen === 'LogSoilAmendment' ? (
+            <CreateSoilAmendmentScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+              onBack={goBack}
+              onSave={goBack}
+            />
+          ) : screen === 'CropRotation' ? (
+            <CropRotationScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+            />
+          ) : screen === 'SoilMoistureTracking' ? (
+            <SoilMoistureTrackingScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+            />
+          ) : screen === 'ErosionConservation' ? (
+            <ErosionConservationScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+              onLogErosionNote={() => navigate('CreateErosionNote', { farmId: params['farmId'] })}
+            />
+          ) : screen === 'CreateErosionNote' || screen === 'LogErosionNote' ? (
+            <CreateErosionNoteScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
+              onBack={goBack}
+              onSave={goBack}
+            />
+          ) : screen === 'ExportSoilReports' ? (
+            <ExportSoilReportsScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+            />
+          ) : screen === 'UploadNewSoilTest' || screen === 'NewSoilTest' ? (
+            <UploadNewSoilTestScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onBack={goBack}
+              onSave={goBack}
+              onNavigateToFieldContext={() => navigate('FieldContext', { farmId: params['farmId'], returnTo: screen })}
+            />
+          ) : screen === 'SoilTest' ? (
+            <SoilTestScreen
+              farmId={typeof params['farmId'] === 'string' ? params['farmId'] : ''}
+              onNavigateBack={goBack}
+              onNavigateToNewSoilTest={() => navigate('UploadNewSoilTest', { farmId: params['farmId'] })}
+            />
+          ) : screen === 'BankPayment' ? (
+            <BankPaymentScreen
+              onBack={goBack}
+              onNavigateToBankAccount={() => navigate('BankAccount')}
+              onNavigateToUpiId={() => navigate('UpiId')}
+              onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+              onNavigateToWallet={() => navigate('Wallet')}
+            />
+          ) : screen === 'BankAccount' ? (
+            <BankAccountScreen
+              onBack={goBack}
+            />
+          ) : screen === 'UpiId' ? (
+            <UpiIdScreen
+              onBack={goBack}
+              onSaveSuccess={goBack}
+            />
+          ) : screen === 'PayoutHistory' ? (
+            <PayoutHistoryScreen
+              onBack={goBack}
+              onNavigateToDetail={(payout) => navigate('PayoutDetail', payout as any)}
+            />
+          ) : screen === 'PayoutDetail' ? (
+            <PayoutDetailScreen
+              payout={params as any}
+              onBack={goBack}
+            />
+          ) : screen === 'WithdrawFunds' ? (
+            <WithdrawFundsScreen
+              onClose={goBack}
+              onRequestSuccess={goBack}
+            />
+          ) : screen === 'WalletTransactionDetail' ? (
+            <WalletTransactionDetailScreen
+              transaction={params as any}
+              onBack={goBack}
+            />
+          ) : screen === 'AddMoney' ? (
+            <AddMoneyScreen
+              onClose={goBack}
+              onSuccess={goBack}
+              onNavigateToCashTopUp={(data) => navigate('CashTopUp', data)}
+            />
+          ) : screen === 'CashTopUp' ? (
+            <CashTopUpScreen
+              amount={typeof params['amount'] === 'string' ? params['amount'] : '2,000'}
+              referenceCode={typeof params['referenceCode'] === 'string' ? params['referenceCode'] : 'CASH-TU-7734'}
+              onBack={goBack}
+              onDone={goBack}
+            />
+          ) : screen === 'Wallet' ? (
+            <WalletScreen
+              onBack={goBack}
+              onNavigateToAddMoney={() => navigate('AddMoney')}
+              onNavigateToWithdraw={() => navigate('WithdrawFunds')}
+              onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+              onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
+            />
+          ) : screen === 'Weather' ? (
+            <WeatherScreen
+              onNavigateBack={goBack}
+            />
+          ) : screen === 'ActiveCrops' ? (
+            <ActiveCropsScreen
+              onNavigateBack={goBack}
+              onNavigateToCropDetail={(crop) => {
+                setSelectedCrop(crop);
+                navigate('CropDetail');
+              }}
+              onNavigateToNewCrop={() => navigate('NewCrop')}
+            />
+          ) : screen === 'MyListings' ? (
+            <MyListingsScreen
+              onNavigateBack={goBack}
+              onNavigateToListingDetail={(listing) => {
+                setSelectedListing(listing);
+                navigate('ListingDetail');
+              }}
+              onNavigateToCounterOffer={(listing) => {
+                setSelectedListing(listing);
+                navigate('CounterOffer');
+              }}
+            />
+          ) : screen === 'TohfaCalendar' ? (
+            <TohfaCalendarScreen
+              onNavigateBack={goBack}
+              onNavigateToCropInsight={() => navigate('CropPlanningInsight')}
+            />
+          ) : screen === 'CropPlanningInsight' ? (
+            <CropPlanningInsightScreen onNavigateBack={goBack} />
+          ) : screen === 'FarmInventory' ? (
+            <FarmInventoryScreen
+              onNavigateBack={goBack}
+              onNavigateToCategory={(category) => {
+                if (category === 'Tools') navigate('ToolsList');
+                else if (category === 'Equipment') navigate('EquipmentList');
+                else if (category === 'Trees') navigate('TreesList');
+                else if (category === 'Machinery') navigate('MachineryList');
+              }}
+            />
+          ) : screen === 'ToolsList' ? (
+            <ToolsListScreen
+              onNavigateBack={goBack}
+              onNavigateToAddTool={() => navigate('AddTool')}
+              onNavigateToEditTool={(tool) => {
+                setSelectedToolForEdit(tool);
+                navigate('EditTool');
+              }}
+            />
+          ) : screen === 'AddTool' ? (
+            <AddToolScreen onNavigateBack={goBack} />
+          ) : screen === 'EditTool' ? (
+            <EditToolScreen
+              tool={
+                selectedToolForEdit
+                  ? {
+                    id: selectedToolForEdit.id,
+                    name: selectedToolForEdit.name,
+                    purchaseDate: selectedToolForEdit.purchaseDate?.replace('Purchased ', ''),
+                    serviceInterval: selectedToolForEdit.serviceInterval ?? '90',
+                  }
+                  : undefined
+              }
+              onNavigateBack={goBack}
+              onSave={() => goBack()}
+              onRemove={() => {
+                setSelectedItemForRemove({
+                  id: selectedToolForEdit?.id,
+                  name: selectedToolForEdit?.name || 'Knapsack Sprayer',
+                  category: 'Tools',
+                  dateInfo: `Tools · ${selectedToolForEdit?.purchaseDate || 'Purchased 04 Jan 2025'}`,
+                });
+                navigate('RemoveItem');
+              }}
+            />
+          ) : screen === 'EquipmentList' ? (
+            <EquipmentListScreen
+              onBack={goBack}
+              onNavigateToAddEquipment={() => navigate('AddEquipment')}
+              onNavigateToEditEquipment={(item) => {
+                setSelectedEquipmentForEdit(item);
+                navigate('EditEquipment');
+              }}
+            />
+          ) : screen === 'AddEquipment' ? (
+            <AddEquipmentScreen onNavigateBack={goBack} onSave={goBack} />
+          ) : screen === 'EditEquipment' ? (
+            <EditEquipmentScreen
+              equipment={
+                selectedEquipmentForEdit
+                  ? {
+                    id: selectedEquipmentForEdit.id,
+                    name: selectedEquipmentForEdit.name,
+                    purchaseDate: selectedEquipmentForEdit.purchaseDate?.replace('Purchased ', ''),
+                    coverageArea: selectedEquipmentForEdit.coverageArea ?? '2.5',
+                    serviceInterval: selectedEquipmentForEdit.serviceInterval ?? '120',
+                  }
+                  : undefined
+              }
+              onNavigateBack={goBack}
+              onSave={() => goBack()}
+              onRemove={() => {
+                setSelectedItemForRemove({
+                  id: selectedEquipmentForEdit?.id,
+                  name: selectedEquipmentForEdit?.name || 'Drip Irrigation Kit',
+                  category: 'Equipment',
+                  dateInfo: `Equipment · ${selectedEquipmentForEdit?.purchaseDate || 'Purchased 22 Feb 2024'}`,
+                });
+                navigate('RemoveItem');
+              }}
+            />
+          ) : screen === 'TreesList' ? (
+            <TreesListScreen
+              onBack={goBack}
+              onNavigateToAddPlanting={() => navigate('AddPlanting')}
+              onNavigateToEditPlanting={(item) => {
+                setSelectedTreeForEdit(item);
+                navigate('EditPlanting');
+              }}
+            />
+          ) : screen === 'AddPlanting' ? (
+            <AddPlantingScreen onNavigateBack={goBack} onSave={goBack} />
+          ) : screen === 'EditPlanting' ? (
+            <EditPlantingScreen
+              planting={
+                selectedTreeForEdit
+                  ? {
+                    id: selectedTreeForEdit.id,
+                    species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
+                    treeCount: selectedTreeForEdit.treeCount ?? 12,
+                    plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
+                    locationZone: selectedTreeForEdit.zoneInfo,
+                    purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                  }
+                  : undefined
+              }
+              onNavigateBack={goBack}
+              onSave={() => goBack()}
+              onRemove={() => {
+                setSelectedItemForRemove({
+                  id: selectedTreeForEdit?.id,
+                  name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
+                  category: 'Trees',
+                  dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
+                });
+                navigate('RemoveItem');
+              }}
+            />
+          ) : screen === 'MachineryList' ? (
+            <MachineryListScreen
+              onBack={goBack}
+              onNavigateToAddMachinery={() => navigate('AddMachinery')}
+              onNavigateToEditMachinery={(item) => {
+                setSelectedMachineryForEdit(item);
+                navigate('EditMachinery');
+              }}
+            />
+          ) : screen === 'AddMachinery' ? (
+            <AddMachineryScreen onNavigateBack={goBack} onSave={goBack} />
+          ) : screen === 'EditMachinery' ? (
+            <EditMachineryScreen
+              machinery={
+                selectedMachineryForEdit
+                  ? {
+                    id: selectedMachineryForEdit.id,
+                    name: selectedMachineryForEdit.name,
+                    makeModel: selectedMachineryForEdit.makeModel,
+                    purchaseDate: selectedMachineryForEdit.purchaseDate?.replace('Purchased ', ''),
+                    fuelType: selectedMachineryForEdit.fuelType,
+                    serviceInterval: selectedMachineryForEdit.serviceInterval ?? '60',
+                  }
+                  : undefined
+              }
+              onNavigateBack={goBack}
+              onSave={() => goBack()}
+              onRemove={() => {
+                setSelectedItemForRemove({
+                  id: selectedMachineryForEdit?.id,
+                  name: selectedMachineryForEdit?.name || 'Power Tiller',
+                  category: 'Machinery',
+                  dateInfo: `Machinery · ${selectedMachineryForEdit?.purchaseDate || 'Purchased 08 Feb 2023'}`,
+                });
+                navigate('RemoveItem');
+              }}
+            />
+          ) : screen === 'RemoveItem' ? (
+            <RemoveItemScreen
+              item={selectedItemForRemove ?? undefined}
+              onNavigateBack={goBack}
+              onConfirmRemove={async () => {
+                // canDeleteAsset is the single source of truth for which categories have no
+                // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
+                // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
+                // not the gate itself.
+                if (
+                  selectedItemForRemove?.id &&
+                  canDeleteAsset(selectedItemForRemove.category)
+                ) {
+                  try {
+                    await deleteFarmAsset(selectedItemForRemove.id);
+                  } catch {
+                    // Ignore error and navigate back to list which refreshes
+                  }
+                }
+                if (selectedItemForRemove?.category === 'Tools') {
+                  navigate('ToolsList');
+                } else if (selectedItemForRemove?.category === 'Equipment') {
+                  navigate('EquipmentList');
+                } else {
+                  navigate('MachineryList');
+                }
+              }}
+            />
+          ) : screen === 'DailyAttendance' ? (
+            <DailyAttendanceScreen onNavigateBack={goBack} />
+          ) : screen === 'LearningHub' ? (
+            <LearningHubScreen
+              onBack={goBack}
+              onNavigateToContentDetail={(content) => {
+                setSelectedContentDetail(content);
+                navigate('ContentDetail');
+              }}
+              onNavigateToGroups={() => navigate('Groups')}
+              onNavigateToGroupDetail={(group) => {
+                setSelectedGroup(group);
+                navigate('GroupDetail');
+              }}
+            />
+          ) : screen === 'ContentDetail' ? (
+            <ContentDetailScreen
+              content={selectedContentDetail ?? undefined}
+              onBack={goBack}
+            />
+          ) : screen === 'Groups' ? (
+            <GroupsScreen
+              onBack={goBack}
+              onNavigateToGroupDetail={(group) => {
+                setSelectedGroup(group);
+                navigate('GroupDetail');
+              }}
+            />
+          ) : screen === 'GroupDetail' ? (
+            <GroupDetailScreen
+              group={selectedGroup ?? undefined}
+              onBack={goBack}
+            />
+          ) : screen === 'AboutSupport' ? (
+            <AboutSupportScreen onBack={goBack} />
+          ) : screen === 'ChangePassword' ? (
+            <ChangePasswordScreen onBack={goBack} onSuccess={() => navigate('PasswordChangedSuccess')} />
+          ) : screen === 'Settings' ? (
+            <SettingsScreen
+              onBack={goBack}
+              onNavigateToProfile={() => navigate('PersonalDetails')}
+              onNavigateToChangePassword={() => navigate('ChangePassword')}
+              onNavigateToAboutSupport={() => navigate('AboutSupport')}
+              onSignOut={() => signOutTo('Welcome')}
+            />
+          ) : (
+            /* MainTabs layout */
+            <View style={styles.mainTabsContainer}>
+              <View style={styles.tabScreenContainer}>
+                {currentTab === 'Home' ? (
+                  <DashboardScreen
+                    onNavigateToCertifications={() => navigate('Certifications')}
+                    onNavigateToCreateListing={() => navigate('CreateListing')}
+                    onNavigateToListings={() => setCurrentTab('Listings')}
+                    onNavigateToWallet={() => setCurrentTab('Wallet')}
+                    onNavigateToProfile={() => setCurrentTab('Profile')}
+                    onNavigateToNotifications={() => navigate('Notifications')}
+                    onNavigateToCounterOffer={(item) => {
+                      // Only a real listing from DashboardScreen's GET /listings opens the
+                      // counter-offer screen; with none, there is nothing to respond to.
+                      if (item && item.id) {
+                        setSelectedListing(item);
+                        navigate('CounterOffer');
+                      } else {
+                        // No specific offer: the Marketing tab lists every one that needs a reply.
+                        setCurrentTab('Listings');
+                      }
+                    }}
+                    onNavigateToFarmManagement={() => navigate('CropManagement')}
+                    onNavigateToCropManagement={() => navigate('CropManagement')}
+                    onNavigateToWeather={() => navigate('Weather')}
+                    onNavigateToActiveCrops={() => navigate('ActiveCrops')}
+                    onNavigateToFarmDiary={() => navigate('FarmDiary')}
+                    onNavigateToMyListings={() => setCurrentTab('Listings')}
+                    onNavigateToAttendance={() => navigate('DailyAttendance')}
+                    onNavigateToTohfaCalendar={() => navigate('TohfaCalendar')}
+                    onNavigateToLearningHub={() => navigate('LearningHub')}
+                    onNavigateToProduceCalendar={() => navigate('ProduceCalendar')}
+                    onNavigateToInventory={() => navigate('FarmInventory')}
+                    // The dashboard's crop preview is built from real farm_crops rows
+                    // (listAllActiveFarmCrops + toActiveCropData), so each card carries
+                    // the same CropItem payload ActiveCropsScreen hands CropDetailScreen.
+                    onNavigateToCropDetail={(crop) => {
+                      setSelectedCrop(crop);
+                      navigate('CropDetail');
+                    }}
+                    onNavigateToAudits={() => navigate('Audits')}
+                  />
+                ) : currentTab === 'Listings' ? (
+                  <ListingsScreen
+                    onNavigateToCreateListing={() => navigate('CreateListing')}
+                    onNavigateToCounterOffer={(listing) => {
+                      setSelectedListing(listing);
+                      navigate('CounterOffer');
+                    }}
+                    onNavigateToListingDetail={(listing) => {
+                      setSelectedListing(listing);
+                      navigate('ListingDetail');
+                    }}
+                    onNavigateToMyListings={() => navigate('MyListings')}
+                  />
+                ) : currentTab === 'Wallet' ? (
+                  <WalletScreen
+                    onNavigateToAddMoney={() => navigate('AddMoney')}
+                    onNavigateToWithdraw={() => navigate('WithdrawFunds')}
+                    onNavigateToPayoutHistory={() => navigate('PayoutHistory')}
+                    onNavigateToTransactionDetail={(txn) => navigate('WalletTransactionDetail', txn as any)}
+                  />
+                ) : (
+                  <ProfileScreen
+                    onNavigateToHome={() => setCurrentTab('Home')}
+                    onNavigateToCertifications={() => navigate('Certifications')}
+                    onNavigateToMarket={() => setCurrentTab('Listings')}
+                    onNavigateToFMBSketch={() => navigate('FMBSketch')}
+                    onNavigateToPersonalDetails={() => navigate('PersonalDetails')}
+                    onNavigateToAudits={() => navigate('Audits')}
+                    onNavigateToFarmRatings={() => navigate('FarmRatings')}
+                    onNavigateToSoilTest={() => navigate('SoilTest')}
+                    onNavigateToSettings={() => navigate('Settings')}
+                    onNavigateToAboutSupport={() => navigate('AboutSupport')}
+                    onNavigateToBankPayment={() => navigate('BankPayment')}
+                    onSignOut={() => signOutTo('Welcome')}
+                  />
+                )}
               </View>
 
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => setCurrentTab('Listings')}
-                accessibilityRole="tab"
-              >
-                <Icon name="shopping_cart" size={24} color={currentTab === 'Listings' ? colors.brandGreen : colors.onSurfaceVariant} style={currentTab === 'Listings' ? undefined : { opacity: 0.5 }} />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    currentTab === 'Listings' && styles.tabItemTextActive,
-                    currentTab === 'Listings' && { color: colors.brandGreen }
-                  ]}
+              {/* Bottom Tab Bar */}
+              <View style={[styles.bottomTabBar, { borderTopWidth: 0, shadowColor: colors.onSurface, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 10, height: 58 }]}>
+                <Pressable
+                  style={styles.tabItem}
+                  onPress={() => setCurrentTab('Home')}
+                  accessibilityRole="tab"
                 >
-                  Market
-                </Text>
-              </Pressable>
+                  <HomeIcon size={24} color={currentTab === 'Home' ? colors.brandGreen : colors.onSurfaceVariant} />
+                  <Text
+                    style={[
+                      styles.tabItemText,
+                      currentTab === 'Home' && styles.tabItemTextActive,
+                      currentTab === 'Home' && { color: colors.brandGreen }
+                    ]}
+                  >
+                    Home
+                  </Text>
+                </Pressable>
 
-              <Pressable
-                style={styles.tabItem}
-                onPress={() => setCurrentTab('Profile')}
-                accessibilityRole="tab"
-              >
-                <Icon name="person" size={24} color={currentTab === 'Profile' ? colors.brandGreen : colors.onSurfaceVariant} style={currentTab === 'Profile' ? undefined : { opacity: 0.5 }} />
-                <Text
-                  style={[
-                    styles.tabItemText,
-                    currentTab === 'Profile' && styles.tabItemTextActive,
-                    currentTab === 'Profile' && { color: colors.brandGreen }
-                  ]}
+                <Pressable
+                  style={styles.tabItem}
+                  onPress={() => navigate('FarmManagement')}
+                  accessibilityRole="tab"
                 >
-                  Profile
-                </Text>
-              </Pressable>
+                  <Icon name="eco" size={24} color={colors.onSurfaceVariant} />
+                  <Text style={styles.tabItemText}>Farm</Text>
+                </Pressable>
+
+                <View style={styles.centerTabContainer}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.centerAddButton,
+                      pressed && { opacity: 0.88, transform: [{ scale: 0.96 }] },
+                    ]}
+                    onPress={() => navigate('CreateListing')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Create listing"
+                  >
+                    <TabPlusIcon size={22} color={colors.white} />
+                  </Pressable>
+                </View>
+
+                <Pressable
+                  style={styles.tabItem}
+                  onPress={() => setCurrentTab('Listings')}
+                  accessibilityRole="tab"
+                >
+                  <Icon name="shopping_cart" size={24} color={currentTab === 'Listings' ? colors.brandGreen : colors.onSurfaceVariant} style={currentTab === 'Listings' ? undefined : { opacity: 0.5 }} />
+                  <Text
+                    style={[
+                      styles.tabItemText,
+                      currentTab === 'Listings' && styles.tabItemTextActive,
+                      currentTab === 'Listings' && { color: colors.brandGreen }
+                    ]}
+                  >
+                    Market
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.tabItem}
+                  onPress={() => setCurrentTab('Profile')}
+                  accessibilityRole="tab"
+                >
+                  <Icon name="person" size={24} color={currentTab === 'Profile' ? colors.brandGreen : colors.onSurfaceVariant} style={currentTab === 'Profile' ? undefined : { opacity: 0.5 }} />
+                  <Text
+                    style={[
+                      styles.tabItemText,
+                      currentTab === 'Profile' && styles.tabItemTextActive,
+                      currentTab === 'Profile' && { color: colors.brandGreen }
+                    ]}
+                  >
+                    Profile
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
-        )}
-      </View>
-    </SafeAreaView>
+          )}
+        </View>
+      </SafeAreaView>
     </SessionQueryProvider>
   );
 }

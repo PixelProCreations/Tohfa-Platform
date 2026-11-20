@@ -94,6 +94,49 @@ function renderBuiltinIcon(type: string, color: string) {
           <Path d="M16 14.5v1.8l1.3 1.3" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
         </Svg>
       );
+    case 'new':
+      return (
+        <View
+          style={{
+            borderWidth: 1.5,
+            borderColor: color,
+            borderRadius: 4,
+            paddingHorizontal: 5,
+            paddingVertical: 1.5,
+            alignSelf: 'flex-start',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 10,
+              fontWeight: '800',
+              color,
+              letterSpacing: 0.6,
+              includeFontPadding: false,
+              textAlign: 'center',
+            }}
+          >
+            NEW
+          </Text>
+        </View>
+      );
+    case 'confirmed':
+    case 'check':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+          <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+          <Path d="M7.5 12l3 3 6.5-6.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'packing':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+          <Rect x="2.5" y="5.5" width="19" height="14" rx="2" stroke={color} strokeWidth="2" />
+          <Path d="M2.5 10.5h19M9.5 5.5v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
     case 'pickup':
     case 'payout':
     case 'pending_payout':
@@ -197,10 +240,12 @@ function renderBuiltinIcon(type: string, color: string) {
         </Svg>
       );
     case 'alert':
+    case 'issue':
+    case 'issues':
       return (
-        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-          <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-          <Path d="M12 8v5M12 16h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+          <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth="2" />
+          <Path d="M12 7.5v5M12 16.2h.01" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
         </Svg>
       );
     case 'store':
@@ -644,6 +689,146 @@ export function OverviewApprovalCard({
   );
 }
 
+// ─── StatusMetricCard / OrderStatusCard / OverviewMetricCard ────────────────
+export interface StatusMetricCardProps {
+  /** Top icon / icon badge node or built-in icon string */
+  icon?:
+    | 'orders'
+    | 'new'
+    | 'confirmed'
+    | 'check'
+    | 'packing'
+    | 'pickup'
+    | 'delivery'
+    | 'truck'
+    | 'box'
+    | 'alert'
+    | 'issue'
+    | 'issues'
+    | 'users'
+    | 'clock'
+    | 'inventory'
+    | React.ReactNode;
+  /** Large primary stat/number, e.g. "12", "8", "68%", "3" */
+  value: string | number;
+  /** Primary label/title under the stat, e.g. "New Orders", "Confirmed" */
+  label: string;
+  /** Tone: 'default' | 'danger' | 'warning' | 'success' */
+  tone?: 'default' | 'danger' | 'warning' | 'success';
+  /** Text and content alignment: 'left' (default) or 'center' */
+  align?: 'left' | 'center';
+  /** Press handler */
+  onPress?: (() => void) | undefined;
+  /** Custom container style */
+  style?: StyleProp<ViewStyle>;
+  /** Custom value style */
+  valueStyle?: StyleProp<TextStyle>;
+  /** Custom label style */
+  labelStyle?: StyleProp<TextStyle>;
+  /** Custom icon wrap style */
+  iconWrapStyle?: StyleProp<ViewStyle>;
+  /** Width or grid column setting (defaults to 48% for 2-column layout) */
+  width?: number | `${number}%` | 'auto';
+  /** Accessibility label */
+  accessibilityLabel?: string;
+  /** Test ID */
+  testID?: string;
+  /** Whether the card is disabled */
+  disabled?: boolean;
+}
+
+export function StatusMetricCard({
+  icon,
+  value,
+  label,
+  tone = 'default',
+  align = 'left',
+  onPress,
+  style,
+  valueStyle,
+  labelStyle,
+  iconWrapStyle,
+  width,
+  accessibilityLabel,
+  testID,
+  disabled,
+}: StatusMetricCardProps) {
+  const isDanger = tone === 'danger';
+  const isWarning = tone === 'warning';
+  const isSuccess = tone === 'success';
+
+  const valColor = isDanger
+    ? adminColors.danger.text
+    : isWarning
+      ? adminColors.warning.text
+      : isSuccess
+        ? adminColors.success.text
+        : adminColors.ink;
+
+  const isCenter = align === 'center';
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.statusMetricCard,
+        isCenter && styles.statusMetricCardCenter,
+        width !== undefined && { width },
+        style,
+      ]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.75 : 1}
+      disabled={disabled || !onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={accessibilityLabel || `${label}: ${value}`}
+      testID={testID}
+    >
+      {icon ? (
+        <View style={[styles.statusMetricIconWrap, isCenter && styles.statusMetricIconWrapCenter, iconWrapStyle]}>
+          {typeof icon === 'string'
+            ? renderBuiltinIcon(
+                icon,
+                isDanger
+                  ? adminColors.danger.text
+                  : isSuccess
+                  ? adminColors.success.text
+                  : isWarning
+                  ? adminColors.warning.text
+                  : adminColors.brand
+              )
+            : icon}
+        </View>
+      ) : null}
+      <Text
+        style={[
+          styles.statusMetricValue,
+          isCenter && styles.statusMetricValueCenter,
+          { color: valColor },
+          valueStyle,
+        ]}
+        numberOfLines={1}
+      >
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.statusMetricLabel,
+          isCenter && styles.statusMetricLabelCenter,
+          labelStyle,
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+export const OrderStatusCard = StatusMetricCard;
+export type OrderStatusCardProps = StatusMetricCardProps;
+
+export const OverviewMetricCard = StatusMetricCard;
+export type OverviewMetricCardProps = StatusMetricCardProps;
+
 const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -670,10 +855,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 12,
-    columnGap: 10,
   },
   card: {
-    width: '48.5%',
+    width: '48%',
     backgroundColor: adminColors.card,
     borderRadius: 18,
     paddingHorizontal: 14,
@@ -855,5 +1039,49 @@ const styles = StyleSheet.create({
     ...adminType.rowMeta,
     color: adminColors.muted,
     fontSize: 12,
+  },
+  statusMetricCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    minHeight: 112,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    ...adminShadow.sm,
+  },
+  statusMetricCardCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusMetricIconWrap: {
+    minHeight: 28,
+    justifyContent: 'center',
+    marginBottom: 8,
+    alignItems: 'flex-start',
+  },
+  statusMetricIconWrapCenter: {
+    alignItems: 'center',
+  },
+  statusMetricValue: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: adminColors.ink,
+    lineHeight: 28,
+  },
+  statusMetricValueCenter: {
+    textAlign: 'center',
+  },
+  statusMetricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  statusMetricLabelCenter: {
+    textAlign: 'center',
   },
 });

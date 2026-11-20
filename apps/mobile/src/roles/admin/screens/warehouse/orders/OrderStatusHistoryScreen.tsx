@@ -69,6 +69,15 @@ function TimelineNode() {
   );
 }
 
+function InfoCircleIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function ChevronIcon({ open }: { open: boolean }) {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -168,6 +177,13 @@ export function OrderStatusHistoryScreen({ orderId = SAMPLE_ORDER_ID, onBack }: 
               );
             })}
           </View>
+
+          <View style={styles.deliveryNoteBox}>
+            <InfoCircleIcon />
+            <Text style={styles.deliveryNoteText}>
+              For delivery orders, this same timeline shows Dispatched — Out for Delivery — Delivered instead — delivery status is configurable, per the source.
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -222,4 +238,21 @@ const styles = StyleSheet.create({
   col: { flex: 1 },
   fieldLabel: { ...adminType.rowMeta, color: adminColors.muted, marginBottom: adminSpacing.xs },
   fieldValue: { ...adminType.sectionHead, color: adminColors.ink },
+  deliveryNoteBox: {
+    backgroundColor: adminColors.info.bg,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xl,
+  },
+  deliveryNoteText: {
+    flex: 1,
+    ...adminType.caption,
+    color: adminColors.info.text,
+    lineHeight: 18,
+  },
 });

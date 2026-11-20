@@ -1,20 +1,29 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   LockIcon,
+  StatusBadge,
   WalletScreen,
 } from '../wallet-cashtopup/WalletParts';
-import { STORAGE_LOCATIONS } from '../profile-settings/warehouseFixtures';
 import type { WarehouseScreenBaseProps } from './types';
 
-function BoxOutlineIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function BoxOutlineIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="1.8" />
+      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ClockOutlineIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -26,94 +35,132 @@ export interface StorageLocationDetailScreenProps extends WarehouseScreenBasePro
 }
 
 export function StorageLocationDetailScreen({
-  scope,
-  locationId = 'CS-A01',
+  locationId = 'LOC-COO-A02-S03',
   onBack,
   onViewStock,
+  onViewActivity,
 }: StorageLocationDetailScreenProps) {
-  const fallbackLoc = {
-    id: 'CS-A01',
-    warehouseId: 'WH-COON',
-    name: 'Cold Storage A',
-    code: 'CS-A01',
-    type: 'Cold Storage',
-    status: 'Active',
-    capacityKg: 2000,
-    currentKg: 1850,
-  };
-  const loc = STORAGE_LOCATIONS.find((l) => l.id === locationId) ?? STORAGE_LOCATIONS[0] ?? fallbackLoc;
-  const whName = scope?.warehouseName ?? 'Coonoor Warehouse';
+  const isOccupied = true;
 
-  const usageItems = [
-    { name: 'Carrot', qty: '420 kg' },
-    { name: 'Cabbage', qty: '320 kg' },
-    { name: 'Beans', qty: '210 kg' },
+  const stockRows = [
+    { name: 'Tomato', grade: 'Grade 1', qty: '140 KG' },
+    { name: 'Carrot', grade: 'Grade 1', qty: '80 KG' },
   ];
-
-  const capacityText = `${loc.capacityKg.toLocaleString('en-IN')} kg`;
-  const occupancyText = `${loc.currentKg.toLocaleString('en-IN')} kg`;
-  const availableKg = Math.max(0, loc.capacityKg - loc.currentKg);
-  const availableText = `${availableKg.toLocaleString('en-IN')} kg`;
 
   return (
     <WalletScreen
-      title="Storage Location"
+      title="Rack 02 - Shelf 03"
       onBack={onBack}
+      headerRight={<StatusBadge label="Occupied" tone="danger" />}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.scopeRow}>
-          <LockIcon size={14} color={adminColors.muted} />
-          <Text style={styles.scopeText}>{whName}</Text>
-        </View>
-
-        <Text style={styles.locationTitle}>{`${loc.name} — ${loc.code}`}</Text>
-
+        {/* ─── 1. Location Information ─── */}
+        <Text style={styles.sectionHeading}>Location Information</Text>
         <View style={styles.card}>
-          <View style={styles.infoGridRow}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Status</Text>
-              <Text style={styles.infoValue}>{loc.status}</Text>
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Location ID</Text>
+              <Text style={styles.value}>LOC-COO-A02-S03</Text>
             </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Capacity</Text>
-              <Text style={styles.infoValue}>{capacityText}</Text>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Storage Type</Text>
+              <Text style={styles.value}>Cold Storage</Text>
             </View>
           </View>
-          <View style={[styles.infoGridRow, styles.infoGridRowSpaced]}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Current Occupancy</Text>
-              <Text style={styles.infoValue}>{occupancyText}</Text>
+
+          <View style={[styles.gridRow, styles.gridRowSpacing]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Section</Text>
+              <Text style={styles.value}>A</Text>
             </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Available</Text>
-              <Text style={styles.infoValue}>{availableText}</Text>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Rack</Text>
+              <Text style={styles.value}>02</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, styles.gridRowSpacing]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Shelf</Text>
+              <Text style={styles.value}>03</Text>
+            </View>
+            <View style={styles.gridCol} />
+          </View>
+        </View>
+
+        {/* ─── 2. Occupancy ─── */}
+        <Text style={styles.sectionHeading}>Occupancy</Text>
+        <View style={styles.card}>
+          <View style={styles.occupancyHeaderRow}>
+            <Text style={styles.occupancyLabel}>Current</Text>
+            <Text style={styles.occupancyValue}>68%</Text>
+          </View>
+
+          {/* Progress bar */}
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: '68%' }]} />
+          </View>
+
+          <View style={[styles.gridRow, { marginTop: 14 }]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Capacity</Text>
+              <Text style={styles.value}>500 KG</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.label}>Available</Text>
+              <Text style={styles.value}>160 KG</Text>
             </View>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Location Usage</Text>
-        <View style={styles.usageCard}>
-          {usageItems.map((item, idx) => (
-            <React.Fragment key={item.name}>
-              {idx > 0 ? <View style={styles.usageDivider} /> : null}
-              <View style={styles.usageRow}>
-                <Text style={styles.usageItemName}>{item.name}</Text>
-                <Text style={styles.usageItemQty}>{item.qty}</Text>
+        {/* ─── 3. Stored Stock ─── */}
+        <Text style={styles.sectionHeading}>Stored Stock</Text>
+        <View style={styles.card}>
+          {stockRows.map((stock, idx) => (
+            <React.Fragment key={stock.name}>
+              {idx > 0 && <View style={styles.divider} />}
+              <View style={styles.stockRow}>
+                <View>
+                  <Text style={styles.stockName}>{stock.name}</Text>
+                  <Text style={styles.stockGrade}>{stock.grade}</Text>
+                </View>
+                <Text style={styles.stockQty}>{stock.qty}</Text>
               </View>
             </React.Fragment>
           ))}
         </View>
 
-        <TouchableOpacity
-          style={styles.viewStockButton}
-          onPress={onViewStock}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="View Stock"
-        >
-          <BoxOutlineIcon size={20} color={adminColors.onBrand} />
-          <Text style={styles.viewStockButtonText}>View Stock</Text>
-        </TouchableOpacity>
+        {/* ─── 4. Actions ─── */}
+        <Text style={styles.sectionHeading}>Actions</Text>
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={styles.outlineActionBtn}
+            onPress={onViewStock}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+          >
+            <BoxOutlineIcon size={18} color={adminColors.brand} />
+            <Text style={styles.outlineActionBtnText}>View Stock</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.outlineActionBtn}
+            onPress={onViewActivity}
+            activeOpacity={0.75}
+            accessibilityRole="button"
+          >
+            <ClockOutlineIcon size={18} color={adminColors.brand} />
+            <Text style={styles.outlineActionBtnText}>View Activity</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ─── 5. Bottom Notice ─── */}
+        <View style={styles.noticeContainer}>
+          <LockIcon size={14} color={adminColors.brand} />
+          <Text style={styles.noticeText}>
+            SWA views this location's stock and activity here — this is a deep-link into inventory data, not a second stock-
+          </Text>
+        </View>
       </ScrollView>
     </WalletScreen>
   );
@@ -124,91 +171,127 @@ const styles = StyleSheet.create({
     padding: adminSpacing.lg,
     paddingBottom: 40,
   },
-  scopeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
-  },
-  scopeText: {
-    ...adminType.body,
+  sectionHeading: {
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
-  },
-  locationTitle: {
-    ...adminType.title,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.lg,
+    marginBottom: 10,
+    marginTop: 4,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.lg,
-    marginBottom: adminSpacing.xl,
+    padding: 16,
+    marginBottom: 18,
+    ...adminShadow.sm,
   },
-  infoGridRow: {
+  gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  infoGridRowSpaced: {
-    marginTop: 16,
+  gridRowSpacing: {
+    marginTop: 14,
   },
-  infoCol: {
+  gridCol: {
     flex: 1,
   },
-  infoLabel: {
-    ...adminType.caption,
+  label: {
+    fontSize: 11,
     color: adminColors.muted,
-    marginBottom: 4,
+    marginBottom: 3,
   },
-  infoValue: {
-    ...adminType.sectionHead,
+  value: {
+    fontSize: 13,
+    fontWeight: '700',
     color: adminColors.ink,
   },
-  sectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-    marginBottom: adminSpacing.md,
-  },
-  usageCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: 4,
-    marginBottom: adminSpacing.xl,
-  },
-  usageRow: {
+  occupancyHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    marginBottom: 8,
   },
-  usageDivider: {
+  occupancyLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  occupancyValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  progressTrack: {
+    height: 6,
+    backgroundColor: '#F3F0EA',
+    borderRadius: 3,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#D97706',
+    borderRadius: 3,
+  },
+  stockRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  stockName: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  stockGrade: {
+    fontSize: 11,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  stockQty: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  divider: {
     height: 1,
     backgroundColor: adminColors.border,
   },
-  usageItemName: {
-    ...adminType.body,
-    color: adminColors.ink,
+  actionsContainer: {
+    gap: 10,
+    marginBottom: 20,
   },
-  usageItemQty: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-  viewStockButton: {
+  outlineActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.lg,
-    height: 50,
-    gap: adminSpacing.xs,
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    height: 48,
+    gap: 8,
+    ...adminShadow.sm,
   },
-  viewStockButtonText: {
-    ...adminType.sectionHead,
-    color: adminColors.onBrand,
+  outlineActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  noticeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  noticeText: {
+    fontSize: 11,
+    color: adminColors.muted,
+    flex: 1,
+    lineHeight: 16,
   },
 });

@@ -127,14 +127,15 @@ export function CommunityKnowledgeHomeScreen({
             <Text style={styles.headerTitle}>Community & Knowledge</Text>
           </View>
 
-          {/* Top Right (+) Button matching Screenshot 1: Create Content */}
+          {/* Top Right Header Action Button: Add Content */}
           <TouchableOpacity
             style={styles.headerAddBtn}
             onPress={() => onNavigateCreateContent('Article')}
             activeOpacity={0.8}
-            accessibilityLabel="Create content"
+            accessibilityLabel="Add Content"
           >
-            <PlusIcon size={18} />
+            <PlusIcon size={13} color={adminColors.brand} />
+            <Text style={styles.headerAddBtnText}>Add Content</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -325,31 +326,40 @@ const styles = StyleSheet.create({
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flex: 1,
+    marginRight: 8,
   },
   backBtn: {
-    width: 32,
+    width: 28,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: -6,
-    marginRight: 2,
+    marginLeft: -4,
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    fontSize: 18,
+    fontSize: 16.5,
     fontWeight: '800',
     letterSpacing: -0.2,
+    flexShrink: 1,
   },
   headerAddBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: adminColors.headerIcon.bg,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+    ...adminShadow.sm,
+  },
+  headerAddBtnText: {
+    color: adminColors.brand,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
 
   scroll: {

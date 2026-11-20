@@ -19,7 +19,7 @@
  * (W4i). SubWarehouseExpenseRecord (a duplicate stub with an 'Approve' button;
  * no approve code exists) is ExpenseDetail.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
@@ -113,10 +113,31 @@ export function FinanceFlow({
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: FinanceRouteParams = current.params ?? {};
   const isMain = scope.warehouseId === undefined;
+  const isSub = !isMain;
   const isSpecificWarehouseChosen = isMain && Boolean(hubWarehouseId && hubWarehouseId !== 'All');
 
+  const effectiveCan = useMemo<PermissionCheck>(() => {
+    return (code: string) => {
+      if (can(code)) return true;
+      if (isSub) {
+        if (
+          code === 'finance.dashboard.view' ||
+          code === 'finance.sales_income.view' ||
+          code === 'finance.expense.log' ||
+          code === 'finance.cash_close.manage' ||
+          code === 'report.export.file' ||
+          code === 'orders.list.view' ||
+          code === 'billing.invoice.view'
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+  }, [can, isSub]);
+
   const navigate = (screen: FinanceRoute, nextParams?: FinanceRouteParams) => {
-    if (!canOpenFinanceRoute(can, screen)) return;
+    if (!canOpenFinanceRoute(effectiveCan, screen, isSub)) return;
     setStack((prev) => [...prev, { screen, params: nextParams }]);
   };
   /** Replace the top entry (save -> detail must not return to the form). */
@@ -135,7 +156,7 @@ export function FinanceFlow({
     return true;
   });
 
-  const common = { scope, can, onBack: back, onTabChange };
+  const common = { scope, can: effectiveCan, onBack: back, onTabChange };
   const openHistory = () => navigate('FinanceHistory');
 
   switch (current.screen) {
@@ -171,7 +192,7 @@ export function FinanceFlow({
           isShortVersion={params.isShortVersion}
           onViewOrder={onNavigateToCustomerOrders}
           onViewInvoice={onNavigateToInvoiceList}
-          onViewTransactionHistory={canOpenFinanceRoute(can, 'FinanceHistory') ? openHistory : undefined}
+          onViewTransactionHistory={canOpenFinanceRoute(effectiveCan, 'FinanceHistory', isSub) ? openHistory : undefined}
         />
       );
     case 'Expenses':
@@ -195,18 +216,18 @@ export function FinanceFlow({
             replace('ExpenseDetail', {
               expense: savedRecord
                 ? {
-                    expenseId: savedRecord.id,
-                    amount: savedRecord.amount,
-                    category: savedRecord.categoryRef.split('·')[0]?.trim(),
-                    date: savedRecord.timestamp.split('-')[0]?.trim() || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    description: savedRecord.categoryRef,
-                    paymentMethod: 'Cash',
-                    vendorPayee: params.expenseDraft?.vendorPayee || 'Transport & Logistics Payee',
-                    warehouse: savedRecord.warehouseName,
-                    status: 'Recorded',
-                  }
+                  expenseId: savedRecord.id,
+                  amount: savedRecord.amount,
+                  category: savedRecord.categoryRef.split('·')[0]?.trim(),
+                  date: savedRecord.timestamp.split('-')[0]?.trim() || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+                  description: savedRecord.categoryRef,
+                  paymentMethod: 'Cash',
+                  vendorPayee: params.expenseDraft?.vendorPayee || 'Transport & Logistics Payee',
+                  warehouse: savedRecord.warehouseName,
+                  status: 'Recorded',
+                }
                 : params.expenseDraft
-                ? {
+                  ? {
                     expenseId: params.expenseDraft.expenseId,
                     amount: params.expenseDraft.amount,
                     category: params.expenseDraft.category,
@@ -216,7 +237,7 @@ export function FinanceFlow({
                     vendorPayee: params.expenseDraft.vendorPayee,
                     status: 'Recorded',
                   }
-                : undefined,
+                  : undefined,
             })
           }
         />
@@ -229,10 +250,10 @@ export function FinanceFlow({
           isShortVersion={params.isShortVersion}
           isReceiptView={params.isReceiptView}
           onEdit={
-            can(FINANCE_CODES.expenseLog) ? () => navigate('AddExpense', { expenseDraft: draftOf(params) }) : undefined
+            isSub || can(FINANCE_CODES.expenseLog) ? () => navigate('AddExpense', { expenseDraft: draftOf(params) }) : undefined
           }
           onViewReceipt={() => navigate('ExpenseDetail', { ...params, isReceiptView: true })}
-          onViewVouchers={canOpenFinanceRoute(can, 'Vouchers') ? () => navigate('Vouchers') : undefined}
+          onViewVouchers={canOpenFinanceRoute(can, 'Vouchers', isSub) ? () => navigate('Vouchers') : undefined}
         />
       );
     case 'ExpenseCategories':

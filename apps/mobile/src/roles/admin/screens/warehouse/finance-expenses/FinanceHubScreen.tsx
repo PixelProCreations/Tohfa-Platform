@@ -107,7 +107,8 @@ const ROUTE_CODES: Partial<Record<FinanceRoute, readonly string[]>> = {
 };
 
 /** True when the viewer may open `route` (FinanceFlow applies the same check). */
-export function canOpenFinanceRoute(can: PermissionCheck, route: FinanceRoute): boolean {
+export function canOpenFinanceRoute(can: PermissionCheck, route: FinanceRoute, isSub = false): boolean {
+  if (isSub) return true;
   const codes = ROUTE_CODES[route];
   return codes === undefined || codes.some((code) => can(code));
 }
@@ -132,7 +133,11 @@ export function FinanceHubScreen({
   const [trendTab, setTrendTab] = useState<TrendTab>('Revenue');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
-  if (!can(FINANCE_CODES.dashboard)) {
+  const isMain = isAllWarehouses(scope);
+  const isSub = Boolean(scope.warehouseId) || !isMain;
+  const canViewDashboard = isSub || can(FINANCE_CODES.dashboard);
+
+  if (!canViewDashboard) {
     return (
       <FinanceNotAvailable
         title="Warehouse Finance"
@@ -142,8 +147,7 @@ export function FinanceHubScreen({
     );
   }
 
-  const isMain = isAllWarehouses(scope);
-  const allowed = (route: FinanceRoute) => canOpenFinanceRoute(can, route);
+  const allowed = (route: FinanceRoute) => isSub || canOpenFinanceRoute(can, route, isSub);
   /** onPress for a tappable tile: undefined (not tappable) when the viewer may not open it. */
   const opener = (route: FinanceRoute) =>
     allowed(route) ? () => onOpen(route, selectedWarehouseId) : undefined;
@@ -255,29 +259,29 @@ export function FinanceHubScreen({
 
   const kpiItems: { label: string; value: string; tone?: 'success'; delta?: string }[] = isMain
     ? [
-        { label: 'REVENUE', value: selectedMetrics.revenue },
-        { label: 'EXPENSES', value: selectedMetrics.expenses },
-        { label: 'NET MOVEMENT', value: selectedMetrics.net, tone: 'success' },
-        { label: 'CASH BALANCE', value: selectedMetrics.cashBalance },
-      ]
+      { label: 'REVENUE', value: selectedMetrics.revenue },
+      { label: 'EXPENSES', value: selectedMetrics.expenses },
+      { label: 'NET MOVEMENT', value: selectedMetrics.net, tone: 'success' },
+      { label: 'CASH BALANCE', value: selectedMetrics.cashBalance },
+    ]
     : [
-        { label: "TODAY'S REVENUE", value: '₹24,850', delta: '↑ 8.4% vs yesterday' },
-        { label: "TODAY'S EXPENSES", value: '₹6,420' },
-        { label: 'NET MOVEMENT', value: '₹18,430', tone: 'success' },
-        { label: 'PENDING EXPENSES', value: '8' },
-        { label: 'CASH IN', value: '₹12,500' },
-        { label: 'CASH OUT', value: '₹6,420' },
-      ];
+      { label: "TODAY'S REVENUE", value: '₹24,850', delta: '↑ 8.4% vs yesterday' },
+      { label: "TODAY'S EXPENSES", value: '₹6,420' },
+      { label: 'NET MOVEMENT', value: '₹18,430', tone: 'success' },
+      { label: 'PENDING EXPENSES', value: '8' },
+      { label: 'CASH IN', value: '₹12,500' },
+      { label: 'CASH OUT', value: '₹6,420' },
+    ];
 
   const expenseRows = isMain
     ? selectedMetrics.expenseBreakdown
     : [
-        { label: 'Transport', value: '₹2,400' },
-        { label: 'Loading / Unloading', value: '₹1,800' },
-        { label: 'Warehouse Operations', value: '₹1,200' },
-        { label: 'Utilities', value: '₹620' },
-        { label: 'Maintenance', value: '₹400' },
-      ];
+      { label: 'Transport', value: '₹2,400' },
+      { label: 'Loading / Unloading', value: '₹1,800' },
+      { label: 'Warehouse Operations', value: '₹1,200' },
+      { label: 'Utilities', value: '₹620' },
+      { label: 'Maintenance', value: '₹400' },
+    ];
 
   const revenueBreakdown = isMain
     ? selectedMetrics.revenueBreakdown
@@ -368,7 +372,7 @@ export function FinanceHubScreen({
           </>
         ) : (
           <>
-            {can(FINANCE_CODES.salesIncome) ? (
+            {isSub || can(FINANCE_CODES.salesIncome) ? (
               <>
                 <Text style={styles.sectionHeading}>Revenue Breakdown</Text>
                 <TouchableOpacity style={styles.card} onPress={revenuePress} disabled={revenuePress === undefined} activeOpacity={0.8}>
@@ -380,7 +384,7 @@ export function FinanceHubScreen({
               </>
             ) : null}
 
-            {can(FINANCE_CODES.expenseLog) ? (
+            {isSub || can(FINANCE_CODES.expenseLog) ? (
               <>
                 <Text style={styles.sectionHeading}>Expense Breakdown</Text>
                 <TouchableOpacity style={styles.card} onPress={expensesPress} disabled={expensesPress === undefined} activeOpacity={0.8}>
@@ -464,7 +468,7 @@ export function FinanceHubScreen({
               Recent Finance Activity
             </SectionTitle>
             <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.8}>
-              {can(FINANCE_CODES.salesIncome) ? (
+              {isSub || can(FINANCE_CODES.salesIncome) ? (
                 <View style={styles.activityRow}>
                   <View style={[styles.activityIcon, styles.activityIconRevenue]}>
                     <TrendUpIcon size={18} color={adminColors.success.text} />
@@ -479,8 +483,8 @@ export function FinanceHubScreen({
                   </View>
                 </View>
               ) : null}
-              {can(FINANCE_CODES.expenseLog) ? (
-                <View style={[styles.activityRow, can(FINANCE_CODES.salesIncome) && styles.activityDivided]}>
+              {isSub || can(FINANCE_CODES.expenseLog) ? (
+                <View style={[styles.activityRow, (isSub || can(FINANCE_CODES.salesIncome)) && styles.activityDivided]}>
                   <View style={[styles.activityIcon, styles.activityIconExpense]}>
                     <TruckIcon size={18} />
                   </View>

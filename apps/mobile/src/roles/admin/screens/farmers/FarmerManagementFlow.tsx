@@ -226,7 +226,7 @@ export function FarmerManagementFlow({
           setAuditHistoryReturnView('records');
           setSubView('audit_history');
         }}
-        onEdit={() => setSubView('edit_farmer')}
+        onEdit={role === 'SUPER_ADMIN' ? () => setSubView('edit_farmer') : undefined}
       />
     );
   }
@@ -349,7 +349,7 @@ export function FarmerManagementFlow({
     );
   }
 
-  if (subView === 'add_farmer' || (subView === 'edit_farmer' && selectedFarmer)) {
+  if (subView === 'add_farmer' || (subView === 'edit_farmer' && selectedFarmer && role === 'SUPER_ADMIN')) {
     return (
       <AdminEditFarmerScreen
         farmer={selectedFarmer ?? DEMO_ALL_FARMERS[0]!}
@@ -450,7 +450,7 @@ export function FarmerManagementFlow({
           setAuditHistoryReturnView('farmer_detail');
           setSubView('audit_history');
         }}
-        onEdit={() => setSubView('edit_farmer')}
+        onEdit={role === 'SUPER_ADMIN' ? () => setSubView('edit_farmer') : undefined}
       />
     );
   }

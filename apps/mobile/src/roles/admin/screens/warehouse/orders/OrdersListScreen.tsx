@@ -403,7 +403,11 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
                   if (isPO) {
                     onNavigate?.('PurchaseOrderDetail', { poNumber: order.id, orderId: order.id });
                   } else {
-                    onNavigate?.('M5S04', { orderId: order.id });
+                    onNavigate?.('M5S04', {
+                      orderId: order.id,
+                      status: order.status,
+                      customerName: order.customer,
+                    });
                   }
                 }}
               >

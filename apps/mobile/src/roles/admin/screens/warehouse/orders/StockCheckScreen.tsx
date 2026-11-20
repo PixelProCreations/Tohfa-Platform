@@ -222,29 +222,36 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
             );
           })}
 
-          {isMain ? (
-            hasShortage ? (
-              <View style={styles.statusBox}>
-                <WarningTriangleIcon />
-                <Text style={styles.statusText}>Stock Shortage — 1 item requires attention</Text>
-              </View>
-            ) : (
-              <View style={[styles.statusBox, styles.statusBoxSuccess]}>
-                <CheckCircleIcon />
-                <Text style={[styles.statusText, styles.statusTextSuccess]}>All items in stock — ready for packing</Text>
-              </View>
-            )
-          ) : null}
+          {hasShortage ? (
+            <View style={styles.statusBox}>
+              <WarningTriangleIcon />
+              <Text style={styles.statusText}>Stock Shortage — 1 item requires attention</Text>
+            </View>
+          ) : (
+            <View style={[styles.statusBox, styles.statusBoxSuccess]}>
+              <CheckCircleIcon />
+              <Text style={[styles.statusText, styles.statusTextSuccess]}>All items in stock — ready for packing</Text>
+            </View>
+          )}
 
           <View style={styles.scrollSpacer} />
         </ScrollView>
 
         {hasShortage ? (
           <View style={styles.bottomBar}>
-            <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onReviewShortage}>
+            <TouchableOpacity style={[styles.primaryBtn, styles.stackedBtnGap]} activeOpacity={0.8} onPress={onReviewShortage}>
               <ArrowRightIcon />
               <Text style={styles.primaryBtnText}>Review Shortage</Text>
             </TouchableOpacity>
+            {canMarkPacked ? (
+              <TouchableOpacity
+                style={[styles.outlineBtn, { height: ADMIN_BUTTON_HEIGHT, borderRadius: adminRadius.lg, borderWidth: 1, borderColor: adminColors.brand, alignItems: 'center', justifyContent: 'center' }]}
+                activeOpacity={0.8}
+                onPress={() => onNavigate?.('M5S07', { orderId })}
+              >
+                <Text style={{ ...adminType.button, color: adminColors.brand, fontWeight: '700' }}>Proceed to Packing</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : canMarkPacked ? (
           <View style={styles.bottomBar}>
@@ -326,19 +333,29 @@ function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps
           <TouchableOpacity
             style={[styles.primaryBtn, styles.stackedBtnGap]}
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S04', { orderId })}
+            onPress={() => onNavigate?.('M5S07', { orderId })}
           >
-            <DocumentIcon />
-            <Text style={styles.primaryBtnText}>Review Order</Text>
+            <ArrowRightIcon />
+            <Text style={styles.primaryBtnText}>Proceed to Packing</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.reportIssueBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S16', { orderId })}
-          >
-            <Text style={styles.reportIssueBtnText}>Report Issue</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={[styles.outlineHalfBtn, { flex: 1, height: ADMIN_BUTTON_HEIGHT, borderRadius: adminRadius.lg, borderWidth: 1, borderColor: adminColors.border, backgroundColor: adminColors.card, alignItems: 'center', justifyContent: 'center' }]}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S04', { orderId })}
+            >
+              <Text style={{ ...adminType.button, color: adminColors.ink }}>Review Order</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.reportIssueBtn, { flex: 1, marginTop: 0 }]}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S16', { orderId })}
+            >
+              <Text style={styles.reportIssueBtnText}>Report Issue</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </SafeAreaView>

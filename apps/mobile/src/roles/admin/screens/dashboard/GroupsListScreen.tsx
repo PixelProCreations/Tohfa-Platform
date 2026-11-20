@@ -262,10 +262,10 @@ export function GroupsListScreen({
               style={styles.headerAddBtn}
               onPress={onNavigateCreateGroup}
               activeOpacity={0.8}
-              accessibilityLabel="Create group"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Add Group"
             >
-              <PlusIcon size={18} color={adminColors.onBrand} />
+              <PlusIcon size={13} color={adminColors.brand} />
+              <Text style={styles.headerAddBtnText}>Add Group</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -576,12 +576,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   headerAddBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: adminColors.headerIcon.bg,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+    ...adminShadow.sm,
+  },
+  headerAddBtnText: {
+    color: adminColors.brand,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
 
   // ─── Scroll View ───

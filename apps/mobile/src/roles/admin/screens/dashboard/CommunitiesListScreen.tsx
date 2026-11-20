@@ -266,10 +266,10 @@ export function CommunitiesListScreen({
               style={styles.headerAddBtn}
               onPress={onNavigateCreateCommunity}
               activeOpacity={0.8}
-              accessibilityLabel="Create community"
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Add Community"
             >
-              <PlusIcon size={18} color={adminColors.onBrand} />
+              <PlusIcon size={13} color={adminColors.brand} />
+              <Text style={styles.headerAddBtnText}>Add Community</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -572,12 +572,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   headerAddBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: adminColors.headerIcon.bg,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+    ...adminShadow.sm,
+  },
+  headerAddBtnText: {
+    color: adminColors.brand,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.1,
   },
 
   // ─── Scroll View ───

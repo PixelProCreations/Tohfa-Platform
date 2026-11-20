@@ -250,10 +250,9 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   const totalRatingScore = categoryRatings.reduce((sum, item) => sum + item.score, 0);
 
-  // RBAC: Profile edits and account actions are gated by permission codes from docs/rbac.json.
-  const canEditProfile = Boolean(
-    can ? (can('farmer.profile.edit') || can('farmer.profile.edit_locked_field')) : (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
-  );
+  // RBAC: Profile edits restricted exclusively to Super Admin per requirement:
+  // "in sub,main,farmer,tofha remove edit option in famrer profile i need this access for super admin i need edit option only for super admin"
+  const canEditProfile = role === 'SUPER_ADMIN';
   const canDisableAccount = Boolean(
     can ? (can('farmer.account.disable') || can('farmer.account.reactivate')) : (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
   );
@@ -520,7 +519,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   }
 
   // ─── SUBVIEW: EDIT FARMER PROFILE (Latest Screenshots) ───
-  if (isEditingProfile) {
+  if (isEditingProfile && canEditProfile) {
     return (
       <AdminEditFarmerScreen
         farmer={currentFarmer}
@@ -824,30 +823,38 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               </Text>
             )}
           </View>
-          <TouchableOpacity
-            style={[styles.backButton, { marginLeft: 'auto' }]}
-            onPress={() => setIsEditingProfile(true)}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Edit Farmer Profile"
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+          {canEditProfile && (
+            <TouchableOpacity
+              style={[styles.backButton, { marginLeft: 'auto' }]}
+              onPress={() => {
+                if (onEdit) {
+                  onEdit(activeTab);
+                } else {
+                  setIsEditingProfile(true);
+                }
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Farmer Profile"
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                  stroke={adminColors.onBrand}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Path
+                  d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                  stroke={adminColors.onBrand}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 

@@ -232,9 +232,7 @@ export function CancelOrderScreen({
             <View style={styles.dangerAlertBox}>
               <InfoCircleDangerIcon />
               <Text style={styles.dangerAlertText}>
-                {isMain
-                  ? 'This action cannot be undone. No refund logic is created here unless the payment/refund service supports it.'
-                  : 'This action cannot be undone.'}
+                This action cannot be undone. No refund logic is created here unless the payment/refund service supports it.
               </Text>
             </View>
 
@@ -277,6 +275,12 @@ export function CancelOrderScreen({
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Total</Text>
                 <Text style={styles.fieldValue}>{MOCK_TOTAL}</Text>
+              </View>
+            </View>
+            <View style={[styles.twoColRow, { marginTop: adminSpacing.md }]}>
+              <View style={styles.col}>
+                <Text style={styles.fieldLabel}>Current Status</Text>
+                <Text style={styles.fieldValue}>Confirmed</Text>
               </View>
             </View>
           </View>

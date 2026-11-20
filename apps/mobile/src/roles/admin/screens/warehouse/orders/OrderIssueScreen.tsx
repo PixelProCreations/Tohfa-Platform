@@ -323,8 +323,7 @@ function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStep
 
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onViewIssue}>
-          <EyeIcon />
-          <Text style={styles.primaryBtnText}>View Issue</Text>
+          <Text style={styles.primaryBtnText}>+ Continue in Module 10</Text>
         </TouchableOpacity>
       </View>
     </View>
