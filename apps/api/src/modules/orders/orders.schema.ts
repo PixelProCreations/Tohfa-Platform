@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Money } from '@tohfa/shared-types';
+import type { CartResponse } from '../cart/cart.schema.js';
 
 const moneySchema = z.string().regex(/^-?[0-9]{1,10}(\.[0-9]{1,2})?$/);
 const quantitySchema = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,3})?$/);
@@ -32,7 +33,7 @@ export const orderStatuses = [
   'OUT_FOR_DELIVERY',
   'DELIVERED',
   'PICKED_UP',
-  'COMPLETED',
+  // No COMPLETED: it is not in the order_status DB enum (docs/openapi.yaml OrderStatus).
   'CANCELLED',
   'RETURNED',
 ] as const;
@@ -79,6 +80,51 @@ export type CheckoutRequest = {
   notes?: string | undefined;
 };
 
+// ---------------------------------------------------------------------------
+// POST /v1/orders/quote (BR-200): the checkout body; nothing is reserved, debited or booked.
+// ---------------------------------------------------------------------------
+export const quoteRequestSchema = checkoutRequestSchema;
+export type QuoteRequest = CheckoutRequest;
+
+export interface QuoteSlotInfo {
+  date: string;
+  slot: DeliverySlot;
+  label: string;
+  startsAt: string;
+  cutoff: string;
+  cutoffPassed: boolean;
+  capacity: number | null;
+  booked: number;
+  available: number | null;
+  bookable: boolean;
+}
+
+export interface QuoteResponse {
+  fulfillmentType: FulfillmentType;
+  warehouseId: string;
+  cartId: string;
+  cartStatus: string;
+  lockExpiresAt: string | null;
+  /** BR-22: true when checkout would be refused CART_LOCK_EXPIRED right now. */
+  lockExpired: boolean;
+  lines: OrderItemResponse[];
+  itemCount: number;
+  subtotal: Money;
+  deliveryFee: Money;
+  handlingFee: Money;
+  /** GST rate in basis points of a percent (5% -> 500), from system_config (BR-98). */
+  gstRateBasisPoints: number;
+  gstAmount: Money;
+  discount: Money;
+  totalAmount: Money;
+  freeDeliveryThreshold: Money;
+  walletBalance: Money;
+  walletSufficient: boolean;
+  /** totalAmount - walletBalance when insufficient, else 0.00 (same as the BR-192 problem member). */
+  shortfall: Money;
+  slot: QuoteSlotInfo | null;
+}
+
 export const orderItemResponseSchema = z.object({
   id: z.string().uuid(),
   productId: z.string().uuid(),
@@ -98,6 +144,10 @@ export type OrderItemResponse = {
   lineTotal: Money;
 };
 
+/** BR-195: catalog name + allow-listed CDN image; never any farm information. */
+export const orderThumbnailSchema = z.object({ productName: z.string(), imageUrl: z.string().url() });
+export type OrderThumbnail = { productName: string; imageUrl: string };
+
 export const orderSummaryResponseSchema = z.object({
   id: z.string().uuid(),
   orderNumber: z.string(),
@@ -106,6 +156,7 @@ export const orderSummaryResponseSchema = z.object({
   fulfillmentType: z.enum(fulfillmentTypes),
   warehouseId: z.string().uuid(),
   itemCount: z.number().int(),
+  thumbnails: z.array(orderThumbnailSchema).max(3),
   totalAmount: moneySchema,
   paymentStatus: z.enum(paymentStatuses),
   deliveryDate: z.string().nullable().optional(),
@@ -119,6 +170,7 @@ export type OrderSummaryResponse = {
   fulfillmentType: FulfillmentType;
   warehouseId: string;
   itemCount: number;
+  thumbnails: OrderThumbnail[];
   totalAmount: Money;
   paymentStatus: PaymentStatus;
   deliveryDate?: string | null | undefined;
@@ -129,19 +181,32 @@ export const orderResponseSchema = orderSummaryResponseSchema.extend({
   items: z.array(orderItemResponseSchema),
   subtotal: moneySchema,
   deliveryFee: moneySchema.optional(),
+  handlingFee: moneySchema.optional(),
   discount: moneySchema.optional(),
   gstAmount: moneySchema.optional(),
   deliveryAddressId: z.string().uuid().nullable().optional(),
   deliverySlot: z.enum(deliverySlots).nullable().optional(),
+  paymentMethod: z.enum(paymentMethods).optional(),
+  paymentMethodLabel: z.string().optional(),
+  pickupCode: z.string().nullable().optional(),
+  pickupQr: z.object({ payload: z.string() }).nullable().optional(),
 });
 export type OrderResponse = OrderSummaryResponse & {
   items: OrderItemResponse[];
   subtotal: Money;
   deliveryFee?: Money | undefined;
+  /** BR-200. */
+  handlingFee?: Money | undefined;
   discount?: Money | undefined;
   gstAmount?: Money | undefined;
   deliveryAddressId?: string | null | undefined;
   deliverySlot?: DeliverySlot | null | undefined;
+  /** BR-182. */
+  paymentMethod?: PaymentMethod | undefined;
+  paymentMethodLabel?: string | undefined;
+  pickupCode?: string | null | undefined;
+  /** BR-194: PICKUP orders only; order number + pickup code, HMAC-signed. */
+  pickupQr?: { payload: string } | null | undefined;
 };
 
 export const listOrdersQuerySchema = z.object({
@@ -155,3 +220,29 @@ export const orderIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 export type OrderIdParam = z.infer<typeof orderIdParamSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /v1/orders/:id/reorder (BR-162)
+// ---------------------------------------------------------------------------
+/** Why a past line could not be put back in the cart. Mirrors the cart refusal codes. */
+export const reorderUnavailableReasons = [
+  'OUT_OF_STOCK',
+  'DELISTED',
+  'INSUFFICIENT_ALLOCATION',
+] as const;
+export type ReorderUnavailableReason = (typeof reorderUnavailableReasons)[number];
+
+export interface ReorderUnavailableItem {
+  productId: string;
+  name: string;
+  grade: ProduceGrade;
+  qtyKg: string;
+  reason: ReorderUnavailableReason;
+}
+
+export interface ReorderResponse {
+  /** The customer's active cart after the rebuild (cart.schema.ts CartResponse). */
+  cart: CartResponse;
+  addedCount: number;
+  unavailable: ReorderUnavailableItem[];
+}

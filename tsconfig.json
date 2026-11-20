@@ -9,5 +9,6 @@
     { "path": "./packages/shared-types" },
     { "path": "./apps/api" },
     { "path": "./scripts" }
-  ]
+  ],
+  "exclude": ["apps/mobile", "apps/admin-web"]
 }

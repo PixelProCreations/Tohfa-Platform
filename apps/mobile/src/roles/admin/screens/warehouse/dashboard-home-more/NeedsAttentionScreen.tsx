@@ -14,9 +14,11 @@
  * Idempotency-Key; a replay is harmless.
  *
  * The Sales hub used to open a mock sales-resolution queue here (payment
- * pending, failed sale, invoice issue). No endpoint serves that queue; its
- * categories open this list (stock issue -> LOW_STOCK, see
- * alertFilterFromCategory).
+ * pending, failed sale, invoice issue). No single endpoint serves that queue;
+ * its categories open this list (stock issue -> LOW_STOCK, see
+ * alertFilterFromCategory). Payment-pending and failed sales are listable
+ * (GET /admin/sales?paymentStatus=PENDING|FAILED) but not wired here yet; an
+ * "invoice issue" has no source.
  */
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';

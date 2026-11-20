@@ -55,6 +55,7 @@ interface ReturnSummaryRow {
   return_window_eligible?: boolean | null;
   projected_refund_amount?: string | null;
   projected_refund_method?: string | null;
+  photo_keys: string[] | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -112,6 +113,8 @@ function toSummary(row: ReturnSummaryRow): ReturnSummaryResponse {
     returnWindowEligible: row.return_window_eligible ?? true,
     projectedRefundAmount: row.projected_refund_amount ?? null,
     projectedRefundMethod: row.projected_refund_method ?? null,
+    // BR-204: STORAGE KEYS here; the service replaces them with signed read URLs before any response.
+    photos: row.photo_keys ?? [],
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
   };
@@ -144,7 +147,7 @@ const SUMMARY_COLUMNS = `
   r.id, r.order_id, o.order_number, r.customer_id, u.full_name AS customer_name,
   o.warehouse_id, r.status, r.reason, r.note,
   r.issue_category, r.issue_ticket, r.requested_resolution, r.customer_evidence,
-  r.inspection_notes, r.inspection_photos,
+  r.inspection_notes, r.inspection_photos, r.photo_keys,
   (r.created_at <= (COALESCE(o.completed_at, o.placed_at) + interval '7 days')) AS return_window_eligible,
   o.payment_method AS projected_refund_method,
   ROUND(COALESCE(
@@ -166,6 +169,8 @@ export interface InsertReturnRequestInput {
   issueTicket?: string | null;
   requestedResolution?: string | null;
   customerEvidence?: string[];
+  /** BR-204: validated storage keys of the caller's own ISSUE_PHOTO uploads (max 5). */
+  photoKeys?: string[];
 }
 
 export interface InsertReturnRequestItemInput {
@@ -193,6 +198,19 @@ export interface ListResult {
   summary: ReturnKpiSummary;
 }
 
+/**
+ * The customer's own list (BR-155g) carries no staff KPI summary — those counts are a
+ * warehouse-scoped admin figure and have no meaning on a customer response.
+ */
+export type CustomerListResult = Omit<ListResult, 'summary'>;
+
+/** BR-155: a customer's own returns, newest first. customerId is mandatory, never optional. */
+export interface CustomerListArgs {
+  customerId: string;
+  cursor?: string | undefined;
+  limit: number;
+}
+
 export interface ReturnRequestsRepo {
   /** The order a return is being filed against, unscoped — the service decides who may see it. */
   findOrderForReturn(db: Executor, orderId: string): Promise<OrderForReturn | null>;
@@ -202,6 +220,16 @@ export interface ReturnRequestsRepo {
     orderId: string,
     orderItemIds: string[],
   ): Promise<OrderItemForReturn[]>;
+
+  /**
+   * BR-155e: per order item, the quantity already on returns that were not REJECTED, as kg
+   * strings ("1.500"). Items with nothing returned are absent from the map.
+   */
+  sumAlreadyReturnedQty(
+    db: Executor,
+    orderId: string,
+    orderItemIds: string[],
+  ): Promise<Record<string, string>>;
 
   insertReturnRequest(db: Executor, input: InsertReturnRequestInput): Promise<ReturnSummaryRowShape>;
   insertReturnRequestItems(
@@ -215,6 +243,10 @@ export interface ReturnRequestsRepo {
   /** Unscoped lookup for a transition handler that has already loaded the row via findById. */
   findRawById(db: Executor, id: string): Promise<ReturnSummaryRowShape | null>;
   list(db: Executor, args: ListArgs): Promise<ListResult>;
+  /** BR-155g: filtered by return_requests.customer_id in SQL. */
+  listForCustomer(db: Executor, args: CustomerListArgs): Promise<CustomerListResult>;
+  /** BR-155h: null for an unknown id AND for another customer's return. */
+  findByIdForCustomer(db: Executor, id: string, customerId: string): Promise<ReturnRequestResponse | null>;
 
   updateStatus(db: Executor, id: string, status: ReturnStatus): Promise<void>;
   /**
@@ -270,8 +302,24 @@ export interface ReturnSummaryRowShape {
   returnWindowEligible?: boolean;
   projectedRefundAmount?: string | null;
   projectedRefundMethod?: string | null;
+  /** BR-204: storage keys (not URLs). */
+  photoKeys?: string[];
   createdAt: Date;
   updatedAt: Date | null;
+}
+
+/** BR-204: upload rows for photo validation (owner + storage key). Not on the repo interface so
+ * hand-built repo fakes stay valid; injected into the service as a dependency. */
+export async function findUploadsForReturn(
+  db: Executor,
+  ids: string[],
+): Promise<Array<{ id: string; storageKey: string; uploadedBy: string | null }>> {
+  if (ids.length === 0) return [];
+  const res = await db.query<{ id: string; storage_key: string; uploaded_by: string | null }>(
+    `SELECT id, storage_key, uploaded_by FROM uploads WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+    [ids],
+  );
+  return res.rows.map((r) => ({ id: r.id, storageKey: r.storage_key, uploadedBy: r.uploaded_by }));
 }
 
 export const returnRequestsRepo: ReturnRequestsRepo = {
@@ -295,6 +343,20 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
     return result.rows;
   },
 
+  async sumAlreadyReturnedQty(db, orderId, orderItemIds): Promise<Record<string, string>> {
+    const result = await db.query<{ order_item_id: string; qty: string }>(
+      `SELECT ri.order_item_id, SUM(ri.requested_qty)::numeric(12,3)::text AS qty
+         FROM return_request_items ri
+         JOIN return_requests r ON r.id = ri.return_request_id
+        WHERE r.order_id = $1
+          AND ri.order_item_id = ANY($2::uuid[])
+          AND r.status <> 'REJECTED'
+        GROUP BY ri.order_item_id`,
+      [orderId, orderItemIds],
+    );
+    return Object.fromEntries(result.rows.map((row) => [row.order_item_id, row.qty]));
+  },
+
   async insertReturnRequest(db, input): Promise<ReturnSummaryRowShape> {
     const result = await db.query<{
       id: string;
@@ -307,17 +369,19 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       issue_ticket: string | null;
       requested_resolution: string | null;
       customer_evidence: string[];
+      photo_keys: string[];
       created_at: Date;
       updated_at: Date | null;
     }>(
       `INSERT INTO return_requests (
          order_id, customer_id, reason, note,
-         issue_category, issue_ticket, requested_resolution, customer_evidence
+         issue_category, issue_ticket, requested_resolution, customer_evidence,
+         photo_keys
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::text[])
        RETURNING id, order_id, customer_id, status, reason, note,
                  issue_category, issue_ticket, requested_resolution, customer_evidence,
-                 created_at, updated_at`,
+                 photo_keys, created_at, updated_at`,
       [
         input.orderId,
         input.customerId,
@@ -327,6 +391,7 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
         input.issueTicket ?? null,
         input.requestedResolution ?? null,
         input.customerEvidence ?? [],
+        input.photoKeys ?? [],
       ],
     );
     const row = result.rows[0]!;
@@ -341,6 +406,7 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       issueTicket: row.issue_ticket,
       requestedResolution: row.requested_resolution,
       customerEvidence: row.customer_evidence,
+      photoKeys: row.photo_keys,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -521,6 +587,48 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
     };
 
     return { items, nextCursor, hasMore, summary };
+  },
+
+  async listForCustomer(db, { customerId, cursor, limit }): Promise<CustomerListResult> {
+    const params: unknown[] = [customerId];
+    let cursorClause = '';
+    if (cursor !== undefined) {
+      params.push(cursor);
+      cursorClause = `AND r.created_at < $${params.length}::timestamptz`;
+    }
+    params.push(limit + 1);
+    const result = await db.query<ReturnSummaryRow>(
+      `SELECT ${SUMMARY_COLUMNS}
+         FROM return_requests r
+         JOIN orders o ON o.id = r.order_id
+         LEFT JOIN customers c ON c.id = r.customer_id
+         LEFT JOIN users u ON u.id = c.user_id
+        WHERE r.customer_id = $1 ${cursorClause}
+        ORDER BY r.created_at DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+    const hasMore = result.rows.length > limit;
+    const items = (hasMore ? result.rows.slice(0, limit) : result.rows).map(toSummary);
+    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.createdAt : null;
+    return { items, nextCursor, hasMore };
+  },
+
+  async findByIdForCustomer(db, id, customerId): Promise<ReturnRequestResponse | null> {
+    const result = await db.query<ReturnSummaryRow>(
+      `SELECT ${SUMMARY_COLUMNS}
+         FROM return_requests r
+         JOIN orders o ON o.id = r.order_id
+         LEFT JOIN customers c ON c.id = r.customer_id
+         LEFT JOIN users u ON u.id = c.user_id
+        WHERE r.id = $1 AND r.customer_id = $2
+        LIMIT 1`,
+      [id, customerId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return null;
+    const items = await this.getItems(db, id);
+    return { ...toSummary(row), items };
   },
 
   async updateStatus(db, id, status): Promise<void> {

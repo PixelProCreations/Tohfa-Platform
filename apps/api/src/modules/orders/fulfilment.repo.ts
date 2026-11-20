@@ -285,7 +285,8 @@ export interface FulfilmentRepo {
   getOrderTracking(
     db: Executor,
     orderId: string,
-    customerScope?: string | null,
+    /** BR-36: always the caller's own customer id; there is no unscoped variant (fail closed). */
+    customerScope: string,
   ): Promise<OrderTracking | null>;
 
   getMaxOtpAttempts(db: Executor): Promise<number>;
@@ -599,13 +600,10 @@ export const fulfilmentRepo: FulfilmentRepo = {
   },
 
   async getOrderTracking(db, orderId, customerScope) {
-    const conditions = ['o.id = $1'];
-    const values: unknown[] = [orderId];
-
-    if (customerScope) {
-      conditions.push('o.customer_id = $2');
-      values.push(customerScope);
-    }
+    // BR-36 / BR-187: an empty or missing customer id narrows to NOTHING, never to every order.
+    if (!customerScope) return null;
+    const conditions = ['o.id = $1', 'o.customer_id = $2'];
+    const values: unknown[] = [orderId, customerScope];
 
     const orderRes = await db.query<{
       id: string;

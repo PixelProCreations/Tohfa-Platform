@@ -181,6 +181,10 @@ export interface CustomerWalletView {
   balanceLabel: string;
   transactionCount: number | null;
   lastTransactionLabel: string;
+  /** BR-129 totalCredited as a label; absent when the server sent no valid amount. */
+  totalCreditedLabel?: string | undefined;
+  /** BR-129 totalUsed as a label; absent when the server sent no valid amount. */
+  totalUsedLabel?: string | undefined;
 }
 
 /** A wallet transaction type as the screens show it. */

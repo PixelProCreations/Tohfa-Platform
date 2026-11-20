@@ -20,6 +20,7 @@ import {
   type FulfilmentRepo,
 } from './fulfilment.repo.js';
 import { adminOrderDetailResponse, type AdminOrderDetailResponse } from './fulfilment.schema.js';
+import { createOrderEventPublisher, type OrderEventPublisher } from './orders.events.js';
 import type {
   AdminOrdersQuery,
   AdminOrderListItem,
@@ -53,7 +54,6 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PICKED_UP: ['RETURNED'],
   CANCELLED: [],
   RETURNED: [],
-  COMPLETED: [],
 };
 
 export interface FulfilmentService {
@@ -325,12 +325,15 @@ export function createFulfilmentService(opts: {
   emitter?: EventEmitter;
   runTx?: TransactionRunner;
   idempotency?: IdempotencyStore;
+  events?: OrderEventPublisher;
 } = {}): FulfilmentService {
   const repo = opts.repo ?? fulfilmentRepo;
   const db = opts.db ?? pool;
   const runTx: TransactionRunner = opts.runTx ?? ((fn) => withTransaction(fn));
   const emitter = opts.emitter ?? orderEventsEmitter;
   const idempotency = opts.idempotency ?? idempotencyStore;
+  // BR-163: customer notifications, published after commit, best-effort.
+  const events = opts.events ?? createOrderEventPublisher({ db });
 
   /**
    * BR-118: the response the route sends, read on the transaction that made the change so it can be
@@ -694,6 +697,8 @@ export function createFulfilmentService(opts: {
         note: outcome.note,
       };
       emitter.emit(`order:${orderId}`, eventPayload);
+      // A pickup order becomes READY_FOR_PICKUP here; only a real dispatch is "on its way".
+      if (outcome.targetStatus === 'OUT_FOR_DELIVERY') await events.publish('order.dispatched', orderId);
 
       return outcome.order;
     },
@@ -805,6 +810,8 @@ export function createFulfilmentService(opts: {
         note: 'Handover verified via OTP',
       };
       emitter.emit(`order:${orderId}`, eventPayload);
+      // DELIVERED (home delivery) and PICKED_UP (pickup) are both the customer's handover.
+      await events.publish('order.delivered', orderId);
 
       return outcome.order;
     },
@@ -820,8 +827,9 @@ export function createFulfilmentService(opts: {
     },
 
     async getOrderTracking(actor, scope, orderId) {
-      const customerScope = actor.customerId ?? null;
-      const tracking = await repo.getOrderTracking(db, orderId, customerScope);
+      // BR-187: no resolvable customer id narrows to nothing (404), never to every order.
+      const customerScope = actor.customerId;
+      const tracking = customerScope ? await repo.getOrderTracking(db, orderId, customerScope) : null;
       if (!tracking) {
         throw new AppError('NOT_FOUND', {
           status: 404,
@@ -832,8 +840,9 @@ export function createFulfilmentService(opts: {
     },
 
     async streamOrderEvents(actor, scope, orderId, req, res) {
-      const customerScope = actor.customerId ?? null;
-      const tracking = await repo.getOrderTracking(db, orderId, customerScope);
+      // BR-187: no resolvable customer id narrows to nothing (404), never to every order.
+      const customerScope = actor.customerId;
+      const tracking = customerScope ? await repo.getOrderTracking(db, orderId, customerScope) : null;
       if (!tracking) {
         throw new AppError('NOT_FOUND', {
           status: 404,

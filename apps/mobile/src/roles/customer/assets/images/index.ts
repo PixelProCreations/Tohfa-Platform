@@ -1,0 +1,32 @@
+export { default as tohfaMarketLogo } from './tohfa_market_logo.png';
+export { default as welcomeHeaderBanner } from './welcome_header_banner.jpg';
+export { default as farmerWomanBasket } from './farmer_woman_basket.jpg';
+export { default as farmerWomanBasketTransparent } from './farmer_woman_basket_transparent.png';
+export { default as customerSplashFull } from './customer_splash_full.png';
+export { default as customerSplashClean } from './customer_splash_clean.png';
+export { default as customerHeroExact } from './customer_hero_exact.png';
+export { default as onboardingCrateHero } from './onboarding_crate_hero.png';
+export { default as onboardingDeliveryBag } from './onboarding_delivery_bag.jpg';
+export { default as customerWelcomeSlide1Full } from './customer_welcome_slide1_full.png';
+export { default as onboardingSlide1CleanExact } from './onboarding_slide1_clean_exact.png';
+export { default as onboardingSlide2CleanExact } from './onboarding_slide2_clean_exact.png';
+export { default as cauliflower } from './cauliflower.jpg';
+export { default as branchLeavesTopLeft } from './branch_leaves_top_left.png';
+export { default as permissionsHeroCrate } from './permissions_hero_crate.jpg';
+export { default as satelliteMapCoimbatore } from './satellite_map_coimbatore.jpg';
+export { default as walletPouchCard } from './Gemini_Generated_Image_w2evv0w2evv0w2ev2 1 (1).png';
+export { default as accountHeaderBg } from './account_header_bg.png';
+export { default as profileAdsBanner } from './profileimages/ads banner.png';
+export { default as profileOrdersIcon } from './profileimages/image 25.png';
+export { default as profileWalletIcon } from './profileimages/image 25 (1).png';
+export { default as profileWishlistIcon } from './profileimages/image 25 (2).png';
+export { default as profileEmailVerified } from './profileimages/Gemini_Generated_Image_kbkle7kbkle7kbkl 1.png';
+export { default as profileAvatarMale } from './profileimages/image 16.png';
+export { default as profileAvatarFemale } from './profileimages/pngegg (4) 2.png';
+export { default as divQrCode } from './profileimages/div (1).png';
+export { default as pickupQrCode } from './pickup_qr_code.png';
+export { default as customerLoginBranchTopLeft } from './customer_login_branch_top_left.png';
+export { default as customerLoginRightLeaves } from './customer_login_right_leaves.png';
+
+export { default as walletMoneyAddedSuccess } from './wallet_money_added_success.png';
+

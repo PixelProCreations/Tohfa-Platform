@@ -1,6 +1,7 @@
-import { fromPaise, greaterThan, isMoney, parseMoney, toPaise, RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { compare, fromPaise, greaterThan, isMoney, parseMoney, toPaise, RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { readTopupLimits } from '../wallet/topupLimits.js';
 import { config } from '../../config.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -13,6 +14,7 @@ import {
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { paymentGateway, type PaymentGateway } from '../../payments/index.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
+import { createWalletCreditedPublisher, type WalletCreditedPublisher } from './topup.events.js';
 import {
   topupRepo,
   type TopupRecord,
@@ -28,9 +30,13 @@ import type {
   WebhookResponse,
 } from './topup.schema.js';
 import { maskMobile } from '../sales/sales.math.js';
+import type { TopupReceiptResponse } from './topup.schema.js';
 import type { WalletTransactionResponse } from '../wallet/wallet.schema.js';
 
 export interface TopupService {
+  /** BR-183: own top-up receipt (transaction id, balanceAfter, status). Foreign or unknown id is 404. */
+  getTopupReceipt(actor: Actor, topupId: string): Promise<TopupReceiptResponse>;
+
   createTopup(
     actor: Actor,
     scope: ResolvedScope,
@@ -88,6 +94,7 @@ export function createTopupService(opts: {
   db?: Executor;
   runTx?: TransactionRunner;
   idempotency?: IdempotencyStore;
+  publishWalletCredited?: WalletCreditedPublisher;
 } = {}): TopupService {
   const repo = opts.repo ?? topupRepo;
   const gateway = opts.gateway ?? paymentGateway;
@@ -95,8 +102,28 @@ export function createTopupService(opts: {
   const db = opts.db ?? pool;
   const runTx: TransactionRunner = opts.runTx ?? ((fn) => withTransaction(fn));
   const idempotency = opts.idempotency ?? idempotencyStore;
+  // BR-163: wallet.credited after commit, best-effort; never on a replay.
+  const publishWalletCredited =
+    opts.publishWalletCredited ?? createWalletCreditedPublisher({ db });
 
   return {
+    async getTopupReceipt(actor, topupId) {
+      const row = actor.customerId ? await repo.findOwnTopupReceipt(db, actor.customerId, topupId) : null;
+      if (row === null) throw new AppError('NOT_FOUND', { detail: `No top-up with id ${topupId} is visible to you.` });
+      const done = row.status === 'SUCCESS';
+      return {
+        topupId: row.id,
+        status: row.status,
+        amount: row.amount as TopupReceiptResponse['amount'],
+        currency: 'INR',
+        mode: row.channel,
+        transactionId: done ? row.wallet_txn_id : null,
+        balanceAfter: done && row.balance_after !== null ? (row.balance_after as TopupReceiptResponse['balanceAfter']) : null,
+        createdAt: row.created_at.toISOString(),
+        completedAt: done ? (row.txn_at ?? row.updated_at ?? row.created_at).toISOString() : null,
+      };
+    },
+
     async createTopup(actor, _scope, input, idempotencyKey) {
       if (!actor.customerId && !actor.roles.some((r) => r.code === RoleCode.CUSTOMER)) {
         throw new AppError('FORBIDDEN', {
@@ -111,6 +138,17 @@ export function createTopupService(opts: {
         throw new AppError('VALIDATION_FAILED', {
           status: 422,
           detail: 'Top-up amount must be positive.',
+        });
+      }
+
+      // BR-193: per-top-up limits from system_config (defaults when unset).
+      const limits = await readTopupLimits(db);
+      if (compare(input.amount, limits.min) < 0 || compare(input.amount, limits.max) > 0) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: `Top-up amount must be between INR ${limits.min} and INR ${limits.max}.`,
+          errors: { 'body.amount': [`Must be between ${limits.min} and ${limits.max}`] },
+          meta: { topupLimits: limits },
         });
       }
 
@@ -284,6 +322,15 @@ export function createTopupService(opts: {
 
       if (outcome.replayed) return outcome.walletTxn;
 
+      await publishWalletCredited({
+        walletId: outcome.walletTxn.walletId,
+        amount: input.amount,
+        balanceAfter: outcome.walletTxn.balanceAfter,
+        // The validated, trimmed tag (guarded above), not the raw optional input: BR-18a
+        // guarantees a cash top-up has one, and this is the value the ledger row carries.
+        reference: fiscalCashTag,
+      });
+
       // BR-18c: SMS dispatch outcome outside credit transaction (never re-sent on a replay)
       try {
         await repo.updateTopupSmsStatus(db, outcome.topupId, { sentAt: new Date() });
@@ -340,11 +387,11 @@ export function createTopupService(opts: {
         const creditAmount = parseMoney(fromPaise(payment.amountPaise));
         const idempotencyKey = `rzp_pay_${payment.paymentId}`;
 
-        await withTransaction(async (tx) => {
+        const credited = await withTransaction(async (tx) => {
           // Double check within transaction
           const existingPayment = await repo.findPaymentByGatewayPaymentId(tx, payment.paymentId);
           if (existingPayment && existingPayment.status === 'CAPTURED') {
-            return;
+            return null;
           }
 
           // Credit wallet
@@ -387,7 +434,17 @@ export function createTopupService(opts: {
             },
             changedFields: ['status', 'gateway_payment_id', 'wallet_txn_id'],
           });
+          return walletTxn;
         });
+
+        if (credited !== null) {
+          await publishWalletCredited({
+            walletId: credited.walletId,
+            amount: creditAmount,
+            balanceAfter: credited.balanceAfter,
+            reference: payment.paymentId,
+          });
+        }
 
         return { received: true, duplicate: false };
       }
@@ -421,7 +478,7 @@ export function createTopupService(opts: {
             const creditAmount = parseMoney(fromPaise(payment.amountPaise));
             const idempotencyKey = `rzp_pay_${payment.paymentId}`;
 
-            await withTransaction(async (tx) => {
+            const credited = await withTransaction(async (tx) => {
               const walletTxn = await walletSvc.move(
                 systemScope,
                 {
@@ -444,6 +501,13 @@ export function createTopupService(opts: {
                 gatewayPaymentId: payment.paymentId,
                 walletTxnId: walletTxn.id,
               });
+              return walletTxn;
+            });
+            await publishWalletCredited({
+              walletId: credited.walletId,
+              amount: creditAmount,
+              balanceAfter: credited.balanceAfter,
+              reference: payment.paymentId,
             });
             reconciledCount++;
           }

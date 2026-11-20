@@ -19,8 +19,8 @@
  *     longer cover is 409 STOCK_UNAVAILABLE.
  *
  * Warehouse is named from the scope (Sub) or GET /warehouses (Main) and hidden
- * while unknown. Requested By / Approved By are not drawn: the DTO carries
- * only user uuids, and no endpoint names them.
+ * while unknown. Requested By / Approved By are the server's
+ * createdByName / approvedByName (BR-130), each drawn only when sent.
  */
 import React, { useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -77,6 +77,8 @@ function Body({ adjustment, warehouseName }: { adjustment: AdjustmentView; wareh
           { label: t('stockAdj.detail.quantity'), value: adjustment.deltaText || none },
           { label: t('stockAdj.detail.created'), value: adjustment.createdAt },
           { label: t('stockAdj.detail.decided'), value: adjustment.decidedAt ?? none },
+          adjustment.createdByName === undefined ? undefined : { label: t('stockAdj.detail.requestedBy'), value: adjustment.createdByName },
+          adjustment.approvedByName === undefined ? undefined : { label: t('stockAdj.detail.approvedBy'), value: adjustment.approvedByName },
         ])}
       />
       <SectionTitle>{t('stockAdj.detail.reason')}</SectionTitle>

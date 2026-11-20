@@ -9,6 +9,7 @@ import {
   cashTopupCustomerLookupQuery,
   createTopupSchema,
   customerIdParamSchema,
+  topupIdParamSchema,
   walletDeductBodySchema,
 } from './topup.schema.js';
 import { topupService } from './topup.service.js';
@@ -100,6 +101,17 @@ adminTopupRouter.post(
     });
 
     res.status(200).json(result);
+  }),
+);
+
+topupRouter.get(
+  '/me/topups/:topupId',
+  requireAuth,
+  requirePermission('wallet.own.view'),
+  validate({ params: topupIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    res.json(await topupService.getTopupReceipt(actor, getValidated(req, 'params', topupIdParamSchema).topupId));
   }),
 );
 

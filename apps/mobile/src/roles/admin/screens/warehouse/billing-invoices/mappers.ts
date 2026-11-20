@@ -231,10 +231,12 @@ export function toInvoiceDetail(dto: InvoiceDetailDto): InvoiceDetailView {
 
 /**
  * The Order No. and Customer rows of an order's invoice (M5-18). GET
- * /invoices/{id} carries neither, so they come from the order detail the
- * screen already holds, and only when the invoice names that very order: a
- * stale or mismatched order never labels another invoice. Only the buyer's
- * name is copied; a mobile never reaches the invoice view (BR-92).
+ * /invoices/{id} carries no order number (only the order uuid), so it comes
+ * from the order detail the screen already holds, and only when the invoice
+ * names that very order: a stale or mismatched order never labels another
+ * invoice. The detail screen prefers the invoice's own buyerName (BR-128) and
+ * uses this order's buyer name only as a fallback. A mobile never reaches the
+ * invoice view (BR-92).
  */
 export function invoiceOrderContext(
   invoice: Pick<InvoiceDetailView, 'orderId'>,

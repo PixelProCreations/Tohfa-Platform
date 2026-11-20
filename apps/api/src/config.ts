@@ -109,13 +109,26 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_IP_MAX: intFromEnv(1, 10_000).default(120),
   AUTH_RATE_LIMIT_IP_WINDOW_SECONDS: intFromEnv(1, 86_400).default(300),
 
+  // Vendor-neutral email (customer email OTP). `log` is dev/test only; production needs smtp.
+  EMAIL_TRANSPORT: z.enum(['smtp', 'log', 'disabled']).optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: intFromEnv(1, 65535).default(587),
+  SMTP_SECURE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().email().optional(),
+  EMAIL_FROM_NAME: z.string().min(1).default('TOHFA'),
+  EMAIL_OTP_MAX_SENDS_PER_HOUR: intFromEnv(1, 100).default(3),
+
   CORS_ORIGINS: csv.default('http://localhost:4200'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
 });
 
-export type Config = z.infer<typeof envSchema> & {
+export type Config = Omit<z.infer<typeof envSchema>, 'EMAIL_TRANSPORT'> & {
+  /** Resolved: unset means `log` outside production; production requires `smtp`. */
+  readonly EMAIL_TRANSPORT: 'smtp' | 'log' | 'disabled';
   readonly isProduction: boolean;
   readonly isTest: boolean;
 };
@@ -143,8 +156,27 @@ function load(): Config {
     }
   }
 
+  let emailTransport = value.EMAIL_TRANSPORT;
+  if (value.NODE_ENV === 'production') {
+    if (emailTransport !== 'smtp') {
+      throw new Error(
+        'EMAIL_TRANSPORT=smtp is required when NODE_ENV=production (customer email OTP needs a real mail transport)',
+      );
+    }
+  } else {
+    emailTransport ??= 'log';
+  }
+  if (emailTransport === 'smtp') {
+    const missing = (['SMTP_HOST', 'EMAIL_FROM'] as const).filter((k) => !value[k]);
+    if (missing.length > 0) throw new Error(`EMAIL_TRANSPORT=smtp requires ${missing.join(', ')}`);
+    if ((value.SMTP_USER === undefined) !== (value.SMTP_PASS === undefined)) {
+      throw new Error('SMTP_USER and SMTP_PASS must be set together');
+    }
+  }
+
   return {
     ...value,
+    EMAIL_TRANSPORT: emailTransport,
     isProduction: value.NODE_ENV === 'production',
     isTest: value.NODE_ENV === 'test',
   };

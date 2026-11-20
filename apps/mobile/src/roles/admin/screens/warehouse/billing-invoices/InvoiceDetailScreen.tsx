@@ -13,15 +13,17 @@
  * viewer; the PDF is the document of record.
  *
  * Shows exactly what the invoice carries: number, issue date, type, status,
- * place of supply, the lines (description, HSN, quantity x unit price, line
- * total) and the amount summary (taxable value, each non-zero tax component,
- * total), all as the server sent them.
+ * the buyer's name and GSTIN (buyerName / buyerGstin, BR-128, each only when
+ * sent), place of supply, the lines (description, HSN, quantity x unit price,
+ * line total) and the amount summary (taxable value, each non-zero tax
+ * component, total), all as the server sent them.
  *
- * Order No. and Customer show only when the host passes the order the invoice
- * was opened from (M5-18, the order invoice): GET /invoices/{id} carries
- * neither, so they come from that order's detail, and only when the invoice
- * names that very order (invoiceOrderContext). Only the buyer's name is
- * shown, never a mobile (BR-92).
+ * Order No. shows only when the host passes the order the invoice was opened
+ * from (M5-18, the order invoice): GET /invoices/{id} carries only the order
+ * uuid, so the number comes from that order's detail, and only when the
+ * invoice names that very order (invoiceOrderContext). That order's buyer
+ * name is the fallback when the invoice sends no buyerName. Never a mobile
+ * (BR-92).
  *
  * Every designed element is drawn. One the invoice cannot supply (Sales
  * Channel, Warehouse, Discount, Payment Information, Invoice Timeline times,
@@ -29,7 +31,11 @@
  * renders the dash, never disappears. Bill To shows the buyer's name only
  * (BR-128, never a mobile, BR-92). Share has no lasting link to share (the
  * signed link expires after 5 minutes), so it calls onShare when a host
- * passes one. Download opens the real PDF.
+ * passes one. Download opens the real PDF — the old in-app "Invoice Preview"
+ * and its "Invoice downloaded" toast are gone.
+ *
+ * Not yet drawn although the API sends it: the seller block
+ * (InvoiceDetail.seller, BR-211; the PDF carries it).
  */
 // Design id: M9-S03
 import React from 'react';
@@ -146,6 +152,7 @@ export function InvoiceDetailScreen({
       { label: t('billing.detail.invoiceType'), value: record.typeLabel },
       { label: t('billing.detail.status'), value: record.statusLabel },
     ],
+    ...(record.buyerGstin !== null ? [[{ label: t('billing.detail.buyerGstin'), value: record.buyerGstin }]] : []),
     ...(record.placeOfSupply !== null ? [[{ label: t('billing.detail.placeOfSupply'), value: record.placeOfSupply }]] : []),
   ];
   const billToName = record.buyerName ?? orderContext?.customerName ?? dash;

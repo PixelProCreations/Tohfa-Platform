@@ -4,6 +4,7 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
+import { configureApiFromEnv } from '../../shell/config/env';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, hasSessionCredentials, logout } from './api/auth';
 import { useWarehousePermissions } from '../admin/permissions/useWarehousePermissions';
@@ -19,6 +20,17 @@ import { adminShellForRole } from './utils/adminShell';
 import { endSession } from './utils/signOut';
 import { DialogHost, Icon, NavigationBarInset, StatusBarInset } from '@tohfa/mobile-ui';
 import { t } from '../../i18n/farmer';
+import {
+  CustomerWelcomeScreen,
+  CustomerLoginScreen,
+  CustomerOtpScreen,
+  CustomerProfileNameScreen,
+  CustomerProfileAgeGenderScreen,
+  CustomerProfileHarvestPreferencesScreen,
+  CustomerPermissionsScreen,
+  CustomerAddAddressScreen,
+  CustomerLoadingMarketScreen,
+} from '../customer';
 import { HomeIcon } from './assets/icons/AssetIcons';
 import { DashboardScreen } from './screens/dashboard/DashboardScreen';
 import { ListingsScreen } from './screens/listings/ListingsScreen';
@@ -160,6 +172,13 @@ export type { ScreenName } from './routes/routeParams';
 
 
 /** Near-black green used behind the splash photo + status bar while Splash shows. */
+// Boot wiring, at module load so it precedes every child effect (Splash's
+// session restore runs before this component's own effects): the API origin
+// from MOBILE_API_BASE_URL, and THE shared secure token store (the one every
+// role's login writes) for the client's refresh-on-401.
+configureApiFromEnv();
+configureTokenStorage(tokenStorage);
+
 const SPLASH_DARK = authPalette.splashDark;
 
 function TabPlusIcon({ size = 22, color = colors.white }: { size?: number; color?: string }) {
@@ -882,6 +901,8 @@ export default function App(): React.JSX.Element {
 
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
+  const isCustomerScreen = screen.startsWith('Customer');
+  const isCustomerIntroScreen = isCustomerScreen && screen !== 'CustomerMain';
 
   // The admin shell AdminMain renders, from the role the server returned at
   // sign-in. null (unknown or missing) renders no admin shell: AdminMain falls
@@ -907,13 +928,24 @@ export default function App(): React.JSX.Element {
     <FarmerFontProvider enabled={isFarmerFontScreen(screen)}>
     <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-    <View style={[styles.screen, isAuthLanding && styles.screenSplash]}>
-      <StatusBar barStyle="light-content" />
+    <View
+      style={[
+        styles.screen,
+        isAuthLanding && styles.screenSplash,
+        isCustomerIntroScreen && styles.screenCustomerIntro,
+      ]}
+    >
+      <StatusBar
+        hidden={isCustomerScreen}
+        barStyle={isCustomerScreen ? 'dark-content' : 'light-content'}
+      />
       {/* Android draws edge-to-edge since RN 0.88: reserve the status bar's
           height here, in the colour the current screen's ScreenStatusBar asks
           for. The default is the colour this root gave the status bar before
           0.88. See packages/mobile-ui/src/SystemBars.tsx. */}
-      <StatusBarInset defaultColor={isAuthLanding ? SPLASH_DARK : colors.primaryPressed} />
+      {!isCustomerScreen && (
+        <StatusBarInset defaultColor={isAuthLanding ? SPLASH_DARK : colors.primaryPressed} />
+      )}
 
       <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
 
@@ -1699,6 +1731,35 @@ export default function App(): React.JSX.Element {
               // Handle reject
             }}
           />
+        ) : screen === 'CustomerWelcome' ? (
+          <CustomerWelcomeScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerLogin' ? (
+          <CustomerLoginScreen onNavigate={(s, p) => navigate(s as ScreenName, p as NavParams | undefined)} />
+        ) : screen === 'CustomerOtp' ? (
+          <CustomerOtpScreen
+            mobile={String(params['mobile'] ?? '')}
+            challengeId={String(params['challengeId'] ?? '')}
+            expiresAt={typeof params['expiresAt'] === 'string' ? params['expiresAt'] : undefined}
+            resendAvailableAt={typeof params['resendAvailableAt'] === 'string' ? params['resendAvailableAt'] : undefined}
+            attemptsRemaining={typeof params['attemptsRemaining'] === 'number' ? params['attemptsRemaining'] : undefined}
+            mockCode={typeof params['mockCode'] === 'string' ? params['mockCode'] : undefined}
+            onNavigate={(s, p) => navigate(s as ScreenName, p)}
+          />
+        ) : screen === 'CustomerProfileName' ? (
+          <CustomerProfileNameScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerProfileAgeGender' ? (
+          <CustomerProfileAgeGenderScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerProfilePreferences' ? (
+          <CustomerProfileHarvestPreferencesScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerPermissions' ? (
+          <CustomerPermissionsScreen onNavigate={(s, p) => navigate(s as ScreenName, p)} />
+        ) : screen === 'CustomerAddAddress' ? (
+          <CustomerAddAddressScreen
+            initialSource={params['addressSource'] as 'current' | 'manual' | undefined}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'CustomerLoadingMarket' ? (
+          <CustomerLoadingMarketScreen onNavigate={(s) => navigate(s as ScreenName)} />
         ) : screen === 'CustomerMain' ? (
           <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
         ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
@@ -1917,8 +1978,10 @@ export default function App(): React.JSX.Element {
           </View>
         )}
       </View>
-      {/* Splash and Welcome are full-bleed and pad their own bottom content. */}
-      {!isAuthLanding && <NavigationBarInset backgroundColor={colors.surface} />}
+      {/* Splash, Welcome, and Customer intro screens are full-bleed and pad their own bottom content. */}
+      {!isAuthLanding && !isCustomerIntroScreen && (
+        <NavigationBarInset backgroundColor={colors.surface} />
+      )}
     </View>
     {/* The one renderer of every showDialog / appAlert call (packages/mobile-ui/src/Dialog.tsx). */}
     <DialogHost defaultButtonLabel={t('farmer.common.ok')} />
@@ -1959,6 +2022,9 @@ const CHROME = {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
+  screenCustomerIntro: {
+    backgroundColor: colors.white,
+  },
   screenSplash: {
     backgroundColor: SPLASH_DARK,
   },

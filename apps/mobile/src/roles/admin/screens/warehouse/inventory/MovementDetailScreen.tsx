@@ -1,11 +1,20 @@
 // Design id: M3S15 (Stock Movement, M3-16), with the movement voucher (M3S18) as an in-screen view.
 /**
- * One stock ledger row, opened from a Stock Ledger row
- * (GET /admin/stock-ledger, inventory.stock_ledger.view_own). The flow hands
- * this screen the row the user tapped (movementParam); without one (a deep
- * link) it shows "not found". Read-only: the ledger is append-only (BR-37).
- * Every element of the design renders; values come from movementDetailView,
- * which puts ADMIN_NO_VALUE where the API carries nothing.
+ * Movement Detail (design M3-16, route M3S15): one stock ledger row.
+ *
+ * Opened from a Stock Ledger row (GET /admin/stock-ledger,
+ * inventory.stock_ledger.view_own). The flow hands this screen the row the
+ * user tapped (movementParam) and the screen asks the server for nothing.
+ * GET /admin/stock-ledger/{id} exists in the API but is not wired yet, so
+ * without a row (a deep link) it shows "not found".
+ *
+ * Read-only by design: the ledger is append-only (BR-37). Every element of
+ * the design renders; values come from movementDetailView, which puts
+ * ADMIN_NO_VALUE where the API carries nothing — so the movement code and the
+ * from / to warehouse pair, which the API does not have, show the dash rather
+ * than the sample data the old design screens carried. The names BR-130 added
+ * are real values: the recorder (Performed By) and, on the voucher, the
+ * adjustment approver.
  */
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';

@@ -52,6 +52,8 @@ export const SEED_KINDS: Readonly<Record<string, 'reference' | 'dev'>> = {
   '005_crop_rotation_seed.sql': 'dev',
   // Retired with the others (owner decision), although it is only catalogue data.
   '006_pest_library_seed.sql': 'dev',
+  // Customer-app catalogue fixtures (products, prices, stock); needs the 003 users.
+  '007_customer_products.js': 'dev',
 };
 
 export interface SeedPlan {

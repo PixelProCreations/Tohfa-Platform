@@ -12,10 +12,40 @@ import errorsEn from './errors.en.json';
 import errorsTa from './errors.ta.json';
 import customerEn from './customer.en.json';
 import customerTa from './customer.ta.json';
+import commerceEn from './customer.commerce.en.json';
+import commerceTa from './customer.commerce.ta.json';
+import walletEn from './customer.wallet.en.json';
+import walletTa from './customer.wallet.ta.json';
+import ordersEn from './customer.orders.en.json';
+import ordersTa from './customer.orders.ta.json';
+import accountEn from './customer.account.en.json';
+import accountTa from './customer.account.ta.json';
+import supportEn from './customer.support.en.json';
+import supportTa from './customer.support.ta.json';
+import catalogEn from './customer.catalog.en.json';
+import catalogTa from './customer.catalog.ta.json';
 import { createI18n, LOCALES, type Locale } from './runtime';
 
-export const en = { ...errorsEn, ...customerEn };
-const ta: Record<string, string> = { ...errorsTa, ...customerTa };
+export const en = {
+  ...errorsEn,
+  ...customerEn,
+  ...commerceEn,
+  ...walletEn,
+  ...ordersEn,
+  ...accountEn,
+  ...supportEn,
+  ...catalogEn,
+};
+const ta: Record<string, string> = {
+  ...errorsTa,
+  ...customerTa,
+  ...commerceTa,
+  ...walletTa,
+  ...ordersTa,
+  ...accountTa,
+  ...supportTa,
+  ...catalogTa,
+};
 
 export type TranslationKey = keyof typeof en;
 

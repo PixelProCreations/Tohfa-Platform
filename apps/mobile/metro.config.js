@@ -2,8 +2,10 @@
 const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
 const path = require('path');
 
-// Path to repository root
+// Path to repository root and required monorepo folders
 const monorepoRoot = path.resolve(__dirname, '../..');
+const packagesDir = path.resolve(monorepoRoot, 'packages');
+const monorepoNodeModules = path.resolve(monorepoRoot, 'node_modules');
 
 /**
  * Metro configuration for PNPM monorepo.
@@ -32,7 +34,7 @@ const exclusionListPath = require.resolve('metro-config/private/defaults/exclusi
 const exclusionList = require(exclusionListPath).default;
 
 const config = {
-  watchFolders: [monorepoRoot],
+  watchFolders: [packagesDir, monorepoNodeModules],
   // .svg files are compiled to React components by react-native-svg-transformer
   // rather than bundled as static assets, so svg moves from assetExts to
   // sourceExts. Farmer's registration/profile screens import icons this way.
@@ -47,6 +49,13 @@ const config = {
       /.*[/\\]ios[/\\]build[/\\].*/,
       /.*[/\\]\.git[/\\].*/,
       /.*[/\\]\.gradle[/\\].*/,
+      /.*[/\\]\.agents[/\\].*/,
+      /.*[/\\]apps[/\\]api[/\\].*/,
+      /.*[/\\]apps[/\\]web[/\\].*/,
+      /.*[/\\]db[/\\].*/,
+      /.*[/\\]docs[/\\].*/,
+      /.*[/\\]infra[/\\].*/,
+      /.*[/\\]scripts[/\\].*/,
     ]),
     assetExts: assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [...sourceExts, 'svg'],
@@ -56,11 +65,6 @@ const config = {
     ],
     // Follow pnpm symlinks into the .pnpm virtual store
     unstable_enableSymlinks: true,
-    // Watchman crashes here whenever macOS revokes its Full Disk Access grant
-    // (happens on every reinstall since it lives under ~/Downloads, a
-    // TCC-protected folder) -- fall back to Metro's built-in Node crawler
-    // instead of depending on that grant staying in place.
-    useWatchman: false,
   },
 };
 

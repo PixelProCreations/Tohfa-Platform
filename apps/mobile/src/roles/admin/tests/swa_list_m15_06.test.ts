@@ -7,9 +7,9 @@
  * the screen wiring is checked on the source, as warehouse_management_m15
  * does.
  *
- * The M15-07 Responsibility Summary is deliberately absent: no endpoint
- * exposes another role's permission set, so a test below pins that nothing
- * renders it.
+ * The M15-07 Responsibility Summary is absent: GET /roles/{code} returns a
+ * role's permission set but is not wired yet (follow-up), so a test below
+ * pins that nothing renders it.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fs from 'node:fs';
@@ -267,7 +267,7 @@ describe('M15-06 list wiring', () => {
     expect(enCatalogue['warehouseAdmin.swa.unassignedBadge']).toBe('Pending');
   });
 
-  it('does not render the M15-07 Responsibility Summary (no endpoint carries another role\'s permissions)', () => {
+  it('does not render the M15-07 Responsibility Summary (GET /roles/{code} not wired yet)', () => {
     expect(SCREEN).not.toMatch(/responsibilit/i);
     expect(Object.keys(enCatalogue).filter((k) => k.startsWith('warehouseAdmin.swa.') && /responsib/i.test(k))).toEqual([]);
     expect(Object.values(enCatalogue).filter((v) => /Responsibility Summary/i.test(v))).toEqual([]);

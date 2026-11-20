@@ -15,7 +15,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const SRC = path.join(__dirname, '..', '..', '..');
-const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
+// Normalise CRLF (Windows checkouts with core.autocrlf) so the `$`-anchored
+// line patterns below behave the same as on an LF checkout.
+const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8').replace(/\r\n/g, '\n');
 
 const SUB_DASHBOARD = read('roles/admin/screens/dashboard/SubWarehouseAdminDashboardScreen.tsx');
 const APP = read('roles/farmer/App.tsx');

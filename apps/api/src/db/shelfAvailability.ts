@@ -23,18 +23,25 @@
  * Farm anonymity (BR-16): only quantities are read here; no farmer column is touched.
  */
 
-/** Unclaimed shelf quantity of the batch aliased `batch`, never below zero. numeric(12,3). */
-export function shelfFreeSql(batch: string): string {
-  return `GREATEST(0::numeric,
-      ${batch}.qty_available
-      - COALESCE((SELECT SUM(shelf_a.reserved_qty) FROM allocations shelf_a WHERE shelf_a.batch_id = ${batch}.id), 0)
-      - COALESCE((SELECT SUM(shelf_oi.qty_kg)
+/**
+ * Claims on the batch aliased `batch` that are not in the ledger yet: every cart hold on any of its
+ * allocation rows plus pending UPI DIRECT/MARKET sale lines. numeric.
+ */
+export function shelfClaimsSql(batch: string): string {
+  return `(COALESCE((SELECT SUM(shelf_a.reserved_qty) FROM allocations shelf_a WHERE shelf_a.batch_id = ${batch}.id), 0)
+      + COALESCE((SELECT SUM(shelf_oi.qty_kg)
                     FROM order_items shelf_oi
                     JOIN orders shelf_o ON shelf_o.id = shelf_oi.order_id
                    WHERE shelf_oi.batch_id = ${batch}.id
                      AND shelf_oi.status = 'PENDING'
                      AND shelf_o.status = 'PENDING_PAYMENT'
-                     AND shelf_o.channel IN ('DIRECT', 'MARKET')), 0)
+                     AND shelf_o.channel IN ('DIRECT', 'MARKET')), 0))`;
+}
+
+/** Unclaimed shelf quantity of the batch aliased `batch`, never below zero. numeric(12,3). */
+export function shelfFreeSql(batch: string): string {
+  return `GREATEST(0::numeric,
+      ${batch}.qty_available - ${shelfClaimsSql(batch)}
     )::numeric(12,3)`;
 }
 

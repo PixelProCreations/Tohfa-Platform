@@ -152,9 +152,24 @@ export const updateCropMasterBody = z
     storageTemp: z.string().trim().min(1).max(120).nullable().optional(),
     description: z.string().trim().max(2000).nullable().optional(),
     deactivationReason: z.string().trim().max(1000).nullable().optional(),
+    // BR-181: display-only catalog metadata, set by admin (never echoed on farmer endpoints).
+    tasteNotes: z.string().trim().min(1).max(300).nullable().optional(),
+    harvestSeason: z.string().trim().min(1).max(80).nullable().optional(),
+    originRegion: z.string().trim().min(1).max(80).nullable().optional(),
+    farmingType: z.enum(['ORGANIC', 'NATURAL', 'CONVENTIONAL']).nullable().optional(),
+    packSize: z.number().positive().max(9999999).nullable().optional(),
+    packUnit: z.enum(['KG', 'G', 'PIECE', 'BUNCH', 'DOZEN', 'PACK']).nullable().optional(),
+    compareAtPrice: z.number().positive().max(9999999999).nullable().optional(),
+    isComingSoon: z.boolean().optional(),
+    comingTomorrow: z.boolean().optional(),
+    isUnsalable: z.boolean().optional(),
   })
   .strict()
-  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field must be supplied' });
+  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field must be supplied' })
+  .refine((b) => (b.packSize === undefined) === (b.packUnit === undefined) && (b.packSize === null) === (b.packUnit === null), {
+    message: 'packSize and packUnit must be set (or cleared) together',
+    path: ['packSize'],
+  });
 export type UpdateCropMasterBody = z.infer<typeof updateCropMasterBody>;
 
 // ---------------------------------------------------------------------------

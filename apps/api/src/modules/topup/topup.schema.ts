@@ -36,6 +36,26 @@ export type TopupIntentResponse = {
   presetAmounts?: Money[];
 };
 
+/** BR-183: GET /v1/wallets/me/topups/:topupId, the receipt a customer shows after a top-up. */
+export const topupIdParamSchema = z.object({ topupId: z.string().uuid() }).strict();
+
+export const topupReceiptResponseSchema = z
+  .object({
+    topupId: z.string().uuid(),
+    status: z.enum(['PENDING', 'SUCCESS', 'FAILED']),
+    amount: moneySchema,
+    currency: z.literal('INR'),
+    mode: z.string(),
+    /** The wallet ledger row of the credit; null until the top-up is SUCCESS. */
+    transactionId: z.string().uuid().nullable(),
+    /** Wallet balance right after the credit; null until the top-up is SUCCESS. */
+    balanceAfter: moneySchema.nullable(),
+    createdAt: z.string(),
+    completedAt: z.string().nullable(),
+  })
+  .strict();
+export type TopupReceiptResponse = z.infer<typeof topupReceiptResponseSchema>;
+
 export const razorpayWebhookBodySchema = z.object({
   event: z.string(),
   created_at: z.number().int().optional(),

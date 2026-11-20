@@ -12,12 +12,17 @@
  * The server returns only in-scope orders (CLAUDE.md 2.1).
  *
  * Every designed element is drawn. A row shows the order number, a customer
- * line (the dash: the list carries no customer name, BR-101, and the detail is
- * not fetched per row), the item count and fulfilment. The search box narrows
- * the rows already loaded by order number (the API has no search). The filter
- * button opens the filters screen (M5S03). `status` (from a dashboard tile) is
- * the server filter; `fulfillment` (a dashboard tile) narrows the loaded rows
- * and shows the "Only" pill that clears it.
+ * line, the item count and fulfilment. The search box narrows the rows
+ * already loaded by order number. The filter button opens the filters screen
+ * (M5S03). `status` (from a dashboard tile) is the server filter;
+ * `fulfillment` (a dashboard tile) narrows the loaded rows and shows the
+ * "Only" pill that clears it.
+ *
+ * Not wired yet, so the customer line is the dash rather than a name:
+ * OrderSummaryDto declares customerName / customerMobileMasked / packedAt /
+ * readyAt (AdminOrderSummary, BR-127) but the order row mapper does not carry
+ * them, and ListAdminOrdersParams declares no `q`, so the server search
+ * GET /admin/orders?q= (order number or buyer name) is not called either.
  *
  * Gates: the rows open the detail, which gates its own actions.
  */

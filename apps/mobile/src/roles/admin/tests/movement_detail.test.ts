@@ -207,9 +207,13 @@ describe('movementDetailRows: only what the ledger row carries', () => {
     expect(values).not.toMatch(/MV-|GRN-/);
   });
 
-  it('BR-130: shows who recorded the row by name when the API names them', () => {
-    const fields = fieldsOf(movementDetailRows(row({ createdByName: 'Asha Rao' }), 'Ooty'));
-    expect(fields[t('inventory.stockMovement.performedBy')]).toBe('Asha Rao');
+  it('BR-130: shows the recorder and the adjustment approver by name, only when sent', () => {
+    const named = fieldsOf(movementDetailRows(row({ createdByName: 'Ravi Kumar', approvedByName: 'Anand' }), 'Ooty'));
+    expect(named[t('inventory.movementDetail.field.recordedBy')]).toBe('Ravi Kumar');
+    expect(named[t('inventory.movementDetail.field.approvedBy')]).toBe('Anand');
+    const unnamed = fieldsOf(movementDetailRows(row({ createdByName: null, approvedByName: '  ' }), 'Ooty'));
+    expect(unnamed[t('inventory.movementDetail.field.recordedBy')]).toBeUndefined();
+    expect(unnamed[t('inventory.movementDetail.field.approvedBy')]).toBeUndefined();
   });
 });
 

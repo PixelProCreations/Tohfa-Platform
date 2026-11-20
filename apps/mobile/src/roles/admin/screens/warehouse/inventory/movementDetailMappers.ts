@@ -3,10 +3,18 @@
  * screen. No React, so plain-Node vitest covers them
  * (../../../tests/movement_detail.test.ts).
  *
- * The detail is the ledger row the user tapped, carried in the route params
- * (GET /admin/stock-ledger/{id} returns the same shape, BR-130). A deep link
- * without that row has nothing to show. Every element of the design renders;
- * a value the API does not carry is ADMIN_NO_VALUE, never sample data.
+ * The detail is the ledger row the user tapped, carried in the route params.
+ * GET /admin/stock-ledger/{id} exists in docs/openapi.yaml (same row shape)
+ * but the app does not call it yet, so a deep link without the row shows
+ * "not found" (follow-up: load the row by id).
+ *
+ * The row is immutable (BR-37: a correction is a new row). Every element of
+ * the design renders; a value the API does not carry is ADMIN_NO_VALUE, never
+ * sample data — there is no movement code (only a uuid) and no
+ * source/destination warehouse pair (a transfer writes one row per
+ * warehouse). The names BR-130 added are carried: who recorded the row and,
+ * for a row an approved stock adjustment inserted, who approved it
+ * (createdByName / approvedByName).
  */
 import { t, type TranslationKey } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
@@ -77,8 +85,10 @@ export function movementDetailRows(movement: StockMovementRow, warehouseName: st
     field('inventory.movementDetail.field.batch', movement.batchCode),
     field('inventory.movementDetail.field.reference', movementReference(movement.refType, movement.refId)),
     field('inventory.movementDetail.field.performedAt', movement.performedAt),
-    // BR-130: the API names who recorded the row.
-    field('inventory.stockMovement.performedBy', movement.createdByName),
+    // BR-130: the API names who recorded the row and who approved the
+    // adjustment that inserted it.
+    field('inventory.movementDetail.field.recordedBy', movement.createdByName),
+    field('inventory.movementDetail.field.approvedBy', movement.approvedByName),
   ]);
 }
 

@@ -925,5 +925,11 @@
   "billing.hub.kpi.pending": "நிலுவையில்",
   "billing.hub.kpi.pendingSub": "Awaiting action",
   "billing.hub.kpi.failed": "தோல்வி",
-  "billing.hub.kpi.failedSub": "கவனம் தேவை"
+  "billing.hub.kpi.failedSub": "கவனம் தேவை",
+  "inventory.movementDetail.field.recordedBy": "பதிவு செய்தவர்",
+  "inventory.movementDetail.field.approvedBy": "அங்கீகரித்தவர்",
+  "stockAdj.detail.requestedBy": "கோரியவர்",
+  "stockAdj.detail.approvedBy": "அங்கீகரித்தவர்",
+  "billing.detail.buyerGstin": "வாடிக்கையாளர் GSTIN",
+  "warehouseAdmin.swa.noEditNoteRole": "துணை கிடங்கு நிர்வாகிகளை செயலியில் திருத்த முடியாது. TOHFA நிர்வாகி அல்லது விவசாயி நிர்வாகி மட்டுமே ஒருவரைச் செயலிழக்கச் செய்ய முடியும்."
 }

@@ -153,6 +153,7 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
     await pool.query(`
       ALTER TABLE stock_ledger DISABLE TRIGGER ALL;
       ALTER TABLE wallet_transactions DISABLE TRIGGER ALL;
+      ALTER TABLE wallet_transfers DISABLE TRIGGER ALL;
 
       TRUNCATE TABLE
         purchase_orders,
@@ -172,6 +173,7 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
 
       ALTER TABLE stock_ledger ENABLE TRIGGER ALL;
       ALTER TABLE wallet_transactions ENABLE TRIGGER ALL;
+      ALTER TABLE wallet_transfers ENABLE TRIGGER ALL;
 
       INSERT INTO users (id, mobile, full_name, user_type, status)
       VALUES ('${IDS.userSuperAdmin}', '+919800000099', 'Super Admin', 'ADMIN', 'ACTIVE')

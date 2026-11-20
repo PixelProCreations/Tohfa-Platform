@@ -65,6 +65,7 @@ interface OtpScreenProps {
       | 'MainTabs'
       | 'AdminMain'
       | 'CustomerMain'
+      | 'CustomerProfileName'
       | 'Unsupported'
       | 'Login'
       | 'ResetPassword',

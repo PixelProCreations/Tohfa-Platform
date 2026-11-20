@@ -7,6 +7,7 @@ import {
   checkoutRequestSchema,
   listOrdersQuerySchema,
   orderIdParamSchema,
+  quoteRequestSchema,
 } from './orders.schema.js';
 import { ordersService } from './orders.service.js';
 
@@ -29,6 +30,20 @@ ordersRouter.post(
       idempotencyKey,
     );
     res.status(201).json(result);
+  }),
+);
+
+// BR-200: what checkout would charge right now. Same permission and body as checkout; no
+// Idempotency-Key because nothing is reserved, debited or booked.
+ordersRouter.post(
+  '/quote',
+  requireAuth,
+  requirePermission('order.place'),
+  validate({ body: quoteRequestSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const body = getValidated(req, 'body', quoteRequestSchema);
+    res.status(200).json(await ordersService.quote(actor, req.scope!, body));
   }),
 );
 
@@ -56,6 +71,26 @@ ordersRouter.get(
     const params = getValidated(req, 'params', orderIdParamSchema);
 
     const result = await ordersService.getOrder(actor, req.scope!, params.id);
+    res.status(200).json(result);
+  }),
+);
+
+// BR-162: rebuild the cart from one of the caller's own past orders.
+ordersRouter.post(
+  '/:id/reorder',
+  requireAuth,
+  requirePermission('order.reorder_own'),
+  validate({ params: orderIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', orderIdParamSchema);
+
+    const result = await ordersService.reorder(
+      actor,
+      req.scope!,
+      params.id,
+      req.header('idempotency-key'),
+    );
     res.status(200).json(result);
   }),
 );

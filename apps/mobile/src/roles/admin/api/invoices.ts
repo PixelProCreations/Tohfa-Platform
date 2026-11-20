@@ -80,7 +80,7 @@ export interface InvoiceDetailDto extends InvoiceDto {
    * payout invoice. A name only, never a mobile (BR-92).
    */
   buyerName?: string | null;
-  /** BR-128: the buyer's GSTIN exactly as stored; null when none is. */
+  /** BR-128: the buyer's GSTIN exactly as stored; null when none is, as for a walk-in and a farmer-side invoice. */
   buyerGstin?: string | null;
   placeOfSupply?: string | null;
   cgst?: Money;

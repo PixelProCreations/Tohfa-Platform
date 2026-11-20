@@ -182,9 +182,9 @@ export interface InvoiceKpiView {
 export interface InvoiceDetailView extends InvoiceRow {
   /** The order uuid the invoice names (Invoice.orderId), or null; never shown, only matched (invoiceOrderContext). */
   orderId: string | null;
-  /** BR-128: the invoice's buyer, or null when it names none (farmer purchase, payout). */
+  /** InvoiceDetail.buyerName (BR-128): the invoice's buyer, or null when it names none (farmer purchase, payout). */
   buyerName: string | null;
-  /** BR-128: the buyer's GSTIN, or null when none is stored. */
+  /** InvoiceDetail.buyerGstin (BR-128): the buyer's GSTIN, or null when none is stored. */
   buyerGstin: string | null;
   placeOfSupply: string | null;
   gstApplicable: boolean;

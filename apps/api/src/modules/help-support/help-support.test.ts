@@ -138,8 +138,20 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
   });
 
   describe('BR-82i: nothing is seeded and nothing is invented', () => {
-    it('BR-82i: the migration seeds no article', () => {
-      expect(seededArticles).toBe(0);
+    it('BR-82i: the migration seeds only the documented customer FAQ rows (0103), all published', async () => {
+      expect(seededArticles).toBe(6);
+      const rows = (await pool.query<{ title: string; is_published: boolean; locale: string; created_by: string | null }>(
+        'SELECT title, is_published, locale, created_by FROM help_articles',
+      )).rows;
+      expect(rows.map((r) => r.title).sort()).toEqual([
+        'Can I cancel or change an order?',
+        'How do I add money to my wallet?',
+        'How do I track my order?',
+        'How do I update my profile or address?',
+        'When will I get a refund?',
+        'What if my produce is not fresh or is damaged?',
+      ].sort());
+      expect(rows.every((r) => r.is_published && r.locale === 'en' && r.created_by === null)).toBe(true);
     });
 
     it('BR-82i: the contact channels are JSON null in system_config until an administrator sets them', () => {
@@ -149,8 +161,10 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       ]);
     });
 
-    it('BR-82i: with nothing configured the reader response is empty articles and null contact', async () => {
-      expect(await read(sa.token)).toEqual({ items: [], categories: [], contact: { phone: null, email: null } });
+    it('BR-82i: with nothing configured the reader response carries only the seeded FAQ and null contact', async () => {
+      const body = (await read(sa.token)) as { items: Array<{ title: string }>; contact: unknown };
+      expect(body.items).toHaveLength(6);
+      expect(body.contact).toEqual({ phone: null, email: null });
     });
   });
 

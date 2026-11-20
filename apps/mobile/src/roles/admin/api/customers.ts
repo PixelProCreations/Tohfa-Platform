@@ -188,6 +188,10 @@ export interface AdminCustomerWalletSummaryDto {
   walletId: string;
   /** Equals the sum of the ledger exactly (BR-93e). */
   balance: Money;
+  /** BR-129: the sum of every CREDIT ledger row (top-ups, refunds, credit adjustments). */
+  totalCredited?: Money;
+  /** BR-129: the sum of the ORDER_DEBIT and SUBSCRIPTION_DEBIT ledger rows (ADJUSTMENT debits excluded). */
+  totalUsed?: Money;
   currency: 'INR';
   status: WalletStatus;
   transactionCount: number;

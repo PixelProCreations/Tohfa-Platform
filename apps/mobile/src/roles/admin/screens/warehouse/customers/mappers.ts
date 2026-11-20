@@ -381,6 +381,8 @@ export function walletStatusOf(status: string): WalletUiStatus {
 export function toCustomerWallet(dto: AdminCustomerWalletSummaryDto, now: Date): CustomerWalletView {
   const status = walletStatusOf(dto.status);
   const balancePaise = moneyToPaise(dto.balance);
+  const creditedPaise = moneyToPaise(dto.totalCredited);
+  const usedPaise = moneyToPaise(dto.totalUsed);
   return {
     walletId: dto.walletId,
     status,
@@ -389,6 +391,8 @@ export function toCustomerWallet(dto: AdminCustomerWalletSummaryDto, now: Date):
     balanceLabel: paiseLabel(balancePaise),
     transactionCount: countOf(dto.transactionCount),
     lastTransactionLabel: dateLabel(dto.lastTransactionAt, now),
+    ...(creditedPaise === null ? {} : { totalCreditedLabel: paiseLabel(creditedPaise) }),
+    ...(usedPaise === null ? {} : { totalUsedLabel: paiseLabel(usedPaise) }),
   };
 }
 

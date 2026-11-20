@@ -3,19 +3,8 @@ import React from 'react';
 import renderer from 'react-test-renderer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-vi.mock('react-native', () => ({
-  View: 'View',
-  Text: 'Text',
-  ScrollView: 'ScrollView',
-  StyleSheet: { create: <T>(s: T) => s },
-  ActivityIndicator: 'ActivityIndicator',
-  FlatList: 'FlatList',
-  TextInput: 'TextInput',
-  Image: 'Image',
-  SafeAreaView: 'SafeAreaView',
-  StatusBar: 'StatusBar',
-  TouchableOpacity: 'TouchableOpacity',
-}));
+vi.mock('react-native', async () => (await import('./helpers/rnMock')).rnMock());
+vi.mock('react-native-svg', async () => (await import('./helpers/rnMock')).svgMock());
 
 vi.mock('@tohfa/mobile-ui', () => ({
   Card: 'Card',
@@ -102,10 +91,19 @@ function walkPayloadAndAssertNoIdentity(payload: unknown) {
   }
 }
 
+const PRODUCT = {
+  id: 'p1', name: 'Carrot', categoryId: 'c1', grade: 'GRADE_1', pricePerKg: '69.00', availableQty: '10.000', unit: 'kg',
+  photos: [], certificationBadges: ['PGS'], warehouseIds: [], tasteNotes: 'Sweet', originRegion: 'Nilgiris',
+  compareAtPrice: '80.00', discountPercent: 13, isComingSoon: false, comingTomorrow: false, isUnsalable: false,
+  ratingAverage: 4.5, ratingCount: 3,
+};
+
 describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
   let queryClient: QueryClient;
+  const mounted: renderer.ReactTestRenderer[] = [];
 
   beforeEach(() => {
+    mounted.splice(0).forEach((r) => renderer.act(() => r.unmount()));
     vi.restoreAllMocks();
     queryClient = new QueryClient({
       defaultOptions: {
@@ -115,16 +113,20 @@ describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
   });
 
   const renderWithProviders = (ui: React.ReactElement) => {
-    return renderer.create(
+    const r = renderer.create(
       React.createElement(QueryClientProvider, { client: queryClient }, ui)
     );
+    mounted.push(r);
+    return r;
   };
 
   it('BR-16: Home screen renders without farm identity and payload is clean', async () => {
     const mockHomePayload = {
-      heroBanners: [{ id: '1', imageUrl: 'http://img' }],
-      categories: [{ id: 'c1', name: 'Veg' }],
-      featured: [{ id: 'p1', name: 'Carrot', price: '1000', grade: 'A' }],
+      heroBanners: [{ id: '1', imageUrl: 'http://img', title: null, deeplink: null }],
+      sections: [{ id: 's1', title: 'Vegetables', subtitle: null, items: [PRODUCT] }],
+      categories: [{ id: 'c1', name: 'Veg', slug: 'veg' }],
+      featured: [PRODUCT],
+      nearestWarehouseId: null,
     };
     
     vi.spyOn(api, 'get').mockImplementation(async (path) => {
@@ -143,7 +145,7 @@ describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
   });
 
   it('BR-16: Categories screen renders without farm identity and payload is clean', async () => {
-    const mockCatPayload = [{ id: 'c1', name: 'Veg' }];
+    const mockCatPayload = { items: [{ id: 'c1', name: 'Veg', slug: 'veg' }] };
     vi.spyOn(api, 'get').mockResolvedValue(mockCatPayload as never);
 
     let root!: renderer.ReactTestRenderer;
@@ -156,10 +158,10 @@ describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
   it('BR-16: Product grid renders without farm identity, payload is clean, and rejects REJECT grade', async () => {
     const mockProdPayload = {
       items: [
-        { id: 'p1', name: 'Carrot', price: '1000', grade: 'A' },
-        { id: 'p2', name: 'Bad Carrot', price: '500', grade: 'REJECT' },
+        PRODUCT,
+        { ...PRODUCT, id: 'p2', name: 'Bad Carrot', grade: 'REJECT' },
       ],
-      total: 2,
+      page: { nextCursor: null, hasMore: false },
     };
     
     vi.spyOn(api, 'get').mockImplementation(async () => {
@@ -180,7 +182,7 @@ describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
   });
 
   it('BR-16: Product detail renders without farm identity and payload is clean', async () => {
-    const mockDetailPayload = { id: 'p1', name: 'Carrot', price: '1000', grade: 'A', photos: [] };
+    const mockDetailPayload = { ...PRODUCT, variants: [] };
     vi.spyOn(api, 'get').mockResolvedValue(mockDetailPayload as never);
 
     let root!: renderer.ReactTestRenderer;
@@ -192,10 +194,11 @@ describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
 
   it('BR-16: Search screen renders without farm identity and payload is clean', async () => {
     const mockSearchPayload = {
-      items: [{ id: 'p1', name: 'Carrot', price: '1000', grade: 'A' }],
+      items: [PRODUCT],
+      page: { nextCursor: null, hasMore: false },
     };
     const mockHomePayload = {
-      heroBanners: [], categories: [], featured: []
+      items: [], queries: [], products: [PRODUCT]
     };
     vi.spyOn(api, 'get').mockImplementation(async (path) => {
       if (path.includes('/catalog/search')) return mockSearchPayload as never;
@@ -204,7 +207,7 @@ describe('BR-16: enforces farm-anonymous catalog in customer views', () => {
 
     let root!: renderer.ReactTestRenderer;
     await renderer.act(async () => {
-      root = renderWithProviders(React.createElement(SearchScreen));
+      root = renderWithProviders(React.createElement(SearchScreen, { initialQuery: 'carrot' }));
     });
     walkTreeAndAssertNoIdentity(root.toJSON());
   });

@@ -67,9 +67,10 @@ export function sumStorageAreas(totals: readonly number[]): number | null {
 
 /**
  * What the server has said about near-full warehouses. The limit is
- * system_config.alert_capacity_utilization_percent, which no endpoint exposes
- * on its own; it reaches the client only as `thresholdPercent` in the params of
- * a raised CAPACITY_NEAR_FULL alert (root CLAUDE.md 2.7: never a client constant).
+ * system_config.alert_capacity_utilization_percent (root CLAUDE.md 2.7: never a
+ * client constant). It reaches the client as `thresholdPercent` on GET
+ * /warehouses/{id}/capacity (BR-131, read into CapacityToneInput.thresholdBp by
+ * capacityToneInputOf) and in the params of a raised CAPACITY_NEAR_FULL alert.
  */
 export interface NearFullSignal {
   /** Warehouses with a CAPACITY_NEAR_FULL alert in the caller's list. */
@@ -103,8 +104,9 @@ export function nearFullSignal(alerts: readonly AlertItemDto[]): NearFullSignal 
  * absence of an alert does not prove a warehouse is below the limit.
  *   over      available below zero: a fact of the figures (BR-66b), no threshold involved
  *   nearFull  the server raised CAPACITY_NEAR_FULL for it, or its utilization is at or
- *             above the threshold the server's own alerts carry
- *   neutral   anything else, including alerts not loaded yet and no capacity set
+ *             above the threshold the capacity read (BR-131) or the server's own alerts carry
+ *   neutral   anything else, including no capacity set, and alerts not loaded yet
+ *             when the capacity read carried no threshold
  */
 export type CapacityTone = 'neutral' | 'nearFull' | 'over';
 
@@ -114,10 +116,13 @@ export interface CapacityToneInput {
   utilizationBp: number | null;
   /** capacity - used in grams; null without a capacity. */
   availableGrams: number | null;
+  /** GET /warehouses/{id}/capacity `thresholdPercent` in basis points (BR-131); absent or null when not sent. */
+  thresholdBp?: number | null | undefined;
 }
 
 export function capacityTone(row: CapacityToneInput, signal: NearFullSignal | null): CapacityTone {
   if (row.availableGrams !== null && row.availableGrams < 0) return 'over';
+  if (row.utilizationBp !== null && row.thresholdBp != null && row.utilizationBp >= row.thresholdBp) return 'nearFull';
   if (signal === null || row.utilizationBp === null) return 'neutral';
   if (signal.warehouseIds.has(row.warehouseId)) return 'nearFull';
   if (signal.thresholdBp !== null && row.utilizationBp >= signal.thresholdBp) return 'nearFull';
@@ -138,10 +143,12 @@ export function nearFullSignalOf(collected: { items: readonly AlertItemDto[]; co
 export function capacityToneInputOf(dto: WarehouseCapacityDto): CapacityToneInput {
   const set = dto.capacityKg !== null;
   const percent = dto.utilizationPercent;
+  const thresholdBp = percentToBp(dto.thresholdPercent);
   return {
     warehouseId: dto.warehouseId,
     utilizationBp: set && typeof percent === 'number' && Number.isFinite(percent) ? Math.round(percent * 100) : null,
     availableGrams: set && dto.availableKg !== null ? parseKgToGrams(dto.availableKg) : null,
+    ...(thresholdBp === null ? {} : { thresholdBp }),
   };
 }
 
