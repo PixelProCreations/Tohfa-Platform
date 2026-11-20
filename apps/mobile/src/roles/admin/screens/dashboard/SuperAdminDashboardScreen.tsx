@@ -401,6 +401,8 @@ export function SuperAdminDashboardScreen({
     }
     return (
       <PurchaseSalesOrdersScreen
+        title="Purchases"
+        role="SUPER_ADMIN"
         onBack={() => setActiveSubScreen(null)}
       />
     );

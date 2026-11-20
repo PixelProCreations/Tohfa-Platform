@@ -599,11 +599,11 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
       { id: 'produce', label: 'Produce Calendar', icon: <ProduceControlIcon /> },
       {
         id: 'purchase_sales',
-        label: 'Purchase & Sales Orders',
+        label: 'Purchases',
         icon: <PurchaseSalesIcon />,
         onPressAction: () => {
           if (onNavigatePurchases) onNavigatePurchases();
-          else onItemSelect?.('Purchase & Sales Orders');
+          else onItemSelect?.('Purchases');
         },
       },
       { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },

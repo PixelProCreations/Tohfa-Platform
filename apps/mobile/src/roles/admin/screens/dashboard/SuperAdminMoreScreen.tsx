@@ -318,7 +318,7 @@ export function SuperAdminMoreScreen({
           ? [
               {
                 id: 'purchases',
-                label: 'Purchase & Sales Orders',
+                label: 'Purchases',
                 icon: <PurchasesCartIcon />,
                 actionKey: 'purchases',
               },

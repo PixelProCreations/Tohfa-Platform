@@ -33,6 +33,9 @@ import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
 import { AdminAddFarmRecordScreen, type AddRecordTab } from './AdminAddFarmRecordScreen';
 import { AdminEditFarmRecordScreen, type EditFarmRecordData } from './AdminEditFarmRecordScreen';
 import { FarmRecordsSection } from './FarmRecordsSection';
+import { FarmerBankAccountDetailsScreen, resolveAdminRoleCategory } from './FarmerBankAccountDetailsScreen';
+import { FarmerPayoutDetailScreen, type PayoutDetailItem } from './FarmerPayoutDetailScreen';
+import { FarmerPayoutTabSection } from './FarmerPayoutTabSection';
 
 function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -90,6 +93,7 @@ export type FarmerDetailTabType =
   | 'Verification & Compliance'
   | 'Farmer Records'
   | 'Audit'
+  | 'Payout'
   | 'History'
   | 'Personal'
   | 'Farm & land'
@@ -182,36 +186,38 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   const resolvedFarmer: FarmerListItem = farmer
     ? {
-        id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
-        name: farmer.name || farmerName || 'Farmer',
-        phone: farmer.phone || '+91 98765 43210',
-        status: normalizeStatus(farmer.status || farmer.accountStatus),
-        registeredDate: farmer.registeredDate || '12 Jan 2026',
-        farmSize: farmer.farmSize || '5.5 Acres',
-        zone: farmer.zone || 'Ooty North',
-        crops: farmer.crops || ['Carrot', 'Potato'],
-        rating: farmer.rating || '4.8',
-        kycStatus: farmer.kycStatus || 'VERIFIED',
-        disputeCount: farmer.disputeCount || 0,
-        ...(farmer.certStatus ? { certStatus: farmer.certStatus } : {}),
-        ...(farmer.hasExpiredCert !== undefined ? { hasExpiredCert: farmer.hasExpiredCert } : {}),
-      }
+      id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
+      name: farmer.name || farmerName || 'Farmer',
+      phone: farmer.phone || '+91 98765 43210',
+      status: normalizeStatus(farmer.status || farmer.accountStatus),
+      registeredDate: farmer.registeredDate || '12 Jan 2026',
+      farmSize: farmer.farmSize || '5.5 Acres',
+      zone: farmer.zone || 'Ooty North',
+      crops: farmer.crops || ['Carrot', 'Potato'],
+      rating: farmer.rating || '4.8',
+      kycStatus: farmer.kycStatus || 'VERIFIED',
+      disputeCount: farmer.disputeCount || 0,
+      ...(farmer.certStatus ? { certStatus: farmer.certStatus } : {}),
+      ...(farmer.hasExpiredCert !== undefined ? { hasExpiredCert: farmer.hasExpiredCert } : {}),
+    }
     : {
-        id: farmerId || 'FARM-001',
-        name: farmerName || 'Farmer',
-        phone: '+91 98765 43210',
-        status: 'ACTIVE',
-        registeredDate: '12 Jan 2026',
-        farmSize: '5.5 Acres',
-        zone: 'Ooty North',
-        crops: ['Carrot', 'Potato'],
-        rating: '4.8',
-        kycStatus: 'VERIFIED',
-        disputeCount: 0,
-      };
+      id: farmerId || 'FARM-001',
+      name: farmerName || 'Farmer',
+      phone: '+91 98765 43210',
+      status: 'ACTIVE',
+      registeredDate: '12 Jan 2026',
+      farmSize: '5.5 Acres',
+      zone: 'Ooty North',
+      crops: ['Carrot', 'Potato'],
+      rating: '4.8',
+      kycStatus: 'VERIFIED',
+      disputeCount: 0,
+    };
 
   const [currentFarmer, setCurrentFarmer] = useState<FarmerListItem>(resolvedFarmer);
   const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(normalizeTab(initialTab));
+  const [payoutSubScreen, setPayoutSubScreen] = useState<'none' | 'bank_details' | 'payout_detail'>('none');
+  const [selectedPayoutItem, setSelectedPayoutItem] = useState<PayoutDetailItem | null>(null);
   const [accountStatus, setAccountStatus] = useState<'Active' | 'Inactive' | 'Disabled' | 'Terminated'>(
     resolvedFarmer.status === 'DISABLED' ? 'Disabled' : 'Active'
   );
@@ -286,7 +292,9 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     Array<{ id: string; timeActor: string; action: string }>
   >([]);
 
-  const isSuperAdmin = role === 'SUPER_ADMIN' || (can ? can('farmer.document.verify') : false);
+  const roleCategory = resolveAdminRoleCategory(role);
+  const isSuperAdmin = roleCategory === 'SUPER_ADMIN' || (can ? can('farmer.document.verify') : false);
+  const isWarehouse = roleCategory === 'WAREHOUSE_ADMIN';
 
   const tabs: { key: FarmerDetailTabType; label: string }[] = React.useMemo(() => {
     const list: { key: FarmerDetailTabType; label: string }[] = [
@@ -298,13 +306,13 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
       { key: 'Ratings', label: 'Ratings' },
       { key: 'Subscription', label: 'Subscription' },
     ];
-    if (isSuperAdmin) {
-      list.push({ key: 'Verification & Compliance', label: 'Verification & Compliance' });
-      list.push({ key: 'Farmer Records', label: 'Farmer Records' });
-    }
-    list.push({ key: 'Audit', label: 'Audit' }, { key: 'History', label: 'History' });
+    list.push({ key: 'Verification & Compliance', label: 'Compliance' });
+    list.push({ key: 'Audit', label: 'Audit' });
+    list.push({ key: 'Farmer Records', label: 'Farmer Records' });
+    list.push({ key: 'Payout', label: 'Payout' });
+    list.push({ key: 'History', label: 'History' });
     return list;
-  }, [isSuperAdmin]);
+  }, []);
 
   useEffect(() => {
     const idx = tabs.findIndex((t) => t.key === activeTab);
@@ -485,6 +493,32 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     Alert.alert('Correction Requested', `Correction request for ${activeRecordId} has been sent.`);
   };
 
+  // ─── SUBVIEW: BANK ACCOUNT DETAILS ───
+  if (payoutSubScreen === 'bank_details') {
+    return (
+      <FarmerBankAccountDetailsScreen
+        farmerName={currentFarmer.name || farmer.name || 'Ramesh Kumar'}
+        farmerId={farmer.code ?? farmer.id ?? 'FMR-00124'}
+        role={role}
+        can={can}
+        onBack={() => setPayoutSubScreen('none')}
+      />
+    );
+  }
+
+  // ─── SUBVIEW: PAYOUT DETAIL ───
+  if (payoutSubScreen === 'payout_detail') {
+    return (
+      <FarmerPayoutDetailScreen
+        payout={selectedPayoutItem ?? undefined}
+        farmerName={currentFarmer.name || farmer.name || 'Kumar'}
+        farmerId={farmer.code ?? farmer.id ?? 'FMR-00098'}
+        role={role}
+        onBack={() => setPayoutSubScreen('none')}
+      />
+    );
+  }
+
   // ─── SUBVIEW: EDIT FARMER PROFILE (Latest Screenshots) ───
   if (isEditingProfile) {
     return (
@@ -621,8 +655,8 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                   currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
                     ? styles.redPill
                     : currentFarmer.certStatus === 'Pending'
-                    ? styles.amberPill
-                    : styles.greenPill
+                      ? styles.amberPill
+                      : styles.greenPill
                 }
               >
                 <Text
@@ -630,15 +664,15 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                     currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
                       ? styles.redPillText
                       : currentFarmer.certStatus === 'Pending'
-                      ? styles.amberPillText
-                      : styles.greenPillText
+                        ? styles.amberPillText
+                        : styles.greenPillText
                   }
                 >
                   {currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
                     ? 'Certification expired'
                     : currentFarmer.certStatus === 'Pending'
-                    ? 'Cert pending'
-                    : 'Certified'}
+                      ? 'Cert pending'
+                      : 'Certified'}
                 </Text>
               </View>
               <View style={styles.neutralPill}>
@@ -877,8 +911,8 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
                   ? styles.redPill
                   : currentFarmer.certStatus === 'Pending'
-                  ? styles.amberPill
-                  : styles.greenPill
+                    ? styles.amberPill
+                    : styles.greenPill
               }
             >
               <Text
@@ -886,15 +920,15 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                   currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
                     ? styles.redPillText
                     : currentFarmer.certStatus === 'Pending'
-                    ? styles.amberPillText
-                    : styles.greenPillText
+                      ? styles.amberPillText
+                      : styles.greenPillText
                 }
               >
                 {currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
                   ? 'Certification expired'
                   : currentFarmer.certStatus === 'Pending'
-                  ? 'Cert pending'
-                  : 'Certified'}
+                    ? 'Cert pending'
+                    : 'Certified'}
               </Text>
             </View>
 
@@ -1952,6 +1986,19 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             onAddRecord={(tab) => setAddRecordInitialTab(tab)}
             onEditRecord={(record) => setEditingRecordData(record)}
             onEditDiary={(record) => setEditingRecordData(record)}
+          />
+        )}
+
+        {/* ─── TAB 11: PAYOUT (Screenshots 1-5) ─── */}
+        {activeTab === 'Payout' && (
+          <FarmerPayoutTabSection
+            farmerName={currentFarmer.name || farmer.name || 'Ramesh Kumar'}
+            farmerId={farmer.code ?? farmer.id ?? 'FMR-00124'}
+            onOpenBankDetails={() => setPayoutSubScreen('bank_details')}
+            onOpenPayoutDetail={(item) => {
+              setSelectedPayoutItem(item);
+              setPayoutSubScreen('payout_detail');
+            }}
           />
         )}
 

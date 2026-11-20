@@ -504,9 +504,16 @@ const SALES_ORDERS_DATA: SalesOrderRecord[] = [
 export interface PurchaseSalesOrdersScreenProps {
   onBack: () => void;
   onNavigateOrder?: (orderId: string) => void;
+  title?: string;
+  role?: string;
 }
 
-export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseSalesOrdersScreenProps) {
+export function PurchaseSalesOrdersScreen({
+  onBack,
+  onNavigateOrder,
+  title = 'Purchases',
+  role: _role,
+}: PurchaseSalesOrdersScreenProps) {
   // Tabs: 'Purchase' | 'Sales'
   const [activeTab, setActiveTab] = useState<'Purchase' | 'Sales'>('Purchase');
 
@@ -799,7 +806,7 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         >
           <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Purchase & Sales Orders</Text>
+        <Text style={styles.headerTitle}>{title}</Text>
       </View>
 
       <ScrollView
@@ -808,26 +815,30 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         showsVerticalScrollIndicator={false}
       >
         {/* ── 2. Top Stats: 8 KPI Cards (Reusing OverviewDashboardCard) ── */}
-        <OverviewCardsGrid style={{ marginBottom: 12 }}>
+        <OverviewCardsGrid style={styles.kpiGridContainer}>
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="9"
             title="Purchase Orders"
             icon="orders"
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="11"
             title="Sales Orders"
             icon="sales"
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="1"
             title="Receipts Awaiting Inspection"
             icon="receiving"
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="2"
             title="Quality Issues / Rejected"
             icon="alert"
@@ -835,24 +846,28 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="3"
             title="Orders Awaiting Fulfilment"
             icon="clipboard"
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="1"
             title="Invoices Pending Action"
             icon="invoice"
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="2"
             title="Open Returns / RMA"
             icon="box"
             preserveCase
           />
           <OverviewDashboardCard
+            style={styles.kpiCardItem}
             value="3"
             title="Farmer Payouts Pending"
             icon="wallet"
@@ -1726,16 +1741,18 @@ const styles = StyleSheet.create({
   },
   headerBanner: {
     backgroundColor: adminColors.brand,
-    paddingTop: 8,
+    paddingTop: Platform.OS === 'android' ? 10 : 8,
     paddingHorizontal: adminSpacing.md,
     paddingBottom: adminSpacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    minHeight: 56,
   },
   backButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1751,6 +1768,18 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: adminSpacing.xxxl,
+  },
+  kpiGridContainer: {
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.md,
+    marginBottom: 16,
+    rowGap: 12,
+  },
+  kpiCardItem: {
+    minHeight: 100,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   kpiGrid: {
     flexDirection: 'row',
@@ -1787,14 +1816,15 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   segmentedToggleContainer: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EDE8E0',
     flexDirection: 'row',
     padding: 4,
     marginHorizontal: adminSpacing.md,
-    marginTop: 14,
+    marginBottom: 12,
+    ...adminShadow.sm,
   },
   segmentedTab: {
     flex: 1,
@@ -1816,16 +1846,17 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   searchBarContainer: {
-    backgroundColor: adminColors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EDE8E0',
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: adminSpacing.md,
-    marginTop: 12,
-    paddingHorizontal: 12,
+    marginBottom: 10,
+    paddingHorizontal: 14,
     height: 44,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
@@ -1844,8 +1875,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: adminColors.muted,
     marginHorizontal: adminSpacing.md,
-    marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   poCard: {
     backgroundColor: adminColors.card,
@@ -1945,14 +1975,17 @@ const styles = StyleSheet.create({
   },
   poActionsRow: {
     flexDirection: 'row',
-    gap: 16,
+    alignItems: 'center',
+    gap: 20,
     marginTop: 12,
-    paddingTop: 6,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F2EB',
   },
   poActionText: {
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8C501E',
   },
   modalOverlay: {
     flex: 1,

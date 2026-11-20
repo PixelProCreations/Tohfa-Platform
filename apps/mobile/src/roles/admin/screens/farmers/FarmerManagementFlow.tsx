@@ -26,6 +26,8 @@ import {
   type ComplianceFarmer,
 } from './SuperAdminVerificationComplianceScreen';
 import { SuperAdminFarmRecordsListScreen } from './SuperAdminFarmRecordsListScreen';
+import { FarmerBankAccountDetailsScreen } from './FarmerBankAccountDetailsScreen';
+import { FarmerPayoutDetailScreen, type PayoutDetailItem } from './FarmerPayoutDetailScreen';
 
 export type FarmerManagementSubView =
   | 'overview'
@@ -44,7 +46,9 @@ export type FarmerManagementSubView =
   | 'audit_history'
   | 'edit_farmer'
   | 'add_farmer'
-  | 'compliance_tiers';
+  | 'compliance_tiers'
+  | 'payout_bank_details'
+  | 'payout_detail';
 
 export interface FarmerManagementFlowProps {
   can?: Can | undefined;
@@ -90,6 +94,7 @@ export function FarmerManagementFlow({
     useState<FarmerManagementSubView>('compliance');
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<AuditHistoryRecord | null>(null);
   const [selectedComplianceMeta, setSelectedComplianceMeta] = useState<ComplianceFarmer | null>(null);
+  const [selectedPayout, setSelectedPayout] = useState<PayoutDetailItem | null>(null);
   const [allFarmersStatusFilter, setAllFarmersStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [allFarmersShowFilter, setAllFarmersShowFilter] = useState(false);
 
@@ -316,6 +321,30 @@ export function FarmerManagementFlow({
         farmer={selectedFarmer}
         onBack={() => setSubView('scorecard')}
         onSave={() => setSubView('scorecard')}
+      />
+    );
+  }
+
+  if (subView === 'payout_bank_details') {
+    return (
+      <FarmerBankAccountDetailsScreen
+        farmerName={selectedFarmer?.name || 'Ramesh Kumar'}
+        farmerId={selectedFarmer?.code || selectedFarmer?.id || 'FMR-00124'}
+        role={role}
+        can={can}
+        onBack={() => setSubView('farmer_detail')}
+      />
+    );
+  }
+
+  if (subView === 'payout_detail') {
+    return (
+      <FarmerPayoutDetailScreen
+        payout={selectedPayout ?? undefined}
+        farmerName={selectedFarmer?.name || 'Kumar'}
+        farmerId={selectedFarmer?.code || selectedFarmer?.id || 'FMR-00098'}
+        role={role}
+        onBack={() => setSubView('farmer_detail')}
       />
     );
   }
