@@ -4132,6 +4132,18 @@ Every other place that adds a role creates a brand-new account in the same trans
 
 **Test contract.** `apps/api/src/modules/auth/auth.me.completeness.test.ts` (`BR-205a`..`BR-205c`).
 
+### BR-212 — Customer ticket creation accepts an optional Idempotency-Key so a retry never raises a second ticket
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration, added 2026-11-20). Extends BR-36 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/customer-support/` (`createTicket`), reusing the shared idempotency store |
+
+**Rule.** `POST /support/tickets` (permission `support.ticket.create_own`) accepts an optional `Idempotency-Key` header (at most 255 characters), scoped to the calling user and the `support_ticket.create` operation. The key is claimed before anything is written: the same key with the same body replays the original ticket (same id, nothing written, no second ticket); the same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours. A request without the header is never deduplicated: each call raises its own ticket. This lets the mobile client retry after a dropped connection without duplicating the ticket.
+
+**Test contract.** `apps/api/src/modules/customer-support/customer-support.test.ts` (`BR-212: the same Idempotency-Key and body replays the same ticket; a different body is 409`).
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

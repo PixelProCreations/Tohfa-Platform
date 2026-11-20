@@ -22,7 +22,7 @@ import { ServiceAreaRequestCard, prefillFromAddress } from '../components/Servic
 import { useAddresses, pickDefaultAddress, formatAddressShort } from '../api/addresses';
 import { useCustomerProfile, displayName, formatMobileDisplay, parseHarvestPreferences } from '../api/profile';
 import dashboardBannerHarvest from '../assets/images/dashboard_banner_harvest.png';
-import bannerFarmFreshVegetables from '../assets/images/banner_farm_fresh_vegetables.png';
+import homeBanner from '../assets/images/home-banner.png';
 import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
 import { ProductImages, CategoryImages } from '../assets/images/products';
 
@@ -588,23 +588,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   {
                     left:
                       selectedBannerFilter === 'latest_harvest'
-                        ? '40.32%'
+                        ? '44.0%'
                         : selectedBannerFilter === 'fresh_drops'
-                        ? '67.88%'
-                        : '86.67%',
-                    top:
-                      selectedBannerFilter === 'latest_harvest'
-                        ? '46.64%'
-                        : selectedBannerFilter === 'fresh_drops'
-                        ? '45.86%'
-                        : '44.14%',
+                        ? '68.8%'
+                        : '91.4%',
+                    top: '69.0%',
                   },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={t('customer.account.filter.clear')}
               >
-                <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
-                  <Path d="M3 3L11 11M11 3L3 11" stroke={customerColors.neutral.neutral900} strokeWidth={2.2} strokeLinecap="round" />
+                <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+                  <Path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke={customerColors.neutral.neutral900} strokeWidth={2} strokeLinecap="round" />
                 </Svg>
               </TouchableOpacity>
             )}
@@ -749,7 +744,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               testID="home-promo-banner-farm-fresh"
             >
               <Image
-                source={bannerFarmFreshVegetables}
+                source={homeBanner}
                 style={styles.promoBannerImage}
                 resizeMode="cover"
               />
@@ -1155,19 +1150,17 @@ const styles = StyleSheet.create({
   },
   activeCloseBadge: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: customerColors.white,
-    borderWidth: 1.5,
-    borderColor: customerColors.neutral.neutral300,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateX: -14 }, { translateY: -14 }],
-    elevation: 8,
+    transform: [{ translateX: -19 }, { translateY: -19 }],
+    elevation: 6,
     shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.18,
     shadowRadius: 4,
     zIndex: 30,
   },
@@ -1336,14 +1329,18 @@ const styles = StyleSheet.create({
 
   // Section 4: Promo Banner (Farm Fresh Vegetables)
   promoBannerWrap: {
-    marginHorizontal: 16,
+    alignSelf: 'center',
+    width: '92%',
     marginBottom: 24,
     borderRadius: 20,
     overflow: 'hidden',
+    aspectRatio: 1024 / 572,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   promoBannerImage: {
     width: '100%',
-    aspectRatio: 350 / 170,
+    height: '100%',
     borderRadius: 20,
   },
 
