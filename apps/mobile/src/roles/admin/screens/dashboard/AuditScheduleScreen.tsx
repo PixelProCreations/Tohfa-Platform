@@ -53,6 +53,7 @@ import { FarmerInspectionFindingsScreen } from './FarmerInspectionFindingsScreen
 import { FarmerDocumentsFindingsScreen } from './FarmerDocumentsFindingsScreen';
 import { AuditInspectionOverviewScreen } from './AuditInspectionOverviewScreen';
 import { AuditInspectionStepForms } from './AuditInspectionStepForms';
+import type { Can } from '../../permissions/can';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -874,12 +875,14 @@ function getCalendarMatrix(year: number, month: number) {
 
 export interface AuditScheduleScreenProps {
   onBack: () => void;
-  role?: string;
-  isTabRoot?: boolean;
-  onViewModeChange?: (isRoot: boolean) => void;
-  onNavigateTab?: (tab: string) => void;
+  role?: string | undefined;
+  can?: Can | undefined;
+  isTabRoot?: boolean | undefined;
+  onViewModeChange?: ((isRoot: boolean) => void) | undefined;
+  onNavigateTab?: ((tab: string) => void) | undefined;
   initialTypeFilter?: 'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view' | undefined;
   initialAuditId?: string | undefined;
+  initialStep?: number | undefined;
   initialView?:
   | 'history'
   | 'audit_detail'
@@ -892,6 +895,10 @@ export interface AuditScheduleScreenProps {
   | 'calendar_view'
   | 'audit_details_m5'
   | 'pdf_viewer'
+  | 'audit_inspection'
+  | 'inspection_step'
+  | 'inspection_findings'
+  | 'documents_findings'
   | undefined;
   onNavigateFarmerProfile?: ((farmerId: string) => void) | undefined;
   onOpenNotifications?: (() => void) | undefined;
@@ -900,12 +907,14 @@ export interface AuditScheduleScreenProps {
 export function AuditScheduleScreen({
   onBack,
   role = 'TOHFA_ADMIN',
+  can,
   isTabRoot = false,
   onViewModeChange,
   onNavigateTab,
   initialTypeFilter = 'calendar',
   initialAuditId,
   initialView,
+  initialStep,
   onNavigateFarmerProfile,
   onOpenNotifications,
 }: AuditScheduleScreenProps) {
@@ -1094,7 +1103,7 @@ export function AuditScheduleScreen({
 
   // 11 Sections Audit State
   const [completedSections, setCompletedSections] = useState<Record<number, boolean>>({});
-  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [currentStep, setCurrentStep] = useState<number>(initialStep ?? 1);
 
   // Step 1 Form state (Screenshots 3 & 4)
   const [preferredContact, setPreferredContact] = useState<'Select...' | 'WhatsApp' | 'SMS' | 'Phone'>('SMS');
@@ -2662,6 +2671,8 @@ export function AuditScheduleScreen({
       <AuditInspectionOverviewScreen
         record={record}
         completedSections={completedSections}
+        role={role}
+        can={can}
         onSelectSection={(secId) => {
           setCurrentStep(secId);
           setPreviousView('audit_inspection');
@@ -3043,6 +3054,8 @@ export function AuditScheduleScreen({
       <AuditInspectionStepForms
         step={currentStep}
         record={selectedRecord}
+        role={role}
+        can={can}
         onBack={() => {
           setCurrentView('audit_inspection');
         }}

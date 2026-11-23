@@ -1762,10 +1762,15 @@ export function ZoneCropBreakdownScreen({
 export interface CropRecordDetailScreenProps {
   onBack: () => void;
   onOpenFarmerProfile?: (() => void) | undefined;
+  initialTab?: string | undefined;
 }
 
-export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropRecordDetailScreenProps) {
-  const [activePillTab, setActivePillTab] = useState('Overview');
+export function CropRecordDetailScreen({
+  onBack,
+  onOpenFarmerProfile,
+  initialTab = 'Related',
+}: CropRecordDetailScreenProps) {
+  const [activePillTab, setActivePillTab] = useState(initialTab);
 
   return (
     <View style={produceStyles.root}>
@@ -1777,7 +1782,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={produceStyles.backBtnTouch}>
             <ProduceBackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={produceStyles.headerTitle}>Tomato · CR-2026-0017</Text>
+          <Text style={produceStyles.headerTitle}>Tomato · CR-2025-0001</Text>
         </View>
         <Text style={[produceStyles.headerSubtitle, { paddingLeft: 30 }]}>
           Ramesh Kumar Farm · Coonoor, plot 1
@@ -1853,14 +1858,16 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
         </Text>
 
         {/* ─── Growth stages Section ─── */}
-        <Text style={produceStyles.breakdownSectionHeader}>Growth stages</Text>
+        <Text style={[produceStyles.breakdownSectionHeader, { textAlign: 'center', color: adminColors.brandDeep, fontSize: 15, fontWeight: '800' }]}>
+          Growth stages
+        </Text>
 
         <View style={produceStyles.growthStagesCard}>
           {/* Stage 1 */}
           <View style={produceStyles.growthStageRow}>
             <View style={produceStyles.stageNameWrap}>
               <ProduceCheckCircleIcon size={18} />
-              <Text style={produceStyles.stageNameText}>1 · Land preparation</Text>
+              <Text style={produceStyles.stageNameText}>1 - Land preparation</Text>
             </View>
             <Text style={produceStyles.stageDateText}>26 Feb 2025</Text>
           </View>
@@ -1870,7 +1877,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           <View style={produceStyles.growthStageRow}>
             <View style={produceStyles.stageNameWrap}>
               <ProduceCheckCircleIcon size={18} />
-              <Text style={produceStyles.stageNameText}>2 · Planting</Text>
+              <Text style={produceStyles.stageNameText}>2 - Planting</Text>
             </View>
             <Text style={produceStyles.stageDateText}>5 Mar 2025</Text>
           </View>
@@ -1880,7 +1887,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           <View style={produceStyles.growthStageRow}>
             <View style={produceStyles.stageNameWrap}>
               <ProduceCheckCircleIcon size={18} />
-              <Text style={produceStyles.stageNameText}>3 · Germination</Text>
+              <Text style={produceStyles.stageNameText}>3 - Germination</Text>
             </View>
             <Text style={produceStyles.stageDateText}>23 Mar 2025</Text>
           </View>
@@ -1890,7 +1897,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           <View style={produceStyles.growthStageRow}>
             <View style={produceStyles.stageNameWrap}>
               <ProduceCheckCircleIcon size={18} />
-              <Text style={produceStyles.stageNameText}>4 · Vegetative growth</Text>
+              <Text style={produceStyles.stageNameText}>4 - Vegetative growth</Text>
             </View>
             <Text style={produceStyles.stageDateText}>10 Apr 2025</Text>
           </View>
@@ -1900,7 +1907,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           <View style={produceStyles.growthStageRow}>
             <View style={produceStyles.stageNameWrap}>
               <ProduceCheckCircleIcon size={18} />
-              <Text style={produceStyles.stageNameText}>5 · Flowering</Text>
+              <Text style={produceStyles.stageNameText}>5 - Flowering</Text>
             </View>
             <Text style={produceStyles.stageDateText}>28 Apr 2025</Text>
           </View>
@@ -1910,7 +1917,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           <View style={produceStyles.growthStageRow}>
             <View style={produceStyles.stageNameWrap}>
               <ProduceCheckCircleIcon size={18} />
-              <Text style={produceStyles.stageNameText}>6 · Crop development</Text>
+              <Text style={produceStyles.stageNameText}>6 - Crop development</Text>
             </View>
             <Text style={produceStyles.stageDateText}>16 May 2025</Text>
           </View>
@@ -1921,7 +1928,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
             <View style={produceStyles.stageNameWrap}>
               <ProduceCurrentStageIcon size={18} />
               <Text style={[produceStyles.stageNameText, produceStyles.stageNameTextCurrent]}>
-                7 · Harvest (current)
+                7 - Harvest (current)
               </Text>
             </View>
             <Text style={[produceStyles.stageDateText, produceStyles.stageDateTextCurrent]}>3 Jun 2025</Text>
@@ -1930,7 +1937,7 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
 
         {/* ─── Pill Tabs Row ─── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={produceStyles.chipScrollRow}>
-          {['Overview', 'Schedule', 'Growth history', 'Nutrients', 'Harvest', 'Crop history', 'Related'].map((tab) => {
+          {['Nutrients', 'Harvest', 'Crop history', 'Related', 'Overview', 'Schedule', 'Growth history'].map((tab) => {
             const isSelected = activePillTab === tab;
             return (
               <TouchableOpacity
@@ -2138,31 +2145,112 @@ export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropReco
           </View>
         )}
 
-        {/* ─── TAB 7: RELATED ─── */}
+        {/* ─── TAB 7: RELATED (M4-S03g) ─── */}
         {activePillTab === 'Related' && (
           <View>
-            <View style={produceStyles.breakdownCard}>
-              <View style={produceStyles.trendTableRow}>
-                <Text style={produceStyles.cropDetailLabel}>Farm diary</Text>
-                <Text style={produceStyles.cropDetailValue}>Farm diary entry linked</Text>
+            {/* Section 1: Farm Diary */}
+            <Text style={produceStyles.breakdownSectionHeader}>Farm Diary</Text>
+            <View style={produceStyles.detailCard}>
+              <View style={produceStyles.relatedItemRow}>
+                <View style={produceStyles.relatedItemLeft}>
+                  <Text style={produceStyles.relatedItemTitle}>Land Preparation</Text>
+                  <Text style={produceStyles.relatedItemSub}>20 Feb 2025</Text>
+                </View>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Compost incorporated</Text>
+                </View>
               </View>
-              <View style={produceStyles.dottedDivider} />
+              <View style={produceStyles.detailDivider} />
 
-              <View style={produceStyles.trendTableRow}>
-                <Text style={produceStyles.cropDetailLabel}>Input log</Text>
-                <Text style={produceStyles.cropDetailValue}>Input log entry linked</Text>
+              <View style={produceStyles.relatedItemRow}>
+                <View style={produceStyles.relatedItemLeft}>
+                  <Text style={produceStyles.relatedItemTitle}>Planting</Text>
+                  <Text style={produceStyles.relatedItemSub}>5 Mar 2025</Text>
+                </View>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Tomato seedlings planted</Text>
+                </View>
               </View>
-              <View style={produceStyles.dottedDivider} />
+              <View style={produceStyles.detailDivider} />
 
-              <View style={produceStyles.trendTableRow}>
-                <Text style={produceStyles.cropDetailLabel}>Audit</Text>
-                <Text style={produceStyles.cropDetailValue}>None linked</Text>
+              <View style={produceStyles.relatedItemRow}>
+                <View style={produceStyles.relatedItemLeft}>
+                  <Text style={produceStyles.relatedItemTitle}>Land Preparation</Text>
+                  <Text style={produceStyles.relatedItemSub}>20 Feb 2025</Text>
+                </View>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Drip irrigation checked</Text>
+                </View>
               </View>
             </View>
 
-            <Text style={[produceStyles.breakdownFootnote, { marginHorizontal: 16 }]}>
-              These records belong to other modules (Farm diary, Inputs & Pest Management, Audit Management). They are linked here, not duplicated.
-            </Text>
+            {/* Section 2: Input records */}
+            <Text style={produceStyles.breakdownSectionHeader}>Input records</Text>
+            <View style={produceStyles.detailCard}>
+              <View style={produceStyles.relatedItemRow}>
+                <View style={produceStyles.relatedItemLeft}>
+                  <Text style={produceStyles.relatedItemTitle}>Compost (FYM)</Text>
+                  <Text style={produceStyles.relatedItemSub}>15 Mar 2025</Text>
+                </View>
+                <Text style={produceStyles.relatedItemQuantity}>2,000 kg/ha</Text>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Applied</Text>
+                </View>
+              </View>
+              <View style={produceStyles.detailDivider} />
+
+              <View style={produceStyles.relatedItemRow}>
+                <View style={produceStyles.relatedItemLeft}>
+                  <Text style={produceStyles.relatedItemTitle}>Rock phosphate</Text>
+                  <Text style={produceStyles.relatedItemSub}>20 Apr 2025</Text>
+                </View>
+                <Text style={produceStyles.relatedItemQuantity}>350 kg/ha</Text>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Applied</Text>
+                </View>
+              </View>
+              <View style={produceStyles.detailDivider} />
+
+              <View style={produceStyles.relatedItemRow}>
+                <View style={produceStyles.relatedItemLeft}>
+                  <Text style={produceStyles.relatedItemTitle}>Green manure</Text>
+                  <Text style={produceStyles.relatedItemSub}>10 May 2025</Text>
+                </View>
+                <Text style={produceStyles.relatedItemQuantity}>25 kg/ha</Text>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Applied</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Section 3: Audit & verification */}
+            <Text style={produceStyles.breakdownSectionHeader}>Audit & verification</Text>
+            <View style={produceStyles.detailCard}>
+              <View style={produceStyles.detailRow}>
+                <Text style={produceStyles.detailRowLabel}>Last farm audit</Text>
+                <Text style={produceStyles.detailRowValue}>18 Feb 2025</Text>
+              </View>
+              <View style={produceStyles.detailDivider} />
+
+              <View style={produceStyles.detailRow}>
+                <Text style={produceStyles.detailRowLabel}>Result</Text>
+                <View style={produceStyles.relatedBadge}>
+                  <Text style={produceStyles.relatedBadgeText}>Passed</Text>
+                </View>
+              </View>
+              <View style={produceStyles.detailDivider} />
+
+              <View style={produceStyles.detailRow}>
+                <Text style={produceStyles.detailRowLabel}>Auditor</Text>
+                <Text style={produceStyles.detailRowValue}>R. Devi</Text>
+              </View>
+              <View style={produceStyles.detailDivider} />
+
+              <View style={produceStyles.detailRow}>
+                <Text style={produceStyles.detailRowLabel}>Follow-up</Text>
+                <Text style={produceStyles.detailRowValue}>None pending</Text>
+              </View>
+            </View>
           </View>
         )}
 
@@ -3577,6 +3665,44 @@ const produceStyles = StyleSheet.create({
     borderColor: '#E8E0D7',
     borderStyle: 'dashed',
     marginVertical: 4,
+  },
+  relatedItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  relatedItemLeft: {
+    flex: 1,
+    paddingRight: adminSpacing.sm,
+  },
+  relatedItemTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  relatedItemSub: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  relatedItemQuantity: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#374151',
+    marginRight: adminSpacing.md,
+  },
+  relatedBadge: {
+    backgroundColor: '#E8F5E9',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'center',
+  },
+  relatedBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#2E7D32',
   },
   bottomCropCard: {
     backgroundColor: adminColors.card,

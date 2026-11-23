@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -16,58 +19,168 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
-import { BackArrowIcon, PlusIcon } from '../../components/AdminIcons';
+import {
+  BackArrowIcon,
+  CheckmarkIcon,
+  ChevronDownIcon,
+  CloseIcon,
+  PlusIcon,
+} from '../../components/AdminIcons';
+import type { DiaryActivityItem } from './CropDataScreen';
 
 export interface AddActivityCategoryScreenProps {
+  activity?: DiaryActivityItem | undefined;
+  isViewOnly?: boolean | undefined;
   onBack: () => void;
-  onSuccess?: () => void;
+  onSuccess?: ((savedActivity?: DiaryActivityItem) => void) | undefined;
+}
+
+const ACTIVITY_TYPE_OPTIONS = [
+  'Land Prep',
+  'Sowing',
+  'Irrigation & Drainage',
+  'Weeding & Thinning',
+  'Nutrient Application',
+  'Pest & Disease Control',
+  'Harvesting',
+  'Post-Harvest Handling',
+];
+
+const CATEGORY_OPTIONS = [
+  'Soil Management',
+  'Crop Establishment',
+  'Water Management',
+  'Plant Protection',
+  'Nutrient Management',
+  'Harvesting & Storage',
+];
+
+const ACTIVITY_CROP_OPTIONS = [
+  'All Crops',
+  'Vegetables Only',
+  'Fruits Only',
+  'Spices & Condiments',
+  'Root & Tuber Crops',
+];
+
+const METHOD_OPTIONS = [
+  'Manual / Tiller',
+  'Mechanized (Tractor)',
+  'Automated Drip / Sprinkler',
+  'Traditional Hand-Tool',
+  'Integrated Method',
+  'Manual Transplanting',
+  'Foliar Spraying / Drenching',
+  'Hand Weeding',
+];
+
+interface DropdownModalState {
+  key: 'activityType' | 'category' | 'activityCrop' | 'method';
+  title: string;
+  options: string[];
 }
 
 /**
- * M3-S28b · Add Activity Category screen
- * Matching exact reference mockup: Image 5 left
+ * M3-S28b · Add / Edit Activity Category screen
+ * Matching exact reference mockup: Image 5 left & User requirements
  */
 export function AddActivityCategoryScreen({
+  activity,
+  isViewOnly = false,
   onBack,
   onSuccess,
 }: AddActivityCategoryScreenProps): React.JSX.Element {
-  const [activityType, setActivityType] = useState('Land Prep');
-  const [category, setCategory] = useState('Soil Management');
+  const isEditing = Boolean(activity && !isViewOnly);
+  const [activityType, setActivityType] = useState(activity?.categoryName ?? 'Land Prep');
+  const [category, setCategory] = useState(
+    activity?.id === 'da-2'
+      ? 'Crop Establishment'
+      : activity?.id === 'da-3'
+      ? 'Water Management'
+      : 'Soil Management'
+  );
   const [activityCrop, setActivityCrop] = useState('All Crops');
-  const [method, setMethod] = useState('Manual / Tiller');
-  const [description, setDescription] = useState('');
-  const [subActivities, setSubActivities] = useState<string[]>([
-    'Primary Tillage',
-    'Bed Preparation',
-    'Basal Fertilizer Application',
-  ]);
+  const [method, setMethod] = useState(
+    activity?.id === 'da-2'
+      ? 'Manual Transplanting'
+      : activity?.id === 'da-3'
+      ? 'Drip / Sprinkler Automation'
+      : 'Manual / Tiller'
+  );
+  const [description, setDescription] = useState(
+    activity?.description && activity.description !== '—' ? activity.description : ''
+  );
+  const [subActivities, setSubActivities] = useState<string[]>(
+    activity?.id === 'da-2'
+      ? ['Direct Sowing', 'Transplanting']
+      : activity?.id === 'da-3'
+      ? ['Drip Irrigation', 'Sprinkler Check', 'Furrow Cleaning', 'Drainage Maintenance']
+      : [
+          'Primary Tillage',
+          'Bed Preparation',
+          'Basal Fertilizer Application',
+        ]
+  );
+
+  const [newSubText, setNewSubText] = useState('');
+  const [showAddSubInput, setShowAddSubInput] = useState(false);
+  const [activeModal, setActiveModal] = useState<DropdownModalState | null>(null);
+
+  const handleSelectOption = (opt: string) => {
+    if (!activeModal) return;
+    if (activeModal.key === 'activityType') {
+      setActivityType(opt);
+    } else if (activeModal.key === 'category') {
+      setCategory(opt);
+    } else if (activeModal.key === 'activityCrop') {
+      setActivityCrop(opt);
+    } else if (activeModal.key === 'method') {
+      setMethod(opt);
+    }
+    setActiveModal(null);
+  };
+
+  const getSelectedValueForActiveModal = () => {
+    if (!activeModal) return '';
+    if (activeModal.key === 'activityType') return activityType;
+    if (activeModal.key === 'category') return category;
+    if (activeModal.key === 'activityCrop') return activityCrop;
+    if (activeModal.key === 'method') return method;
+    return '';
+  };
 
   const handleSave = () => {
     if (!activityType.trim() || !category.trim()) {
       Alert.alert('Required Fields', 'Please complete Activity Type and Category.');
       return;
     }
-    Alert.alert(
-      'Activity Saved',
-      'The activity category has been registered in the farm diary taxonomy.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            onSuccess?.();
-            onBack();
-          },
-        },
-      ]
-    );
+    const savedItem: DiaryActivityItem = {
+      id: activity?.id ?? `act-${Date.now()}`,
+      code: activity?.code ?? `DA0${Math.floor(Math.random() * 90 + 10)}`,
+      categoryName: activityType.trim(),
+      subActivityCount: subActivities.length,
+      description: description.trim() || '—',
+      status: activity?.status ?? 'ACTIVE',
+      createdBy: activity?.createdBy ?? 'Demo Super Admin',
+      lastUpdated: 'Today',
+    };
+
+    onSuccess?.(savedItem);
+    onBack();
   };
 
   const handleAddSubActivity = () => {
-    Alert.prompt
-      ? Alert.prompt('Add Sub-Activity', 'Enter sub-activity name:', text => {
-          if (text?.trim()) setSubActivities(prev => [...prev, text.trim()]);
-        })
-      : setSubActivities(prev => [...prev, `Sub-Activity ${prev.length + 1}`]);
+    if (newSubText.trim()) {
+      setSubActivities((prev) => [...prev, newSubText.trim()]);
+      setNewSubText('');
+      setShowAddSubInput(false);
+    } else {
+      setShowAddSubInput(true);
+    }
+  };
+
+  const handleRemoveSubActivity = (idx: number) => {
+    setSubActivities((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
@@ -85,149 +198,280 @@ export function AddActivityCategoryScreen({
         >
           <BackArrowIcon size={22} color={adminColors.onBrand} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Activity Category</Text>
+        <Text style={styles.headerTitle}>
+          {isViewOnly ? 'Activity Category Details' : isEditing ? 'Edit Activity Category' : 'Add Activity Category'}
+        </Text>
       </View>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardWrap}
       >
-        <Text style={styles.sectionTitle}>Section 1 · Category details</Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.sectionTitle}>Section 1 · Category details</Text>
 
-        <View style={styles.fieldCard}>
-          {/* Activity Type */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Activity Type *</Text>
-            <View style={styles.inputWithBtnRow}>
-              <TextInput
-                style={styles.textInput}
-                value={activityType}
-                onChangeText={setActivityType}
-                placeholder="e.g. Land Prep"
-                placeholderTextColor={adminColors.placeholder}
-              />
-              <TouchableOpacity style={styles.fieldActionBtn} activeOpacity={0.7}>
-                <PlusIcon size={14} color={adminColors.brand} />
-                <Text style={styles.fieldActionBtnText}>Add</Text>
+          <View style={styles.fieldCard}>
+            {/* Activity Type Dropdown */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Activity Type *</Text>
+              <TouchableOpacity
+                style={[styles.dropdownBtn, isViewOnly && styles.readOnlyInput]}
+                onPress={() =>
+                  !isViewOnly &&
+                  setActiveModal({
+                    key: 'activityType',
+                    title: 'Select Activity Type',
+                    options: ACTIVITY_TYPE_OPTIONS,
+                  })
+                }
+                activeOpacity={0.7}
+                disabled={isViewOnly}
+              >
+                <Text style={styles.dropdownBtnText}>{activityType}</Text>
+                <ChevronDownIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Category */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Category *</Text>
-            <View style={styles.inputWithBtnRow}>
-              <TextInput
-                style={styles.textInput}
-                value={category}
-                onChangeText={setCategory}
-                placeholder="e.g. Soil Management"
-                placeholderTextColor={adminColors.placeholder}
-              />
-              <TouchableOpacity style={styles.fieldActionBtn} activeOpacity={0.7}>
-                <PlusIcon size={14} color={adminColors.brand} />
-                <Text style={styles.fieldActionBtnText}>Add</Text>
+            {/* Category Dropdown */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Category *</Text>
+              <TouchableOpacity
+                style={[styles.dropdownBtn, isViewOnly && styles.readOnlyInput]}
+                onPress={() =>
+                  !isViewOnly &&
+                  setActiveModal({
+                    key: 'category',
+                    title: 'Select Category',
+                    options: CATEGORY_OPTIONS,
+                  })
+                }
+                activeOpacity={0.7}
+                disabled={isViewOnly}
+              >
+                <Text style={styles.dropdownBtnText}>{category}</Text>
+                <ChevronDownIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Activity crop */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Activity crop *</Text>
-            <View style={styles.inputWithBtnRow}>
-              <TextInput
-                style={styles.textInput}
-                value={activityCrop}
-                onChangeText={setActivityCrop}
-                placeholder="e.g. All Crops"
-                placeholderTextColor={adminColors.placeholder}
-              />
-              <TouchableOpacity style={styles.fieldActionBtn} activeOpacity={0.7}>
-                <PlusIcon size={14} color={adminColors.brand} />
-                <Text style={styles.fieldActionBtnText}>Add</Text>
+            {/* Activity crop Dropdown */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Activity crop *</Text>
+              <TouchableOpacity
+                style={[styles.dropdownBtn, isViewOnly && styles.readOnlyInput]}
+                onPress={() =>
+                  !isViewOnly &&
+                  setActiveModal({
+                    key: 'activityCrop',
+                    title: 'Select Activity Crop',
+                    options: ACTIVITY_CROP_OPTIONS,
+                  })
+                }
+                activeOpacity={0.7}
+                disabled={isViewOnly}
+              >
+                <Text style={styles.dropdownBtnText}>{activityCrop}</Text>
+                <ChevronDownIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Method */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Method *</Text>
-            <View style={styles.inputWithBtnRow}>
-              <TextInput
-                style={styles.textInput}
-                value={method}
-                onChangeText={setMethod}
-                placeholder="e.g. Manual / Tiller"
-                placeholderTextColor={adminColors.placeholder}
-              />
-              <TouchableOpacity style={styles.fieldActionBtn} activeOpacity={0.7}>
-                <PlusIcon size={14} color={adminColors.brand} />
-                <Text style={styles.fieldActionBtnText}>Add</Text>
+            {/* Method Dropdown */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Method *</Text>
+              <TouchableOpacity
+                style={[styles.dropdownBtn, isViewOnly && styles.readOnlyInput]}
+                onPress={() =>
+                  !isViewOnly &&
+                  setActiveModal({
+                    key: 'method',
+                    title: 'Select Method',
+                    options: METHOD_OPTIONS,
+                  })
+                }
+                activeOpacity={0.7}
+                disabled={isViewOnly}
+              >
+                <Text style={styles.dropdownBtnText}>{method}</Text>
+                <ChevronDownIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
               </TouchableOpacity>
             </View>
-          </View>
 
-          {/* Description */}
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Description</Text>
-            <TextInput
-              style={styles.textArea}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Enter category description..."
-              placeholderTextColor={adminColors.placeholder}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-          </View>
-
-          {/* Sub activities preview */}
-          {subActivities.length > 0 && (
-            <View style={styles.subActivitiesList}>
-              <Text style={styles.subActivitiesTitle}>Configured Sub-Activities ({subActivities.length})</Text>
-              {subActivities.map((sub, idx) => (
-                <View key={`sub-${idx}`} style={styles.subActivityItem}>
-                  <Text style={styles.subActivityNum}>{idx + 1}.</Text>
-                  <Text style={styles.subActivityName}>{sub}</Text>
-                </View>
-              ))}
+            {/* Description */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Description</Text>
+              <TextInput
+                style={[styles.textArea, isViewOnly && styles.readOnlyInput]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="Enter category description..."
+                placeholderTextColor={adminColors.placeholder}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                editable={!isViewOnly}
+              />
             </View>
-          )}
 
-          {/* + Add Sub-Activity button */}
-          <TouchableOpacity
-            style={styles.addSubActivityDashedBtn}
-            onPress={handleAddSubActivity}
-            activeOpacity={0.7}
-          >
-            <PlusIcon size={16} color={adminColors.brand} />
-            <Text style={styles.addSubActivityDashedBtnText}>Add Sub-Activity</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Sub activities preview */}
+            {subActivities.length > 0 && (
+              <View style={styles.subActivitiesList}>
+                <Text style={styles.subActivitiesTitle}>
+                  Configured Sub-Activities ({subActivities.length})
+                </Text>
+                {subActivities.map((sub, idx) => (
+                  <View key={`sub-${idx}`} style={styles.subActivityItem}>
+                    <Text style={styles.subActivityNum}>{idx + 1}.</Text>
+                    <Text style={styles.subActivityName}>{sub}</Text>
+                    {!isViewOnly && (
+                      <TouchableOpacity
+                        onPress={() => handleRemoveSubActivity(idx)}
+                        style={styles.removeSubBtn}
+                        activeOpacity={0.7}
+                        accessibilityLabel={`Remove ${sub}`}
+                      >
+                        <CloseIcon size={14} color={adminColors.danger.text} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ))}
+              </View>
+            )}
 
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+            {/* Inline add sub-activity input or button */}
+            {!isViewOnly && showAddSubInput && (
+              <View style={styles.inlineAddSubRow}>
+                <TextInput
+                  style={styles.inlineSubInput}
+                  value={newSubText}
+                  onChangeText={setNewSubText}
+                  placeholder="Enter sub-activity name..."
+                  placeholderTextColor={adminColors.placeholder}
+                  autoFocus
+                />
+                <TouchableOpacity
+                  style={styles.inlineSubAddBtn}
+                  onPress={handleAddSubActivity}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.inlineSubAddBtnText}>Add</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.inlineSubCancelBtn}
+                  onPress={() => {
+                    setNewSubText('');
+                    setShowAddSubInput(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.inlineSubCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {!isViewOnly && !showAddSubInput && (
+              <TouchableOpacity
+                style={styles.addSubActivityDashedBtn}
+                onPress={() => setShowAddSubInput(true)}
+                activeOpacity={0.7}
+              >
+                <PlusIcon size={16} color={adminColors.brand} />
+                <Text style={styles.addSubActivityDashedBtnText}>Add Sub-Activity</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.bottomSpacer} />
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Bottom Button Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={handleSave}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.saveBtnText}>Save Activity</Text>
-        </TouchableOpacity>
+        {isViewOnly ? (
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveBtnText}>Close</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSave}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.saveBtnText}>
+                {isEditing ? 'Save Changes' : 'Save Activity'}
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onBack}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={onBack}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
+
+      {/* Dropdown Options Modal */}
+      <Modal
+        visible={activeModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setActiveModal(null)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{activeModal?.title}</Text>
+              <TouchableOpacity
+                onPress={() => setActiveModal(null)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close picker"
+              >
+                <CloseIcon size={20} color={adminColors.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {activeModal?.options.map((opt) => {
+                const isSelected = opt === getSelectedValueForActiveModal();
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.modalOptionRow, isSelected && styles.modalOptionRowSelected]}
+                    onPress={() => handleSelectOption(opt)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {isSelected && <CheckmarkIcon size={16} color={adminColors.brand} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -236,6 +480,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: adminColors.canvas,
+  },
+  keyboardWrap: {
+    flex: 1,
   },
   header: {
     backgroundColor: adminColors.brand,
@@ -281,6 +528,75 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     fontWeight: '600',
   },
+  dropdownBtn: {
+    height: 48,
+    backgroundColor: '#F7F5EE',
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: '#E8E3D9',
+    paddingHorizontal: adminSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownBtnText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '500',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxHeight: '75%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+    paddingBottom: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  modalTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  modalScroll: {
+    maxHeight: 340,
+  },
+  modalOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm + 2,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+    marginVertical: 2,
+  },
+  modalOptionRowSelected: {
+    backgroundColor: adminColors.brandTint,
+  },
+  modalOptionText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  modalOptionTextSelected: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
   inputWithBtnRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -296,6 +612,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.sm,
     ...adminType.body,
     color: adminColors.ink,
+  },
+  readOnlyInput: {
+    backgroundColor: adminColors.canvas,
+    color: adminColors.muted,
   },
   fieldActionBtn: {
     flexDirection: 'row',
@@ -328,7 +648,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     padding: adminSpacing.sm,
-    gap: 4,
+    gap: 6,
   },
   subActivitiesTitle: {
     ...adminType.caption,
@@ -348,8 +668,57 @@ const styles = StyleSheet.create({
     width: 18,
   },
   subActivityName: {
+    flex: 1,
     ...adminType.body,
     color: adminColors.ink,
+  },
+  removeSubBtn: {
+    padding: 4,
+  },
+  inlineAddSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+    marginTop: adminSpacing.xs,
+  },
+  inlineSubInput: {
+    flex: 1,
+    height: 42,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.sm,
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  inlineSubAddBtn: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.sm,
+    height: 42,
+    borderRadius: adminRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inlineSubAddBtnText: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  inlineSubCancelBtn: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.sm,
+    height: 42,
+    borderRadius: adminRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inlineSubCancelBtnText: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    fontWeight: '600',
   },
   addSubActivityDashedBtn: {
     flexDirection: 'row',

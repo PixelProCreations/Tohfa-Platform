@@ -1,3 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+patchedDependencies:
+  '@rnmapbox/maps@10.2.9': patches/@rnmapbox__maps@10.2.9.patch
+

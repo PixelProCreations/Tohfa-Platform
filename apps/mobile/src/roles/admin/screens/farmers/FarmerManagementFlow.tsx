@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
 import { type Can } from '../../permissions/can';
 import {
   AdminAllFarmersScreen,
@@ -20,7 +19,6 @@ import {
   type AuditHistoryRecord,
 } from '../audits/FarmerAuditHistoryScreen';
 import { AdminApplicationDetailScreen } from '../registration/AdminApplicationDetailScreen';
-import { SuperAdminFarmersManagementScreen } from './SuperAdminFarmersManagementScreen';
 import {
   SuperAdminVerificationComplianceScreen,
   type ComplianceFarmer,
@@ -94,8 +92,8 @@ export function FarmerManagementFlow({
     useState<FarmerManagementSubView>('compliance');
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<AuditHistoryRecord | null>(null);
   const [selectedComplianceMeta, setSelectedComplianceMeta] = useState<ComplianceFarmer | null>(null);
-  const [selectedPayout, setSelectedPayout] = useState<PayoutDetailItem | null>(null);
-  const [allFarmersStatusFilter, setAllFarmersStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
+  const [selectedPayout, _setSelectedPayout] = useState<PayoutDetailItem | null>(null);
+  const [allFarmersStatusFilter, _setAllFarmersStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [allFarmersShowFilter, setAllFarmersShowFilter] = useState(false);
 
   useEffect(() => {
@@ -117,7 +115,7 @@ export function FarmerManagementFlow({
       DEMO_ALL_FARMERS.find(
         (f) =>
           f.code === cFarmer.farmerId ||
-          (f as any).farmerId === cFarmer.farmerId ||
+          f.farmerId === cFarmer.farmerId ||
           f.name.toLowerCase() === cFarmer.name.toLowerCase() ||
           f.id === cFarmer.id,
       ) ?? DEMO_ALL_FARMERS[0]!;
@@ -140,7 +138,7 @@ export function FarmerManagementFlow({
       kycVerifiedText: cFarmer.kycStatus === 'Verified' ? 'KYC Verified' : cFarmer.kycStatus,
       rating: Number.isFinite(numericRating)
         ? Math.min(5, Math.max(1, Number((numericRating / 20).toFixed(1))))
-        : (base.rating ?? null),
+        : (base.rating ?? 3.0),
     };
   };
 
@@ -455,44 +453,29 @@ export function FarmerManagementFlow({
     );
   }
 
-  // Primary entry screen:
-  // For SUPER_ADMIN, display SuperAdminFarmersManagementScreen (matching Image 2 Screen 1)
-  // For other roles, mount the standard AdminAllFarmersScreen
-  if (role === 'SUPER_ADMIN') {
-    return (
-      <SuperAdminFarmersManagementScreen
-        can={can}
-        role={role}
-        onBack={onBack}
-        onSelectFarmer={handleSelectFarmer}
-        onOpenAllFarmers={(statusFilter = 'All', showFilter = false) => {
-          setAllFarmersStatusFilter(statusFilter);
-          setAllFarmersShowFilter(showFilter);
-          setSubView('all_farmers');
-        }}
-        onOpenSubscriptionOverview={() => {
-          setSelectedFarmer(DEMO_ALL_FARMERS[0] ?? null);
-          setFarmerDetailInitialTab('Subscription');
-          setFarmerDetailReturnView('overview');
-          setSubView('farmer_detail');
-        }}
-        onOpenApprovalInbox={onOpenApprovalInbox}
-        onOpenFarmRecords={() => setSubView('records_list')}
-        onOpenVerificationCompliance={() => setSubView('compliance')}
-        onOpenApplications={() => setSubView('applications')}
-        onAddFarmer={() => setSubView('add_farmer')}
-      />
-    );
-  }
-
+  // Primary entry screen: shared RBAC-driven AdminAllFarmersScreen
   return (
     <AdminAllFarmersScreen
       showBottomNav={false}
+      role={role}
+      can={can}
+      userScope={userScope as { zoneId?: string; warehouseId?: string } | undefined}
       onBack={onBack}
       onSelectFarmer={handleSelectFarmer}
       onReviewApplication={(app) => {
         setSelectedApplication(app);
         setSubView('application_detail');
+      }}
+      onOpenFarmRecords={() => setSubView('records_list')}
+      onOpenVerificationCompliance={() => setSubView('compliance')}
+      onOpenApplications={() => setSubView('applications')}
+      onAddFarmer={() => setSubView('add_farmer')}
+      onOpenApprovalInbox={onOpenApprovalInbox}
+      onOpenSubscriptionOverview={() => {
+        setSelectedFarmer(DEMO_ALL_FARMERS[0] ?? null);
+        setFarmerDetailInitialTab('Subscription');
+        setFarmerDetailReturnView('overview');
+        setSubView('farmer_detail');
       }}
     />
   );

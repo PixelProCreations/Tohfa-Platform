@@ -16,6 +16,7 @@ import {
   adminShadow,
   adminType,
 } from '../../theme';
+import type { Can } from '../../permissions/can';
 import type { AuditScheduleRecord } from './fixtures';
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -74,6 +75,8 @@ export interface AuditInspectionOverviewScreenProps {
   onBack: () => void;
   onReviewSubmit: () => void;
   onSaveDraft: () => void;
+  role?: string | undefined;
+  can?: Can | undefined;
 }
 
 export function AuditInspectionOverviewScreen({
@@ -83,7 +86,15 @@ export function AuditInspectionOverviewScreen({
   onBack,
   onReviewSubmit,
   onSaveDraft,
+  role = 'SUPER_ADMIN',
+  can,
 }: AuditInspectionOverviewScreenProps) {
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const isFullAdmin = isSuperAdmin || isTohfaAdmin;
+  const canConduct = isFullAdmin || Boolean(can?.('audit.conduct') || can?.('audit.findings.log'));
+  const canView = canConduct || Boolean(can?.('audit.view'));
+
   const totalSections = AUDIT_12_SECTIONS.length;
   const completedCount = AUDIT_12_SECTIONS.filter((s) => completedSections[s.id]).length;
   const progressRatio = totalSections > 0 ? completedCount / totalSections : 0;

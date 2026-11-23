@@ -55,10 +55,5 @@
   },
   "dependencies": {
     "lottie-react-native": "^6.7.2"
-  },
-  "pnpm": {
-    "patchedDependencies": {
-      "@rnmapbox/maps@10.2.9": "patches/@rnmapbox__maps@10.2.9.patch"
-    }
   }
 }

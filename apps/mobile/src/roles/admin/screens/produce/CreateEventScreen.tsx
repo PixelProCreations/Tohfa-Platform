@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -20,15 +21,42 @@ import {
   BackArrowIcon,
   CalendarIcon,
   CheckmarkIcon,
+  ChevronDownIcon,
+  CloseIcon,
   DownloadIcon,
   HistoryClockIcon,
-  PlusIcon,
 } from '../../components/AdminIcons';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
+import type { PlatformEventItem } from './CropDataScreen';
 
 export interface CreateEventScreenProps {
+  event?: PlatformEventItem | undefined;
+  isViewOnly?: boolean | undefined;
   onBack: () => void;
-  onSuccess?: () => void;
+  onSuccess?: ((savedEvent?: PlatformEventItem) => void) | undefined;
+}
+
+const EVENT_TYPE_OPTIONS = [
+  'Training',
+  'Workshop',
+  'Webinar',
+  'Field Day / Demonstration',
+  'Farmer Meet',
+  'Certification Drive',
+  'Market Linkage Expo',
+];
+
+const TARGET_AUDIENCE_OPTIONS = [
+  'All Farmers',
+  'Selected Zones (Coonoor, Kotagiri)',
+  'Certified Organic Only',
+  'Horticulture Farmers',
+];
+
+interface DropdownModalState {
+  key: 'eventType' | 'targetAudience';
+  title: string;
+  options: string[];
 }
 
 /**
@@ -36,25 +64,54 @@ export interface CreateEventScreenProps {
  * Matching exact reference mockup: Image 5 right
  */
 export function CreateEventScreen({
+  event,
+  isViewOnly = false,
   onBack,
   onSuccess,
 }: CreateEventScreenProps): React.JSX.Element {
-  const [eventTitle, setEventTitle] = useState('Soil health workshop');
-  const [eventType, setEventType] = useState('Training');
+  const isEditing = Boolean(event && !isViewOnly);
+  const [eventTitle, setEventTitle] = useState(event?.title ?? 'Soil health workshop');
+  const [eventType, setEventType] = useState(event?.eventType ?? 'Training');
   const [description, setDescription] = useState(
-    'Interactive training session on organic soil fertility and NPK balance.'
+    event?.description ?? 'Interactive training session on organic soil fertility and NPK balance.'
   );
-  const [eventLocation, setEventLocation] = useState('Coonoor Sub-Warehouse Community Hall');
+  const [eventLocation, setEventLocation] = useState(event?.location ?? 'Coonoor Sub-Warehouse Community Hall');
   const [registerLink, setRegisterLink] = useState('https://tohfa.org/events/soil-workshop');
 
-  const [startDate, setStartDate] = useState('28-10-2026');
-  const [endDate, setEndDate] = useState('28-10-2026');
+  const [startDate, setStartDate] = useState(
+    event?.startDate ? event.startDate.split(',')[0]?.trim() || '28-10-2026' : '28-10-2026'
+  );
+  const [endDate, setEndDate] = useState(
+    event?.endDate ? event.endDate.split(',')[0]?.trim() || '28-10-2026' : '28-10-2026'
+  );
   const [calendarTarget, setCalendarTarget] = useState<'start' | 'end' | null>(null);
-  const [startTime, setStartTime] = useState('10:00 AM');
-  const [endTime, setEndTime] = useState('01:00 PM');
+  const [startTime, setStartTime] = useState(
+    event?.startDate ? event.startDate.split(',')[1]?.trim() || '10:00 AM' : '10:00 AM'
+  );
+  const [endTime, setEndTime] = useState(
+    event?.endDate ? event.endDate.split(',')[1]?.trim() || '01:00 PM' : '01:00 PM'
+  );
 
-  const [targetAudience, setTargetAudience] = useState('All Farmers');
+  const [targetAudience, setTargetAudience] = useState(event?.targetAudience ?? 'All Farmers');
   const [audienceConfirmed, setAudienceConfirmed] = useState(true);
+  const [activeModal, setActiveModal] = useState<DropdownModalState | null>(null);
+
+  const handleSelectOption = (opt: string) => {
+    if (!activeModal) return;
+    if (activeModal.key === 'eventType') {
+      setEventType(opt);
+    } else if (activeModal.key === 'targetAudience') {
+      setTargetAudience(opt);
+    }
+    setActiveModal(null);
+  };
+
+  const getSelectedValueForActiveModal = () => {
+    if (!activeModal) return '';
+    if (activeModal.key === 'eventType') return eventType;
+    if (activeModal.key === 'targetAudience') return targetAudience;
+    return '';
+  };
 
   const handleSaveAndPublish = () => {
     if (!eventTitle.trim()) {
@@ -65,19 +122,24 @@ export function CreateEventScreen({
       Alert.alert('Confirmation Needed', 'Please confirm the target audience before publishing.');
       return;
     }
-    Alert.alert(
-      'Event Published',
-      'The platform event has been published to all farmer calendars and notifications.',
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            onSuccess?.();
-            onBack();
-          },
-        },
-      ]
-    );
+
+    const savedItem: PlatformEventItem = {
+      id: event?.id ?? `evt-${Date.now()}`,
+      code: event?.code ?? `EVT-0${Math.floor(Math.random() * 90 + 10)}`,
+      title: eventTitle.trim(),
+      eventType,
+      startDate: `${startDate}, ${startTime}`,
+      endDate: `${endDate}, ${endTime}`,
+      targetAudience,
+      status: event?.status ?? 'ACTIVE',
+      createdBy: event?.createdBy ?? 'Demo Super Admin',
+      lastUpdated: 'Today',
+      description,
+      location: eventLocation,
+    };
+
+    onSuccess?.(savedItem);
+    onBack();
   };
 
   return (
@@ -95,7 +157,9 @@ export function CreateEventScreen({
         >
           <BackArrowIcon size={22} color={adminColors.onBrand} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Create Event</Text>
+        <Text style={styles.headerTitle}>
+          {isViewOnly ? 'Event Details' : isEditing ? 'Edit Platform Event' : 'Create Event'}
+        </Text>
       </View>
 
       <ScrollView
@@ -110,38 +174,48 @@ export function CreateEventScreen({
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Event Title *</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
               value={eventTitle}
               onChangeText={setEventTitle}
               placeholder="e.g. Soil health workshop"
               placeholderTextColor={adminColors.placeholder}
+              editable={!isViewOnly}
             />
           </View>
 
-          {/* Event Type */}
+          {/* Event Type Dropdown */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Event Type *</Text>
-            <View style={styles.inputWithBtnRow}>
-              <TextInput
-                style={styles.textInput}
-                value={eventType}
-                onChangeText={setEventType}
-                placeholder="e.g. Training"
-                placeholderTextColor={adminColors.placeholder}
-              />
-              <TouchableOpacity style={styles.fieldActionBtn} activeOpacity={0.7}>
-                <PlusIcon size={14} color={adminColors.brand} />
-                <Text style={styles.fieldActionBtnText}>Add</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={[styles.dropdownBtn, isViewOnly && styles.readOnlyInput]}
+              onPress={() =>
+                !isViewOnly &&
+                setActiveModal({
+                  key: 'eventType',
+                  title: 'Select Event Type',
+                  options: EVENT_TYPE_OPTIONS,
+                })
+              }
+              activeOpacity={0.7}
+              disabled={isViewOnly}
+            >
+              <Text style={styles.dropdownBtnText}>{eventType}</Text>
+              <ChevronDownIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
+            </TouchableOpacity>
           </View>
 
           {/* Event Banner */}
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Event Banner</Text>
-            <TouchableOpacity style={styles.uploadBox} activeOpacity={0.7}>
-              <DownloadIcon size={20} color={adminColors.brand} />
-              <Text style={styles.uploadText}>Upload</Text>
+            <TouchableOpacity
+              style={[styles.uploadBox, isViewOnly && styles.uploadBoxDisabled]}
+              activeOpacity={0.7}
+              disabled={isViewOnly}
+            >
+              <DownloadIcon size={20} color={isViewOnly ? adminColors.muted : adminColors.brand} />
+              <Text style={[styles.uploadText, isViewOnly && { color: adminColors.muted }]}>
+                {isViewOnly ? 'Banner attached' : 'Upload'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -149,7 +223,7 @@ export function CreateEventScreen({
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Description</Text>
             <TextInput
-              style={styles.textArea}
+              style={[styles.textArea, isViewOnly && styles.readOnlyInput]}
               value={description}
               onChangeText={setDescription}
               placeholder="Enter event details..."
@@ -157,6 +231,7 @@ export function CreateEventScreen({
               multiline
               numberOfLines={3}
               textAlignVertical="top"
+              editable={!isViewOnly}
             />
           </View>
 
@@ -168,11 +243,12 @@ export function CreateEventScreen({
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Event Location</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
               value={eventLocation}
               onChangeText={setEventLocation}
               placeholder="e.g. Ooty Warehouse / Online"
               placeholderTextColor={adminColors.placeholder}
+              editable={!isViewOnly}
             />
           </View>
 
@@ -180,11 +256,12 @@ export function CreateEventScreen({
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Event register Link</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
               value={registerLink}
               onChangeText={setRegisterLink}
               placeholder="https://..."
               placeholderTextColor={adminColors.placeholder}
+              editable={!isViewOnly}
             />
           </View>
         </View>
@@ -196,19 +273,21 @@ export function CreateEventScreen({
             <Text style={styles.label}>Start Date</Text>
             <View style={styles.inputWithIconRow}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={startDate}
                 onChangeText={setStartDate}
                 placeholder="DD-MM-YYYY"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
               <TouchableOpacity
-                onPress={() => setCalendarTarget('start')}
+                onPress={() => !isViewOnly && setCalendarTarget('start')}
                 hitSlop={8}
+                disabled={isViewOnly}
                 accessibilityRole="button"
                 accessibilityLabel="Pick start date"
               >
-                <CalendarIcon size={18} color={adminColors.muted} />
+                <CalendarIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
               </TouchableOpacity>
             </View>
           </View>
@@ -217,19 +296,21 @@ export function CreateEventScreen({
             <Text style={styles.label}>End Date</Text>
             <View style={styles.inputWithIconRow}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={endDate}
                 onChangeText={setEndDate}
                 placeholder="DD-MM-YYYY"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
               <TouchableOpacity
-                onPress={() => setCalendarTarget('end')}
+                onPress={() => !isViewOnly && setCalendarTarget('end')}
                 hitSlop={8}
+                disabled={isViewOnly}
                 accessibilityRole="button"
                 accessibilityLabel="Pick end date"
               >
-                <CalendarIcon size={18} color={adminColors.muted} />
+                <CalendarIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
               </TouchableOpacity>
             </View>
           </View>
@@ -238,11 +319,12 @@ export function CreateEventScreen({
             <Text style={styles.label}>Start Time</Text>
             <View style={styles.inputWithIconRow}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={startTime}
                 onChangeText={setStartTime}
                 placeholder="--:-- --"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
               <HistoryClockIcon size={18} color={adminColors.muted} />
             </View>
@@ -252,11 +334,12 @@ export function CreateEventScreen({
             <Text style={styles.label}>End Time</Text>
             <View style={styles.inputWithIconRow}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={endTime}
                 onChangeText={setEndTime}
                 placeholder="--:-- --"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
               <HistoryClockIcon size={18} color={adminColors.muted} />
             </View>
@@ -271,28 +354,34 @@ export function CreateEventScreen({
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Target Audience</Text>
             <TouchableOpacity
-              style={styles.dropdownBtn}
+              style={[styles.dropdownBtn, isViewOnly && styles.readOnlyInput]}
               onPress={() =>
-                setTargetAudience(prev =>
-                  prev === 'All Farmers' ? 'Selected Zones (Coonoor, Kotagiri)' : 'All Farmers'
-                )
+                !isViewOnly &&
+                setActiveModal({
+                  key: 'targetAudience',
+                  title: 'Select Target Audience',
+                  options: TARGET_AUDIENCE_OPTIONS,
+                })
               }
               activeOpacity={0.7}
+              disabled={isViewOnly}
             >
               <Text style={styles.dropdownBtnText}>{targetAudience}</Text>
-              <Text style={styles.dropdownArrow}>▾</Text>
+              <ChevronDownIcon size={18} color={isViewOnly ? adminColors.muted : adminColors.brand} />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
             style={styles.checkboxRow}
-            onPress={() => setAudienceConfirmed(prev => !prev)}
+            onPress={() => !isViewOnly && setAudienceConfirmed(prev => !prev)}
             activeOpacity={0.7}
+            disabled={isViewOnly}
           >
             <View
               style={[
                 styles.checkbox,
                 audienceConfirmed && styles.checkboxActive,
+                isViewOnly && { opacity: 0.7 },
               ]}
             >
               {audienceConfirmed && <CheckmarkIcon size={14} color={adminColors.onBrand} />}
@@ -308,22 +397,88 @@ export function CreateEventScreen({
 
       {/* Bottom Button Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={handleSaveAndPublish}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.saveBtnText}>Save & Publish</Text>
-        </TouchableOpacity>
+        {isViewOnly ? (
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveBtnText}>Close</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSaveAndPublish}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.saveBtnText}>
+                {isEditing ? 'Update Event' : 'Save & Publish'}
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onBack}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={onBack}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
+
+      {/* Dropdown Options Modal */}
+      <Modal
+        visible={activeModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setActiveModal(null)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{activeModal?.title}</Text>
+              <TouchableOpacity
+                onPress={() => setActiveModal(null)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Close picker"
+              >
+                <CloseIcon size={20} color={adminColors.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {activeModal?.options.map((opt) => {
+                const isSelected = opt === getSelectedValueForActiveModal();
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[styles.modalOptionRow, isSelected && styles.modalOptionRowSelected]}
+                    onPress={() => handleSelectOption(opt)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextSelected,
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                    {isSelected && <CheckmarkIcon size={16} color={adminColors.brand} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <AdminCalendarPickerModal
         visible={calendarTarget !== null}
@@ -397,6 +552,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.sm,
     ...adminType.body,
     color: adminColors.ink,
+  },
+  readOnlyInput: {
+    backgroundColor: '#F7F5EE',
+    borderColor: '#E8E3D9',
+    color: adminColors.muted,
+  },
+  uploadBoxDisabled: {
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+    opacity: 0.8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  modalContent: {
+    width: '100%',
+    maxHeight: '75%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+    paddingBottom: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  modalTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  modalScroll: {
+    maxHeight: 340,
+  },
+  modalOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm + 2,
+    paddingHorizontal: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+    marginVertical: 2,
+  },
+  modalOptionRowSelected: {
+    backgroundColor: adminColors.brandTint,
+  },
+  modalOptionText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  modalOptionTextSelected: {
+    color: adminColors.brand,
+    fontWeight: '700',
   },
   inputWithBtnRow: {
     flexDirection: 'row',

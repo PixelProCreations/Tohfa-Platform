@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 
+import type { Can } from '../../permissions/can';
 import {
   adminColors,
   adminOverlay,
@@ -35,6 +36,21 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function FlaskIcon({ size = 34, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 3h6M10 3v5l-6 10.5A2 2 0 0 0 5.73 21h12.54A2 2 0 0 0 20 18.5L14 8V3"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M7 16h10" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -350,6 +366,8 @@ export interface StepFormProps {
   record: AuditScheduleRecord;
   onBack: () => void;
   onSave: () => void;
+  role?: string | undefined;
+  can?: Can | undefined;
 }
 
 export interface WaterSourceEntry {
@@ -364,7 +382,19 @@ export interface WaterSourceEntry {
   testingMethod: string;
 }
 
-export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepFormProps) {
+export function AuditInspectionStepForms({
+  step,
+  record,
+  onBack,
+  onSave,
+  role = 'SUPER_ADMIN',
+  can,
+}: StepFormProps) {
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const isFullAdmin = isSuperAdmin || isTohfaAdmin;
+  const canEdit = isFullAdmin || Boolean(can?.('audit.conduct') || can?.('audit.findings.log'));
+
   const farmerName = record?.farmerName || 'Ramesh Kumar';
   const farmerId = record?.farmerId || 'FR-00241';
   const auditId = record?.id || 'AUD-2026-0042';
@@ -415,7 +445,13 @@ export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepF
   const [npopNotes, setNpopNotes] = useState('');
 
   // Step 5: Soil Testing & Soil Report (M5-S04G)
-  const [soilReportAvail, setSoilReportAvail] = useState('Select...');
+  const [soilReportAvail, setSoilReportAvail] = useState('Available');
+  const [soilReportDoc, setSoilReportDoc] = useState<string | null>(null);
+  const [soilTestDate, setSoilTestDate] = useState('');
+  const [soilLabSource, setSoilLabSource] = useState('Select...');
+  const [soilFarmPlot, setSoilFarmPlot] = useState('Select...');
+  const [soilVerificationStatus, setSoilVerificationStatus] = useState('Select...');
+  const [soilNotes, setSoilNotes] = useState('');
 
   // Step 6: Water Sources & Water pH Testing (M5-S04H)
   const [waterSourcesList, setWaterSourcesList] = useState<WaterSourceEntry[]>([
@@ -1049,8 +1085,120 @@ export function AuditInspectionStepForms({ step, record, onBack, onSave }: StepF
               required
               value={soilReportAvail}
               onSelect={setSoilReportAvail}
-              options={['Select...', 'Available', 'Not Available', 'Sample Sent to Lab']}
+              options={['Available', 'Not Available', 'Sample Sent to Lab']}
             />
+
+            <View style={styles.formFieldGroup}>
+              <Text style={styles.formLabel}>Report Document</Text>
+              <TouchableOpacity
+                style={styles.dashedUploadBox}
+                onPress={() => {
+                  if (!canEdit) return;
+                  setSoilReportDoc((prev) => (prev ? null : 'soil_testing_lab_report_2026.pdf'));
+                }}
+                activeOpacity={0.7}
+              >
+                <UploadFileIcon size={18} color={adminColors.brand} />
+                <Text style={styles.dashedUploadText}>
+                  {soilReportDoc ? soilReportDoc : 'Upload file'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.formFieldGroup}>
+              <Text style={styles.formLabel}>Test Date</Text>
+              <View style={styles.selectInput}>
+                <TextInput
+                  style={styles.dateTextInput}
+                  value={soilTestDate}
+                  onChangeText={setSoilTestDate}
+                  placeholder="dd-mm-yyyy"
+                  placeholderTextColor={adminColors.placeholder}
+                  editable={canEdit}
+                />
+                <CalendarIcon size={18} />
+              </View>
+            </View>
+
+            <SelectBox
+              label="Laboratory / Testing Source"
+              value={soilLabSource}
+              placeholder="Select..."
+              iconType="search"
+              options={[
+                'Select...',
+                'TNAU Soil Testing Laboratory - Coimbatore',
+                'District Agricultural Laboratory - Ooty',
+                'Regional Soil & Water Testing Center - Coonoor',
+                'Krishi Vigyan Kendra (KVK) Lab',
+                'Authorized Private Agri-Testing Lab',
+              ]}
+              onSelect={setSoilLabSource}
+            />
+
+            <SelectBox
+              label="Farm Plot / Zone"
+              value={soilFarmPlot}
+              placeholder="Select..."
+              iconType="search"
+              options={[
+                'Select...',
+                'Coonoor · PLT-00124-1',
+                'Coonoor · PLT-00124-2',
+                'Ooty · PLT-00124-3',
+                'Plot A - North Terrace',
+                'Plot B - South Slope',
+              ]}
+              onSelect={setSoilFarmPlot}
+            />
+
+            <SelectBox
+              label="Report Verification Status"
+              value={soilVerificationStatus}
+              placeholder="Select..."
+              iconType="chevron"
+              options={[
+                'Select...',
+                'Verified & Validated',
+                'Pending Secondary Review',
+                'Discrepancy Flagged',
+                'Rejected - Insufficient Parameters',
+                'Unverified',
+              ]}
+              onSelect={setSoilVerificationStatus}
+            />
+
+            <View style={styles.formFieldGroup}>
+              <Text style={styles.formLabel}>Reported Soil Parameters</Text>
+              <View style={styles.parametersCard}>
+                <FlaskIcon size={34} color={adminColors.ink} />
+                <Text style={styles.parametersCardTitle}>No parameters available yet</Text>
+                <Text style={styles.parametersCardDesc}>
+                  Parameters and values appear here exactly as read from the uploaded report. None are typed in or invented, and there is no fixed parameter list.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.formFieldGroup}>
+              <Text style={styles.formLabel}>Notes</Text>
+              <View style={styles.notesContainer}>
+                <TextInput
+                  style={styles.notesInput}
+                  value={soilNotes}
+                  onChangeText={setSoilNotes}
+                  placeholder=""
+                  placeholderTextColor={adminColors.placeholder}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  editable={canEdit}
+                />
+                <View style={styles.resizeHandle}>
+                  <View style={styles.resizeLine1} />
+                  <View style={styles.resizeLine2} />
+                </View>
+              </View>
+            </View>
           </View>
         )}
 
@@ -2548,5 +2696,70 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  parametersCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  parametersCardTitle: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 14,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  parametersCardDesc: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+    lineHeight: 18,
+    maxWidth: 320,
+  },
+  notesContainer: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    minHeight: 110,
+    position: 'relative',
+  },
+  notesInput: {
+    ...adminType.body,
+    color: adminColors.ink,
+    padding: adminSpacing.sm,
+    minHeight: 100,
+  },
+  resizeHandle: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    width: 10,
+    height: 10,
+  },
+  resizeLine1: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 8,
+    height: 1.5,
+    backgroundColor: adminColors.border,
+    transform: [{ rotate: '-45deg' }],
+  },
+  resizeLine2: {
+    position: 'absolute',
+    bottom: 3,
+    right: 3,
+    width: 5,
+    height: 1.5,
+    backgroundColor: adminColors.border,
+    transform: [{ rotate: '-45deg' }],
   },
 });

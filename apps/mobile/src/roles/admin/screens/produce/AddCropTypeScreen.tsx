@@ -18,11 +18,12 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
-import { BackArrowIcon, CheckmarkIcon, PlusIcon } from '../../components/AdminIcons';
+import { BackArrowIcon, CheckmarkIcon } from '../../components/AdminIcons';
 import type { CropTypeItem } from './CropDataScreen';
 
 export interface AddCropTypeScreenProps {
   crop?: CropTypeItem | undefined;
+  isViewOnly?: boolean | undefined;
   onBack: () => void;
   onSuccess?: ((newCrop: CropTypeItem) => void) | undefined;
 }
@@ -47,10 +48,11 @@ const SEASONS = ['Year-round', 'Kharif (Monsoon)', 'Rabi (Winter)', 'Zaid (Summe
  */
 export function AddCropTypeScreen({
   crop,
+  isViewOnly = false,
   onBack,
   onSuccess,
 }: AddCropTypeScreenProps): React.JSX.Element {
-  const isEditing = Boolean(crop);
+  const isEditing = Boolean(crop && !isViewOnly);
 
   const [code, setCode] = useState(crop?.code ?? `CRP-${Math.floor(100 + Math.random() * 900)}`);
   const [name, setName] = useState(crop?.name ?? '');
@@ -88,19 +90,8 @@ export function AddCropTypeScreen({
       description: description.trim(),
     };
 
-    Alert.alert(
-      isEditing ? 'Crop Type Updated' : 'Crop Type Registered',
-      `${savedCrop.code} · ${savedCrop.name} (${savedCrop.tamilName}) has been successfully saved to the platform taxonomy.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            onSuccess?.(savedCrop);
-            onBack();
-          },
-        },
-      ]
-    );
+    onSuccess?.(savedCrop);
+    onBack();
   };
 
   return (
@@ -119,7 +110,7 @@ export function AddCropTypeScreen({
           <BackArrowIcon size={22} color={adminColors.onBrand} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Edit Crop Type' : 'Add Crop Type'}
+          {isViewOnly ? 'Crop Type Details' : isEditing ? 'Edit Crop Type' : 'Add Crop Type'}
         </Text>
       </View>
 
@@ -154,11 +145,12 @@ export function AddCropTypeScreen({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Common Name (English) *</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={name}
                 onChangeText={setName}
                 placeholder="e.g. Tomato"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
             </View>
 
@@ -166,11 +158,12 @@ export function AddCropTypeScreen({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Tamil / Local Name *</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={tamilName}
                 onChangeText={setTamilName}
                 placeholder="e.g. Thakkali"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
             </View>
 
@@ -184,9 +177,11 @@ export function AddCropTypeScreen({
                     style={[
                       styles.segmentBtn,
                       category === cat && styles.segmentBtnActive,
+                      isViewOnly && category !== cat && { opacity: 0.5 },
                     ]}
-                    onPress={() => setCategory(cat)}
+                    onPress={() => !isViewOnly && setCategory(cat)}
                     activeOpacity={0.7}
+                    disabled={isViewOnly}
                   >
                     <Text
                       style={[
@@ -216,9 +211,11 @@ export function AddCropTypeScreen({
                     style={[
                       styles.optionChip,
                       gradeSystem === item && styles.optionChipActive,
+                      isViewOnly && gradeSystem !== item && { opacity: 0.4 },
                     ]}
-                    onPress={() => setGradeSystem(item)}
+                    onPress={() => !isViewOnly && setGradeSystem(item)}
                     activeOpacity={0.7}
+                    disabled={isViewOnly}
                   >
                     {gradeSystem === item && (
                       <CheckmarkIcon size={14} color={adminColors.brand} />
@@ -246,9 +243,11 @@ export function AddCropTypeScreen({
                     style={[
                       styles.optionChip,
                       season === item && styles.optionChipActive,
+                      isViewOnly && season !== item && { opacity: 0.4 },
                     ]}
-                    onPress={() => setSeason(item)}
+                    onPress={() => !isViewOnly && setSeason(item)}
                     activeOpacity={0.7}
+                    disabled={isViewOnly}
                   >
                     <Text
                       style={[
@@ -267,11 +266,12 @@ export function AddCropTypeScreen({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Maturity / Growth Duration</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={durationDays}
                 onChangeText={setDurationDays}
                 placeholder="e.g. 90 - 120 days"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
             </View>
 
@@ -279,11 +279,12 @@ export function AddCropTypeScreen({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Storage & Temperature Requirements</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, isViewOnly && styles.readOnlyInput]}
                 value={storageTemp}
                 onChangeText={setStorageTemp}
                 placeholder="e.g. 10°C - 12°C, 85-90% RH"
                 placeholderTextColor={adminColors.placeholder}
+                editable={!isViewOnly}
               />
             </View>
 
@@ -291,7 +292,7 @@ export function AddCropTypeScreen({
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Description & Handling Notes</Text>
               <TextInput
-                style={styles.textArea}
+                style={[styles.textArea, isViewOnly && styles.readOnlyInput]}
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Enter crop description, harvest specifications, or storage guidelines..."
@@ -299,6 +300,7 @@ export function AddCropTypeScreen({
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
+                editable={!isViewOnly}
               />
             </View>
           </View>
@@ -309,23 +311,35 @@ export function AddCropTypeScreen({
 
       {/* Bottom Fixed Action Buttons */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.saveBtn}
-          onPress={handleSave}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.saveBtnText}>
-            {isEditing ? 'Update Crop Type' : 'Save Crop Type'}
-          </Text>
-        </TouchableOpacity>
+        {isViewOnly ? (
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveBtnText}>Close</Text>
+          </TouchableOpacity>
+        ) : (
+          <>
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSave}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.saveBtnText}>
+                {isEditing ? 'Update Crop Type' : 'Save Crop Type'}
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onBack}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={onBack}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -351,7 +365,7 @@ const styles = StyleSheet.create({
     padding: adminSpacing.xs,
   },
   headerTitle: {
-    ...adminType.headerTitle,
+    ...adminType.title,
     color: adminColors.onBrand,
   },
   scroll: {
@@ -361,7 +375,7 @@ const styles = StyleSheet.create({
     padding: adminSpacing.md,
   },
   sectionTitle: {
-    ...adminType.sectionHeader,
+    ...adminType.sectionHead,
     color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
     marginTop: adminSpacing.sm,
@@ -399,9 +413,9 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   readOnlyInput: {
-    backgroundColor: adminColors.canvas,
-    color: adminColors.ink,
-    fontWeight: '600',
+    backgroundColor: '#F7F5EE',
+    borderColor: '#E8E3D9',
+    color: adminColors.muted,
   },
   textArea: {
     minHeight: 88,

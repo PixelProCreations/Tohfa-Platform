@@ -28,7 +28,6 @@ import {
   BackArrowIcon,
   CloseIcon,
   FilterSlidersIcon,
-  PlusIcon,
   SearchIcon,
 } from '../../components/AdminIcons';
 
@@ -54,13 +53,21 @@ export interface CropTypeItem {
 export interface CropDataScreenProps {
   can?: Can | undefined;
   role?: string | undefined;
+  initialSegment?: CropDataSegment | undefined;
+  cropTypes?: CropTypeItem[] | undefined;
+  onUpdateCropTypes?: React.Dispatch<React.SetStateAction<CropTypeItem[]>> | ((items: CropTypeItem[]) => void) | undefined;
+  activities?: DiaryActivityItem[] | undefined;
+  onUpdateActivities?: React.Dispatch<React.SetStateAction<DiaryActivityItem[]>> | ((items: DiaryActivityItem[]) => void) | undefined;
+  events?: PlatformEventItem[] | undefined;
+  onUpdateEvents?: React.Dispatch<React.SetStateAction<PlatformEventItem[]>> | ((items: PlatformEventItem[]) => void) | undefined;
+  onSegmentChange?: ((segment: CropDataSegment) => void) | undefined;
   onBack: () => void;
-  onNavigateToAddCropType?: ((crop?: CropTypeItem) => void) | undefined;
-  onNavigateToAddActivity: () => void;
-  onNavigateToCreateEvent: () => void;
+  onNavigateToAddCropType?: ((crop?: CropTypeItem, isView?: boolean) => void) | undefined;
+  onNavigateToAddActivity?: ((activity?: DiaryActivityItem, isView?: boolean) => void) | undefined;
+  onNavigateToCreateEvent?: ((event?: PlatformEventItem, isView?: boolean) => void) | undefined;
 }
 
-interface DiaryActivityItem {
+export interface DiaryActivityItem {
   id: string;
   code: string;
   categoryName: string;
@@ -71,7 +78,7 @@ interface DiaryActivityItem {
   lastUpdated: string;
 }
 
-interface PlatformEventItem {
+export interface PlatformEventItem {
   id: string;
   code: string;
   title: string;
@@ -82,9 +89,11 @@ interface PlatformEventItem {
   status: 'DRAFT' | 'ACTIVE';
   createdBy: string;
   lastUpdated: string;
+  description?: string | undefined;
+  location?: string | undefined;
 }
 
-const MOCK_CROP_TYPES: CropTypeItem[] = [
+export const MOCK_CROP_TYPES: CropTypeItem[] = [
   {
     id: 'crp-1',
     code: 'CRP-001',
@@ -128,7 +137,7 @@ const MOCK_CROP_TYPES: CropTypeItem[] = [
   },
 ];
 
-const MOCK_DIARY_ACTIVITIES: DiaryActivityItem[] = [
+export const MOCK_DIARY_ACTIVITIES: DiaryActivityItem[] = [
   {
     id: 'da-1',
     code: 'DA01',
@@ -161,7 +170,7 @@ const MOCK_DIARY_ACTIVITIES: DiaryActivityItem[] = [
   },
 ];
 
-const MOCK_PLATFORM_EVENTS: PlatformEventItem[] = [
+export const MOCK_PLATFORM_EVENTS: PlatformEventItem[] = [
   {
     id: 'evt-1',
     code: 'EVT-003',
@@ -198,19 +207,69 @@ const MOCK_PLATFORM_EVENTS: PlatformEventItem[] = [
 export function CropDataScreen({
   can,
   role = 'SUPER_ADMIN',
+  initialSegment = 'crop_types',
+  cropTypes: externalCropTypes,
+  onUpdateCropTypes,
+  activities: externalActivities,
+  onUpdateActivities,
+  events: externalEvents,
+  onUpdateEvents,
+  onSegmentChange,
   onBack,
   onNavigateToAddCropType,
   onNavigateToAddActivity,
   onNavigateToCreateEvent,
 }: CropDataScreenProps): React.JSX.Element {
-  const [selectedSegment, setSelectedSegment] = useState<CropDataSegment>('crop_types');
+  const [selectedSegment, setSelectedSegment] = useState<CropDataSegment>(initialSegment);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'All' | 'Vegetable' | 'Fruit' | 'Spice'>('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Local state for items
-  const [cropTypes, setCropTypes] = useState<CropTypeItem[]>(MOCK_CROP_TYPES);
-  const [activities, setActivities] = useState<DiaryActivityItem[]>(MOCK_DIARY_ACTIVITIES);
-  const [events, setEvents] = useState<PlatformEventItem[]>(MOCK_PLATFORM_EVENTS);
+  // Local state fallbacks if external is not supplied
+  const [localCropTypes, setLocalCropTypes] = useState<CropTypeItem[]>(MOCK_CROP_TYPES);
+  const [localActivities, setLocalActivities] = useState<DiaryActivityItem[]>(MOCK_DIARY_ACTIVITIES);
+  const [localEvents, setLocalEvents] = useState<PlatformEventItem[]>(MOCK_PLATFORM_EVENTS);
+
+  const cropTypes = externalCropTypes ?? localCropTypes;
+  const setCropTypes = (updater: React.SetStateAction<CropTypeItem[]>) => {
+    if (onUpdateCropTypes) {
+      if (typeof updater === 'function') {
+        const next = updater(cropTypes);
+        onUpdateCropTypes(next);
+      } else {
+        onUpdateCropTypes(updater);
+      }
+    } else {
+      setLocalCropTypes(updater);
+    }
+  };
+
+  const activities = externalActivities ?? localActivities;
+  const setActivities = (updater: React.SetStateAction<DiaryActivityItem[]>) => {
+    if (onUpdateActivities) {
+      if (typeof updater === 'function') {
+        const next = updater(activities);
+        onUpdateActivities(next);
+      } else {
+        onUpdateActivities(updater);
+      }
+    } else {
+      setLocalActivities(updater);
+    }
+  };
+
+  const events = externalEvents ?? localEvents;
+  const setEvents = (updater: React.SetStateAction<PlatformEventItem[]>) => {
+    if (onUpdateEvents) {
+      if (typeof updater === 'function') {
+        const next = updater(events);
+        onUpdateEvents(next);
+      } else {
+        onUpdateEvents(updater);
+      }
+    } else {
+      setLocalEvents(updater);
+    }
+  };
 
   // Add Crop Type modal state
   const [showAddCropModal, setShowAddCropModal] = useState(false);
@@ -251,17 +310,25 @@ export function CropDataScreen({
       Alert.alert('Permission Denied', 'You do not have permission to retire diary activities.');
       return;
     }
+    const item = activities.find(a => a.id === id);
+    const isCurrentlyActive = item?.status === 'ACTIVE';
     Alert.alert(
-      'Retire Activity',
-      'Are you sure you want to retire this activity category?',
+      isCurrentlyActive ? 'Retire Activity' : 'Reactivate Activity',
+      isCurrentlyActive
+        ? `Are you sure you want to retire "${item?.categoryName}" from the diary taxonomy?`
+        : `Reactivate "${item?.categoryName}" for farm diary entries?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Retire',
-          style: 'destructive',
+          text: isCurrentlyActive ? 'Retire' : 'Activate',
+          style: isCurrentlyActive ? 'destructive' : 'default',
           onPress: () => {
             setActivities(prev =>
-              prev.map(a => (a.id === id ? { ...a, status: 'RETIRED' } : a))
+              prev.map(a =>
+                a.id === id
+                  ? { ...a, status: isCurrentlyActive ? 'RETIRED' : 'ACTIVE', lastUpdated: 'Today' }
+                  : a
+              )
             );
           },
         },
@@ -274,9 +341,10 @@ export function CropDataScreen({
       Alert.alert('Permission Denied', 'You do not have permission to manage platform events.');
       return;
     }
+    const item = events.find(e => e.id === id);
     Alert.alert(
       'Remove Event',
-      'Are you sure you want to delete this event from the platform calendar?',
+      `Are you sure you want to delete event "${item?.title}" from the platform calendar?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -465,7 +533,10 @@ export function CropDataScreen({
               styles.segmentBtn,
               selectedSegment === 'crop_types' && styles.segmentBtnActive,
             ]}
-            onPress={() => setSelectedSegment('crop_types')}
+            onPress={() => {
+              setSelectedSegment('crop_types');
+              onSegmentChange?.('crop_types');
+            }}
             activeOpacity={0.7}
           >
             <Text
@@ -483,7 +554,10 @@ export function CropDataScreen({
               styles.segmentBtn,
               selectedSegment === 'diary_activity' && styles.segmentBtnActive,
             ]}
-            onPress={() => setSelectedSegment('diary_activity')}
+            onPress={() => {
+              setSelectedSegment('diary_activity');
+              onSegmentChange?.('diary_activity');
+            }}
             activeOpacity={0.7}
           >
             <Text
@@ -501,7 +575,10 @@ export function CropDataScreen({
               styles.segmentBtn,
               selectedSegment === 'platform_events' && styles.segmentBtnActive,
             ]}
-            onPress={() => setSelectedSegment('platform_events')}
+            onPress={() => {
+              setSelectedSegment('platform_events');
+              onSegmentChange?.('platform_events');
+            }}
             activeOpacity={0.7}
           >
             <Text
@@ -597,9 +674,9 @@ export function CropDataScreen({
                   <TouchableOpacity
                     onPress={() => {
                       if (onNavigateToAddCropType) {
-                        onNavigateToAddCropType(item);
+                        onNavigateToAddCropType(item, true);
                       } else {
-                        Alert.alert('Crop Detail', `${item.code} · ${item.name}`);
+                        Alert.alert('Crop Detail', `${item.code} · ${item.name} (${item.tamilName})\nCategory: ${item.category}\nStatus: ${item.status}\nCreated: ${item.creator}`);
                       }
                     }}
                     activeOpacity={0.7}
@@ -612,7 +689,7 @@ export function CropDataScreen({
                       <TouchableOpacity
                         onPress={() => {
                           if (onNavigateToAddCropType) {
-                            onNavigateToAddCropType(item);
+                            onNavigateToAddCropType(item, false);
                           } else {
                             Alert.alert('Edit Crop', `Edit ${item.name}`);
                           }
@@ -693,7 +770,13 @@ export function CropDataScreen({
                 <View style={styles.activityButtonsRow}>
                   <TouchableOpacity
                     style={styles.pillButton}
-                    onPress={() => Alert.alert('Activity Category', `${item.code} - ${item.categoryName}`)}
+                    onPress={() => {
+                      if (onNavigateToAddActivity) {
+                        onNavigateToAddActivity(item, true);
+                      } else {
+                        Alert.alert('Activity Category', `${item.code} · ${item.categoryName}\nSub-Activities: ${item.subActivityCount}\nStatus: ${item.status}\nDescription: ${item.description}`);
+                      }
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.pillButtonText}>View</Text>
@@ -703,7 +786,13 @@ export function CropDataScreen({
                     <>
                       <TouchableOpacity
                         style={styles.pillButton}
-                        onPress={() => Alert.alert('Edit Activity', `Edit ${item.categoryName}`)}
+                        onPress={() => {
+                          if (onNavigateToAddActivity) {
+                            onNavigateToAddActivity(item, false);
+                          } else {
+                            Alert.alert('Edit Activity', `Edit ${item.categoryName}`);
+                          }
+                        }}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.pillButtonText}>Edit</Text>
@@ -714,7 +803,9 @@ export function CropDataScreen({
                         onPress={() => handleRetireActivity(item.id)}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.pillButtonDangerText}>Retire</Text>
+                        <Text style={styles.pillButtonDangerText}>
+                          {item.status === 'RETIRED' ? 'Activate' : 'Retire'}
+                        </Text>
                       </TouchableOpacity>
                     </>
                   )}
@@ -782,7 +873,13 @@ export function CropDataScreen({
                 <View style={styles.activityButtonsRow}>
                   <TouchableOpacity
                     style={styles.pillButton}
-                    onPress={() => Alert.alert('Event Details', `${item.code} - ${item.title}`)}
+                    onPress={() => {
+                      if (onNavigateToCreateEvent) {
+                        onNavigateToCreateEvent(item, true);
+                      } else {
+                        Alert.alert('Event Details', `${item.code} · ${item.title}\nType: ${item.eventType}\nDates: ${item.startDate} to ${item.endDate}\nAudience: ${item.targetAudience}\nStatus: ${item.status}`);
+                      }
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.pillButtonText}>View</Text>
@@ -792,7 +889,13 @@ export function CropDataScreen({
                     <>
                       <TouchableOpacity
                         style={styles.pillButton}
-                        onPress={() => Alert.alert('Edit Event', `Edit ${item.title}`)}
+                        onPress={() => {
+                          if (onNavigateToCreateEvent) {
+                            onNavigateToCreateEvent(item, false);
+                          } else {
+                            Alert.alert('Edit Event', `Edit ${item.title}`);
+                          }
+                        }}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.pillButtonText}>Edit</Text>
@@ -823,7 +926,7 @@ export function CropDataScreen({
             style={styles.ctaPrimaryBtn}
             onPress={() => {
               if (onNavigateToAddCropType) {
-                onNavigateToAddCropType();
+                onNavigateToAddCropType(undefined, false);
               } else {
                 setShowAddCropModal(true);
               }
@@ -837,7 +940,11 @@ export function CropDataScreen({
         {selectedSegment === 'diary_activity' && canManageDiaryTaxonomy && (
           <TouchableOpacity
             style={styles.ctaPrimaryBtn}
-            onPress={onNavigateToAddActivity}
+            onPress={() => {
+              if (onNavigateToAddActivity) {
+                onNavigateToAddActivity(undefined, false);
+              }
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.ctaPrimaryBtnText}>+ Add Activity Category</Text>
@@ -847,7 +954,11 @@ export function CropDataScreen({
         {selectedSegment === 'platform_events' && canManagePlatformEvents && (
           <TouchableOpacity
             style={styles.ctaPrimaryBtn}
-            onPress={onNavigateToCreateEvent}
+            onPress={() => {
+              if (onNavigateToCreateEvent) {
+                onNavigateToCreateEvent(undefined, false);
+              }
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.ctaPrimaryBtnText}>+ Create Event</Text>

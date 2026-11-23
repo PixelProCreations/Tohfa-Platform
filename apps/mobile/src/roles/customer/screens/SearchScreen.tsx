@@ -1,103 +1,421 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TextInput, FlatList, ActivityIndicator, Text } from 'react-native';
-import { useSearch, useCatalogHome, type Product } from '../api/catalog';
-import { Card } from '@tohfa/mobile-ui';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors } from '../theme';
-import { neutral } from '@tohfa/design-tokens';
+import type { ImageSourcePropType } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  StatusBar,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+import { customerFonts, customerShadow } from '../theme';
+import { CategoryImages, ProductImages } from '../assets/images/products';
 
-const RECENT_SEARCH_KEY = '@customer_recent_searches';
+// Safe insets hook fallback: works across platforms without external native dependency
+const useSafeAreaInsets = () => ({
+  top: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 20,
+  bottom: 16,
+  left: 0,
+  right: 0,
+});
 
-export function SearchScreen() {
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  
-  // Trending derived from catalog home featured
-  const { data: homeData, isLoading: isHomeLoading } = useCatalogHome();
-  const { data: searchResults, isLoading: isSearchLoading } = useSearch(debouncedQuery);
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface SearchScreenProps {
+  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
+  onBack?: () => void;
+  initialQuery?: string;
+}
+
+interface SearchProduct {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice: number;
+  unit: string;
+  rating: number;
+  image: ImageSourcePropType | number;
+  category: string;
+  tags?: string[];
+}
+
+// ── BACK ARROW SVG ──────────────────────────────────────────────────────────
+const BackArrowSvg = ({ color = '#111827', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M19 12H5M5 12L12 19M5 12L12 5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+// ── COMPREHENSIVE SEARCH CATALOG MATCHING FIGMA SPEC ────────────────────────
+const ALL_SEARCH_PRODUCTS: SearchProduct[] = [
+  // Tomatoes & Chillies (Exact Image 3 Spec)
+  { id: 't1', name: 'Red Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouTomatoes, category: 'Vegetables', tags: ['Latest Harvest', 'Fresh Drops', 'Recently Picked'] },
+  { id: 't2', name: 'Bangalore tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouTomatoes, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+  { id: 't3', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.exoticCherryTomato, category: 'Vegetables', tags: ['Fresh Drops', 'Recently Picked'] },
+  { id: 't4', name: 'Yellow Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.exoticCherryTomato, category: 'Vegetables', tags: ['Latest Harvest', 'Fresh Drops'] },
+  { id: 't5', name: 'Chilli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.spiceDryRedChilli || ProductImages.exoticChilliThai, category: 'Vegetables', tags: ['Recently Picked'] },
+
+  // Fruits
+  { id: 'f1', name: 'Royal Gala', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit', tags: ['Latest Harvest', 'Fresh Drops'] },
+  { id: 'f2', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit', tags: ['Latest Harvest'] },
+  { id: 'f3', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitOrange, category: 'Fruit', tags: ['Fresh Drops'] },
+  { id: 'f4', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouWatermelon, category: 'Fruit', tags: ['Latest Harvest', 'Fresh Drops'] },
+  { id: 'f5', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouStrawberries, category: 'Fruit', tags: ['Fresh Drops', 'Recently Picked'] },
+
+  // Vegetables
+  { id: 'v1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegPotato, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+  { id: 'v2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegCarrot, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+  { id: 'v3', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouLettuce, category: 'Vegetables', tags: ['Fresh Drops', 'Recently Picked'] },
+  { id: 'v4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouBroccoli, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+
+  // Dairy & Grains
+  { id: 'd1', name: 'Milk', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, image: ProductImages.dairyMilk, category: 'Dairy', tags: ['Fresh Drops'] },
+  { id: 'g1', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.grainBrownRice, category: 'Grains', tags: ['Latest Harvest'] },
+];
+
+// ── RECENT SEARCHES (EXACT FIGMA SPEC) ───────────────────────────────────────
+const INITIAL_RECENT_SEARCHES = [
+  { id: 'r1', name: 'Royal Gala', subtitle: 'Sweet & mellow', image: ProductImages.fruitApple },
+  { id: 'r2', name: 'Red Tomato', subtitle: 'Fresh & juicy', image: ProductImages.foryouTomatoes },
+  { id: 'r3', name: 'Yellow Cherry Tomato', subtitle: 'Farm fresh', image: ProductImages.exoticCherryTomato },
+  { id: 'r4', name: 'Watermelon', subtitle: 'Crisp & sweet', image: ProductImages.foryouWatermelon },
+];
+
+// ── TRENDING PICKS FOR EMPTY STATE ──────────────────────────────────────────
+const TRENDING_PRODUCTS: SearchProduct[] = [
+  ALL_SEARCH_PRODUCTS[0]!, // Red Tomato
+  ALL_SEARCH_PRODUCTS[5]!, // Royal Gala
+  ALL_SEARCH_PRODUCTS[10]!, // Potato
+  ALL_SEARCH_PRODUCTS[11]!, // Fresh Carrot
+  ALL_SEARCH_PRODUCTS[12]!, // Green Curly Lettuce
+  ALL_SEARCH_PRODUCTS[13]!, // Broccoli
+];
+
+// ── CATEGORIES FOR SEARCH TOP ROW ───────────────────────────────────────────
+const SEARCH_CATEGORIES = [
+  { id: 'c0a', label: 'Latest Harvest', image: CategoryImages.vegetables },
+  { id: 'c0b', label: 'Fresh Drops', image: CategoryImages.fruit },
+  { id: 'c0c', label: 'Recently Picked', image: CategoryImages.herbsGreens || CategoryImages.vegetables },
+  { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables },
+  { id: 'c2', label: 'Fruit', image: CategoryImages.fruit },
+  { id: 'c3', label: 'Dairy', image: CategoryImages.dairy },
+  { id: 'c4', label: 'Grains', image: CategoryImages.grains },
+  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits },
+  { id: 'c6', label: 'Tea & Coffee', image: CategoryImages.teaCoffee },
+  { id: 'c7', label: 'Bakery', image: CategoryImages.bakery },
+];
+
+export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchScreenProps) {
+  const insets = useSafeAreaInsets();
+  const [query, setQuery] = useState(initialQuery);
+  const [favorites, setFavorites] = useState<string[]>([]);
 
   useEffect(() => {
-    AsyncStorage.getItem(RECENT_SEARCH_KEY).then((val: string | null) => {
-      if (val) setRecentSearches(JSON.parse(val));
-    });
-  }, []);
+    if (initialQuery !== undefined) {
+      setQuery(initialQuery);
+    }
+  }, [initialQuery]);
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(query);
-      if (query.trim().length > 0) {
-        saveRecentSearch(query.trim());
-      }
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [query]);
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
-  const saveRecentSearch = async (term: string) => {
-    const newRecent = [term, ...recentSearches.filter(s => s !== term)].slice(0, 5);
-    setRecentSearches(newRecent);
-    await AsyncStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(newRecent));
+  const handleBack = () => {
+    if (query.trim().length > 0) {
+      setQuery('');
+      return;
+    }
+    if (onBack) {
+      onBack();
+    } else {
+      onNavigate?.('Home');
+    }
   };
 
-  const renderContent = () => {
-    if (debouncedQuery.length > 0) {
-      if (isSearchLoading) return <ActivityIndicator style={styles.center} testID="loading-indicator" />;
-      if (!searchResults || searchResults.items.length === 0) return <Text style={styles.center}>No results found</Text>;
-      
-      const validItems = searchResults.items.filter((item: Product) => item.grade !== 'REJECT');
-      
-      return (
-        <FlatList
-          data={validItems}
-          keyExtractor={(item: Product) => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <Card style={styles.card}>
-              <Text style={{ fontSize: 16 }}>{item.name}</Text>
-              <Text style={{ fontSize: 14 }}>{item.pricePerKg}</Text>
-            </Card>
-          )}
-        />
-      );
-    }
-
-    return (
-      <View style={styles.list}>
-        {recentSearches.length > 0 && (
-          <View style={styles.section}>
-            <Text style={{ fontSize: 20, fontWeight: "bold" }}>Recent Searches</Text>
-            {recentSearches.map(term => (
-              <Text key={term} style={styles.recentItem} onPress={() => setQuery(term)}>{term}</Text>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.section}>
-          <Text style={{ fontSize: 20, fontWeight: "bold" }}>Trending Searches (Derived)</Text>
-          {isHomeLoading ? (
-            <ActivityIndicator />
-          ) : (
-            homeData?.featured?.slice(0, 5).map((prod: Product) => (
-              <Text key={prod.id} style={styles.recentItem} onPress={() => setQuery(prod.name)}>{prod.name}</Text>
-            ))
-          )}
-        </View>
-      </View>
+  const toggleFavorite = (id: string) => {
+    setFavorites(prev =>
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
   };
 
+  // Filter products by typed search query
+  const searchResults = query.trim().length > 0
+    ? ALL_SEARCH_PRODUCTS.filter(p =>
+      p.name.toLowerCase().includes(query.toLowerCase()) ||
+      p.category.toLowerCase().includes(query.toLowerCase()) ||
+      (p.tags && p.tags.some(t => t.toLowerCase().includes(query.toLowerCase())))
+    )
+    : [];
+
   return (
     <View style={styles.container}>
-      <View style={styles.searchBar}>
-        <TextInput 
-          style={styles.input} 
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search products..."
-          testID="search-input"
-        />
+      <StatusBar barStyle="dark-content" />
+
+      {/* ── TOP HEADER ROW WITH BACK BUTTON (SAFELY BELOW CAMERA NOTCH) ────── */}
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleBack}
+          style={styles.backButton}
+          accessibilityLabel="Go back"
+        >
+          <BackArrowSvg color="#111827" size={18} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {query.trim().length > 0 ? query : 'Fresh Finds for You'}
+        </Text>
       </View>
-      {renderContent()}
+
+      {/* ── MAIN CONTENT AREA ──────────────────────────────────────────────── */}
+      <View style={styles.contentWrap}>
+        {query.trim().length > 0 ? (
+          /* ── 1. ACTIVE SEARCH RESULTS ────────────────────────────────────── */
+          <ScrollView
+            style={styles.resultsScroll}
+            contentContainerStyle={styles.resultsScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {searchResults.length === 0 ? (
+              <View style={styles.noResultsWrap}>
+                <Text style={styles.noResultsText}>No products found for "{query}"</Text>
+                <Text style={styles.noResultsSub}>Try searching for tomato, apple, potato, milk or rice</Text>
+              </View>
+            ) : (
+              <View style={styles.gridWrap}>
+                {searchResults.map(item => {
+                  const isFav = favorites.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      onPress={() => onNavigate?.('ProductDetail', { productId: item.id, product: item })}
+                      style={styles.cardCol}
+                    >
+                      <View style={[styles.productCard, customerShadow.subtle]}>
+                        {/* Top: Star Rating on Left, Heart on Right */}
+                        <View style={styles.cardHeaderRow}>
+                          <View style={styles.ratingBadge}>
+                            <Text style={styles.starIcon}>★ </Text>
+                            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+                          </View>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => toggleFavorite(item.id)}
+                            style={styles.heartButton}
+                            accessibilityLabel={`Favorite ${item.name}`}
+                          >
+                            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                              <Path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                fill={isFav ? '#EF4444' : 'none'}
+                                stroke={isFav ? '#EF4444' : '#9CA3AF'}
+                                strokeWidth={1.5}
+                              />
+                            </Svg>
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Center Product Image */}
+                        <View style={styles.cardImageCenter}>
+                          {item.image ? (
+                            <Image
+                              source={item.image}
+                              style={styles.productCardImage}
+                              resizeMode="contain"
+                            />
+                          ) : null}
+                        </View>
+
+                        {/* Bottom Price Row */}
+                        <View style={styles.cardPriceRow}>
+                          <Text style={styles.priceBold}>₹ {item.price}</Text>
+                          <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
+                          <Text style={styles.unitText}>{item.unit}</Text>
+                        </View>
+                      </View>
+
+                      {/* Product Name placed outside below card */}
+                      <Text style={styles.cardProductName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </ScrollView>
+        ) : (
+          /* ── 2. INITIAL STATE WITH RICH CONTENT ──────────────────────────── */
+          <ScrollView
+            style={styles.resultsScroll}
+            contentContainerStyle={styles.initialScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Category Circles Row */}
+            <View style={styles.categoriesSection}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryCirclesRow}
+              >
+                {SEARCH_CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    activeOpacity={0.75}
+                    onPress={() => setQuery(cat.label)}
+                    style={styles.categoryCircleItem}
+                  >
+                    <View style={styles.categoryCircleOuter}>
+                      <Image source={cat.image} style={styles.categoryCircleImg} resizeMode="cover" />
+                    </View>
+                    <Text style={styles.categoryCircleLabel} numberOfLines={1}>{cat.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Recent Searches */}
+            <View style={styles.recentWrap}>
+              <Text style={styles.recentTitle}>Recent searches</Text>
+              <View style={styles.recentList}>
+                {INITIAL_RECENT_SEARCHES.map(item => (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.7}
+                    onPress={() => setQuery(item.name)}
+                    style={styles.recentItemRow}
+                  >
+                    <View style={styles.recentThumbWrap}>
+                      <Image source={item.image} style={styles.recentThumbImage} resizeMode="contain" />
+                    </View>
+                    <View style={styles.recentTextCol}>
+                      <Text style={styles.recentItemName}>{item.name}</Text>
+                      <Text style={styles.recentItemSub}>{item.subtitle}</Text>
+                    </View>
+                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M7 17L17 7M17 7H7M17 7V17"
+                        stroke="#9CA3AF"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Trending Produce */}
+            <View style={styles.trendingSection}>
+              <Text style={styles.trendingTitle}>Trending Produce</Text>
+              <View style={styles.gridWrap}>
+                {TRENDING_PRODUCTS.map(item => {
+                  const isFav = favorites.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      onPress={() => onNavigate?.('ProductDetail', { productId: item.id, product: item })}
+                      style={styles.cardCol}
+                    >
+                      <View style={[styles.productCard, customerShadow.subtle]}>
+                        <View style={styles.cardHeaderRow}>
+                          <View style={styles.ratingBadge}>
+                            <Text style={styles.starIcon}>★ </Text>
+                            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+                          </View>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => toggleFavorite(item.id)}
+                            style={styles.heartButton}
+                            accessibilityLabel={`Favorite ${item.name}`}
+                          >
+                            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                              <Path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                fill={isFav ? '#EF4444' : 'none'}
+                                stroke={isFav ? '#EF4444' : '#9CA3AF'}
+                                strokeWidth={1.5}
+                              />
+                            </Svg>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.cardImageCenter}>
+                          {item.image ? (
+                            <Image
+                              source={item.image}
+                              style={styles.productCardImage}
+                              resizeMode="contain"
+                            />
+                          ) : null}
+                        </View>
+                        <View style={styles.cardPriceRow}>
+                          <Text style={styles.priceBold}>₹ {item.price}</Text>
+                          <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
+                          <Text style={styles.unitText}>{item.unit}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.cardProductName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </ScrollView>
+        )}
+      </View>
+
+      {/* ── FLOATING BOTTOM SEARCH BAR ─────────────────────────────────────── */}
+      <View style={[styles.bottomBarWrap, { bottom: Math.max(insets.bottom, 16) }]}>
+        <View style={styles.searchInputPill}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for fresh vegetables..."
+            placeholderTextColor="#9CA3AF"
+            value={query}
+            onChangeText={setQuery}
+            returnKeyType="search"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setQuery('')}
+              style={styles.clearBtn}
+              accessibilityLabel="Clear search"
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Circle cx={12} cy={12} r={10} fill="#9CA3AF" />
+                <Path d="M8 8l8 8M16 8l-8 8" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
+              </Svg>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Right Green Circular Action Button */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.greenCircleBtn}
+          accessibilityLabel="Search"
+        >
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Circle cx={11} cy={11} r={7} stroke="#FFFFFF" strokeWidth={2} />
+            <Path d="M21 21l-4.35-4.35" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
+          </Svg>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -105,35 +423,302 @@ export function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: '#FFFFFF',
   },
-  center: {
-    marginTop: 20,
-    alignSelf: 'center',
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
   },
-  searchBar: {
-    padding: 16,
-    backgroundColor: neutral('neutral300'),
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
   },
-  input: {
-    height: 40,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+  headerTitle: {
+    fontFamily: customerFonts.editorial,
+    fontSize: 22,
+    color: '#111827',
+    flex: 1,
   },
-  list: {
-    padding: 16,
+  contentWrap: {
+    flex: 1,
   },
-  card: {
-    padding: 16,
+
+  // ── 1. ACTIVE SEARCH RESULTS ──────────────────────────────────────────────
+  resultsScroll: {
+    flex: 1,
+  },
+  resultsScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 110,
+  },
+  initialScrollContent: {
+    paddingBottom: 110,
+  },
+  categoriesSection: {
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  gridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  cardCol: {
+    width: (SCREEN_WIDTH - 32 - 16) / 2,
+    alignItems: 'center',
+  },
+  productCard: {
+    width: '100%',
+    height: 168,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    justifyContent: 'space-between',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  starIcon: {
+    fontSize: 11,
+    color: '#F59E0B',
+  },
+  ratingText: {
+    fontFamily: customerFonts.bold,
+    fontSize: 11,
+    color: '#1F2937',
+  },
+  heartButton: {
+    padding: 2,
+  },
+  cardImageCenter: {
+    height: 82,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productCardImage: {
+    width: 104,
+    height: 80,
+  },
+  cardPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-start',
+  },
+  priceBold: {
+    fontFamily: customerFonts.bold,
+    fontSize: 13,
+    color: '#1F2937',
+    marginRight: 4,
+  },
+  priceStrikethrough: {
+    fontFamily: customerFonts.regular,
+    fontSize: 11,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+    marginRight: 'auto',
+  },
+  unitText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#4B5563',
+  },
+  cardProductName: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#374151',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  noResultsWrap: {
+    paddingTop: 60,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontFamily: customerFonts.editorial,
+    fontSize: 20,
+    color: '#1F2937',
     marginBottom: 8,
   },
-  section: {
-    marginBottom: 16,
+  noResultsSub: {
+    fontFamily: customerFonts.regular,
+    fontSize: 13,
+    color: '#9CA3AF',
   },
-  recentItem: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: neutral('neutral300'),
+
+  // ── 2. RECENT SEARCHES ────────────────────────────────────────────────────
+  recentWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  recentTitle: {
+    fontFamily: customerFonts.editorial,
+    fontSize: 20,
+    color: '#1F2937',
+    marginBottom: 14,
+  },
+  recentList: {
+    gap: 12,
+  },
+  recentItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  recentThumbWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  recentThumbImage: {
+    width: 36,
+    height: 36,
+  },
+  recentTextCol: {
+    flex: 1,
+  },
+  recentItemName: {
+    fontFamily: customerFonts.bold,
+    fontSize: 14,
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  recentItemSub: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#9CA3AF',
+  },
+
+  // ── 3. TRENDING SECTION ───────────────────────────────────────────────────
+  trendingSection: {
+    paddingHorizontal: 16,
+    paddingTop: 24,
+  },
+  trendingTitle: {
+    fontFamily: customerFonts.editorial,
+    fontSize: 20,
+    color: '#1F2937',
+    marginBottom: 16,
+    paddingLeft: 4,
+  },
+
+  // ── 4. CATEGORIES ─────────────────────────────────────────────────────────
+  categoryCirclesRow: {
+    paddingHorizontal: 16,
+    gap: 14,
+  },
+  categoryCircleItem: {
+    alignItems: 'center',
+    width: 72,
+  },
+  categoryCircleOuter: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#F4F5F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    overflow: 'hidden',
+  },
+  categoryCircleImg: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+  },
+  categoryCircleLabel: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#374151',
+    textAlign: 'center',
+  },
+
+  // ── BOTTOM BAR ────────────────────────────────────────────────────────────
+  bottomBarWrap: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchInputPill: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: customerFonts.regular,
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  clearBtn: {
+    padding: 4,
+  },
+  greenCircleBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#2D6A4F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#2D6A4F',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
   },
 });

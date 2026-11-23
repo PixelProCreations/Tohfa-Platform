@@ -32,7 +32,16 @@ import {
   TrendChartIcon,
 } from '../../components/AdminIcons';
 import { AdminStatusBadge } from '../../components/AdminStatusBadge';
-import { CropDataScreen, type CropTypeItem } from './CropDataScreen';
+import {
+  CropDataScreen,
+  MOCK_CROP_TYPES,
+  MOCK_DIARY_ACTIVITIES,
+  MOCK_PLATFORM_EVENTS,
+  type CropDataSegment,
+  type CropTypeItem,
+  type DiaryActivityItem,
+  type PlatformEventItem,
+} from './CropDataScreen';
 import { AddCropTypeScreen } from './AddCropTypeScreen';
 import { AddActivityCategoryScreen } from './AddActivityCategoryScreen';
 import { CreateEventScreen } from './CreateEventScreen';
@@ -85,6 +94,18 @@ export function ProduceControlFlow({
 }: ProduceControlFlowProps): React.JSX.Element {
   const [activeSubScreen, setActiveSubScreen] = useState<ProduceControlSubScreen>(initialScreen);
   const [selectedCropItem, setSelectedCropItem] = useState<CropTypeItem | undefined>(undefined);
+  const [isCropViewOnly, setIsCropViewOnly] = useState(false);
+
+  const [selectedActivityItem, setSelectedActivityItem] = useState<DiaryActivityItem | undefined>(undefined);
+  const [isActivityViewOnly, setIsActivityViewOnly] = useState(false);
+
+  const [selectedEventItem, setSelectedEventItem] = useState<PlatformEventItem | undefined>(undefined);
+  const [isEventViewOnly, setIsEventViewOnly] = useState(false);
+
+  const [cropDataSegment, setCropDataSegment] = useState<CropDataSegment>('crop_types');
+  const [cropTypes, setCropTypes] = useState<CropTypeItem[]>(MOCK_CROP_TYPES);
+  const [activities, setActivities] = useState<DiaryActivityItem[]>(MOCK_DIARY_ACTIVITIES);
+  const [events, setEvents] = useState<PlatformEventItem[]>(MOCK_PLATFORM_EVENTS);
   const [showFiltersModal, setShowFiltersModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(1);
@@ -142,13 +163,36 @@ export function ProduceControlFlow({
       <CropDataScreen
         can={can}
         role={role}
-        onBack={() => setActiveSubScreen('calendar')}
-        onNavigateToAddCropType={(crop) => {
+        initialSegment={cropDataSegment}
+        cropTypes={cropTypes}
+        onUpdateCropTypes={setCropTypes}
+        activities={activities}
+        onUpdateActivities={setActivities}
+        events={events}
+        onUpdateEvents={setEvents}
+        onSegmentChange={setCropDataSegment}
+        onBack={() => {
+          if (initialScreen === 'cropData') {
+            onBack();
+          } else {
+            setActiveSubScreen('calendar');
+          }
+        }}
+        onNavigateToAddCropType={(crop, isView) => {
           setSelectedCropItem(crop);
+          setIsCropViewOnly(Boolean(isView));
           setActiveSubScreen('addCropType');
         }}
-        onNavigateToAddActivity={() => setActiveSubScreen('addActivity')}
-        onNavigateToCreateEvent={() => setActiveSubScreen('createEvent')}
+        onNavigateToAddActivity={(activity, isView) => {
+          setSelectedActivityItem(activity);
+          setIsActivityViewOnly(Boolean(isView));
+          setActiveSubScreen('addActivity');
+        }}
+        onNavigateToCreateEvent={(event, isView) => {
+          setSelectedEventItem(event);
+          setIsEventViewOnly(Boolean(isView));
+          setActiveSubScreen('createEvent');
+        }}
       />
     );
   }
@@ -157,12 +201,26 @@ export function ProduceControlFlow({
     return (
       <AddCropTypeScreen
         crop={selectedCropItem}
+        isViewOnly={isCropViewOnly}
         onBack={() => {
           setSelectedCropItem(undefined);
+          setIsCropViewOnly(false);
           setActiveSubScreen('cropData');
         }}
-        onSuccess={() => {
+        onSuccess={(savedCrop) => {
+          if (savedCrop) {
+            setCropTypes((prev) => {
+              const idx = prev.findIndex((c) => c.id === savedCrop.id);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = savedCrop;
+                return next;
+              }
+              return [savedCrop, ...prev];
+            });
+          }
           setSelectedCropItem(undefined);
+          setIsCropViewOnly(false);
           setActiveSubScreen('cropData');
         }}
       />
@@ -172,8 +230,29 @@ export function ProduceControlFlow({
   if (activeSubScreen === 'addActivity') {
     return (
       <AddActivityCategoryScreen
-        onBack={() => setActiveSubScreen('cropData')}
-        onSuccess={() => setActiveSubScreen('cropData')}
+        activity={selectedActivityItem}
+        isViewOnly={isActivityViewOnly}
+        onBack={() => {
+          setSelectedActivityItem(undefined);
+          setIsActivityViewOnly(false);
+          setActiveSubScreen('cropData');
+        }}
+        onSuccess={(savedActivity) => {
+          if (savedActivity) {
+            setActivities((prev) => {
+              const idx = prev.findIndex((a) => a.id === savedActivity.id);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = savedActivity;
+                return next;
+              }
+              return [savedActivity, ...prev];
+            });
+          }
+          setSelectedActivityItem(undefined);
+          setIsActivityViewOnly(false);
+          setActiveSubScreen('cropData');
+        }}
       />
     );
   }
@@ -181,8 +260,29 @@ export function ProduceControlFlow({
   if (activeSubScreen === 'createEvent') {
     return (
       <CreateEventScreen
-        onBack={() => setActiveSubScreen('cropData')}
-        onSuccess={() => setActiveSubScreen('cropData')}
+        event={selectedEventItem}
+        isViewOnly={isEventViewOnly}
+        onBack={() => {
+          setSelectedEventItem(undefined);
+          setIsEventViewOnly(false);
+          setActiveSubScreen('cropData');
+        }}
+        onSuccess={(savedEvent) => {
+          if (savedEvent) {
+            setEvents((prev) => {
+              const idx = prev.findIndex((e) => e.id === savedEvent.id);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = savedEvent;
+                return next;
+              }
+              return [savedEvent, ...prev];
+            });
+          }
+          setSelectedEventItem(undefined);
+          setIsEventViewOnly(false);
+          setActiveSubScreen('cropData');
+        }}
       />
     );
   }

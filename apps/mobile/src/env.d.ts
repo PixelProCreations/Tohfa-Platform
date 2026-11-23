@@ -30,6 +30,10 @@ declare module 'react-native-safe-area-context' {
 }
 
 declare module '*/assets/images/products' {
+  export const productImages: Record<string, any>;
+  export const ProductImages: Record<string, any>;
+  export const categoryImages: Record<string, any>;
+  export const CategoryImages: Record<string, any>;
   const content: any;
   export default content;
 }

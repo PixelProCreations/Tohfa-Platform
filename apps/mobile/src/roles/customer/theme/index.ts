@@ -62,6 +62,7 @@ export const customerFonts: Record<string, any> = Object.assign(
     subheading: 'Manrope-Medium',
     body: 'Manrope-Regular',
     caption: 'Manrope-Regular',
+    editorial: 'Manrope-Bold',
   }
 );
 
@@ -79,6 +80,13 @@ export const customerShadow: Record<string, any> = {
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+  },
+  subtle: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 2,
   },
   md: {
     shadowColor: '#000',
@@ -109,6 +117,8 @@ export const customerShadow: Record<string, any> = {
     elevation: 0,
   },
 };
+
+export const customerColors = colors;
 
 export const theme = {
   colors,

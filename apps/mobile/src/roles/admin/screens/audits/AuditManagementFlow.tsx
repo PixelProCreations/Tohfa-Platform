@@ -17,7 +17,9 @@ export type AuditSubScreen =
   | 'historyCompliance'
   | 'generateReport'
   | 'reportsTierConfig'
-  | 'reportHistory';
+  | 'reportHistory'
+  | 'auditInspection'
+  | 'soilTesting';
 
 export interface AuditManagementFlowProps {
   can?: Can | undefined;
@@ -59,6 +61,38 @@ export function AuditManagementFlow({
         initialView="detail"
         initialAuditId={selectedAuditId}
         role={role}
+        can={can}
+        onBack={() => setCurrentScreen(detailsReturnScreen)}
+        onNavigateFarmerProfile={onOpenFarmerProfile}
+      />
+    );
+  }
+
+  // 1b. Direct Audit Inspection (12 sections)
+  if (currentScreen === 'auditInspection') {
+    return (
+      <AuditScheduleScreen
+        key={selectedAuditId}
+        initialView="audit_inspection"
+        initialAuditId={selectedAuditId}
+        role={role}
+        can={can}
+        onBack={() => setCurrentScreen(detailsReturnScreen)}
+        onNavigateFarmerProfile={onOpenFarmerProfile}
+      />
+    );
+  }
+
+  // 1c. Direct Soil Testing & Soil Report (Step 5)
+  if (currentScreen === 'soilTesting') {
+    return (
+      <AuditScheduleScreen
+        key={selectedAuditId}
+        initialView="inspection_step"
+        initialStep={5}
+        initialAuditId={selectedAuditId}
+        role={role}
+        can={can}
         onBack={() => setCurrentScreen(detailsReturnScreen)}
         onNavigateFarmerProfile={onOpenFarmerProfile}
       />
