@@ -96,12 +96,12 @@ export interface HistoryAuditItem {
   id: string;
   code: string;
   farmerName: string;
-  badge: 'Red flag' | 'Completed';
+  badge: 'Red flag' | 'Completed' | 'Scheduled' | 'In Progress' | 'Cancelled' | string;
   auditType: string;
   date: string;
   score: string;
   findings: string;
-  tier: string;
+  tier?: string;
 }
 
 export interface CorrectiveActionItem {
@@ -150,7 +150,7 @@ const AUDIT_TYPE_OPTIONS = [
 export function AuditHistoryComplianceScreen({
   onBack,
   onSelectAudit,
-  onSelectCorrectiveAction,
+  onSelectCorrectiveAction: _onSelectCorrectiveAction,
 }: AuditHistoryComplianceScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -166,33 +166,77 @@ export function AuditHistoryComplianceScreen({
   const [minScore, setMinScore] = useState('');
   const [maxScore, setMaxScore] = useState('');
 
-  // Sample Audit History Data matching Image 5
+  // Sample Audit History Data matching Image 4 with active states
   const auditList: HistoryAuditItem[] = [
     {
       id: '1',
-      code: 'AUD-2026-0038',
-      farmerName: 'Kumar',
-      badge: 'Red flag',
+      code: 'AUD-2026-0042',
+      farmerName: 'Ramesh Kumar',
+      badge: 'Not started',
       auditType: 'Internal',
-      date: '2 Sep 2026',
-      score: 'Score 68/100',
-      findings: '2 major, 3 minor',
-      tier: 'Tier not calculated',
+      date: '15 Oct 2026',
+      score: 'Score 0/100',
+      findings: 'Major 0 · Minor 1',
+      tier: '',
     },
     {
       id: '2',
-      code: 'AUD-2026-0055',
+      code: 'FV-2026-0018',
+      farmerName: 'Selvi',
+      badge: 'Not started',
+      auditType: 'Field Visit',
+      date: '08 Oct 2026',
+      score: 'Score 85/100',
+      findings: 'Major 0 · Minor 0',
+      tier: '',
+    },
+    {
+      id: '3',
+      code: 'AUD-2026-0039',
+      farmerName: 'Kumar',
+      badge: 'Pending',
+      auditType: 'External',
+      date: '20 Oct 2026',
+      score: 'Score 78/100',
+      findings: 'Major 0 · Minor 2',
+      tier: '',
+    },
+    {
+      id: '4',
+      code: 'AUD-2026-0049',
       farmerName: 'Meena',
       badge: 'Completed',
       auditType: 'Internal',
       date: '24 Sep 2026',
-      score: 'Score 90/100',
-      findings: '0 major, 1 minor',
-      tier: 'Tier not calculated',
+      score: 'Score 91/100',
+      findings: 'Major 0 · Minor 0',
+      tier: '',
+    },
+    {
+      id: '5',
+      code: 'AUD-2026-0053',
+      farmerName: 'Selvi',
+      badge: 'Not started',
+      auditType: 'Internal',
+      date: '15 Oct 2026',
+      score: 'Score 0/100',
+      findings: 'Major 0 · Minor 0',
+      tier: '',
+    },
+    {
+      id: '6',
+      code: 'AUD-2026-0052',
+      farmerName: 'Vijay',
+      badge: 'Pending',
+      auditType: 'External',
+      date: '08 Oct 2026',
+      score: 'Score 76/100',
+      findings: 'Major 1 · Minor 2',
+      tier: '',
     },
   ];
 
-  const correctiveActions: CorrectiveActionItem[] = [
+  const _correctiveActions: CorrectiveActionItem[] = [
     {
       id: 'ca1',
       code: 'CA-0032',
@@ -249,7 +293,7 @@ export function AuditHistoryComplianceScreen({
           </TouchableOpacity>
 
           <Text style={styles.headerTitle} numberOfLines={1}>
-            Audit History & Compliance
+            Audit History
           </Text>
 
           <TouchableOpacity
@@ -269,12 +313,12 @@ export function AuditHistoryComplianceScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Search Bar Matching Image 5 ── */}
+        {/* ── Search Bar Matching Image 4 ── */}
         <View style={styles.searchBarContainer}>
           <SearchIcon />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search audit or farmer"
+            placeholder="Farmer, Audit ID, Farm, Zone"
             placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -282,80 +326,52 @@ export function AuditHistoryComplianceScreen({
           />
         </View>
 
-        {/* ── Subtitle Count ── */}
-        <Text style={styles.countSubtitle}>32 completed · 1 red-flagged</Text>
-
-        {/* ── Audits List ── */}
+        {/* ── Audits List Matching Image 4 ── */}
         <View style={styles.auditsList}>
           {filteredAudits.map((item) => {
-            const isRedFlag = item.badge === 'Red flag';
+            const getBadgeColors = (badge: string) => {
+              const b = (badge || '').toLowerCase();
+              if (b.includes('completed')) {
+                return { bg: '#DEF7EC', text: '#15803D' };
+              }
+              if (b.includes('pending') || b.includes('progress')) {
+                return { bg: '#FEF3C7', text: '#D97706' };
+              }
+              if (b.includes('not started') || b.includes('scheduled')) {
+                return { bg: '#E0F2FE', text: '#0369A1' };
+              }
+              // Reschedule / Cancelled / Past scheduled date
+              return { bg: '#FEE2E2', text: '#DC2626' };
+            };
+            const badgeColor = getBadgeColors(item.badge);
+
             return (
               <TouchableOpacity
                 key={item.id}
-                style={[styles.auditCard, isRedFlag && styles.auditCardRedBorder]}
+                style={styles.auditCard}
                 onPress={() => onSelectAudit?.(item)}
                 activeOpacity={0.75}
               >
                 <View style={styles.auditCardTopRow}>
-                  <Text style={styles.auditCardTitle}>
-                    {item.code} · {item.farmerName}
-                  </Text>
+                  <Text style={styles.auditCardTitle}>{item.code}</Text>
 
-                  <View style={[styles.badgePill, isRedFlag ? styles.badgePillRed : styles.badgePillGreen]}>
-                    <Text style={[styles.badgeText, isRedFlag ? styles.badgeTextRed : styles.badgeTextGreen]}>
+                  <View style={[styles.badgePill, { backgroundColor: badgeColor.bg }]}>
+                    <Text style={[styles.badgeText, { color: badgeColor.text }]}>
                       {item.badge}
                     </Text>
                   </View>
                 </View>
 
                 <Text style={styles.auditCardSubtitle}>
-                  {item.auditType} · {item.date} · {item.score} · {item.findings} · {item.tier}
+                  {item.farmerName} · {item.auditType}
+                </Text>
+
+                <Text style={styles.auditCardMeta}>
+                  {item.date} · {item.findings} · {item.score}
                 </Text>
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        {/* ── Corrective Actions Section Matching Image 5 ── */}
-        <Text style={styles.sectionHeading}>Corrective actions</Text>
-        <View style={styles.correctiveActionsList}>
-          {correctiveActions.map((ca) => (
-            <TouchableOpacity
-              key={ca.id}
-              style={styles.correctiveActionCard}
-              onPress={() => onSelectCorrectiveAction?.(ca)}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.correctiveActionTitle}>
-                {ca.code} · {ca.fndCode}
-              </Text>
-
-              <View style={styles.badgePillWarning}>
-                <Text style={styles.badgeTextWarning}>{ca.badge}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* ── Red Flag Section Matching Image 5 ── */}
-        <Text style={styles.sectionHeading}>Red flag</Text>
-        <View style={styles.redFlagCard}>
-          <View style={styles.tableRow}>
-            <Text style={styles.tableLabel}>Status</Text>
-            <Text style={styles.statusFlaggedText}>Flagged</Text>
-          </View>
-          <View style={styles.tableDivider} />
-
-          <View style={styles.tableRow}>
-            <Text style={styles.tableLabel}>Set by</Text>
-            <Text style={styles.tableValue}>Priya Nair · 3 Sep 2026</Text>
-          </View>
-          <View style={styles.tableDivider} />
-
-          <View style={styles.tableRow}>
-            <Text style={styles.tableLabel}>Reason</Text>
-            <Text style={styles.tableValue}>Repeated major findings across 2 audits</Text>
-          </View>
         </View>
       </ScrollView>
 
@@ -716,10 +732,10 @@ const styles = StyleSheet.create({
   },
   auditCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    padding: adminSpacing.md,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E5E7EB',
     ...adminShadow.sm,
   },
   auditCardRedBorder: {
@@ -729,27 +745,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 2,
   },
   auditCardTitle: {
-    ...adminType.rowTitle,
-    fontSize: 13.5,
+    fontSize: 14.5,
     fontWeight: '800',
-    color: adminColors.ink,
+    color: '#111827',
   },
   auditCardSubtitle: {
-    ...adminType.caption,
-    fontSize: 11,
-    color: adminColors.muted,
-    lineHeight: 15,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 4,
+  },
+  auditCardMeta: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 4,
   },
 
   // Badges
   badgePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: adminRadius.full,
-    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
   },
   badgePillRed: {
     backgroundColor: adminColors.danger.bg,

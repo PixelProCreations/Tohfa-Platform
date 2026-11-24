@@ -1,7 +1,6 @@
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { adminColors } from '../../theme';
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,6 +13,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { InlineDatePicker, formatDisplay } from './ScheduleNewAuditScreen';
+import { ConfirmDialog } from '../warehouse/profile-settings/ProfileParts';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -157,12 +157,12 @@ function CheckmarkBoxIcon({ checked }: { checked: boolean }) {
   );
 }
 
-function CalendarIcon() {
+function CalendarIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"
-        stroke="#FFFFFF"
+        stroke={color}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -197,6 +197,7 @@ export function BulkRescheduleAuditsScreen({
     RESCHEDULE_REASONS[0] ?? 'Heavy Rainfall / Weather',
   );
   const [notifySms, setNotifySms] = useState<boolean>(true);
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
 
   const allSelected = selectedIds.length === DEFAULT_AUDITS.length;
 
@@ -224,40 +225,9 @@ export function BulkRescheduleAuditsScreen({
 
   function handleConfirmReschedule() {
     if (selectedIds.length === 0) {
-      Alert.alert('No Audits Selected', 'Please choose at least one audit to reschedule.');
       return;
     }
-
-    const dateTargetText =
-      dateMode === 'custom'
-        ? formatDisplay(customDay, customMonth, customYear)
-        : `+${selectedShift} days`;
-
-    Alert.alert(
-      'Confirm Bulk Reschedule',
-      `Reschedule ${selectedIds.length} audits to ${dateTargetText} due to "${selectedReason}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm Reschedule',
-          onPress: () => {
-            Alert.alert(
-              'Batch Reschedule Complete',
-              `Successfully updated ${selectedIds.length} audits to ${dateTargetText}. Automated notifications have been dispatched to farmers and auditors.`,
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    onSuccess?.(selectedIds.length);
-                    onBack();
-                  },
-                },
-              ],
-            );
-          },
-        },
-      ],
-    );
+    setShowConfirmModal(true);
   }
 
   return (
@@ -528,6 +498,21 @@ export function BulkRescheduleAuditsScreen({
 
         <View style={{ height: 48 }} />
       </ScrollView>
+
+      {/* ── Confirm Bulk Reschedule Modal Matching 2nd Design ── */}
+      <ConfirmDialog
+        visible={showConfirmModal}
+        title="Reschedule Audits?"
+        message={`Are you sure you want to reschedule ${selectedIds.length} audit${selectedIds.length > 1 ? 's' : ''} to ${dateMode === 'custom' ? formatDisplay(customDay, customMonth, customYear) : `+${selectedShift} days`} due to "${selectedReason}"?`}
+        confirmLabel="Reschedule"
+        icon={<CalendarIcon size={22} color={adminColors.brand} />}
+        onConfirm={() => {
+          setShowConfirmModal(false);
+          onSuccess?.(selectedIds.length);
+          onBack();
+        }}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </SafeAreaView>
   );
 }

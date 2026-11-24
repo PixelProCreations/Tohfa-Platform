@@ -23,6 +23,7 @@ const PALETTE = {
   ink:           adminColors.ink,
   labelMuted:    adminColors.muted,
   border:        adminColors.border,
+  divider:       adminColors.border,
   chipBorder:    adminColors.border,
   dateBadgeBg:   adminColors.brandTint,
   warningBg:     adminColors.warning.bg,

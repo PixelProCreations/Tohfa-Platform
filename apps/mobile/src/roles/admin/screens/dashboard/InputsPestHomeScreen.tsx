@@ -11,7 +11,6 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import {
   adminColors,
-  adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
@@ -141,8 +140,8 @@ export function InputsPestHomeScreen({
   onNavigatePestLibrary,
   onNavigateApplicationGuides,
   onNavigatePestIncidents,
-  onViewRecentIncident,
-  onOpenNotifications,
+  onViewRecentIncident: _onViewRecentIncident,
+  onOpenNotifications: _onOpenNotifications,
   onAddInput,
 }: InputsPestHomeScreenProps) {
   return (
@@ -222,11 +221,6 @@ export function InputsPestHomeScreen({
             onPress={onNavigateApplicationGuides}
           />
         </OverviewCardsGrid>
-
-        {/* ─── Footnote ─── */}
-        <Text style={styles.footnote}>
-          Inactive / Expired follows the configured status and expiry rules. Where a rule is not defined, the record count is shown without an inferred status.
-        </Text>
 
         {/* ─── Section 1: Input Catalog Activity ─── */}
         <View style={styles.sectionHeaderRow}>

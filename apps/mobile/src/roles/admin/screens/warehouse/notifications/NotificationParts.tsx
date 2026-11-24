@@ -12,11 +12,10 @@
  * (CLAUDE.md 2.1).
  */
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, type AdminTone } from '../../../theme';
-import { WalletButton } from '../wallet-cashtopup/WalletParts';
 import type {
   AlertRecordTarget,
   NotificationCategory,
@@ -471,46 +470,13 @@ export function CategoryBadge({ category, size = ICON_CHIP }: { category: Notifi
 
 // ─── Confirmation ────────────────────────────────────────────────────────────
 
+import { AdminConfirmDialog } from '../../../components/AdminConfirmDialog';
+
 /**
  * Centered confirmation card (the Main "Mark All Notifications as Read?" step).
- * Same pattern as CancelOrderScreen: no translucent scrim token exists, so the
- * backdrop is the solid canvas and the card is raised with adminShadow.lg.
+ * Uses AdminConfirmDialog with exact modal card design and dim scrim.
  */
-export function ConfirmDialog({
-  visible,
-  title,
-  message,
-  confirmLabel,
-  onConfirm,
-  onCancel,
-}: {
-  visible: boolean;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalCard}>
-          <View style={styles.modalHeader}>
-            <DoubleCheckIcon color={adminColors.brandDeep} />
-            <Text style={styles.modalTitle}>{title}</Text>
-          </View>
-          <View style={styles.modalMessageBox}>
-            <Text style={styles.modalMessage}>{message}</Text>
-          </View>
-          <View style={styles.modalActions}>
-            <WalletButton label={confirmLabel} onPress={onConfirm} />
-            <WalletButton label="Cancel" variant="neutral" onPress={onCancel} />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
+export const ConfirmDialog = AdminConfirmDialog;
 
 // Icon chip diameter: an icon size, not spacing.
 const ICON_CHIP = 42;

@@ -12304,8 +12304,6 @@ export function TohfaAdminDashboardScreen({
                       setCommunitySubScreen('home');
                     } else if (optionId === 'settings' || optionId === 'profile') {
                       setActiveTab('Settings');
-                    } else if (optionId === 'logout') {
-                      onSignOut?.();
                     }
                   }}
                 />

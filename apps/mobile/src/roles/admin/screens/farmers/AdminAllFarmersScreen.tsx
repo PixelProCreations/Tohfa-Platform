@@ -209,6 +209,7 @@ export interface FarmerListItem {
   rating?: number | string;
   ratingTier?: string;
   mobile?: string;
+  phone?: string;
   aadhaar?: string;
   memberSince?: string;
   subscription?: string;

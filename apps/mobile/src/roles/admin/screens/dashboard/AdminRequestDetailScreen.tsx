@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -15,18 +14,14 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
   adminOverlay,
-  adminRadius,
   adminShadow,
-  adminSpacing,
-  adminType,
-  ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
 import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
-  type AdminRoleType,
 } from './CreateAdminAccountScreen';
 import { type AdminAccountRequest } from './AdminRequestsApprovalScreen';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function CheckCircleIcon({ color = adminColors.success.text, size = 20 }: { color?: string; size?: number }) {
@@ -108,6 +103,15 @@ export function AdminRequestDetailScreen({
 }: AdminRequestDetailScreenProps) {
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [dialogState, setDialogState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const getRoleLabel = (r: 'SW' | 'FA' | 'MW' | 'TA' | 'SA' | string) => {
     switch (r) {
@@ -127,23 +131,28 @@ export function AdminRequestDetailScreen({
   };
 
   const handleApprove = () => {
-    Alert.alert(
-      'Approve Admin Request',
-      `Are you sure you want to approve ${request.candidateName} as ${getRoleLabel(request.requestedRole)}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Approve & Provision',
-          onPress: () => {
-            if (onApprove) {
-              onApprove(request.id);
-            }
-            Alert.alert('Account Approved', `Account for ${request.candidateName} has been provisioned and login SMS dispatched.`);
+    setDialogState({
+      visible: true,
+      title: 'Approve Admin Request?',
+      message: `Are you sure you want to approve ${request.candidateName} as ${getRoleLabel(request.requestedRole)}?`,
+      confirmLabel: 'Approve & Provision',
+      onConfirm: () => {
+        if (onApprove) {
+          onApprove(request.id);
+        }
+        setDialogState({
+          visible: true,
+          title: 'Account Approved',
+          message: `Account for ${request.candidateName} has been provisioned and login SMS dispatched.`,
+          confirmLabel: 'OK',
+          hideCancel: true,
+          onConfirm: () => {
+            setDialogState(null);
             onBack();
           },
-        },
-      ],
-    );
+        });
+      },
+    });
   };
 
   const confirmReject = () => {
@@ -151,8 +160,18 @@ export function AdminRequestDetailScreen({
     if (onReject) {
       onReject(request.id, rejectReason);
     }
-    Alert.alert('Request Rejected', `The request for ${request.candidateName} has been declined.`);
-    onBack();
+    setDialogState({
+      visible: true,
+      title: 'Request Rejected',
+      message: `The request for ${request.candidateName} has been declined.`,
+      confirmLabel: 'OK',
+      hideCancel: true,
+      destructive: true,
+      onConfirm: () => {
+        setDialogState(null);
+        onBack();
+      },
+    });
   };
 
   return (
@@ -341,6 +360,19 @@ export function AdminRequestDetailScreen({
           </View>
         </View>
       </Modal>
+
+      {dialogState && (
+        <AdminConfirmDialog
+          visible={dialogState.visible}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmLabel={dialogState.confirmLabel}
+          hideCancel={dialogState.hideCancel}
+          destructive={dialogState.destructive}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

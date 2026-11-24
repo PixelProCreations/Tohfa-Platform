@@ -9,7 +9,6 @@
 // Design id: M9-S03
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Modal,
   SafeAreaView,
@@ -23,6 +22,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { BackArrowIcon } from '../../../components/AdminIcons';
+import { AdminConfirmDialog } from '../../../components/AdminConfirmDialog';
 import type { Can } from '../../../permissions/can';
 import {
   ADMIN_BUTTON_HEIGHT,
@@ -48,7 +48,12 @@ import {
   SectionTitle,
 } from './BillingParts';
 import { SAMPLE_INVOICE_DETAIL } from './fixtures';
-import type { InvoiceDetailRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import type {
+  InvoiceDetailRecord,
+  WarehouseNavigate,
+  WarehouseScope,
+  WarehouseTab,
+} from './types';
 
 export interface InvoiceDetailData {
   id: string;
@@ -75,10 +80,12 @@ export interface InvoiceDetailData {
   };
 }
 
-export interface InvoiceDetailScreenProps extends Partial<WarehouseScreenBaseProps> {
+export interface InvoiceDetailScreenProps {
   onBack: () => void;
   scope?: WarehouseScope | undefined;
   can?: Can | undefined;
+  onNavigate?: WarehouseNavigate | undefined;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   invoiceId?: string | undefined;
   /** Detail record (warehouse) or GST invoice data (finance/sales). */
   invoice?: InvoiceDetailRecord | InvoiceDetailData | undefined;
@@ -151,13 +158,12 @@ function FinanceInvoiceDetail({
     amount: '₹3,300.00',
   };
 
+  const [intimateSuccessVisible, setIntimateSuccessVisible] = useState(false);
+
   const handleConfirmIntimate = () => {
     setShowIntimateModal(false);
     setIsIntimated(true);
-    Alert.alert(
-      'Payout Intimated',
-      `Payout ${payout.payoutId} for ${payout.farmerName} (${payout.amount}) has been intimated to Accounts & Finance.`,
-    );
+    setIntimateSuccessVisible(true);
   };
 
   const isCancelled = invoice.status === 'Cancelled';
@@ -311,6 +317,16 @@ function FinanceInvoiceDetail({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      <AdminConfirmDialog
+        visible={intimateSuccessVisible}
+        title="Payout Intimated"
+        message={`Payout ${payout.payoutId} for ${payout.farmerName} (${payout.amount}) has been intimated to Accounts & Finance.`}
+        confirmLabel="OK"
+        hideCancel
+        variant="brand"
+        onConfirm={() => setIntimateSuccessVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -375,7 +391,8 @@ function WarehouseInvoiceDetail({
     handlePdfDownload();
   };
 
-  const handleShare = () => (onShare ? onShare(invoiceId) : Alert.alert('Share', `Sharing ${invoiceId}...`));
+  const [shareDialogVisible, setShareDialogVisible] = useState(false);
+  const handleShare = () => (onShare ? onShare(invoiceId) : setShareDialogVisible(true));
 
   if (showPreview) {
     return (
@@ -555,6 +572,16 @@ function WarehouseInvoiceDetail({
           </View>
         ) : null}
       </ScrollView>
+
+      <AdminConfirmDialog
+        visible={shareDialogVisible}
+        title="Share Invoice"
+        message={`Sharing invoice ${invoiceId}...`}
+        confirmLabel="OK"
+        hideCancel
+        variant="brand"
+        onConfirm={() => setShareDialogVisible(false)}
+      />
     </BillingScreen>
   );
 }

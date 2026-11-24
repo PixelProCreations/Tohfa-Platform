@@ -902,6 +902,8 @@ export interface AuditScheduleScreenProps {
   | undefined;
   onNavigateFarmerProfile?: ((farmerId: string) => void) | undefined;
   onOpenNotifications?: (() => void) | undefined;
+  onOpenInspectionFindings?: ((auditId: string) => void) | undefined;
+  onCompleteAudit?: (() => void) | undefined;
 }
 
 export function AuditScheduleScreen({
@@ -917,6 +919,8 @@ export function AuditScheduleScreen({
   initialStep,
   onNavigateFarmerProfile,
   onOpenNotifications,
+  onOpenInspectionFindings,
+  onCompleteAudit,
 }: AuditScheduleScreenProps) {
   // Navigation views: 'calendar' | 'audit_details_m5' | 'pdf_viewer' | 'history' | 'audit_detail' | 'audit_report' | 'list' | 'filters' | 'detail' | 'schedule_visit' | 'inspection' | 'audit_inspection' | 'inspection_step'
   const [currentView, setCurrentView] = useState<
@@ -2597,11 +2601,13 @@ export function AuditScheduleScreen({
             <View style={styles.detailGridRow}>
               <View style={styles.detailGridCol}>
                 <Text style={styles.detailMetaLabel}>Previous Date</Text>
-                <Text style={styles.auditSummaryValBold}>15 Jul 2026</Text>
+                <Text style={styles.auditSummaryValBold}>{record.previousSummary?.date || '15 Jul 2026'}</Text>
               </View>
               <View style={styles.detailGridCol}>
                 <Text style={styles.detailMetaLabel}>Previous Score</Text>
-                <Text style={styles.auditSummaryValBold}>80/100</Text>
+                <Text style={styles.auditSummaryValBold}>
+                  {record.badge === 'Completed' ? (record.previousSummary?.score || '80/100') : '0/100'}
+                </Text>
               </View>
             </View>
           </View>
@@ -2618,10 +2624,27 @@ export function AuditScheduleScreen({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.outlineOrangeBtn, { marginTop: 12 }]}
+            style={[styles.primaryOrangeBtn, { marginTop: 12 }]}
             onPress={() => {
               setPreviousView('detail');
-              setCurrentView('inspection_findings');
+              setCurrentView('audit_inspection');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primaryOrangeBtnText}>
+              {record.badge === 'In Progress' || record.status === 'in_progress' ? 'Resume Audit' : 'Start Audit'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.outlineOrangeBtn, { marginTop: 12 }]}
+            onPress={() => {
+              if (onOpenInspectionFindings) {
+                onOpenInspectionFindings(record.id);
+              } else {
+                setPreviousView('detail');
+                setCurrentView('inspection_findings');
+              }
             }}
             activeOpacity={0.8}
           >
@@ -2679,14 +2702,22 @@ export function AuditScheduleScreen({
           setCurrentView('inspection_step');
         }}
         onBack={() => {
-          setCurrentView('inspection_findings');
+          if (onBack) {
+            onBack();
+          } else {
+            setCurrentView('history');
+          }
         }}
         onReviewSubmit={() => {
           Alert.alert(
             'Audit Inspection Submitted',
             `The audit inspection for ${record.id} has been successfully reviewed and submitted.`
           );
-          setCurrentView('detail');
+          if (onCompleteAudit) {
+            onCompleteAudit();
+          } else {
+            setCurrentView('history');
+          }
         }}
         onSaveDraft={() => {
           Alert.alert('Draft Saved', 'Audit inspection progress has been saved as draft.');

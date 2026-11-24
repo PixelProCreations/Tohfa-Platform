@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -66,7 +66,7 @@ function CloseIcon({ size = 20, color = adminColors.ink }: { size?: number; colo
   );
 }
 
-function ArrowLeftTriangleIcon({ size = 10, color = adminColors.muted }: { size?: number; color?: string }) {
+function _ArrowLeftTriangleIcon({ size = 10, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 10 10" fill="none">
       <Path d="M7 1.5L2.5 5L7 8.5V1.5Z" fill={color} />
@@ -74,7 +74,7 @@ function ArrowLeftTriangleIcon({ size = 10, color = adminColors.muted }: { size?
   );
 }
 
-function ArrowRightTriangleIcon({ size = 10, color = adminColors.muted }: { size?: number; color?: string }) {
+function _ArrowRightTriangleIcon({ size = 10, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 10 10" fill="none">
       <Path d="M3 1.5L7.5 5L3 8.5V1.5Z" fill={color} />
@@ -125,6 +125,32 @@ export const INSPECTION_CATEGORIES: InspectionCategoryItem[] = [
   { id: 10, name: '10. Innovation', maxScore: 10, score: 'Not scored', remarks: '—', evidence: 'none attached' },
 ];
 
+export const COMPLETED_INSPECTION_CATEGORIES: InspectionCategoryItem[] = [
+  { id: 1, name: '1. Certification', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 2, name: '2. Soil & Land', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 3, name: '3. Farming Practices', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '3 files' },
+  { id: 4, name: '4. Environmental', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 5, name: '5. Produce Quality', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '3 files' },
+  { id: 6, name: '6. Traceability', maxScore: 10, score: '9 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 7, name: '7. Social & Labor', maxScore: 10, score: '7 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 8, name: '8. Financial', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 9, name: '9. Market Relations', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '1 files' },
+  { id: 10, name: '10. Innovation', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+];
+
+export const PENDING_INSPECTION_CATEGORIES: InspectionCategoryItem[] = [
+  { id: 1, name: '1. Certification', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 2, name: '2. Soil & Land', maxScore: 10, score: '8 / 10', remarks: 'Completed', evidence: '2 files' },
+  { id: 3, name: '3. Farming Practices', maxScore: 10, score: 'In progress', remarks: 'In progress', evidence: '1 file' },
+  { id: 4, name: '4. Environmental', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+  { id: 5, name: '5. Produce Quality', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+  { id: 6, name: '6. Traceability', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+  { id: 7, name: '7. Social & Labor', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+  { id: 8, name: '8. Financial', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+  { id: 9, name: '9. Market Relations', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+  { id: 10, name: '10. Innovation', maxScore: 10, score: 'Not scored', remarks: 'Pending', evidence: 'none attached' },
+];
+
 export interface CertDocInfo {
   title: string;
   docId: string;
@@ -140,6 +166,9 @@ export interface CertDocInfo {
 
 export interface AuditDetailsFarmerRecordsScreenProps {
   auditId?: string | undefined;
+  status?: string | undefined;
+  farmerName?: string | undefined;
+  initialTab?: 'details' | 'inspection' | undefined;
   can?: Can | undefined;
   role?: string | undefined;
   onBack: () => void;
@@ -147,20 +176,113 @@ export interface AuditDetailsFarmerRecordsScreenProps {
   onReschedule?: (() => void) | undefined;
   onCancelSchedule?: (() => void) | undefined;
   onOpenFarmerProfile?: ((farmerId?: string) => void) | undefined;
+  onStartAudit?: (() => void) | undefined;
+  onResumeAudit?: (() => void) | undefined;
 }
 
 export function AuditDetailsFarmerRecordsScreen({
   auditId = 'AUD-2026-0034',
-  can,
-  role,
+  status = 'Completed',
+  farmerName,
+  initialTab = 'details',
+  can: _can,
+  role = 'SUPER_ADMIN',
   onBack,
   onEditSchedule,
-  onReschedule,
+  onReschedule: _onReschedule,
   onCancelSchedule,
   onOpenFarmerProfile,
+  onStartAudit,
+  onResumeAudit,
 }: AuditDetailsFarmerRecordsScreenProps) {
+  const roleName = role === 'TOHFA_ADMIN' ? 'TOHFA Admin' : 'Super Admin';
+
   // Top level segmented tabs
-  const [topTab, setTopTab] = useState<'details' | 'inspection'>('details');
+  const [topTab, setTopTab] = useState<'details' | 'inspection'>(initialTab);
+
+  useEffect(() => {
+    if (initialTab) {
+      setTopTab(initialTab);
+    }
+  }, [initialTab]);
+
+  const normStatus = (status || '').toLowerCase();
+  const isCompleted = normStatus.includes('completed') || auditId?.includes('0049') || auditId?.includes('0034');
+  const isPending = !isCompleted && (normStatus.includes('pending') || normStatus.includes('in progress') || normStatus.includes('in_progress') || auditId?.includes('0039'));
+  const _isNotStarted = !isCompleted && !isPending;
+
+  const auditMeta = React.useMemo(() => {
+    if (auditId?.includes('0053')) {
+      return {
+        farmerName: 'Selvi',
+        farmerId: 'FMR-00131',
+        farmingType: 'Organic',
+        yearsOrganic: '5',
+        zone: 'Coonoor, Zone A',
+        farmLocation: 'Coonoor farm · Zone A',
+        plot: 'PLT-00131-1',
+        scheduled: '15 Oct 2026, 10:00 · 120 min',
+        scheduledShort: '15 Oct 2026, 10:00',
+        auditor: 'S. Mohan',
+        certType: 'PGS Organic',
+        certStatus: 'Active',
+        registered: '14 Feb 2025',
+        contact: '+91 94432 10131',
+      };
+    }
+    if (auditId?.includes('0039')) {
+      return {
+        farmerName: 'Kumar',
+        farmerId: 'FMR-00098',
+        farmingType: 'Natural',
+        yearsOrganic: '3',
+        zone: 'Kotagiri, Zone B',
+        farmLocation: 'Kotagiri farm · Zone B',
+        plot: 'PLT-00098-1',
+        scheduled: '20 Oct 2026, 11:30 · 120 min',
+        scheduledShort: '20 Oct 2026, 11:30',
+        auditor: 'R. Devi',
+        certType: 'NPOP',
+        certStatus: 'Active',
+        registered: '10 Mar 2025',
+        contact: '+91 98840 55098',
+      };
+    }
+    if (auditId?.includes('0052')) {
+      return {
+        farmerName: 'Vijay',
+        farmerId: 'FMR-00152',
+        farmingType: 'Natural',
+        yearsOrganic: '4',
+        zone: 'Kotagiri, Zone C',
+        farmLocation: 'Kotagiri farm · Zone C',
+        plot: 'PLT-00152-1',
+        scheduled: '8 Oct 2026, 09:30 · 120 min',
+        scheduledShort: '8 Oct 2026, 09:30',
+        auditor: 'External agency',
+        certType: 'PGS Organic',
+        certStatus: 'Active',
+        registered: '05 May 2025',
+        contact: '+91 97721 44152',
+      };
+    }
+    return {
+      farmerName: farmerName || 'Meena',
+      farmerId: 'FMR-00177',
+      farmingType: 'Organic',
+      yearsOrganic: '5',
+      zone: 'Coonoor, Zone B',
+      farmLocation: 'Coonoor farm · Zone B',
+      plot: 'PLT-00177-1',
+      scheduled: '8 Oct 2026, 14:00 · 120 min',
+      scheduledShort: '8 Oct 2026, 14:00',
+      auditor: 'Priya Nair',
+      certType: 'PGS Organic',
+      certStatus: 'Verified',
+      registered: '10 Jan 2026',
+      contact: '+91 90000 20000',
+    };
+  }, [auditId, farmerName]);
 
   // Red-flag state matching Image 3, 4, 5
   const [showRedFlagModal, setShowRedFlagModal] = useState(false);
@@ -177,13 +299,13 @@ export function AuditDetailsFarmerRecordsScreen({
     if (docTitle.includes('FMB')) {
       setSelectedDoc({
         title: 'FMB Sketch',
-        docId: 'FMB-2026-00124',
+        docId: `FMB-2026-${auditMeta.farmerId.replace('FMR-', '')}`,
         category: 'Land & Plot Survey Document',
         status: 'Verified & On file',
         validFrom: '10 Jan 2024',
         validUntil: 'Perpetual / Active',
         issuingBody: 'Nilgiris District Land Revenue & Survey Office',
-        farmPlot: 'Plot PLT-00124-1 · Coonoor',
+        farmPlot: `Plot ${auditMeta.plot} · ${auditMeta.zone}`,
         fileSize: 'fmb-sketch-1.pdf (2.4 MB)',
       });
     } else if (docTitle.includes('External')) {
@@ -195,7 +317,7 @@ export function AuditDetailsFarmerRecordsScreen({
         validFrom: '24 Jul 2026',
         validUntil: '24 Jul 2027',
         issuingBody: 'AgriCert Co. Independent Audit Bureau',
-        farmPlot: 'All Coonoor plots · Zone A',
+        farmPlot: `All ${auditMeta.zone} plots`,
         fileSize: 'external-audit-report-jul2026.pdf (4.1 MB)',
       });
     } else {
@@ -203,12 +325,12 @@ export function AuditDetailsFarmerRecordsScreen({
         title: 'PGS Organic Certificate',
         docId: 'CERT-2026-300',
         category: 'Organic Farm Certification',
-        certType: 'PGS-India Green/Organic',
-        status: 'Expired (Renewal in queue)',
+        certType: auditMeta.certType,
+        status: auditMeta.certStatus,
         validFrom: '24 Sep 2025',
         validUntil: '24 Sep 2026',
         issuingBody: 'PGS-India Regional Council / Organic Certification Agency',
-        farmPlot: 'Demo plot, Coonoor · Zone A',
+        farmPlot: `${auditMeta.farmLocation}`,
         fileSize: 'pgs-organic-cert-2026.pdf (1.8 MB)',
       });
     }
@@ -221,7 +343,14 @@ export function AuditDetailsFarmerRecordsScreen({
       {/* ── Header Banner Matching Image 1 ── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7} accessibilityRole="button">
+          <TouchableOpacity
+            style={styles.headerBackBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
             <BackArrowIcon />
           </TouchableOpacity>
 
@@ -230,7 +359,9 @@ export function AuditDetailsFarmerRecordsScreen({
               {topTab === 'inspection' ? 'Audit Inspection & Findings' : 'Audit Details & Farmer Records'}
             </Text>
             <Text style={styles.headerSubtitle} numberOfLines={1}>
-              {topTab === 'inspection' ? 'Meena · Scheduled' : 'Selvi · Coonoor, Zone A · Scheduled'}
+              {topTab === 'inspection'
+                ? `${auditMeta.farmerName} · ${status}`
+                : `${auditMeta.farmerName} · ${auditMeta.zone} · ${status}`}
             </Text>
           </View>
 
@@ -257,8 +388,10 @@ export function AuditDetailsFarmerRecordsScreen({
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeaderRow}>
             <Text style={styles.summaryAuditId}>{auditId}</Text>
-            <View style={styles.statusBadgeScheduled}>
-              <Text style={styles.statusBadgeScheduledText}>Scheduled</Text>
+            <View style={status === 'Completed' ? styles.statusBadgeCompleted : styles.statusBadgeScheduled}>
+              <Text style={status === 'Completed' ? styles.statusBadgeCompletedText : styles.statusBadgeScheduledText}>
+                {status}
+              </Text>
             </View>
           </View>
 
@@ -270,25 +403,25 @@ export function AuditDetailsFarmerRecordsScreen({
 
           <View style={styles.tableRow}>
             <Text style={styles.tableLabel}>Scheduled</Text>
-            <Text style={styles.tableValue}>28 Oct 2026, 10:00</Text>
+            <Text style={styles.tableValue}>{auditMeta.scheduledShort}</Text>
           </View>
           <View style={styles.tableDivider} />
 
           <View style={styles.tableRow}>
             <Text style={styles.tableLabel}>Farmer</Text>
-            <Text style={styles.tableValue}>Meena · FMR-00177</Text>
+            <Text style={styles.tableValue}>{`${auditMeta.farmerName} · ${auditMeta.farmerId}`}</Text>
           </View>
           <View style={styles.tableDivider} />
 
           <View style={styles.tableRow}>
             <Text style={styles.tableLabel}>Farm / zone</Text>
-            <Text style={styles.tableValue}>PLT-00177-1 · Coonoor</Text>
+            <Text style={styles.tableValue}>{`${auditMeta.plot} · ${auditMeta.zone}`}</Text>
           </View>
           <View style={styles.tableDivider} />
 
           <View style={styles.tableRow}>
             <Text style={styles.tableLabel}>Assigned auditor</Text>
-            <Text style={styles.tableValue}>Priya Nair</Text>
+            <Text style={styles.tableValue}>{auditMeta.auditor}</Text>
           </View>
           <View style={styles.tableDivider} />
 
@@ -306,7 +439,7 @@ export function AuditDetailsFarmerRecordsScreen({
 
           <View style={styles.tableRow}>
             <Text style={styles.tableLabel}>Last updated</Text>
-            <Text style={styles.tableValue}>8 Oct 2026, 09:00 · Demo TOHFA Admin</Text>
+            <Text style={styles.tableValue}>8 Oct 2026, 09:00 · Demo {roleName}</Text>
           </View>
         </View>
 
@@ -342,7 +475,7 @@ export function AuditDetailsFarmerRecordsScreen({
               <View style={styles.cardContainer}>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Schedule</Text>
-                  <Text style={styles.tableValue}>16 Oct 2026, 10:00 · 120 min</Text>
+                  <Text style={styles.tableValue}>{auditMeta.scheduled}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
@@ -354,7 +487,7 @@ export function AuditDetailsFarmerRecordsScreen({
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Status</Text>
-                  <Text style={styles.tableValue}>Cancelled</Text>
+                  <Text style={styles.tableValue}>{status}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
@@ -372,7 +505,7 @@ export function AuditDetailsFarmerRecordsScreen({
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Lead auditor</Text>
-                  <Text style={styles.tableValue}>Priya Nair</Text>
+                  <Text style={styles.tableValue}>{auditMeta.auditor}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
@@ -396,41 +529,41 @@ export function AuditDetailsFarmerRecordsScreen({
               <View style={styles.cardContainer}>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Name</Text>
-                  <Text style={styles.tableValue}>Ramesh Kumar</Text>
+                  <Text style={styles.tableValue}>{auditMeta.farmerName}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Farmer ID</Text>
-                  <Text style={styles.tableValue}>FMR-00124</Text>
+                  <Text style={styles.tableValue}>{auditMeta.farmerId}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Farming type</Text>
-                  <Text style={styles.tableValue}>Natural</Text>
+                  <Text style={styles.tableValue}>{auditMeta.farmingType}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Zone</Text>
-                  <Text style={styles.tableValue}>Coonoor</Text>
+                  <Text style={styles.tableValue}>{auditMeta.zone}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Registered</Text>
-                  <Text style={styles.tableValue}>10 Jan 2026</Text>
+                  <Text style={styles.tableValue}>{auditMeta.registered}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Contact</Text>
-                  <Text style={styles.tableValue}>+91 90000 20000</Text>
+                  <Text style={styles.tableValue}>{auditMeta.contact}</Text>
                 </View>
 
                 <View style={styles.linksRow}>
-                  <TouchableOpacity onPress={() => onOpenFarmerProfile?.('FMR-00124')} activeOpacity={0.7}>
+                  <TouchableOpacity onPress={() => onOpenFarmerProfile?.(auditMeta.farmerId)} activeOpacity={0.7}>
                     <Text style={styles.boldBrownLink}>Open farmer profile</Text>
                   </TouchableOpacity>
 
@@ -449,7 +582,7 @@ export function AuditDetailsFarmerRecordsScreen({
               <View style={styles.cardContainer}>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Farm location</Text>
-                  <Text style={styles.tableValue}>Demo plot, Coonoor</Text>
+                  <Text style={styles.tableValue}>{auditMeta.farmLocation}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
@@ -460,14 +593,8 @@ export function AuditDetailsFarmerRecordsScreen({
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Plot PLT-00124-1</Text>
-                  <Text style={styles.tableValue}>1 acre</Text>
-                </View>
-                <View style={styles.tableDivider} />
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Plot PLT-00124-2</Text>
-                  <Text style={styles.tableValue}>0.5 acre</Text>
+                  <Text style={styles.tableLabel}>Plot {auditMeta.plot}</Text>
+                  <Text style={styles.tableValue}>1.5 acres</Text>
                 </View>
               </View>
               <Text style={styles.sectionCaption}>Land information is shown as recorded in Farmers Management.</Text>
@@ -480,7 +607,7 @@ export function AuditDetailsFarmerRecordsScreen({
               <View style={styles.cardContainer}>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Certification type</Text>
-                  <Text style={styles.tableValue}>PGS Organic</Text>
+                  <Text style={styles.tableValue}>{auditMeta.certType}</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
@@ -633,168 +760,177 @@ export function AuditDetailsFarmerRecordsScreen({
               <Text style={styles.sectionCaption}>Farmer records are read from Farmers Management. Audit evidence is attached during the inspection.</Text>
             </View>
 
-            {/* ── SECTION 7: Category Scores (Image 3) ── */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionHeading}>Category Scores</Text>
-              <View style={styles.cardContainer}>
-                {[
-                  { name: 'Certification & Compliance', score: '8/10' },
-                  { name: 'Soil & Land Management', score: '7/10' },
-                  { name: 'Farming Practices', score: '8/10' },
-                  { name: 'Environmental Sustainability', score: '7/10' },
-                  { name: 'Produce Quality & Yield', score: '8/10' },
-                  { name: 'Traceability & Transparency', score: '9/10' },
-                  { name: 'Social & Labor Practices', score: '7/10' },
-                  { name: 'Financial & Operational', score: '8/10' },
-                  { name: 'Market & Buyer Relations', score: '8/10' },
-                  { name: 'Innovation & Improvement', score: '8/10' },
-                ].map((item, idx, arr) => (
-                  <React.Fragment key={item.name}>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableLabel}>{item.name}</Text>
-                      <Text style={styles.tableValue}>{item.score}</Text>
+            {/* ── SECTIONS 7-10: Only shown when audit is completed ── */}
+            {isCompleted && (
+              <>
+                {/* ── SECTION 7: Category Scores (Image 3) ── */}
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionHeading}>Category Scores</Text>
+                  <View style={styles.cardContainer}>
+                    {[
+                      { name: 'Certification & Compliance', score: '8/10' },
+                      { name: 'Soil & Land Management', score: '7/10' },
+                      { name: 'Farming Practices', score: '8/10' },
+                      { name: 'Environmental Sustainability', score: '7/10' },
+                      { name: 'Produce Quality & Yield', score: '8/10' },
+                      { name: 'Traceability & Transparency', score: '9/10' },
+                      { name: 'Social & Labor Practices', score: '7/10' },
+                      { name: 'Financial & Operational', score: '8/10' },
+                      { name: 'Market & Buyer Relations', score: '8/10' },
+                      { name: 'Innovation & Improvement', score: '8/10' },
+                    ].map((item, idx, arr) => (
+                      <React.Fragment key={item.name}>
+                        <View style={styles.tableRow}>
+                          <Text style={styles.tableLabel}>{item.name}</Text>
+                          <Text style={styles.tableValue}>{item.score}</Text>
+                        </View>
+                        {idx < arr.length - 1 && <View style={styles.tableDivider} />}
+                      </React.Fragment>
+                    ))}
+                  </View>
+                </View>
+
+                {/* ── SECTION 8: Corrective actions (Image 3) ── */}
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionHeading}>Corrective actions</Text>
+                  <View style={styles.cardContainer}>
+                    <View style={styles.correctiveActionTopRow}>
+                      <Text style={styles.correctiveActionCode}>CA-2026-0001</Text>
+                      <View style={styles.closedBadge}>
+                        <Text style={styles.closedBadgeText}>Closed</Text>
+                      </View>
                     </View>
-                    {idx < arr.length - 1 && <View style={styles.tableDivider} />}
-                  </React.Fragment>
-                ))}
-              </View>
-            </View>
-
-            {/* ── SECTION 8: Corrective actions (Image 3) ── */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionHeading}>Corrective actions</Text>
-              <View style={styles.cardContainer}>
-                <View style={styles.correctiveActionTopRow}>
-                  <Text style={styles.correctiveActionCode}>CA-2026-0001</Text>
-                  <View style={styles.closedBadge}>
-                    <Text style={styles.closedBadgeText}>Closed</Text>
-                  </View>
-                </View>
-                <Text style={styles.correctiveActionMeta}>
-                  Audit AUD-2026-0001 · Finding FND-2026-0002
-                </Text>
-                <Text style={styles.correctiveActionMeta}>
-                  Correct: produce quality
-                </Text>
-                <Text style={styles.correctiveActionMeta}>
-                  Responsible Ramesh Kumar · Due 17 Feb 2026
-                </Text>
-                <Text style={styles.correctiveActionMeta}>
-                  Completion evidence completion-1.jpg
-                </Text>
-                <Text style={styles.correctiveActionMeta}>
-                  Review outcome Accepted · Closed 14 Feb 2026
-                </Text>
-              </View>
-            </View>
-
-            {/* ── SECTION 9: Red flag (Image 3) ── */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionHeading}>Red flag</Text>
-              <View style={styles.cardContainer}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Status</Text>
-                  <Text style={styles.tableValue}>{isFlagged ? 'Red-flagged' : 'Not flagged'}</Text>
-                </View>
-                <View style={styles.tableDivider} />
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Reason</Text>
-                  <Text style={styles.tableValue}>{isFlagged ? flagReason : '—'}</Text>
-                </View>
-                <View style={styles.tableDivider} />
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Action taken by</Text>
-                  <Text style={styles.tableValue}>TOHFA Admin</Text>
-                </View>
-                <View style={styles.tableDivider} />
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Timestamp</Text>
-                  <Text style={styles.tableValue}>14 Oct 2026, 10:00</Text>
-                </View>
-                <View style={styles.tableDivider} />
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Minor Findings</Text>
-                  <Text style={styles.tableValue}>1</Text>
-                </View>
-                <View style={styles.tableDivider} />
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Major findings</Text>
-                  <Text style={styles.tableValue}>0</Text>
-                </View>
-
-                {/* Log history cards */}
-                <View style={styles.redFlagHistoryCard}>
-                  <Text style={styles.redFlagHistoryMeta}>14 Oct 2026, 10:00 · TOHFA Admin</Text>
-                  <Text style={styles.redFlagHistoryTitle}>Red-flagged: Water ph not good</Text>
-                  <View style={styles.redFlagActionBtnRow}>
-                    <TouchableOpacity
-                      style={styles.flagEditBtn}
-                      onPress={() => setShowRedFlagModal(true)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.flagEditBtnText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.flagClearBtn}
-                      onPress={() => setIsFlagged(false)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.flagClearBtnText}>Clear flag</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.correctiveActionMeta}>
+                      Audit AUD-2026-0001 · Finding FND-2026-0002
+                    </Text>
+                    <Text style={styles.correctiveActionMeta}>
+                      Correct: produce quality
+                    </Text>
+                    <Text style={styles.correctiveActionMeta}>
+                      Responsible Ramesh Kumar · Due 17 Feb 2026
+                    </Text>
+                    <Text style={styles.correctiveActionMeta}>
+                      Completion evidence completion-1.jpg
+                    </Text>
+                    <Text style={styles.correctiveActionMeta}>
+                      Review outcome Accepted · Closed 14 Feb 2026
+                    </Text>
                   </View>
                 </View>
 
-                <View style={styles.redFlagHistoryCard}>
-                  <Text style={styles.redFlagHistoryMeta}>14 Oct 2026, 10:00 · TOHFA Admin</Text>
-                  <Text style={styles.redFlagHistoryTitle}>Red-flagged:</Text>
-                  <View style={styles.redFlagActionBtnRow}>
-                    <TouchableOpacity
-                      style={styles.flagEditBtn}
-                      onPress={() => setShowRedFlagModal(true)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.flagEditBtnText}>Edit</Text>
-                    </TouchableOpacity>
+                {/* ── SECTION 9: Red flag (Image 3) ── */}
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionHeading}>Red flag</Text>
+                  <View style={styles.cardContainer}>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Status</Text>
+                      <Text style={styles.tableValue}>{isFlagged ? 'Red-flagged' : 'Not flagged'}</Text>
+                    </View>
+                    <View style={styles.tableDivider} />
+
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Reason</Text>
+                      <Text style={styles.tableValue}>{isFlagged ? flagReason : '—'}</Text>
+                    </View>
+                    <View style={styles.tableDivider} />
+
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Action taken by</Text>
+                      <Text style={styles.tableValue}>{roleName}</Text>
+                    </View>
+                    <View style={styles.tableDivider} />
+
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Timestamp</Text>
+                      <Text style={styles.tableValue}>14 Oct 2026, 10:00</Text>
+                    </View>
+                    <View style={styles.tableDivider} />
+
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Minor Findings</Text>
+                      <Text style={styles.tableValue}>1</Text>
+                    </View>
+                    <View style={styles.tableDivider} />
+
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Major findings</Text>
+                      <Text style={styles.tableValue}>0</Text>
+                    </View>
+
+                    {/* Log history cards matching Image */}
+                    <View style={styles.redFlagHistoryCard}>
+                      <View style={styles.redFlagCardLeftCol}>
+                        <Text style={styles.redFlagHistoryMeta}>14 Oct 2026, 10:00 · {roleName}</Text>
+                        <Text style={styles.redFlagHistoryTitle}>Red-flagged: Water ph not good</Text>
+                      </View>
+                      <View style={styles.redFlagActionBtnRow}>
+                        <TouchableOpacity
+                          style={styles.flagEditBtn}
+                          onPress={() => setShowRedFlagModal(true)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.flagEditBtnText}>Edit</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.flagClearBtn}
+                          onPress={() => setIsFlagged(false)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.flagClearBtnText}>Clear flag</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.redFlagHistoryCard}>
+                      <View style={styles.redFlagCardLeftCol}>
+                        <Text style={styles.redFlagHistoryMeta}>14 Oct 2026, 10:00 · {roleName}</Text>
+                        <Text style={styles.redFlagHistoryTitle}>Red-flagged:</Text>
+                      </View>
+                      <View style={styles.redFlagActionBtnRow}>
+                        <TouchableOpacity
+                          style={styles.flagEditBtn}
+                          onPress={() => setShowRedFlagModal(true)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.flagEditBtnText}>Edit</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.redFlagDashedBtn}
+                    onPress={() => setShowRedFlagModal(true)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.redFlagDashedBtnText}>Red-flag Audit</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* ── SECTION 10: Activity (Image 4) ── */}
+                <View style={styles.sectionBlock}>
+                  <Text style={styles.sectionHeading}>Activity</Text>
+                  <View style={styles.activityList}>
+                    <View style={styles.activityCard}>
+                      <Text style={styles.activityMeta}>14 Oct 2026, 10:00 · Demo {roleName}</Text>
+                      <Text style={styles.activityState}>Cancelled</Text>
+                      <Text style={styles.activityNote}>hihhvih</Text>
+                    </View>
+
+                    <View style={styles.activityCard}>
+                      <Text style={styles.activityMeta}>26 Sep 2026, 09:00 · Demo {roleName}</Text>
+                      <Text style={styles.activityState}>Scheduled</Text>
+                      <Text style={styles.activityNote}>Audit scheduled for 16 Oct 2026</Text>
+                    </View>
+
+                    <View style={styles.historyNoticeCard}>
+                      <LockHistoryIcon />
+                      <Text style={styles.historyNoticeText}>The history is append-only.</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-
-              <TouchableOpacity
-                style={styles.redFlagDashedBtn}
-                onPress={() => setShowRedFlagModal(true)}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.redFlagDashedBtnText}>Red-flag Audit</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── SECTION 10: Activity (Image 4) ── */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionHeading}>Activity</Text>
-              <View style={styles.activityList}>
-                <View style={styles.activityCard}>
-                  <Text style={styles.activityMeta}>14 Oct 2026, 10:00 · Demo TOHFA Admin</Text>
-                  <Text style={styles.activityState}>Cancelled</Text>
-                  <Text style={styles.activityNote}>hihhvih</Text>
-                </View>
-
-                <View style={styles.activityCard}>
-                  <Text style={styles.activityMeta}>26 Sep 2026, 09:00 · Demo TOHFA Admin</Text>
-                  <Text style={styles.activityState}>Scheduled</Text>
-                  <Text style={styles.activityNote}>Audit scheduled for 16 Oct 2026</Text>
-                </View>
-
-                <View style={styles.historyNoticeCard}>
-                  <LockHistoryIcon />
-                  <Text style={styles.historyNoticeText}>The history is append-only.</Text>
-                </View>
-              </View>
-            </View>
+              </>
+            )}
           </>
         ) : (
           /* ── INSPECTION & FINDINGS TAB CONTENT (Images 1 - 4) ── */
@@ -809,7 +945,7 @@ export function AuditDetailsFarmerRecordsScreen({
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Farmer and farm</Text>
-                <Text style={styles.tableValue}>Meena · PLT-00177-1</Text>
+                <Text style={styles.tableValue}>{`${auditMeta.farmerName} · ${auditMeta.plot}`}</Text>
               </View>
               <View style={styles.tableDivider} />
 
@@ -821,31 +957,30 @@ export function AuditDetailsFarmerRecordsScreen({
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Audit date</Text>
-                <Text style={styles.tableValue}>28 Oct 2026</Text>
+                <Text style={styles.tableValue}>{auditMeta.scheduledShort}</Text>
               </View>
               <View style={styles.tableDivider} />
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Lead auditor</Text>
-                <Text style={styles.tableValue}>Priya Nair</Text>
+                <Text style={styles.tableValue}>{auditMeta.auditor}</Text>
               </View>
               <View style={styles.tableDivider} />
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Status</Text>
-                <Text style={styles.tableValue}>Scheduled</Text>
+                <Text style={styles.tableValue}>
+                  {isCompleted ? 'Completed' : isPending ? 'Pending' : 'Not started'}
+                </Text>
               </View>
             </View>
 
             {/* 2. Categories Section (10 x 10 points) Matching Images 1, 2, 3 */}
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionHeading}>Categories (10 × 10 points)</Text>
-              <Text style={styles.sectionCaption}>
-                Checklist questions come from the approved checklist, which was not supplied, so none are shown or invented. Scores are whole numbers from 0 to 10 (to confirm).
-              </Text>
 
               <View style={styles.categoriesList}>
-                {INSPECTION_CATEGORIES.map((cat) => (
+                {(isCompleted ? COMPLETED_INSPECTION_CATEGORIES : isPending ? PENDING_INSPECTION_CATEGORIES : INSPECTION_CATEGORIES).map((cat) => (
                   <View key={cat.id} style={styles.categoryCard}>
                     <View style={styles.categoryCardTopRow}>
                       <Text style={styles.categoryCardTitle}>{cat.name}</Text>
@@ -855,26 +990,41 @@ export function AuditDetailsFarmerRecordsScreen({
 
                     <View style={styles.tableRow}>
                       <Text style={styles.tableLabel}>Score</Text>
-                      <Text style={styles.tableValue}>{cat.score}</Text>
+                      <Text style={[styles.tableValue, { fontWeight: '700' }]}>{cat.score}</Text>
                     </View>
                     <View style={styles.categoryDashedDivider} />
 
                     <View style={styles.tableRow}>
                       <Text style={styles.tableLabel}>Remarks</Text>
-                      <Text style={styles.tableValue}>{cat.remarks}</Text>
+                      {cat.remarks === 'Completed' ? (
+                        <View style={styles.completedBadgePill}>
+                          <Text style={styles.completedBadgeText}>Completed</Text>
+                        </View>
+                      ) : cat.remarks === 'In progress' ? (
+                        <View style={[styles.completedBadgePill, { backgroundColor: '#FEF3C7' }]}>
+                          <Text style={[styles.completedBadgeText, { color: '#D97706' }]}>In progress</Text>
+                        </View>
+                      ) : (
+                        <Text style={styles.tableValue}>{cat.remarks}</Text>
+                      )}
                     </View>
                     <View style={styles.categoryDashedDivider} />
 
-                    <Text style={styles.categoryEvidenceText}>Evidence: {cat.evidence}</Text>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>Evidence:</Text>
+                      <Text style={[styles.tableValue, { fontWeight: '700' }]}>{cat.evidence}</Text>
+                    </View>
                   </View>
                 ))}
               </View>
             </View>
 
-            {/* 3. Findings and Violations Section Matching Image 4 */}
+            {/* 3. Findings and Violations Section Matching Image 3 */}
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionHeading}>Findings and violations</Text>
-              <Text style={styles.sectionCaption}>No finding is logged.</Text>
+              <Text style={styles.sectionCaption}>
+                {isCompleted || isPending ? 'Minor observation noted.' : 'No finding is logged.'}
+              </Text>
 
               <View style={styles.metricTilesRow}>
                 <View style={styles.metricTile}>
@@ -884,81 +1034,107 @@ export function AuditDetailsFarmerRecordsScreen({
 
                 <View style={styles.metricTile}>
                   <Text style={styles.metricTileTitle}>Minor findings</Text>
-                  <Text style={styles.metricTileValue}>0</Text>
+                  <Text style={styles.metricTileValue}>{isCompleted ? '1' : isPending ? '1' : '0'}</Text>
                 </View>
               </View>
             </View>
 
-            {/* 4. Audit Summary Section Matching Image 4 */}
+            {/* 4. Audit Summary Section Matching Image 3 */}
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionHeading}>Audit summary</Text>
 
               <View style={styles.cardContainer}>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Total score</Text>
-                  <Text style={styles.tableValue}>0 / 100</Text>
+                  <Text style={[styles.tableValue, { fontWeight: '700' }]}>
+                    {isCompleted ? '78 / 100' : isPending ? '16 / 100' : '0 / 100'}
+                  </Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Categories scored</Text>
-                  <Text style={styles.tableValue}>0 of 10</Text>
+                  <Text style={[styles.tableValue, { fontWeight: '700' }]}>
+                    {isCompleted ? '10 of 10' : isPending ? '2 of 10' : '0 of 10'}
+                  </Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Major findings</Text>
-                  <Text style={styles.tableValue}>0</Text>
+                  <Text style={[styles.tableValue, { fontWeight: '700' }]}>0</Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Minor findings</Text>
-                  <Text style={styles.tableValue}>0</Text>
+                  <Text style={[styles.tableValue, { fontWeight: '700' }]}>
+                    {isCompleted ? '1' : isPending ? '1' : '0'}
+                  </Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Evidence count</Text>
-                  <Text style={styles.tableValue}>0</Text>
+                  <Text style={[styles.tableValue, { fontWeight: '700' }]}>
+                    {isCompleted ? '21' : isPending ? '5' : '0'}
+                  </Text>
                 </View>
                 <View style={styles.tableDivider} />
 
                 <View style={styles.tableRow}>
                   <Text style={styles.tableLabel}>Compliance tier</Text>
-                  <Text style={styles.tableValue}>After finalizing</Text>
+                  {isCompleted ? (
+                    <View style={styles.completedBadgePill}>
+                      <Text style={styles.completedBadgeText}>Completed</Text>
+                    </View>
+                  ) : isPending ? (
+                    <View style={[styles.completedBadgePill, { backgroundColor: '#FEF3C7' }]}>
+                      <Text style={[styles.completedBadgeText, { color: '#D97706' }]}>In Progress</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.tableValue}>Not started</Text>
+                  )}
                 </View>
               </View>
             </View>
+
           </View>
         )}
       </ScrollView>
 
-      {/* ── Bottom Action Buttons Matching Images ── */}
+      {/* ── Bottom Action Buttons Matching Image ── */}
       {topTab === 'details' && (
         <View style={styles.bottomBar}>
           <TouchableOpacity
             style={styles.editScheduleBtn}
-            onPress={onEditSchedule}
+            onPress={onEditSchedule || onStartAudit}
             activeOpacity={0.8}
           >
-            <Text style={styles.editScheduleBtnText}>Edit schedule</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.rescheduleBtn}
-            onPress={onReschedule}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.rescheduleBtnText}>Reschedule</Text>
+            <Text style={styles.editScheduleBtnText}>Edit upcoming Audit schedule</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.cancelBtn}
-            onPress={onCancelSchedule}
+            onPress={onCancelSchedule || onBack}
             activeOpacity={0.8}
           >
             <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {topTab === 'inspection' && !isCompleted && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[styles.editScheduleBtn, { flex: 1 }]}
+            onPress={isPending ? onResumeAudit || onStartAudit : onStartAudit}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <Text style={styles.editScheduleBtnText}>
+              {isPending ? 'Resume Audit' : 'Start Audit'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -1230,7 +1406,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: adminSpacing.md,
     paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xl * 2,
+    paddingBottom: 110,
   },
 
   // Summary Card (Image 2)
@@ -1266,6 +1442,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: adminColors.info.text,
+  },
+  statusBadgeCompleted: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusBadgeCompletedText: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.success.text,
   },
   tableRow: {
     flexDirection: 'row',
@@ -1613,11 +1801,36 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     marginVertical: 4,
   },
+  completedBadgePill: {
+    backgroundColor: '#DEF7EC',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    alignSelf: 'flex-start',
+  },
+  completedBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0E9F6E',
+  },
   categoryEvidenceText: {
     ...adminType.caption,
     fontSize: 11,
     color: adminColors.muted,
     paddingTop: 4,
+  },
+  primaryActionButton: {
+    backgroundColor: adminColors.brand,
+    height: 48,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  primaryActionButtonText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.onBrand,
   },
   metricTilesRow: {
     flexDirection: 'row',
@@ -1654,55 +1867,41 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
     flexDirection: 'row',
-    columnGap: 8,
+    alignItems: 'center',
+    columnGap: 12,
   },
   editScheduleBtn: {
-    flex: 1.2,
-    height: 44,
+    flex: 1.8,
+    height: 48,
     borderRadius: adminRadius.md,
     backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   editScheduleBtnText: {
     ...adminType.rowTitle,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
     color: adminColors.onBrand,
   },
-  rescheduleBtn: {
-    flex: 1.1,
-    height: 44,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rescheduleBtnText: {
-    ...adminType.rowTitle,
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.brandDeep,
-  },
   cancelBtn: {
-    flex: 0.9,
-    height: 44,
+    flex: 1,
+    height: 48,
     borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.danger.text,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
     backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
     ...adminType.rowTitle,
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: adminColors.danger.text,
+    color: adminColors.ink,
   },
 
   // Modal Styles
@@ -1890,8 +2089,16 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm + 2,
     marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  redFlagCardLeftCol: {
+    flex: 1,
+    marginRight: 8,
   },
   redFlagHistoryMeta: {
     ...adminType.caption,
@@ -1909,15 +2116,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: 8,
-    marginTop: 6,
   },
   flagEditBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderWidth: 1,
+    paddingVertical: 5,
+    paddingHorizontal: 16,
+    borderWidth: 1.2,
     borderColor: adminColors.border,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flagEditBtnText: {
     ...adminType.caption,
@@ -1926,10 +2134,12 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   flagClearBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    backgroundColor: adminColors.brandDeep,
+    paddingVertical: 5,
+    paddingHorizontal: 16,
+    backgroundColor: '#E05A2B',
     borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flagClearBtnText: {
     ...adminType.caption,

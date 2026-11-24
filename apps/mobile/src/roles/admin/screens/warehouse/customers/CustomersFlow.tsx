@@ -33,6 +33,10 @@ import { CUSTOMER_WAREHOUSES } from './fixtures';
 import { OrderFiltersScreen } from './OrderFiltersScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
 import { SupportHistoryScreen } from './SupportHistoryScreen';
+import { WalletFlow, walletParamsForCustomer } from '../wallet-cashtopup';
+import { SalesFlow } from '../sales-direct';
+import { OrdersFlow } from '../orders';
+import { ReturnsFlow } from '../returns-rma';
 import type {
   CustomerRef,
   CustomersExternalRoute,
@@ -130,9 +134,11 @@ export function CustomersFlow({
   const navigate = (screen: CustomersRoute | CustomersExternalRoute, nextParams?: CustomersRouteParams) => {
     // Carry the customer in focus forward unless the caller names another.
     const merged: CustomersRouteParams = { customer, ...nextParams };
-    if (isExternal(screen) && !(renderExternalScreen && inlineExternalRoutes.includes(screen))) {
-      onOpenExternal?.(screen, merged);
-      return;
+    if (isExternal(screen)) {
+      if (onOpenExternal && !(renderExternalScreen && inlineExternalRoutes.includes(screen))) {
+        onOpenExternal(screen, merged);
+        return;
+      }
     }
     setStack((prev) => [...prev, { screen, params: merged }]);
   };
@@ -151,7 +157,56 @@ export function CustomersFlow({
   const common = { scope, can, onBack: back, onTabChange };
 
   if (isExternal(current.screen)) {
-    return <>{renderExternalScreen?.(current.screen, params, { back, open: navigate }) ?? null}</>;
+    const custom = renderExternalScreen?.(current.screen, params, { back, open: navigate });
+    if (custom) return <>{custom}</>;
+
+    if (current.screen === 'CustomerWallet' || current.screen === 'CashTopUp') {
+      return (
+        <WalletFlow
+          scope={scope}
+          can={can}
+          initialScreen={current.screen}
+          initialParams={customer ? walletParamsForCustomer(customer) : undefined}
+          onBack={back}
+          onTabChange={onTabChange}
+        />
+      );
+    }
+    if (current.screen === 'NewSale') {
+      return (
+        <SalesFlow
+          scope={scope}
+          can={can}
+          role={scope.warehouseId ? 'SUB_WH_ADMIN' : 'MAIN_WH_ADMIN'}
+          initialScreen="NewSale"
+          initialParams={{ customerName: customer?.name, customerCode: customer?.code ?? customer?.id }}
+          onBack={back}
+          onTabChange={onTabChange}
+        />
+      );
+    }
+    if (current.screen === 'OrderDetail') {
+      return (
+        <OrdersFlow
+          scope={scope}
+          can={can}
+          initialScreen="M5S04"
+          initialParams={{ orderId: params.order?.orderNo ?? params.orderNo, customerName: customer?.name }}
+          onBack={back}
+        />
+      );
+    }
+    if (current.screen === 'RmaDetail') {
+      return (
+        <ReturnsFlow
+          scope={scope}
+          can={can}
+          initialScreen="ReturnsIssues"
+          onBack={back}
+        />
+      );
+    }
+    return null;
   }
 
   switch (current.screen) {

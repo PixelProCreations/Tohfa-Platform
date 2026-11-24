@@ -20,6 +20,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { ConfirmDialog } from '../warehouse/profile-settings/ProfileParts';
 
 // ─── Header & Lock Icons ───────────────────────────────────────────────────────
 
@@ -54,27 +55,56 @@ function ChevronDownIcon({ size = 16, color = adminColors.muted }: { size?: numb
   );
 }
 
+function CalendarConfirmIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export interface ScheduleAuditFormScreenProps {
-  initialAuditId?: string;
+  initialAuditId?: string | undefined;
+  initialFarmer?: string | undefined;
+  initialFarm?: string | undefined;
+  initialAuditor?: string | undefined;
+  previousDate?: string | undefined;
+  mode?: 'schedule' | 'reschedule' | undefined;
   onBack: () => void;
-  onScheduleSuccess?: () => void;
-  onSaveDraft?: () => void;
+  onScheduleSuccess?: (() => void) | undefined;
+  onSaveDraft?: (() => void) | undefined;
 }
 
 export function ScheduleAuditFormScreen({
   initialAuditId = 'AUD-2026-0043',
+  initialFarmer,
+  initialFarm,
+  initialAuditor,
+  previousDate,
+  mode = 'schedule',
   onBack,
   onScheduleSuccess,
   onSaveDraft,
 }: ScheduleAuditFormScreenProps) {
+  const isReschedule = mode === 'reschedule' || Boolean(previousDate);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [auditId] = useState(initialAuditId);
-  const [date, setDate] = useState('20/10/2026');
+  const [date, setDate] = useState(isReschedule ? '25/10/2026' : '20/10/2026');
   const [startTime, setStartTime] = useState('10:00 AM');
   const [duration, setDuration] = useState('120');
+  const [rescheduleReason, setRescheduleReason] = useState('');
 
-  const [selectedFarmer, setSelectedFarmer] = useState('Lakshmi (FMR-00203)');
-  const [selectedFarm, setSelectedFarm] = useState('Lakshmi Farm house · Coonoor, Zone A');
-  const [selectedAuditor, setSelectedAuditor] = useState('R. Devi');
+  const [selectedFarmer, setSelectedFarmer] = useState(
+    initialFarmer || (initialAuditId.includes('0042') ? 'Ramesh Kumar (FMR-00124)' : initialAuditId.includes('0053') ? 'Selvi (FMR-00131)' : initialAuditId.includes('0052') ? 'Vijay Anand (FMR-00152)' : 'Lakshmi (FMR-00203)')
+  );
+  const [selectedFarm, setSelectedFarm] = useState(
+    initialFarm || (initialAuditId.includes('0042') ? 'Ooty Farm 01 · Zone B' : initialAuditId.includes('0053') ? 'Selvi village farm · Coonoor, Zone A' : initialAuditId.includes('0052') ? 'Kotagiri farm · Zone C' : 'Lakshmi Farm house · Coonoor, Zone A')
+  );
+  const [selectedAuditor, setSelectedAuditor] = useState(
+    initialAuditor || (initialAuditId.includes('0053') ? 'S. Mohan (Certification Officer)' : 'R. Devi (Lead Auditor)')
+  );
 
   // Dropdown Modal Picker State
   const [pickerModal, setPickerModal] = useState<{
@@ -117,7 +147,7 @@ export function ScheduleAuditFormScreen({
           <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7} accessibilityRole="button">
             <BackArrowIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Schedule Audit</Text>
+          <Text style={styles.headerTitle}>{isReschedule ? 'Reschedule Audit' : 'Schedule Audit'}</Text>
         </View>
       </View>
 
@@ -142,10 +172,22 @@ export function ScheduleAuditFormScreen({
             </View>
           </View>
 
+          {/* Previous Date (when rescheduling) */}
+          {isReschedule && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Previous Scheduled Date</Text>
+              <View style={[styles.disabledInput, { backgroundColor: '#F3F4F6' }]}>
+                <Text style={[styles.disabledInputText, { color: adminColors.ink, fontWeight: '600' }]}>
+                  {previousDate || '15 Oct 2026, 10:00'}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Date & Start Time 2-Column Row */}
           <View style={styles.twoColRow}>
             <View style={styles.colHalf}>
-              <Text style={styles.fieldLabel}>Date *</Text>
+              <Text style={styles.fieldLabel}>{isReschedule ? 'New Date *' : 'Date *'}</Text>
               <TextInput
                 style={styles.textInput}
                 value={date}
@@ -156,7 +198,7 @@ export function ScheduleAuditFormScreen({
             </View>
 
             <View style={styles.colHalf}>
-              <Text style={styles.fieldLabel}>Start time *</Text>
+              <Text style={styles.fieldLabel}>{isReschedule ? 'New Start Time *' : 'Start time *'}</Text>
               <TextInput
                 style={styles.textInput}
                 value={startTime}
@@ -179,6 +221,19 @@ export function ScheduleAuditFormScreen({
               placeholderTextColor={adminColors.placeholder}
             />
           </View>
+
+          {isReschedule && (
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Reason for Rescheduling</Text>
+              <TextInput
+                style={styles.textInput}
+                value={rescheduleReason}
+                onChangeText={setRescheduleReason}
+                placeholder="e.g. Farmer requested postponement / Weather delay"
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+          )}
 
           {/* ── 2 · Farmer & Farm ── */}
           <Text style={styles.sectionHeaderTitle}>2 · Farmer & farm</Text>
@@ -261,10 +316,12 @@ export function ScheduleAuditFormScreen({
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.scheduleAuditBtn}
-          onPress={onScheduleSuccess || onBack}
+          onPress={() => setShowConfirmModal(true)}
           activeOpacity={0.8}
         >
-          <Text style={styles.scheduleAuditBtnText}>Schedule Audit</Text>
+          <Text style={styles.scheduleAuditBtnText}>
+            {isReschedule ? 'Reschedule Audit' : 'Schedule Audit'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -272,7 +329,9 @@ export function ScheduleAuditFormScreen({
           onPress={onSaveDraft || onBack}
           activeOpacity={0.8}
         >
-          <Text style={styles.saveDraftBtnText}>Save Draft</Text>
+          <Text style={styles.saveDraftBtnText}>
+            {isReschedule ? 'Cancel' : 'Save Draft'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -318,6 +377,25 @@ export function ScheduleAuditFormScreen({
           </View>
         </View>
       </Modal>
+
+      {/* ── Confirm Reschedule / Schedule Modal Matching 2nd Design ── */}
+      <ConfirmDialog
+        visible={showConfirmModal}
+        title={isReschedule ? 'Reschedule Audit?' : 'Schedule Audit?'}
+        message={
+          isReschedule
+            ? `Are you sure you want to reschedule audit ${auditId} to ${date} at ${startTime}?`
+            : `Are you sure you want to schedule this audit for ${date} at ${startTime}?`
+        }
+        confirmLabel={isReschedule ? 'Reschedule' : 'Confirm'}
+        icon={<CalendarConfirmIcon size={22} color={adminColors.brand} />}
+        onConfirm={() => {
+          setShowConfirmModal(false);
+          if (onScheduleSuccess) onScheduleSuccess();
+          else onBack();
+        }}
+        onCancel={() => setShowConfirmModal(false)}
+      />
     </SafeAreaView>
   );
 }

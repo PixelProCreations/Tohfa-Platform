@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   FlatList,
   SafeAreaView,
   StatusBar,
@@ -9,20 +8,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import {
   adminColors,
-  adminOverlay,
-  adminRadius,
   adminShadow,
-  adminSpacing,
-  adminType,
-  ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
 import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
 } from './CreateAdminAccountScreen';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function CheckIcon({ color = adminColors.onBrand, size = 16 }: { color?: string; size?: number }) {
@@ -99,40 +94,45 @@ export function AdminRequestsApprovalScreen({
   onRequestHandled,
 }: AdminRequestsApprovalScreenProps) {
   const [requests, setRequests] = useState<AdminAccountRequest[]>(MOCK_REQUESTS);
+  const [dialogState, setDialogState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleApprove = (req: AdminAccountRequest) => {
     const tempPass = 'Tohfa@' + Math.floor(1000 + Math.random() * 9000);
-    Alert.alert(
-      'Account Request Approved',
-      `Admin account for ${req.candidateName} (${req.requestedWarehouse}) has been created.\n\nTemporary Password: ${tempPass}\n\nSMS credentials sent to +91 ${req.mobile}.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            setRequests((prev) => prev.filter((r) => r.id !== req.id));
-            onRequestHandled?.();
-          },
-        },
-      ]
-    );
+    setDialogState({
+      visible: true,
+      title: 'Account Request Approved',
+      message: `Admin account for ${req.candidateName} (${req.requestedWarehouse}) has been created.\n\nTemporary Password: ${tempPass}\n\nSMS credentials sent to +91 ${req.mobile}.`,
+      confirmLabel: 'OK',
+      hideCancel: true,
+      onConfirm: () => {
+        setRequests((prev) => prev.filter((r) => r.id !== req.id));
+        onRequestHandled?.();
+        setDialogState(null);
+      },
+    });
   };
 
   const handleReject = (req: AdminAccountRequest) => {
-    Alert.alert(
-      'Reject Request',
-      `Are you sure you want to reject the admin creation request for ${req.candidateName}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject Request',
-          style: 'destructive',
-          onPress: () => {
-            setRequests((prev) => prev.filter((r) => r.id !== req.id));
-            onRequestHandled?.();
-          },
-        },
-      ]
-    );
+    setDialogState({
+      visible: true,
+      title: 'Reject Request?',
+      message: `Are you sure you want to reject the admin creation request for ${req.candidateName}?`,
+      confirmLabel: 'Reject Request',
+      destructive: true,
+      onConfirm: () => {
+        setRequests((prev) => prev.filter((r) => r.id !== req.id));
+        onRequestHandled?.();
+        setDialogState(null);
+      },
+    });
   };
 
   return (
@@ -225,6 +225,19 @@ export function AdminRequestsApprovalScreen({
           </View>
         }
       />
+
+      {dialogState && (
+        <AdminConfirmDialog
+          visible={dialogState.visible}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmLabel={dialogState.confirmLabel}
+          hideCancel={dialogState.hideCancel}
+          destructive={dialogState.destructive}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

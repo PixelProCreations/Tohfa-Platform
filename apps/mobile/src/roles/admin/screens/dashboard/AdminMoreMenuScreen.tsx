@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -17,6 +17,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { ConfirmDialog } from '../warehouse/profile-settings/ProfileParts';
 
 export interface AdminMoreMenuScreenProps {
   onBack: () => void;
@@ -409,26 +410,14 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
 
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const isFarmerAdmin = role === 'FARMER_ADMIN';
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            if (onLogout) onLogout();
-            else onItemSelect?.('Logout');
-          },
-        },
-      ]
-    );
-  };
+  const roleName = isSuperAdmin ? 'Super Admin' : isFarmerAdmin ? 'Farmer Admin' : 'TOHFA Admin';
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const handleItemPress = (item: MenuItemConfig) => {
+    if (item.id === 'logout') {
+      setShowLogoutConfirm(true);
+      return;
+    }
     if (onSelectOption) {
       onSelectOption(item.id);
     }
@@ -701,6 +690,22 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
 
         <View style={{ height: adminSpacing.xxxl + 80 }} />
       </ScrollView>
+
+      {/* ─── Logout Confirmation Dialog Matching Image 1 ─── */}
+      <ConfirmDialog
+        visible={showLogoutConfirm}
+        title="Logout?"
+        message={`Are you sure you want to sign out of your ${roleName} account?`}
+        confirmLabel="Logout"
+        destructive
+        icon={<LogoutIcon size={20} color={adminColors.danger.text} />}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          if (onLogout) onLogout();
+          else onItemSelect?.('Logout');
+        }}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </SafeAreaView>
   );
 }

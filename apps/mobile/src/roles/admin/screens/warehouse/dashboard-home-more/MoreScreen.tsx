@@ -33,6 +33,7 @@ import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
+import { ConfirmDialog } from '../profile-settings/ProfileParts';
 import {
   AdminAllFarmersScreen,
   AdminFarmerDetailScreen,
@@ -595,6 +596,7 @@ export function MoreScreen({
 }: MoreScreenProps) {
   const isMain = scope.warehouseId === undefined;
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // Derived from scope, never hard-coded: Main spans every warehouse.
   const warehouseLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? '';
   const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
@@ -739,7 +741,7 @@ export function MoreScreen({
         }
         break;
       case 'logout':
-        handleLogoutPress();
+        setShowLogoutConfirm(true);
         break;
       case 'help':
         if (onNavigateToHelpSupport) {
@@ -763,7 +765,7 @@ export function MoreScreen({
   const handleLogoutPress = () => {
     Alert.alert(
       'Logout',
-      'Are you sure you want to sign out of this account?',
+      'Are you sure you want to sign out of TOHFA?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -1068,6 +1070,22 @@ export function MoreScreen({
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
+
+      {/* ─── Logout Confirmation Dialog Matching Image 1 ─── */}
+      <ConfirmDialog
+        visible={showLogoutConfirm}
+        title="Logout?"
+        message={`Are you sure you want to sign out of your ${isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin'} account?`}
+        confirmLabel="Logout"
+        destructive
+        icon={<LogoutIcon color={adminColors.danger.text} size={20} />}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          if (onLogout) onLogout();
+          else if (onBack) onBack();
+        }}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </SafeAreaView>
   );
 }

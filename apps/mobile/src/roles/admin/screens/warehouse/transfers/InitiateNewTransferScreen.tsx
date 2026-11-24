@@ -12,11 +12,12 @@
  * Warehouse options are the seeded warehouses (fixtures), not literals.
  */
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, StatusBar } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, StatusBar } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { formatTransferThreshold, transferNeedsApproval } from '../../../config/businessThresholds';
+import { AdminConfirmDialog } from '../../../components/AdminConfirmDialog';
 import {
   ChipGroup,
   EmptyState,
@@ -103,13 +104,39 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
     if (id === destId) setDestId(WAREHOUSE_IDS.find((w) => w !== id) ?? '');
   };
 
+  const [dialogState, setDialogState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
   const handleDispatch = () => {
     if (sourceId === destId) {
-      Alert.alert('Invalid Route', 'Source and destination facilities must be different.');
+      setDialogState({
+        visible: true,
+        title: 'Invalid Route',
+        message: 'Source and destination facilities must be different.',
+        confirmLabel: 'OK',
+        hideCancel: true,
+        destructive: true,
+        onConfirm: () => setDialogState(null),
+      });
       return;
     }
     if (parsedQty <= 0) {
-      Alert.alert('Invalid Quantity', 'Please enter a valid transfer quantity.');
+      setDialogState({
+        visible: true,
+        title: 'Invalid Quantity',
+        message: 'Please enter a valid transfer quantity.',
+        confirmLabel: 'OK',
+        hideCancel: true,
+        destructive: true,
+        onConfirm: () => setDialogState(null),
+      });
       return;
     }
     const id = String(Date.now()).slice(-5);
@@ -125,13 +152,20 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
       vehicle: needsApproval ? undefined : DEMO_DISPATCH.vehicle,
       initiatedBy: DEMO_DISPATCH.initiatedBy,
     };
-    Alert.alert(
-      needsApproval ? 'Transfer Submitted for Approval' : 'Transfer Dispatched',
-      needsApproval
+    setDialogState({
+      visible: true,
+      title: needsApproval ? 'Transfer Submitted for Approval' : 'Transfer Dispatched',
+      message: needsApproval
         ? `Transfer of ${formatTransferKg(parsedQty)} from ${sourceLabel} to ${destLabel} routed to Super Admin for dual-key authorization.`
         : `Transfer manifest created. Truck ${DEMO_DISPATCH.vehicle} dispatched to ${destLabel}.`,
-      [{ text: 'OK', onPress: () => (onSubmitTransfer ? onSubmitTransfer(transfer) : onBack()) }],
-    );
+      confirmLabel: 'OK',
+      hideCancel: true,
+      onConfirm: () => {
+        setDialogState(null);
+        if (onSubmitTransfer) onSubmitTransfer(transfer);
+        else onBack();
+      },
+    });
   };
 
   const [isCreated, setIsCreated] = useState<boolean>(false);
@@ -535,6 +569,19 @@ export function InitiateNewTransferScreen({ scope, can, onBack, onSubmitTransfer
           </InfoNote>
         ) : null}
       </ScrollView>
+
+      {dialogState && (
+        <AdminConfirmDialog
+          visible={dialogState.visible}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmLabel={dialogState.confirmLabel}
+          hideCancel={dialogState.hideCancel}
+          destructive={dialogState.destructive}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState(null)}
+        />
+      )}
     </WalletScreen>
   );
 }

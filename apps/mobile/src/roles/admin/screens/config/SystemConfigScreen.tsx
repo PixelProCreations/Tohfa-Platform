@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const CONFIG_PALETTE = {
@@ -160,7 +160,7 @@ export function SystemConfigScreen({
   onOpenAuditLogs,
 }: SystemConfigScreenProps) {
   // Config state values
-  const [channelSplit, setChannelSplit] = useState('70/10/10/10');
+  const [channelSplit, _setChannelSplit] = useState('70/10/10/10');
   const [subscriptionFee, setSubscriptionFee] = useState('₹500/yr');
   const [sessionTimeout, setSessionTimeout] = useState('30 min');
   const [ratingThresholds, setRatingThresholds] = useState('650/700/750');
@@ -170,6 +170,8 @@ export function SystemConfigScreen({
     'fee' | 'timeout' | 'thresholds' | null
   >(null);
   const [editInputValue, setEditInputValue] = useState('');
+
+  const [showConfigSaved, setShowConfigSaved] = useState(false);
 
   const handleOpenEdit = (field: 'fee' | 'timeout' | 'thresholds', initialVal: string) => {
     setEditModalField(field);
@@ -185,7 +187,7 @@ export function SystemConfigScreen({
       setRatingThresholds(editInputValue);
     }
     setEditModalField(null);
-    Alert.alert('Configuration Saved', 'System parameter updated successfully.');
+    setShowConfigSaved(true);
   };
 
   return (
@@ -432,6 +434,15 @@ export function SystemConfigScreen({
           </View>
         </Modal>
       </ScrollView>
+
+      <AdminConfirmDialog
+        visible={showConfigSaved}
+        title="Configuration Saved"
+        message="System parameter updated successfully."
+        confirmLabel="OK"
+        hideCancel
+        onConfirm={() => setShowConfigSaved(false)}
+      />
     </SafeAreaView>
   );
 }

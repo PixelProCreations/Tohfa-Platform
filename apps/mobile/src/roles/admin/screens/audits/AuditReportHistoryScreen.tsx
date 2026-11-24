@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -20,6 +19,7 @@ import {
   adminType,
 } from '../../theme';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -99,11 +99,16 @@ export interface ReportHistoryItem {
 
 export interface AuditReportHistoryScreenProps {
   onBack: () => void;
+  onSelectReport?: (report: ReportHistoryItem) => void;
+  role?: string;
 }
 
 export function AuditReportHistoryScreen({
   onBack,
+  onSelectReport,
+  role = 'SUPER_ADMIN',
 }: AuditReportHistoryScreenProps) {
+  const roleName = role === 'TOHFA_ADMIN' ? 'TOHFA Admin' : 'Super Admin';
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'All' | 'Ready' | 'Generating' | 'Failed'>('All');
@@ -118,28 +123,28 @@ export function AuditReportHistoryScreen({
       id: 'audit_summary',
       title: 'Audit Summary Report',
       status: 'Ready',
-      timestamp: 'Generated 14 Oct 2026, 10:00 · Demo TOHFA Admin',
+      timestamp: `Generated 14 Oct 2026, 10:00 · Demo ${roleName}`,
       filtersText: 'Filters: None · 42 audits',
     },
     {
       id: 'farmer_history',
       title: 'Farmer Audit History',
       status: 'Ready',
-      timestamp: 'Generated 10 Oct 2026, 15:20 · Demo TOHFA Admin',
+      timestamp: `Generated 10 Oct 2026, 15:20 · Demo ${roleName}`,
       filtersText: 'Filters: Farmer = Ramesh Kumar · 6 audits',
     },
     {
       id: 'quarterly_coverage',
       title: 'Quarterly Coverage',
       status: 'Ready',
-      timestamp: 'Generated 3 Oct 2026, 09:05 · Demo TOHFA Admin',
+      timestamp: `Generated 3 Oct 2026, 09:05 · Demo ${roleName}`,
       filtersText: 'Filters: Zone = Coonoor · Q3 2026',
     },
     {
       id: 'findings_violations',
       title: 'Findings & Violations',
       status: 'Generating',
-      timestamp: 'Requested 14 Oct 2026, 11:42 · Demo TOHFA Admin',
+      timestamp: `Requested 14 Oct 2026, 11:42 · Demo ${roleName}`,
       filtersText: 'Filters: Status = Major findings',
       note: 'Download is available once generation finishes.',
     },
@@ -147,7 +152,7 @@ export function AuditReportHistoryScreen({
       id: 'compliance_summary',
       title: 'Compliance Summary',
       status: 'Failed',
-      timestamp: 'Requested 1 Oct 2026, 08:15 · Demo TOHFA Admin',
+      timestamp: `Requested 1 Oct 2026, 08:15 · Demo ${roleName}`,
       filtersText: '',
       note: 'Compliance-tier configuration is missing, so this report could not be completed.',
     },
@@ -164,12 +169,26 @@ export function AuditReportHistoryScreen({
     return matchesSearch && matchesStatus && matchesType;
   });
 
+  const [dialogState, setDialogState] = useState<{
+    title: string;
+    message: string;
+    variant?: 'brand' | 'success' | 'danger';
+  } | null>(null);
+
   const handleDownloadCsv = (report: ReportHistoryItem) => {
-    Alert.alert('Download CSV', `Downloading CSV for ${report.title}...`);
+    setDialogState({
+      title: 'Download CSV',
+      message: `Downloading CSV for ${report.title}...`,
+      variant: 'brand',
+    });
   };
 
   const handleRetry = (report: ReportHistoryItem) => {
-    Alert.alert('Retrying', `Retrying compilation for ${report.title}...`);
+    setDialogState({
+      title: 'Retrying',
+      message: `Retrying compilation for ${report.title}...`,
+      variant: 'brand',
+    });
     setReportsList((prev) =>
       prev.map((r) =>
         r.id === report.id
@@ -257,7 +276,12 @@ export function AuditReportHistoryScreen({
             const badge = getStatusBadgeStyle(report.status);
 
             return (
-              <View key={report.id} style={styles.reportCard}>
+              <TouchableOpacity
+                key={report.id}
+                style={styles.reportCard}
+                activeOpacity={0.85}
+                onPress={() => onSelectReport?.(report)}
+              >
                 {/* Header Row: Title & Status Badge */}
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitle}>{report.title}</Text>
@@ -281,9 +305,19 @@ export function AuditReportHistoryScreen({
                   <Text style={styles.noteText}>{report.note}</Text>
                 ) : null}
 
-                {/* Action Links Row (Preview removed as requested) */}
+                {/* Action Links Row */}
                 {report.status === 'Ready' ? (
                   <View style={styles.actionsRow}>
+                    <TouchableOpacity
+                      onPress={() => onSelectReport?.(report)}
+                      activeOpacity={0.7}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={[styles.actionBtnText, { color: adminColors.brand, fontWeight: '700' }]}>
+                        Report Details
+                      </Text>
+                    </TouchableOpacity>
+
                     <TouchableOpacity
                       onPress={() => handleDownloadCsv(report)}
                       activeOpacity={0.7}
@@ -303,7 +337,7 @@ export function AuditReportHistoryScreen({
                     </TouchableOpacity>
                   </View>
                 ) : null}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -447,7 +481,17 @@ export function AuditReportHistoryScreen({
       }}
       onClose={() => setCalendarTarget(null)}
     />
-    </SafeAreaView >
+
+    <AdminConfirmDialog
+      visible={dialogState !== null}
+      title={dialogState?.title ?? ''}
+      message={dialogState?.message ?? ''}
+      confirmLabel="OK"
+      hideCancel
+      variant={dialogState?.variant}
+      onConfirm={() => setDialogState(null)}
+    />
+    </SafeAreaView>
   );
 }
 

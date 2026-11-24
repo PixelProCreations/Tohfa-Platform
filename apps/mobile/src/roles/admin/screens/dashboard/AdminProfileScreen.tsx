@@ -22,6 +22,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { ConfirmDialog, LogoutIcon as ProfileLogoutIcon } from '../warehouse/profile-settings/ProfileParts';
 
 // ─── SVG Icons (using strictly adminColors) ──────────────────────────────────
 
@@ -250,7 +251,7 @@ export function AdminProfileScreen({
   const [currentView, setCurrentView] = useState<
     'main' | 'edit' | 'confirm_password' | 'success' | 'security' | 'change_password'
   >('main');
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // User Profile Data State
   const [fullName, setFullName] = useState(rbac.defaultName);
@@ -399,7 +400,7 @@ export function AdminProfileScreen({
   };
 
   const handleSignOutAction = async () => {
-    setShowSignOutConfirm(false);
+    setShowLogoutConfirm(false);
     try {
       await logout();
     } catch {
@@ -408,6 +409,10 @@ export function AdminProfileScreen({
     if (onSignOut) {
       onSignOut();
     }
+  };
+
+  const handleSignOutPress = () => {
+    setShowLogoutConfirm(true);
   };
 
   // Avatar initial letter (e.g. "S" for Suresh)
@@ -667,32 +672,26 @@ export function AdminProfileScreen({
           <Text style={styles.sectionHeader}>Sign out</Text>
           <TouchableOpacity
             style={styles.solidSignOutBtn}
-            onPress={() => setShowSignOutConfirm(!showSignOutConfirm)}
+            onPress={handleSignOutPress}
             activeOpacity={0.85}
           >
             <Text style={styles.solidSignOutBtnText}>Sign Out</Text>
           </TouchableOpacity>
 
-          {showSignOutConfirm && (
-            <View style={styles.signOutConfirmCard}>
-              <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
-              <TouchableOpacity style={styles.signOutConfirmActionBtn} onPress={handleSignOutAction} activeOpacity={0.85}>
-                <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.signOutConfirmCancelBtn}
-                onPress={() => setShowSignOutConfirm(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
           <View style={{ height: 40 }} />
         </ScrollView>
 
-
+        {/* ─── Logout Confirmation Dialog Matching Image 1 ─── */}
+        <ConfirmDialog
+          visible={showLogoutConfirm}
+          title="Logout?"
+          message={`Are you sure you want to sign out of your ${rbac.title} account?`}
+          confirmLabel="Logout"
+          destructive
+          icon={<ProfileLogoutIcon size={20} color={adminColors.danger.text} />}
+          onConfirm={handleSignOutAction}
+          onCancel={() => setShowLogoutConfirm(false)}
+        />
       </SafeAreaView>
     );
   }

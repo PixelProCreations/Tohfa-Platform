@@ -34,7 +34,7 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function SearchHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function _SearchHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2.2" />
@@ -43,7 +43,7 @@ function SearchHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: n
   );
 }
 
-function BellHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function _BellHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -57,7 +57,7 @@ function BellHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: num
   );
 }
 
-function RefreshHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function _RefreshHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -145,21 +145,21 @@ export interface DayAuditItem {
   id: string;
   code: string;
   farmerName: string;
-  farmerId?: string;
-  badge: 'Scheduled' | 'Past scheduled date' | 'Completed' | 'In Progress';
+  farmerId?: string | undefined;
+  badge: 'Scheduled' | 'Past scheduled date' | 'Completed' | 'In Progress' | 'Not started' | 'Pending';
   farmDetails: string;
 }
 
 export interface AuditManagementScreenProps {
-  onBack?: () => void;
-  onOpenSchedule?: () => void;
-  onOpenHistory?: () => void;
-  onOpenGenerateReport?: () => void;
-  onOpenReportHistory?: () => void;
-  onSelectAuditItem?: (audit: DayAuditItem) => void;
-  onRefresh?: () => void;
+  onBack?: (() => void) | undefined;
+  onOpenSchedule?: (() => void) | undefined;
+  onOpenHistory?: (() => void) | undefined;
+  onOpenGenerateReport?: (() => void) | undefined;
+  onOpenReportHistory?: (() => void) | undefined;
+  onSelectAuditItem?: ((audit: DayAuditItem) => void) | undefined;
+  onRefresh?: (() => void) | undefined;
   role?: string | undefined;
-  onNavigateSchedule?: (preFilter: any, auditId: any) => void;
+  onNavigateSchedule?: ((preFilter: unknown, auditId: unknown) => void) | undefined;
   onOpenNotifications?: (() => void) | undefined;
 }
 
@@ -170,7 +170,8 @@ export function AuditManagementScreen({
   onOpenGenerateReport,
   onOpenReportHistory,
   onSelectAuditItem,
-  onRefresh,
+  onRefresh: _onRefresh,
+  role = 'SUPER_ADMIN',
 }: AuditManagementScreenProps) {
   const [selectedDay, setSelectedDay] = useState<number>(9);
   const [selectedMonth] = useState('October 2026');
@@ -215,22 +216,38 @@ export function AuditManagementScreen({
     null,
   ];
 
-  // Scheduled audits on selected date (09 Oct 2026) matching Reference Image 1 & 2
+  // Scheduled audits on selected date (09 Oct 2026) covering all 4 audit states
   const dayAudits: DayAuditItem[] = [
     {
       id: 'aud_1',
       code: 'AUD-2026-0053',
       farmerName: 'Selvi',
       farmerId: 'FMR-00131',
-      badge: 'Scheduled',
+      badge: 'Not started',
       farmDetails: 'Coonoor farm · Zone A · Internal · 15 Oct 2026, 10:00 · Auditor: S. Mohan',
     },
     {
       id: 'aud_2',
+      code: 'AUD-2026-0039',
+      farmerName: 'Kumar',
+      farmerId: 'FMR-00098',
+      badge: 'Pending',
+      farmDetails: 'Kotagiri farm · Zone B · External · 20 Oct 2026, 11:30 · Auditor: R. Devi',
+    },
+    {
+      id: 'aud_3',
+      code: 'AUD-2026-0034',
+      farmerName: 'Meena',
+      farmerId: 'FMR-00177',
+      badge: 'Completed',
+      farmDetails: 'Coonoor farm · Zone B · Internal · 08 Oct 2026, 14:00 · Auditor: Priya Nair',
+    },
+    {
+      id: 'aud_4',
       code: 'AUD-2026-0052',
       farmerName: 'Vijay',
       farmerId: 'FMR-00152',
-      badge: 'Past scheduled date',
+      badge: 'Not started',
       farmDetails: 'Kotagiri farm · Zone C · External · 8 Oct 2026, 09:30 · Auditor: External agency',
     },
   ];
@@ -255,7 +272,9 @@ export function AuditManagementScreen({
 
         <View style={styles.headerLeftCol}>
           <Text style={styles.headerTitle}>Audit Management</Text>
-          <Text style={styles.headerSubtitle}>TOHFA Admin · All zones</Text>
+          <Text style={styles.headerSubtitle}>
+            {role === 'TOHFA_ADMIN' ? 'TOHFA Admin · All zones' : 'Super Admin · All zones'}
+          </Text>
         </View>
       </View>
 
@@ -350,9 +369,23 @@ export function AuditManagementScreen({
 
         <View style={styles.dayAuditsList}>
           {dayAudits.map((item) => {
-            const isScheduled = item.badge === 'Scheduled';
-            const badgeBg = isScheduled ? adminColors.info.bg : adminColors.danger.bg;
-            const badgeTextColor = isScheduled ? adminColors.info.text : adminColors.danger.text;
+            const isCompleted = item.badge === 'Completed';
+            const isPending = item.badge === 'Pending' || item.badge === 'In Progress';
+            const isScheduled = item.badge === 'Scheduled' || item.badge === 'Not started';
+            const badgeBg = isCompleted
+              ? '#DEF7EC'
+              : isPending
+                ? '#FEF3C7'
+                : isScheduled
+                  ? '#E0F2FE'
+                  : '#FEE2E2';
+            const badgeTextColor = isCompleted
+              ? '#15803D'
+              : isPending
+                ? '#D97706'
+                : isScheduled
+                  ? '#0369A1'
+                  : '#DC2626';
 
             return (
               <TouchableOpacity
@@ -447,8 +480,8 @@ const styles = StyleSheet.create({
   headerBanner: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.md,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.lg,
+    paddingTop: 10,
+    paddingBottom: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',

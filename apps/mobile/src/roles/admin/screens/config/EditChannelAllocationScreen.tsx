@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,6 +13,7 @@ import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
 } from './SystemConfigScreen';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 export interface EditChannelAllocationScreenProps {
   onBack?: () => void;
@@ -28,6 +28,15 @@ export function EditChannelAllocationScreen({
   const [mandi, setMandi] = useState('10');
   const [horeca, setHoreca] = useState('10');
   const [reserve, setReserve] = useState('10');
+  const [dialogState, setDialogState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const total =
     (parseInt(online, 10) || 0) +
@@ -37,27 +46,34 @@ export function EditChannelAllocationScreen({
 
   const handleSave = () => {
     if (total !== 100) {
-      Alert.alert('Allocation Error', `Total percentage must equal 100%. Current total is ${total}%.`);
+      setDialogState({
+        visible: true,
+        title: 'Allocation Error',
+        message: `Total percentage must equal 100%. Current total is ${total}%.`,
+        confirmLabel: 'OK',
+        hideCancel: true,
+        destructive: true,
+        onConfirm: () => setDialogState(null),
+      });
       return;
     }
-    Alert.alert(
-      'Policy Updated',
-      `Locked 70/10/10/10 policy updated to ${online}/${mandi}/${horeca}/${reserve}. Changes applied across all warehouse routing engines.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            onSave?.({
-              online: parseInt(online, 10),
-              mandi: parseInt(mandi, 10),
-              horeca: parseInt(horeca, 10),
-              reserve: parseInt(reserve, 10),
-            });
-            onBack?.();
-          },
-        },
-      ]
-    );
+    setDialogState({
+      visible: true,
+      title: 'Policy Updated',
+      message: `Locked 70/10/10/10 policy updated to ${online}/${mandi}/${horeca}/${reserve}. Changes applied across all warehouse routing engines.`,
+      confirmLabel: 'OK',
+      hideCancel: true,
+      onConfirm: () => {
+        setDialogState(null);
+        onSave?.({
+          online: parseInt(online, 10),
+          mandi: parseInt(mandi, 10),
+          horeca: parseInt(horeca, 10),
+          reserve: parseInt(reserve, 10),
+        });
+        onBack?.();
+      },
+    });
   };
 
   return (
@@ -194,6 +210,19 @@ export function EditChannelAllocationScreen({
           <Text style={styles.saveButtonText}>Lock & Apply Channel Allocation</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {dialogState && (
+        <AdminConfirmDialog
+          visible={dialogState.visible}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmLabel={dialogState.confirmLabel}
+          hideCancel={dialogState.hideCancel}
+          destructive={dialogState.destructive}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -1088,117 +1088,128 @@ export function AuditInspectionStepForms({
               options={['Available', 'Not Available', 'Sample Sent to Lab']}
             />
 
-            <View style={styles.formFieldGroup}>
-              <Text style={styles.formLabel}>Report Document</Text>
-              <TouchableOpacity
-                style={styles.dashedUploadBox}
-                onPress={() => {
-                  if (!canEdit) return;
-                  setSoilReportDoc((prev) => (prev ? null : 'soil_testing_lab_report_2026.pdf'));
-                }}
-                activeOpacity={0.7}
-              >
-                <UploadFileIcon size={18} color={adminColors.brand} />
-                <Text style={styles.dashedUploadText}>
-                  {soilReportDoc ? soilReportDoc : 'Upload file'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.formFieldGroup}>
-              <Text style={styles.formLabel}>Test Date</Text>
-              <View style={styles.selectInput}>
-                <TextInput
-                  style={styles.dateTextInput}
-                  value={soilTestDate}
-                  onChangeText={setSoilTestDate}
-                  placeholder="dd-mm-yyyy"
-                  placeholderTextColor={adminColors.placeholder}
-                  editable={canEdit}
-                />
-                <CalendarIcon size={18} />
-              </View>
-            </View>
-
-            <SelectBox
-              label="Laboratory / Testing Source"
-              value={soilLabSource}
-              placeholder="Select..."
-              iconType="search"
-              options={[
-                'Select...',
-                'TNAU Soil Testing Laboratory - Coimbatore',
-                'District Agricultural Laboratory - Ooty',
-                'Regional Soil & Water Testing Center - Coonoor',
-                'Krishi Vigyan Kendra (KVK) Lab',
-                'Authorized Private Agri-Testing Lab',
-              ]}
-              onSelect={setSoilLabSource}
-            />
-
-            <SelectBox
-              label="Farm Plot / Zone"
-              value={soilFarmPlot}
-              placeholder="Select..."
-              iconType="search"
-              options={[
-                'Select...',
-                'Coonoor · PLT-00124-1',
-                'Coonoor · PLT-00124-2',
-                'Ooty · PLT-00124-3',
-                'Plot A - North Terrace',
-                'Plot B - South Slope',
-              ]}
-              onSelect={setSoilFarmPlot}
-            />
-
-            <SelectBox
-              label="Report Verification Status"
-              value={soilVerificationStatus}
-              placeholder="Select..."
-              iconType="chevron"
-              options={[
-                'Select...',
-                'Verified & Validated',
-                'Pending Secondary Review',
-                'Discrepancy Flagged',
-                'Rejected - Insufficient Parameters',
-                'Unverified',
-              ]}
-              onSelect={setSoilVerificationStatus}
-            />
-
-            <View style={styles.formFieldGroup}>
-              <Text style={styles.formLabel}>Reported Soil Parameters</Text>
-              <View style={styles.parametersCard}>
-                <FlaskIcon size={34} color={adminColors.ink} />
-                <Text style={styles.parametersCardTitle}>No parameters available yet</Text>
-                <Text style={styles.parametersCardDesc}>
-                  Parameters and values appear here exactly as read from the uploaded report. None are typed in or invented, and there is no fixed parameter list.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.formFieldGroup}>
-              <Text style={styles.formLabel}>Notes</Text>
-              <View style={styles.notesContainer}>
-                <TextInput
-                  style={styles.notesInput}
-                  value={soilNotes}
-                  onChangeText={setSoilNotes}
-                  placeholder=""
-                  placeholderTextColor={adminColors.placeholder}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                  editable={canEdit}
-                />
-                <View style={styles.resizeHandle}>
-                  <View style={styles.resizeLine1} />
-                  <View style={styles.resizeLine2} />
+            {soilReportAvail === 'Available' ? (
+              <>
+                <View style={styles.formFieldGroup}>
+                  <Text style={styles.formLabel}>Report Document</Text>
+                  <TouchableOpacity
+                    style={styles.dashedUploadBox}
+                    onPress={() => {
+                      if (!canEdit) return;
+                      setSoilReportDoc((prev) => (prev ? null : 'soil_testing_lab_report_2026.pdf'));
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <UploadFileIcon size={18} color={adminColors.brand} />
+                    <Text style={styles.dashedUploadText}>
+                      {soilReportDoc ? soilReportDoc : 'Upload file'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+
+                <View style={styles.formFieldGroup}>
+                  <Text style={styles.formLabel}>Test Date</Text>
+                  <View style={styles.selectInput}>
+                    <TextInput
+                      style={styles.dateTextInput}
+                      value={soilTestDate}
+                      onChangeText={setSoilTestDate}
+                      placeholder="dd-mm-yyyy"
+                      placeholderTextColor={adminColors.placeholder}
+                      editable={canEdit}
+                    />
+                    <CalendarIcon size={18} />
+                  </View>
+                </View>
+
+                <SelectBox
+                  label="Laboratory / Testing Source"
+                  value={soilLabSource}
+                  placeholder="Select..."
+                  iconType="search"
+                  options={[
+                    'Select...',
+                    'TNAU Soil Testing Laboratory - Coimbatore',
+                    'District Agricultural Laboratory - Ooty',
+                    'Regional Soil & Water Testing Center - Coonoor',
+                    'Krishi Vigyan Kendra (KVK) Lab',
+                    'Authorized Private Agri-Testing Lab',
+                  ]}
+                  onSelect={setSoilLabSource}
+                />
+
+                <SelectBox
+                  label="Farm Plot / Zone"
+                  value={soilFarmPlot}
+                  placeholder="Select..."
+                  iconType="search"
+                  options={[
+                    'Select...',
+                    'Coonoor · PLT-00124-1',
+                    'Coonoor · PLT-00124-2',
+                    'Ooty · PLT-00124-3',
+                    'Plot A - North Terrace',
+                    'Plot B - South Slope',
+                  ]}
+                  onSelect={setSoilFarmPlot}
+                />
+
+                <SelectBox
+                  label="Report Verification Status"
+                  value={soilVerificationStatus}
+                  placeholder="Select..."
+                  iconType="chevron"
+                  options={[
+                    'Select...',
+                    'Verified & Validated',
+                    'Pending Secondary Review',
+                    'Discrepancy Flagged',
+                    'Rejected - Insufficient Parameters',
+                    'Unverified',
+                  ]}
+                  onSelect={setSoilVerificationStatus}
+                />
+
+                <View style={styles.formFieldGroup}>
+                  <Text style={styles.formLabel}>Reported Soil Parameters</Text>
+                  <View style={styles.parametersCard}>
+                    <FlaskIcon size={34} color={adminColors.ink} />
+                    <Text style={styles.parametersCardTitle}>No parameters available yet</Text>
+                    <Text style={styles.parametersCardDesc}>
+                      Parameters and values appear here exactly as read from the uploaded report. None are typed in or invented, and there is no fixed parameter list.
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.formFieldGroup}>
+                  <Text style={styles.formLabel}>Notes</Text>
+                  <View style={styles.notesContainer}>
+                    <TextInput
+                      style={styles.notesInput}
+                      value={soilNotes}
+                      onChangeText={setSoilNotes}
+                      placeholder=""
+                      placeholderTextColor={adminColors.placeholder}
+                      multiline
+                      numberOfLines={4}
+                      textAlignVertical="top"
+                      editable={canEdit}
+                    />
+                    <View style={styles.resizeHandle}>
+                      <View style={styles.resizeLine1} />
+                      <View style={styles.resizeLine2} />
+                    </View>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.notAvailableNoticeCard}>
+                <Text style={styles.notAvailableNoticeTitle}>No Soil Report Details Required</Text>
+                <Text style={styles.notAvailableNoticeDesc}>
+                  Report is currently marked as {soilReportAvail}. Details, document uploads, and laboratory parameters are only required when a soil report is available.
+                </Text>
               </View>
-            </View>
+            )}
           </View>
         )}
 
@@ -2620,6 +2631,29 @@ const styles = StyleSheet.create({
   modalOptionTextActive: {
     fontWeight: '800',
     color: adminColors.brand,
+  },
+
+  // Soil Report Not Available Notice
+  notAvailableNoticeCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: '#E8E1D9',
+    ...adminShadow.sm,
+  },
+  notAvailableNoticeTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontSize: 15,
+    marginBottom: 6,
+  },
+  notAvailableNoticeDesc: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
 
   // Saved Section Confirmation Modal

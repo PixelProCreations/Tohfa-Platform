@@ -20,6 +20,7 @@ import {
   adminType,
 } from '../../theme';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
+import { ConfirmDialog } from '../warehouse/profile-settings/ProfileParts';
 
 export interface AuditScheduleItem {
   id: string;
@@ -31,7 +32,7 @@ export interface AuditScheduleItem {
   dateStr: string;
   auditor: string;
   updatedStr?: string;
-  status: 'Scheduled' | 'Completed' | 'In Progress' | 'Past scheduled date';
+  status: 'Scheduled' | 'Completed' | 'In Progress' | 'Past scheduled date' | 'Overdue' | 'Pending Review';
   viewOnlyNote?: string;
 }
 
@@ -127,6 +128,18 @@ const INITIAL_SCHEDULES: AuditScheduleItem[] = [
     dateStr: '22 Oct 2026, 10:30',
     auditor: 'Auditor S. Mohan',
     status: 'Scheduled',
+  },
+  {
+    id: '8',
+    code: 'AUD-2026-0046',
+    farmerName: 'Kumar (FMR-00098)',
+    farmLocation: 'Kotagiri farm',
+    zone: 'Zone B',
+    type: 'External',
+    dateStr: '19 Oct 2026, 14:00',
+    auditor: 'Auditor: R. Devi',
+    updatedStr: 'Updated 19 Oct 2026',
+    status: 'Pending Review',
   },
 ];
 
@@ -230,23 +243,37 @@ const AUDIT_TYPE_OPTIONS = [
   'Field Visit',
 ];
 
+function CancelAuditIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M15 9l-6 6M9 9l6 6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export interface AuditScheduleAssignmentScreenProps {
   onBack: () => void;
   onViewSchedule?: (schedule: AuditScheduleItem) => void;
   onEditSchedule?: (schedule: AuditScheduleItem) => void;
+  onUpdateSchedule?: (schedule: AuditScheduleItem) => void;
   onReschedule?: (schedule: AuditScheduleItem) => void;
   onCancelSchedule?: (schedule: AuditScheduleItem) => void;
+  onReviewSchedule?: (schedule: AuditScheduleItem) => void;
 }
 
 export function AuditScheduleAssignmentScreen({
   onBack,
   onViewSchedule,
-  onEditSchedule,
+  onEditSchedule: _onEditSchedule,
+  onUpdateSchedule,
   onReschedule,
   onCancelSchedule,
+  onReviewSchedule,
 }: AuditScheduleAssignmentScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [scheduleToCancel, setScheduleToCancel] = useState<AuditScheduleItem | null>(null);
 
   // Filter States (M5-S05a)
   const [selectedFarmer, setSelectedFarmer] = useState('All');
@@ -417,24 +444,29 @@ export function AuditScheduleAssignmentScreen({
         <View style={styles.listContainer}>
           {filteredSchedules.map((schedule) => {
             const isCompleted = schedule.status === 'Completed';
-            const isPastDue = schedule.status === 'Past scheduled date';
+            const isPastDue = schedule.status === 'Past scheduled date' || schedule.status === 'Overdue';
             const isScheduled = schedule.status === 'Scheduled';
+            const isPendingReview = schedule.status === 'Pending Review';
 
             const badgeBg = isCompleted
               ? adminColors.success.bg
               : isPastDue
                 ? adminColors.danger.bg
-                : isScheduled
-                  ? adminColors.info.bg
-                  : adminColors.warning.bg;
+                : isPendingReview
+                  ? adminColors.purple.bg
+                  : isScheduled
+                    ? adminColors.info.bg
+                    : adminColors.warning.bg;
 
             const badgeText = isCompleted
               ? adminColors.success.text
               : isPastDue
                 ? adminColors.danger.text
-                : isScheduled
-                  ? adminColors.info.text
-                  : adminColors.warning.text;
+                : isPendingReview
+                  ? adminColors.purple.text
+                  : isScheduled
+                    ? adminColors.info.text
+                    : adminColors.warning.text;
 
             return (
               <TouchableOpacity key={schedule.id} style={styles.scheduleCard} activeOpacity={0.85} onPress={() => onViewSchedule?.(schedule)}>
@@ -454,10 +486,23 @@ export function AuditScheduleAssignmentScreen({
                   {schedule.updatedStr ? ` · ${schedule.updatedStr}` : ''}
                 </Text>
 
-                {/* Bottom Row: View only note OR Action Buttons (View, Edit, Reschedule, Cancel) */}
-                {schedule.viewOnlyNote ? (
-                  <Text style={styles.viewOnlyNote}>{schedule.viewOnlyNote}</Text>
-                ) : (
+                {/* Action Links Row Matching Image 2 Logic */}
+                {schedule.status === 'Completed' ? (
+                  <>
+                    <View style={styles.actionRow}>
+                      <TouchableOpacity
+                        onPress={() => onViewSchedule?.(schedule)}
+                        activeOpacity={0.7}
+                        style={styles.actionBtn}
+                      >
+                        <Text style={styles.actionLink}>View</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.viewOnlyNote}>
+                      {schedule.viewOnlyNote || 'View only · completed audits are never rescheduled or overwritten'}
+                    </Text>
+                  </>
+                ) : schedule.status === 'In Progress' ? (
                   <View style={styles.actionRow}>
                     <TouchableOpacity
                       onPress={() => onViewSchedule?.(schedule)}
@@ -468,11 +513,58 @@ export function AuditScheduleAssignmentScreen({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => onEditSchedule?.(schedule)}
+                      onPress={() => onUpdateSchedule ? onUpdateSchedule(schedule) : onViewSchedule?.(schedule)}
                       activeOpacity={0.7}
                       style={styles.actionBtn}
                     >
-                      <Text style={styles.actionLink}>Edit</Text>
+                      <Text style={styles.actionLink}>Update</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : schedule.status === 'Past scheduled date' || schedule.status === 'Overdue' ? (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      onPress={() => onViewSchedule?.(schedule)}
+                      activeOpacity={0.7}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={styles.actionLink}>View</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => onReschedule?.(schedule)}
+                      activeOpacity={0.7}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={styles.actionLink}>Reschedule</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : schedule.status === 'Pending Review' ? (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      onPress={() => onViewSchedule?.(schedule)}
+                      activeOpacity={0.7}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={styles.actionLink}>View</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={() => onReviewSchedule ? onReviewSchedule(schedule) : onViewSchedule?.(schedule)}
+                      activeOpacity={0.7}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={styles.actionLink}>Review</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  /* Scheduled */
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      onPress={() => onViewSchedule?.(schedule)}
+                      activeOpacity={0.7}
+                      style={styles.actionBtn}
+                    >
+                      <Text style={styles.actionLink}>View</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -484,7 +576,7 @@ export function AuditScheduleAssignmentScreen({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                      onPress={() => onCancelSchedule?.(schedule)}
+                      onPress={() => setScheduleToCancel(schedule)}
                       activeOpacity={0.7}
                       style={styles.actionBtn}
                     >
@@ -764,6 +856,22 @@ export function AuditScheduleAssignmentScreen({
           else setTempDateTo(d);
         }}
         onClose={() => setCalendarTarget(null)}
+      />
+
+      {/* ── Cancel Audit Confirmation Dialog Matching Image 2 ── */}
+      <ConfirmDialog
+        visible={scheduleToCancel !== null}
+        title="Cancel Audit?"
+        message={`Are you sure you want to cancel scheduled audit ${scheduleToCancel?.code}?`}
+        confirmLabel="Cancel Audit"
+        destructive
+        icon={<CancelAuditIcon size={20} color={adminColors.danger.text} />}
+        onConfirm={() => {
+          const s = scheduleToCancel;
+          setScheduleToCancel(null);
+          if (s) onCancelSchedule?.(s);
+        }}
+        onCancel={() => setScheduleToCancel(null)}
       />
     </SafeAreaView>
   );

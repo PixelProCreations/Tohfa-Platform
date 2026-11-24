@@ -1182,6 +1182,7 @@ export function SuperAdminDashboardScreen({
               setActiveSubScreen('settings');
             }}
             onNavigateZoneManagement={() => setActiveSubScreen('zone_management')}
+            onLogout={onSignOut}
           />
         </View>
         {renderBottomTabBar(activeTab, handleSelectTab)}
