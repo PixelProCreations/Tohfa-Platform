@@ -1,7 +1,6 @@
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { adminColors } from '../../theme';
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,9 +8,12 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 import type { FarmerListItem } from '../farmers/AdminAllFarmersScreen';
 
 // Custom SVG Rosette Ribbon matching exact design reference
@@ -22,7 +24,7 @@ function RosetteRibbonIcon({
 }: {
   size?: number;
   color?: string;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
@@ -54,7 +56,7 @@ function CalendarOutlineIcon({
 }: {
   size?: number;
   color?: string;
-  style?: any;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={style}>
@@ -115,6 +117,23 @@ const P = {
   tagText: adminColors.brandDeep,
   buttonBg: adminColors.brand,
   buttonText: adminColors.onBrand,
+  actionGreenBg: adminColors.success.bg,
+  actionGreenText: adminColors.success.text,
+  actionRedBg: adminColors.danger.bg,
+  actionRedText: adminColors.danger.text,
+  verifiedBg: adminColors.success.bg,
+  verifiedText: adminColors.success.text,
+  pendingBg: adminColors.warning.bg,
+  pendingText: adminColors.warning.text,
+  blockedBg: adminColors.danger.bg,
+  blockedBorder: adminColors.danger.border,
+  blockedText: adminColors.danger.text,
+  iconColor: adminColors.muted,
+  blockedIcon: adminColors.danger.text,
+  itemTitle: adminColors.ink,
+  itemSubLabel: adminColors.muted,
+  itemValue: adminColors.ink,
+  divider: adminColors.border,
 };
 
 interface Props {
@@ -131,17 +150,45 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
   onUnverified,
 }) => {
   const [npopStatus, setNpopStatus] = useState<'Pending' | 'Verified' | 'Unverified'>('Pending');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const handleMarkVerified = () => {
     setNpopStatus('Verified');
-    Alert.alert('Success', 'Certification marked as Verified');
-    if (onVerified) onVerified();
+    setConfirmDialog({
+      visible: true,
+      title: 'Success',
+      message: 'Certification marked as Verified.',
+      confirmLabel: 'OK',
+      hideCancel: true,
+      onConfirm: () => {
+        setConfirmDialog(null);
+        if (onVerified) onVerified();
+      },
+    });
   };
 
   const handleMarkUnverified = () => {
     setNpopStatus('Unverified');
-    Alert.alert('Updated', 'Certification marked as Unverified');
-    if (onUnverified) onUnverified();
+    setConfirmDialog({
+      visible: true,
+      title: 'Updated',
+      message: 'Certification marked as Unverified.',
+      confirmLabel: 'OK',
+      hideCancel: true,
+      destructive: true,
+      onConfirm: () => {
+        setConfirmDialog(null);
+        if (onUnverified) onUnverified();
+      },
+    });
   };
 
   return (
@@ -270,6 +317,19 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {confirmDialog && (
+        <AdminConfirmDialog
+          visible={confirmDialog.visible}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel={confirmDialog.confirmLabel}
+          hideCancel={confirmDialog.hideCancel}
+          destructive={confirmDialog.destructive}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
     </SafeAreaView>
   );
 };

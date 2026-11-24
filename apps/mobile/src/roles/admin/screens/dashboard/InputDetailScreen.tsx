@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import {
-  Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import {
   adminColors,
@@ -20,7 +21,8 @@ import {
 } from '../../theme';
 import type { Can } from '../../permissions/can';
 import { PencilEditIcon } from '../../components/AdminIcons';
-import { ApprovedInputItem } from './ApprovedInputsScreen';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
+import { type ApprovedInputItem } from './ApprovedInputsScreen';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,51 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
+function DocumentOutlineIcon({ size = 15, color = '#EA580C' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function BanAlertIcon({ size = 28, color = '#DC2626' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth="2" />
+      <Path d="M4.93 4.93l14.14 14.14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function TrashWarningIcon({ size = 28, color = '#DC2626' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M10 11v6M14 11v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export interface InputDetailScreenProps {
   inputItem?: ApprovedInputItem | undefined;
   onBack: () => void;
@@ -49,6 +96,17 @@ export interface InputDetailScreenProps {
   role?: string | undefined;
 }
 
+/**
+ * InputDetailScreen
+ *
+ * Implements M6-S35 · Input Details & Approval (official 35) matching exact UI
+ * from user screenshot media_1795508858610_41a0c618.png.
+ *
+ * All 4 sections (Basic Information, Composition & Usage, Supporting Documents,
+ * Approval & History) are rendered continuously. For Super Admin, elevated access
+ * actions (Deactivate account, Terminate, Delete Information) are added at the bottom
+ * matching media_1795508943957_9167c880.png.
+ */
 export function InputDetailScreen({
   inputItem,
   onBack,
@@ -58,14 +116,23 @@ export function InputDetailScreen({
   onDelete,
   can: _can,
   role = 'SUPER_ADMIN',
-}: InputDetailScreenProps) {
+}: InputDetailScreenProps): React.JSX.Element {
   const isSuperAdmin = role === 'SUPER_ADMIN';
-  const [activeTab, setActiveTab] = useState<'basic' | 'composition' | 'documents' | 'history'>('basic');
   const [isDeactivated, setIsDeactivated] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<'none' | 'deactivate' | 'terminate' | 'delete'>('none');
+  const [reasonInput, setReasonInput] = useState('');
+  const [confirmDialog, setConfirmDialog] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
-  // Derive display values matching Image 5 reference or passed item
+  // Values matching M6-S35 (Image 1)
   const name = inputItem?.name || 'Neem Oil Concentrate';
-  const code = inputItem?.code || 'IN-0041';
   const status = isDeactivated ? 'Inactive' : (inputItem?.status || 'Approved');
   const isApproved = status === 'Approved';
 
@@ -79,7 +146,7 @@ export function InputDetailScreen({
   const composition =
     inputItem?.name === 'Neem Oil Concentrate' || !inputItem
       ? 'Azadirachtin 1500 ppm'
-      : (inputItem.method || 'Organic botanical extract');
+      : (inputItem.method || 'Azadirachtin 1500 ppm');
 
   const applicableCrops = inputItem?.applicableCrops
     ? inputItem.applicableCrops.replace(/^Applicable:\s*/, '')
@@ -99,7 +166,14 @@ export function InputDetailScreen({
     if (onEdit) {
       onEdit();
     } else {
-      Alert.alert('Edit Input', `Editing form for ${name} opened.`);
+      setConfirmDialog({
+        visible: true,
+        title: 'Edit Input',
+        message: `Editing form for ${name} opened.`,
+        confirmLabel: 'OK',
+        hideCancel: true,
+        onConfirm: () => setConfirmDialog(null),
+      });
     }
   };
 
@@ -107,94 +181,82 @@ export function InputDetailScreen({
     if (onDeactivate) {
       onDeactivate();
     } else {
-      Alert.alert(
-        isDeactivated ? 'Activate Input' : 'Deactivate Input',
-        isDeactivated
+      setConfirmDialog({
+        visible: true,
+        title: isDeactivated ? 'Activate Input?' : 'Deactivate Input?',
+        message: isDeactivated
           ? `Are you sure you want to activate ${name}?`
           : `Are you sure you want to deactivate ${name}? It will be marked as Inactive.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: isDeactivated ? 'Activate' : 'Deactivate',
-            style: isDeactivated ? 'default' : 'destructive',
-            onPress: () => setIsDeactivated(!isDeactivated),
-          },
-        ]
-      );
+        confirmLabel: isDeactivated ? 'Activate' : 'Deactivate',
+        destructive: !isDeactivated,
+        onConfirm: () => {
+          setIsDeactivated(!isDeactivated);
+          setConfirmDialog(null);
+        },
+      });
     }
   };
 
-  const handleSuperAdminDeactivate = () => {
+  const handleConfirmDeactivate = () => {
+    setConfirmModal('none');
+    setIsDeactivated(true);
     if (onDeactivate) {
       onDeactivate();
-      return;
+    } else {
+      setConfirmDialog({
+        visible: true,
+        title: 'Account Deactivated',
+        message: `${name} account has been deactivated.`,
+        confirmLabel: 'OK',
+        hideCancel: true,
+        onConfirm: () => setConfirmDialog(null),
+      });
     }
-    Alert.alert(
-      'Deactivate account',
-      `Are you sure you want to deactivate the input account for ${name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: () => {
-            setIsDeactivated(true);
-            Alert.alert('Account Deactivated', `${name} account has been deactivated.`);
-          },
-        },
-      ]
-    );
   };
 
-  const handleSuperAdminTerminate = () => {
+  const handleConfirmTerminate = () => {
+    setConfirmModal('none');
     if (onTerminate) {
       onTerminate();
-      return;
-    }
-    Alert.alert(
-      'Terminate Input',
-      `Are you sure you want to permanently terminate ${name}? This action will archive all associated approvals.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Terminate',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Terminated', `${name} has been terminated.`);
-            onBack();
-          },
+    } else {
+      setConfirmDialog({
+        visible: true,
+        title: 'Terminated',
+        message: `${name} has been permanently terminated.`,
+        confirmLabel: 'OK',
+        hideCancel: true,
+        onConfirm: () => {
+          setConfirmDialog(null);
+          onBack();
         },
-      ]
-    );
+      });
+    }
   };
 
-  const handleSuperAdminDelete = () => {
+  const handleConfirmDelete = () => {
+    setConfirmModal('none');
     if (onDelete) {
       onDelete();
-      return;
-    }
-    Alert.alert(
-      'Delete Information',
-      `Are you sure you want to permanently delete all information for ${name}? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Deleted', `${name} information has been deleted.`);
-            onBack();
-          },
+    } else {
+      setConfirmDialog({
+        visible: true,
+        title: 'Deleted',
+        message: `${name} information has been completely removed.`,
+        confirmLabel: 'OK',
+        hideCancel: true,
+        onConfirm: () => {
+          setConfirmDialog(null);
+          onBack();
         },
-      ]
-    );
+      });
+    }
   };
 
   return (
-    <View style={styles.root}>
+    <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header Banner (Image 5 & SA-M6-S35) ─── */}
+      {/* ─── Top Header Banner (Image 1: M6-S35) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -206,16 +268,11 @@ export function InputDetailScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>{name}</Text>
-            {!isSuperAdmin && (
-              <Text style={styles.headerSubtitle}>
-                {code} · {status}
-              </Text>
-            )}
-          </View>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {name}
+          </Text>
 
-          {/* Pencil edit icon matching SA-M6-S35 */}
+          {/* Pencil edit icon matching M6-S35 in circular pill */}
           <TouchableOpacity
             style={styles.headerPencilBtn}
             onPress={handleEdit}
@@ -223,338 +280,450 @@ export function InputDetailScreen({
             accessibilityRole="button"
             accessibilityLabel="Edit Input"
           >
-            <PencilEditIcon size={20} color={adminColors.onBrand} />
+            <PencilEditIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ─── Scroll Container ─── */}
+      {/* ─── Main Scrollable Area (Continuous All 4 Sections) ─── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Horizontal Segmented Pills (Only shown for non-superadmin) */}
+        {/* ─── Section 1: Basic Information ─── */}
+        <Text style={styles.sectionHeading}>Basic Information</Text>
+        <View style={styles.tableCard}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Input name</Text>
+            <Text style={styles.tableValue}>{name}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Category</Text>
+            <Text style={styles.tableValue}>{category}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Manufacturer / supplier</Text>
+            <Text style={styles.tableValue}>{manufacturer}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Registration ID</Text>
+            <Text style={styles.tableValue}>{registrationId}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Record status</Text>
+            <Text
+              style={[
+                styles.tableValue,
+                isApproved ? styles.statusApprovedText : styles.statusInactiveText,
+              ]}
+            >
+              {status}
+            </Text>
+          </View>
+        </View>
+
+        {/* ─── Section 2: Composition & Usage ─── */}
+        <Text style={styles.sectionHeading}>Composition & Usage</Text>
+        <View style={styles.tableCard}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Composition</Text>
+            <Text style={styles.tableValue}>{composition}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Applicable crops</Text>
+            <Text style={styles.tableValue}>{applicableCrops}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Dosage</Text>
+            <Text style={styles.tableValue}>{dosage}</Text>
+          </View>
+          <View style={styles.divider} />
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Application method</Text>
+            <Text style={styles.tableValue}>{applicationMethod}</Text>
+          </View>
+        </View>
+
+        {/* ─── Section 3: Supporting Documents ─── */}
+        <Text style={styles.sectionHeading}>Supporting Documents</Text>
+        <View style={styles.tableCard}>
+          {/* Doc 1 */}
+          <View style={styles.docRow}>
+            <View style={styles.docInfoCol}>
+              <Text style={styles.docTitle}>Safety Date Sheet (MSDS)</Text>
+              <Text style={styles.docSubtitle}>Verified 11 Oct 2026 - PDF 1.2 MB</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.docViewPill}
+              onPress={() =>
+                setConfirmDialog({
+                  visible: true,
+                  title: 'Safety Data Sheet',
+                  message: 'Opening Safety Data Sheet (MSDS) PDF...',
+                  confirmLabel: 'OK',
+                  hideCancel: true,
+                  onConfirm: () => setConfirmDialog(null),
+                })
+              }
+              activeOpacity={0.75}
+            >
+              <DocumentOutlineIcon size={14} color="#EA580C" />
+              <Text style={styles.docViewPillText}>View</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.divider} />
+
+          {/* Doc 2 */}
+          <View style={styles.docRow}>
+            <View style={styles.docInfoCol}>
+              <Text style={styles.docTitle}>NPOP Organic Certificate</Text>
+              <Text style={styles.docSubtitle}>Verified 11 Oct 2026 - PDF 1.2 MB</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.docViewPill}
+              onPress={() =>
+                setConfirmDialog({
+                  visible: true,
+                  title: 'Certificate',
+                  message: 'Opening NPOP Organic Certificate PDF...',
+                  confirmLabel: 'OK',
+                  hideCancel: true,
+                  onConfirm: () => setConfirmDialog(null),
+                })
+              }
+              activeOpacity={0.75}
+            >
+              <DocumentOutlineIcon size={14} color="#EA580C" />
+              <Text style={styles.docViewPillText}>View</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.divider} />
+
+          {/* Doc 3 */}
+          <View style={styles.docRow}>
+            <View style={styles.docInfoCol}>
+              <Text style={styles.docTitle}>Usage & Label Specification</Text>
+              <Text style={styles.docSubtitle}>Verified 11 Oct 2026 - PDF 1.2 MB</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.docViewPill}
+              onPress={() =>
+                setConfirmDialog({
+                  visible: true,
+                  title: 'Specification',
+                  message: 'Opening Usage & Label Specification PDF...',
+                  confirmLabel: 'OK',
+                  hideCancel: true,
+                  onConfirm: () => setConfirmDialog(null),
+                })
+              }
+              activeOpacity={0.75}
+            >
+              <DocumentOutlineIcon size={14} color="#EA580C" />
+              <Text style={styles.docViewPillText}>View</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ─── Section 4: Approval & History ─── */}
+        <Text style={styles.sectionHeading}>Approval & History</Text>
+        <View style={styles.tableCard}>
+          {/* History Event 1 (Green) */}
+          <View style={styles.timelineRow}>
+            <View style={styles.timelineLeftCol}>
+              <View style={[styles.timelineDot, { backgroundColor: '#10B981' }]} />
+              <View style={styles.timelineLine} />
+            </View>
+            <View style={styles.timelineRightCol}>
+              <Text style={styles.timelineTimestamp}>11 Oct 2026 - 12:30 AM</Text>
+              <Text style={styles.timelineTitle}>Approved by Priya Nair</Text>
+              <Text style={styles.timelineSub}>Agronomy lead - Full organic compliance verified</Text>
+            </View>
+          </View>
+
+          {/* History Event 2 (Blue) */}
+          <View style={styles.timelineRow}>
+            <View style={styles.timelineLeftCol}>
+              <View style={[styles.timelineDot, { backgroundColor: '#3B82F6' }]} />
+              <View style={styles.timelineLine} />
+            </View>
+            <View style={styles.timelineRightCol}>
+              <Text style={styles.timelineTimestamp}>11 Oct 2026 - 12:30 AM</Text>
+              <Text style={styles.timelineTitle}>Verified By Super Admin</Text>
+              <Text style={styles.timelineSub}>NPOP certification check passed</Text>
+            </View>
+          </View>
+
+          {/* History Event 3 (Grey) */}
+          <View style={[styles.timelineRow, { marginBottom: 6 }]}>
+            <View style={styles.timelineLeftCol}>
+              <View style={[styles.timelineDot, { backgroundColor: '#D1D5DB' }]} />
+            </View>
+            <View style={styles.timelineRightCol}>
+              <Text style={styles.timelineTimestamp}>11 Oct 2026 - 12:30 AM</Text>
+              <Text style={styles.timelineTitle}>Submitted by GreenGro Organics</Text>
+              <Text style={styles.timelineSub}>Initial application filed for pest control input</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── Standard Actions (Edit & Deactivate for non-Super Admin, e.g. TOHFA Admin) ─── */}
         {!isSuperAdmin && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.pillsScrollView}
-            contentContainerStyle={styles.pillsScrollContent}
-          >
+          <View style={styles.standardActionsRow}>
             <TouchableOpacity
-              style={[
-                styles.pillBtn,
-                activeTab === 'basic' && styles.pillBtnActive,
-              ]}
-              onPress={() => setActiveTab('basic')}
+              style={styles.editOutlineBtn}
+              onPress={handleEdit}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Edit"
             >
-              <Text
-                style={[
-                  styles.pillText,
-                  activeTab === 'basic' && styles.pillTextActive,
-                ]}
-              >
-                Basic Info
+              <Text style={styles.editOutlineBtnText}>Edit</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.deactivateSolidBtn}
+              onPress={handleDeactivate}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Deactivate"
+            >
+              <Text style={styles.deactivateSolidBtnText}>
+                {isDeactivated ? 'Activate' : 'Deactivate'}
               </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.pillBtn,
-                activeTab === 'composition' && styles.pillBtnActive,
-              ]}
-              onPress={() => setActiveTab('composition')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.pillText,
-                  activeTab === 'composition' && styles.pillTextActive,
-                ]}
-              >
-                Composition & Usage
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.pillBtn,
-                activeTab === 'documents' && styles.pillBtnActive,
-              ]}
-              onPress={() => setActiveTab('documents')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.pillText,
-                  activeTab === 'documents' && styles.pillTextActive,
-                ]}
-              >
-                Documents
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.pillBtn,
-                activeTab === 'history' && styles.pillBtnActive,
-              ]}
-              onPress={() => setActiveTab('history')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.pillText,
-                  activeTab === 'history' && styles.pillTextActive,
-                ]}
-              >
-                Approval & History
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        )}
-
-        {(isSuperAdmin || activeTab === 'basic' || activeTab === 'composition') && (
-          <>
-            {/* ─── Section 1: Basic Information ─── */}
-            <Text style={styles.sectionHeading}>Basic Information</Text>
-            <View style={styles.tableCard}>
-              {/* Row 1: Input name */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Input name</Text>
-                <Text style={styles.tableValue}>{name}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 2: Category */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Category</Text>
-                <Text style={styles.tableValue}>{category}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 3: Manufacturer / supplier */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Manufacturer / supplier</Text>
-                <Text style={styles.tableValue}>{manufacturer}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 4: Registration ID */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Registration ID</Text>
-                <Text style={styles.tableValue}>{registrationId}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 5: Record status */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Record status</Text>
-                <Text
-                  style={[
-                    styles.tableValue,
-                    isApproved ? styles.statusApprovedText : styles.statusInactiveText,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </View>
-            </View>
-
-            {/* ─── Section 2: Composition & Usage ─── */}
-            <Text style={styles.sectionHeading}>Composition & Usage</Text>
-            <View style={styles.tableCard}>
-              {/* Row 1: Composition */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Composition</Text>
-                <Text style={styles.tableValue}>{composition}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 2: Applicable crops */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Applicable crops</Text>
-                <Text style={styles.tableValue}>{applicableCrops}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 3: Dosage */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Dosage</Text>
-                <Text style={styles.tableValue}>{dosage}</Text>
-              </View>
-              <View style={styles.divider} />
-
-              {/* Row 4: Application method */}
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Application method</Text>
-                <Text style={styles.tableValue}>{applicationMethod}</Text>
-              </View>
-            </View>
-          </>
-        )}
-
-        {activeTab === 'documents' && (
-          <>
-            <Text style={styles.sectionHeading}>Supporting Documents</Text>
-            <View style={styles.tableCard}>
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Safety Data Sheet (MSDS)</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening MSDS PDF')}>
-                  <Text style={styles.linkText}>View PDF</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>NPOP Organic Certificate</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening Certificate PDF')}>
-                  <Text style={styles.linkText}>View PDF</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Usage Label Spec</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening Label PDF')}>
-                  <Text style={styles.linkText}>View PDF</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </>
-        )}
-
-        {activeTab === 'history' && (
-          <>
-            <Text style={styles.sectionHeading}>Approval & History</Text>
-            <View style={styles.tableCard}>
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>11 Oct 2026</Text>
-                <Text style={styles.tableValue}>Approved by Priya Nair</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>08 Oct 2026</Text>
-                <Text style={styles.tableValue}>Submitted by GreenGro Organics</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>01 Oct 2026</Text>
-                <Text style={styles.tableValue}>Draft created by Agronomy team</Text>
-              </View>
-            </View>
-          </>
-        )}
-
-        {/* Action Buttons for Super Admin (SA-M6-S35) */}
-        {isSuperAdmin && (
-          <View style={styles.superAdminActionsWrap}>
-            <TouchableOpacity
-              style={styles.deactivateAccountBtn}
-              onPress={handleSuperAdminDeactivate}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.deactivateAccountBtnText}>Deactivate account</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={handleSuperAdminTerminate}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineActionBtnText}>Terminate</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={handleSuperAdminDelete}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineActionBtnText}>Delete Information</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Space for bottom fixed bar on non-superadmin */}
-        {!isSuperAdmin && <View style={{ height: 90 }} />}
+        {/* ─── Super Admin Extra Access Controls (Image 2) ─── */}
+        {isSuperAdmin && (
+          <View style={styles.superAdminExtraSection}>
+            {/* Button 1: Outline Red Terminate */}
+            <TouchableOpacity
+              style={styles.terminateOutlineBtn}
+              onPress={() => setConfirmModal('terminate')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Terminate"
+            >
+              <Text style={styles.terminateOutlineBtnText}>Terminate</Text>
+            </TouchableOpacity>
+
+            {/* Button 2: Outline Red Delete Information */}
+            <TouchableOpacity
+              style={styles.deleteInfoOutlineBtn}
+              onPress={() => setConfirmModal('delete')}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Delete Information"
+            >
+              <Text style={styles.deleteInfoOutlineBtnText}>Delete Information</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
-      {/* ─── Fixed Bottom Actions Bar for non-superadmin ─── */}
-      {!isSuperAdmin && (
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={handleEdit}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.editBtnText}>Edit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.deactivateBtn}
-            onPress={handleDeactivate}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.deactivateBtnText}>
-              {isDeactivated ? 'Activate' : 'Deactivate'}
+      {/* ─── Modal 1: Deactivate Account Confirmation ─── */}
+      <Modal
+        visible={confirmModal === 'deactivate'}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal('none')}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.dialogCard}>
+            <View style={styles.dialogIconWrap}>
+              <BanAlertIcon size={32} color="#DC2626" />
+            </View>
+            <Text style={styles.dialogTitle}>Deactivate Account</Text>
+            <Text style={styles.dialogMessage}>
+              Are you sure you want to deactivate the input account for <Text style={{ fontWeight: '700' }}>{name}</Text>?
+              Farmers will no longer be able to select this input for new spray cycles.
             </Text>
-          </TouchableOpacity>
+
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Reason for deactivation (optional)"
+              placeholderTextColor={adminColors.placeholder}
+              value={reasonInput}
+              onChangeText={setReasonInput}
+            />
+
+            <View style={styles.dialogActionsRow}>
+              <TouchableOpacity
+                style={styles.dialogCancelBtn}
+                onPress={() => setConfirmModal('none')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dialogDestructiveBtn}
+                onPress={handleConfirmDeactivate}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogDestructiveBtnText}>Deactivate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
+      </Modal>
+
+      {/* ─── Modal 2: Terminate Confirmation ─── */}
+      <Modal
+        visible={confirmModal === 'terminate'}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal('none')}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.dialogCard}>
+            <View style={styles.dialogIconWrap}>
+              <BanAlertIcon size={32} color="#DC2626" />
+            </View>
+            <Text style={styles.dialogTitle}>Terminate Input</Text>
+            <Text style={styles.dialogMessage}>
+              Terminating <Text style={{ fontWeight: '700' }}>{name}</Text> will permanently revoke approval across all zones and invalidate active farmer inventory linkages.
+            </Text>
+
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Termination justification (required)"
+              placeholderTextColor={adminColors.placeholder}
+              value={reasonInput}
+              onChangeText={setReasonInput}
+            />
+
+            <View style={styles.dialogActionsRow}>
+              <TouchableOpacity
+                style={styles.dialogCancelBtn}
+                onPress={() => setConfirmModal('none')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.dialogDestructiveBtn,
+                  !reasonInput.trim() && { opacity: 0.5 },
+                ]}
+                onPress={handleConfirmTerminate}
+                disabled={!reasonInput.trim()}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogDestructiveBtnText}>Confirm Terminate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── Modal 3: Delete Information Confirmation ─── */}
+      <Modal
+        visible={confirmModal === 'delete'}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmModal('none')}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.dialogCard}>
+            <View style={styles.dialogIconWrap}>
+              <TrashWarningIcon size={32} color="#DC2626" />
+            </View>
+            <Text style={styles.dialogTitle}>Delete Information</Text>
+            <Text style={styles.dialogMessage}>
+              Permanent action: this will delete all specification records, uploaded safety documents, and compliance logs for <Text style={{ fontWeight: '700' }}>{name}</Text>.
+            </Text>
+
+            <View style={styles.dialogActionsRow}>
+              <TouchableOpacity
+                style={styles.dialogCancelBtn}
+                onPress={() => setConfirmModal('none')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.dialogDestructiveBtn}
+                onPress={handleConfirmDelete}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dialogDestructiveBtnText}>Delete Forever</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── Informational & Alert Confirm Dialog (Image 2 Style) ─── */}
+      {confirmDialog && (
+        <AdminConfirmDialog
+          visible={confirmDialog.visible}
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel={confirmDialog.confirmLabel}
+          hideCancel={confirmDialog.hideCancel}
+          destructive={confirmDialog.destructive}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={() => setConfirmDialog(null)}
+        />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
-// ─── Styles Strictly Derived from Admin Theme ─────────────────────────────────
+// ─── Styles Strictly Derived from Admin Theme & Image 1 & 2 ────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
-
-  // Header Banner (Image 5)
   header: {
     backgroundColor: adminColors.brand,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
+    paddingTop: 10,
+    paddingBottom: 14,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.xs,
+    justifyContent: 'space-between',
   },
   backBtn: {
-    paddingRight: adminSpacing.xs,
-    paddingVertical: adminSpacing.xs,
+    padding: 6,
+    marginRight: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTextCol: {
-    flex: 1,
-    justifyContent: 'center',
-  },
   headerTitle: {
-    fontSize: 19,
-    fontWeight: '800',
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
     color: adminColors.onBrand,
-    letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 12.5,
-    color: adminColors.onBrand,
-    opacity: 0.9,
-    marginTop: 2,
-    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   headerPencilBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 10,
   },
 
   // Scroll Container
@@ -562,170 +731,314 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: adminSpacing.md,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xl,
-  },
-
-  // Horizontal Segmented Pills (Image 1 reference)
-  pillsScrollView: {
-    marginBottom: adminSpacing.md,
-  },
-  pillsScrollContent: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingRight: adminSpacing.md,
-  },
-  pillBtn: {
-    paddingVertical: 9,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: '#D8D1C9',
-  },
-  pillBtnActive: {
-    backgroundColor: adminColors.brand,
-    borderColor: adminColors.brand,
-  },
-  pillText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  pillTextActive: {
-    color: adminColors.onBrand,
-    fontWeight: '800',
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: 14,
+    paddingBottom: 48,
   },
 
   // Section Heading
   sectionHeading: {
     fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
-    marginTop: adminSpacing.sm,
-    marginBottom: adminSpacing.xs + 2,
+    fontWeight: '700',
+    color: '#5C3826',
+    marginTop: 14,
+    marginBottom: 8,
     paddingHorizontal: 2,
   },
 
-  // Table Card Structure (Image 5)
+  // Table Card Structure (Image 1)
   tableCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EDE7E1',
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 10,
-    marginBottom: adminSpacing.md,
+    borderColor: '#ECE5DE',
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginBottom: 8,
     ...adminShadow.sm,
   },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   tableLabel: {
-    fontSize: 13,
-    color: adminColors.muted,
+    fontSize: 13.5,
+    color: '#6B7280',
     flex: 1,
   },
   tableValue: {
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
     textAlign: 'right',
-    flex: 1.3,
+    flex: 1.4,
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#F3ECE4',
   },
   statusApprovedText: {
-    color: '#059669',
+    color: '#16A34A',
+    fontWeight: '700',
   },
   statusInactiveText: {
     color: '#6B7280',
   },
-  linkText: {
-    fontSize: 13.5,
+
+  // Documents Row (Image 1)
+  docRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+  },
+  docInfoCol: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  docTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: adminColors.brandDeep,
+    color: '#111827',
+  },
+  docSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  docViewPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 5.5,
+    borderRadius: 8,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  docViewPillText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#EA580C',
   },
 
-  // Fixed Bottom Bar (Image 5)
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+  // Timeline (Image 1)
+  timelineRow: {
     flexDirection: 'row',
-    gap: adminSpacing.md,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm + 2,
-    paddingBottom: adminSpacing.lg + 4,
-    backgroundColor: adminColors.canvas,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
+    alignItems: 'flex-start',
+    marginTop: 10,
+    marginBottom: 2,
   },
-  editBtn: {
+  timelineLeftCol: {
+    alignItems: 'center',
+    width: 20,
+    marginRight: 10,
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginTop: 3,
+  },
+  timelineLine: {
+    width: 1.5,
+    height: 44,
+    backgroundColor: '#E5E7EB',
+    marginTop: 4,
+  },
+  timelineRightCol: {
+    flex: 1,
+    paddingBottom: 6,
+  },
+  timelineTimestamp: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  timelineTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 1,
+  },
+  timelineSub: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+
+  // Standard Bottom Actions (Image 1)
+  standardActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  editOutlineBtn: {
     flex: 1,
     height: 48,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: adminColors.brandDeep,
+    borderColor: '#78350F',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  editBtnText: {
+  editOutlineBtnText: {
     fontSize: 15,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
+    fontWeight: '700',
+    color: '#78350F',
   },
-  deactivateBtn: {
+  deactivateSolidBtn: {
     flex: 1,
     height: 48,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.muted,
+    borderRadius: 14,
+    backgroundColor: '#9E9892',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deactivateBtnText: {
+  deactivateSolidBtnText: {
     fontSize: 15,
-    fontWeight: '800',
-    color: adminColors.onBrand,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  superAdminActionsWrap: {
-    marginTop: adminSpacing.lg,
-    gap: adminSpacing.sm,
-    paddingBottom: adminSpacing.xl,
+
+  // Super Admin Extra Access Section (Image 2)
+  superAdminExtraSection: {
+    marginTop: 10,
+    gap: 12,
+    marginBottom: 10,
   },
   deactivateAccountBtn: {
     height: 48,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.danger.text,
+    borderRadius: 14,
+    backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   deactivateAccountBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
+    fontSize: 15.5,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
-  outlineActionBtn: {
+  terminateOutlineBtn: {
     height: 48,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: adminColors.brand,
+    borderColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  outlineActionBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.brand,
+  terminateOutlineBtnText: {
+    fontSize: 15.5,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  deleteInfoOutlineBtn: {
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteInfoOutlineBtnText: {
+    fontSize: 15.5,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+
+  // Confirmation Modals
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  dialogCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    alignItems: 'center',
+    ...adminShadow.md,
+  },
+  dialogIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  dialogTitle: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  dialogMessage: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 13.5,
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  reasonInput: {
+    width: '100%',
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 12,
+    fontSize: 13.5,
+    color: adminColors.ink,
+    marginBottom: 16,
+    backgroundColor: adminColors.canvas,
+  },
+  dialogActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  dialogCancelBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogCancelBtnText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  dialogDestructiveBtn: {
+    flex: 1.2,
+    height: 44,
+    borderRadius: adminRadius.md,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dialogDestructiveBtnText: {
+    ...adminType.body,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 });
-

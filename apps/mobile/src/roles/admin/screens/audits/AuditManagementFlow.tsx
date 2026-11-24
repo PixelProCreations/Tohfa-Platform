@@ -7,17 +7,23 @@ import { AuditHistoryComplianceScreen } from './AuditHistoryComplianceScreen';
 import { GenerateAuditReportScreen } from './GenerateAuditReportScreen';
 import { AuditReportsTierConfigScreen } from './AuditReportsTierConfigScreen';
 import { AuditReportHistoryScreen } from './AuditReportHistoryScreen';
+import { AuditReportPreviewScreen } from './AuditReportPreviewScreen';
+import { AuditReportExportWizardScreen } from './AuditReportExportWizardScreen';
+import { AuditDetailsFarmerRecordsScreen } from './AuditDetailsFarmerRecordsScreen';
 import { AuditScheduleScreen } from '../dashboard/AuditScheduleScreen';
 
 export type AuditSubScreen =
   | 'management'
   | 'scheduleAssignment'
   | 'detailsRecord'
+  | 'completedDetailsRecord'
   | 'scheduleForm'
   | 'historyCompliance'
   | 'generateReport'
   | 'reportsTierConfig'
   | 'reportHistory'
+  | 'reportDetails'
+  | 'exportWizard'
   | 'auditInspection'
   | 'soilTesting';
 
@@ -41,7 +47,7 @@ export interface AuditManagementFlowProps {
 export function AuditManagementFlow({
   can,
   role = 'SUPER_ADMIN',
-  userScope,
+  userScope: _userScope,
   initialScreen = 'management',
   initialAuditId = 'AUD-2026-0034',
   onBack,
@@ -49,21 +55,64 @@ export function AuditManagementFlow({
 }: AuditManagementFlowProps): React.JSX.Element {
   const [currentScreen, setCurrentScreen] = useState<AuditSubScreen>(initialScreen);
   const [selectedAuditId, setSelectedAuditId] = useState<string>(initialAuditId);
+  const [selectedAuditStatus, setSelectedAuditStatus] = useState<string>('Scheduled');
+  const [selectedFarmerName, setSelectedFarmerName] = useState<string>('Selvi');
+  const [auditDetailsInitialTab, setAuditDetailsInitialTab] = useState<'details' | 'inspection'>('details');
   const [detailsReturnScreen, setDetailsReturnScreen] = useState<AuditSubScreen>('management');
   const [scheduleFormReturnScreen, setScheduleFormReturnScreen] = useState<AuditSubScreen>('management');
   const [reportHistoryReturnScreen, setReportHistoryReturnScreen] = useState<AuditSubScreen>('management');
+  const [inspectionReturnScreen, setInspectionReturnScreen] = useState<AuditSubScreen>('completedDetailsRecord');
+  const [selectedReportTitle, setSelectedReportTitle] = useState<string>('Audit Summary Report');
+  const [rescheduleData, setRescheduleData] = useState<{
+    auditId: string;
+    farmer?: string;
+    farm?: string;
+    auditor?: string;
+    previousDate?: string;
+    mode?: 'schedule' | 'reschedule';
+  } | null>(null);
 
-  // 1. Audit Details (Image 2: Left Detail -> Middle Inspection/Findings -> Right Audit Inspection)
-  if (currentScreen === 'detailsRecord') {
+  const handleSelectAudit = (
+    code: string,
+    badge: string,
+    farmerName?: string,
+    returnTo: AuditSubScreen = 'management',
+  ) => {
+    setSelectedAuditId(code);
+    setSelectedAuditStatus(badge);
+    setSelectedFarmerName(farmerName || 'Farmer');
+    setDetailsReturnScreen(returnTo);
+
+    // No reschedule: all audits route directly to completedDetailsRecord
+    setAuditDetailsInitialTab('inspection');
+    setCurrentScreen('completedDetailsRecord');
+  };
+
+  // 1. Completed Audit Details & Farmer Records / Inspection & Findings (Direct flow, no intermediate detail screen)
+  if (currentScreen === 'completedDetailsRecord') {
     return (
-      <AuditScheduleScreen
-        key={selectedAuditId}
-        initialView="detail"
-        initialAuditId={selectedAuditId}
+      <AuditDetailsFarmerRecordsScreen
+        auditId={selectedAuditId}
+        status={selectedAuditStatus}
+        farmerName={selectedFarmerName}
+        initialTab={auditDetailsInitialTab}
         role={role}
         can={can}
-        onBack={() => setCurrentScreen(detailsReturnScreen)}
-        onNavigateFarmerProfile={onOpenFarmerProfile}
+        onBack={() => {
+          const target = (!detailsReturnScreen || detailsReturnScreen === 'completedDetailsRecord')
+            ? 'management'
+            : detailsReturnScreen;
+          setCurrentScreen(target);
+        }}
+        onOpenFarmerProfile={onOpenFarmerProfile}
+        onStartAudit={() => {
+          setInspectionReturnScreen('completedDetailsRecord');
+          setCurrentScreen('auditInspection');
+        }}
+        onResumeAudit={() => {
+          setInspectionReturnScreen('completedDetailsRecord');
+          setCurrentScreen('auditInspection');
+        }}
       />
     );
   }
@@ -77,8 +126,12 @@ export function AuditManagementFlow({
         initialAuditId={selectedAuditId}
         role={role}
         can={can}
-        onBack={() => setCurrentScreen(detailsReturnScreen)}
+        onBack={() => setCurrentScreen(inspectionReturnScreen || 'completedDetailsRecord')}
         onNavigateFarmerProfile={onOpenFarmerProfile}
+        onCompleteAudit={() => {
+          // If 12 steps are completed, list down in view audit history
+          setCurrentScreen('historyCompliance');
+        }}
       />
     );
   }
@@ -104,9 +157,23 @@ export function AuditManagementFlow({
     return (
       <ScheduleAuditFormScreen
         initialAuditId={selectedAuditId}
-        onBack={() => setCurrentScreen(scheduleFormReturnScreen)}
-        onScheduleSuccess={() => setCurrentScreen(scheduleFormReturnScreen)}
-        onSaveDraft={() => setCurrentScreen(scheduleFormReturnScreen)}
+        initialFarmer={rescheduleData?.farmer}
+        initialFarm={rescheduleData?.farm}
+        initialAuditor={rescheduleData?.auditor}
+        previousDate={rescheduleData?.previousDate}
+        mode={rescheduleData?.mode || 'schedule'}
+        onBack={() => {
+          setRescheduleData(null);
+          setCurrentScreen(scheduleFormReturnScreen);
+        }}
+        onScheduleSuccess={() => {
+          setRescheduleData(null);
+          setCurrentScreen(scheduleFormReturnScreen);
+        }}
+        onSaveDraft={() => {
+          setRescheduleData(null);
+          setCurrentScreen(scheduleFormReturnScreen);
+        }}
       />
     );
   }
@@ -117,17 +184,24 @@ export function AuditManagementFlow({
       <AuditScheduleAssignmentScreen
         onBack={() => setCurrentScreen('management')}
         onViewSchedule={(schedule) => {
-          setSelectedAuditId(schedule.code);
-          setDetailsReturnScreen('scheduleAssignment');
-          setCurrentScreen('detailsRecord');
+          handleSelectAudit(schedule.code, schedule.status, schedule.farmerName, 'scheduleAssignment');
         }}
-        onEditSchedule={(schedule) => {
-          setSelectedAuditId(schedule.code);
-          setScheduleFormReturnScreen('scheduleAssignment');
-          setCurrentScreen('scheduleForm');
+        onUpdateSchedule={(schedule) => {
+          handleSelectAudit(schedule.code, schedule.status, schedule.farmerName, 'scheduleAssignment');
+        }}
+        onReviewSchedule={(schedule) => {
+          handleSelectAudit(schedule.code, schedule.status, schedule.farmerName, 'scheduleAssignment');
         }}
         onReschedule={(schedule) => {
           setSelectedAuditId(schedule.code);
+          setRescheduleData({
+            auditId: schedule.code,
+            farmer: schedule.farmerName,
+            farm: `${schedule.farmLocation} · ${schedule.zone}`,
+            auditor: schedule.auditor.replace('Auditor: ', '').replace('Auditor ', ''),
+            previousDate: schedule.dateStr,
+            mode: 'reschedule',
+          });
           setScheduleFormReturnScreen('scheduleAssignment');
           setCurrentScreen('scheduleForm');
         }}
@@ -141,9 +215,7 @@ export function AuditManagementFlow({
       <AuditHistoryComplianceScreen
         onBack={() => setCurrentScreen('management')}
         onSelectAudit={(audit) => {
-          setSelectedAuditId(audit.code);
-          setDetailsReturnScreen('historyCompliance');
-          setCurrentScreen('detailsRecord');
+          handleSelectAudit(audit.code, audit.badge, audit.farmerName, 'historyCompliance');
         }}
       />
     );
@@ -165,6 +237,10 @@ export function AuditManagementFlow({
     return (
       <AuditReportsTierConfigScreen
         onBack={() => setCurrentScreen('generateReport')}
+        onExportReport={(repName) => {
+          setSelectedReportTitle(repName || 'Audit Summary Report');
+          setCurrentScreen('exportWizard');
+        }}
         onGenerateReportSuccess={() => {
           setReportHistoryReturnScreen('reportsTierConfig');
           setCurrentScreen('reportHistory');
@@ -177,7 +253,38 @@ export function AuditManagementFlow({
   if (currentScreen === 'reportHistory') {
     return (
       <AuditReportHistoryScreen
+        role={role}
         onBack={() => setCurrentScreen(reportHistoryReturnScreen)}
+        onSelectReport={(report) => {
+          setSelectedReportTitle(report.title || 'Audit Summary Report');
+          setCurrentScreen('reportDetails');
+        }}
+      />
+    );
+  }
+
+  // 7b. Report Details Preview (M5-S06b)
+  if (currentScreen === 'reportDetails') {
+    return (
+      <AuditReportPreviewScreen
+        reportTitle={selectedReportTitle}
+        onBack={() => setCurrentScreen('reportHistory')}
+      />
+    );
+  }
+
+  // 7c. 5-Step Export Report Wizard (Audit Data)
+  if (currentScreen === 'exportWizard') {
+    return (
+      <AuditReportExportWizardScreen
+        initialReportName={selectedReportTitle}
+        role={role}
+        can={can}
+        onBack={() => setCurrentScreen('reportsTierConfig')}
+        onFinishExport={() => {
+          setReportHistoryReturnScreen('reportsTierConfig');
+          setCurrentScreen('reportHistory');
+        }}
       />
     );
   }
@@ -195,9 +302,7 @@ export function AuditManagementFlow({
         setCurrentScreen('reportHistory');
       }}
       onSelectAuditItem={(audit) => {
-        setSelectedAuditId(audit.code);
-        setDetailsReturnScreen('management');
-        setCurrentScreen('detailsRecord');
+        handleSelectAudit(audit.code, audit.badge, audit.farmerName, 'management');
       }}
     />
   );

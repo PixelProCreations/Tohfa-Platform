@@ -103,6 +103,23 @@ export function FarmerManagementFlow({
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const hasPermission = (perm: string) => isSuperAdmin || (can ? can(perm) : false);
 
+  const normalizedRole = (role || '').toUpperCase();
+  const isSuperOrTohfa = normalizedRole.includes('SUPER') || normalizedRole.includes('TOHFA');
+  const isOtherAdmin =
+    normalizedRole.includes('FARM') ||
+    normalizedRole.includes('MAIN') ||
+    normalizedRole.includes('SUB') ||
+    normalizedRole.includes('WH') ||
+    normalizedRole.includes('WAREHOUSE');
+
+  const canEditFarmer = isOtherAdmin
+    ? false
+    : Boolean(
+        can
+          ? (can('farmer.profile.edit') || can('farmer.profile.edit_locked_field'))
+          : isSuperOrTohfa
+      );
+
   const handleSelectFarmer = (farmer: FarmerListItem) => {
     setSelectedFarmer(farmer);
     setFarmerDetailInitialTab('Personal');
@@ -224,7 +241,7 @@ export function FarmerManagementFlow({
           setAuditHistoryReturnView('records');
           setSubView('audit_history');
         }}
-        onEdit={() => setSubView('edit_farmer')}
+        onEdit={canEditFarmer ? () => setSubView('edit_farmer') : undefined}
       />
     );
   }
@@ -347,7 +364,10 @@ export function FarmerManagementFlow({
     );
   }
 
-  if (subView === 'add_farmer' || (subView === 'edit_farmer' && selectedFarmer)) {
+  if (
+    (subView === 'add_farmer' && canEditFarmer) ||
+    (subView === 'edit_farmer' && selectedFarmer && canEditFarmer)
+  ) {
     return (
       <AdminEditFarmerScreen
         farmer={selectedFarmer ?? DEMO_ALL_FARMERS[0]!}
@@ -448,7 +468,7 @@ export function FarmerManagementFlow({
           setAuditHistoryReturnView('farmer_detail');
           setSubView('audit_history');
         }}
-        onEdit={() => setSubView('edit_farmer')}
+        onEdit={canEditFarmer ? () => setSubView('edit_farmer') : undefined}
       />
     );
   }

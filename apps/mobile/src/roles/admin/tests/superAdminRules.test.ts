@@ -224,6 +224,21 @@ describe('Super Admin Business Rules (docs/rules.md & docs/rbac.json)', () => {
       expect(tohfaAdminCan('report.export.file')).toBe(true);
     });
   });
+
+  describe('Farmer Profile Edit Access (Super Admin & TOHFA Admin only)', () => {
+    it('grants farmer.profile.edit to Super Admin and TOHFA Admin only, and denies the other 3 admins', () => {
+      const farmerAdminCan = makeCan(getRolePermissions('FARMER_ADMIN'));
+
+      // Allowed admins (Super Admin & TOHFA Admin)
+      expect(superAdminCan('farmer.profile.edit')).toBe(true);
+      expect(tohfaAdminCan('farmer.profile.edit')).toBe(true);
+
+      // Other 3 admins must NOT have access
+      expect(farmerAdminCan('farmer.profile.edit')).toBe(false);
+      expect(mainWhAdminCan('farmer.profile.edit')).toBe(false);
+      expect(subWhAdminCan('farmer.profile.edit')).toBe(false);
+    });
+  });
 });
 
 

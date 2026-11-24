@@ -1,7 +1,6 @@
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { adminColors } from '../../theme';
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -22,11 +22,14 @@ const PALETTE = {
   ink:           adminColors.ink,
   labelMuted:    adminColors.muted,
   border:        adminColors.border,
+  divider:       adminColors.border,
   chipBorder:    adminColors.border,
   dateBadgeBg:   adminColors.brandTint,
   warningBg:     adminColors.warning.bg,
   warningText:   adminColors.warning.text,
   warningIcon:   adminColors.warning.text,
+  amberText:     adminColors.warning.text,
+  amberBorder:   adminColors.warning.border,
   auditBadgeBg:  adminColors.info.bg,
   auditBadgeText:adminColors.info.text,
   btnBorder:     adminColors.border,
@@ -117,32 +120,22 @@ export function ComplianceAlertResolutionScreen({
 
   const completedCount = tasks.filter((t) => t.done).length;
 
+  const [confirmSubmitVisible, setConfirmSubmitVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+
   function handleSubmitResolution() {
-    Alert.alert(
-      'Submit CAPA Resolution',
-      `Submit corrective documentation (${completedCount}/${tasks.length} actions verified) to Chief Quality Auditor for sign-off?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit Resolution',
-          onPress: () => {
-            Alert.alert(
-              'Sign-off Requested',
-              'Remediation dossier submitted. The auditor will review the photographic evidence within 24 hours.',
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    (onSuccess ?? onResolved)?.();
-                    onBack();
-                  },
-                },
-              ],
-            );
-          },
-        },
-      ],
-    );
+    setConfirmSubmitVisible(true);
+  }
+
+  function handleConfirmSubmit() {
+    setConfirmSubmitVisible(false);
+    setSuccessModalVisible(true);
+  }
+
+  function handleFinishSuccess() {
+    setSuccessModalVisible(false);
+    (onSuccess ?? onResolved)?.();
+    onBack();
   }
 
   return (
@@ -250,6 +243,27 @@ export function ComplianceAlertResolutionScreen({
 
         <View style={{ height: 48 }} />
       </ScrollView>
+
+      {/* Confirmation Dialog */}
+      <AdminConfirmDialog
+        visible={confirmSubmitVisible}
+        title="Submit CAPA Resolution?"
+        message={`Submit corrective documentation (${completedCount}/${tasks.length} actions verified) to Chief Quality Auditor for sign-off?`}
+        confirmLabel="Submit Resolution"
+        onConfirm={handleConfirmSubmit}
+        onCancel={() => setConfirmSubmitVisible(false)}
+      />
+
+      {/* Success Dialog */}
+      <AdminConfirmDialog
+        visible={successModalVisible}
+        title="Sign-off Requested"
+        message="Remediation dossier submitted. The auditor will review the photographic evidence within 24 hours."
+        confirmLabel="OK"
+        hideCancel
+        variant="brand"
+        onConfirm={handleFinishSuccess}
+      />
     </SafeAreaView>
   );
 }

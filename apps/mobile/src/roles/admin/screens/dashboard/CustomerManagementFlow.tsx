@@ -2543,7 +2543,7 @@ export function CustomerManagementFlow({
       <CustomersFlow
         scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
         warehouseOptions={CUSTOMER_WAREHOUSES}
-        can={can}
+        can={checkCan}
         initialScreen="CustomerDetails"
         initialParams={{
           customer: selectedCustomer

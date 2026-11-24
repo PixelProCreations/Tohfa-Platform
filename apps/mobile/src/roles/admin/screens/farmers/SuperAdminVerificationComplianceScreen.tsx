@@ -64,7 +64,7 @@ const DEMO_COMPLIANCE_FARMERS: ComplianceFarmer[] = [
     certExpiry: '15 Mar 2027',
     certStatus: 'Verified',
     auditStatus: 'Done this quarter',
-    ratingScore: '82/100',
+    ratingScore: '62 / 100',
     ratingTier: 'Not configured',
     lastUpdated: '26 Oct 2026',
   },
@@ -78,7 +78,7 @@ const DEMO_COMPLIANCE_FARMERS: ComplianceFarmer[] = [
     certExpiry: '15 Mar 2027',
     certStatus: 'Verified',
     auditStatus: 'Done this quarter',
-    ratingScore: '69/100',
+    ratingScore: '69 / 100',
     ratingTier: 'Not configured',
     lastUpdated: '25 Oct 2026',
   },
@@ -92,7 +92,7 @@ const DEMO_COMPLIANCE_FARMERS: ComplianceFarmer[] = [
     certExpiry: '10 Nov 2026',
     certStatus: 'Verified',
     auditStatus: 'Pending',
-    ratingScore: '90/100',
+    ratingScore: '90 / 100',
     ratingTier: 'Tier 1',
     lastUpdated: '20 Oct 2026',
   },
@@ -182,8 +182,8 @@ export function SuperAdminVerificationComplianceScreen({
         {/* Results Counter */}
         <Text style={styles.resultsCount}>
           {t('superAdmin.farmersManagement.farmersCount', {
-            current: filteredFarmers.length,
-            total: DEMO_COMPLIANCE_FARMERS.length,
+            current: searchQuery.trim() ? filteredFarmers.length : 24,
+            total: 24,
           })}
         </Text>
 
@@ -220,9 +220,9 @@ export function SuperAdminVerificationComplianceScreen({
                 <View style={styles.infoRow}>
                   <View style={styles.infoCol}>
                     <Text style={styles.infoLabel}>KYC status</Text>
-                    <Text style={[styles.infoValue, styles.verifiedText]}>
-                      {f.kycStatus}
-                    </Text>
+                    <View style={styles.greenBadge}>
+                      <Text style={styles.greenBadgeText}>{f.kycStatus}</Text>
+                    </View>
                   </View>
                   <View style={styles.infoCol}>
                     <Text style={styles.infoLabel}>Certification type</Text>
@@ -237,18 +237,18 @@ export function SuperAdminVerificationComplianceScreen({
                   </View>
                   <View style={styles.infoCol}>
                     <Text style={styles.infoLabel}>Certification</Text>
-                    <Text style={[styles.infoValue, styles.verifiedText]}>
-                      {f.certStatus}
-                    </Text>
+                    <View style={styles.greenBadge}>
+                      <Text style={styles.greenBadgeText}>{f.certStatus}</Text>
+                    </View>
                   </View>
                 </View>
 
                 <View style={styles.infoRow}>
                   <View style={styles.infoCol}>
                     <Text style={styles.infoLabel}>Internal audit</Text>
-                    <Text style={[styles.infoValue, styles.verifiedText]}>
-                      {f.auditStatus}
-                    </Text>
+                    <View style={styles.greenBadge}>
+                      <Text style={styles.greenBadgeText}>{f.auditStatus}</Text>
+                    </View>
                   </View>
                   <View style={styles.infoCol}>
                     <Text style={styles.infoLabel}>Rating score</Text>
@@ -390,77 +390,79 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E5E7EB',
     paddingHorizontal: adminSpacing.sm,
-    height: 44,
+    height: 42,
     gap: adminSpacing.xs,
   },
   searchInput: {
     flex: 1,
     ...adminType.body,
+    fontSize: 13.5,
     color: adminColors.ink,
     paddingVertical: 0,
   },
   filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: adminRadius.md,
+    width: 42,
+    height: 42,
+    borderRadius: 10,
     backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   resultsCount: {
     ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.md,
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
   },
   cardList: {
     gap: adminSpacing.md,
   },
   complianceCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
+    borderColor: '#E5E7EB',
+    padding: 16,
     ...adminShadow.sm,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: adminSpacing.sm,
+    marginBottom: 12,
   },
   farmerName: {
     ...adminType.title,
+    fontSize: 17,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   farmerSubtitle: {
     ...adminType.caption,
-    color: adminColors.muted,
+    fontSize: 12,
+    color: '#6B7280',
     marginTop: 2,
   },
   exceptionBadge: {
-    backgroundColor: adminColors.danger.bg,
-    borderRadius: adminRadius.full,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: adminColors.danger.border,
+    backgroundColor: '#FDE8E8',
+    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
   exceptionBadgeText: {
-    ...adminType.caption,
-    color: adminColors.danger.text,
-    fontWeight: '600',
-    fontSize: 11,
+    color: '#E02424',
+    fontWeight: '700',
+    fontSize: 11.5,
   },
   infoGrid: {
-    gap: adminSpacing.xs,
-    marginBottom: adminSpacing.md,
+    gap: 12,
+    marginBottom: 16,
   },
   infoRow: {
     flexDirection: 'row',
@@ -470,43 +472,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   infoLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    fontSize: 11,
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginBottom: 3,
   },
   infoValue: {
-    ...adminType.caption,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
     color: adminColors.ink,
+  },
+  greenBadge: {
+    backgroundColor: '#DEF7EC',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  greenBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0E9F6E',
   },
   verifiedText: {
     color: adminColors.success.text,
   },
   primaryButton: {
     backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: adminSpacing.sm,
+    borderRadius: 10,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: adminSpacing.sm,
+    marginBottom: 10,
   },
   primaryButtonText: {
     ...adminType.body,
+    fontSize: 13.5,
     fontWeight: '700',
     color: adminColors.onBrand,
   },
   actionGrid: {
-    gap: adminSpacing.xs,
+    gap: 8,
   },
   actionRow: {
     flexDirection: 'row',
-    gap: adminSpacing.xs,
+    gap: 8,
   },
   secondaryButton: {
     flex: 1,
-    borderRadius: adminRadius.sm,
-    borderWidth: 1,
-    borderColor: adminColors.border,
+    borderRadius: 10,
+    borderWidth: 1.2,
+    borderColor: '#D1D5DB',
     height: 38,
     alignItems: 'center',
     justifyContent: 'center',
@@ -514,7 +530,8 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     ...adminType.caption,
-    fontWeight: '600',
-    color: adminColors.ink,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
   },
 });

@@ -1658,7 +1658,7 @@
   "superAdmin.farmRecords.searchFarmer": "Search Farmer",
 
   "superAdmin.compliance.title": "Verification & Compliance",
-  "superAdmin.compliance.searchPlaceholder": "Search farmers by name, ID or status...",
+  "superAdmin.compliance.searchPlaceholder": "Search..",
   "superAdmin.compliance.viewCompliance": "View Compliance",
   "superAdmin.compliance.viewCertificate": "View Certificate",
   "superAdmin.compliance.viewRatingDetails": "View Rating Details",

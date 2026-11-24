@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import * as React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  LayoutChangeEvent,
+  type LayoutChangeEvent,
   Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   SafeAreaView,
@@ -17,7 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
   adminRadius,
@@ -139,9 +140,7 @@ export interface AdminFarmerDetailScreenProps {
   userScope?: unknown;
 }
 
-type Props = AdminFarmerDetailScreenProps;
-
-export const AdminFarmerDetailScreen: React.FC<Props> = ({
+export function AdminFarmerDetailScreen({
   farmer: passedFarmer,
   farmerId,
   farmerName,
@@ -151,13 +150,13 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   userScope: _userScope,
   onEdit,
   onDisable,
-  onOpenFarmMap,
+  onOpenFarmMap: _onOpenFarmMap,
   onOpenKycReview,
   onOpenRatingScorecard,
   onNavigateAuditHistory: _onNavigateAuditHistory,
   initialTab = 'Personal',
   onTabChange,
-}) => {
+}: AdminFarmerDetailScreenProps): React.JSX.Element {
   const farmer: FarmerListItem = React.useMemo(
     () =>
       passedFarmer || ({
@@ -175,44 +174,32 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
       } as unknown as FarmerListItem),
     [passedFarmer, farmerId, farmerName],
   );
-  const normalizeTab = (tab?: FarmerDetailTabType): FarmerDetailTabType => {
+  const normalizeTab = (tab?: string): FarmerDetailTabType => {
     if (!tab || tab === 'Overview') return 'Personal';
     if (tab === 'Farm') return 'Farm & land';
-    return tab;
+    return (tab as FarmerDetailTabType) || 'Personal';
   };
 
   const normalizeStatus = (raw?: string): 'ACTIVE' | 'DISABLED' =>
     raw?.toUpperCase() === 'DISABLED' ? 'DISABLED' : 'ACTIVE';
 
-  const resolvedFarmer: FarmerListItem = farmer
-    ? {
-      id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
-      name: farmer.name || farmerName || 'Farmer',
-      phone: farmer.phone || '+91 98765 43210',
-      status: normalizeStatus(farmer.status || farmer.accountStatus),
-      registeredDate: farmer.registeredDate || '12 Jan 2026',
-      farmSize: farmer.farmSize || '5.5 Acres',
-      zone: farmer.zone || 'Ooty North',
-      crops: farmer.crops || ['Carrot', 'Potato'],
-      rating: farmer.rating || '4.8',
-      kycStatus: farmer.kycStatus || 'VERIFIED',
-      disputeCount: farmer.disputeCount || 0,
-      ...(farmer.certStatus ? { certStatus: farmer.certStatus } : {}),
-      ...(farmer.hasExpiredCert !== undefined ? { hasExpiredCert: farmer.hasExpiredCert } : {}),
-    }
-    : {
-      id: farmerId || 'FARM-001',
-      name: farmerName || 'Farmer',
-      phone: '+91 98765 43210',
-      status: 'ACTIVE',
-      registeredDate: '12 Jan 2026',
-      farmSize: '5.5 Acres',
-      zone: 'Ooty North',
-      crops: ['Carrot', 'Potato'],
-      rating: '4.8',
-      kycStatus: 'VERIFIED',
-      disputeCount: 0,
-    };
+  const fAny = (farmer || {}) as Record<string, unknown>;
+
+  const resolvedFarmer: FarmerListItem = {
+    id: String(fAny.id || fAny.farmerId || farmerId || 'FARM-001'),
+    name: String(fAny.name || farmerName || 'Farmer'),
+    mobile: String(fAny.mobile || fAny.phone || '+91 98765 43210'),
+    location: String(fAny.location || fAny.zone || 'Coonoor'),
+    status: normalizeStatus(typeof fAny.status === 'string' ? fAny.status : (typeof fAny.accountStatus === 'string' ? fAny.accountStatus : undefined)),
+    zone: String(fAny.zone || 'Ooty North'),
+    crops: Array.isArray(fAny.crops)
+      ? fAny.crops.join(', ')
+      : (typeof fAny.crops === 'string' ? fAny.crops : 'Carrot, Potato'),
+    rating: String(fAny.rating || '4.8'),
+    kycStatus: (fAny.kycStatus as FarmerListItem['kycStatus']) || 'VERIFIED',
+    ...(fAny.certStatus ? { certStatus: fAny.certStatus as FarmerListItem['certStatus'] } : {}),
+    ...(fAny.hasExpiredCert !== undefined ? { hasExpiredCert: Boolean(fAny.hasExpiredCert) } : {}),
+  };
 
   const [currentFarmer, setCurrentFarmer] = useState<FarmerListItem>(resolvedFarmer);
   const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(normalizeTab(initialTab));
@@ -223,22 +210,21 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   );
 
   useEffect(() => {
+    const f = (farmer || {}) as Record<string, unknown>;
     setCurrentFarmer({
-      id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
-      name: farmer.name || farmerName || 'Farmer',
-      phone: farmer.phone || farmer.mobile || '+91 98765 43210',
-      mobile: farmer.mobile || farmer.phone || '+91 90000 20000',
-      location: farmer.location || farmer.zone || 'Coonoor',
-      status: normalizeStatus(farmer.status || farmer.accountStatus),
-      registeredDate: farmer.registeredDate || '12 Jan 2026',
-      farmSize: farmer.farmSize || '5.5 Acres',
-      zone: farmer.zone || 'Ooty North',
-      crops: farmer.crops || ['Carrot', 'Potato'],
-      rating: farmer.rating || '4.8',
-      kycStatus: farmer.kycStatus || 'VERIFIED',
-      disputeCount: farmer.disputeCount || 0,
-      ...(farmer.certStatus ? { certStatus: farmer.certStatus } : {}),
-      ...(farmer.hasExpiredCert !== undefined ? { hasExpiredCert: farmer.hasExpiredCert } : {}),
+      id: String(f.id || f.farmerId || farmerId || 'FARM-001'),
+      name: String(f.name || farmerName || 'Farmer'),
+      mobile: String(f.mobile || f.phone || '+91 90000 20000'),
+      location: String(f.location || f.zone || 'Coonoor'),
+      status: normalizeStatus(typeof f.status === 'string' ? f.status : (typeof f.accountStatus === 'string' ? f.accountStatus : undefined)),
+      zone: String(f.zone || 'Ooty North'),
+      crops: Array.isArray(f.crops)
+        ? f.crops.join(', ')
+        : (typeof f.crops === 'string' ? f.crops : 'Carrot, Potato'),
+      rating: String(f.rating || '4.8'),
+      kycStatus: (f.kycStatus as FarmerListItem['kycStatus']) || 'VERIFIED',
+      ...(f.certStatus ? { certStatus: f.certStatus as FarmerListItem['certStatus'] } : {}),
+      ...(f.hasExpiredCert !== undefined ? { hasExpiredCert: Boolean(f.hasExpiredCert) } : {}),
     });
   }, [farmer]);
 
@@ -250,11 +236,28 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   const totalRatingScore = categoryRatings.reduce((sum, item) => sum + item.score, 0);
 
-  // RBAC: Profile edits and account actions are gated by permission codes from docs/rbac.json.
-  const canEditProfile = Boolean(
-    can ? (can('farmer.profile.edit') || can('farmer.profile.edit_locked_field')) : (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
-  );
-  const canDisableAccount = Boolean(
+  // RBAC: Profile edits should ONLY come for Super Admin and TOHFA Admin.
+  // The other 3 admins (Farmer Admin, Main Warehouse Admin, Sub Warehouse Admin) must NOT see the edit action.
+  const normalizedRole = (role || '').toUpperCase();
+  const isSuperOrTohfa =
+    normalizedRole.includes('SUPER') ||
+    normalizedRole.includes('TOHFA');
+
+  const isOtherAdmin =
+    normalizedRole.includes('FARM') ||
+    normalizedRole.includes('MAIN') ||
+    normalizedRole.includes('SUB') ||
+    normalizedRole.includes('WH') ||
+    normalizedRole.includes('WAREHOUSE');
+
+  const canEditProfile = isOtherAdmin
+    ? false
+    : Boolean(
+        can
+          ? (can('farmer.profile.edit') || can('farmer.profile.edit_locked_field'))
+          : isSuperOrTohfa
+      );
+  const _canDisableAccount = Boolean(
     can ? (can('farmer.account.disable') || can('farmer.account.reactivate')) : (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
   );
   const canEditRating = Boolean(
@@ -293,8 +296,8 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   >([]);
 
   const roleCategory = resolveAdminRoleCategory(role);
-  const isSuperAdmin = roleCategory === 'SUPER_ADMIN' || (can ? can('farmer.document.verify') : false);
-  const isWarehouse = roleCategory === 'WAREHOUSE_ADMIN';
+  const _isSuperAdmin = roleCategory === 'SUPER_ADMIN' || (can ? can('farmer.document.verify') : false);
+  const _isWarehouse = roleCategory === 'WAREHOUSE_ADMIN';
 
   const tabs: { key: FarmerDetailTabType; label: string }[] = React.useMemo(() => {
     const list: { key: FarmerDetailTabType; label: string }[] = [
@@ -415,7 +418,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     Alert.alert('Success', 'Farmer account has been deactivated.');
   };
 
-  const handleOpenTerminateModal = () => {
+  const _handleOpenTerminateModal = () => {
     setReasonInput('');
     setInternalNoteInput('');
     setTerminateModalVisible(true);
@@ -520,12 +523,12 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   }
 
   // ─── SUBVIEW: EDIT FARMER PROFILE (Latest Screenshots) ───
-  if (isEditingProfile) {
+  if (isEditingProfile && canEditProfile) {
     return (
       <AdminEditFarmerScreen
         farmer={currentFarmer}
         onBack={() => setIsEditingProfile(false)}
-        onSave={(updatedFarmer) => {
+        onSave={(updatedFarmer: FarmerListItem) => {
           if (updatedFarmer) {
             setCurrentFarmer(updatedFarmer);
           }
@@ -824,30 +827,32 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               </Text>
             )}
           </View>
-          <TouchableOpacity
-            style={[styles.backButton, { marginLeft: 'auto' }]}
-            onPress={() => setIsEditingProfile(true)}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Edit Farmer Profile"
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+          {canEditProfile && (
+            <TouchableOpacity
+              style={[styles.backButton, { marginLeft: 'auto' }]}
+              onPress={() => (onEdit ? onEdit(activeTab) : setIsEditingProfile(true))}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Farmer Profile"
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                  stroke={adminColors.onBrand}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <Path
+                  d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                  stroke={adminColors.onBrand}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -2458,7 +2463,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
       />
     </SafeAreaView>
   );
-};
+}
 
 // ─── Stylesheet ──────────────────────────────────────────────────────────────
 

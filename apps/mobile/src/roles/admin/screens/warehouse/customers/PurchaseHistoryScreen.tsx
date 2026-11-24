@@ -82,10 +82,12 @@ const SAMPLE_HISTORY: HistoryOrderItem[] = [
   },
 ];
 
-export interface PurchaseHistoryScreenProps extends Partial<WarehouseScreenBaseProps> {
+export interface PurchaseHistoryScreenProps {
   onBack: () => void;
   scope?: WarehouseScope | undefined;
   can?: Can | undefined;
+  onNavigate?: WarehouseNavigate | undefined;
+  onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   customer?: CustomerRef | undefined;
   appliedFilters?: PurchaseFilterState | undefined;
   onOpenFilters?: (() => void) | undefined;

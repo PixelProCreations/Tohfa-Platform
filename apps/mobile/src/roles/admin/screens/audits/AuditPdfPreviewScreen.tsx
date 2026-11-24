@@ -1,7 +1,6 @@
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
-import React from 'react';
+import { adminColors } from '../../theme';
+import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 import type { AuditReportData } from './AuditReportScreen';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -23,6 +23,7 @@ const PALETTE = {
   ink:           adminColors.ink,
   labelMuted:    adminColors.muted,
   border:        adminColors.border,
+  divider:       adminColors.border,
   chipBorder:    adminColors.border,
   dateBadgeBg:   adminColors.brandTint,
   warningBg:     adminColors.warning.bg,
@@ -40,6 +41,8 @@ const PALETTE = {
   greenText:     adminColors.success.text,
   redBg:         adminColors.danger.bg,
   redText:       adminColors.danger.text,
+  gold:          '#D97706',
+  goldBg:        '#FEF3C7',
 };
 
 export interface AuditPdfPreviewScreenProps {
@@ -150,20 +153,26 @@ export function AuditPdfPreviewScreen({
   const maxScore = report?.maxScore ?? 60;
   const violations = report?.majorViolations ?? 0;
 
+  const [dialogState, setDialogState] = useState<{
+    title: string;
+    message: string;
+    variant?: 'brand' | 'success' | 'danger';
+  } | null>(null);
+
   function handleDownload() {
-    Alert.alert(
-      'Report Downloaded Successfully',
-      `Audit_Certificate_${farmId.replace('#', '')}_Q3_2026.pdf has been downloaded to your device documents folder.`,
-      [{ text: 'OK' }],
-    );
+    setDialogState({
+      title: 'Report Downloaded Successfully',
+      message: `Audit_Certificate_${farmId.replace('#', '')}_Q3_2026.pdf has been downloaded to your device documents folder.`,
+      variant: 'brand',
+    });
   }
 
   function handleShare() {
-    Alert.alert(
-      'Share Report',
-      `Sharing audit certificate for ${farmerName} (${farmId}) via WhatsApp / Email.`,
-      [{ text: 'Send' }],
-    );
+    setDialogState({
+      title: 'Share Report',
+      message: `Sharing audit certificate for ${farmerName} (${farmId}) via WhatsApp / Email.`,
+      variant: 'brand',
+    });
   }
 
   return (
@@ -292,6 +301,16 @@ export function AuditPdfPreviewScreen({
 
         <View style={{ height: 48 }} />
       </ScrollView>
+
+      <AdminConfirmDialog
+        visible={dialogState !== null}
+        title={dialogState?.title ?? ''}
+        message={dialogState?.message ?? ''}
+        confirmLabel="OK"
+        hideCancel
+        variant={dialogState?.variant}
+        onConfirm={() => setDialogState(null)}
+      />
     </SafeAreaView>
   );
 }

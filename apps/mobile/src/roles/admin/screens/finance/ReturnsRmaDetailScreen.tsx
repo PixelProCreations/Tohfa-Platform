@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -17,6 +16,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -135,6 +135,13 @@ export function ReturnsRmaDetailScreen({ rma, can, onBack }: ReturnsRmaDetailScr
   const returnQuantity = rma.returnQuantity || rma.approvedQuantity || '2 KG';
   const requestedResolution = rma.requestedResolution || 'Refund';
 
+  const [confirmIntimateVisible, setConfirmIntimateVisible] = useState(false);
+  const [dialogState, setDialogState] = useState<{
+    title: string;
+    message: string;
+    variant?: 'brand' | 'success' | 'danger';
+  } | null>(null);
+
   const handleIntimatePayout = () => {
     // RBAC permission check for returns payout / refund processing
     const hasPermission = can
@@ -145,30 +152,25 @@ export function ReturnsRmaDetailScreen({ rma, can, onBack }: ReturnsRmaDetailScr
       : true;
 
     if (!hasPermission) {
-      Alert.alert(
-        'Permission Denied',
-        'You do not have permission (rma.refund.approve) to intimate payout for this return.'
-      );
+      setDialogState({
+        title: 'Permission Denied',
+        message: 'You do not have permission (rma.refund.approve) to intimate payout for this return.',
+        variant: 'danger',
+      });
       return;
     }
 
-    Alert.alert(
-      'Intimate Payout',
-      `Confirm payout intimation of ₹200 for ${customerName} (${rmaNumber})?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            setIntimated(true);
-            Alert.alert(
-              'Payout Intimated',
-              `Payout intimation for ${rmaNumber} has been successfully recorded and sent to Accounts & Finance.`
-            );
-          },
-        },
-      ]
-    );
+    setConfirmIntimateVisible(true);
+  };
+
+  const handleConfirmIntimate = () => {
+    setConfirmIntimateVisible(false);
+    setIntimated(true);
+    setDialogState({
+      title: 'Payout Intimated',
+      message: `Payout intimation for ${rmaNumber} has been successfully recorded and sent to Accounts & Finance.`,
+      variant: 'brand',
+    });
   };
 
   return (
@@ -389,6 +391,28 @@ export function ReturnsRmaDetailScreen({ rma, can, onBack }: ReturnsRmaDetailScr
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
+
+      {/* Intimate Payout Confirmation */}
+      <AdminConfirmDialog
+        visible={confirmIntimateVisible}
+        title="Intimate Payout?"
+        message={`Confirm payout intimation of ₹200 for ${customerName} (${rmaNumber})?`}
+        confirmLabel="Confirm"
+        onConfirm={handleConfirmIntimate}
+        onCancel={() => setConfirmIntimateVisible(false)}
+      />
+
+      {/* Informational / Status Dialog */}
+      <AdminConfirmDialog
+        visible={dialogState !== null}
+        title={dialogState?.title ?? ''}
+        message={dialogState?.message ?? ''}
+        confirmLabel="OK"
+        hideCancel
+        destructive={dialogState?.variant === 'danger'}
+        variant={dialogState?.variant}
+        onConfirm={() => setDialogState(null)}
+      />
     </SafeAreaView>
   );
 }

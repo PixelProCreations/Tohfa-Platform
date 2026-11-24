@@ -1,7 +1,6 @@
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
-import React from 'react';
+import { adminColors } from '../../theme';
+import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -22,6 +22,7 @@ const PALETTE = {
   ink:           adminColors.ink,
   labelMuted:    adminColors.muted,
   border:        adminColors.border,
+  divider:       adminColors.border,
   chipBorder:    adminColors.border,
   dateBadgeBg:   adminColors.brandTint,
   warningBg:     adminColors.warning.bg,
@@ -42,14 +43,20 @@ const PALETTE = {
 };
 
 export interface AuditDetailRecordScreenProps {
-  farmerName?: string;
-  farmId?: string;
-  quarterTitle?: string;
-  date?: string;
-  auditor?: string;
-  type?: string;
-  score?: string;
-  record?: any;
+  farmerName?: string | undefined;
+  farmId?: string | undefined;
+  quarterTitle?: string | undefined;
+  date?: string | undefined;
+  auditor?: string | undefined;
+  type?: string | undefined;
+  score?: string | undefined;
+  record?: {
+    title?: string | undefined;
+    date?: string | undefined;
+    auditor?: string | undefined;
+    type?: string | undefined;
+    [key: string]: unknown;
+  } | undefined;
   onBack: () => void;
 }
 
@@ -124,12 +131,10 @@ export function AuditDetailRecordScreen({
   const displayAuditor = record?.auditor ?? auditor;
   const displayType = record?.type ?? type;
 
+  const [exportCompleteVisible, setExportCompleteVisible] = useState(false);
+
   function handleExport() {
-    Alert.alert(
-      'Archive Downloaded Successfully',
-      `Full inspection log and photographic evidence for ${displayQuarter} has been downloaded to your device documents folder.`,
-      [{ text: 'OK' }],
-    );
+    setExportCompleteVisible(true);
   }
 
   return (
@@ -174,15 +179,15 @@ export function AuditDetailRecordScreen({
           <View style={styles.metaGrid}>
             <View style={styles.metaCell}>
               <Text style={styles.metaKey}>Evaluation Date</Text>
-              <Text style={styles.metaVal}>{date}</Text>
+              <Text style={styles.metaVal}>{displayDate}</Text>
             </View>
             <View style={styles.metaCell}>
               <Text style={styles.metaKey}>Audit Category</Text>
-              <Text style={styles.metaVal}>{type} Certified</Text>
+              <Text style={styles.metaVal}>{displayType} Certified</Text>
             </View>
             <View style={styles.metaCell}>
               <Text style={styles.metaKey}>Inspector Name</Text>
-              <Text style={styles.metaVal}>{auditor}</Text>
+              <Text style={styles.metaVal}>{displayAuditor}</Text>
             </View>
             <View style={styles.metaCell}>
               <Text style={styles.metaKey}>Overall Result</Text>
@@ -248,6 +253,16 @@ export function AuditDetailRecordScreen({
 
         <View style={{ height: 48 }} />
       </ScrollView>
+
+      <AdminConfirmDialog
+        visible={exportCompleteVisible}
+        title="Archive Downloaded Successfully"
+        message={`Full inspection log and photographic evidence for ${displayQuarter} has been downloaded to your device documents folder.`}
+        confirmLabel="OK"
+        hideCancel
+        variant="brand"
+        onConfirm={() => setExportCompleteVisible(false)}
+      />
     </SafeAreaView>
   );
 }

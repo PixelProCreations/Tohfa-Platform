@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing } from '../../theme';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -41,17 +41,29 @@ export function PurchaseOrderPayoutScreen({
   const [showIntimateModal, setShowIntimateModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [statusDialog, setStatusDialog] = useState<{
+    title: string;
+    message: string;
+    variant?: 'brand' | 'success' | 'danger';
+  } | null>(null);
+  type ExtendedOrder = PurchaseOrderRecord & {
+    payoutStatus?: string;
+    payoutId?: string;
+    goodsReceiptId?: string;
+    farmerId?: string;
+  };
+  const extOrder = order as ExtendedOrder;
   const initialStatus =
-    (order as any).payoutStatus === 'Failed'
+    extOrder.payoutStatus === 'Failed'
       ? 'Failed'
-      : (order as any).payoutStatus === 'Paid'
+      : extOrder.payoutStatus === 'Paid'
       ? 'Paid'
       : 'Awaiting Super Admin Approval';
   const [payoutStatus, setPayoutStatus] = useState<string>(initialStatus);
 
-  const payoutId = (order as any).payoutId || (order.id === '1' ? 'PY-0005' : order.id === '2' ? 'PY-0004' : 'PY-0002');
-  const goodsReceiptId = (order as any).goodsReceiptId || 'GR-0002';
-  const farmerId = (order as any).farmerId || 'FMR-00098';
+  const payoutId = extOrder.payoutId || (order.id === '1' ? 'PY-0005' : order.id === '2' ? 'PY-0004' : 'PY-0002');
+  const goodsReceiptId = extOrder.goodsReceiptId || 'GR-0002';
+  const farmerId = extOrder.farmerId || 'FMR-00098';
   const formattedAmount = `₹${order.totalPrice.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -60,19 +72,21 @@ export function PurchaseOrderPayoutScreen({
   const handleConfirmIntimate = () => {
     setShowIntimateModal(false);
     setPayoutStatus('Intimated · Processing');
-    Alert.alert(
-      'Payout Intimated',
-      `Payout ${payoutId} for ${order.farmerName} (${formattedAmount}) has been intimated to the finance department.`
-    );
+    setStatusDialog({
+      title: 'Payout Intimated',
+      message: `Payout ${payoutId} for ${order.farmerName} (${formattedAmount}) has been intimated to the finance department.`,
+      variant: 'brand',
+    });
   };
 
   const handleConfirmReject = () => {
     setShowRejectModal(false);
     setPayoutStatus('Rejected');
-    Alert.alert(
-      'Payout Rejected',
-      `Payout ${payoutId} has been rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
-    );
+    setStatusDialog({
+      title: 'Payout Rejected',
+      message: `Payout ${payoutId} has been rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`,
+      variant: 'danger',
+    });
   };
 
   return (
@@ -420,6 +434,17 @@ export function PurchaseOrderPayoutScreen({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      <AdminConfirmDialog
+        visible={statusDialog !== null}
+        title={statusDialog?.title ?? ''}
+        message={statusDialog?.message ?? ''}
+        confirmLabel="OK"
+        hideCancel
+        destructive={statusDialog?.variant === 'danger'}
+        variant={statusDialog?.variant}
+        onConfirm={() => setStatusDialog(null)}
+      />
     </SafeAreaView>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -12,11 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
 } from './SystemConfigScreen';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 export interface IntegrationDetailScreenProps {
   integrationId?: string;
@@ -41,6 +40,15 @@ export function IntegrationDetailScreen({
   );
   const [webhookSecret, setWebhookSecret] = useState('whsec_8912b7cf910248a');
   const [testing, setTesting] = useState(false);
+  const [dialogState, setDialogState] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    hideCancel?: boolean;
+    destructive?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const title = isRazorpay
     ? 'Razorpay + RazorpayX Payouts'
@@ -58,16 +66,29 @@ export function IntegrationDetailScreen({
     setTesting(true);
     setTimeout(() => {
       setTesting(false);
-      Alert.alert(
-        'Ping Successful (200 OK)',
-        `Connection to ${title} active. Latency: 42ms. Webhook endpoint verified.`
-      );
+      setDialogState({
+        visible: true,
+        title: 'Ping Successful (200 OK)',
+        message: `Connection to ${title} active. Latency: 42ms. Webhook endpoint verified.`,
+        confirmLabel: 'OK',
+        hideCancel: true,
+        onConfirm: () => setDialogState(null),
+      });
     }, 600);
   };
 
   const handleSave = () => {
-    Alert.alert('Integration Saved', `${title} settings updated.`);
-    onBack?.();
+    setDialogState({
+      visible: true,
+      title: 'Integration Saved',
+      message: `${title} settings updated.`,
+      confirmLabel: 'OK',
+      hideCancel: true,
+      onConfirm: () => {
+        setDialogState(null);
+        onBack?.();
+      },
+    });
   };
 
   return (
@@ -197,6 +218,19 @@ export function IntegrationDetailScreen({
           <Text style={styles.saveBtnText}>Save Integration Settings</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {dialogState && (
+        <AdminConfirmDialog
+          visible={dialogState.visible}
+          title={dialogState.title}
+          message={dialogState.message}
+          confirmLabel={dialogState.confirmLabel}
+          hideCancel={dialogState.hideCancel}
+          destructive={dialogState.destructive}
+          onConfirm={dialogState.onConfirm}
+          onCancel={() => setDialogState(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

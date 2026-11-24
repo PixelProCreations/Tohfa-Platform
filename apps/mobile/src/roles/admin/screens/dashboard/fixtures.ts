@@ -389,9 +389,9 @@ export const INITIAL_SCHEDULE_RECORDS: AuditScheduleRecord[] = [
       { title: 'Inspection', date: '15 Oct 2026, 10:00 AM', iconType: 'inspection' },
       { title: 'Findings Recorded', date: 'Pending', iconType: 'completed' },
     ],
-    pgsOrganic: { status: 'Active', renewalDate: '15 Jun 2027' },
-    npop: { status: 'Active', renewalDate: '20 Mar 2027' },
-    previousSummary: { date: '12 Jul 2026', score: '84/100' },
+    pgsOrganic: { status: 'Active', renewalDate: '12 Jun 2027' },
+    npop: { status: 'Active', renewalDate: '01 Mar 2027' },
+    previousSummary: { date: '15 Jul 2026', score: '0/100' },
   },
   {
     id: 'AUD-2026-0052',

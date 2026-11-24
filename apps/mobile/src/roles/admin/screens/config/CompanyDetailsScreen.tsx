@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -14,6 +13,7 @@ import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
 } from './SystemConfigScreen';
+import { AdminConfirmDialog } from '../../components/AdminConfirmDialog';
 
 export interface CompanyDetailsScreenProps {
   onBack?: () => void;
@@ -29,10 +29,10 @@ export function CompanyDetailsScreen({ onBack }: CompanyDetailsScreenProps) {
   const [address, setAddress] = useState('No. 42/B, Commercial Road, Ooty, The Nilgiris — 643001, Tamil Nadu, India');
   const [supportEmail, setSupportEmail] = useState('support@tohfa.ag');
   const [supportPhone, setSupportPhone] = useState('+91 94421 88900');
+  const [showSavedDialog, setShowSavedDialog] = useState(false);
 
   const handleSave = () => {
-    Alert.alert('Company Details Saved', 'Official company and taxation profile updated.');
-    onBack?.();
+    setShowSavedDialog(true);
   };
 
   return (
@@ -160,6 +160,18 @@ export function CompanyDetailsScreen({ onBack }: CompanyDetailsScreenProps) {
           <Text style={styles.saveBtnText}>Save Company Details</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <AdminConfirmDialog
+        visible={showSavedDialog}
+        title="Company Details Saved"
+        message="Official company and taxation profile updated."
+        confirmLabel="OK"
+        hideCancel
+        onConfirm={() => {
+          setShowSavedDialog(false);
+          onBack?.();
+        }}
+      />
     </SafeAreaView>
   );
 }

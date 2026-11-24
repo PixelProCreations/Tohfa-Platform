@@ -61,11 +61,13 @@ function CalendarInputIcon({ size = 18, color = adminColors.muted }: { size?: nu
 export interface AuditReportsTierConfigScreenProps {
   onBack: () => void;
   onGenerateReportSuccess?: () => void;
+  onExportReport?: (reportName?: string) => void;
 }
 
 export function AuditReportsTierConfigScreen({
   onBack,
   onGenerateReportSuccess,
+  onExportReport,
 }: AuditReportsTierConfigScreenProps) {
   // Field values
   const [reportType, setReportType] = useState('Select...');
@@ -427,8 +429,13 @@ export function AuditReportsTierConfigScreen({
         <TouchableOpacity
           style={styles.submitBtn}
           onPress={() => {
-            if (onGenerateReportSuccess) onGenerateReportSuccess();
-            else onBack();
+            if (onExportReport) {
+              onExportReport(reportType !== 'Select...' ? reportType : 'Audit Summary Report');
+            } else if (onGenerateReportSuccess) {
+              onGenerateReportSuccess();
+            } else {
+              onBack();
+            }
           }}
           activeOpacity={0.8}
         >

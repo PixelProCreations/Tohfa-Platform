@@ -13,11 +13,10 @@
  * (CLAUDE.md 2.1).
  */
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { WalletButton } from '../wallet-cashtopup/WalletParts';
 
 /** docs/rbac.json codes the account screens check (each one exists there). */
 export const PROFILE_CODES = {
@@ -273,52 +272,13 @@ export function DangerOutlineButton({ label, onPress }: { label: string; onPress
 
 // ─── Confirmation ────────────────────────────────────────────────────────────
 
+import { AdminConfirmDialog } from '../../../components/AdminConfirmDialog';
+
 /**
- * Centered confirmation card (logout, save profile, end session). Same pattern
- * as the notifications ConfirmDialog: no translucent scrim token exists, so the
- * backdrop is the solid canvas and the card is raised with adminShadow.lg.
+ * Centered confirmation card (logout, save profile, end session).
+ * Backed by shared AdminConfirmDialog with exact design tokens and scrim overlay.
  */
-export function ConfirmDialog({
-  visible,
-  title,
-  message,
-  confirmLabel,
-  onConfirm,
-  onCancel,
-  destructive = false,
-  icon,
-}: {
-  visible: boolean;
-  title: string;
-  message: string;
-  confirmLabel: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  destructive?: boolean | undefined;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalCard}>
-          {icon ? <View style={[styles.modalIcon, destructive && styles.modalIconDanger]}>{icon}</View> : null}
-          <Text style={styles.modalTitle}>{title}</Text>
-          <Text style={styles.modalMessage}>{message}</Text>
-          <View style={styles.modalActions}>
-            <WalletButton label="Cancel" variant="neutral" flex onPress={onCancel} />
-            {destructive ? (
-              <TouchableOpacity style={styles.dangerFilled} onPress={onConfirm} activeOpacity={0.85} accessibilityRole="button">
-                <Text style={styles.dangerFilledText}>{confirmLabel}</Text>
-              </TouchableOpacity>
-            ) : (
-              <WalletButton label={confirmLabel} flex onPress={onConfirm} />
-            )}
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
+export const ConfirmDialog = AdminConfirmDialog;
 
 // ─── Signed out ──────────────────────────────────────────────────────────────
 
