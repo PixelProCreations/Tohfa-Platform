@@ -23,6 +23,7 @@ import { certificationsRepo } from '../modules/certifications/certifications.rep
 import { counterOffersService } from '../modules/listings/counter-offers.service.js';
 import { topupRepo } from '../modules/topup/topup.repo.js';
 import { cartRepo } from '../modules/cart/cart.repo.js';
+import { orderPaymentService } from '../modules/orders/orders.payment.service.js';
 
 type Handler<N extends JobName> = (payload: JobPayloads[N], job: Job) => Promise<void>;
 
@@ -265,6 +266,50 @@ export const cartLockReaper: Handler<'cart-lock-reaper'> = async (payload) => {
   }
 };
 
+/** BR-215: settle expired unpaid gateway orders (confirm if captured, else cancel + release). */
+export const orderPaymentExpirySweep: Handler<'order-payment-expiry-sweep'> = async (payload) => {
+  logger.info({ batchSize: payload.batchSize }, 'order-payment-expiry-sweep: starting');
+
+  const runResult = await pool.query<{ id: string }>(
+    `INSERT INTO job_runs (job_name, status, started_at)
+     VALUES ('order-payment-expiry-sweep', 'RUNNING', now())
+     RETURNING id`,
+  );
+  const runId = runResult.rows[0]?.id;
+
+  try {
+    const result = await orderPaymentService.sweepExpiredPendingOrders(payload.batchSize);
+
+    if (runId !== undefined) {
+      await pool.query(
+        `UPDATE job_runs
+            SET status = 'SUCCEEDED',
+                finished_at = now(),
+                items_scanned = $2,
+                items_processed = $3,
+                updated_at = now()
+          WHERE id = $1`,
+        [runId, result.scanned, result.confirmed + result.cancelled],
+      );
+    }
+
+    logger.info(result, 'order-payment-expiry-sweep: completed');
+  } catch (error) {
+    if (runId !== undefined) {
+      await pool.query(
+        `UPDATE job_runs
+            SET status = 'FAILED',
+                finished_at = now(),
+                error = $2,
+                updated_at = now()
+          WHERE id = $1`,
+        [runId, (error as Error).message],
+      );
+    }
+    throw error;
+  }
+};
+
 import { notificationsRepo } from '../modules/notifications/notifications.repo.js';
 import { smsTransport } from '../modules/notifications/sms/index.js';
 import { pushTransport, resolveDeepLink } from '../modules/notifications/push/index.js';
@@ -467,6 +512,7 @@ const HANDLERS: { [N in JobName]: Handler<N> } = {
   'counter-offer-expiry-sweep': counterOfferExpirySweep,
   'daily-cash-reconciliation': dailyCashReconciliation,
   'cart-lock-reaper': cartLockReaper,
+  'order-payment-expiry-sweep': orderPaymentExpirySweep,
   'notification-dispatch': notificationDispatch,
   'notification-dead-letter': notificationDeadLetter,
 };

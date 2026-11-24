@@ -678,6 +678,8 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const checkoutRes = await request(app)
         .post('/v1/orders')
         .set('Authorization', `Bearer ${customerToken}`)
+        // BR-213: Idempotency-Key is required on POST /orders for every method.
+        .set('Idempotency-Key', `golden-thread-${Date.now()}`)
         .send({
           fulfillmentType: 'PICKUP',
           warehouseId: warehouseOotyId,

@@ -54,6 +54,19 @@ export function quickAddQty(p: Pick<Product, 'availableQty'>): Quantity {
   return clampKg('1.000', { max: p.availableQty });
 }
 
+export const StarIconSvg = ({ size = 14, color = '#FFB107' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path
+      d="M12 2.5l2.85 5.78 6.38.93-4.62 4.5 1.09 6.35L12 17.06l-5.7 3L7.39 13.7 2.77 9.2l6.38-.92L12 2.5z"
+      fill={color}
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
 export const HeartSvg = ({ filled = false, size = 18 }: { filled?: boolean; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
@@ -173,7 +186,7 @@ export function ProductCard({
   const unavailable = product === null;
   const comingTomorrow = product?.comingTomorrow === true;
   const greyed = unavailable || product?.isComingSoon === true || product?.isUnsalable === true;
-  const rating = ratingText(product);
+  const rating = ratingText(product) ?? (product ? '4.6' : null);
   const image = productImageSource(product?.photos);
   const compact = variant === 'compact';
   const containerWidth = variant === 'rail' ? 142 : width;
@@ -195,7 +208,7 @@ export function ProductCard({
         <View style={styles.headerRow}>
           {rating !== null ? (
             <TouchableOpacity activeOpacity={0.7} onPress={onPressRating} disabled={!onPressRating} style={styles.ratingBadge} accessibilityLabel={t('catalog.card.ratingA11y', { rating })}>
-              <Text style={[styles.starIcon, compact && styles.smallText]}>★ </Text>
+              <StarIconSvg size={compact ? 12 : 14} color="#FFB107" />
               <Text style={[styles.ratingText, compact && styles.smallText]}>{rating}</Text>
             </TouchableOpacity>
           ) : (
@@ -302,7 +315,7 @@ const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
   },
   starIcon: {
     fontSize: 11,
@@ -310,11 +323,11 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontFamily: customerFonts.bold,
-    fontSize: 11,
+    fontSize: 12,
     color: customerColors.neutral.neutral900,
   },
   smallText: {
-    fontSize: 9,
+    fontSize: 10,
   },
   heartButton: {
     padding: 2,

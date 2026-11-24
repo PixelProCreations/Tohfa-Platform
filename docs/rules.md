@@ -351,17 +351,20 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 | | |
 |---|---|
 | **Source** | Requirements v1.0 §2.3, FR-C04 |
-| **Status** | LOCKED |
+| **Status** | LOCKED, AMENDED 2026-11-20 (owner decision) |
 | **Layer** | Server-side, checkout service |
 | **Scope** | Track 1 |
 
-**Rule.** The wallet is the primary payment method. Checkout debits the wallet first; if the balance is insufficient the response instructs a top-up for the shortfall. An order is never confirmed with an unpaid balance.
+**Amended 2026-11-20 by owner decision (see BR-213 to BR-217).** The wallet is no longer the only checkout method: it is one of four, `WALLET`, `UPI`, `CARD` and `NETBANKING`, the last three paid per order through Razorpay. A `WALLET` checkout behaves exactly as below (debit first, 402 `WALLET_INSUFFICIENT` with the shortfall, `CONFIRMED` / `PAID` at once). A gateway checkout creates the order `PENDING_PAYMENT` / payment `PENDING` and it becomes `CONFIRMED` only after a server-verified capture (BR-213, BR-214). The core guarantee is unchanged for every method: **an order is never `CONFIRMED` with an unpaid balance.** `CASH` (cash on delivery / at the shop) stays disabled: 422 `PAYMENT_METHOD_DISABLED` (BR-216). The original text is kept below; "(superseded)" marks the part the amendment replaces.
+
+**Rule.** (superseded in part: "primary" now means "one of the four methods"; the wallet-insufficient path applies to `WALLET` checkouts only.) The wallet is the primary payment method. Checkout debits the wallet first; if the balance is insufficient the response instructs a top-up for the shortfall. An order is never confirmed with an unpaid balance.
 
 **Failure mode if unenforced.** Orders confirm against money that does not exist; the wallet ledger and order ledger diverge and reconciliation becomes manual forever.
 
 **Test contract.**
 - `BR-17a` Wallet Rs 200, cart Rs 500 → checkout returns 402, `code: WALLET_INSUFFICIENT`, `shortfall: 300`; no order row is created.
 - `BR-17b` A successful checkout writes exactly one debit row to `wallet_transactions`; a retried request with the same idempotency key does not write a second.
+- `BR-17c` (added 2026-11-20) A `UPI` / `CARD` / `NETBANKING` checkout writes no wallet debit and never returns a `CONFIRMED` order; only a verified capture confirms it (BR-213, BR-214). `apps/api/src/modules/orders/orders.payment.service.test.ts`.
 
 ---
 
@@ -4144,6 +4147,97 @@ Every other place that adds a role creates a brand-new account in the same trans
 
 **Test contract.** `apps/api/src/modules/customer-support/customer-support.test.ts` (`BR-212: the same Idempotency-Key and body replays the same ticket; a different body is 409`).
 
+### BR-213 — A gateway-paid order is created PENDING_PAYMENT and confirmed only by a verified capture
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20 (per-order gateway payment: WALLET + UPI + CARD + NETBANKING via Razorpay). Amends BR-17 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`assertPaymentMethod`, checkout, `confirmOrderPayment`), `apps/api/src/modules/payments/` (gateway interface, Razorpay and mock gateways), migration `0190_order_gateway_payment.sql` (or the next free number) |
+
+**Rule.**
+1. `POST /orders` (`order.place`) requires `Idempotency-Key` for every method. `paymentMethod` is one of `WALLET | UPI | CARD | NETBANKING | CASH`; `CASH` is refused (BR-216).
+2. `WALLET` is unchanged (BR-17): debit, `CONFIRMED` / `PAID`. The wallet balance check applies to `WALLET` only.
+3. `UPI`, `CARD` and `NETBANKING` create the order `PENDING_PAYMENT` / `payment_status = PENDING`, create a Razorpay order (`payment_capture: 1`) for the server-computed total (the client never sends an amount), record a `payments` row (`ref_type = ORDER`, unique `gateway_order_id`), set `payment_expires_at` (now + `system_config.order_payment_window_minutes`, default 15) and answer 201 with `payment: { gateway: 'RAZORPAY', gatewayOrderId, razorpayKeyId, amount, currency: 'INR', expiresAt }`.
+4. Stock, slot and cart are taken when the pending order is created, exactly as for a wallet order (allocation conversion, `SALE` stock movement, cart `CONVERTED`, slot booked).
+5. A replay with the same key returns the same order and the same `gatewayOrderId`; no second Razorpay order or `payments` row is created.
+6. The order becomes `CONFIRMED` / `PAID` only through BR-214. `order.confirmed` is not published for a pending order.
+7. `POST /orders/quote` accepts every method; `walletSufficient` only matters for `WALLET`.
+8. Razorpay unreachable when creating its order is 503 `PAYMENT_GATEWAY_UNAVAILABLE` and nothing is written.
+
+**Failure mode if unenforced.** Orders confirm against money that has not arrived, or the client is trusted for the amount and pays less than the total.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-213a` UPI/CARD/NETBANKING checkout returns 201 `PENDING_PAYMENT` / `PENDING` with the payment block, amount equal to the server total; `BR-213b` stock, slot and cart taken on creation; `BR-213c` same key replays the same order and gatewayOrderId, one Razorpay order; `BR-213d` WALLET unchanged and the balance check is WALLET-only; `BR-213e` gateway failure 503 `PAYMENT_GATEWAY_UNAVAILABLE`, nothing written).
+
+### BR-214 — Payment verification checks the signature and the gateway; verify and webhook converge on one idempotent confirmation
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20. Extends BR-213 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`POST /orders/{id}/payment/verify`, `confirmOrderPayment`), `apps/api/src/modules/payments/webhookDispatch.ts` (`/webhooks/razorpay` routing) |
+
+**Rule.**
+1. `POST /orders/{id}/payment/verify` (`order.place`, own order else 404) takes `{razorpayOrderId, razorpayPaymentId, razorpaySignature}`. The signature must be a timing-safe match of HMAC-SHA256(`order_id|payment_id`, Razorpay key secret), else 422 `PAYMENT_SIGNATURE_INVALID`; `razorpayOrderId` must equal the stored gateway order id.
+2. The server never trusts the client's success: it fetches the payment from Razorpay; it must be `captured`, for exactly `toPaise(total_amount)`, against the order's gateway order id, else 409 `PAYMENT_AMOUNT_MISMATCH`. A payment still `authorized` is 202 `PAYMENT_PENDING`.
+3. Verify and the `payment.captured` webhook (after its signature check, routed by the `payments` row: `TOPUP` to the existing top-up path, `ORDER` here) call ONE function, `confirmOrderPayment(gatewayOrderId, payment)`, which locks the order row `FOR UPDATE`:
+   - `PENDING_PAYMENT` → `CONFIRMED` / `PAID`, the `payments` row `CAPTURED` with `gateway_payment_id`, an `order_status_history` row, audit `order.payment.confirm`, and `order.confirmed` published AFTER commit;
+   - already `CONFIRMED` by the same payment id → 200, nothing written, no second event;
+   - `CANCELLED` → BR-215 late capture.
+   The UNIQUE `payments.gateway_payment_id` is the final guard against double confirmation.
+4. `payment.failed` only records the failed attempt; the order stays `PENDING_PAYMENT` until its window lapses and the customer may retry the same Razorpay order.
+
+**Failure mode if unenforced.** A forged or replayed client callback confirms an unpaid order; verify and webhook racing each other confirm twice and publish two `order.confirmed` events.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-214a` bad signature 422 `PAYMENT_SIGNATURE_INVALID`, nothing changed; `BR-214b` amount or order mismatch 409 `PAYMENT_AMOUNT_MISMATCH`; `BR-214c` authorized-only 202 `PAYMENT_PENDING`; `BR-214d` valid capture confirms once with one audit row and one event after commit; `BR-214e` verify then webhook (and webhook then verify) for the same payment confirms once; `BR-214f` webhook `ORDER` and `TOPUP` routing; `BR-214g` another customer's order 404).
+
+### BR-215 — The payment window, customer cancel and release; a late capture is REFUND_DUE for a manual refund
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20 (refunds are manual in the Razorpay dashboard). Extends BR-213, BR-214 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`POST /orders/{id}/cancel`, release), job `order-payment-expiry-sweep` (`apps/api/src/jobs/queue.ts`, `worker.ts`), `system_config.order_payment_window_minutes` |
+
+**Rule.**
+1. A pending gateway order has `payment_expires_at` = creation + `system_config.order_payment_window_minutes` (default 15).
+2. The job `order-payment-expiry-sweep` runs every minute: for each `PENDING_PAYMENT` order past `payment_expires_at` it asks Razorpay for the order's payments; a captured one is confirmed (BR-214), otherwise the order is cancelled with `cancellation_reason = 'PAYMENT_NOT_COMPLETED'`.
+3. `POST /orders/{id}/cancel` (`order.place`, own order else 404, `Idempotency-Key`) works only while the order is `PENDING_PAYMENT`, else 409 `ORDER_NOT_AWAITING_PAYMENT`. It checks the gateway first and confirms instead if the payment was actually captured; otherwise it cancels with `cancellation_reason = 'CUSTOMER_CANCELLED'`.
+4. Cancelling a pending order undoes the creation in ONE transaction: status `CANCELLED`, `payment_status = FAILED`, `consumed_qty -= qty` on the allocation, a `RELEASE` stock movement (+qty, ref `ORDER`), and the slot booking decremented by one.
+5. A capture that arrives after cancellation (verify, webhook or sweep): the order stays `CANCELLED`, its `payment_status` becomes `REFUND_DUE`, and verify answers 409 `ORDER_PAYMENT_EXPIRED`. There is no automatic refund call: staff refund it manually in the Razorpay dashboard.
+
+**Failure mode if unenforced.** Stock and slots are held forever by abandoned payments, or a customer pays for an order that was already released and never gets the money back.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-215a` sweep cancels an expired unpaid order and releases allocation, ledger and slot in one transaction; `BR-215b` sweep confirms an expired order whose payment was captured; `BR-215c` customer cancel releases and sets `CUSTOMER_CANCELLED`; `BR-215d` cancel of a non-pending order 409 `ORDER_NOT_AWAITING_PAYMENT`; `BR-215e` cancel finds a capture and confirms instead; `BR-215f` late capture keeps `CANCELLED`, sets `REFUND_DUE`, verify 409 `ORDER_PAYMENT_EXPIRED`).
+
+### BR-216 — Cash on delivery / at the shop stays disabled until the owner enables it
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20. Resolves open contradiction 9 for now |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`assertPaymentMethod`); `system_config.cod_enabled = false` (kept for the future, not read as a switch yet) |
+
+**Rule.** `POST /orders` with `paymentMethod: CASH` is 422 `PAYMENT_METHOD_DISABLED` (never 501) and nothing is written. The customer app shows the cash option as unavailable. Enabling it needs a new owner decision and its own rule (collection, reconciliation, OTP handover).
+
+**Failure mode if unenforced.** Orders confirm with no payment at all, breaking BR-17's core guarantee.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-216a` CASH checkout 422 `PAYMENT_METHOD_DISABLED`, no order, no stock or slot taken); `apps/mobile/src/roles/customer/tests/checkout.payment.test.tsx` (`BR-216b` the cash option is shown disabled and a `PAYMENT_METHOD_DISABLED` answer is shown as "not available", not as a generic error).
+
+### BR-217 — The client never shows payment success without a server-confirmed order
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20. Extends BR-214 |
+| **Status** | DERIVED |
+| **Layer** | `apps/mobile/src/roles/customer/` (`CheckoutScreen.tsx`, `api/orderPayment.ts`) |
+
+**Rule.** The customer app shows the order-success state only when the server returns the order with `status === 'CONFIRMED'`. A Razorpay SDK success is followed by `POST /orders/{id}/payment/verify` and, while not confirmed, polling `GET /orders/{id}` until `CONFIRMED` or `CANCELLED`; a pending result shows "Confirming your payment". An SDK cancel or failure offers retry (reopen the same `gatewayOrderId`) or cancel (`POST /orders/{id}/cancel`). The app never fabricates an order (no locally generated order number or fallback order on error) and never collects card number, expiry or CVV itself: the Razorpay sheet does (PCI).
+
+**Failure mode if unenforced.** Customers are told an unpaid or failed order succeeded, then nothing arrives.
+
+**Test contract.** `apps/mobile/src/roles/customer/tests/checkout.payment.test.tsx` (`BR-217a` success modal only for a `CONFIRMED` order; `BR-217b` SDK success with a pending verify shows "Confirming your payment" and polls; `BR-217c` SDK cancel offers retry and cancel; `BR-217d` a checkout error never produces a fabricated order; `BR-217e` no card number, expiry or CVV inputs are rendered).
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -4157,7 +4251,7 @@ Every other place that adds a role creates a brand-new account in the same trans
 | 6 | Wallet write authority for MW/SW | §6.3 `Wallet management (customers)`: MW = Y, SW = Own | §8: manual credit/debit is SA/TA only; MW/SW get view | MW = all, SW = own (Ch.6 precedence) — the loosest reading of a money-moving grant | requires client confirmation, priority |
 | 7 | Bank refunds for MW/SW | §6.3 `Process returns (RMA)`: MW = Y, SW = Y (blanket) | §6: bank refund SA/TA only; MW/SW limited to wallet refunds | Bank refund restricted to SA/TA (matrix adds detail Ch.6 omits) | requires client confirmation |
 | 8 | Integration keys and raw DB export | §6.4 + FR-A01: SUPER_ADMIN manages integration keys and has emergency raw DB export, audit-logged | §15 + Principle 11: both are infra-level (EXT); no role manages them in-app | Permissions retained SA-only; no admin UI built | requires client confirmation |
-| 9 | COD vs wallet-first (BR-17) | §2.3 wallet-first; FR-C04 payment methods include COD; Ch.11 open decision 17 asks whether COD is supported at all | Principle: wallet-first checkout enforcement; no COD row | Wallet-first only; COD not implemented (unchanged by the Sub Warehouse sales work of 2026-10-11, BR-85 to BR-98: a counter CASH sale is not COD) | requires client confirmation |
+| 9 | COD vs wallet-first (BR-17) | §2.3 wallet-first; FR-C04 payment methods include COD; Ch.11 open decision 17 asks whether COD is supported at all | Principle: wallet-first checkout enforcement; no COD row | Wallet-first only; COD not implemented (unchanged by the Sub Warehouse sales work of 2026-10-11, BR-85 to BR-98: a counter CASH sale is not COD). Since 2026-11-20: checkout takes `WALLET`, `UPI`, `CARD` or `NETBANKING` (gateway via Razorpay, BR-213 to BR-215); `CASH` is 422 `PAYMENT_METHOD_DISABLED` (BR-216) | **Partly resolved 2026-11-20** (owner: gateway methods added, COD stays disabled); enabling COD needs a new owner decision |
 | 10 | B2B/Horeca allocation source (BR-13) | §2.2: automatic from consolidated inventory | §7: `Manage B2B/Horeca Manual allocation`, SA/TA full | Neither; B2B/Horeca order paths return 501 | requires client confirmation |
 | 11 | Pickup OTP disclosure (BR-20) | FR-C05: "4-digit OTP shared with warehouse staff" | §6: `OTP shared with warehouse staff` = F for MW/SW and CU | OTP is customer-held; the verifying admin never receives it | requires client confirmation |
 | 12 | Farmer application approval by Farmer Admin | §6.1 `Approve farmer applications`: FA = View | §2: `Approve farmer application` FA = N, with a separate view-only queue row | FA has read-only access, no approval path (behaviourally identical) | resolved, recorded for completeness |

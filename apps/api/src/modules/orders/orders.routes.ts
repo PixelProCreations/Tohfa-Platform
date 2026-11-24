@@ -7,9 +7,11 @@ import {
   checkoutRequestSchema,
   listOrdersQuerySchema,
   orderIdParamSchema,
+  orderPaymentVerifyRequestSchema,
   quoteRequestSchema,
 } from './orders.schema.js';
 import { ordersService } from './orders.service.js';
+import { orderPaymentService } from './orders.payment.service.js';
 
 export const ordersRouter: Router = Router();
 
@@ -72,6 +74,36 @@ ordersRouter.get(
 
     const result = await ordersService.getOrder(actor, req.scope!, params.id);
     res.status(200).json(result);
+  }),
+);
+
+// BR-214: verify the Razorpay checkout callback of the caller's own pending gateway order. 200 is
+// the CONFIRMED order; 202 PAYMENT_PENDING (problem+json) while the payment is only authorized.
+ordersRouter.post(
+  '/:id/payment/verify',
+  requireAuth,
+  requirePermission('order.place'),
+  validate({ params: orderIdParamSchema, body: orderPaymentVerifyRequestSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', orderIdParamSchema);
+    const body = getValidated(req, 'body', orderPaymentVerifyRequestSchema);
+    res.status(200).json(await orderPaymentService.verifyOrderPayment(actor, req.scope!, params.id, body));
+  }),
+);
+
+// BR-215: the customer cancels their own order while it is still PENDING_PAYMENT.
+ordersRouter.post(
+  '/:id/cancel',
+  requireAuth,
+  requirePermission('order.place'),
+  validate({ params: orderIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', orderIdParamSchema);
+    res.status(200).json(
+      await orderPaymentService.cancelPendingOrder(actor, req.scope!, params.id, req.header('idempotency-key')),
+    );
   }),
 );
 

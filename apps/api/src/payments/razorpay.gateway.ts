@@ -1,13 +1,14 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { config } from '../config.js';
-import type {
-  CreateOrderParams,
-  GatewayOrderResult,
-  PaymentCapturedPayload,
-  PaymentGateway,
-  RefundPaymentParams,
-  RefundResult,
-  WebhookEvent,
+import {
+  verifyRazorpayPaymentSignature,
+  type CreateOrderParams,
+  type GatewayOrderResult,
+  type PaymentCapturedPayload,
+  type PaymentGateway,
+  type RefundPaymentParams,
+  type RefundResult,
+  type WebhookEvent,
 } from './gateway.js';
 
 export class RazorpayPaymentGateway implements PaymentGateway {
@@ -37,6 +38,9 @@ export class RazorpayPaymentGateway implements PaymentGateway {
         currency: params.currency ?? 'INR',
         receipt: params.receipt,
         notes: params.notes ?? {},
+        // BR-213: automatic capture, so an authorized payment becomes captured without a
+        // separate capture call (the server still verifies the capture before confirming).
+        payment_capture: 1,
       }),
     });
 
@@ -72,6 +76,48 @@ export class RazorpayPaymentGateway implements PaymentGateway {
       return false;
     }
     return timingSafeEqual(sigBuf, expBuf);
+  }
+
+  verifyPaymentSignature(gatewayOrderId: string, gatewayPaymentId: string, signature: string): boolean {
+    return verifyRazorpayPaymentSignature(gatewayOrderId, gatewayPaymentId, signature, this.keySecret);
+  }
+
+  /** GET /v1/orders/{id}/payments: every attempt against the order (BR-215 cancel and sweep). */
+  async fetchOrderPayments(gatewayOrderId: string): Promise<PaymentCapturedPayload[]> {
+    if (!this.keyId || !this.keySecret) {
+      throw new Error('Razorpay API keys are not configured');
+    }
+    const authHeader = `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64')}`;
+    const response = await fetch(
+      `https://api.razorpay.com/v1/orders/${encodeURIComponent(gatewayOrderId)}/payments`,
+      { method: 'GET', headers: { Authorization: authHeader } },
+    );
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`Razorpay fetchOrderPayments failed (${response.status}): ${errorBody}`);
+    }
+    const data = (await response.json()) as {
+      items?: {
+        id: string;
+        order_id?: string | null;
+        amount: number;
+        currency: string;
+        method?: string | null;
+        status: string;
+        email?: string | null;
+        contact?: string | null;
+      }[];
+    };
+    return (data.items ?? []).map((p) => ({
+      paymentId: p.id,
+      orderId: p.order_id ?? gatewayOrderId,
+      amountPaise: Number(p.amount),
+      currency: p.currency,
+      method: p.method ?? null,
+      status: p.status,
+      email: p.email ?? null,
+      contact: p.contact ?? null,
+    }));
   }
 
   parseEvent(rawBody: Buffer | string): WebhookEvent {

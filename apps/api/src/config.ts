@@ -66,6 +66,21 @@ const envSchema = z.object({
   AZURE_STORAGE_CONNECTION_STRING: z.string().default(''),
   AZURE_BLOB_CONTAINER: z.string().default('tohfa-media'),
 
+  // Base of every product image URL (modules/catalog/catalog.image.ts, BR-16/BR-195): the URL is
+  // always <base>/<catalog key>.jpg, never anything derived from a listing, farm or upload. Production
+  // keeps the CDN default; local dev sets http://localhost:3000/product-images (the API's own dev-only
+  // static route, storage/productImages.routes.ts). Empty means unset. Trailing slashes are dropped.
+  PRODUCT_IMAGE_BASE_URL: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z
+      .string()
+      .url()
+      .refine((value) => /^https?:\/\//.test(value), 'PRODUCT_IMAGE_BASE_URL must be an http(s) URL')
+      .refine((value) => !/[?#]/.test(value), 'PRODUCT_IMAGE_BASE_URL must not carry a query or fragment')
+      .default('https://cdn.tohfa.in/products')
+      .transform((value) => value.replace(/\/+$/, '')),
+  ),
+
   RAZORPAY_KEY_ID: z.string().default(''),
   RAZORPAY_KEY_SECRET: z.string().default(''),
   RAZORPAY_WEBHOOK_SECRET: z.string().default(''),

@@ -162,11 +162,15 @@ import { rolesRouter } from './modules/roles/roles.routes.js';
 import { customerAddressesRouter } from './modules/customer-addresses/customer-addresses.routes.js';
 import { customerProfileRouter } from './modules/customer-profile/customer-profile.routes.js';
 import { storageReadRouter } from './storage/storage.routes.js';
+import { productImagesRouter } from './storage/productImages.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
 /** Where storage/storage.routes.ts is mounted; the contract test walks the same prefix. */
 export const STORAGE_READ_PREFIX = '/storage';
+
+/** Where storage/productImages.routes.ts (the dev stand-in for the product image CDN) is mounted. */
+export const PRODUCT_IMAGES_PREFIX = '/product-images';
 
 /**
  * Every router the API exposes, with the path prefix it is mounted under.
@@ -362,6 +366,12 @@ export function createApp(): Express {
   // Dev/test storage reads (signed URLs only; 404 for everything when Azure is configured).
   // Unversioned like the probes: `/storage/<key>` is the URL shape the local storage mints.
   app.use(STORAGE_READ_PREFIX, storageReadRouter);
+
+  // Dev-only product images, unversioned for the same reason: catalog.image.ts emits
+  // <PRODUCT_IMAGE_BASE_URL>/<key>.jpg, which local dev points here. Production uses the CDN.
+  if (!config.isProduction) {
+    app.use(PRODUCT_IMAGES_PREFIX, productImagesRouter);
+  }
 
   // Every business router, mounted from the same table the contract test reads.
   for (const { prefix, router } of API_MOUNTS) {

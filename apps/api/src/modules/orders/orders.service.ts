@@ -1,4 +1,5 @@
-import { lessThan, parseMoney, type Money } from '@tohfa/shared-types';
+import { lessThan, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
+import { paymentGateway as defaultPaymentGateway, type PaymentGateway } from '../../payments/index.js';
 import { logger } from '../../logger.js';
 import { parseRateBasisPoints } from '../sales/sales.math.js';
 import {
@@ -29,11 +30,14 @@ import {
   type OrdersRepo,
   type OrderRecord,
   type OrderItemRecord,
+  type OrderPaymentRecord,
 } from './orders.repo.js';
 import { paymentMethodLabel, pickupCode, pickupQr } from './orders.display.js';
+import { isGatewayPaymentMethod } from './orders.schema.js';
 import type {
   CheckoutRequest,
   ListOrdersQuery,
+  OrderGatewayPayment,
   OrderResponse,
   OrderSummaryResponse,
   QuoteRequest,
@@ -95,9 +99,36 @@ function thumbnail(productName: string, iconKey: string | null, cropId: string) 
   return { productName, imageUrl: productImageUrl(iconKey, cropId) };
 }
 
-function mapOrderResponse(
+/** BR-213: the public key id the Razorpay sheet is opened with (never the secret). */
+export function razorpayKeyIdFor(gateway: PaymentGateway): string {
+  return gateway.provider === 'razorpay' ? config.RAZORPAY_KEY_ID : 'rzp_test_mock_publishable_key';
+}
+
+/**
+ * BR-213: the `payment` block of a gateway-paid order (null for WALLET orders and for an order
+ * whose payments row is missing). The amount is the stored server total, never a client value.
+ */
+export function orderPaymentBlock(
+  order: OrderRecord,
+  payment: OrderPaymentRecord | null,
+  razorpayKeyId: string,
+): OrderGatewayPayment | null {
+  if (!payment?.gatewayOrderId || !isGatewayPaymentMethod(order.paymentMethod)) return null;
+  const expiresAt = order.paymentExpiresAt ?? null;
+  return {
+    gateway: 'RAZORPAY',
+    gatewayOrderId: payment.gatewayOrderId,
+    razorpayKeyId,
+    amount: parseMoney(order.totalAmount),
+    currency: 'INR',
+    expiresAt: (expiresAt ? new Date(expiresAt) : order.placedAt).toISOString(),
+  };
+}
+
+export function mapOrderResponse(
   order: OrderRecord,
   items: OrderItemRecord[],
+  payment: OrderGatewayPayment | null = null,
 ): OrderResponse {
   return {
     id: order.id,
@@ -112,6 +143,8 @@ function mapOrderResponse(
     paymentStatus: order.paymentStatus,
     deliveryDate: order.deliveryDate,
     placedAt: order.placedAt.toISOString(),
+    payment,
+    ...(order.cancellationReason === undefined ? {} : { cancellationReason: order.cancellationReason }),
     subtotal: order.subtotal as Money,
     deliveryFee: order.deliveryFee as Money,
     handlingFee: order.handlingFee as Money,
@@ -142,6 +175,10 @@ export function createOrdersService(opts: {
   events?: OrderEventPublisher;
   cartSvc?: CartService;
   slotsSvc?: DeliverySlotsService;
+  /** BR-213: the Razorpay (or mock) gateway that creates the order's gateway order. */
+  gateway?: PaymentGateway;
+  /** Clock for the payment window (tests). */
+  now?: () => Date;
 } = {}): OrdersService {
   const repo = opts.repo ?? ordersRepo;
   const walletSvc = opts.walletSvc ?? walletService;
@@ -150,21 +187,32 @@ export function createOrdersService(opts: {
   const events = opts.events ?? createOrderEventPublisher({ db });
   const cartSvc = opts.cartSvc ?? cartService;
   const slotsSvc = opts.slotsSvc ?? deliverySlotsService;
+  const gateway = opts.gateway ?? defaultPaymentGateway;
+  const now = opts.now ?? (() => new Date());
 
-  /** BR-15 / BR-17: wallet-only in Track 1. Shared by checkout and quote. */
+  /**
+   * BR-17 (amended 2026-11-20) / BR-213 / BR-216. WALLET, UPI, CARD and NETBANKING are accepted;
+   * CASH (cash on delivery / at the shop) stays disabled: 422 PAYMENT_METHOD_DISABLED, never 501.
+   * Shared by checkout and quote, so the quote refuses exactly what checkout refuses.
+   */
   function assertPaymentMethod(input: CheckoutRequest): void {
     if (input.paymentMethod === 'CASH') {
-      throw new AppError('INTERNAL', {
-        status: 501,
-        detail: 'Cash on delivery is disabled in Track 1 (BR-17).',
+      throw new AppError('PAYMENT_METHOD_DISABLED', {
+        status: 422,
+        detail: 'Cash payment is not available for online orders (BR-216). Pay by wallet, UPI, card or net banking.',
       });
     }
-    if (input.paymentMethod !== 'WALLET') {
-      throw new AppError('INTERNAL', {
-        status: 501,
-        detail: 'Only WALLET payment method is supported in Track 1.',
-      });
-    }
+  }
+
+  /** Replays a POST /orders key: the same order, with its payment block (BR-213 5). */
+  async function replayCheckout(customerId: string, key: string): Promise<OrderResponse | null> {
+    const existing = await repo.findOrderByIdempotencyKey(db, customerId, key);
+    if (!existing) return null;
+    return mapOrderResponse(
+      existing.order,
+      existing.items,
+      orderPaymentBlock(existing.order, existing.payment, razorpayKeyIdFor(gateway)),
+    );
   }
 
   /**
@@ -263,18 +311,14 @@ export function createOrdersService(opts: {
       }
 
       assertPaymentMethod(input);
+      // BR-213 1: Idempotency-Key is required for every method (docs/openapi.yaml).
+      const key = requireIdempotencyKey(idempotencyKey);
+      const customerId = actor.customerId;
+      const viaGateway = isGatewayPaymentMethod(input.paymentMethod);
 
-      // Check idempotency replay before cart lookup
-      if (idempotencyKey) {
-        const existing = await repo.findOrderByCartOrIdempotencyKey(
-          db,
-          actor.customerId,
-          idempotencyKey,
-        );
-        if (existing) {
-          return mapOrderResponse(existing.order, existing.items);
-        }
-      }
+      // Replay before the cart lookup: the cart of a placed order is already CONVERTED.
+      const replayed = await replayCheckout(customerId, key);
+      if (replayed) return replayed;
 
       const cart = await repo.findCartForCheckout(db, actor.customerId);
       if (!cart || cart.items.length === 0) {
@@ -296,7 +340,7 @@ export function createOrdersService(opts: {
       }
 
       // BR-200: the one pricing path shared with POST /orders/quote.
-      const { fulfilment, totals } = await priceCart(db, actor.customerId, cart, input);
+      const { fulfilment, totals } = await priceCart(db, customerId, cart, input);
       const { subtotal, deliveryFee, handlingFee, discount, gstAmount, totalAmount } = totals;
 
       // BR-210: refuse a slot whose ordering cutoff (start - delivery_slot_cutoff_minutes) passed.
@@ -305,10 +349,9 @@ export function createOrdersService(opts: {
         if (view.cutoffPassed) throw slotCutoffPassed();
       }
 
-      // Check wallet balance (BR-17): compared in paise, never as floats.
-      // Check wallet balance (BR-17): compared in paise, never as floats.
-      const wallet = await walletSvc.getWalletForActor(actor);
-      if (lessThan(wallet.balance as Money, totalAmount)) {
+      // BR-17 / BR-213 2: the wallet balance check is WALLET-only, compared in paise.
+      const wallet = viaGateway ? null : await walletSvc.getWalletForActor(actor);
+      if (wallet && lessThan(wallet.balance as Money, totalAmount)) {
         throw walletInsufficientError({
           balance: wallet.balance,
           required: totalAmount,
@@ -316,100 +359,157 @@ export function createOrdersService(opts: {
         });
       }
 
-      const placed = await withTransaction(async (tx) => {
-        if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
-          try {
-            await repo.checkAndBookDeliverySlot(
-              tx,
-              input.warehouseId,
-              input.deliveryDate,
-              input.deliverySlot,
-            );
-          } catch (err: unknown) {
-            if (err instanceof Error && err.message === 'SLOT_CAPACITY_EXCEEDED') {
-              // BR-201: a specific code so the client can reopen the slot picker.
-              throw slotFull();
+      // BR-215 1: the payment window of a gateway order.
+      const paymentExpiresAt = viaGateway
+        ? new Date(now().getTime() + (await repo.getOrderPaymentWindowMinutes(db)) * 60_000)
+        : null;
+      const keyId = razorpayKeyIdFor(gateway);
+
+      let placed: { response: OrderResponse; confirmed: boolean };
+      try {
+        placed = await withTransaction(async (tx) => {
+          if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
+            try {
+              await repo.checkAndBookDeliverySlot(
+                tx,
+                input.warehouseId,
+                input.deliveryDate,
+                input.deliverySlot,
+              );
+            } catch (err: unknown) {
+              if (err instanceof Error && err.message === 'SLOT_CAPACITY_EXCEEDED') {
+                // BR-201: a specific code so the client can reopen the slot picker.
+                throw slotFull();
+              }
+              throw err;
             }
-            throw err;
           }
+
+          const orderNumber = await repo.generateOrderNumber(tx);
+          const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
+
+          if (wallet) {
+            // BR-17: WALLET, unchanged. Debit in the same transaction as the order.
+            await walletSvc.move(
+              scope,
+              {
+                walletId: wallet.id,
+                direction: 'DEBIT',
+                type: 'ORDER_DEBIT',
+                amount: totalAmount,
+                refType: 'ORDER',
+                refId: cart.id,
+                idempotencyKey: `order_debit_${key}`,
+                remarks: `Payment for order ${orderNumber}`,
+                createdBy: actor.userId,
+              },
+              tx,
+            );
+          }
+
+          // WALLET: CONFIRMED / PAID. Gateway methods: PENDING_PAYMENT / PENDING (BR-213 3).
+          const { order, items } = await repo.createOrder(tx, {
+            orderNumber,
+            customerId,
+            warehouseId: input.warehouseId,
+            cartId: cart.id,
+            channel: 'ONLINE',
+            fulfillmentType: fulfilment,
+            // A pickup order carries no address or slot (orders_pickup_has_no_address_chk).
+            deliveryAddressId: fulfilment === 'DELIVERY' ? input.deliveryAddressId : null,
+            deliveryDate: fulfilment === 'DELIVERY' ? input.deliveryDate : null,
+            deliverySlot: fulfilment === 'DELIVERY' ? input.deliverySlot : null,
+            subtotal,
+            deliveryFee,
+            handlingFee,
+            discount,
+            gstAmount,
+            totalAmount,
+            paymentMethod: input.paymentMethod,
+            deliveryOtpPlaintext: deliveryOtp,
+            items: cart.items,
+            actorUserId: actor.userId,
+            idempotencyKey: key,
+            ...(viaGateway
+              ? { status: 'PENDING_PAYMENT' as const, paymentStatus: 'PENDING' as const, paymentExpiresAt }
+              : {}),
+          });
+
+          // Convert allocations & append stock ledger SALE rows. This is where a stock conflict
+          // (STOCK_UNAVAILABLE) surfaces, so it runs BEFORE any Razorpay order is created.
+          await repo.convertAllocationsAndAppendStockLedger(
+            tx,
+            cart.items,
+            order.id,
+            input.warehouseId,
+            actor.userId,
+          );
+
+          let paymentBlock: OrderGatewayPayment | null = null;
+          if (viaGateway) {
+            // BR-213 3 / 8: the Razorpay order for the SERVER total. A gateway failure throws
+            // 503 and rolls back everything above (order, stock, slot, cart).
+            let gatewayOrderId: string;
+            try {
+              const created = await gateway.createOrder({
+                amountPaise: toPaise(totalAmount),
+                currency: 'INR',
+                receipt: order.orderNumber,
+                notes: { orderId: order.id, orderNumber: order.orderNumber, customerId },
+              });
+              gatewayOrderId = created.gatewayOrderId;
+            } catch (err: unknown) {
+              throw new AppError('PAYMENT_GATEWAY_UNAVAILABLE', {
+                status: 503,
+                detail: 'The payment gateway could not be reached. Nothing was charged or reserved; please retry.',
+                cause: err,
+              });
+            }
+            const paymentRow = await repo.insertOrderPayment(tx, {
+              orderId: order.id,
+              gatewayOrderId,
+              amount: totalAmount,
+              method: input.paymentMethod,
+            });
+            paymentBlock = orderPaymentBlock(
+              { ...order, paymentExpiresAt: order.paymentExpiresAt ?? paymentExpiresAt },
+              paymentRow,
+              keyId,
+            );
+          }
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            actorRole: scope.roleCode,
+            actionCode: 'order.place',
+            entityType: 'order',
+            entityId: order.id,
+            warehouseId: input.warehouseId,
+            after: {
+              orderNumber: order.orderNumber,
+              totalAmount: order.totalAmount,
+              status: order.status,
+              paymentStatus: order.paymentStatus,
+              paymentMethod: input.paymentMethod,
+              ...(paymentBlock ? { gatewayOrderId: paymentBlock.gatewayOrderId } : {}),
+            },
+          });
+
+          return { response: mapOrderResponse(order, items, paymentBlock), confirmed: !viaGateway };
+        });
+      } catch (err: unknown) {
+        // A concurrent request with the same key lost the race on the unique key (the order's
+        // idempotency key or the wallet debit's): answer with the winner's order.
+        if ((err as { code?: string }).code === '23505') {
+          const winner = await replayCheckout(customerId, key);
+          if (winner) return winner;
         }
+        throw err;
+      }
 
-        const orderNumber = await repo.generateOrderNumber(tx);
-        const deliveryOtp = String(Math.floor(1000 + Math.random() * 9000));
-
-        // Debit wallet via walletService
-        await walletSvc.move(
-          scope,
-          {
-            walletId: wallet.id,
-            direction: 'DEBIT',
-            type: 'ORDER_DEBIT',
-            amount: totalAmount,
-            refType: 'ORDER',
-            refId: cart.id,
-            idempotencyKey: idempotencyKey
-              ? `order_debit_${idempotencyKey}`
-              : `order_debit_cart_${cart.id}_${actor.userId}`,
-            remarks: `Payment for order ${orderNumber}`,
-            createdBy: actor.userId,
-          },
-          tx,
-        );
-
-        // Create order
-        const { order, items } = await repo.createOrder(tx, {
-          orderNumber,
-          customerId: actor.customerId!,
-          warehouseId: input.warehouseId,
-          cartId: cart.id,
-          channel: 'ONLINE',
-          fulfillmentType: fulfilment,
-          // A pickup order carries no address or slot (orders_pickup_has_no_address_chk).
-          deliveryAddressId: fulfilment === 'DELIVERY' ? input.deliveryAddressId : null,
-          deliveryDate: fulfilment === 'DELIVERY' ? input.deliveryDate : null,
-          deliverySlot: fulfilment === 'DELIVERY' ? input.deliverySlot : null,
-          subtotal,
-          deliveryFee,
-          handlingFee,
-          discount,
-          gstAmount,
-          totalAmount,
-          paymentMethod: input.paymentMethod,
-          deliveryOtpPlaintext: deliveryOtp,
-          items: cart.items,
-          actorUserId: actor.userId,
-        });
-
-        // Convert allocations & append stock ledger SALE rows
-        await repo.convertAllocationsAndAppendStockLedger(
-          tx,
-          cart.items,
-          order.id,
-          input.warehouseId,
-          actor.userId,
-        );
-
-        // Write audit log
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          actorRole: scope.roleCode,
-          actionCode: 'order.place',
-          entityType: 'order',
-          entityId: order.id,
-          warehouseId: input.warehouseId,
-          after: {
-            orderNumber: order.orderNumber,
-            totalAmount: order.totalAmount,
-            status: order.status,
-            paymentStatus: order.paymentStatus,
-          },
-        });
-
-        return mapOrderResponse(order, items);
-      });
-
-      await events.publish('order.confirmed', placed.id);
-      return placed;
+      // BR-163 / BR-213 6: order.confirmed only for an order that IS confirmed (wallet).
+      if (placed.confirmed) await events.publish('order.confirmed', placed.response.id);
+      return placed.response;
     },
 
     async quote(actor, _scope, input) {
@@ -561,7 +661,12 @@ export function createOrdersService(opts: {
         });
       }
 
-      return mapOrderResponse(res.order, res.items);
+      // BR-213: a gateway order carries its Razorpay checkout parameters so the client can reopen
+      // the sheet (WALLET orders have no payments row; skip the read).
+      const payment = isGatewayPaymentMethod(res.order.paymentMethod)
+        ? await repo.getOrderPayment(db, res.order.id)
+        : null;
+      return mapOrderResponse(res.order, res.items, orderPaymentBlock(res.order, payment, razorpayKeyIdFor(gateway)));
     },
 
     async listOrders(actor, _scope, query) {

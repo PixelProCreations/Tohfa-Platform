@@ -29,6 +29,9 @@ if (!process.env['DATABASE_URL']) {
 process.env['REDIS_URL'] ??= 'redis://localhost:6379';
 process.env['PAYMENT_PROVIDER'] ??= 'mock';
 process.env['SMS_PROVIDER'] ??= 'mock';
+// Pin the product image host to the CDN default: a dev .env pointing it at localhost must not
+// change the URLs the tests assert ('' means unset; see config.ts).
+process.env['PRODUCT_IMAGE_BASE_URL'] ??= '';
 
 // Refuse to run against a non-local database. Must stay BEFORE anything that
 // can create a pool (config.ts / db/pool.ts are only imported by the tests).

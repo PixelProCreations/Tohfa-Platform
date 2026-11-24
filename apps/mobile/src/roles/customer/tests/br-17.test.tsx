@@ -1,7 +1,10 @@
 /**
- * BR-17: wallet-only checkout. Totals come from POST /orders/quote; POST /orders
- * carries one Idempotency-Key per attempt; 402 WALLET_INSUFFICIENT shows the
- * shortfall and routes to the wallet top-up; nothing but the wallet is offered.
+ * BR-17 (amended 2026-11-20 by owner decision): the wallet is one of the checkout
+ * methods (UPI / card / net banking go through Razorpay, see
+ * checkout.payment.test.tsx; cash stays disabled, BR-216). Wallet path: totals
+ * come from POST /orders/quote; POST /orders carries one Idempotency-Key per
+ * attempt; 402 WALLET_INSUFFICIENT shows the shortfall and routes to the wallet
+ * top-up; the order is only shown as placed when the server says CONFIRMED.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
@@ -58,14 +61,28 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('BR-17: wallet-only checkout', () => {
-  it('BR-17: shows quote totals and offers only the TOHFA wallet', async () => {
+describe('BR-17: wallet checkout (amended: wallet is one of the methods)', () => {
+  it('BR-17: shows quote totals and offers payment methods including the TOHFA wallet', async () => {
     mockPost((path) => (path === '/orders/quote' ? QUOTE : new Error('unexpected')));
     const root = await renderWith(qc, <CheckoutScreen onNavigate={vi.fn()} />);
     const t = textOf(root);
     expect(t).toContain('₹149.90');
-    expect(t).toContain('Pay with TOHFA Wallet');
-    expect(t).not.toMatch(/UPI|Credit\/Debit|Cash on Delivery|Net banking|GPay|2,580|Enter OTP/i);
+    expect(t).toContain('Wallets');
+    expect(t).toContain('UPI');
+    expect(t).toContain('Credit/Debit Card');
+    expect(t).toContain('Cash on Delivery or Shop');
+    expect(t).toContain('Net banking');
+    expect(t).toContain('Not available');
+  });
+
+  it('BR-17: a wallet order is never shown as placed unless the server returned CONFIRMED', async () => {
+    mockPost((path) => (path === '/orders/quote' ? QUOTE : { ...ORDER, status: 'PENDING_PAYMENT', paymentStatus: 'PENDING', payment: null }));
+    const root = await renderWith(qc, <CheckoutScreen onNavigate={vi.fn()} />);
+    await press(root, 'wallet-method');
+    await press(root, 'checkout-proceed');
+    await press(root, 'wallet-confirm');
+    expect(hasTestId(root, 'order-success')).toBe(false);
+    expect(textOf(root)).not.toContain('TOH-2026-0000042');
   });
 
   it('BR-17: Returns to checkout after insufficient funds top-up recovery (402 shortfall, same Idempotency-Key, WALLET body)', async () => {
@@ -77,6 +94,7 @@ describe('BR-17: wallet-only checkout', () => {
     });
     const onNavigate = vi.fn();
     const root = await renderWith(qc, <CheckoutScreen onNavigate={onNavigate} />);
+    await press(root, 'wallet-method');
     await press(root, 'checkout-proceed');
     await press(root, 'wallet-confirm');
     expect(hasTestId(root, 'checkout-shortfall')).toBe(true);
@@ -86,6 +104,7 @@ describe('BR-17: wallet-only checkout', () => {
 
     // Back from top-up: the same attempt replays the same key and succeeds.
     const again = await renderWith(qc, <CheckoutScreen onNavigate={onNavigate} />);
+    await press(again, 'wallet-method');
     await press(again, 'checkout-proceed');
     await press(again, 'wallet-confirm');
     expect(hasTestId(again, 'order-success')).toBe(true);
@@ -112,6 +131,7 @@ describe('BR-17: wallet-only checkout', () => {
     mockPost((path) => (path === '/orders/quote' ? QUOTE : ORDER));
     const onNavigate = vi.fn();
     const root = await renderWith(qc, <CheckoutScreen onNavigate={onNavigate} />);
+    await press(root, 'wallet-method');
     await press(root, 'checkout-proceed');
     await press(root, 'wallet-confirm');
     await press(root, 'success-check-pickup');
@@ -126,6 +146,7 @@ describe('BR-17: wallet-only checkout', () => {
     mockPost((path) => (path === '/orders/quote' ? QUOTE : problem(409, 'STOCK_UNAVAILABLE')));
     const onGoBack = vi.fn();
     const root = await renderWith(qc, <CheckoutScreen onGoBack={onGoBack} />);
+    await press(root, 'wallet-method');
     await press(root, 'checkout-proceed');
     await press(root, 'wallet-confirm');
     expect(onGoBack).toHaveBeenCalled();
@@ -137,6 +158,7 @@ describe('BR-17: wallet-only checkout', () => {
     mockPost((path) => (path === '/orders/quote' ? { ...QUOTE, fulfillmentType: 'DELIVERY' } : problem(409, 'SLOT_FULL')));
     const onGoBack = vi.fn();
     const root = await renderWith(qc, <CheckoutScreen onGoBack={onGoBack} />);
+    await press(root, 'wallet-method');
     await press(root, 'checkout-proceed');
     await press(root, 'wallet-confirm');
     await flush();

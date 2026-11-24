@@ -789,7 +789,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                 >
                   <View style={styles.miniInvoiceHeader}>
                     <View>
-                      <Text style={styles.miniInvoiceBrand}>{invoice.seller.legalName || t('customer.orders.tracking.sellerFallbackName')}</Text>
+                      <Text style={styles.miniInvoiceBrand}>{invoice.seller?.legalName || t('customer.orders.tracking.sellerFallbackName')}</Text>
                       {!!invoice.buyerName && <Text style={styles.miniInvoiceMeta}>{invoice.buyerName}</Text>}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
@@ -850,11 +850,11 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                     <View style={styles.invHeaderBox}>
                       <View style={styles.invBrandCol}>
                         <View style={styles.invLogoRow}>
-                          <Text style={styles.invBrandTohfa}>{invoice.seller.legalName || t('customer.orders.tracking.sellerFallbackName')}</Text>
+                          <Text style={styles.invBrandTohfa}>{invoice.seller?.legalName || t('customer.orders.tracking.sellerFallbackName')}</Text>
                         </View>
-                        {!!invoice.seller.address && <Text style={styles.invMetaText}>{invoice.seller.address}</Text>}
-                        {!!invoice.seller.gstin && <Text style={styles.invMetaText}>{t('customer.orders.tracking.gstin', { value: invoice.seller.gstin })}</Text>}
-                        {!!invoice.seller.stateCode && <Text style={styles.invMetaText}>{t('customer.orders.tracking.sellerStateCode', { value: invoice.seller.stateCode })}</Text>}
+                        {!!invoice.seller?.address && <Text style={styles.invMetaText}>{invoice.seller.address}</Text>}
+                        {!!invoice.seller?.gstin && <Text style={styles.invMetaText}>{t('customer.orders.tracking.gstin', { value: invoice.seller.gstin })}</Text>}
+                        {!!invoice.seller?.stateCode && <Text style={styles.invMetaText}>{t('customer.orders.tracking.sellerStateCode', { value: invoice.seller.stateCode })}</Text>}
                         {!!invoice.placeOfSupply && <Text style={styles.invMetaText}>{t('customer.orders.tracking.placeOfSupply', { value: invoice.placeOfSupply })}</Text>}
                       </View>
                       <View style={styles.invTaxCol}>

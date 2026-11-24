@@ -33,7 +33,7 @@ describe('OrdersService Unit Tests', () => {
     });
   });
 
-  it('BR-15: rejects CASH payment method with 501 Not Implemented', async () => {
+  it('BR-15 / BR-216: rejects CASH payment method with 422 PAYMENT_METHOD_DISABLED (never 501)', async () => {
     const service = createOrdersService();
     const actor = {
       userId: newId(),
@@ -47,10 +47,26 @@ describe('OrdersService Unit Tests', () => {
         fulfillmentType: 'PICKUP',
         warehouseId: newId(),
         paymentMethod: 'CASH',
-      }),
+      }, newId()),
     ).rejects.toMatchObject({
-      status: 501,
+      code: 'PAYMENT_METHOD_DISABLED',
+      status: 422,
     });
+  });
+
+  it('BR-213: a missing Idempotency-Key is 422 VALIDATION_FAILED for every method', async () => {
+    const service = createOrdersService();
+    const actor = {
+      userId: newId(),
+      roles: [{ code: 'CUSTOMER' as const }],
+      farmerId: null,
+      customerId: newId(),
+    };
+    for (const paymentMethod of ['WALLET', 'UPI', 'CARD', 'NETBANKING'] as const) {
+      await expect(
+        service.checkout(actor, aScope(), { fulfillmentType: 'PICKUP', warehouseId: newId(), paymentMethod }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_FAILED', status: 422 });
+    }
   });
 });
 
@@ -435,7 +451,7 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
         fulfillmentType: 'PICKUP',
         warehouseId,
         paymentMethod: 'WALLET',
-      }),
+      }, `chk-fault-${newId()}`),
     ).rejects.toThrow('FAULT_INJECTION_MID_TRANSACTION_FAILURE');
 
     // Assert: wallet balance is unchanged
@@ -477,6 +493,7 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
     const deliveryCheckoutRes = await request(app)
       .post('/v1/orders')
       .set('Authorization', `Bearer ${customerToken2}`)
+      .set('idempotency-key', `chk-delivery-${newId()}`)
       .send({
         fulfillmentType: 'HOME_DELIVERY',
         warehouseId,
@@ -551,5 +568,62 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
       });
 
     expect(res.status).toBe(403);
+  });
+
+  it('BR-213 / BR-214 / BR-215 (HTTP, PostgreSQL): UPI checkout is PENDING_PAYMENT, cancel releases the stock; a second UPI order confirms through verify', async () => {
+    if (!ready) return;
+    const hasGatewayColumns = await pool.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = 'orders' AND column_name = 'idempotency_key'`,
+    );
+    if ((hasGatewayColumns.rowCount ?? 0) === 0) return; // database predates migration 0190
+    const { mockPaymentGateway } = await import('../../payments/mock.gateway.js');
+    const auth = { Authorization: `Bearer ${customerToken2}` };
+    const consumed = async () =>
+      Number((await pool.query<{ c: string }>(`SELECT consumed_qty::text AS c FROM allocations WHERE id = $1`, [allocationId])).rows[0]!.c);
+
+    // 1. UPI checkout: pending, payment block, stock taken, no wallet debit.
+    await request(app).post('/v1/cart/items').set(auth).send({ productId: cropId, grade: 'GRADE_1', qtyKg: '1.000', warehouseId });
+    const walletBefore = (await pool.query<{ b: string }>(`SELECT balance::text AS b FROM wallets WHERE customer_id = $1`, [customerId2])).rows[0]!.b;
+    const consumedBefore = await consumed();
+    const placed = await request(app).post('/v1/orders').set(auth).set('Idempotency-Key', `upi-${newId()}`)
+      .send({ fulfillmentType: 'PICKUP', warehouseId, paymentMethod: 'UPI' });
+    expect(placed.status, JSON.stringify(placed.body)).toBe(201);
+    expect(placed.body).toMatchObject({ status: 'PENDING_PAYMENT', paymentStatus: 'PENDING', totalAmount: '100.00' });
+    expect(placed.body.payment).toMatchObject({ gateway: 'RAZORPAY', amount: '100.00', currency: 'INR' });
+    expect(await consumed()).toBe(consumedBefore + 1);
+    expect((await pool.query<{ b: string }>(`SELECT balance::text AS b FROM wallets WHERE customer_id = $1`, [customerId2])).rows[0]!.b).toBe(walletBefore);
+
+    // 2. Cancel: CANCELLED, stock back, a RELEASE movement.
+    const cancelled = await request(app).post(`/v1/orders/${placed.body.id}/cancel`).set(auth).set('Idempotency-Key', newId());
+    expect(cancelled.status, JSON.stringify(cancelled.body)).toBe(200);
+    expect(cancelled.body).toMatchObject({ status: 'CANCELLED', paymentStatus: 'FAILED', cancellationReason: 'CUSTOMER_CANCELLED' });
+    expect(await consumed()).toBe(consumedBefore);
+    const release = await pool.query(`SELECT 1 FROM stock_ledger WHERE ref_type = 'ORDER' AND ref_id = $1 AND movement_type = 'RELEASE'`, [placed.body.id]);
+    expect(release.rowCount).toBe(1);
+    const again = await request(app).post(`/v1/orders/${placed.body.id}/cancel`).set(auth).set('Idempotency-Key', newId());
+    expect(again.status).toBe(409);
+    expect(again.body.code).toBe('ORDER_NOT_AWAITING_PAYMENT');
+
+    // 3. A second UPI order, paid and verified: CONFIRMED / PAID.
+    await request(app).post('/v1/cart/items').set(auth).send({ productId: cropId, grade: 'GRADE_1', qtyKg: '1.000', warehouseId });
+    const second = await request(app).post('/v1/orders').set(auth).set('Idempotency-Key', `upi-${newId()}`)
+      .send({ fulfillmentType: 'PICKUP', warehouseId, paymentMethod: 'CARD' });
+    expect(second.status, JSON.stringify(second.body)).toBe(201);
+    const gwId: string = second.body.payment.gatewayOrderId;
+    const pay = mockPaymentGateway.simulatePayment(gwId);
+    const verified = await request(app).post(`/v1/orders/${second.body.id}/payment/verify`).set(auth)
+      .send({ razorpayOrderId: gwId, razorpayPaymentId: pay.paymentId, razorpaySignature: pay.signature });
+    expect(verified.status, JSON.stringify(verified.body)).toBe(200);
+    expect(verified.body).toMatchObject({ id: second.body.id, status: 'CONFIRMED', paymentStatus: 'PAID' });
+    const payRow = await pool.query<{ status: string; gateway_payment_id: string }>(
+      `SELECT status, gateway_payment_id FROM payments WHERE ref_type = 'ORDER' AND ref_id = $1`, [second.body.id],
+    );
+    expect(payRow.rows[0]).toMatchObject({ status: 'CAPTURED', gateway_payment_id: pay.paymentId });
+
+    // CASH stays disabled (BR-216).
+    const cash = await request(app).post('/v1/orders').set(auth).set('Idempotency-Key', newId())
+      .send({ fulfillmentType: 'PICKUP', warehouseId, paymentMethod: 'CASH' });
+    expect(cash.status).toBe(422);
+    expect(cash.body.code).toBe('PAYMENT_METHOD_DISABLED');
   });
 });

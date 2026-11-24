@@ -45,6 +45,8 @@ export const paymentStatuses = [
   'PARTIALLY_PAID',
   'REFUNDED',
   'FAILED',
+  // BR-215: a capture that arrived after cancellation; staff refund it manually.
+  'REFUND_DUE',
 ] as const;
 export type PaymentStatus = (typeof paymentStatuses)[number];
 
@@ -52,6 +54,10 @@ export type PaymentStatus = (typeof paymentStatuses)[number];
 export const salesChannels = ['ONLINE', 'MARKET', 'HORECA', 'B2B', 'DIRECT'] as const;
 export type SalesChannel = (typeof salesChannels)[number];
 
+/**
+ * BR-17 (amended) / BR-213 / BR-216. CASH stays in the enum so the server can answer it with 422
+ * PAYMENT_METHOD_DISABLED (a body validation 422 would hide the reason from the client).
+ */
 export const paymentMethods = [
   'WALLET',
   'CASH',
@@ -60,6 +66,13 @@ export const paymentMethods = [
   'CARD',
 ] as const;
 export type PaymentMethod = (typeof paymentMethods)[number];
+
+/** BR-213: the methods paid through Razorpay; the order starts PENDING_PAYMENT. */
+export const gatewayPaymentMethods = ['UPI', 'CARD', 'NETBANKING'] as const;
+export type GatewayPaymentMethod = (typeof gatewayPaymentMethods)[number];
+export function isGatewayPaymentMethod(method: PaymentMethod): method is GatewayPaymentMethod {
+  return (gatewayPaymentMethods as readonly string[]).includes(method);
+}
 
 export const checkoutRequestSchema = z.object({
   fulfillmentType: z.enum(fulfillmentTypes).default('PICKUP'),
@@ -177,7 +190,29 @@ export type OrderSummaryResponse = {
   placedAt: string;
 };
 
+/** docs/openapi.yaml OrderGatewayPayment (BR-213). No secret: the key id is the public one. */
+export const orderGatewayPaymentSchema = z
+  .object({
+    gateway: z.literal('RAZORPAY'),
+    gatewayOrderId: z.string(),
+    razorpayKeyId: z.string(),
+    amount: moneySchema,
+    currency: z.literal('INR'),
+    expiresAt: z.string(),
+  })
+  .strict();
+export type OrderGatewayPayment = {
+  gateway: 'RAZORPAY';
+  gatewayOrderId: string;
+  razorpayKeyId: string;
+  amount: Money;
+  currency: 'INR';
+  expiresAt: string;
+};
+
 export const orderResponseSchema = orderSummaryResponseSchema.extend({
+  payment: orderGatewayPaymentSchema.nullable().optional(),
+  cancellationReason: z.string().nullable().optional(),
   items: z.array(orderItemResponseSchema),
   subtotal: moneySchema,
   deliveryFee: moneySchema.optional(),
@@ -192,6 +227,10 @@ export const orderResponseSchema = orderSummaryResponseSchema.extend({
   pickupQr: z.object({ payload: z.string() }).nullable().optional(),
 });
 export type OrderResponse = OrderSummaryResponse & {
+  /** BR-213: Razorpay checkout parameters of a gateway order; null for WALLET orders. */
+  payment?: OrderGatewayPayment | null | undefined;
+  /** BR-215: why a cancelled order was cancelled (only set by the payment-flow responses). */
+  cancellationReason?: string | null | undefined;
   items: OrderItemResponse[];
   subtotal: Money;
   deliveryFee?: Money | undefined;
@@ -220,6 +259,18 @@ export const orderIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 export type OrderIdParam = z.infer<typeof orderIdParamSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /v1/orders/:id/payment/verify (BR-214): the Razorpay checkout callback values.
+// ---------------------------------------------------------------------------
+export const orderPaymentVerifyRequestSchema = z
+  .object({
+    razorpayOrderId: z.string().min(1).max(100),
+    razorpayPaymentId: z.string().min(1).max(100),
+    razorpaySignature: z.string().min(1).max(200),
+  })
+  .strict();
+export type OrderPaymentVerifyRequest = z.infer<typeof orderPaymentVerifyRequestSchema>;
 
 // ---------------------------------------------------------------------------
 // POST /v1/orders/:id/reorder (BR-162)

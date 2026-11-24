@@ -1,25 +1,73 @@
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import type {
-  CreateOrderParams,
-  GatewayOrderResult,
-  PaymentCapturedPayload,
-  PaymentGateway,
-  RefundPaymentParams,
-  RefundResult,
-  WebhookEvent,
+import { config } from '../config.js';
+import {
+  verifyRazorpayPaymentSignature,
+  type CreateOrderParams,
+  type GatewayOrderResult,
+  type PaymentCapturedPayload,
+  type PaymentGateway,
+  type RefundPaymentParams,
+  type RefundResult,
+  type WebhookEvent,
 } from './gateway.js';
+
+/** Key secret the mock signs checkout callbacks with when RAZORPAY_KEY_SECRET is unset. */
+export const MOCK_KEY_SECRET = 'mock_key_secret';
 
 export class MockPaymentGateway implements PaymentGateway {
   readonly provider = 'mock' as const;
+  readonly keySecret: string;
+  /** Gateway orders created through this instance (amount in paise), for tests and dev. */
+  readonly orders = new Map<string, { amountPaise: number; currency: string; receipt: string }>();
+  /** Payment attempts registered with `simulatePayment`, by payment id. */
+  readonly payments = new Map<string, PaymentCapturedPayload>();
+
+  constructor(keySecret: string = config.RAZORPAY_KEY_SECRET || MOCK_KEY_SECRET) {
+    this.keySecret = keySecret;
+  }
 
   async createOrder(params: CreateOrderParams): Promise<GatewayOrderResult> {
     const syntheticId = `order_mock_${randomUUID().replace(/-/g, '').slice(0, 14)}`;
+    const currency = params.currency ?? 'INR';
+    this.orders.set(syntheticId, { amountPaise: Number(params.amountPaise), currency, receipt: params.receipt });
     return {
       gatewayOrderId: syntheticId,
       amountPaise: Number(params.amountPaise),
-      currency: params.currency ?? 'INR',
+      currency,
       status: 'created',
     };
+  }
+
+  /**
+   * Dev/test helper: records a payment attempt against a gateway order and returns it with the
+   * checkout signature the Razorpay SDK would hand the client. The amount defaults to the order's.
+   */
+  simulatePayment(
+    gatewayOrderId: string,
+    opts: { status?: string; amountPaise?: number; paymentId?: string; method?: string } = {},
+  ): PaymentCapturedPayload & { signature: string } {
+    const paymentId = opts.paymentId ?? `pay_mock_${randomUUID().replace(/-/g, '').slice(0, 14)}`;
+    const payment: PaymentCapturedPayload = {
+      paymentId,
+      orderId: gatewayOrderId,
+      amountPaise: opts.amountPaise ?? this.orders.get(gatewayOrderId)?.amountPaise ?? 0,
+      currency: 'INR',
+      method: opts.method ?? 'upi',
+      status: opts.status ?? 'captured',
+      email: null,
+      contact: null,
+    };
+    this.payments.set(paymentId, payment);
+    return { ...payment, signature: this.signPayment(gatewayOrderId, paymentId) };
+  }
+
+  /** The checkout signature for an order/payment pair, as Razorpay computes it. */
+  signPayment(gatewayOrderId: string, gatewayPaymentId: string): string {
+    return createHmac('sha256', this.keySecret).update(`${gatewayOrderId}|${gatewayPaymentId}`).digest('hex');
+  }
+
+  verifyPaymentSignature(gatewayOrderId: string, gatewayPaymentId: string, signature: string): boolean {
+    return verifyRazorpayPaymentSignature(gatewayOrderId, gatewayPaymentId, signature, this.keySecret);
   }
 
   verifyWebhookSignature(rawBody: Buffer | string, signature: string, secret: string): boolean {
@@ -80,6 +128,9 @@ export class MockPaymentGateway implements PaymentGateway {
   }
 
   async fetchPayment(gatewayPaymentId: string): Promise<PaymentCapturedPayload | null> {
+    const simulated = this.payments.get(gatewayPaymentId);
+    if (simulated) return { ...simulated };
+    // Pre-existing behaviour for payments this instance never saw (top-up reconcile tests).
     return {
       paymentId: gatewayPaymentId,
       orderId: `order_mock_${gatewayPaymentId}`,
@@ -87,6 +138,10 @@ export class MockPaymentGateway implements PaymentGateway {
       currency: 'INR',
       status: 'captured',
     };
+  }
+
+  async fetchOrderPayments(gatewayOrderId: string): Promise<PaymentCapturedPayload[]> {
+    return [...this.payments.values()].filter((p) => p.orderId === gatewayOrderId).map((p) => ({ ...p }));
   }
 
   async refundPayment(params: RefundPaymentParams): Promise<RefundResult> {

@@ -40,3 +40,6 @@ export const API_ROOT = join(REPO_ROOT, 'apps', 'api');
 // because it is this app's runtime data, not a monorepo-wide artifact --
 // gitignored, never read by any other package.
 export const LOCAL_UPLOADS_DIR = join(API_ROOT, '.local-uploads');
+// Checked-in product images for local dev, served by storage/productImages.routes.ts under the same
+// catalog keys the CDN uses (`<icon_key>.<ext>`); see PRODUCT_IMAGE_BASE_URL in config.ts.
+export const PRODUCT_IMAGES_DIR = join(API_ROOT, 'public', 'product-images');

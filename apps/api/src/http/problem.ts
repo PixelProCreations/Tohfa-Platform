@@ -112,6 +112,13 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   WALLET_TRANSFER_DISABLED: 403,
   WALLET_TRANSFER_LIMIT_EXCEEDED: 422,
   WALLET_TRANSFER_SELF: 422,
+  // BR-213..BR-216: gateway-paid orders. PAYMENT_PENDING (above) is sent as 202 by verify.
+  PAYMENT_METHOD_DISABLED: 422,
+  PAYMENT_SIGNATURE_INVALID: 422,
+  PAYMENT_AMOUNT_MISMATCH: 409,
+  ORDER_PAYMENT_EXPIRED: 409,
+  ORDER_NOT_AWAITING_PAYMENT: 409,
+  PAYMENT_GATEWAY_UNAVAILABLE: 503,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -187,6 +194,12 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   WALLET_TRANSFER_DISABLED: 'Wallet transfers are not available',
   WALLET_TRANSFER_LIMIT_EXCEEDED: 'Wallet transfer limit exceeded',
   WALLET_TRANSFER_SELF: 'Cannot send money to your own wallet',
+  PAYMENT_METHOD_DISABLED: 'Payment method is not available',
+  PAYMENT_SIGNATURE_INVALID: 'Payment signature is invalid',
+  PAYMENT_AMOUNT_MISMATCH: 'Payment does not match the order',
+  ORDER_PAYMENT_EXPIRED: 'Order payment window has ended',
+  ORDER_NOT_AWAITING_PAYMENT: 'Order is not awaiting payment',
+  PAYMENT_GATEWAY_UNAVAILABLE: 'Payment gateway is unavailable',
 };
 
 /**

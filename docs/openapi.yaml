@@ -12817,10 +12817,20 @@ paths:
     post:
       tags: [Cart & Orders]
       operationId: checkout
-      summary: Place an order (wallet-first checkout)
+      summary: Place an order (wallet or gateway checkout)
       description: |
-        Converts the locked cart into an order. Wallet is the primary payment method
-        (BR-17); an insufficient balance returns 422 `WALLET_INSUFFICIENT` with
+        Converts the locked cart into an order. Payment methods (BR-17 as amended 2026-11-20, BR-213):
+        `WALLET` debits the wallet and the order is created `CONFIRMED` / `PAID` (unchanged);
+        `UPI`, `CARD` and `NETBANKING` create the order `PENDING_PAYMENT` / payment `PENDING` with a
+        Razorpay order for the server-computed total (the client never sends an amount) and return
+        the `payment` block the client opens the Razorpay checkout with; the order becomes
+        `CONFIRMED` only after a verified capture (BR-214) and is cancelled with stock, slot and cart
+        released when the payment window lapses (BR-215). `CASH` (cash on delivery / at the shop) is
+        422 `PAYMENT_METHOD_DISABLED` (BR-216). Stock, slot and cart are taken when the pending order
+        is created. A replay with the same `Idempotency-Key` returns the same order and the same
+        `gatewayOrderId`. The wallet balance check applies to `WALLET` only. Razorpay unreachable is
+        503 `PAYMENT_GATEWAY_UNAVAILABLE` and nothing is written.
+        For `WALLET` an insufficient balance returns 402 `WALLET_INSUFFICIENT` with
         the shortfall so the client can prompt a top-up. An expired cart lock returns 409
         `CART_LOCK_EXPIRED` (BR-22). Every order supports warehouse pickup (BR-21) and,
         since the owner decision of 2026-11-16, home delivery (BR-161): `HOME_DELIVERY`/`DELIVERY`
@@ -12831,13 +12841,14 @@ paths:
         `system_config.home_delivery_enabled` is false. Totals are integer paise: GST is
         `round_half_up(subtotal × system_config.retail_gst_rate_percent / 100)` once per order
         (BR-98), the delivery fee applies below `free_delivery_threshold`, discount is 0, and
-        `order.confirmed` is published after commit (BR-163). Payment stays WALLET only (BR-17).
-        The configured `handling_fee` is added to every order and stored as `handlingFee`; the
+        `order.confirmed` is published after commit (BR-163), for a gateway order only once its
+        payment is confirmed (BR-214). The configured `handling_fee` is added to every order and stored as `handlingFee`; the
         totals are computed by the same pricing path as `POST /orders/quote` (BR-200). A full or
         switched-off delivery slot is 409 `SLOT_FULL` (BR-201).
-        Money-moving — `Idempotency-Key` required; a replay never writes a second wallet debit (BR-17).
+        Money-moving — `Idempotency-Key` required for every method; a replay never writes a second
+        wallet debit or a second Razorpay order (BR-17, BR-213).
       x-permission: order.place
-      x-business-rules: [BR-17, BR-21, BR-22, BR-98, BR-161, BR-163, BR-200, BR-201]
+      x-business-rules: [BR-17, BR-213, BR-216, BR-21, BR-22, BR-98, BR-161, BR-163, BR-200, BR-201]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -12853,13 +12864,16 @@ paths:
               paymentMethod: WALLET
       responses:
         '201':
-          description: Order confirmed; the wallet has been debited and the delivery OTP issued.
+          description: |
+            `WALLET`: order `CONFIRMED` / `PAID`; the wallet has been debited and the delivery OTP issued.
+            `UPI` / `CARD` / `NETBANKING`: order `PENDING_PAYMENT` / `PENDING` with a non-null `payment`
+            block; it is not confirmed until the payment is verified (BR-213, BR-214).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402':
-          description: Wallet balance insufficient (BR-17a).
+          description: Wallet balance insufficient (BR-17a, `WALLET` only).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -12882,8 +12896,19 @@ paths:
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
-        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '422':
+          description: |
+            Validation failure, a missing `Idempotency-Key`, or `PAYMENT_METHOD_DISABLED`: `paymentMethod`
+            `CASH` (cash on delivery / at the shop) is not offered (BR-216); nothing is written.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '503':
+          description: '`PAYMENT_GATEWAY_UNAVAILABLE`: the Razorpay order could not be created for a `UPI` / `CARD` / `NETBANKING` checkout; nothing is written (BR-213).'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
     get:
       tags: [Cart & Orders]
       operationId: listOrders
@@ -12923,11 +12948,12 @@ paths:
         figure a refused checkout carries, BR-192), the cart lock and, for a delivery, the chosen
         slot (BR-201). Quote and checkout share one pricing path, so `totalAmount` equals the
         placed order's total. Takes the checkout body; nothing is reserved, debited, booked or
-        created, so no `Idempotency-Key`. Fails like checkout (404 no cart or foreign address, 422
-        past date or missing slot, 501 non-wallet method or delivery disabled, 409 `SLOT_FULL` or `SLOT_CUTOFF_PASSED`),
-        except an expired lock is reported as `lockExpired: true` rather than refused.
+        created, so no `Idempotency-Key`. Every `paymentMethod` is accepted (BR-213);
+        `walletSufficient` and `shortfall` only matter for `WALLET`. Fails like checkout (404 no cart
+        or foreign address, 422 past date or missing slot, 501 delivery disabled, 409 `SLOT_FULL` or
+        `SLOT_CUTOFF_PASSED`), except an expired lock is reported as `lockExpired: true` rather than refused.
       x-permission: order.place
-      x-business-rules: [BR-200, BR-201, BR-98, BR-161, BR-187]
+      x-business-rules: [BR-200, BR-201, BR-98, BR-161, BR-187, BR-213]
       requestBody:
         required: true
         content:
@@ -12950,7 +12976,7 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
         '501':
-          description: Non-wallet payment method, or home delivery disabled.
+          description: Home delivery disabled.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -13008,6 +13034,110 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
+
+  /orders/{id}/payment/verify:
+    post:
+      tags: [Cart & Orders]
+      operationId: verifyOrderPayment
+      summary: Verify a Razorpay payment for a pending gateway order
+      description: |
+        Called by the client after the Razorpay checkout reports success (BR-214). The caller's own
+        order only (another customer's or an unknown id is 404). The server, in order:
+        1. checks `razorpaySignature` as a timing-safe HMAC-SHA256 of `razorpayOrderId|razorpayPaymentId`
+           with the Razorpay key secret, else 422 `PAYMENT_SIGNATURE_INVALID`;
+        2. requires `razorpayOrderId` to equal the order's stored gateway order id (a `WALLET` order
+           has none), else 422 `PAYMENT_SIGNATURE_INVALID`;
+        3. fetches the payment from Razorpay: it must be `captured`, for exactly the order's server
+           total in paise, against that gateway order, else 409 `PAYMENT_AMOUNT_MISMATCH`; a payment
+           still `authorized` is 202 `PAYMENT_PENDING` (the webhook or the expiry sweep finishes it).
+        Verify and the `payment.captured` webhook call ONE confirmation path: the order row is locked,
+        a `PENDING_PAYMENT` order becomes `CONFIRMED` / `PAID` (payment row `CAPTURED`, status history,
+        audit `order.payment.confirm`, `order.confirmed` published after commit); an order already
+        confirmed by the same payment returns 200 with no second event; an order already `CANCELLED`
+        (payment window lapsed or customer cancelled) stays cancelled, its payment becomes
+        `REFUND_DUE` for a manual refund, and the answer is 409 `ORDER_PAYMENT_EXPIRED` (BR-215).
+        The client shows success only for a `CONFIRMED` order (BR-217).
+      x-permission: order.place
+      x-business-rules: [BR-214]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderPaymentVerifyRequest' }
+      responses:
+        '200':
+          description: Payment verified; the order is `CONFIRMED` / `PAID` (also for an idempotent repeat).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '202':
+          description: '`PAYMENT_PENDING`: the payment is authorized but not yet captured; poll `GET /orders/{id}`.'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: |
+            `PAYMENT_AMOUNT_MISMATCH`: the fetched payment is not captured for the order total against
+            this gateway order. `ORDER_PAYMENT_EXPIRED`: the order was cancelled before the capture
+            arrived; it stays cancelled and the payment is `REFUND_DUE` (manual refund, BR-215).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422':
+          description: '`PAYMENT_SIGNATURE_INVALID`: the signature does not verify or names another gateway order; or a validation failure.'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '503':
+          description: '`PAYMENT_GATEWAY_UNAVAILABLE`: Razorpay could not be reached to fetch the payment; retry.'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /orders/{id}/cancel:
+    post:
+      tags: [Cart & Orders]
+      operationId: cancelPendingOrder
+      summary: Cancel an order that is still awaiting its gateway payment
+      description: |
+        The caller's own order only (else 404), and only while it is `PENDING_PAYMENT`; any other
+        status is 409 `ORDER_NOT_AWAITING_PAYMENT` (BR-215). The server first asks Razorpay for the
+        order's payments: if one was actually captured the order is confirmed instead (BR-214) and
+        returned `CONFIRMED`. Otherwise, in ONE transaction, the order becomes `CANCELLED` / payment
+        `FAILED` with `cancellationReason` `CUSTOMER_CANCELLED`, the allocation is released
+        (`consumed_qty` reduced and a `RELEASE` stock movement written), and the delivery slot booking
+        is given back. A replay with the same `Idempotency-Key` returns the same result.
+      x-permission: order.place
+      x-business-rules: [BR-215]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      responses:
+        '200':
+          description: The order, `CANCELLED` (or `CONFIRMED` when a capture was found).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`ORDER_NOT_AWAITING_PAYMENT`: the order is not `PENDING_PAYMENT`. `IDEMPOTENCY_KEY_REUSED`: the key was used with a different request.'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '503':
+          description: '`PAYMENT_GATEWAY_UNAVAILABLE`: Razorpay could not be reached to check for a capture; nothing changed, retry.'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /orders/{id}/tracking:
     get:
@@ -14009,9 +14139,15 @@ paths:
         Public but authenticated by HMAC — the raw body is verified against
         `X-Razorpay-Signature` before parsing. Events are deduplicated on the Razorpay
         event id, so redelivery is safe. An invalid signature returns 401.
+        After the signature check the payment is routed by the `payments` row of its gateway order
+        id: a wallet top-up (`ref_type = TOPUP`) takes the existing top-up path; a customer order
+        (`ref_type = ORDER`) calls the same confirmation path as `POST /orders/{id}/payment/verify`
+        (BR-214), so a capture confirms a `PENDING_PAYMENT` order exactly once, and a capture for an
+        order already cancelled marks its payment `REFUND_DUE` (BR-215). `payment.failed` only records
+        the failed attempt; the order stays `PENDING_PAYMENT` until its window lapses.
       security: []
       x-permission: public
-      x-business-rules: []
+      x-business-rules: [BR-214]
       parameters:
         - { name: X-Razorpay-Signature, in: header, required: true, schema: { type: string } }
         - { name: X-Razorpay-Event-Id, in: header, required: true, schema: { type: string } }
@@ -19795,7 +19931,13 @@ components:
         * `SALE_PRICE_CHANGED` — a sale line price differs from the quote the client echoed back; re-quote and confirm (BR-89). HTTP 409.
         * `SALE_STOCK_CHANGED` — stock or the LIVE_MARKET allocation fell below a sale line quantity since the quote (BR-89, BR-95). HTTP 409.
         * `WALKIN_WALLET_NOT_ALLOWED` — a walk-in sale (no customer record) cannot be paid by WALLET (BR-86). HTTP 422.
-        * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
+        * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409. Also returned with HTTP 202 by `POST /orders/{id}/payment/verify` while the gateway payment is authorized but not yet captured (BR-214).
+        * `PAYMENT_METHOD_DISABLED` — payment method CASH (cash on delivery / at the shop) is not offered at checkout (BR-216). HTTP 422.
+        * `PAYMENT_SIGNATURE_INVALID` — the Razorpay payment signature does not verify, or names another gateway order (BR-214). HTTP 422.
+        * `PAYMENT_AMOUNT_MISMATCH` — the fetched gateway payment is not captured for the order's server total against its gateway order (BR-214). HTTP 409.
+        * `ORDER_PAYMENT_EXPIRED` — the payment arrived after the order was cancelled; the order stays cancelled and the payment status becomes REFUND_DUE for a manual refund (BR-215). HTTP 409.
+        * `ORDER_NOT_AWAITING_PAYMENT` — the order is not PENDING_PAYMENT, so it cannot be cancelled as an unpaid order (BR-215). HTTP 409.
+        * `PAYMENT_GATEWAY_UNAVAILABLE` — Razorpay could not be reached or refused the request; nothing was written (BR-213). HTTP 503.
         * `PASSWORD_ALREADY_SET` — `POST /auth/me/set-password` only sets a first password and this account already has one (BR-142). HTTP 409.
         * `WALLET_TRANSFER_DISABLED` — customer-to-customer wallet transfers are switched off (`system_config.wallet_transfer.enabled`, BR-150). HTTP 403.
         * `WALLET_TRANSFER_LIMIT_EXCEEDED` — a wallet transfer is below the minimum, above the per-transfer maximum, or over the sender's daily maximum (BR-150). HTTP 422.
@@ -19974,8 +20116,9 @@ components:
       type: string
       description: |
         Every value of the `order_status` database enum, all of which the server can emit.
-        `PENDING_PAYMENT` is a counter sale awaiting UPI confirmation (BR-94); online checkout
-        creates `CONFIRMED`. Pickup orders go `CONFIRMED -> PACKED -> READY_FOR_PICKUP ->
+        `PENDING_PAYMENT` is a counter sale awaiting UPI confirmation (BR-94), or an online order
+        paid by `UPI` / `CARD` / `NETBANKING` awaiting its verified Razorpay capture (BR-213); a
+        `WALLET` checkout creates `CONFIRMED`. Pickup orders go `CONFIRMED -> PACKED -> READY_FOR_PICKUP ->
         PICKED_UP`; delivery orders `CONFIRMED -> PACKED -> DISPATCHED -> DELIVERED`
         (`OUT_FOR_DELIVERY` is modelled but not written in Track 1, BR-21b). `CANCELLED` and
         `RETURNED` are terminal.
@@ -20095,8 +20238,12 @@ components:
 
     PaymentMethod:
       type: string
-      enum: [WALLET, UPI, CARD, NETBANKING, COD]
-      description: Wallet is the primary method (BR-17). COD availability is configuration-gated.
+      enum: [WALLET, UPI, CARD, NETBANKING, CASH]
+      description: |
+        Checkout payment method (BR-17 as amended 2026-11-20). `WALLET` debits the wallet; `UPI`,
+        `CARD` and `NETBANKING` are paid through Razorpay (BR-213); `CASH` (cash on delivery / at the
+        shop) is accepted by the schema but refused with 422 `PAYMENT_METHOD_DISABLED` until the owner
+        enables it (BR-216).
 
     CustomerRegistrationRequest:
       type: object
@@ -26201,6 +26348,28 @@ components:
         grade: { $ref: '#/components/schemas/Grade' }
         qtyKg: { $ref: '#/components/schemas/Quantity' }
 
+    OrderGatewayPayment:
+      type: object
+      additionalProperties: false
+      required: [gateway, gatewayOrderId, razorpayKeyId, amount, currency, expiresAt]
+      description: Razorpay checkout parameters for a pending gateway-paid order (BR-213). Contains no secret.
+      properties:
+        gateway: { type: string, enum: [RAZORPAY] }
+        gatewayOrderId: { type: string, examples: [order_NQ8xY1aB2cD3eF] }
+        razorpayKeyId: { type: string, description: The public Razorpay key id the client SDK is opened with. }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { type: string, enum: [INR] }
+        expiresAt: { type: string, format: date-time, description: 'End of the payment window (`system_config.order_payment_window_minutes`, default 15); after it the order is cancelled and released (BR-215).' }
+
+    OrderPaymentVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [razorpayOrderId, razorpayPaymentId, razorpaySignature]
+      properties:
+        razorpayOrderId: { type: string, minLength: 1 }
+        razorpayPaymentId: { type: string, minLength: 1 }
+        razorpaySignature: { type: string, minLength: 1 }
+
     CheckoutRequest:
       type: object
       required: [fulfillmentType, warehouseId, paymentMethod]
@@ -26236,7 +26405,7 @@ components:
               productName: { type: string }
               imageUrl: { type: string, format: uri }
         totalAmount: { $ref: '#/components/schemas/Money' }
-        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED] }
+        paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED, REFUND_DUE], description: '`PENDING` while a gateway order awaits capture; `REFUND_DUE` when a capture arrived after cancellation and staff must refund it manually (BR-215).' }
         deliveryDate: { type: [string, 'null'], format: date }
         placedAt: { type: string, format: date-time }
 
@@ -26266,8 +26435,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/OrderSummary'
         - type: object
-          required: [items, subtotal]
+          required: [items, subtotal, paymentStatus]
           properties:
+            paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED, REFUND_DUE] }
+            payment:
+              oneOf:
+                - $ref: '#/components/schemas/OrderGatewayPayment'
+                - type: 'null'
+              description: The Razorpay checkout parameters of a `UPI` / `CARD` / `NETBANKING` order, set when it is created `PENDING_PAYMENT` (BR-213) so the client can open (or reopen) the Razorpay sheet; null for `WALLET` orders. The amount is the server total; the client never sends one.
             items:
               type: array
               description: Line items are farm-anonymous for customers (BR-16).

@@ -120,6 +120,22 @@ function harness(world: World, walletBalance = '100000.00') {
       return { order, items: [] };
     },
     async convertAllocationsAndAppendStockLedger() { writes.push('convertAllocationsAndAppendStockLedger'); },
+    // BR-213..215 gateway-order functions: reads return nothing, writes are recorded.
+    async findOrderByIdempotencyKey() { return null; },
+    async lockOrderForPayment() { return null; },
+    async getOrderByGatewayOrderId() { return null; },
+    async getPaymentByGatewayOrderId() { return null; },
+    async getOrderPayment() { return null; },
+    async insertOrderPayment() { writes.push('insertOrderPayment'); throw new Error('not in quote tests'); },
+    async markOrderPaymentCaptured() { writes.push('markOrderPaymentCaptured'); return null; },
+    async markOrderPaymentFailed() { writes.push('markOrderPaymentFailed'); return null; },
+    async confirmPendingOrder() { writes.push('confirmPendingOrder'); return null; },
+    async cancelPendingOrder() { writes.push('cancelPendingOrder'); return null; },
+    async markOrderRefundDue() { writes.push('markOrderRefundDue'); return null; },
+    async releaseOrderStock() { writes.push('releaseOrderStock'); return { released: false, ledgerRows: 0, allocations: 0 }; },
+    async releaseDeliverySlot() { writes.push('releaseDeliverySlot'); return false; },
+    async listExpiredPendingPaymentOrders() { return []; },
+    async getOrderPaymentWindowMinutes() { return 15; },
   } as OrdersRepo;
 
   const walletSvc = {

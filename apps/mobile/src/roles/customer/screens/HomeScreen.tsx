@@ -577,33 +577,33 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               accessibilityRole="button"
               accessibilityLabel={t('customer.home.a11y.recentOrders')}
             />
-
-            {/* Active Close Badge positioned exactly over the corner badge */}
-            {selectedBannerFilter && (
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => setSelectedBannerFilter(null)}
-                style={[
-                  styles.activeCloseBadge,
-                  {
-                    left:
-                      selectedBannerFilter === 'latest_harvest'
-                        ? '44.0%'
-                        : selectedBannerFilter === 'fresh_drops'
-                        ? '68.8%'
-                        : '91.4%',
-                    top: '69.0%',
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={t('customer.account.filter.clear')}
-              >
-                <Svg width={18} height={18} viewBox="0 0 18 18" fill="none">
-                  <Path d="M4.5 4.5L13.5 13.5M13.5 4.5L4.5 13.5" stroke={customerColors.neutral.neutral900} strokeWidth={2} strokeLinecap="round" />
-                </Svg>
-              </TouchableOpacity>
-            )}
           </View>
+
+          {/* Active Close Badge positioned exactly over the active tab's top-right corner badge */}
+          {selectedBannerFilter && (
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setSelectedBannerFilter(null)}
+              style={[
+                styles.activeCloseBadge,
+                {
+                  left:
+                    selectedBannerFilter === 'latest_harvest'
+                      ? '41.2%'
+                      : selectedBannerFilter === 'fresh_drops'
+                      ? '67.6%'
+                      : '91.0%',
+                  top: '61.4%',
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={t('customer.account.filter.clear')}
+            >
+              <Svg width={12} height={12} viewBox="0 0 14 14" fill="none">
+                <Path d="M3 3L11 11M11 3L3 11" stroke="#15803D" strokeWidth={2.4} strokeLinecap="round" />
+              </Svg>
+            </TouchableOpacity>
+          )}
 
           {/* Active filter notch pointing into banner from content below */}
           {selectedBannerFilter && (
@@ -1150,19 +1150,21 @@ const styles = StyleSheet.create({
   },
   activeCloseBadge: {
     position: 'absolute',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: customerColors.white,
+    borderWidth: 1.8,
+    borderColor: '#15803D',
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ translateX: -19 }, { translateY: -19 }],
-    elevation: 6,
+    transform: [{ translateX: -14 }, { translateY: -14 }],
+    elevation: 8,
     shadowColor: customerColors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
-    zIndex: 30,
+    zIndex: 35,
   },
   bannerNotchWrap: {
     position: 'absolute',

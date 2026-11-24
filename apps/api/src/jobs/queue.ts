@@ -42,6 +42,11 @@ export interface JobPayloads {
    */
   'cart-lock-reaper': { batchSize?: number };
   /**
+   * BR-215: settles PENDING_PAYMENT gateway orders past payment_expires_at: confirmed when the
+   * gateway shows a capture, otherwise cancelled and their stock and slot released. Idempotent.
+   */
+  'order-payment-expiry-sweep': { batchSize: number };
+  /**
    * S-50: Notification outbound delivery with retry and dead-letter queue.
    */
   'notification-dispatch': {
@@ -118,6 +123,14 @@ export const JOB_REGISTRY: { [N in JobName]: JobDefinition<N> } = {
     defaultPayload: { batchSize: 500 },
     // Every 5 minutes
     repeat: { pattern: '*/5 * * * *', tz: 'Asia/Kolkata' },
+  },
+  'order-payment-expiry-sweep': {
+    name: 'order-payment-expiry-sweep',
+    description:
+      'BR-215: confirms expired PENDING_PAYMENT orders whose payment was captured, cancels and releases the rest. Idempotent.',
+    defaultPayload: { batchSize: 100 },
+    // Every minute: the payment window is short (default 15 minutes).
+    repeat: { pattern: '* * * * *', tz: 'Asia/Kolkata' },
   },
   'notification-dispatch': {
     name: 'notification-dispatch',

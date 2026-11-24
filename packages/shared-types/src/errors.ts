@@ -115,7 +115,7 @@ export const ErrorCode = {
   SALE_STOCK_CHANGED: 'SALE_STOCK_CHANGED',
   /** A walk-in sale (no customer record) tried to pay by WALLET (BR-86). */
   WALKIN_WALLET_NOT_ALLOWED: 'WALKIN_WALLET_NOT_ALLOWED',
-  /** The sale's UPI payment is not yet confirmed, so this action is not allowed (BR-94). */
+  /** The sale's UPI payment is not yet confirmed, so this action is not allowed (BR-94). Also the 202 body of `POST /orders/{id}/payment/verify` while a gateway payment is authorized but not captured (BR-214). */
   PAYMENT_PENDING: 'PAYMENT_PENDING',
   /** CASH amount received is below the sale total (BR-94). */
   PAYMENT_AMOUNT_INSUFFICIENT: 'PAYMENT_AMOUNT_INSUFFICIENT',
@@ -135,6 +135,18 @@ export const ErrorCode = {
   WALLET_TRANSFER_LIMIT_EXCEEDED: 'WALLET_TRANSFER_LIMIT_EXCEEDED',
   /** A customer tried to send wallet money to themselves (BR-150). HTTP 422. */
   WALLET_TRANSFER_SELF: 'WALLET_TRANSFER_SELF',
+  /** Checkout `paymentMethod: CASH` (cash on delivery / at the shop) is not offered (BR-216). HTTP 422. */
+  PAYMENT_METHOD_DISABLED: 'PAYMENT_METHOD_DISABLED',
+  /** The Razorpay payment signature does not verify, or names another gateway order (BR-214). HTTP 422. */
+  PAYMENT_SIGNATURE_INVALID: 'PAYMENT_SIGNATURE_INVALID',
+  /** The fetched gateway payment is not captured for the order's server total against its gateway order (BR-214). HTTP 409. */
+  PAYMENT_AMOUNT_MISMATCH: 'PAYMENT_AMOUNT_MISMATCH',
+  /** A capture arrived after the order was cancelled; it stays cancelled and the payment is REFUND_DUE (BR-215). HTTP 409. */
+  ORDER_PAYMENT_EXPIRED: 'ORDER_PAYMENT_EXPIRED',
+  /** The order is not PENDING_PAYMENT, so it cannot be cancelled as an unpaid gateway order (BR-215). HTTP 409. */
+  ORDER_NOT_AWAITING_PAYMENT: 'ORDER_NOT_AWAITING_PAYMENT',
+  /** The payment gateway (Razorpay) could not be reached or refused the request; nothing was written (BR-213). HTTP 503. */
+  PAYMENT_GATEWAY_UNAVAILABLE: 'PAYMENT_GATEWAY_UNAVAILABLE',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

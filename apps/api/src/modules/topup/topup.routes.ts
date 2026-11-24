@@ -12,6 +12,7 @@ import {
   topupIdParamSchema,
 } from './topup.schema.js';
 import { topupService } from './topup.service.js';
+import { webhookDispatcher } from '../../payments/webhookDispatch.js';
 
 export const topupRouter: Router = Router();
 export const webhookRouter: Router = Router();
@@ -110,11 +111,8 @@ webhookRouter.post(
     // req.body is raw Buffer when raw parser is mounted
     const rawBody: Buffer | string = req.body;
 
-    const result = await topupService.processRazorpayWebhook(
-      rawBody,
-      signature,
-      eventId,
-    );
+    // BR-214: routed by the payments row (TOPUP -> top-up handler, ORDER -> order confirmation).
+    const result = await webhookDispatcher.dispatch(rawBody, signature, eventId);
     res.status(200).json(result);
   }),
 );
