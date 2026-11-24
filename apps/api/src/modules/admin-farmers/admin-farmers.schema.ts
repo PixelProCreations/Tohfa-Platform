@@ -77,6 +77,40 @@ export const updateAdminFarmerBody = z
   .refine((body) => Object.keys(body).length > 0, { message: 'Send at least one field.' });
 export type UpdateAdminFarmerBody = z.infer<typeof updateAdminFarmerBody>;
 
+export const updateAdminFarmerStatusBody = z
+  .object({
+    action: z.enum(['DEACTIVATE', 'DISABLE', 'ACTIVATE']),
+    reason: z.string().trim().min(3).max(500),
+    note: z.string().trim().max(1000).optional(),
+  })
+  .strict();
+export type UpdateAdminFarmerStatusBody = z.infer<typeof updateAdminFarmerStatusBody>;
+
+export const createAdminFarmerBody = z
+  .object({
+    fullName: z.string().trim().min(2).max(120),
+    mobile: z.string().trim().regex(/^\+91[6-9]\d{9}$/, 'Must be an Indian mobile number (+91XXXXXXXXXX)'),
+    email: z.string().trim().email().max(254).nullable().optional(),
+    zoneId: z.string().uuid(),
+    village: z.string().trim().min(1).max(120),
+    taluk: nullableText(120),
+    district: z.string().trim().max(120).default('The Nilgiris'),
+    pincode: z
+      .string()
+      .regex(/^[1-9][0-9]{5}$/)
+      .nullable()
+      .optional(),
+    aadhaarLast4: z
+      .string()
+      .regex(/^\d{4}$/)
+      .nullable()
+      .optional(),
+    farmingExperienceYears: z.number().int().min(0).max(120).nullable().optional(),
+    addressLine1: nullableText(200),
+  })
+  .strict();
+export type CreateAdminFarmerBody = z.infer<typeof createAdminFarmerBody>;
+
 /** BR-33: the keys only `farmer.profile.edit_locked_field` may send. */
 export const LOCKED_FIELDS = ['mobile', 'aadhaarLast4', 'aadhaar'] as const;
 

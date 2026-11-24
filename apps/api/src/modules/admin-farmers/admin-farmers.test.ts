@@ -190,6 +190,33 @@ function fakeRepo(
     async getConfig(_db, key) {
       return state.config?.[key];
     },
+    async getSummary(_db, scope) {
+      calls.scopes.push(scope.sql);
+      return {
+        totalFarmers: 12,
+        pendingApplications: 5,
+        activeFarmers: 10,
+        deactivatedFarmers: 1,
+        inactiveFarmers: 1,
+        expiredCertifications: 1,
+        activeSubscriptions: 12,
+        approvalInbox: 3,
+        zones: [],
+      };
+    },
+    async updateFarmerStatus(_db, _farmerId, params) {
+      if (profile) {
+        profile = {
+          ...profile,
+          accountStatus: params.userStatus,
+          isMarketBlocked: params.isMarketBlocked,
+          marketBlockReason: params.marketBlockReason,
+        };
+      }
+    },
+    async createFarmer(_db, _params) {
+      return newId();
+    },
   };
   return { repo, calls };
 }
@@ -390,6 +417,61 @@ describe('admin farmers: locked fields and the audited edit (BR-33, BR-35, BR-10
     expect(calls.updateUser).toEqual([]);
     expect(auditInserts(log)).toEqual([]);
   });
+
+  it('updateStatus: disables farmer account and writes farmer.account.disable audit row', async () => {
+    const { repo } = fakeRepo();
+    const log: RecordedQuery[] = [];
+    const disableScope = superScope('farmer.account.disable');
+    const detail = await serviceWith(repo, log).updateStatus(
+      superScope('farmer.profile.edit'),
+      disableScope,
+      null,
+      FARMER,
+      { action: 'DISABLE', reason: 'Failed KYC inspection', note: 'Flagged by audit' },
+    );
+    expect(detail.accountStatus).toBe('DISABLED');
+    expect(detail.isMarketBlocked).toBe(true);
+    const inserts = auditInserts(log);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.params[3]).toBe('farmer.account.disable');
+  });
+
+  it('updateStatus: reactivates farmer account and writes farmer.account.reactivate audit row', async () => {
+    const { repo } = fakeRepo({ profile: aProfile({ accountStatus: 'DISABLED', isMarketBlocked: true }) });
+    const log: RecordedQuery[] = [];
+    const reactivateScope = superScope('farmer.account.reactivate');
+    const detail = await serviceWith(repo, log).updateStatus(
+      superScope('farmer.profile.edit'),
+      null,
+      reactivateScope,
+      FARMER,
+      { action: 'ACTIVATE', reason: 'Passed re-audit' },
+    );
+    expect(detail.accountStatus).toBe('ACTIVE');
+    expect(detail.isMarketBlocked).toBe(false);
+    const inserts = auditInserts(log);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.params[3]).toBe('farmer.account.reactivate');
+  });
+
+  it('create: creates a new farmer directly and writes farmer.profile.create audit row', async () => {
+    const { repo } = fakeRepo();
+    const log: RecordedQuery[] = [];
+    const detail = await serviceWith(repo, log).create(
+      superScope('farmer.profile.edit'),
+      {
+        fullName: 'New Farmer',
+        mobile: '+919876543210',
+        zoneId: ZONE_A,
+        village: 'Ketti',
+        district: 'The Nilgiris',
+      },
+    );
+    expect(detail).toBeDefined();
+    const inserts = auditInserts(log);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.params[3]).toBe('farmer.profile.create');
+  });
 });
 
 describe('admin farmers: documents and the idempotent verify (BR-108e, BR-35)', () => {
@@ -582,8 +664,11 @@ describe('admin farmers router (BR-108g, BR-33a)', () => {
     expect(new Set(routes)).toEqual(
       new Set([
         'get /',
+        'post /',
+        'get /summary',
         'get /:id',
         'patch /:id',
+        'post /:id/status',
         'get /:id/documents',
         'post /:id/documents/:docId/verify',
         'get /:id/bank-accounts',

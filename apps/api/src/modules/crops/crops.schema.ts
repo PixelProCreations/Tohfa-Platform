@@ -203,6 +203,14 @@ export const cropMasterResponse = z.object({
   description: z.string().nullable(),
   deactivationReason: z.string().nullable(),
   createdBy: z.string().uuid().nullable(),
+  /**
+   * The creator's display name (`users.full_name`), beside `createdBy`. NULL when the crop has
+   * no creator. Admin staff identity: present on the admin endpoints, omitted (not null) on the
+   * farmer-facing list — see cropsService.listCropMaster.
+   */
+  createdByName: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
 });
 export type CropMasterResponse = z.infer<typeof cropMasterResponse>;
 

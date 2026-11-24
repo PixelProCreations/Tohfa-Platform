@@ -56,5 +56,17 @@
   "farmersList.nav.farmers": "Farmers",
   "farmersList.nav.produce": "Produce",
   "farmersList.nav.audits": "Audits",
-  "farmersList.nav.more": "More"
+  "farmersList.nav.more": "More",
+  "farmersList.kyc.VERIFIED": "KYC Verified",
+  "farmersList.kyc.PENDING": "KYC Pending",
+  "farmersList.kyc.REJECTED": "KYC Rejected",
+  "farmersList.card.kycRating": "{{kyc}} · ★ {{rating}}",
+  "farmersList.card.ratingStar": "{{rating}} ★",
+  "farmersList.card.codeZoneFarming": "{{code}} · {{zone}} · {{farming}}",
+  "farmersList.card.certExpired": "Certification expired",
+  "farmersList.count.farmers": "{{count}} farmers",
+  "farmersList.count.applications": "{{count}} applications",
+  "farmersList.applications.aadhaarMasked": "XXXX XXXX {{last4}}",
+  "farmersList.applications.farmSize": "{{acres}} acre",
+  "farmersList.applications.contactLine": "{{code}} · {{phone}} · {{farming}}"
 }

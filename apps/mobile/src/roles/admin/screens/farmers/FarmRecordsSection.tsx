@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   Alert,
   Modal,
@@ -121,9 +122,9 @@ export interface FarmRecordsSectionProps {
 }
 
 export function FarmRecordsSection({
-  farmerName = 'Ramesh Kumar',
-  farmerCode = 'FMR-00101',
-  zone = 'Coonoor',
+  farmerName = ADMIN_NO_VALUE,
+  farmerCode = ADMIN_NO_VALUE,
+  zone = ADMIN_NO_VALUE,
   onAddRecord,
   onEditDiary,
   onEditRecord,

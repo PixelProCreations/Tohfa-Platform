@@ -26,6 +26,14 @@ const L = {
   url: 2048,
   /** The largest value the INT `capacity` column can hold. */
   capacity: 2_147_483_647,
+  /**
+   * Upper bound on the `cropIds` set (BR-59r). This is a request-size guard of
+   * the same kind as the text limits above, not a business threshold: the whole
+   * Nilgiris crop taxonomy is in the low dozens, so a body naming 100 crops is a
+   * client bug or an attempt to make the server do pointless work, never a real
+   * article. If the taxonomy ever outgrows it, raise it here.
+   */
+  cropIds: 100,
 } as const;
 
 const requiredText = (max: number) => z.string().trim().min(1).max(max);
@@ -66,6 +74,55 @@ export const learningIdParams = z.object({
 }).strict();
 export type LearningIdParams = z.infer<typeof learningIdParams>;
 
+export const LEARNING_CONTENT_TYPES = ['articles', 'videos', 'trainings', 'groups'] as const;
+export type LearningContentType = (typeof LEARNING_CONTENT_TYPES)[number];
+
+export const LEARNING_REVIEW_STATUSES = ['NOT_SUBMITTED', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'] as const;
+export type LearningReviewStatus = (typeof LEARNING_REVIEW_STATUSES)[number];
+
+export const learningTypeParams = z.object({
+  type: z.enum(LEARNING_CONTENT_TYPES),
+  id: z.string().uuid(),
+}).strict();
+export type LearningTypeParams = z.infer<typeof learningTypeParams>;
+
+export const submitReviewBody = z.preprocess(
+  (val) => val ?? {},
+  z.object({
+    note: z.string().trim().max(1000).optional(),
+  }).strict(),
+);
+export type SubmitReviewBody = z.infer<typeof submitReviewBody>;
+
+export const reviewContentBody = z.object({
+  status: z.enum(['APPROVED', 'REJECTED']),
+  note: z.string().trim().max(1000).optional(),
+}).strict();
+export type ReviewContentBody = z.infer<typeof reviewContentBody>;
+
+/**
+ * BR-59r: the crops a piece of learning content is about.
+ *
+ * OMITTED vs EMPTY — the contract every PATCH in this module already follows
+ * (`patch.x !== undefined` in the repo): omitting `cropIds` leaves the existing
+ * tags untouched, sending `[]` clears them all. Duplicates within one request
+ * are collapsed; an id that is not a live `crop_master` row is a 422, never a
+ * silent drop.
+ */
+const cropIds = z.array(z.string().uuid()).max(L.cropIds).optional();
+
+/**
+ * The chip the mobile app renders. `nameTa` is carried because the app is
+ * bilingual and the farmer-facing surfaces switch on the active locale; it is
+ * null for a crop whose Tamil name has not been entered yet.
+ */
+export const learningCropRef = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  nameTa: z.string().nullable(),
+});
+export type LearningCropRef = z.infer<typeof learningCropRef>;
+
 export const queryBoolean = z
   .union([
     z.boolean(),
@@ -89,6 +146,7 @@ export const listAdminArticlesQuery = z.object({
   language: languageEnum.optional(),
   tag: z.string().trim().max(L.tag).optional(),
   isPublished: queryBoolean,
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
   q: z.string().trim().min(1).max(80).optional(),
 }).strict();
 export type ListAdminArticlesQuery = z.infer<typeof listAdminArticlesQuery>;
@@ -102,6 +160,7 @@ export const createArticleBody = z.object({
   tag: requiredText(L.tag),
   language: languageEnum.default('en'),
   isPublished: z.boolean().default(true),
+  cropIds,
 }).strict();
 export type CreateArticleBody = z.infer<typeof createArticleBody>;
 
@@ -114,6 +173,7 @@ export const updateArticleBody = z.object({
   tag: requiredText(L.tag).optional(),
   language: languageEnum.optional(),
   isPublished: z.boolean().optional(),
+  cropIds,
 }).strict();
 export type UpdateArticleBody = z.infer<typeof updateArticleBody>;
 
@@ -127,6 +187,12 @@ export const learningArticleResponse = z.object({
   tag: z.string(),
   language: languageEnum,
   isPublished: z.boolean(),
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
+  submittedForReviewAt: z.string().nullable().optional(),
+  reviewedBy: z.string().uuid().nullable().optional(),
+  reviewedAt: z.string().nullable().optional(),
+  reviewNote: z.string().nullable().optional(),
+  crops: z.array(learningCropRef),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -150,6 +216,7 @@ export const listAdminVideosQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   language: languageEnum.optional(),
   isPublished: queryBoolean,
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
   q: z.string().trim().min(1).max(80).optional(),
 }).strict();
 export type ListAdminVideosQuery = z.infer<typeof listAdminVideosQuery>;
@@ -163,6 +230,7 @@ export const createVideoBody = z.object({
   language: languageEnum.default('en'),
   isFeatured: z.boolean().default(false),
   isPublished: z.boolean().default(true),
+  cropIds,
 }).strict();
 export type CreateVideoBody = z.infer<typeof createVideoBody>;
 
@@ -175,6 +243,7 @@ export const updateVideoBody = z.object({
   language: languageEnum.optional(),
   isFeatured: z.boolean().optional(),
   isPublished: z.boolean().optional(),
+  cropIds,
 }).strict();
 export type UpdateVideoBody = z.infer<typeof updateVideoBody>;
 
@@ -188,6 +257,12 @@ export const learningVideoResponse = z.object({
   language: languageEnum,
   isFeatured: z.boolean(),
   isPublished: z.boolean(),
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
+  submittedForReviewAt: z.string().nullable().optional(),
+  reviewedBy: z.string().uuid().nullable().optional(),
+  reviewedAt: z.string().nullable().optional(),
+  reviewNote: z.string().nullable().optional(),
+  crops: z.array(learningCropRef),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -207,6 +282,7 @@ export const listAdminTrainingsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   language: languageEnum.optional(),
   isPublished: queryBoolean,
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
   q: z.string().trim().min(1).max(80).optional(),
 }).strict();
 export type ListAdminTrainingsQuery = z.infer<typeof listAdminTrainingsQuery>;
@@ -256,6 +332,11 @@ export const learningTrainingResponse = z.object({
   isEnrolled: z.boolean().optional(),
   language: languageEnum,
   isPublished: z.boolean(),
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
+  submittedForReviewAt: z.string().nullable().optional(),
+  reviewedBy: z.string().uuid().nullable().optional(),
+  reviewedAt: z.string().nullable().optional(),
+  reviewNote: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -278,6 +359,8 @@ export const listAdminGroupsQuery = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   category: z.string().trim().max(L.tag).optional(),
+  communityId: z.string().uuid().optional(),
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
   q: z.string().trim().min(1).max(80).optional(),
   sort: groupSortEnum.optional(),
 }).strict();
@@ -287,6 +370,7 @@ export const createGroupBody = z.object({
   name: requiredText(L.person),
   description: optionalText(L.description),
   category: requiredText(L.tag),
+  communityId: z.string().uuid().nullable().optional(),
 }).strict();
 export type CreateGroupBody = z.infer<typeof createGroupBody>;
 
@@ -294,6 +378,7 @@ export const updateGroupBody = z.object({
   name: requiredText(L.person).optional(),
   description: optionalText(L.description),
   category: requiredText(L.tag).optional(),
+  communityId: z.string().uuid().nullable().optional(),
 }).strict();
 export type UpdateGroupBody = z.infer<typeof updateGroupBody>;
 
@@ -306,6 +391,12 @@ export const learningGroupResponse = z.object({
   isJoined: z.boolean().optional(),
   isArchived: z.boolean().optional(),
   archivedAt: z.string().nullable().optional(),
+  communityId: z.string().uuid().nullable().optional(),
+  reviewStatus: z.enum(LEARNING_REVIEW_STATUSES).optional(),
+  submittedForReviewAt: z.string().nullable().optional(),
+  reviewedBy: z.string().uuid().nullable().optional(),
+  reviewedAt: z.string().nullable().optional(),
+  reviewNote: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

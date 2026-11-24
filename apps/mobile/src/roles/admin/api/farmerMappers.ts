@@ -409,7 +409,7 @@ export function toApplicationRow(dto: FarmerApplicationDto): ApplicationRowView 
     zoneId: dto.zoneId ?? null,
     slaDueAt: dto.slaDueAt ?? null,
     documentsComplete: dto.documentsComplete ?? null,
-    applicationCode: null,
+    applicationCode: dto.applicationCode ?? null,
     kycStatus: null,
   };
 }
@@ -460,7 +460,7 @@ export function toApplicationDetail(dto: FarmerApplicationDto): ApplicationDetai
     rejectionReason: dto.rejectionReason ?? null,
     infoRequest: dto.infoRequest ?? null,
     zoneId: dto.zoneId ?? null,
-    applicationCode: null,
+    applicationCode: dto.applicationCode ?? null,
     reviewHistory: null,
     documentVerification: null,
     declaration: null,

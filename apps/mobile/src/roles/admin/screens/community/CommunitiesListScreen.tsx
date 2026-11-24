@@ -9,14 +9,7 @@ StyleSheet,
   View,
 } from 'react-native';
 import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
-import Svg, {
-  Circle,
-  ClipPath,
-  Defs,
-  G,
-  Path,
-  Rect,
-} from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
   adminOverlay,
@@ -25,6 +18,13 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t } from '../../i18n';
+import { countLoadedWhere } from '../../api/hookHelpers';
+import { useCommunities } from '../../api/communitiesHooks';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import { searchParam } from './communityLogic';
+import { canModerateCommunities, communityCountText, communityRow } from './communitiesLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -69,34 +69,6 @@ function PlusIcon({ size = 18, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-/** Rich Tea Plantation / Green Hills Landscape Thumbnail matching screenshots */
-function MountainLandscapeThumbnail({ size = 64 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 64 64">
-      <Defs>
-        <ClipPath id="commThumbClip">
-          <Rect width="64" height="64" rx="10" />
-        </ClipPath>
-      </Defs>
-      <G clipPath="url(#commThumbClip)">
-        {/* Sky */}
-        <Rect width="64" height="64" fill={adminColors.info.bg} />
-        {/* Distant Hills */}
-        <Path d="M-6 36 Q 16 20, 32 30 T 70 24 L 70 64 L -6 64 Z" fill={adminColors.purple.bg} opacity="0.6" />
-        {/* Mid Hills */}
-        <Path d="M-4 42 Q 18 30, 40 36 T 68 32 L 68 64 L -4 64 Z" fill={adminColors.success.border} opacity="0.5" />
-        {/* Foreground Lush Green Mountain Rows */}
-        <Path d="M-2 48 Q 16 38, 34 44 T 66 40 L 66 64 L -2 64 Z" fill={adminColors.success.text} opacity="0.85" />
-        <Path d="M0 52 Q 22 46, 46 50 L 64 48 L 64 64 L 0 64 Z" fill={adminColors.success.text} />
-        {/* Plantation contour lines */}
-        <Path d="M4 51 Q 22 45, 42 49" stroke={adminColors.card} strokeWidth="0.8" opacity="0.4" fill="none" />
-        <Path d="M6 55 Q 26 49, 52 53" stroke={adminColors.card} strokeWidth="0.8" opacity="0.4" fill="none" />
-      </G>
-    </Svg>
-  );
-}
-
-
 function ThreeDotsVerticalIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -133,49 +105,10 @@ function PlusMiniIcon({ size = 16, color = adminColors.ink }: { size?: number; c
   );
 }
 
-// ─── Data Types ──────────────────────────────────────────────────────────────
 
-export interface CommunityListItem {
-  id: string;
-  name: string;
-  status: 'Active' | 'Archived';
-  discoverability: 'Discoverable' | 'Hidden';
-  membership: 'Open' | 'Invitation-only';
-  membersCount: number;
-  archivedDate?: string;
-  thumbnailType: 'landscape' | 'ochre' | 'slate';
-}
 
-const INITIAL_COMMUNITIES: CommunityListItem[] = [
-  {
-    id: 'comm-1',
-    name: 'Nilgiris Organic Growers (demo)',
-    status: 'Active',
-    discoverability: 'Discoverable',
-    membership: 'Open',
-    membersCount: 142,
-    thumbnailType: 'landscape',
-  },
-  {
-    id: 'comm-2',
-    name: 'Coonoor Spice Collective (demo)',
-    status: 'Active',
-    discoverability: 'Discoverable',
-    membership: 'Invitation-only',
-    membersCount: 58,
-    thumbnailType: 'ochre',
-  },
-  {
-    id: 'comm-3',
-    name: 'Kotagiri Tea Farmers (demo)',
-    status: 'Archived',
-    discoverability: 'Hidden',
-    membership: 'Open',
-    membersCount: 31,
-    archivedDate: '1 Sep 2026',
-    thumbnailType: 'slate',
-  },
-];
+
+
 
 // ─── Component Props ──────────────────────────────────────────────────────────
 
@@ -185,14 +118,28 @@ export interface CommunitiesListScreenProps {
   onNavigateCreateCommunity?: () => void;
   onNavigateEditCommunity?: (communityId?: string) => void;
   onNavigateCreatePost?: (communityId?: string) => void;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * GET /admin/communities (BR-59s, community.group.moderate). The server
+ * searches and filters by archive state; the card list, the "N communities (M
+ * active)" caption and the three async states all come from that one query.
+ *
+ * Two of the three designed filter groups have no field to filter on:
+ * membership and discoverability are not stored on a community. Their chips
+ * stay drawn and are disabled, so nothing is selectable that changes nothing.
+ * The caption's "active" half is derived from the loaded rows, so it goes
+ * through countLoadedWhere and is the dash until every page is in.
+ */
 export function CommunitiesListScreen({
   onBack,
   onSelectCommunity,
   onNavigateCreateCommunity,
   onNavigateEditCommunity,
   onNavigateCreatePost,
+  can,
 }: CommunitiesListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -203,42 +150,21 @@ export function CommunitiesListScreen({
   const [filterMembership, setFilterMembership] = useState<'All' | 'Open' | 'Invitation-only'>('All');
   const [filterDiscoverability, setFilterDiscoverability] = useState<'All' | 'Discoverable' | 'Hidden'>('All');
 
-  // Filtered List
-  const filteredCommunities = useMemo(() => {
-    return INITIAL_COMMUNITIES.filter((item) => {
-      // Search
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = item.name.toLowerCase().includes(query);
-        const matchesType = item.membership.toLowerCase().includes(query);
-        if (!matchesName && !matchesType) return false;
-      }
-      // Status
-      if (filterStatus !== 'All' && item.status !== filterStatus) {
-        return false;
-      }
-      // Membership
-      if (filterMembership !== 'All' && item.membership !== filterMembership) {
-        return false;
-      }
-      // Discoverability
-      if (filterDiscoverability !== 'All' && item.discoverability !== filterDiscoverability) {
-        return false;
-      }
-      return true;
-    });
-  }, [searchQuery, filterStatus, filterMembership, filterDiscoverability]);
-
-  const activeCount = useMemo(() => {
-    return INITIAL_COMMUNITIES.filter((c) => c.status === 'Active').length;
-  }, []);
-
   const handleResetFilters = () => {
     setFilterStatus('All');
-    setFilterMembership('All');
-    setFilterDiscoverability('All');
     setShowFilterModal(false);
   };
+
+  const allowed = canModerateCommunities(can);
+  const q = searchParam(searchQuery);
+  const archivedFilter = filterStatus === 'All' ? undefined : filterStatus === 'Archived';
+  const list = useCommunities(
+    { ...(q === undefined ? {} : { q }), ...(archivedFilter === undefined ? {} : { isArchived: archivedFilter }) },
+    { enabled: allowed },
+  );
+  const rows = useMemo(() => list.items.map((dto, index) => communityRow(dto, index)), [list.items]);
+  const active = countLoadedWhere(list.items, (c) => !c.isArchived, list.allPagesLoaded);
+  const viewState = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: rows.length });
 
   return (
     <SafeAreaView style={styles.root}>
@@ -293,10 +219,7 @@ export function CommunitiesListScreen({
             />
           </View>
           <TouchableOpacity
-            style={[
-              styles.filterBtn,
-              (filterStatus !== 'All' || filterMembership !== 'All' || filterDiscoverability !== 'All') && styles.filterBtnActive,
-            ]}
+            style={[styles.filterBtn, filterStatus !== 'All' && styles.filterBtnActive]}
             onPress={() => setShowFilterModal(true)}
             activeOpacity={0.8}
             accessibilityLabel="Filter communities"
@@ -306,78 +229,69 @@ export function CommunitiesListScreen({
         </View>
 
         {/* ─── Communities Count Caption (Screenshot 1: "5 communities (4 active)") ─── */}
-        <Text style={styles.countText}>
-          {INITIAL_COMMUNITIES.length} communities ({activeCount} active)
+        <Text style={styles.countText} testID="community.communities.count">
+          {communityCountText(list.total, active)}
         </Text>
 
         {/* ─── Community Cards List (Screenshot 1) ─── */}
-        <View style={styles.cardsList}>
-          {filteredCommunities.map((item) => {
-            const isItemArchived = item.status === 'Archived';
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.communityCard}
-                onPress={() => onSelectCommunity && onSelectCommunity(item.id)}
-                activeOpacity={0.7}
-              >
-                {/* Thumbnail */}
-                <View style={styles.thumbnailContainer}>
-                  {item.thumbnailType === 'landscape' ? (
-                    <MountainLandscapeThumbnail size={64} />
-                  ) : item.thumbnailType === 'ochre' ? (
-                    <View style={styles.ochreThumbnail} />
-                  ) : (
-                    <View style={styles.slateThumbnail} />
-                  )}
-                </View>
-
-                {/* Content */}
-                <View style={styles.cardContent}>
-                  <View style={styles.cardTitleRow}>
-                    <Text style={styles.cardTitle} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    <View style={styles.cardHeaderRight}>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          isItemArchived ? styles.archivedBadge : styles.activeBadge,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusBadgeText,
-                            isItemArchived ? styles.archivedBadgeText : styles.activeBadgeText,
-                          ]}
+        {!allowed ? (
+          <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+        ) : viewState === 'loading' ? (
+          <AdminLoadingState />
+        ) : viewState === 'error' ? (
+          <AdminErrorState error={list.error} onRetry={list.refresh} />
+        ) : viewState === 'empty' ? (
+          <AdminEmptyState title={t('community.empty.communities')} />
+        ) : (
+          <View style={styles.cardsList}>
+            {rows.map((row) => {
+              const archived = row.status === 'Archived';
+              return (
+                <TouchableOpacity
+                  key={row.id}
+                  style={styles.communityCard}
+                  onPress={() => onSelectCommunity?.(row.id)}
+                  activeOpacity={0.7}
+                  testID={`community.communities.card.${row.id}`}
+                >
+                  <View style={row.swatch === 'ochre' || row.swatch === 'brand' ? styles.ochreThumbnail : styles.slateThumbnail} />
+                  <View style={styles.cardContent}>
+                    <View style={styles.cardTitleRow}>
+                      <Text style={styles.cardTitle} numberOfLines={1}>
+                        {row.name}
+                      </Text>
+                      <View style={styles.cardHeaderRight}>
+                        <View style={[styles.statusBadge, archived ? styles.archivedBadge : styles.activeBadge]}>
+                          <Text style={[styles.statusBadgeText, archived ? styles.archivedBadgeText : styles.activeBadgeText]}>
+                            {row.statusText}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.threeDotsBtn}
+                          onPress={() => setActiveMenuCommunityId(row.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityLabel="Community actions"
+                          testID={`community.communities.menu.${row.id}`}
                         >
-                          {item.status}
-                        </Text>
+                          <ThreeDotsVerticalIcon size={16} color={adminColors.muted} />
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity
-                        style={styles.threeDotsBtn}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          setActiveMenuCommunityId(item.id);
-                        }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        accessibilityLabel="Community actions"
-                      >
-                        <ThreeDotsVerticalIcon size={16} color={adminColors.muted} />
-                      </TouchableOpacity>
                     </View>
+                    {/* discoverability · membership · members: only the member count is a field. */}
+                    <Text style={styles.cardSubtitle} numberOfLines={1}>
+                      {row.subtitle}
+                    </Text>
                   </View>
-
-                  <Text style={styles.cardSubtitle} numberOfLines={1}>
-                    {isItemArchived
-                      ? `Hidden · Archived ${item.archivedDate || '1 Sep 2026'} · ${item.membersCount} members`
-                      : `${item.discoverability} · ${item.membership} · ${item.membersCount} members`}
-                  </Text>
-                </View>
+                </TouchableOpacity>
+              );
+            })}
+            {list.hasMore ? (
+              <TouchableOpacity style={styles.modalApplyBtn} onPress={list.loadMore} activeOpacity={0.8}>
+                <Text style={styles.modalApplyBtnText}>{t('community.loadMore')}</Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            ) : null}
+          </View>
+        )}
       </ScrollView>
 
       {/* ─── Suitable Filter Popup Modal ─── */}
@@ -408,6 +322,7 @@ export function CommunitiesListScreen({
                   style={[styles.filterChip, filterStatus === st && styles.filterChipActive]}
                   onPress={() => setFilterStatus(st)}
                   activeOpacity={0.8}
+                  testID={`community.communities.filter.status.${st}`}
                 >
                   <Text style={[styles.filterChipText, filterStatus === st && styles.filterChipTextActive]}>
                     {st}
@@ -417,14 +332,19 @@ export function CommunitiesListScreen({
             </View>
 
             {/* Membership Filter */}
+            {/* A community has no membership method or discoverability: the chips stay
+                drawn, disabled, and never change what is requested. */}
             <Text style={styles.filterSectionTitle}>Membership</Text>
             <View style={styles.filterChipsRow}>
               {(['All', 'Open', 'Invitation-only'] as const).map((m) => (
                 <TouchableOpacity
                   key={m}
-                  style={[styles.filterChip, filterMembership === m && styles.filterChipActive]}
-                  onPress={() => setFilterMembership(m)}
+                  style={[styles.filterChip, filterMembership === m && styles.filterChipActive, styles.actionUnavailable]}
+                  disabled
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
+                  testID={`community.communities.filter.membership.${m}`}
                 >
                   <Text style={[styles.filterChipText, filterMembership === m && styles.filterChipTextActive]}>
                     {m}
@@ -439,9 +359,12 @@ export function CommunitiesListScreen({
               {(['All', 'Discoverable', 'Hidden'] as const).map((d) => (
                 <TouchableOpacity
                   key={d}
-                  style={[styles.filterChip, filterDiscoverability === d && styles.filterChipActive]}
-                  onPress={() => setFilterDiscoverability(d)}
+                  style={[styles.filterChip, filterDiscoverability === d && styles.filterChipActive, styles.actionUnavailable]}
+                  disabled
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
+                  testID={`community.communities.filter.discoverability.${d}`}
                 >
                   <Text style={[styles.filterChipText, filterDiscoverability === d && styles.filterChipTextActive]}>
                     {d}
@@ -477,51 +400,45 @@ export function CommunitiesListScreen({
         animationType="fade"
         onRequestClose={() => setActiveMenuCommunityId(null)}
       >
-        <TouchableOpacity
-          style={styles.menuOverlay}
-          activeOpacity={1}
-          onPress={() => setActiveMenuCommunityId(null)}
-        >
+        <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setActiveMenuCommunityId(null)}>
           <View style={styles.menuPopupCard}>
             <TouchableOpacity
               style={styles.menuItemRow}
               onPress={() => {
                 const id = activeMenuCommunityId;
                 setActiveMenuCommunityId(null);
-                if (id && onSelectCommunity) onSelectCommunity(id);
+                if (id !== null) onSelectCommunity?.(id);
               }}
               activeOpacity={0.7}
+              testID="community.communities.menu.view"
             >
               <EyeIcon size={16} color={adminColors.ink} />
               <Text style={styles.menuItemText}>View Details</Text>
             </TouchableOpacity>
-
             <View style={styles.menuDivider} />
-
             <TouchableOpacity
               style={styles.menuItemRow}
               onPress={() => {
                 const id = activeMenuCommunityId;
                 setActiveMenuCommunityId(null);
-                if (onNavigateEditCommunity) onNavigateEditCommunity(id || undefined);
-                else if (onNavigateCreateCommunity) onNavigateCreateCommunity();
+                onNavigateEditCommunity?.(id ?? undefined);
               }}
               activeOpacity={0.7}
+              testID="community.communities.menu.edit"
             >
               <PencilEditIcon size={16} color={adminColors.ink} />
-              <Text style={styles.menuItemText}>Edit Community</Text>
+              <Text style={styles.menuItemText}>Edit community</Text>
             </TouchableOpacity>
-
             <View style={styles.menuDivider} />
-
             <TouchableOpacity
               style={styles.menuItemRow}
               onPress={() => {
                 const id = activeMenuCommunityId;
                 setActiveMenuCommunityId(null);
-                if (onNavigateCreatePost) onNavigateCreatePost(id || undefined);
+                onNavigateCreatePost?.(id ?? undefined);
               }}
               activeOpacity={0.7}
+              testID="community.communities.menu.post"
             >
               <PlusMiniIcon size={16} color={adminColors.ink} />
               <Text style={styles.menuItemText}>Create post</Text>
@@ -845,6 +762,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: adminColors.ink,
+  },
+  /** The designed control, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
   },
   menuDivider: {
     height: StyleSheet.hairlineWidth,

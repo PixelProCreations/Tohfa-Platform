@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import {
   Alert,
   Modal,
-ScrollView,
-StyleSheet,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -19,6 +19,12 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t, type TranslationKey } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { useCommunity, useCreateCommunity, useUpdateCommunity } from '../../api/communitiesHooks';
+import type { CommunityDto } from '../../api/communities';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { buildCommunityBody, canModerateCommunities } from './communitiesLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -59,72 +65,123 @@ const COMMUNITY_CATEGORIES = [
   'General Farming Forum',
 ];
 
-const COMMUNITY_LANGUAGES = ['Select', 'English', 'Tamil', 'Malayalam', 'Hindi', 'Kannada'];
-
-const VISIBILITY_OPTIONS = ['Select', 'Public', 'Private', 'Restricted'];
-
-const MEMBERSHIP_METHODS = ['Select', 'Open to all', 'Request to join', 'Invite only'];
-
-const POSTING_PERMISSIONS = ['Select', 'All members', 'Verified farmers only', 'Admins only'];
-
-const DISCUSSION_PERMISSIONS = ['Select', 'All members', 'Verified farmers only', 'Admins only'];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface CreateCommunityScreenProps {
   onBack: () => void;
   onSubmitSuccess?: () => void;
   isEditing?: boolean;
+  /** The community being edited (PATCH /admin/communities/{id}); creating needs none. */
+  communityId?: string | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means nothing can be saved. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
-export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = false }: CreateCommunityScreenProps) {
-  // Community Details State (Screenshot 1)
-  const [communityName, setCommunityName] = useState('');
-  const [shortDescription, setShortDescription] = useState('');
-  const [communityCategory, setCommunityCategory] = useState('Select');
-  const [language, setLanguage] = useState('Select');
-  const [communityRules, setCommunityRules] = useState('');
+/**
+ * Create or edit a community (BR-59s, community.group.moderate). A community
+ * carries exactly four fields — name, description, category and rules — and
+ * those are what is sent: POST /admin/communities, or PATCH .../{id} when
+ * editing. Everything else on the designed form has no field in the API, so it
+ * is drawn and disabled rather than accepting a choice that is never stored:
+ * the cover image, language, visibility, membership method, posting and
+ * discussion permissions. Content moderation and managers were already
+ * read-only.
+ *
+ * An edit is held back until the community is loaded and starts from it, so it
+ * can never open blank and PATCH nothing (or, worse, POST a duplicate). Success
+ * is reported only once the request has settled; a failure shows the server's
+ * error and no success.
+ */
+export function CreateCommunityScreen({ communityId, isEditing = false, ...props }: CreateCommunityScreenProps) {
+  const allowed = canModerateCommunities(props.can);
+  const fetched = useCommunity(communityId, { enabled: allowed && isEditing });
+  if (!isEditing) return <CommunityForm {...props} />;
+  if (fetched.data === undefined || communityId === undefined) {
+    // Nothing is loaded yet: never an empty form that would save over the real one.
+    return (
+      <SafeAreaView style={styles.root}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={props.onBack} activeOpacity={0.7} accessibilityLabel="Go back">
+              <BackArrowWhiteIcon size={20} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{t('community.edit.community.title')}</Text>
+          </View>
+        </View>
+        <View style={styles.gateBody}>
+          {!allowed ? (
+            <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+          ) : communityId === undefined ? (
+            <AdminEmptyState title={t('community.gap.community.noId')} />
+          ) : fetched.error !== null && fetched.error !== undefined ? (
+            <AdminErrorState error={fetched.error} onRetry={() => void fetched.refetch()} />
+          ) : (
+            <AdminLoadingState />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+  return <CommunityForm key={fetched.data.id} {...props} edit={fetched.data} />;
+}
 
-  // Community Settings State (Screenshots 1 & 2)
-  const [communityVisibility, setCommunityVisibility] = useState('Select');
-  const [membershipMethod, setMembershipMethod] = useState('Select');
-  const [postingPermissions, setPostingPermissions] = useState('Select');
-  const [discussionPermissions, setDiscussionPermissions] = useState('Select');
+interface CommunityFormProps extends Omit<CreateCommunityScreenProps, 'isEditing' | 'communityId'> {
+  /** Set only once the community being edited is in hand. */
+  edit?: CommunityDto | undefined;
+}
 
-  // Modal Dropdown Visibility States
+/** A designed dropdown with no field behind it: drawn, disabled, no handler. */
+function UnavailableDropdown({ fieldId, label }: { fieldId: string; label: string }) {
+  return (
+    <TouchableOpacity
+      style={[styles.dropdownInput, styles.actionUnavailable]}
+      disabled
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: true }}
+      accessibilityHint={t('community.gap.community.field')}
+      testID={`community.createCommunity.${fieldId}`}
+    >
+      <Text style={[styles.dropdownValueText, { color: adminColors.muted }]}>{label}</Text>
+      <ChevronDownIcon size={16} />
+    </TouchableOpacity>
+  );
+}
+
+function CommunityForm({ onBack, onSubmitSuccess, can, edit }: CommunityFormProps) {
+  const [communityName, setCommunityName] = useState(edit?.name ?? '');
+  const [shortDescription, setShortDescription] = useState(edit?.description ?? '');
+  const [communityCategory, setCommunityCategory] = useState(edit?.category ?? 'Select');
+  const [communityRules, setCommunityRules] = useState(edit?.rules ?? '');
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [showVisibilityModal, setShowVisibilityModal] = useState(false);
-  const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [showPostingModal, setShowPostingModal] = useState(false);
-  const [showDiscussionModal, setShowDiscussionModal] = useState(false);
+  const [formErrorKey, setFormErrorKey] = useState<TranslationKey | null>(null);
 
-  const handleUploadImage = () => {
-    Alert.alert('Upload Cover Image', 'Cover image selector opened.');
-  };
+  const allowed = canModerateCommunities(can);
+  const create = useCreateCommunity();
+  const update = useUpdateCommunity();
+  const isEditing = edit !== undefined;
+  const isSaving = create.isPending || update.isPending;
+  const saveError = create.error ?? update.error;
+  const saveDisabled = !allowed || isSaving;
 
-  const handleCreateCommunity = () => {
-    if (!communityName.trim()) {
-      Alert.alert('Required Field', 'Please enter a community name.');
+  const handleSave = () => {
+    if (saveDisabled) return;
+    const built = buildCommunityBody({
+      name: communityName,
+      description: shortDescription,
+      category: communityCategory,
+      rules: communityRules,
+    });
+    if (!built.ok) {
+      setFormErrorKey(built.errorKey);
       return;
     }
-    if (!shortDescription.trim()) {
-      Alert.alert('Required Field', 'Please enter a short description.');
-      return;
-    }
-    if (communityCategory === 'Select') {
-      Alert.alert('Required Field', 'Please select a community category.');
-      return;
-    }
-    if (language === 'Select') {
-      Alert.alert('Required Field', 'Please select a language.');
-      return;
-    }
-
-    Alert.alert(
-      isEditing ? 'Community Updated' : 'Community Created',
-      isEditing ? `Community "${communityName}" updated successfully.` : `Community "${communityName}" has been successfully created.`,
-      [
+    setFormErrorKey(null);
+    // Only a settled request reports anything: the alert is in onSuccess, and a
+    // failure renders saveError instead.
+    const onSuccess = () => {
+      Alert.alert(t('community.publish.success.title'), t(isEditing ? 'community.community.updated' : 'community.community.created'), [
         {
           text: 'OK',
           onPress: () => {
@@ -132,8 +189,10 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
             else onBack();
           },
         },
-      ]
-    );
+      ]);
+    };
+    if (edit !== undefined) update.mutate({ id: edit.id, body: built.body }, { onSuccess });
+    else create.mutate(built.body, { onSuccess });
   };
 
   return (
@@ -175,6 +234,7 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
           onChangeText={setCommunityName}
           placeholder=""
           placeholderTextColor={adminColors.placeholder}
+          testID="community.createCommunity.name"
         />
 
         {/* Short description * */}
@@ -189,6 +249,7 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
           placeholderTextColor={adminColors.placeholder}
           multiline
           numberOfLines={3}
+          testID="community.createCommunity.description"
         />
 
         {/* Community category * */}
@@ -199,6 +260,7 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
           style={styles.dropdownInput}
           onPress={() => setShowCategoryModal(true)}
           activeOpacity={0.7}
+          testID="community.createCommunity.category"
         >
           <Text
             style={[
@@ -214,32 +276,22 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
         {/* Cover image (Outline Button) */}
         <Text style={styles.fieldLabel}>Cover image</Text>
         <TouchableOpacity
-          style={styles.uploadImageBtn}
-          onPress={handleUploadImage}
+          style={[styles.uploadImageBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="community.createCommunity.cover"
         >
           <Text style={styles.uploadImageBtnText}>Upload images</Text>
         </TouchableOpacity>
+        <Text style={styles.subCaption}>{t('community.gap.community.cover')}</Text>
 
-        {/* Language * */}
+        {/* Language *: a community has no language field. */}
         <Text style={styles.fieldLabel}>
           Language<Text style={styles.requiredAsterisk}> *</Text>
         </Text>
-        <TouchableOpacity
-          style={styles.dropdownInput}
-          onPress={() => setShowLanguageModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.dropdownValueText,
-              language === 'Select' && { color: adminColors.muted },
-            ]}
-          >
-            {language}
-          </Text>
-          <ChevronDownIcon size={16} />
-        </TouchableOpacity>
+        <UnavailableDropdown fieldId="language" label="Select" />
 
         {/* Community rules */}
         <Text style={styles.fieldLabel}>Community rules</Text>
@@ -251,95 +303,34 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
           placeholderTextColor={adminColors.placeholder}
           multiline
           numberOfLines={3}
+          testID="community.createCommunity.rules"
         />
 
         {/* ══════════════════════════════════════════════════════════════════════
-            COMMUNITY SETTINGS (Screenshots 1 & 2)
+            COMMUNITY SETTINGS (Screenshots 1 & 2): none of these is a field of a
+            community, so each is drawn and disabled.
            ══════════════════════════════════════════════════════════════════════ */}
         <Text style={[styles.sectionHeader, { marginTop: 22 }]}>Community settings</Text>
 
-        {/* Community visibility * */}
         <Text style={styles.fieldLabel}>
           Community visibility<Text style={styles.requiredAsterisk}> *</Text>
         </Text>
-        <TouchableOpacity
-          style={styles.dropdownInput}
-          onPress={() => setShowVisibilityModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.dropdownValueText,
-              communityVisibility === 'Select' && { color: adminColors.muted },
-            ]}
-          >
-            {communityVisibility}
-          </Text>
-          <ChevronDownIcon size={16} />
-        </TouchableOpacity>
+        <UnavailableDropdown fieldId="visibility" label="Select" />
 
-        {/* Membership method * */}
         <Text style={styles.fieldLabel}>
           Membership method<Text style={styles.requiredAsterisk}> *</Text>
         </Text>
-        <TouchableOpacity
-          style={styles.dropdownInput}
-          onPress={() => setShowMembershipModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.dropdownValueText,
-              membershipMethod === 'Select' && { color: adminColors.muted },
-            ]}
-          >
-            {membershipMethod}
-          </Text>
-          <ChevronDownIcon size={16} />
-        </TouchableOpacity>
-        <Text style={styles.subCaption}>
-          Request-to-join is not built until its approval flow is confirmed.
-        </Text>
+        <UnavailableDropdown fieldId="membership" label="Select" />
 
-        {/* Posting permissions * */}
         <Text style={styles.fieldLabel}>
           Posting permissions<Text style={styles.requiredAsterisk}> *</Text>
         </Text>
-        <TouchableOpacity
-          style={styles.dropdownInput}
-          onPress={() => setShowPostingModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.dropdownValueText,
-              postingPermissions === 'Select' && { color: adminColors.muted },
-            ]}
-          >
-            {postingPermissions}
-          </Text>
-          <ChevronDownIcon size={16} />
-        </TouchableOpacity>
+        <UnavailableDropdown fieldId="posting" label="Select" />
 
-        {/* Discussion permissions * */}
         <Text style={styles.fieldLabel}>
           Discussion permissions<Text style={styles.requiredAsterisk}> *</Text>
         </Text>
-        <TouchableOpacity
-          style={styles.dropdownInput}
-          onPress={() => setShowDiscussionModal(true)}
-          activeOpacity={0.7}
-        >
-          <Text
-            style={[
-              styles.dropdownValueText,
-              discussionPermissions === 'Select' && { color: adminColors.muted },
-            ]}
-          >
-            {discussionPermissions}
-          </Text>
-          <ChevronDownIcon size={16} />
-        </TouchableOpacity>
+        <UnavailableDropdown fieldId="discussion" label="Select" />
 
         {/* Content moderation 🔒 */}
         <View style={styles.labelWithIconRow}>
@@ -358,16 +349,34 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
         <View style={styles.readOnlyInput}>
           <Text style={styles.readOnlyText}>Not supported</Text>
         </View>
+
+        {!allowed ? <Text style={styles.formError}>{t('community.denied.subtitle')}</Text> : null}
+        {formErrorKey !== null ? (
+          <Text style={styles.formError} testID="community.createCommunity.validation">
+            {t(formErrorKey)}
+          </Text>
+        ) : null}
+        {saveError !== null && saveError !== undefined ? (
+          <Text style={styles.formError} testID="community.createCommunity.error">
+            {t(adminErrorKey(saveError))}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {/* ─── Bottom Docked Actions (Screenshots 1 & 2) ─── */}
       <View style={styles.dockedFooter}>
         <TouchableOpacity
-          style={styles.footerBtn}
-          onPress={handleCreateCommunity}
+          style={[styles.footerBtn, saveDisabled && styles.actionUnavailable]}
+          onPress={saveDisabled ? undefined : handleSave}
+          disabled={saveDisabled}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: saveDisabled, busy: isSaving }}
+          testID="community.createCommunity.submit"
         >
-          <Text style={styles.footerBtnText}>{isEditing ? 'Save Changes' : 'Create Community'}</Text>
+          <Text style={styles.footerBtnText}>
+            {isSaving ? t('community.action.saving') : isEditing ? 'Save Changes' : 'Create Community'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -378,10 +387,6 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
           <Text style={styles.footerBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          DROPDOWN MODALS
-         ══════════════════════════════════════════════════════════════════════ */}
 
       {/* Category Modal */}
       <Modal visible={showCategoryModal} transparent animationType="fade">
@@ -397,6 +402,7 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
             {COMMUNITY_CATEGORIES.filter((c) => c !== 'Select').map((item) => (
               <TouchableOpacity
                 key={item}
+                testID={`community.createCommunity.category.${item}`}
                 style={[
                   styles.dropdownMenuItem,
                   communityCategory === item && styles.dropdownMenuItemActive,
@@ -410,191 +416,6 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = fal
                   style={[
                     styles.dropdownMenuItemText,
                     communityCategory === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Language Modal */}
-      <Modal visible={showLanguageModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowLanguageModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.categoryDropdownHeader}>
-              <Text style={styles.categoryDropdownHeaderText}>Select</Text>
-            </View>
-            {COMMUNITY_LANGUAGES.filter((c) => c !== 'Select').map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  language === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setLanguage(item);
-                  setShowLanguageModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    language === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Visibility Modal */}
-      <Modal visible={showVisibilityModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowVisibilityModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.dropdownHeaderRow}>
-              <Text style={styles.dropdownHeaderTitle}>Community visibility</Text>
-            </View>
-            {VISIBILITY_OPTIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  communityVisibility === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setCommunityVisibility(item);
-                  setShowVisibilityModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    communityVisibility === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Membership Method Modal */}
-      <Modal visible={showMembershipModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowMembershipModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.dropdownHeaderRow}>
-              <Text style={styles.dropdownHeaderTitle}>Membership method</Text>
-            </View>
-            {MEMBERSHIP_METHODS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  membershipMethod === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setMembershipMethod(item);
-                  setShowMembershipModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    membershipMethod === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Posting Permissions Modal */}
-      <Modal visible={showPostingModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPostingModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.dropdownHeaderRow}>
-              <Text style={styles.dropdownHeaderTitle}>Posting permissions</Text>
-            </View>
-            {POSTING_PERMISSIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  postingPermissions === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setPostingPermissions(item);
-                  setShowPostingModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    postingPermissions === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Discussion Permissions Modal */}
-      <Modal visible={showDiscussionModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowDiscussionModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.dropdownHeaderRow}>
-              <Text style={styles.dropdownHeaderTitle}>Discussion permissions</Text>
-            </View>
-            {DISCUSSION_PERMISSIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  discussionPermissions === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setDiscussionPermissions(item);
-                  setShowDiscussionModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    discussionPermissions === item && styles.dropdownMenuItemTextActive,
                   ]}
                 >
                   {item}
@@ -754,6 +575,22 @@ const styles = StyleSheet.create({
     color: adminColors.brand,
     fontSize: 13,
     fontWeight: '700',
+  },
+
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+
+  formError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '700',
+    marginTop: 10,
+  },
+  gateBody: {
+    flex: 1,
+    padding: adminSpacing.md,
   },
 
   subCaption: {

@@ -19,6 +19,16 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t, type TranslationKey } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { useCreateLearningVideo, useUpdateLearningVideo } from '../../api/learningHooks';
+import type { LearningVideoDto } from '../../api/learning';
+import { useMyAdminAccount } from '../../api/profileHooks';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { CropPicker } from './CropPicker';
+import { useCropPicker } from './useCropPicker';
+import { buildVideoBody, buildVideoUpdateBody, canManageLearning, languageFormLabel } from './communityLogic';
+import { EditItemGate, type EditTarget } from './EditItemGate';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -74,8 +84,6 @@ const FARMING_CATEGORIES = [
 // Matching User Prompt: "and in lanagage tamil,english"
 const VIDEO_LANGUAGES = ['Select', 'Tamil', 'English'];
 
-const AVAILABLE_CROPS = ['Tomato', 'Beans', 'Cabbage', 'Carrot', 'Potato', 'Garlic'];
-
 const FARMING_TYPES = ['Natural', 'Organic', 'Bio-dynamic'];
 
 // Matching User Prompt: "in sleect videosource direct"
@@ -89,24 +97,65 @@ const SEND_TO_OPTIONS = ['All', 'Communities', 'Groups', 'All Farmers'];
 export interface AddVideoScreenProps {
   onBack: () => void;
   onSubmitSuccess?: () => void;
+  /** docs/rbac.json codes the signed-in admin holds; absent means nothing can be saved. */
+  can?: ((code: string) => boolean) | undefined;
+  /**
+   * The video being edited. Present means EDIT mode: held back until the item
+   * is loaded (EditItemGate), prefilled from it, and Save is PATCH
+   * /admin/learning/videos/{id} — never a POST. Absent means create.
+   */
+  editing?: EditTarget | undefined;
 }
 
-export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps) {
+/**
+ * Add a video (BR-59d, BR-59j). A video is a title, description, an https://
+ * link, a free-text duration, an author and a language, and Publish is the real
+ * POST /admin/learning/videos. The designed extras that have no field or
+ * endpoint stay drawn and say so instead of reporting a save:
+ *
+ *   - Submit for Review: there is no review state to submit into.
+ *   - Thumbnail, video upload and attachments: there is no upload endpoint, and
+ *     a video stores only a link.
+ *   - Category, farming type, source, references and "send to" have no
+ *     field; the group note says only the saved fields are saved. Related
+ *     crops ARE saved (BR-59r), from the crop list the server serves.
+ */
+export function AddVideoScreen({ editing, ...props }: AddVideoScreenProps) {
+  if (editing === undefined) return <AddVideoForm {...props} />;
+  return (
+    <EditItemGate target={editing} onBack={props.onBack} can={props.can}>
+      {(content) =>
+        content.kind === 'video' ? (
+          <AddVideoForm key={content.dto.id} {...props} edit={{ id: content.dto.id, stored: content.dto }} />
+        ) : (
+          <></>
+        )
+      }
+    </EditItemGate>
+  );
+}
+
+interface AddVideoFormProps extends Omit<AddVideoScreenProps, 'editing'> {
+  /** Set only once the video being edited is in hand. */
+  edit?: { id: string; stored: LearningVideoDto } | undefined;
+}
+
+function AddVideoForm({ onBack, onSubmitSuccess, can, edit }: AddVideoFormProps) {
+  const stored = edit?.stored;
   // 1 · Basic information State (Screenshot 1)
-  const [videoTitle, setVideoTitle] = useState('');
-  const [shortDescription, setShortDescription] = useState('');
+  const [videoTitle, setVideoTitle] = useState(stored?.title ?? '');
+  const [shortDescription, setShortDescription] = useState(stored?.description ?? '');
   const [farmingCategory, setFarmingCategory] = useState('Select');
-  const [language, setLanguage] = useState('Select');
+  const [language, setLanguage] = useState(languageFormLabel(stored?.language));
 
   // 2 · Farming information State (Screenshots 1 & 2)
-  const [selectedCrops, setSelectedCrops] = useState<string[]>([]);
   const [selectedFarmingType, setSelectedFarmingType] = useState<string>('Natural');
   const [referenceSources, setReferenceSources] = useState('');
 
   // Video source and media State (Screenshots 2 & 3)
   const [videoSource, setVideoSource] = useState('Select');
   const [thumbnailImage, setThumbnailImage] = useState('');
-  const [videoLinkOrUpload, setVideoLinkOrUpload] = useState('');
+  const [videoLinkOrUpload, setVideoLinkOrUpload] = useState(stored?.videoUrl ?? '');
 
   // 4 · Publishing settings State (Screenshots 2, 3, 5)
   const [sendTo, setSendTo] = useState('All');
@@ -117,66 +166,72 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
   const [showVideoSourceModal, setShowVideoSourceModal] = useState(false);
   const [showSendToModal, setShowSendToModal] = useState(false);
 
-  const toggleCrop = (crop: string) => {
-    setSelectedCrops((prev) =>
-      prev.includes(crop) ? prev.filter((c) => c !== crop) : [...prev, crop]
-    );
-  };
+  const allowed = canManageLearning(can);
+  // BR-59r: the chips are the crop list from the server; an edit starts from the video's own tags.
+  const cropPicker = useCropPicker(can, stored?.crops);
+  const create = useCreateLearningVideo();
+  const update = useUpdateLearningVideo();
+  // The author is the signed-in administrator, fetched; never a typed or assumed name.
+  const me = useMyAdminAccount({ enabled: allowed });
+  const [duration, setDuration] = useState(stored?.duration ?? '');
+  const [formErrorKey, setFormErrorKey] = useState<TranslationKey | null>(null);
 
-  const handleUploadThumbnail = () => {
-    Alert.alert('Upload Thumbnail', 'Image picker opened to select video thumbnail.');
-  };
-
-  const handleUploadVideo = () => {
-    Alert.alert('Upload Video', 'Media picker opened to upload or link video file.');
-  };
-
-  const handleAddAttachments = () => {
-    Alert.alert('Add Attachments', 'Document picker opened (JPG, PNG or PDF, up to 10 MB).');
-  };
-
-  const handleSubmitForReview = () => {
-    const effectiveVideoTitle = videoTitle.trim() || 'Mulching for water retention';
-
-    Alert.alert(
-      'Submit for Review',
-      `Submit video "${effectiveVideoTitle}" for review?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          style: 'default',
-          onPress: () => {
-            Alert.alert('Success', 'Video submitted for moderation review successfully.');
-            if (onSubmitSuccess) onSubmitSuccess();
-            else onBack();
-          },
-        },
-      ]
-    );
-  };
+  const isSaving = create.isPending || update.isPending;
+  const saveError = create.error ?? update.error;
+  const publishDisabled = !allowed || isSaving;
 
   const handlePublish = () => {
-    if (!videoTitle.trim()) {
-      Alert.alert('Required Field', 'Please enter a video title.');
-      return;
-    }
-    Alert.alert(
-      'Publish Video',
-      `Publish "${videoTitle}" immediately to ${sendTo}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
+    if (publishDisabled) return;
+    if (edit !== undefined && stored !== undefined) {
+      // The stored author stays: the person editing is not the author.
+      const builtUpdate = buildVideoUpdateBody({
+        title: videoTitle,
+        description: shortDescription,
+        videoUrl: videoLinkOrUpload,
+        duration,
+        language,
+        author: stored.author,
+        cropIds: cropPicker.cropIdsForUpdate,
+      });
+      if (!builtUpdate.ok) {
+        setFormErrorKey(builtUpdate.errorKey);
+        return;
+      }
+      setFormErrorKey(null);
+      update.mutate(
+        { id: edit.id, body: builtUpdate.body },
         {
-          text: 'Publish',
-          style: 'default',
-          onPress: () => {
-            Alert.alert('Published', `Video published to ${sendTo} successfully.`);
+          onSuccess: () => {
+            Alert.alert(t('community.publish.success.title'), t('community.video.updated'));
             if (onSubmitSuccess) onSubmitSuccess();
             else onBack();
           },
         },
-      ]
-    );
+      );
+      return;
+    }
+    const built = buildVideoBody({
+      title: videoTitle,
+      description: shortDescription,
+      videoUrl: videoLinkOrUpload,
+      duration,
+      language,
+      author: me.authorName,
+      cropIds: cropPicker.cropIdsForCreate,
+    });
+    if (!built.ok) {
+      setFormErrorKey(built.errorKey);
+      return;
+    }
+    setFormErrorKey(null);
+    // Only a settled request reports anything; a failure renders create.error.
+    create.mutate(built.body, {
+      onSuccess: () => {
+        Alert.alert(t('community.publish.success.title'), t('community.video.created'));
+        if (onSubmitSuccess) onSubmitSuccess();
+        else onBack();
+      },
+    });
   };
 
   return (
@@ -194,7 +249,7 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
           >
             <BackArrowWhiteIcon size={20} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add video</Text>
+          <Text style={styles.headerTitle}>{edit !== undefined ? t('community.edit.video.title') : 'Add video'}</Text>
         </View>
       </View>
 
@@ -225,6 +280,7 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
           style={styles.singleLineInput}
           value={videoTitle}
           onChangeText={setVideoTitle}
+          testID="community.addVideo.title"
           placeholder=""
           placeholderTextColor={adminColors.placeholder}
         />
@@ -237,6 +293,7 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
           style={[styles.multilineInput, { minHeight: 74 }]}
           value={shortDescription}
           onChangeText={setShortDescription}
+          testID="community.addVideo.description"
           placeholder=""
           placeholderTextColor={adminColors.placeholder}
           multiline
@@ -288,11 +345,13 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
 
         {/* Author (Lock) */}
         <View style={styles.labelWithIconRow}>
-          <Text style={styles.fieldLabelNoMargin}>Author</Text>
+          <Text style={styles.fieldLabelNoMargin}>{t('community.form.author')}</Text>
           <LockSmallIcon size={13} color={adminColors.muted} />
         </View>
         <View style={styles.readOnlyInput}>
-          <Text style={styles.readOnlyText}>Super Admin</Text>
+          <Text style={styles.readOnlyText} testID="community.addVideo.author">
+            {stored !== undefined ? stored.author : me.authorName ?? ADMIN_NO_VALUE}
+          </Text>
         </View>
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -302,23 +361,7 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
 
         {/* Related crops */}
         <Text style={styles.fieldLabel}>Related crops</Text>
-        <View style={styles.chipsRow}>
-          {AVAILABLE_CROPS.map((crop) => {
-            const isSelected = selectedCrops.includes(crop);
-            return (
-              <TouchableOpacity
-                key={crop}
-                style={[styles.chip, isSelected && styles.chipActive]}
-                onPress={() => toggleCrop(crop)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                  {crop}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+        <CropPicker picker={cropPicker} styles={styles} />
 
         {/* Farming types */}
         <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Farming types</Text>
@@ -390,9 +433,12 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
             placeholderTextColor={adminColors.placeholder}
           />
           <TouchableOpacity
-            style={styles.uploadSquareBtn}
-            onPress={handleUploadThumbnail}
+            style={[styles.uploadSquareBtn, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="community.addVideo.thumbnailPicker"
           >
             <UploadArrowIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
@@ -405,17 +451,34 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
             style={[styles.singleLineInput, { flex: 1 }]}
             value={videoLinkOrUpload}
             onChangeText={setVideoLinkOrUpload}
+            testID="community.addVideo.link"
             placeholder=""
             placeholderTextColor={adminColors.placeholder}
           />
           <TouchableOpacity
-            style={styles.uploadSquareBtn}
-            onPress={handleUploadVideo}
+            style={[styles.uploadSquareBtn, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="community.addVideo.videoPicker"
           >
             <UploadArrowIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
         </View>
+
+        {/* Duration: free text the API requires ("6:10"), so it is asked for. */}
+        <Text style={styles.fieldLabel}>
+          {t('community.form.duration')}<Text style={styles.requiredAsterisk}> *</Text>
+        </Text>
+        <TextInput
+          style={styles.singleLineInput}
+          value={duration}
+          onChangeText={setDuration}
+          placeholder=""
+          placeholderTextColor={adminColors.placeholder}
+          testID="community.addVideo.duration"
+        />
 
         {/* ══════════════════════════════════════════════════════════════════════
             3 · ATTACHMENTS (Screenshots 2 & 3)
@@ -423,15 +486,16 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
         <Text style={[styles.sectionHeader, { marginTop: 22 }]}>3 · Attachments</Text>
 
         <TouchableOpacity
-          style={styles.attachmentDashedBtn}
-          onPress={handleAddAttachments}
+          style={[styles.attachmentDashedBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="community.addVideo.attachments"
         >
           <Text style={styles.attachmentDashedBtnText}>Add images or PDF documents</Text>
         </TouchableOpacity>
-        <Text style={styles.helperText}>
-          JPG, PNG or PDF, up to 10 MB (proposed). Checked again on the server.
-        </Text>
+        <Text style={styles.helperText}>{t('community.gap.video.upload')}</Text>
 
         {/* ══════════════════════════════════════════════════════════════════════
             4 · PUBLISHING SETTINGS (Screenshots 2, 3, 5)
@@ -459,24 +523,51 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
         <View style={styles.readOnlyInput}>
           <Text style={styles.readOnlyText}>Immediate (scheduling is not supported)</Text>
         </View>
+
+        {/* Why the notes sit at the end of the form rather than in the docked
+            footer: the footer is the designed three-button row and is left as
+            drawn. These are the lines directly above it. */}
+        <Text style={styles.subCaption}>{t('community.gap.video.unsent')}</Text>
+        <Text style={styles.subCaption}>{t('community.gap.video.thumbnail')}</Text>
+        <Text style={styles.subCaption}>{t('community.gap.video.review')}</Text>
+        {!allowed ? <Text style={styles.formError}>{t('community.denied.subtitle')}</Text> : null}
+        {formErrorKey !== null ? (
+          <Text style={styles.formError} testID="community.addVideo.validation">
+            {t(formErrorKey)}
+          </Text>
+        ) : null}
+        {saveError !== null && saveError !== undefined ? (
+          <Text style={styles.formError} testID="community.addVideo.error">
+            {t(adminErrorKey(saveError))}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {/* ─── Bottom Docked Actions (Screenshots 1, 2, 3) ─── */}
       <View style={styles.dockedFooter}>
         <TouchableOpacity
-          style={styles.submitSolidBtn}
-          onPress={handleSubmitForReview}
+          style={[styles.submitSolidBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="community.addVideo.submitForReview"
         >
           <Text style={styles.submitSolidBtnText}>Submit for Review</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.publishOutlineBtn}
-          onPress={handlePublish}
+          style={[styles.publishOutlineBtn, publishDisabled && styles.actionUnavailable]}
+          onPress={publishDisabled ? undefined : handlePublish}
+          disabled={publishDisabled}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: publishDisabled, busy: isSaving }}
+          testID="community.addVideo.publish"
         >
-          <Text style={styles.publishOutlineBtnText}>Publish</Text>
+          <Text style={styles.publishOutlineBtnText}>
+            {isSaving ? t('community.action.saving') : edit !== undefined ? t('community.action.saveChanges') : 'Publish'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -543,6 +634,7 @@ export function AddVideoScreen({ onBack, onSubmitSuccess }: AddVideoScreenProps)
             {VIDEO_LANGUAGES.filter((l) => l !== 'Select').map((item) => (
               <TouchableOpacity
                 key={item}
+                testID={`community.addVideo.language.${item}`}
                 style={[
                   styles.dropdownMenuItem,
                   language === item && styles.dropdownMenuItemActive,
@@ -882,6 +974,22 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  subCaption: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  formError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    marginTop: 6,
   },
   publishOutlineBtn: {
     flex: 1,

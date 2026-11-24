@@ -114,6 +114,7 @@ export const step1PersonalSchema = z
     district: z.string().max(120).optional(),
     state: z.string().max(120).optional(),
     country: z.string().max(120).optional(),
+    zoneId: z.string().uuid().optional().nullable(),
     // An empty string is what the app sends for "not entered"; approval stores NULL for it.
     pincode: z.union([z.literal(''), z.string().regex(pincodeRegex, { message: 'pincode must be a 6-digit PIN code not starting with 0.' })]).optional(),
     preferredLocale: z.enum(['en', 'ta']).optional(),
@@ -299,6 +300,13 @@ export const listAdminApplicationsQuery = z.object({
     ])
     .optional(),
   zoneId: z.string().uuid().optional(),
+  hasZone: z
+    .preprocess((val) => {
+      if (val === 'true' || val === true) return true;
+      if (val === 'false' || val === false) return false;
+      return val;
+    }, z.boolean())
+    .optional(),
   submittedAfter: z.string().datetime().optional(),
   q: z.string().trim().optional(),
   pendingOnly: z.coerce.boolean().optional(),

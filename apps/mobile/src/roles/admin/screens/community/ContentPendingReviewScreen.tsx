@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Alert,
 ScrollView,
@@ -15,6 +15,44 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { useUpdateLearningArticle, useUpdateLearningTraining, useUpdateLearningVideo } from '../../api/learningHooks';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import {
+  canManageLearning,
+  contentDetailView,
+  editRouteOf,
+  dash,
+  joinMeta,
+  publishAction,
+  type ContentDto,
+  type ContentKind,
+  type MetaRow,
+} from './communityLogic';
+import { useContentItem } from './useContentItem';
+import { useReviewActions } from './useReviewActions';
+
+// ─── Metadata card ────────────────────────────────────────────────────────────
+
+/** The designed dotted card. Every row is drawn, dash included. */
+function MetaCard({ rows }: { rows: readonly MetaRow[] }) {
+  return (
+    <View style={styles.metaCard}>
+      {rows.map((row, index) => (
+        <React.Fragment key={row.labelKey}>
+          {index > 0 ? <View style={styles.dottedDivider} /> : null}
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>{t(row.labelKey)}</Text>
+            <Text style={styles.metaValueBold} numberOfLines={1}>
+              {row.value}
+            </Text>
+          </View>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -44,21 +82,84 @@ function PencilEditIcon({ size = 18, color = adminColors.onBrand }: { size?: num
 
 export interface ContentPendingReviewScreenProps {
   onBack: () => void;
-  onNavigateEditContent?: () => void;
+  /** Receives the opened item (undefined if it has not loaded) so the edit form updates it. */
+  onNavigateEditContent?: (content: ContentDto | undefined) => void;
   onPublishSuccess?: () => void;
+  /** Which of the four Learning Hub resources was opened, and its id. */
+  contentKind?: ContentKind | undefined;
+  contentId?: string | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * The long metadata card for one content item (BR-59m).
+ *
+ * Nine of its designed rows name a concept docs/openapi.yaml's Learning Hub
+ * does not have — related crops, farming types, season, reviewer (the API sends
+ * a reviewer id, no name), expert verification, a published-on date, an expiry,
+ * a visibility setting and a version counter. Every one of them is kept and
+ * carries the dash. The status row is the PUBLISHED axis (isPublished, BR-59l)
+ * and the review row beside it is the review axis (BR-59t): the two are
+ * independent, so an item can be published and pending review at once.
+ *
+ * Version history has no resource, so the panel says so rather than claiming a
+ * "Version 1: Created" the server never reported. The created date beside it is
+ * real (createdAt); the actor is a dash, because no learning row records who
+ * created it.
+ *
+ * The footer, same contract as ContentItemDetailScreen: Publish is the real
+ * PATCH (BR-59d/BR-59l) and reads its own label from the item's `isPublished`,
+ * so a published item offers Unpublish, whatever the review status. The screen's
+ * namesake Pending button is the review control (BR-59t): for a reviewer it
+ * opens the approve / reject choice, for anyone else it submits an unsubmitted
+ * item or just states the status. It never reads or moves `isPublished`.
+ */
 export function ContentPendingReviewScreen({
   onBack,
   onNavigateEditContent,
   onPublishSuccess,
+  contentKind,
+  contentId,
+  can,
 }: ContentPendingReviewScreenProps) {
-  const [status, setStatus] = useState<'Draft' | 'Pending' | 'Published'>('Draft');
+  const allowed = canManageLearning(can);
+  const content = useContentItem(contentKind, contentId, allowed);
+  // Edit needs an opened item whose kind has an edit form; otherwise it would
+  // open a blank form and Save there would create a duplicate.
+  const editDisabled = !allowed || contentId === undefined || editRouteOf(contentKind) === null;
+  const view = contentDetailView(content.content);
+
+  // One PATCH hook per resource that has an `isPublished` to move. All three
+  // are created every render (hooks cannot be conditional); only the one
+  // matching the opened item is ever fired. A group has no published state, so
+  // it has no hook here — publishAction disables the button for it.
+  const updateArticle = useUpdateLearningArticle();
+  const updateVideo = useUpdateLearningVideo();
+  const updateTraining = useUpdateLearningTraining();
+  const publish = publishAction(content.content);
+  const isPublishing = updateArticle.isPending || updateVideo.isPending || updateTraining.isPending;
+  const publishError = updateArticle.error ?? updateVideo.error ?? updateTraining.error;
+  const publishDisabled = publish.disabled || isPublishing || !allowed;
+  const review = useReviewActions(content.content, can);
 
   const handlePublish = () => {
-    setStatus('Published');
-    Alert.alert('Published', 'Content item published successfully.');
-    if (onPublishSuccess) onPublishSuccess();
+    const item = content.content;
+    const next = publish.nextIsPublished;
+    if (item === undefined || next === null || publishDisabled) return;
+    const vars = { id: item.dto.id, body: { isPublished: next } };
+    // Only a settled mutation reports anything: the alert and the parent's
+    // callback are in onSuccess, and a failure renders publishError instead.
+    const onSuccess = () => {
+      Alert.alert(
+        t('community.publish.success.title'),
+        t(next ? 'community.publish.published' : 'community.publish.unpublished'),
+      );
+      if (onPublishSuccess) onPublishSuccess();
+    };
+    if (item.kind === 'video') updateVideo.mutate(vars, { onSuccess });
+    else if (item.kind === 'training') updateTraining.mutate(vars, { onSuccess });
+    else if (item.kind === 'article') updateArticle.mutate(vars, { onSuccess });
   };
 
   return (
@@ -77,15 +178,19 @@ export function ContentPendingReviewScreen({
           >
             <BackArrowWhiteIcon size={20} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            Mulching for water retention
+          <Text style={styles.headerTitle} numberOfLines={1} testID="community.pendingReview.title">
+            {view.title}
           </Text>
           {/* Edit Pencil Icon Button: redirects directly to Create Content with resumed details, no popup! */}
           <TouchableOpacity
-            style={styles.headerEditBtn}
-            onPress={onNavigateEditContent}
+            style={[styles.headerEditBtn, editDisabled && styles.actionUnavailable]}
+            onPress={editDisabled ? undefined : () => onNavigateEditContent?.(content.content)}
+            disabled={editDisabled}
             activeOpacity={0.8}
             accessibilityLabel="Edit content details"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: editDisabled }}
+            testID="community.pendingReview.edit"
           >
             <PencilEditIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
@@ -98,158 +203,84 @@ export function ContentPendingReviewScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ─── 15-Row Dotted Metadata Card (Matching Screenshot 3 Exactly) ─── */}
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Content ID</Text>
-            <Text style={styles.metaValueBold}>CNT-012 · version 1</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Type</Text>
-            <Text style={styles.metaValueBold}>Video</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Status</Text>
-            <Text style={styles.metaValueBold}>{status}</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Category</Text>
-            <Text style={styles.metaValueBold}>Organic Farming</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Related crops</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Farming types</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Season</Text>
-            <Text style={styles.metaValueBold}>Not configured</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Language</Text>
-            <Text style={styles.metaValueBold}>English</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Author</Text>
-            <Text style={styles.metaValueBold}>Demo TOHFA Admin</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Reviewer</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Expert verification</Text>
-            <Text style={styles.metaValueBold}>Not required (not crop-specific)</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Published</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Expires</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Visibility</Text>
-            <Text style={styles.metaValueBold}>Everyone</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Featured</Text>
-            <Text style={styles.metaValueBold}>No</Text>
-          </View>
-        </View>
+        <MetaCard rows={view.metaRows} />
 
         {/* ─── Description Section (Screenshot 3) ─── */}
         <Text style={styles.sectionHeading}>Description</Text>
-        <Text style={styles.descriptionText}>A demonstration of organic practices.</Text>
+        <Text style={styles.descriptionText}>{view.description}</Text>
 
-        {/* ─── Video Section (Screenshot 3) ─── */}
-        <Text style={styles.sectionHeading}>Video</Text>
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Source</Text>
-            <Text style={styles.metaValueBold}>Link</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>File or link</Text>
-            <Text style={styles.metaValueBold} numberOfLines={1}>
-              https://video.example.org/organic
-            </Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Duration</Text>
-            <Text style={styles.metaValueBold}>15 min 0 s</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Processing</Text>
-            <Text style={styles.metaValueBold}>Ready</Text>
-          </View>
-        </View>
+        {/* ─── Video Section (Screenshot 3): only a video has one ─── */}
+        {view.videoRows !== null ? (
+          <>
+            <Text style={styles.sectionHeading}>{t('community.section.video')}</Text>
+            <MetaCard rows={view.videoRows} />
+          </>
+        ) : null}
 
         {/* ─── Version History Section (Screenshot 3) ─── */}
         <Text style={styles.sectionHeading}>Version history</Text>
-        <Text style={styles.versionDate}>13 Oct 2026, 09:00 · Demo TOHFA Admin</Text>
-        <Text style={styles.versionTitle}>Version 1: Created</Text>
+        {/* createdAt is real; the actor beside it is not recorded anywhere. */}
+        <Text style={styles.versionDate} testID="community.pendingReview.created">
+          {joinMeta([view.createdText, dash()])}
+        </Text>
+        {!allowed ? (
+          <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+        ) : content.isLoading ? (
+          <AdminLoadingState />
+        ) : content.error !== null && content.error !== undefined ? (
+          <AdminErrorState error={content.error} onRetry={content.refetch} />
+        ) : (
+          <AdminEmptyState title={t('community.gap.versions.title')} />
+        )}
       </ScrollView>
 
       {/* ─── Docked Bottom Actions (Screenshot 3: Pending + Publish + Cancel) ─── */}
       <View style={styles.dockedFooter}>
-        <TouchableOpacity
-          style={styles.pendingSolidBtn}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.pendingSolidBtnText}>Pending</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.primaryOutlineBtn}
-          onPress={handlePublish}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.primaryOutlineBtnText}>Publish</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onBack}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
+        {publish.noteKey !== null ? <Text style={styles.footerNote}>{t(publish.noteKey)}</Text> : null}
+        {review.error !== null && review.error !== undefined ? (
+          <Text style={styles.footerError} testID="community.pendingReview.reviewError">
+            {t(adminErrorKey(review.error))}
+          </Text>
+        ) : null}
+        {publishError !== null && publishError !== undefined ? (
+          <Text style={styles.footerError} testID="community.pendingReview.publishError">
+            {t(adminErrorKey(publishError))}
+          </Text>
+        ) : null}
+
+        <View style={styles.footerActionsRow}>
+          <TouchableOpacity
+            style={[styles.pendingSolidBtn, review.disabled && styles.actionUnavailable]}
+            onPress={review.disabled ? undefined : review.onPress}
+            disabled={review.disabled}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: review.disabled, busy: review.isPending }}
+            testID="community.pendingReview.pending"
+          >
+            <Text style={styles.pendingSolidBtnText}>{review.isPending ? t('community.action.saving') : t(review.action.labelKey)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.primaryOutlineBtn, publishDisabled && styles.actionUnavailable]}
+            onPress={handlePublish}
+            disabled={publishDisabled}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: publishDisabled, busy: isPublishing }}
+            testID="community.pendingReview.publish"
+          >
+            <Text style={styles.primaryOutlineBtnText}>
+              {isPublishing ? t('community.action.saving') : t(publish.labelKey)}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -381,10 +412,29 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.canvas,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
-    flexDirection: 'row',
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 12,
+    // A column so the notes and the server's failure sit above the designed
+    // row of buttons, which keeps its own layout unchanged.
+    flexDirection: 'column',
+    gap: 6,
+  },
+  footerActionsRow: {
+    flexDirection: 'row',
     gap: 10,
+  },
+  footerNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  footerError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '700',
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
   },
   pendingSolidBtn: {
     flex: 1,

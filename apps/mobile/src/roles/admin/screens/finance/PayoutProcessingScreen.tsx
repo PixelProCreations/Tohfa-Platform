@@ -15,7 +15,7 @@ import type { PayoutDto } from '../../api/payouts';
 import { useApprovePayout } from '../../api/payoutsHooks';
 import { t } from '../../i18n';
 import type { Can } from '../../permissions/can';
-import { adminColors } from '../../theme';
+import { adminColors, adminShadow } from '../../theme';
 import { moneyText } from '../dashboard/saOverviewFormat';
 
 /** docs/rbac.json code of POST /admin/payouts/{id}/approve (SUPER_ADMIN only). */
@@ -29,20 +29,20 @@ const FULLY_APPROVED: readonly string[] = ['APPROVED', 'PROCESSING', 'PAID'];
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#E8D5C4', // Soft golden-brown border for approval card
-  grayBorder:    '#EDE8E0',
-  peachBadgeBg:  '#FEF3C7',
-  peachBadgeText:'#943818',
-  greenApproved: '#2E7D32',
-  greenBtnBg:    '#EAF5EA',
-  bannerBg:      '#FFF9F0',
-  bannerBorder:  '#F3E0C9',
-  bannerText:    '#78350F',
+  titleRust:     adminColors.brandDeep,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  grayBorder:    adminColors.border,
+  peachBadgeBg:  adminColors.warning.bg,
+  peachBadgeText:adminColors.warning.text,
+  greenApproved: adminColors.success.text,
+  greenBtnBg:    adminColors.success.bg,
+  bannerBg:      adminColors.card,
+  bannerBorder:  adminColors.border,
+  bannerText:    adminColors.brandDeep,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -66,7 +66,7 @@ function GreenCheckCircle() {
       <Circle cx="12" cy="12" r="10" fill={PALETTE.greenApproved} />
       <Path
         d="M8 12l3 3 5-5"
-        stroke="#FFFFFF"
+        stroke={adminColors.card}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -78,8 +78,8 @@ function GreenCheckCircle() {
 function ClockCircle() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#9CA3AF" strokeWidth="2" fill="none" />
-      <Path d="M12 6v6l4 2" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.muted} strokeWidth="2" fill="none" />
+      <Path d="M12 6v6l4 2" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -117,7 +117,7 @@ function ReturnIcon() {
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 10h10a5 5 0 0 1 5 5v2M3 10l6-6M3 10l6 6"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -348,11 +348,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   screenTitle: {
     fontSize: 24,
@@ -375,11 +371,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 20,
     marginBottom: 20,
-    shadowColor: '#8E3314',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.md,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -478,11 +470,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   errorText: {
     fontSize: 12,

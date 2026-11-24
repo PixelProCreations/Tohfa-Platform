@@ -17,6 +17,19 @@ import {
   adminType,
 } from '../../theme';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components';
+import {
+  useLearningArticles,
+  useLearningGroups,
+  useLearningTrainings,
+  useLearningVideos,
+} from '../../api/learningHooks';
+import { useCommunities } from '../../api/communitiesHooks';
+import { useAdminQaQuestions } from '../../api/qaHooks';
+import { countLoadedWhere } from '../../api/hookHelpers';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
+import { canManageLearning, dash, joinMeta, sumTotalsText, totalText, totalWithActiveText } from './communityLogic';
+import { canModerateCommunities } from './communitiesLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -82,6 +95,8 @@ function BookGuideIcon({ size = 22, color = adminColors.brand }: { size?: number
 
 export interface CommunityKnowledgeHomeScreenProps {
   onBack?: () => void;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
   onNavigateCreateContent: (initialType?: 'Article' | 'Farming Guide' | 'Information' | 'Announcement') => void;
   onNavigateAddVideo?: () => void;
   onNavigateKnowledgeLibrary?: () => void;
@@ -93,8 +108,24 @@ export interface CommunityKnowledgeHomeScreenProps {
   onViewActivityDetails?: (activityId: string) => void;
 }
 
+/**
+ * The Community & Knowledge overview.
+ *
+ * Of the eight designed tiles the Learning Hub API answers exactly one in
+ * full: Groups, from the server's `total` over the whole filtered set. Its
+ * "(N active)" half is a count of the LOADED rows, so it goes through
+ * countLoadedWhere and shows the dash until every page is in — a number taken
+ * from the first page of many would be a claim the screen cannot support.
+ *
+ * The other seven name things the spec has no resource for: communities,
+ * announcements, discussions, reports, a review queue and crop verification.
+ * They keep their tiles and carry the dash. So do the growth bar, the "most
+ * viewed" card (no view, bookmark or comment counter exists anywhere) and the
+ * activity feed.
+ */
 export function CommunityKnowledgeHomeScreen({
   onBack,
+  can,
   onNavigateCreateContent,
   onNavigateAddVideo,
   onNavigateKnowledgeLibrary,
@@ -103,8 +134,27 @@ export function CommunityKnowledgeHomeScreen({
   onNavigateCreateGroup,
   onNavigateAllGroups,
   onNavigateCreateCommunity: _onNavigateCreateCommunity,
-  onViewActivityDetails,
+  onViewActivityDetails: _onViewActivityDetails,
 }: CommunityKnowledgeHomeScreenProps) {
+  const allowed = canManageLearning(can);
+  // One row per page is enough for `total`; the groups list is also walked for
+  // the active sub-count, which stays a dash until every page has arrived.
+  const groups = useLearningGroups({}, { enabled: allowed });
+  const articles = useLearningArticles({}, { enabled: allowed });
+  const videos = useLearningVideos({}, { enabled: allowed });
+  // Server-reported totals only (one row per page is enough for `total`).
+  const communities = useCommunities({ limit: 1 }, { enabled: canModerateCommunities(can) });
+  const discussions = useAdminQaQuestions({ limit: 1 }, { enabled: allowed });
+  // BR-59t: "Pending review" is the sum of the four resources' own totals for
+  // reviewStatus=PENDING_REVIEW, and is the dash until every one has answered.
+  const pending = { reviewStatus: 'PENDING_REVIEW', limit: 1 } as const;
+  const pendingArticles = useLearningArticles(pending, { enabled: allowed });
+  const pendingVideos = useLearningVideos(pending, { enabled: allowed });
+  const pendingTrainings = useLearningTrainings(pending, { enabled: allowed });
+  const pendingGroups = useLearningGroups(pending, { enabled: allowed });
+
+  const activeGroups = countLoadedWhere(groups.items, (g) => g.isArchived === false, groups.allPagesLoaded);
+
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -148,30 +198,37 @@ export function CommunityKnowledgeHomeScreen({
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
           {/* Row 1 */}
           <OverviewDashboardCard
-            value="5 (4 active)"
+            value={totalText(communities.total)}
             title="Communities"
             icon="users"
             titlePosition="bottom"
-            onPress={() => (onNavigateAllCommunities ? onNavigateAllCommunities() : onNavigateCommunityDetails?.('nilgiris'))}
+            onPress={() => (onNavigateAllCommunities ? onNavigateAllCommunities() : onNavigateCommunityDetails?.())}
           />
           <OverviewDashboardCard
-            value="8 (7 active)"
+            value={totalWithActiveText(groups.total, activeGroups)}
             title="Groups"
             icon="users"
             titlePosition="bottom"
             onPress={() => (onNavigateAllGroups ? onNavigateAllGroups() : onNavigateCreateGroup?.())}
           />
 
-          {/* Row 2 */}
+          {/* Row 2: the design's breakdown also counted "guides", a content
+              type that was never built (no resource in the Learning Hub API).
+              Owner decision 2026-11-23: drop it from the label rather than
+              dash it forever. With articles and videos the only content types,
+              both server totals are known, so the tile's own total is real. */}
           <OverviewDashboardCard
-            value="12"
-            title="Content items (5 articles, 3 guides, 4 videos)"
+            value={sumTotalsText(articles.total, videos.total)}
+            title={t('community.home.contentItems', {
+              articles: totalText(articles.total),
+              videos: totalText(videos.total),
+            })}
             icon="clipboard"
             titlePosition="bottom"
             onPress={() => (onNavigateKnowledgeLibrary ? onNavigateKnowledgeLibrary() : onNavigateAddVideo?.())}
           />
           <OverviewDashboardCard
-            value="5"
+            value={dash()}
             title="Announcements"
             icon="orders"
             titlePosition="bottom"
@@ -180,28 +237,28 @@ export function CommunityKnowledgeHomeScreen({
 
           {/* Row 3 */}
           <OverviewDashboardCard
-            value="8"
+            value={totalText(discussions.total)}
             title="Discussions"
             icon="clipboard"
             titlePosition="bottom"
           />
           <OverviewDashboardCard
-            value="6"
+            value={dash()}
             title="Open reports"
             icon="alert"
             tone="warning"
             titlePosition="bottom"
           />
 
-          {/* Row 4 */}
+          {/* Row 4: the review queue (BR-59t), an axis separate from isPublished. */}
           <OverviewDashboardCard
-            value="Not enabled"
+            value={sumTotalsText(pendingArticles.total, pendingVideos.total, pendingTrainings.total, pendingGroups.total)}
             title="Pending review"
             icon="clipboard"
             titlePosition="bottom"
           />
           <OverviewDashboardCard
-            value="2"
+            value={dash()}
             title="Unverified crop content"
             icon="alert"
             tone="danger"
@@ -215,54 +272,33 @@ export function CommunityKnowledgeHomeScreen({
         </Text>
 
         {/* ─── Community growth (30 days) ─── */}
+        {/* No membership-history endpoint exists, so the figure is the dash and
+            the bar draws empty rather than at a made-up fraction. */}
         <Text style={styles.sectionHeading}>Community growth (30 days)</Text>
         <View style={styles.growthRow}>
           <Text style={styles.growthLabel}>New members</Text>
           <View style={styles.progressBarTrack}>
-            <View style={styles.progressBarFill} />
+            <View style={[styles.progressBarFill, { width: '0%' }]} />
           </View>
-          <Text style={styles.growthValue}>14</Text>
+          <Text style={styles.growthValue} testID="community.home.growth">{dash()}</Text>
         </View>
 
         {/* ─── Most viewed ─── */}
+        {/* View, bookmark and comment counters do not exist in the spec, and
+            nothing ranks content by them, so the card carries dashes. */}
         <Text style={styles.sectionHeading}>Most viewed</Text>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tomato leaf curl management</Text>
-          <Text style={styles.cardMeta}>
-            Guide · Verified · 214 views · 12 bookmarks · 5 comments
-          </Text>
+          <Text style={styles.cardTitle}>{dash()}</Text>
+          <Text style={styles.cardMeta}>{joinMeta([dash(), dash(), dash(), dash(), dash()])}</Text>
         </View>
 
         {/* ─── Recent activity ─── */}
         <Text style={styles.sectionHeading}>Recent activity</Text>
-
-        {/* Activity 1 */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Article submitted for review</Text>
-          <Text style={styles.cardMeta}>
-            "Mulching for water retention" · Demo TOHFA Admin · 13 Oct 2026
-          </Text>
-          <TouchableOpacity
-            onPress={() => onViewActivityDetails && onViewActivityDetails('act-1')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cardActionLink}>View Details</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Activity 2 */}
-        <View style={[styles.card, { marginTop: 10 }]}>
-          <Text style={styles.cardTitle}>Coonoor Organic Farmers</Text>
-          <Text style={styles.cardMeta}>
-            "Mulching for water retention" · Demo TOHFA Admin · 13 Oct 2026
-          </Text>
-          <TouchableOpacity
-            onPress={() => onViewActivityDetails && onViewActivityDetails('act-2')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.cardActionLink}>View post</Text>
-          </TouchableOpacity>
-        </View>
+        {!allowed ? (
+          <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+        ) : (
+          <AdminEmptyState title={t('community.gap.activity.title')} />
+        )}
 
         {/* ─── Quick actions (Screenshot 1) ─── */}
         <Text style={styles.sectionHeading}>Quick actions</Text>

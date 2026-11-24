@@ -37,6 +37,7 @@ import {
   useUpdateCropMaster,
 } from '../../api/produceHooks';
 import { OverviewCardsGrid, OverviewDashboardCard } from '../../components/OverviewDashboardCard';
+import { CropCategoryFilterSheet } from './CropCategoryFilterSheet';
 import { BackArrowIcon, CloseIcon, FilterSlidersIcon, SearchIcon } from './produceIcons';
 import { ProduceStatusBadge, formatProduceDate } from './produceParts';
 import {
@@ -44,6 +45,7 @@ import {
   DESIGN_CROP_CATEGORIES,
   PRODUCE_DASH,
   countText,
+  cropCategoryOptions,
   cropKpis,
   cropSlugFrom,
   designCategoryForSlug,
@@ -77,8 +79,6 @@ export interface CropDataScreenProps {
   onNavigateToAddActivity: () => void;
   onNavigateToCreateEvent: () => void;
 }
-
-type CategoryFilter = 'All' | DesignCropCategory;
 
 const CATEGORY_LABEL: Record<DesignCropCategory, TranslationKey> = {
   Vegetable: 'produce.category.Vegetable',
@@ -115,7 +115,10 @@ export function CropDataScreen({
   onNavigateToCreateEvent,
 }: CropDataScreenProps): React.JSX.Element {
   const [selectedSegment, setSelectedSegmentState] = useState<CropDataSegment>(initialSegment);
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<CategoryFilter>('All');
+  // The selected catalog category id, null for All. By id, not by design label, because
+  // the options are every fetched category and most have no design label.
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showAddCropModal, setShowAddCropModal] = useState(false);
@@ -156,6 +159,20 @@ export function CropDataScreen({
       };
     });
   }, [crops.data, categories.data]);
+
+  const categoryChoices = useMemo(
+    () =>
+      cropCategoryOptions(categories.data?.items).map((o) => ({
+        id: o.id,
+        label: o.design === undefined ? o.name : t(CATEGORY_LABEL[o.design]),
+      })),
+    [categories.data],
+  );
+  const categoryStatus = categories.data !== undefined ? 'ready' : categories.isError ? 'error' : 'loading';
+  const activeCategoryLabel =
+    selectedCategoryFilter === null
+      ? undefined
+      : (categoryChoices.find((c) => c.id === selectedCategoryFilter)?.label ?? PRODUCE_DASH);
 
   const cropCounts = crops.data ? cropKpis(crops.data.items) : undefined;
   const eventCounts = events.data ? eventKpis(events.data, today) : undefined;
@@ -217,17 +234,10 @@ export function CropDataScreen({
 
   const filteredCrops = cropTypes.filter(
     (c) =>
-      (selectedCategoryFilter === 'All' || c.category === selectedCategoryFilter) &&
+      (selectedCategoryFilter === null || c.categoryId === selectedCategoryFilter) &&
       matchesSearch(searchQuery, c.name, c.code),
   );
   const filteredEvents = (events.data?.items ?? []).filter((e) => matchesSearch(searchQuery, e.title, e.id));
-
-  const heading: TranslationKey =
-    selectedSegment === 'crop_types'
-      ? 'produce.cropData.heading.cropTypes'
-      : selectedSegment === 'diary_activity'
-        ? 'produce.cropData.heading.diary'
-        : 'produce.cropData.heading.events';
 
   const countLabel =
     selectedSegment === 'crop_types'
@@ -270,9 +280,9 @@ export function CropDataScreen({
         <Text style={styles.headerTitle}>{t('produce.cropData.title')}</Text>
       </View>
 
+      {/* No section heading above the cards: the segmented tab row below already
+          names the section, so a heading only repeated it. */}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Text style={styles.tabSectionHeading}>{t(heading)}</Text>
-
         {selectedSegment === 'crop_types' && (
           <OverviewCardsGrid style={styles.kpiGrid}>
             <OverviewDashboardCard title={t('produce.kpi.crop.total')} value={countText(cropCounts?.total)} titlePosition="top" />
@@ -316,23 +326,6 @@ export function CropDataScreen({
           {segmentButton('platform_events', 'produce.cropData.segment.events')}
         </View>
 
-        {selectedSegment === 'crop_types' && (
-          <View style={styles.chipsRow}>
-            {(['All', ...DESIGN_CROP_CATEGORIES] as const).map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.filterChip, selectedCategoryFilter === cat && styles.filterChipActive]}
-                onPress={() => setSelectedCategoryFilter(cat)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.filterChipText, selectedCategoryFilter === cat && styles.filterChipTextActive]}>
-                  {cat === 'All' ? t('produce.filters.all') : t(CATEGORY_LABEL[cat])}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-
         <View style={styles.searchBar}>
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
@@ -342,8 +335,40 @@ export function CropDataScreen({
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <FilterSlidersIcon size={18} color={adminColors.brand} />
+          {selectedSegment === 'crop_types' && (
+            <TouchableOpacity
+              style={[styles.filterBtn, activeCategoryLabel !== undefined && styles.filterBtnActive]}
+              onPress={() => setShowFilterSheet(true)}
+              activeOpacity={0.7}
+              hitSlop={{ top: adminSpacing.sm, bottom: adminSpacing.sm, left: adminSpacing.sm, right: adminSpacing.sm }}
+              accessibilityRole="button"
+              accessibilityLabel={t('produce.cropData.filter.button')}
+              accessibilityState={{ selected: activeCategoryLabel !== undefined }}
+              testID="cropData.filterButton"
+            >
+              <FilterSlidersIcon
+                size={18}
+                color={activeCategoryLabel !== undefined ? adminColors.onBrand : adminColors.brand}
+              />
+            </TouchableOpacity>
+          )}
         </View>
+
+        {selectedSegment === 'crop_types' && activeCategoryLabel !== undefined && (
+          <View style={styles.activeFilterRow} testID="cropData.activeFilter">
+            <Text style={styles.activeFilterText}>{t('produce.cropData.filter.active', { category: activeCategoryLabel })}</Text>
+            <TouchableOpacity
+              onPress={() => setSelectedCategoryFilter(null)}
+              activeOpacity={0.7}
+              hitSlop={{ top: adminSpacing.sm, bottom: adminSpacing.sm, left: adminSpacing.sm, right: adminSpacing.sm }}
+              accessibilityRole="button"
+              accessibilityLabel={t('produce.cropData.filter.clear')}
+              testID="cropData.filterClear"
+            >
+              <CloseIcon size={14} color={adminColors.brandDeep} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         <Text style={styles.countLabel}>{countLabel}</Text>
 
@@ -524,6 +549,15 @@ export function CropDataScreen({
         )}
       </View>
 
+      <CropCategoryFilterSheet
+        visible={showFilterSheet}
+        options={categoryChoices}
+        status={categoryStatus}
+        selectedId={selectedCategoryFilter}
+        onSelect={setSelectedCategoryFilter}
+        onClose={() => setShowFilterSheet(false)}
+      />
+
       <Modal visible={showAddCropModal} transparent animationType="fade" onRequestClose={() => setShowAddCropModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -605,38 +639,29 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: adminSpacing.md },
   kpiGrid: { marginBottom: adminSpacing.md },
-  tabSectionHeading: { ...adminType.sectionHead, color: adminColors.brandDeep, marginBottom: adminSpacing.sm },
   segmentRow: {
     flexDirection: 'row',
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
-    padding: 3,
+    padding: adminSpacing.xs,
     marginBottom: adminSpacing.md,
     borderWidth: 1,
     borderColor: adminColors.border,
   },
   segmentBtn: {
     flex: 1,
-    paddingVertical: adminSpacing.xs,
+    // A tab is a tap target, not a caption: sm gives it a comfortable height
+    // instead of the 4px the caption style was drawn at.
+    paddingVertical: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: adminRadius.sm,
   },
   segmentBtnActive: { backgroundColor: adminColors.brand },
-  segmentBtnText: { ...adminType.caption, color: adminColors.ink },
+  // rowTitle (12.5/800), not caption (10/700): caption is the KPI-delta style
+  // and is too small to read as an interactive label.
+  segmentBtnText: { ...adminType.rowTitle, color: adminColors.ink },
   segmentBtnTextActive: { color: adminColors.onBrand },
-  chipsRow: { flexDirection: 'row', gap: adminSpacing.xs, marginBottom: adminSpacing.md },
-  filterChip: {
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  filterChipActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
-  filterChipText: { ...adminType.caption, color: adminColors.ink },
-  filterChipTextActive: { color: adminColors.onBrand },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -650,6 +675,16 @@ const styles = StyleSheet.create({
     gap: adminSpacing.xs,
   },
   searchInput: { flex: 1, ...adminType.body, color: adminColors.ink, height: 44 },
+  filterBtn: { padding: adminSpacing.xs, borderRadius: adminRadius.sm },
+  filterBtnActive: { backgroundColor: adminColors.brand },
+  activeFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: adminSpacing.xs,
+    marginBottom: adminSpacing.sm,
+  },
+  activeFilterText: { ...adminType.caption, color: adminColors.brandDeep },
   countLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.sm },
   listContainer: { gap: adminSpacing.sm },
   cardItem: {

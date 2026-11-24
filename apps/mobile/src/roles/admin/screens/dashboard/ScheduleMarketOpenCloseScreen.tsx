@@ -20,7 +20,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors } from '../../theme';
@@ -143,8 +142,6 @@ export function ScheduleMarketOpenCloseScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
       <View style={styles.header}>
         <TouchableOpacity
           onPress={onBack}

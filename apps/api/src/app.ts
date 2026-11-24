@@ -118,6 +118,8 @@ import {
   adminLearningRouter,
   farmerLearningRouter,
 } from './modules/learning-hub/learning-hub.routes.js';
+import { adminCommunitiesRouter } from './modules/communities/communities.routes.js';
+import { adminQaRouter, farmerQaRouter } from './modules/qa-chat/qa-chat.routes.js';
 import {
   adminSupportTicketsRouter,
   farmerSupportTicketsRouter,
@@ -158,7 +160,8 @@ import { auditLogRouter } from './modules/audit-log/audit-log.routes.js';
 import { adminFarmersRouter } from './modules/admin-farmers/admin-farmers.routes.js';
 import { tierConfigRouter } from './modules/tier-config/tier-config.routes.js';
 import { adminAccountsRouter } from './modules/admin-accounts/admin-accounts.routes.js';
-import { adminZonesRouter } from './modules/zones/zones.routes.js';
+import { adminAnnouncementsRouter } from './modules/admin-announcements/admin-announcements.routes.js';
+import { adminZonesRouter, publicZonesRouter } from './modules/zones/zones.routes.js';
 import { adminMarketDaysRouter } from './modules/market-days/market-days.routes.js';
 import { adminPaymentMethodsRouter } from './modules/payment-methods/payment-methods.routes.js';
 import { adminPromotionsRouter } from './modules/admin-promotions/admin-promotions.routes.js';
@@ -263,6 +266,8 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/farmers', router: adminFarmersRouter },
   { prefix: '/v1/admin', router: tierConfigRouter },
   { prefix: '/v1/admin/accounts', router: adminAccountsRouter },
+  { prefix: '/v1/admin/announcements', router: adminAnnouncementsRouter },
+  { prefix: '/v1/zones', router: publicZonesRouter },
   { prefix: '/v1/admin/zones', router: adminZonesRouter },
   { prefix: '/v1/admin/market-days', router: adminMarketDaysRouter },
   { prefix: '/v1/admin/payment-methods', router: adminPaymentMethodsRouter },
@@ -295,6 +300,11 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin', router: adminPlatformEventsRouter },
   { prefix: '/v1/farmers/me', router: farmerLearningRouter },
   { prefix: '/v1/admin', router: adminLearningRouter },
+  { prefix: '/v1/admin/communities', router: adminCommunitiesRouter },
+  { prefix: '/v1/farmers/me/qa', router: farmerQaRouter },
+  { prefix: '/v1/admin/qa', router: adminQaRouter },
+  { prefix: '/v1/farmers/me/learning/qa', router: farmerQaRouter },
+  { prefix: '/v1/admin/learning/qa', router: adminQaRouter },
   { prefix: '/v1/farmers/me', router: farmerSupportTicketsRouter },
   { prefix: '/v1/admin', router: adminSupportTicketsRouter },
   { prefix: '/v1/farmers/me', router: cropPlanningInsightRouter },

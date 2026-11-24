@@ -27,126 +27,67 @@ import {
 } from '../../components/AdminIcons';
 import { AdminStatusBadge } from '../../components/AdminStatusBadge';
 import { t } from '../../i18n';
-import { DEMO_ALL_FARMERS } from './farmerManagementFixtures';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import { statusLabelKey } from './allFarmersMappers';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
-export interface FarmRecordFarmerEntry {
-  id: string;
-  initials: string;
-  farmTitle: string;
-  farmer: FarmerListItem;
-}
-
-const FARM_RECORD_ENTRIES: FarmRecordFarmerEntry[] = [
-  {
-    id: 'fr-1',
-    initials: 'RK',
-    farmTitle: 'Ramesh Kumar Farm',
-    farmer: {
-      ...(DEMO_ALL_FARMERS[0] ?? { name: 'Ramesh Kumar' }),
-      id: 'fmr-00124',
-      name: 'Ramesh Kumar',
-      farmName: 'Ramesh Kumar Farm',
-      code: 'FMR-00124',
-      initials: 'RK',
-      mobile: '+91 90000 20000',
-      location: 'Coonoor',
-      status: 'ACTIVE',
-      rating: 4.5,
-    },
-  },
-  {
-    id: 'fr-2',
-    initials: 'K',
-    farmTitle: 'Kumar Farming',
-    farmer: {
-      ...(DEMO_ALL_FARMERS[1] ?? { name: 'Kumar' }),
-      id: 'fmr-00125',
-      name: 'Kumar',
-      farmName: 'Kumar Farming',
-      code: 'FMR-00125',
-      initials: 'K',
-      mobile: '+91 90000 20001',
-      location: 'Ooty',
-      status: 'ACTIVE',
-      rating: 4.5,
-    },
-  },
-  {
-    id: 'fr-3',
-    initials: 'J',
-    farmTitle: 'John Farm house',
-    farmer: {
-      ...(DEMO_ALL_FARMERS[2] ?? { name: 'John' }),
-      id: 'fmr-00126',
-      name: 'John',
-      farmName: 'John Farm house',
-      code: 'FMR-00126',
-      initials: 'J',
-      mobile: '+91 90000 20002',
-      location: 'Kotagiri',
-      status: 'ACTIVE',
-      rating: 4.5,
-    },
-  },
-  {
-    id: 'fr-4',
-    initials: 'R',
-    farmTitle: 'Rani Farm village',
-    farmer: {
-      ...(DEMO_ALL_FARMERS[3] ?? { name: 'Rani' }),
-      id: 'fmr-00127',
-      name: 'Rani',
-      farmName: 'Rani Farm village',
-      code: 'FMR-00127',
-      initials: 'R',
-      mobile: '+91 90000 20003',
-      location: 'Coonoor',
-      status: 'ACTIVE',
-      rating: 4.5,
-    },
-  },
-];
-
-const ZONE_FILTERS = ['All', 'Coonoor', 'Ooty', 'Kotagiri'] as const;
+const ALL_ZONES = 'ALL' as const;
 
 export interface SuperAdminFarmRecordsListScreenProps {
   onBack: () => void;
   onSelectRecord: (farmer: FarmerListItem) => void;
   onAddRecord?: (() => void) | undefined;
+  /** The live farmers (toDesignFarmerItem). Empty is an empty state, never a fixture. */
+  farmers: readonly FarmerListItem[];
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
 }
 
+/**
+ * Farm records are per farmer, and the farmer list is the only thing this card
+ * needs: there is no bulk farm-records endpoint, and nothing on the card is a
+ * land-location field, so no per-farmer getFarmer fetch is made. The title is
+ * the farmer's own name (the list API sends no farm name; "<name> Farm" was an
+ * invention); code and mobile are the server's, or the dash.
+ */
 export function SuperAdminFarmRecordsListScreen({
   onBack,
   onSelectRecord,
   onAddRecord,
+  farmers,
+  isLoading = false,
+  error,
+  onRetry,
 }: SuperAdminFarmRecordsListScreenProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedZone, setSelectedZone] = useState<(typeof ZONE_FILTERS)[number]>('All');
+  const [selectedZone, setSelectedZone] = useState<string>(ALL_ZONES);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  const visibleEntries = useMemo(() => {
+  // Only the zones of the farmers actually loaded; a farmer with no zone is in none of them.
+  const zoneOptions = useMemo(() => {
+    const zones = new Set<string>();
+    for (const f of farmers) if (f.zone !== undefined && f.zone !== '') zones.add(f.zone);
+    return [...zones].sort((a, b) => a.localeCompare(b));
+  }, [farmers]);
+
+  const viewState = queryViewState({ isLoading, error, itemCount: farmers.length });
+
+  const visibleFarmers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return FARM_RECORD_ENTRIES.filter((entry) => {
-      if (
-        selectedZone !== 'All' &&
-        (entry.farmer.location ?? '').toLowerCase() !== selectedZone.toLowerCase()
-      ) {
-        return false;
-      }
+    return farmers.filter((f) => {
+      if (selectedZone !== ALL_ZONES && f.zone !== selectedZone) return false;
       if (!q) return true;
-      const code = (entry.farmer.code ?? '').toLowerCase();
-      const phone = (entry.farmer.mobile ?? '').toLowerCase();
-      const loc = (entry.farmer.location ?? '').toLowerCase();
       return (
-        entry.farmTitle.toLowerCase().includes(q) ||
-        entry.farmer.name.toLowerCase().includes(q) ||
-        code.includes(q) ||
-        phone.includes(q) ||
-        loc.includes(q)
+        f.name.toLowerCase().includes(q) ||
+        (f.code ?? '').toLowerCase().includes(q) ||
+        (f.mobile ?? '').toLowerCase().includes(q) ||
+        (f.zone ?? '').toLowerCase().includes(q)
       );
     });
-  }, [searchQuery, selectedZone]);
+  }, [searchQuery, selectedZone, farmers]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -158,7 +99,7 @@ export function SuperAdminFarmRecordsListScreen({
           onPress={onBack}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('superAdmin.farmRecords.back')}
         >
           <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
         </TouchableOpacity>
@@ -171,7 +112,7 @@ export function SuperAdminFarmRecordsListScreen({
             onPress={onAddRecord}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Add farm record"
+            accessibilityLabel={t('superAdmin.farmRecords.add.a11y')}
           >
             <PlusIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
@@ -190,7 +131,7 @@ export function SuperAdminFarmRecordsListScreen({
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search..."
+            placeholder={t('superAdmin.farmRecords.searchPlaceholder')}
             placeholderTextColor={adminColors.placeholder}
             returnKeyType="search"
           />
@@ -199,49 +140,67 @@ export function SuperAdminFarmRecordsListScreen({
             onPress={() => setFilterOpen(true)}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Filter farm records"
+            accessibilityLabel={t('superAdmin.farmRecords.filter.a11y')}
           >
             <FilterSlidersIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.resultsCount}>
-          {visibleEntries.length} {visibleEntries.length === 1 ? 'record' : 'records'}
-          {selectedZone !== 'All' ? ` · ${selectedZone}` : ''}
-        </Text>
+        {viewState === 'loading' && <AdminLoadingState />}
+        {viewState === 'error' && <AdminErrorState error={error} onRetry={onRetry} />}
+        {viewState === 'empty' && <AdminEmptyState title={t('farmersList.empty.farmers')} />}
+        {viewState === 'ready' && visibleFarmers.length === 0 && (
+          <AdminEmptyState title={t('farmersList.empty.farmersFiltered')} />
+        )}
 
-        <View style={styles.listWrap}>
-          {visibleEntries.map((entry) => {
-            const code = entry.farmer.code ?? 'FMR-00124';
-            const phone = entry.farmer.mobile ?? '+91 90000 20000';
-            return (
-              <TouchableOpacity
-                key={entry.id}
-                style={styles.recordCard}
-                onPress={() => onSelectRecord(entry.farmer)}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityLabel={entry.farmTitle}
-              >
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>{entry.initials}</Text>
-                </View>
+        {viewState === 'ready' && visibleFarmers.length > 0 && (
+          <>
+            <Text style={styles.resultsCount}>
+              {[
+                t(visibleFarmers.length === 1 ? 'superAdmin.farmRecords.count.one' : 'superAdmin.farmRecords.count.other', {
+                  count: visibleFarmers.length,
+                }),
+                ...(selectedZone === ALL_ZONES ? [] : [selectedZone]),
+              ].join(' · ')}
+            </Text>
 
-                <View style={styles.cardInfo}>
-                  <Text style={styles.farmTitle}>{entry.farmTitle}</Text>
-                  <Text style={styles.farmMeta}>
-                    {code} · {phone}
-                  </Text>
-                </View>
+            <View style={styles.listWrap}>
+              {visibleFarmers.map((farmer) => (
+                <TouchableOpacity
+                  key={farmer.id}
+                  style={styles.recordCard}
+                  onPress={() => onSelectRecord(farmer)}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={farmer.name}
+                >
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarText}>{farmer.initials ?? farmer.name.slice(0, 2).toUpperCase()}</Text>
+                  </View>
 
-                <View style={styles.cardRight}>
-                  <AdminStatusBadge status="ACTIVE" label="Active" size="sm" />
-                  <ChevronRightIcon size={16} color={adminColors.muted} />
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.farmTitle}>{farmer.name}</Text>
+                    <Text style={styles.farmMeta}>
+                      {t('superAdmin.farmRecords.codePhone', {
+                        code: farmer.code ?? ADMIN_NO_VALUE,
+                        phone: farmer.mobile ?? ADMIN_NO_VALUE,
+                      })}
+                    </Text>
+                  </View>
+
+                  <View style={styles.cardRight}>
+                    <AdminStatusBadge
+                      status={farmer.status}
+                      label={t(statusLabelKey(farmer.status))}
+                      size="sm"
+                    />
+                    <ChevronRightIcon size={16} color={adminColors.muted} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       <Modal
@@ -253,8 +212,8 @@ export function SuperAdminFarmRecordsListScreen({
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.modalDismiss} onPress={() => setFilterOpen(false)} />
           <View style={styles.pickerSheet}>
-            <Text style={styles.pickerTitle}>Filter by Zone</Text>
-            {ZONE_FILTERS.map((zone) => {
+            <Text style={styles.pickerTitle}>{t('superAdmin.farmRecords.filter.title')}</Text>
+            {[ALL_ZONES, ...zoneOptions].map((zone) => {
               const active = selectedZone === zone;
               return (
                 <TouchableOpacity
@@ -267,7 +226,7 @@ export function SuperAdminFarmRecordsListScreen({
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.pickerOptionText, active && styles.pickerOptionTextActive]}>
-                    {zone === 'All' ? 'All Zones' : zone}
+                    {zone === ALL_ZONES ? t('superAdmin.farmRecords.filter.allZones') : zone}
                   </Text>
                 </TouchableOpacity>
               );

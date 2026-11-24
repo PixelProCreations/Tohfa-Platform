@@ -28,6 +28,7 @@ import farmersEntryEn from './farmersEntry.en.json';
 import farmersEntryTa from './farmersEntry.ta.json';
 import farmersListEn from './farmersList.en.json';
 import farmersListTa from './farmersList.ta.json';
+import farmersComplianceEn from './farmersCompliance.en.json';
 // Settings & Notifications catalogues.
 import settingsEn from './settings.en.json';
 import settingsTa from './settings.ta.json';
@@ -83,12 +84,17 @@ import auditDetailsRecordsEn from './auditDetailsRecords.en.json';
 import ordersWorkflowEn from './ordersWorkflow.en.json';
 // Warehouse order dashboard, detail, status history and ready-for-pickup screens catalogue.
 import ordersLiveEn from './ordersLive.en.json';
+// Community & Knowledge (Learning Hub) screens catalogue.
+import communityEn from './community.en.json';
+// Zone Management screens catalogue.
+import zonesEn from './zones.en.json';
 
 export const en = {
   ...errorsEn,
   ...adminEn,
   ...settingsEn,
   ...farmersListEn,
+  ...farmersComplianceEn,
   ...farmerDetailEn,
   ...farmerAppsEn,
   ...farmersEntryEn,
@@ -117,6 +123,8 @@ export const en = {
   ...auditDetailsRecordsEn,
   ...ordersWorkflowEn,
   ...ordersLiveEn,
+  ...communityEn,
+  ...zonesEn,
 };
 const ta: Record<string, string> = {
   ...errorsTa,

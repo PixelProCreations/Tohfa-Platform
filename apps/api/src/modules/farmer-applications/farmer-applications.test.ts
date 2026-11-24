@@ -2187,15 +2187,16 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       return appId;
     }
 
-    it('BR-143: All 5 Nilgiris taluks (+ alias) derive zone on submit, unmapped leaves zone_id null', async () => {
+    it('BR-143: All 6 Nilgiris taluks (+ alias) derive zone on submit case-insensitively, unmapped leaves zone_id null', async () => {
       const mappings: Array<[string, string | null]> = [
         ['Ooty', zones['ZONE-OOTY']!],
-        ['Udhagamandalam', zones['ZONE-OOTY']!],
-        ['Coonoor', zones['ZONE-COON']!],
-        ['Kotagiri', zones['ZONE-KOTA']!],
-        ['Gudalur', zones['ZONE-GUDA']!],
-        ['Pandalur', zones['ZONE-GUDA']!],
-        ['Kundah', null],
+        ['uDhAgAmAnDaLaM', zones['ZONE-OOTY']!],
+        ['kUnDaH', zones['ZONE-OOTY']!],
+        ['cOoNoOr', zones['ZONE-COON']!],
+        ['kOtAgIrI', zones['ZONE-KOTA']!],
+        ['gUdAlUr', zones['ZONE-GUDA']!],
+        ['pAnDaLuR', zones['ZONE-GUDA']!],
+        ['UnmappedTalukXYZ', null],
       ];
 
       for (const [taluk, expectedZoneId] of mappings) {
@@ -2204,6 +2205,94 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         expect(submitRes.status).toBe(200);
         expect(submitRes.body.zoneId).toBe(expectedZoneId);
       }
+    });
+
+    it('BR-143: Specific mappings Kundah -> Ooty and Pandalur -> Gudalur resolve correctly', async () => {
+      const kundahAppId = await createAndFillApplication('Kundah');
+      const kundahRes = await request(server).post(`/v1/farmers/applications/${kundahAppId}/submit`);
+      expect(kundahRes.status).toBe(200);
+      expect(kundahRes.body.zoneId).toBe(zones['ZONE-OOTY']);
+
+      const pandalurAppId = await createAndFillApplication('Pandalur');
+      const pandalurRes = await request(server).post(`/v1/farmers/applications/${pandalurAppId}/submit`);
+      expect(pandalurRes.status).toBe(200);
+      expect(pandalurRes.body.zoneId).toBe(zones['ZONE-GUDA']);
+    });
+
+    it('BR-143: Farmer explicit zone choice in Step 1 beats taluk auto-derivation', async () => {
+      // Kotagiri taluk would naturally derive to ZONE-KOTA.
+      // Farmer explicitly picks ZONE-COON in step 1.
+      const mobile = `+9195${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 9)}`;
+      const createRes = await request(server)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: 'Explicit Choice Farmer' });
+      const appId = createRes.body.id as string;
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/1`)
+        .send({
+          fullName: 'Explicit Choice Farmer',
+          mobile,
+          dob: '1985-05-15',
+          gender: 'Female',
+          aadhaarLast4: '4321',
+          addressLine1: 'Kotagiri Road',
+          village: 'Kotagiri',
+          taluk: 'Kotagiri',
+          district: 'The Nilgiris',
+          pincode: '643217',
+          zoneId: zones['ZONE-COON'],
+        });
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/2`)
+        .send({
+          farmName: 'Cooperative Farm',
+          typeOfFarming: 'Organic Tea',
+          experienceYears: 10,
+          totalAreaAcres: 5.0,
+          numberOfFarms: 1,
+          waterSource: 'Rainfed',
+          primaryCrops: ['tea'],
+        });
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/3`)
+        .send({
+          locations: [
+            {
+              id: 'loc-1',
+              label: 'Main Parcel',
+              areaAcres: 5.0,
+              gpsCaptured: true,
+              latitude: 11.41,
+              longitude: 76.69,
+              village: 'Kotagiri',
+              taluk: 'Kotagiri',
+              district: 'The Nilgiris',
+            },
+          ],
+        });
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/4`)
+        .send({
+          documents: [
+            { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+            { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+          ],
+        });
+
+      const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
+      // Farmer's explicit choice ZONE-COON wins over Kotagiri taluk's ZONE-KOTA
+      expect(submitRes.body.zoneId).toBe(zones['ZONE-COON']);
+    });
+
+    it('BR-143: Two mapping sources (zone_taluks and geographic_zones view) cannot disagree', async () => {
+      const { pool } = await import('../../db/pool.js');
+      const baseRes = await pool.query<{ count: string }>(
+        `SELECT count(*) FROM zone_taluks zt
+          LEFT JOIN geographic_zones gz ON gz.id = zt.id
+         WHERE gz.id IS NULL OR gz.zone_id != zt.zone_id OR lower(gz.taluk) != lower(zt.taluk)`,
+      );
+      expect(Number(baseRes.rows[0]?.count ?? 0)).toBe(0);
     });
 
     it('BR-143: Approval with no body zoneId uses derived zone and writes onto farmers.zone_id', async () => {
@@ -2270,27 +2359,10 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       expect(approveRes.status).toBe(422);
       expect(approveRes.body.code).toBe('ZONE_NOT_FOUND');
-
-      // Test Kundah block derives from system_config.kundah_zone_name
-      const { pool } = await import('../../db/pool.js');
-      await pool.query(
-        `INSERT INTO system_config (key, value, data_type, description)
-         VALUES ('kundah_zone_name', '"ZONE-OOTY"'::jsonb, 'string', 'Zone for Kundah block')
-         ON CONFLICT (key) DO UPDATE SET value = '"ZONE-OOTY"'::jsonb`,
-      );
-
-      try {
-        const kundahAppId = await createAndFillApplication('Kundah');
-        const kundahSubmitRes = await request(server).post(`/v1/farmers/applications/${kundahAppId}/submit`);
-        expect(kundahSubmitRes.status).toBe(200);
-        expect(kundahSubmitRes.body.zoneId).toBe(zones['ZONE-OOTY']);
-      } finally {
-        await pool.query(`DELETE FROM system_config WHERE key = 'kundah_zone_name'`);
-      }
     });
 
     it('BR-143: Unmapped taluk on submit leaves zone_id null; approval without override returns 422 ZONE_NOT_FOUND with no farmer row created', async () => {
-      const appId = await createAndFillApplication('Kundah');
+      const appId = await createAndFillApplication('UnmappedTalukXYZ');
       const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
       expect(submitRes.status).toBe(200);
       expect(submitRes.body.zoneId).toBeNull();
@@ -2302,7 +2374,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       expect(approveRes.status).toBe(422);
       expect(approveRes.body.code).toBe('ZONE_NOT_FOUND');
-      expect(approveRes.body.detail).toContain("Farmer address taluk 'Kundah' cannot be mapped to a zone. Please provide zoneId in the approval request.");
+      expect(approveRes.body.detail).toContain("Farmer address taluk 'UnmappedTalukXYZ' cannot be mapped to a zone. Please provide zoneId in the approval request.");
 
       const { pool } = await import('../../db/pool.js');
       const fRes = await pool.query(
@@ -2319,8 +2391,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const coonAppId = await createAndFillApplication('Coonoor');
       await request(server).post(`/v1/farmers/applications/${coonAppId}/submit`);
 
-      const kundahAppId = await createAndFillApplication('Kundah');
-      await request(server).post(`/v1/farmers/applications/${kundahAppId}/submit`);
+      const unmappedAppId = await createAndFillApplication('UnmappedTalukXYZ');
+      await request(server).post(`/v1/farmers/applications/${unmappedAppId}/submit`);
 
       // 1. Farmer Admin in Ooty lists applications
       const ootyListRes = await request(server)
@@ -2331,7 +2403,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const ootyIds = ootyListRes.body.items.map((i: { id: string }) => i.id);
       expect(ootyIds).toContain(ootyAppId);
       expect(ootyIds).not.toContain(coonAppId);
-      expect(ootyIds).not.toContain(kundahAppId);
+      expect(ootyIds).not.toContain(unmappedAppId);
 
       // 2. Farmer Admin in Ooty GET /:id
       const ootyGetOoty = await request(server)
@@ -2344,12 +2416,12 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         .set('Authorization', `Bearer ${ootyFarmerAdminToken}`);
       expect(ootyGetCoon.status).toBe(404);
 
-      const ootyGetKundah = await request(server)
-        .get(`/v1/admin/farmer-applications/${kundahAppId}`)
+      const ootyGetUnmapped = await request(server)
+        .get(`/v1/admin/farmer-applications/${unmappedAppId}`)
         .set('Authorization', `Bearer ${ootyFarmerAdminToken}`);
-      expect(ootyGetKundah.status).toBe(404);
+      expect(ootyGetUnmapped.status).toBe(404);
 
-      // 3. Super Admin sees all three
+      // 3. Super Admin sees all three and can filter by hasZone=false
       const saListRes = await request(server)
         .get('/v1/admin/farmer-applications?limit=100')
         .set('Authorization', `Bearer ${adminToken}`);
@@ -2357,12 +2429,17 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const saIds = saListRes.body.items.map((i: { id: string }) => i.id);
       expect(saIds).toContain(ootyAppId);
       expect(saIds).toContain(coonAppId);
-      expect(saIds).toContain(kundahAppId);
+      expect(saIds).toContain(unmappedAppId);
 
-      const saGetKundah = await request(server)
-        .get(`/v1/admin/farmer-applications/${kundahAppId}`)
+      // 4. hasZone=false surfaces only unassigned applications
+      const unassignedRes = await request(server)
+        .get('/v1/admin/farmer-applications?hasZone=false')
         .set('Authorization', `Bearer ${adminToken}`);
-      expect(saGetKundah.status).toBe(200);
+      expect(unassignedRes.status).toBe(200);
+      const unassignedIds = unassignedRes.body.items.map((i: { id: string }) => i.id);
+      expect(unassignedIds).toContain(unmappedAppId);
+      expect(unassignedIds).not.toContain(ootyAppId);
+      expect(unassignedIds).not.toContain(coonAppId);
     });
   });
 
@@ -2812,6 +2889,20 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
             .send({ locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, gpsCaptured: true, latitude: 11.41, longitude: 76.69 }] })
         ).status,
       ).toBe(200);
+      expect(
+        (
+          await request(app)
+            .patch(`/v1/farmers/applications/${appId}/steps/4`)
+            .send({
+              documents: [
+                { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+                { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+              ],
+            })
+        ).status,
+      ).toBe(200);
+      const submitRes = await request(app).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
 
       const adminToken = signAccessToken({
         sub: IDS.userSuperAdmin,

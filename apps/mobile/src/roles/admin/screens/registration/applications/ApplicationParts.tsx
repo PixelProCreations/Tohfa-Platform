@@ -51,10 +51,12 @@ export interface HeaderBannerProps {
   onBack: () => void;
   /** Shown after the subtitle as a pill (Approved / Rejected), or as text. */
   status?: { label: string; tone: ApplicationTone; pill: boolean } | undefined;
+  /** Drawn inside the banner under the title row (the design's 01/02/03 mode pills). */
+  children?: React.ReactNode | undefined;
 }
 
 /** The review screen's brand-orange header: back arrow, applicant name, "code · status". */
-export function HeaderBanner({ title, subtitle, onBack, status }: HeaderBannerProps) {
+export function HeaderBanner({ title, subtitle, onBack, status, children }: HeaderBannerProps) {
   return (
     <View style={styles.banner}>
       <View style={styles.bannerRow}>
@@ -82,6 +84,7 @@ export function HeaderBanner({ title, subtitle, onBack, status }: HeaderBannerPr
           </View>
         </View>
       </View>
+      {children}
     </View>
   );
 }
@@ -102,6 +105,26 @@ export function SectionHeading({ label }: { label: string }) {
   );
 }
 
+/**
+ * The 2026-11-19 design's section heading with its "Step n of 5" badge on the
+ * right. `state` is the application's own progress through that step
+ * (detail/reviewFacts.ts), so the badge reports data rather than decoration.
+ */
+export function StepHeader({ label, step, total, state }: { label: string; step: number; total: number; state: 'done' | 'current' | 'pending' }) {
+  const tone = state === 'done' ? styles.stepBadgeDone : state === 'current' ? styles.stepBadgeCurrent : null;
+  const textTone = state === 'done' ? styles.stepBadgeDoneText : state === 'current' ? styles.stepBadgeCurrentText : null;
+  return (
+    <View style={styles.stepHeaderRow}>
+      <Text style={styles.stepHeading} accessibilityRole="header">
+        {label}
+      </Text>
+      <View style={[styles.stepBadge, tone]} testID="farmerApps.stepBadge">
+        <Text style={[styles.stepBadgeText, textTone]}>{t('farmerApps.step', { n: step, total })}</Text>
+      </View>
+    </View>
+  );
+}
+
 export function Card({ children }: { children: React.ReactNode }) {
   return <View style={styles.card}>{children}</View>;
 }
@@ -111,13 +134,23 @@ export interface InfoRowProps {
   value: string;
   last?: boolean | undefined;
   valueTone?: ApplicationTone | undefined;
+  /** The design's small grey line under a label (for example the Aadhaar's "Used to verify identity with TOHFA"). */
+  hint?: string | undefined;
+  /** Drawn after the value, for the design's inline badges. */
+  valueSuffix?: React.ReactNode | undefined;
 }
 
-export function InfoRow({ label, value, last = false, valueTone }: InfoRowProps) {
+export function InfoRow({ label, value, last = false, valueTone, hint, valueSuffix }: InfoRowProps) {
   return (
     <View style={[styles.row, last ? styles.rowLast : null]}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={[styles.value, valueTone === undefined ? null : { color: adminColors[valueTone].text }]}>{value}</Text>
+      <View style={styles.labelBox}>
+        <Text style={styles.label}>{label}</Text>
+        {hint === undefined ? null : <Text style={styles.labelHint}>{hint}</Text>}
+      </View>
+      <View style={styles.valueBox}>
+        <Text style={[styles.value, valueTone === undefined ? null : { color: adminColors[valueTone].text }]}>{value}</Text>
+        {valueSuffix}
+      </View>
     </View>
   );
 }
@@ -164,8 +197,8 @@ const styles = StyleSheet.create({
   banner: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.xsSm,
-    paddingBottom: adminSpacing.sm,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.smMd,
   },
   bannerRow: {
     flexDirection: 'row',
@@ -188,7 +221,8 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.xs,
   },
   bannerSubtitle: {
-    ...adminType.rowMeta,
+    // The design sets 12/500 here; adminType.body (13/400) is the nearest step.
+    ...adminType.body,
     color: adminColors.onBrand,
   },
   badge: {
@@ -202,16 +236,22 @@ const styles = StyleSheet.create({
   sectionHeading: {
     ...adminType.sectionHead,
     color: adminColors.ink,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.xs,
+  },
+  /** The same heading inside a StepHeader row, whose own margins position it. */
+  stepHeading: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.lg,
     paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
+    paddingVertical: adminSpacing.smMd,
     borderWidth: 1,
     borderColor: adminColors.border,
+    marginBottom: adminSpacing.sm,
     ...adminShadow.sm,
   },
   row: {
@@ -221,10 +261,50 @@ const styles = StyleSheet.create({
     gap: adminSpacing.md,
     paddingVertical: adminSpacing.smMd,
     borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
+    // The design's in-card hairline is lighter than the card's own stroke.
+    borderBottomColor: adminColors.dashboard.divider,
   },
   rowLast: {
     borderBottomWidth: 0,
+  },
+  stepHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.xs,
+  },
+  /** The design's "Step n of 5": small orange type on a soft brand pill, no stroke. */
+  stepBadge: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.full,
+    paddingVertical: adminSpacing.xs,
+    paddingHorizontal: adminSpacing.sm,
+  },
+  stepBadgeDone: {
+    backgroundColor: adminColors.success.bg,
+  },
+  stepBadgeCurrent: {
+    backgroundColor: adminColors.brandTint,
+  },
+  stepBadgeText: {
+    ...adminType.caption,
+    color: adminColors.brand,
+  },
+  stepBadgeDoneText: { color: adminColors.success.text },
+  stepBadgeCurrentText: { color: adminColors.brand },
+  labelBox: { flexShrink: 1 },
+  labelHint: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
+  },
+  valueBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    flexShrink: 1,
   },
   label: {
     ...adminType.body,

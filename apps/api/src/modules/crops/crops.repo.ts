@@ -162,6 +162,9 @@ interface CropMasterRow {
   description: string | null;
   deactivation_reason: string | null;
   created_by: string | null;
+  created_by_name: string | null;
+  created_at: Date;
+  updated_at: Date | null;
 }
 
 interface FarmCropRow {
@@ -218,6 +221,9 @@ function toCropMaster(row: CropMasterRow): CropMasterResponse {
     description: row.description,
     deactivationReason: row.deactivation_reason,
     createdBy: row.created_by,
+    createdByName: row.created_by_name,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
   };
 }
 
@@ -247,8 +253,19 @@ function toFarmCrop(row: FarmCropRow): FarmCropResponse {
   };
 }
 
+/**
+ * Allow-list of crop_master columns the API returns — `hsn_code` is deliberately absent.
+ *
+ * `created_by_name` is a correlated scalar subquery rather than a JOIN so the very same
+ * column list serves SELECT and `INSERT/UPDATE ... RETURNING` (RETURNING cannot join). It
+ * yields NULL when `created_by` is NULL or the user row is gone, so a seeded/legacy crop
+ * never drops out of a list the way an INNER JOIN would drop it. Only `full_name` is read
+ * from users — no mobile, email or status. `created_at` is NOT NULL; `updated_at` is NULL
+ * until the first edit (stamped by the generic app_touch_updated_at trigger).
+ */
 const CROP_MASTER_COLUMNS =
-  'id, code, slug, name, name_ta, category_id, botanical_name, default_unit, season_months, shelf_life_days, icon_key, is_active, grade_system, duration_days, storage_temp, description, deactivation_reason, created_by';
+  'id, code, slug, name, name_ta, category_id, botanical_name, default_unit, season_months, shelf_life_days, icon_key, is_active, grade_system, duration_days, storage_temp, description, deactivation_reason, created_by, ' +
+  '(SELECT u.full_name FROM users u WHERE u.id = crop_master.created_by) AS created_by_name, created_at, updated_at';
 
 /**
  * Joined to crop_master for the display fields the mobile crop screens

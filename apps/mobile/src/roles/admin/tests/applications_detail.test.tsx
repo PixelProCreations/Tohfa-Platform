@@ -324,13 +324,26 @@ describe('AdminApplicationDetailScreen: access (fail closed)', () => {
   });
 });
 
-describe('AdminApplicationDetailScreen: Request More Info is dropped', () => {
-  it('renders no Request More Info entry and never calls onRequestMoreInfo', () => {
+/**
+ * The 2026-11-19 design brings a "Request more information" section back onto
+ * this screen, so the old "renders nothing of it" assertion no longer states
+ * the requirement. What still has to hold — and is what that assertion was
+ * protecting — is that nothing here reaches the server: the section is layout
+ * only until the owner decides the wiring, so its control is disabled and the
+ * host's legacy callback is still never called.
+ */
+describe('AdminApplicationDetailScreen: Request More Info is drawn but inert', () => {
+  it('draws the section disabled, calls no host callback and no mutation', () => {
     const onRequestMoreInfo = vi.fn();
     const tree = mount({ onRequestMoreInfo });
-    expect(allText(tree)).not.toMatch(/request (more )?info/i);
-    expect(tree.root.findAll((n) => typeof n.props['testID'] === 'string' && /request/i.test(n.props['testID'] as string))).toHaveLength(0);
+    const send = byTestId(tree, 'farmerApps.sendMoreInfo');
+    expect(send).toHaveLength(1);
+    expect(send[0]!.props['disabled']).toBe(true);
+    expect(send[0]!.props['onPress']).toBeUndefined();
+    expect(allText(tree)).toContain(t('farmerApps.moreInfo.unavailable'));
     expect(onRequestMoreInfo).not.toHaveBeenCalled();
+    expect(approve.run).not.toHaveBeenCalled();
+    expect(reject.run).not.toHaveBeenCalled();
   });
 });
 

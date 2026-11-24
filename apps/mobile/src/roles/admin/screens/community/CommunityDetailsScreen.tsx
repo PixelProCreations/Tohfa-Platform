@@ -6,7 +6,6 @@ import {
   type ScrollViewInstance,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -27,6 +26,14 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { useArchiveCommunity, useCommunity, useCommunityGroups, useCommunityMembers } from '../../api/communitiesHooks';
+import { useAdminQaQuestions } from '../../api/qaHooks';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { canManageLearning, dash } from './communityLogic';
+import { canModerateCommunities, communityDetailView, communityGroupRow, memberRow } from './communitiesLogic';
+import { questionRow } from './qaLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -141,10 +148,20 @@ const TABS: CommunityTabType[] = [
 
 // ─── Component Props ──────────────────────────────────────────────────────────
 
+/**
+ * The menu rows with no endpoint behind them: a community can be archived and
+ * nothing else (no block, no deactivate, no activate). Drawn, never wired.
+ */
+const BLOCKED_MENU_ITEMS = [
+  { id: 'blockChat', label: '🚫  Block Chat', color: adminColors.danger.text },
+  { id: 'blockCommunity', label: '⊗  Block Community', color: adminColors.danger.text },
+  { id: 'deactivate', label: '⏸  Deactivate Community', color: adminColors.warning.text },
+] as const;
+
 export interface CommunityDetailsScreenProps {
   onBack: () => void;
   role?: string | undefined;
-  communityId?: string;
+  communityId?: string | undefined;
   onNavigateMemberDetail?: (memberId: string) => void;
   onNavigateGroupDetail?: (groupId: string) => void;
   onNavigateKnowledgeDetail?: (knowledgeId: string) => void;
@@ -152,30 +169,114 @@ export interface CommunityDetailsScreenProps {
   onNavigateAnnouncementDetail?: (announcementId: string) => void;
   onNavigateEditCommunity?: (communityId?: string) => void;
   onNavigateCreatePost?: (communityId?: string) => void;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/** One list inside the screen: the five states a section can be in, drawn distinctly. */
+function SectionList<T>({
+  allowed,
+  list,
+  emptyTitle,
+  renderItem,
+}: {
+  allowed: boolean;
+  list: {
+    items: T[];
+    isLoading: boolean;
+    error: unknown;
+    refresh: () => void;
+    hasMore: boolean;
+    loadMore: () => void;
+  };
+  emptyTitle: string;
+  renderItem: (item: T) => React.ReactNode;
+}) {
+  if (!allowed) return <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />;
+  if (list.items.length === 0 && list.isLoading) return <AdminLoadingState />;
+  if (list.items.length === 0 && list.error !== null && list.error !== undefined) {
+    return <AdminErrorState error={list.error} onRetry={list.refresh} />;
+  }
+  if (list.items.length === 0) return <AdminEmptyState title={emptyTitle} />;
+  return (
+    <View style={{ gap: adminSpacing.sm }}>
+      {list.items.map(renderItem)}
+      {list.hasMore ? (
+        <TouchableOpacity style={styles.modalCancelBtn} onPress={list.loadMore} activeOpacity={0.8}>
+          <Text style={styles.modalCancelBtnText}>{t('community.loadMore')}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * One community (GET /admin/communities/{id}, BR-59s, community.group.moderate)
+ * with its groups, its derived members and the discussions asked in it.
+ *
+ * What the API supplies is filled in: the name, the archived/active status, the
+ * server's own member and group counts and the created date. What it does not
+ * — discoverability, membership method, per-community knowledge posts and
+ * announcements, "open" discussions — stays drawn and carries the dash.
+ * Knowledge and Announcements have no link to a community to list by, so those
+ * two sections still say they are not built.
+ *
+ * Archive is the one lifecycle change a community has. It asks first, sends
+ * POST .../archive only when confirmed, and reports success only once the
+ * request settled; there is no unarchive, so an archived community's button is
+ * unavailable. Block chat, block community and deactivate have no endpoint and
+ * stay drawn, disabled.
+ */
 export function CommunityDetailsScreen({
   onBack,
   role,
-  communityId: _communityId = 'comm-1',
+  communityId: _communityId,
   onNavigateMemberDetail,
   onNavigateGroupDetail,
-  onNavigateKnowledgeDetail,
+  onNavigateKnowledgeDetail: _onNavigateKnowledgeDetail,
   onNavigateDiscussionDetail,
-  onNavigateAnnouncementDetail,
+  onNavigateAnnouncementDetail: _onNavigateAnnouncementDetail,
   onNavigateEditCommunity,
   onNavigateCreatePost,
+  can,
 }: CommunityDetailsScreenProps) {
   const [activeTab, setActiveTab] = useState<CommunityTabType>('Overview');
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
-  const [showArchiveModal, setShowArchiveModal] = useState(false);
-  const [archiveReason, setArchiveReason] = useState('');
-  const [isArchived, setIsArchived] = useState(false);
-  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
-  const [showBlockChatModal, setShowBlockChatModal] = useState(false);
-  const [isDeactivated, setIsDeactivated] = useState(false);
-  const [isChatBlocked, setIsChatBlocked] = useState(false);
-  const [isBlocked, setIsBlocked] = useState(false);
+
+  const allowed = canModerateCommunities(can);
+  const community = useCommunity(_communityId, { enabled: allowed });
+  const members = useCommunityMembers(_communityId, { enabled: allowed });
+  const groups = useCommunityGroups(_communityId, { enabled: allowed });
+  // Discussions are read through the learning permission, a different grant.
+  const discussionsAllowed = canManageLearning(can);
+  const discussions = useAdminQaQuestions(
+    _communityId === undefined ? {} : { communityId: _communityId },
+    { enabled: discussionsAllowed && _communityId !== undefined },
+  );
+  const archive = useArchiveCommunity();
+  const dto = community.data;
+  const view = communityDetailView(dto);
+  const archiveDisabled = !allowed || dto === undefined || dto.isArchived || archive.isPending;
+
+  const handleArchive = () => {
+    if (archiveDisabled || dto === undefined) return;
+    // A genuine confirmation: archiving cannot be undone from here.
+    Alert.alert(t('community.archive.confirm.title'), t('community.archive.confirm.message'), [
+      { text: t('community.action.cancel'), style: 'cancel' },
+      {
+        text: t('community.archive.confirm.action'),
+        style: 'destructive',
+        onPress: () => {
+          // Only a settled request reports anything; a failure renders archive.error.
+          archive.mutate(dto.id, {
+            onSuccess: () => {
+              Alert.alert(t('community.publish.success.title'), t('community.community.archived'));
+            },
+          });
+        },
+      },
+    ]);
+  };
 
   const tabScrollRef = useRef<ScrollViewInstance>(null);
   const mainScrollRef = useRef<ScrollViewInstance>(null);
@@ -205,16 +306,6 @@ export function CommunityDetailsScreen({
     } else if (tab === 'Settings') {
       mainScrollRef.current?.scrollTo({ y: settingsY.current - 12, animated: true });
     }
-  };
-
-  const handleArchiveConfirm = () => {
-    if (!archiveReason.trim()) {
-      Alert.alert('Reason Required', 'Please enter a reason for archiving this community.');
-      return;
-    }
-    setIsArchived(true);
-    setShowArchiveModal(false);
-    Alert.alert('Community Archived', 'The community has been archived. New member registrations are stopped.');
   };
 
   return (
@@ -261,27 +352,19 @@ export function CommunityDetailsScreen({
           <MountainLandscapeThumbnail size={56} />
           <View style={styles.bannerContent}>
             <View style={styles.bannerTitleRow}>
-              <Text style={styles.bannerTitle} numberOfLines={1}>
-                Nilgiris Organic Growers (demo)
+              <Text style={styles.bannerTitle} numberOfLines={1} testID="community.details.name">
+                {view.name}
               </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  isArchived && { backgroundColor: adminColors.danger.bg },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    isArchived && { color: adminColors.danger.text },
-                  ]}
-                >
-                  {isArchived ? 'Archived' : 'Active'}
+              {/* The server's archived flag; a community that has not loaded is the dash, not "Active". */}
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusBadgeText} testID="community.details.status">
+                  {view.statusText}
                 </Text>
               </View>
             </View>
+            {/* discoverability · membership · members: only the member count is a field. */}
             <Text style={styles.bannerSubtitle} numberOfLines={1}>
-              Discoverable · Open membership · 142 members
+              {view.bannerSubtitle}
             </Text>
           </View>
         </View>
@@ -352,47 +435,20 @@ export function CommunityDetailsScreen({
         </View>
 
         {/* ─── Overview Summary Card (Screenshots 1 & 2) ─── */}
+        {/* Members and groups are the server's counts and Created is the date.
+            Knowledge posts, open discussions and announcements have no
+            per-community figure, so those rows stay drawn with the dash. */}
         <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Members</Text>
-            <Text style={styles.summaryValue}>142</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Groups</Text>
-            <Text style={styles.summaryValue}>3</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Knowledge posts</Text>
-            <Text style={styles.summaryValue}>12</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Open discussions</Text>
-            <Text style={styles.summaryValue}>5</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Announcements</Text>
-            <Text style={styles.summaryValue}>2</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Created</Text>
-            <Text style={styles.summaryValueBold}>1 Feb 2026 · Demo TOHFA Admin</Text>
-          </View>
+          {view.summary.map((row, index) => (
+            <React.Fragment key={row.label}>
+              {index > 0 ? <View style={styles.dottedDivider} /> : null}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>{row.label}</Text>
+                <Text style={styles.summaryValue}>{row.value}</Text>
+              </View>
+            </React.Fragment>
+          ))}
         </View>
-
-        {/* Footnote text matching Screenshots 1 & 2 */}
-        <Text style={styles.footnoteText}>
-          Request to join is not built. An invitation-only community cannot be set Open. Archiving needs a reason and stops new members.
-        </Text>
 
         {/* ─── Members Section (Screenshots 1 & 2) ─── */}
         <View
@@ -401,39 +457,36 @@ export function CommunityDetailsScreen({
           }}
         >
           <Text style={styles.sectionHeading}>Members</Text>
-
-          {/* Member 1: Ramesh Kumar */}
-          <TouchableOpacity
-            style={styles.itemCard}
-            onPress={() => onNavigateMemberDetail && onNavigateMemberDetail('FMR-00124')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Ramesh Kumar (FMR-00124)</Text>
-              <Text style={styles.itemCardSubtitle}>Joined 1 Feb 2026 · Active</Text>
-            </View>
-            <View style={styles.adminBadge}>
-              <Text style={styles.adminBadgeText}>Admin</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Member 2: Selvi */}
-          <TouchableOpacity
-            style={[styles.itemCard, { marginTop: 10 }]}
-            onPress={() => onNavigateMemberDetail && onNavigateMemberDetail('FMR-00131')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Selvi (FMR-00131)</Text>
-              <Text style={styles.itemCardSubtitle}>Joined 10 Mar 2026 · Active</Text>
-            </View>
-            <View style={styles.memberBadge}>
-              <Text style={styles.memberBadgeText}>Member</Text>
-            </View>
-          </TouchableOpacity>
+          <SectionList
+            allowed={allowed}
+            list={members}
+            emptyTitle={t('community.empty.members')}
+            renderItem={(dtoItem) => {
+              const row = memberRow(dtoItem);
+              return (
+                <TouchableOpacity
+                  key={row.id}
+                  style={styles.itemCard}
+                  onPress={() => onNavigateMemberDetail?.(row.id)}
+                  activeOpacity={0.7}
+                  testID={`community.details.member.${row.id}`}
+                >
+                  <View style={styles.itemCardLeft}>
+                    <Text style={styles.itemCardTitle} numberOfLines={1}>
+                      {row.name}
+                    </Text>
+                    <Text style={styles.itemCardSubtitle} numberOfLines={1}>
+                      {row.subtitle}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
         </View>
 
         {/* ─── Groups Section (Screenshots 1, 2, 3) ─── */}
+        {/* GET /admin/communities/{id}/groups: only this community's groups. */}
         <View
           style={{ marginTop: 16 }}
           onLayout={(e) => {
@@ -441,36 +494,32 @@ export function CommunityDetailsScreen({
           }}
         >
           <Text style={styles.sectionHeading}>Groups</Text>
-
-          {/* Group 1: Tomato Growers Circle */}
-          <TouchableOpacity
-            style={styles.itemCard}
-            onPress={() => onNavigateGroupDetail && onNavigateGroupDetail('grp-1')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Tomato Growers Circle</Text>
-              <Text style={styles.itemCardSubtitle}>24 farmers</Text>
-            </View>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Active</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Group 2: Organic Certification Prep */}
-          <TouchableOpacity
-            style={[styles.itemCard, { marginTop: 10 }]}
-            onPress={() => onNavigateGroupDetail && onNavigateGroupDetail('grp-2')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Organic Certification Prep</Text>
-              <Text style={styles.itemCardSubtitle}>18 farmers</Text>
-            </View>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>Active</Text>
-            </View>
-          </TouchableOpacity>
+          <SectionList
+            allowed={allowed}
+            list={groups}
+            emptyTitle={t('community.empty.communityGroups')}
+            renderItem={(groupDto) => {
+              const row = communityGroupRow(groupDto);
+              return (
+                <TouchableOpacity
+                  key={row.id}
+                  style={styles.itemCard}
+                  onPress={() => onNavigateGroupDetail?.(row.id)}
+                  activeOpacity={0.7}
+                  testID={`community.details.group.${row.id}`}
+                >
+                  <View style={styles.itemCardLeft}>
+                    <Text style={styles.itemCardTitle} numberOfLines={1}>
+                      {row.name}
+                    </Text>
+                    <Text style={styles.itemCardSubtitle} numberOfLines={1}>
+                      {row.subtitle}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
         </View>
 
         {/* ─── Knowledge Section (Screenshot 3) ─── */}
@@ -481,36 +530,7 @@ export function CommunityDetailsScreen({
           }}
         >
           <Text style={styles.sectionHeading}>Knowledge</Text>
-
-          {/* Knowledge 1: Tomato leaf curl management */}
-          <TouchableOpacity
-            style={styles.itemCard}
-            onPress={() => onNavigateKnowledgeDetail && onNavigateKnowledgeDetail('art-1')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Tomato leaf curl management</Text>
-              <Text style={styles.itemCardSubtitle}>Published · Expert verified</Text>
-            </View>
-            <View style={styles.articleBadge}>
-              <Text style={styles.articleBadgeText}>Article</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Knowledge 2: Mulching for water retention */}
-          <TouchableOpacity
-            style={[styles.itemCard, { marginTop: 10 }]}
-            onPress={() => onNavigateKnowledgeDetail && onNavigateKnowledgeDetail('art-2')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Mulching for water retention</Text>
-              <Text style={styles.itemCardSubtitle}>Pending Review</Text>
-            </View>
-            <View style={styles.articleBadge}>
-              <Text style={styles.articleBadgeText}>Article</Text>
-            </View>
-          </TouchableOpacity>
+          <AdminEmptyState title={t('community.gap.knowledge.title')} />
         </View>
 
         {/* ─── Discussions Section (Screenshots 3 & 4) ─── */}
@@ -521,30 +541,32 @@ export function CommunityDetailsScreen({
           }}
         >
           <Text style={styles.sectionHeading}>Discussions</Text>
-
-          {/* Discussion 1 */}
-          <TouchableOpacity
-            style={styles.itemCard}
-            onPress={() => onNavigateDiscussionDetail && onNavigateDiscussionDetail('disc-1')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>How often should mulch be replaced?</Text>
-              <Text style={styles.itemCardSubtitle}>Started by Selvi · 3 replies · Open</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Discussion 2 */}
-          <TouchableOpacity
-            style={[styles.itemCard, { marginTop: 10 }]}
-            onPress={() => onNavigateDiscussionDetail && onNavigateDiscussionDetail('disc-2')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>NPOP renewal timelines</Text>
-              <Text style={styles.itemCardSubtitle}>Started by Ramesh Kumar · 1 reply · Open</Text>
-            </View>
-          </TouchableOpacity>
+          <SectionList
+            allowed={discussionsAllowed}
+            list={discussions}
+            emptyTitle={t('community.empty.discussions')}
+            renderItem={(questionDto) => {
+              const row = questionRow(questionDto);
+              return (
+                <TouchableOpacity
+                  key={row.id}
+                  style={styles.itemCard}
+                  onPress={() => onNavigateDiscussionDetail?.(row.id)}
+                  activeOpacity={0.7}
+                  testID={`community.details.discussion.${row.id}`}
+                >
+                  <View style={styles.itemCardLeft}>
+                    <Text style={styles.itemCardTitle} numberOfLines={1}>
+                      {row.title}
+                    </Text>
+                    <Text style={styles.itemCardSubtitle} numberOfLines={1}>
+                      {row.meta}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
         </View>
 
         {/* ─── Announcements Section (Screenshots 3 & 4) ─── */}
@@ -555,30 +577,7 @@ export function CommunityDetailsScreen({
           }}
         >
           <Text style={styles.sectionHeading}>Announcements</Text>
-
-          {/* Announcement 1 */}
-          <TouchableOpacity
-            style={styles.itemCard}
-            onPress={() => onNavigateAnnouncementDetail && onNavigateAnnouncementDetail('ann-1')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>New fair-price ceiling for Q4</Text>
-              <Text style={styles.itemCardSubtitle}>Posted 5 Oct 2026 · Demo TOHFA Admin</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Announcement 2 */}
-          <TouchableOpacity
-            style={[styles.itemCard, { marginTop: 10 }]}
-            onPress={() => onNavigateAnnouncementDetail && onNavigateAnnouncementDetail('ann-2')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.itemCardLeft}>
-              <Text style={styles.itemCardTitle}>Audit season starts 15 Oct</Text>
-              <Text style={styles.itemCardSubtitle}>Posted 28 Sep 2026 · Demo TOHFA Admin</Text>
-            </View>
-          </TouchableOpacity>
+          <AdminEmptyState title={t('community.gap.announcements.title')} />
         </View>
 
         {/* ─── Settings Section (Screenshots 3 & 4) ─── */}
@@ -590,97 +589,47 @@ export function CommunityDetailsScreen({
         >
           <Text style={styles.sectionHeading}>Settings</Text>
 
+          {/* Discoverability and membership are not stored on a community; the
+              status is its archived flag. */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Discoverability</Text>
-              <Text style={styles.summaryValueBold}>Discoverable</Text>
+              <Text style={styles.summaryValueBold}>{dash()}</Text>
             </View>
             <View style={styles.dottedDivider} />
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Membership</Text>
-              <Text style={styles.summaryValueBold}>Open</Text>
+              <Text style={styles.summaryValueBold}>{dash()}</Text>
             </View>
             <View style={styles.dottedDivider} />
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Status</Text>
-              <Text
-                style={[
-                  styles.summaryValueActive,
-                  isArchived && { color: adminColors.danger.text },
-                ]}
-              >
-                {isArchived ? 'Archived' : 'Active'}
-              </Text>
+              <Text style={styles.summaryValueBold}>{view.statusText}</Text>
             </View>
           </View>
         </View>
 
         {/* ─── Archive Community Button (Screenshot 4) ─── */}
         <TouchableOpacity
-          style={styles.archiveBtn}
-          onPress={() => setShowArchiveModal(true)}
+          style={[styles.archiveBtn, archiveDisabled && styles.actionUnavailable]}
+          onPress={archiveDisabled ? undefined : handleArchive}
+          disabled={archiveDisabled}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: archiveDisabled, busy: archive.isPending }}
+          testID="community.details.archive"
         >
-          <Text style={styles.archiveBtnText}>
-            {isArchived ? 'Community is Archived' : 'Archive community'}
-          </Text>
+          <Text style={styles.archiveBtnText}>{archive.isPending ? t('community.action.saving') : 'Archive community'}</Text>
         </TouchableOpacity>
+        {archive.error !== null && archive.error !== undefined ? (
+          <Text style={styles.footnoteText} testID="community.details.archiveError">
+            {t(adminErrorKey(archive.error))}
+          </Text>
+        ) : null}
       </ScrollView>
 
-      {/* ─── Archive Confirmation Modal ─── */}
-      <Modal
-        visible={showArchiveModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowArchiveModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowArchiveModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalDialogCard}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={styles.modalDialogTitle}>Archive Community</Text>
-            <Text style={styles.modalDialogSubtitle}>
-              Archiving needs a reason and will stop new member registrations.
-            </Text>
-
-            <Text style={styles.modalFieldLabel}>Reason for archiving *</Text>
-            <TextInput
-              style={styles.modalTextInput}
-              placeholder="e.g., Inactivity, merged into Nilgiris West, or seasonal closure"
-              placeholderTextColor={adminColors.placeholder}
-              value={archiveReason}
-              onChangeText={setArchiveReason}
-              multiline
-              numberOfLines={3}
-            />
-
-            <View style={styles.modalDialogButtonsRow}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setShowArchiveModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalCancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalConfirmArchiveBtn}
-                onPress={handleArchiveConfirm}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalConfirmArchiveBtnText}>Confirm Archive</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
       {/* ─── Header Dropdown Popup Menu (Image 2) ─── */}
       <Modal
         visible={showHeaderMenu}
@@ -722,64 +671,45 @@ export function CommunityDetailsScreen({
 
             {role === 'SUPER_ADMIN' ? (
               <>
+                {/* Block chat, block community and deactivate have no endpoint, so
+                    each stays in the menu, disabled, with one note. Archive is the
+                    one real lifecycle change. */}
+                {BLOCKED_MENU_ITEMS.map((item) => (
+                  <React.Fragment key={item.id}>
+                    <View style={styles.menuDivider} />
+                    <TouchableOpacity
+                      style={[styles.menuItemRow, styles.actionUnavailable]}
+                      disabled
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: true }}
+                      testID={`community.details.menu.${item.id}`}
+                    >
+                      <Text style={[styles.menuItemText, { color: item.color }]}>{item.label}</Text>
+                    </TouchableOpacity>
+                  </React.Fragment>
+                ))}
                 <View style={styles.menuDivider} />
                 <TouchableOpacity
-                  style={styles.menuItemRow}
-                  onPress={() => {
-                    setShowHeaderMenu(false);
-                    setShowBlockChatModal(true);
-                  }}
+                  style={[styles.menuItemRow, archiveDisabled && styles.actionUnavailable]}
+                  onPress={
+                    archiveDisabled
+                      ? undefined
+                      : () => {
+                          setShowHeaderMenu(false);
+                          handleArchive();
+                        }
+                  }
+                  disabled={archiveDisabled}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: archiveDisabled }}
+                  testID="community.details.menu.archive"
                 >
-                  <Text style={[styles.menuItemText, { color: adminColors.danger.text }]}>🚫  Block Chat</Text>
+                  <Text style={[styles.menuItemText, { color: adminColors.brand }]}>{'🗑  Archive community'}</Text>
                 </TouchableOpacity>
-
                 <View style={styles.menuDivider} />
-                <TouchableOpacity
-                  style={styles.menuItemRow}
-                  onPress={() => {
-                    setShowHeaderMenu(false);
-                    setIsBlocked(!isBlocked);
-                    Alert.alert(
-                      isBlocked ? 'Community Unblocked' : 'Community Blocked',
-                      isBlocked ? 'Community has been unblocked.' : 'Community has been blocked from member activities.'
-                    );
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.menuItemText, { color: adminColors.danger.text }]}>⊗  Block Community</Text>
-                </TouchableOpacity>
-
-                <View style={styles.menuDivider} />
-                <TouchableOpacity
-                  style={styles.menuItemRow}
-                  onPress={() => {
-                    setShowHeaderMenu(false);
-                    if (isDeactivated) {
-                      setIsDeactivated(false);
-                      Alert.alert('Community Activated', 'This community is now active.');
-                    } else {
-                      setShowDeactivateModal(true);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.menuItemText, { color: isDeactivated ? adminColors.success.text : adminColors.warning.text }]}>
-                    {isDeactivated ? '🔄  Activate Community' : '⏸  Deactivate Community'}
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={styles.menuDivider} />
-                <TouchableOpacity
-                  style={styles.menuItemRow}
-                  onPress={() => {
-                    setShowHeaderMenu(false);
-                    setShowArchiveModal(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.menuItemText, { color: adminColors.brand }]}>🗑  Archive community</Text>
-                </TouchableOpacity>
+                <Text style={styles.menuNote}>{t('community.gap.community.actions')}</Text>
               </>
             ) : (
               <>
@@ -801,95 +731,6 @@ export function CommunityDetailsScreen({
         </TouchableOpacity>
       </Modal>
 
-      {/* ─── Modal: Deactivate Community (Image 4 Left Phone) ─── */}
-      <Modal visible={showDeactivateModal} transparent animationType="fade">
-        <View style={styles.modalCenteredOverlay}>
-          <View style={styles.actionModalCard}>
-            <TouchableOpacity
-              style={styles.modalCloseTopRight}
-              onPress={() => setShowDeactivateModal(false)}
-            >
-              <Text style={{ fontSize: 16, color: adminColors.muted }}>✕</Text>
-            </TouchableOpacity>
-
-            <View style={styles.pauseIconCircle}>
-              <Text style={{ fontSize: 20 }}>⏸</Text>
-            </View>
-
-            <Text style={styles.actionModalTitle}>Deactivate Community</Text>
-            <Text style={styles.actionModalDesc}>
-              Temporarily disable this community. Members cannot post or create now discussions, but the data will be preserved.
-            </Text>
-
-            <View style={styles.actionModalBtnsRow}>
-              <TouchableOpacity
-                style={styles.modalOutlineBtn}
-                onPress={() => setShowDeactivateModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalOrangeBtn}
-                onPress={() => {
-                  setShowDeactivateModal(false);
-                  setIsDeactivated(true);
-                  Alert.alert('Community Deactivated', 'Nilgiris Organic Growers has been deactivated.');
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.modalOrangeBtnText}>Deactivate</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ─── Modal: Block Chat (Image 4 Right Phone) ─── */}
-      <Modal visible={showBlockChatModal} transparent animationType="fade">
-        <View style={styles.modalCenteredOverlay}>
-          <View style={styles.actionModalCard}>
-            <TouchableOpacity
-              style={styles.modalCloseTopRight}
-              onPress={() => setShowBlockChatModal(false)}
-            >
-              <Text style={{ fontSize: 16, color: adminColors.muted }}>✕</Text>
-            </TouchableOpacity>
-
-            <View style={styles.banIconCircle}>
-              <Text style={{ fontSize: 20 }}>🚫</Text>
-            </View>
-
-            <Text style={styles.actionModalTitle}>Block Chat</Text>
-            <Text style={styles.actionModalDesc}>
-              You are block this group chat
-            </Text>
-
-            <View style={styles.actionModalBtnsRow}>
-              <TouchableOpacity
-                style={styles.modalOutlineBtn}
-                onPress={() => setShowBlockChatModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalRedBtn}
-                onPress={() => {
-                  setShowBlockChatModal(false);
-                  setIsChatBlocked(true);
-                  Alert.alert('Chat Blocked', 'Group chat has been blocked for this community.');
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.modalRedBtnText}>Block</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1315,6 +1156,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: adminColors.ink,
+  },
+  /** The designed control, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  subCaption: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  menuNote: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   menuDivider: {
     height: StyleSheet.hairlineWidth,

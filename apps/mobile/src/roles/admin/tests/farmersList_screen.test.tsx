@@ -43,7 +43,7 @@ const hooks = vi.hoisted(() => ({
 }));
 vi.mock('../api/farmerHooks', () => hooks);
 
-import { AdminAllFarmersScreen } from '../screens/farmers/AdminAllFarmersScreen';
+import { FarmersListScreen as AdminAllFarmersScreen } from '../screens/farmers/list/FarmersListScreen';
 import { SEARCH_DEBOUNCE_MS } from '../screens/farmers/list/farmersListLogic';
 import { makeCan, type Can } from '../permissions/can';
 import { en } from '../i18n';

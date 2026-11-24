@@ -10,31 +10,65 @@ import type {
   UpdateVideoBody,
 } from './learning-hub.schema.js';
 
+/**
+ * BR-59r. Already camelCased by `json_build_object` in `cropsSubquery`, because
+ * it crosses the wire as one JSON value rather than as columns the mapper
+ * renames. `name_ta` is the only field whose SQL and API names differ.
+ */
+export interface CropRefRow {
+  id: string; name: string; nameTa: string | null;
+}
+
+export type ReviewStatus = 'NOT_SUBMITTED' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
 export interface ArticleRow {
   id: string; title: string; content: string; snippet: string | null;
   read_time: string; author: string; tag: string; language: 'en' | 'ta';
-  is_published: boolean; created_at: string; updated_at: string;
+  is_published: boolean;
+  review_status?: ReviewStatus;
+  submitted_for_review_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_note?: string | null;
+  crops?: CropRefRow[]; created_at: string; updated_at: string;
 }
 export type ArticleSummaryRow = Omit<ArticleRow, 'content'>;
 
 export interface VideoRow {
   id: string; title: string; description: string | null; video_url: string;
   duration: string; author: string; language: 'en' | 'ta'; is_featured: boolean;
-  is_published: boolean; created_at: string; updated_at: string;
+  is_published: boolean;
+  review_status?: ReviewStatus;
+  submitted_for_review_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_note?: string | null;
+  crops?: CropRefRow[]; created_at: string; updated_at: string;
 }
 
 export interface TrainingRow {
   id: string; title: string; description: string | null; training_date: string;
   start_time: string; end_time: string | null; mode: 'IN_FIELD' | 'ONLINE_WEBINAR';
   location: string; instructor: string; capacity: number | null; language: 'en' | 'ta';
-  is_published: boolean; created_at: string; updated_at: string;
+  is_published: boolean;
+  review_status?: ReviewStatus;
+  submitted_for_review_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_note?: string | null;
+  created_at: string; updated_at: string;
   enrolled_count?: string | number; is_enrolled?: boolean;
 }
 
 export interface GroupRow {
   id: string; name: string; description: string | null; category: string;
   created_at: string; updated_at: string; member_count?: string | number; is_joined?: boolean;
-  archived_at?: string | null;
+  archived_at?: string | null; community_id?: string | null;
+  review_status?: ReviewStatus;
+  submitted_for_review_at?: string | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_note?: string | null;
 }
 
 export interface TrainingLockRow {
@@ -53,24 +87,72 @@ function escapeIlike(str: string): string {
   return str.replace(/([\\%_])/g, '\\$1');
 }
 
+/**
+ * BR-59r: the crop chips for one content row, as a single JSON column.
+ *
+ * A correlated subquery rather than a LEFT JOIN + GROUP BY because the list
+ * queries already paginate with LIMIT/OFFSET over the content table: grouping
+ * would change what LIMIT counts. It is also not a second round-trip, so a page
+ * of 20 articles stays one query.
+ *
+ * A soft-deleted crop is left out of the read even though it could not have
+ * been tagged in the first place (the write rejects it): a crop retired AFTER
+ * the tag was written must not come back as a chip the admin can no longer pick.
+ * Ordered by name so the chip row is stable between requests.
+ */
+function cropsSubquery(joinTable: string, fkColumn: string, contentTable: string): string {
+  return `COALESCE((
+      SELECT json_agg(json_build_object('id', cm.id, 'name', cm.name, 'nameTa', cm.name_ta) ORDER BY cm.name)
+        FROM ${joinTable} lc
+        JOIN crop_master cm ON cm.id = lc.crop_id AND cm.deleted_at IS NULL
+       WHERE lc.${fkColumn} = ${contentTable}.id
+    ), '[]'::json) AS crops`;
+}
+
+const ARTICLE_CROPS = cropsSubquery('learning_article_crops', 'article_id', 'learning_articles');
+const VIDEO_CROPS = cropsSubquery('learning_video_crops', 'video_id', 'learning_videos');
+
 export interface FindArticlesParams {
   page: number; limit: number; language?: 'en' | 'ta' | undefined; tag?: string | undefined;
   isPublished?: boolean | undefined; publishedOnly?: boolean | undefined; q?: string | undefined;
+  reviewStatus?: ReviewStatus | undefined;
 }
 export interface FindVideosParams {
   page: number; limit: number; language?: 'en' | 'ta' | undefined;
   isPublished?: boolean | undefined; publishedOnly?: boolean | undefined; q?: string | undefined;
+  reviewStatus?: ReviewStatus | undefined;
 }
 export interface FindTrainingsParams {
   page: number; limit: number; language?: 'en' | 'ta' | undefined;
   isPublished?: boolean | undefined; publishedOnly?: boolean | undefined; farmerId?: string | undefined; q?: string | undefined;
+  reviewStatus?: ReviewStatus | undefined;
 }
 export interface FindGroupsParams {
-  page: number; limit: number; category?: string | undefined; farmerId?: string | undefined;
+  page: number; limit: number; category?: string | undefined; communityId?: string | undefined; farmerId?: string | undefined;
   q?: string | undefined; sort?: 'members' | 'name' | undefined;
+  reviewStatus?: ReviewStatus | undefined;
 }
 
 export interface LearningHubRepo {
+  /**
+   * BR-59r. Of `cropIds`, the ones that are a live `crop_master` row (not
+   * soft-deleted). The service turns the difference into a 422 — it never drops
+   * an id it could not resolve.
+   *
+   * `is_active = false` is deliberately NOT a filter: a deactivated crop is
+   * still a real taxonomy row, and content written about it stays true. Only
+   * `deleted_at` (the row is gone) disqualifies it.
+   */
+  findLiveCropIds(db: Executor, cropIds: string[]): Promise<string[]>;
+  /**
+   * BR-59r. Replaces an article's whole crop set and returns the resulting
+   * chips. Callers pass `[]` to clear; they never call this at all to leave the
+   * tags alone. Must run inside the caller's transaction, between the content
+   * write and its audit row.
+   */
+  replaceArticleCrops(db: Executor, articleId: string, cropIds: string[]): Promise<CropRefRow[]>;
+  replaceVideoCrops(db: Executor, videoId: string, cropIds: string[]): Promise<CropRefRow[]>;
+
   // Articles
   findArticles(db: Executor, params: FindArticlesParams): Promise<{ rows: ArticleSummaryRow[]; total: number }>;
   findArticleById(db: Executor, id: string, publishedOnly?: boolean): Promise<ArticleRow | null>;
@@ -117,11 +199,74 @@ export interface LearningHubRepo {
     farmerId: string,
   ): Promise<{ membership: MembershipRow; created: boolean }>;
   leaveGroup(db: Executor, groupId: string, farmerId: string): Promise<boolean>;
+
+  // Content Review (BR-59t)
+  submitReview(
+    db: Executor,
+    type: 'articles' | 'videos' | 'trainings' | 'groups',
+    id: string,
+    note?: string | undefined,
+  ): Promise<ArticleRow | VideoRow | TrainingRow | GroupRow | null>;
+  reviewContent(
+    db: Executor,
+    type: 'articles' | 'videos' | 'trainings' | 'groups',
+    id: string,
+    status: 'APPROVED' | 'REJECTED',
+    reviewerId: string,
+    note?: string | undefined,
+  ): Promise<ArticleRow | VideoRow | TrainingRow | GroupRow | null>;
+}
+
+/**
+ * BR-59r. DELETE-then-INSERT inside the caller's transaction, which is what
+ * "replace the set" means: it is not a ledger, and nothing reads a half-applied
+ * state because no other statement runs between the two.
+ *
+ * `SELECT ... WHERE id = ANY($2)` for the return value rather than
+ * `INSERT ... RETURNING` joined back, so clearing to `[]` takes the same path
+ * and returns `[]` instead of needing a special case.
+ */
+async function replaceContentCrops(
+  db: Executor,
+  joinTable: string,
+  fkColumn: string,
+  contentId: string,
+  cropIds: string[],
+): Promise<CropRefRow[]> {
+  await db.query(`DELETE FROM ${joinTable} WHERE ${fkColumn} = $1`, [contentId]);
+  if (cropIds.length === 0) return [];
+  await db.query(
+    `INSERT INTO ${joinTable} (${fkColumn}, crop_id) SELECT $1, unnest($2::uuid[])`,
+    [contentId, cropIds],
+  );
+  const res = await db.query<CropRefRow>(
+    `SELECT id, name, name_ta AS "nameTa" FROM crop_master WHERE id = ANY($1::uuid[]) ORDER BY name`,
+    [cropIds],
+  );
+  return res.rows;
 }
 
 export const learningHubRepo: LearningHubRepo = {
+  // ── Crop tagging (BR-59r) ──────────────────────────────────────────────────
+  async findLiveCropIds(db, cropIds) {
+    if (cropIds.length === 0) return [];
+    const res = await db.query<{ id: string }>(
+      `SELECT id FROM crop_master WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+      [cropIds],
+    );
+    return res.rows.map((r) => r.id);
+  },
+
+  async replaceArticleCrops(db, articleId, cropIds) {
+    return replaceContentCrops(db, 'learning_article_crops', 'article_id', articleId, cropIds);
+  },
+
+  async replaceVideoCrops(db, videoId, cropIds) {
+    return replaceContentCrops(db, 'learning_video_crops', 'video_id', videoId, cropIds);
+  },
+
   // ── Articles ───────────────────────────────────────────────────────────────
-  async findArticles(db, { page, limit, language, tag, publishedOnly = true, isPublished, q }) {
+  async findArticles(db, { page, limit, language, tag, publishedOnly = true, isPublished, q, reviewStatus }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
@@ -131,6 +276,10 @@ export const learningHubRepo: LearningHubRepo = {
     } else if (typeof isPublished === 'boolean') {
       conditions.push(`is_published = $${idx++}`);
       params.push(isPublished);
+    }
+    if (reviewStatus) {
+      conditions.push(`review_status = $${idx++}`);
+      params.push(reviewStatus);
     }
     if (language) {
       conditions.push(`language = $${idx++}`);
@@ -153,7 +302,9 @@ export const learningHubRepo: LearningHubRepo = {
     const offset = (page - 1) * limit;
     const querySql = `
       SELECT id, title, snippet, read_time, author, tag, language,
-             is_published, created_at, updated_at
+             is_published, review_status, submitted_for_review_at, reviewed_by,
+             reviewed_at, review_note, created_at, updated_at,
+             ${ARTICLE_CROPS}
       FROM learning_articles
       ${whereClause}
       ORDER BY created_at DESC
@@ -168,7 +319,9 @@ export const learningHubRepo: LearningHubRepo = {
     const where = publishedOnly ? 'WHERE id = $1 AND is_published = true' : 'WHERE id = $1';
     const res = await db.query<ArticleRow>(
       `SELECT id, title, content, snippet, read_time, author, tag, language,
-              is_published, created_at, updated_at
+              is_published, review_status, submitted_for_review_at, reviewed_by,
+              reviewed_at, review_note, created_at, updated_at,
+              ${ARTICLE_CROPS}
        FROM learning_articles
        ${where}`,
       [id],
@@ -182,7 +335,9 @@ export const learningHubRepo: LearningHubRepo = {
        (title, content, snippet, read_time, author, tag, language, is_published)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, title, content, snippet, read_time, author, tag, language,
-                 is_published, created_at, updated_at`,
+                 is_published, review_status, submitted_for_review_at, reviewed_by,
+                 reviewed_at, review_note, created_at, updated_at,
+                 ${ARTICLE_CROPS}`,
       [
         body.title,
         body.content,
@@ -240,7 +395,9 @@ export const learningHubRepo: LearningHubRepo = {
        SET ${sets.join(', ')}
        WHERE id = $1
        RETURNING id, title, content, snippet, read_time, author, tag, language,
-                 is_published, created_at, updated_at`,
+                 is_published, review_status, submitted_for_review_at, reviewed_by,
+                 reviewed_at, review_note, created_at, updated_at,
+                 ${ARTICLE_CROPS}`,
       params,
     );
     return res.rows[0] ?? null;
@@ -252,7 +409,7 @@ export const learningHubRepo: LearningHubRepo = {
   },
 
   // ── Videos ─────────────────────────────────────────────────────────────────
-  async findVideos(db, { page, limit, language, publishedOnly = true, isPublished, q }) {
+  async findVideos(db, { page, limit, language, publishedOnly = true, isPublished, q, reviewStatus }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
@@ -262,6 +419,10 @@ export const learningHubRepo: LearningHubRepo = {
     } else if (typeof isPublished === 'boolean') {
       conditions.push(`is_published = $${idx++}`);
       params.push(isPublished);
+    }
+    if (reviewStatus) {
+      conditions.push(`review_status = $${idx++}`);
+      params.push(reviewStatus);
     }
     if (language) {
       conditions.push(`language = $${idx++}`);
@@ -280,7 +441,9 @@ export const learningHubRepo: LearningHubRepo = {
     const offset = (page - 1) * limit;
     const querySql = `
       SELECT id, title, description, video_url, duration, author, language,
-             is_featured, is_published, created_at, updated_at
+             is_featured, is_published, review_status, submitted_for_review_at,
+             reviewed_by, reviewed_at, review_note, created_at, updated_at,
+             ${VIDEO_CROPS}
       FROM learning_videos
       ${whereClause}
       ORDER BY is_featured DESC, created_at DESC
@@ -294,7 +457,9 @@ export const learningHubRepo: LearningHubRepo = {
   async findVideoById(db, id) {
     const res = await db.query<VideoRow>(
       `SELECT id, title, description, video_url, duration, author, language,
-              is_featured, is_published, created_at, updated_at
+              is_featured, is_published, review_status, submitted_for_review_at,
+              reviewed_by, reviewed_at, review_note, created_at, updated_at,
+              ${VIDEO_CROPS}
        FROM learning_videos
        WHERE id = $1`,
       [id],
@@ -308,7 +473,9 @@ export const learningHubRepo: LearningHubRepo = {
        (title, description, video_url, duration, author, language, is_featured, is_published)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, title, description, video_url, duration, author, language,
-                 is_featured, is_published, created_at, updated_at`,
+                 is_featured, is_published, review_status, submitted_for_review_at,
+                 reviewed_by, reviewed_at, review_note, created_at, updated_at,
+                 ${VIDEO_CROPS}`,
       [
         body.title,
         body.description ?? null,
@@ -366,7 +533,9 @@ export const learningHubRepo: LearningHubRepo = {
        SET ${sets.join(', ')}
        WHERE id = $1
        RETURNING id, title, description, video_url, duration, author, language,
-                 is_featured, is_published, created_at, updated_at`,
+                 is_featured, is_published, review_status, submitted_for_review_at,
+                 reviewed_by, reviewed_at, review_note, created_at, updated_at,
+                 ${VIDEO_CROPS}`,
       params,
     );
     return res.rows[0] ?? null;
@@ -378,7 +547,7 @@ export const learningHubRepo: LearningHubRepo = {
   },
 
   // ── Trainings ──────────────────────────────────────────────────────────────
-  async findTrainings(db, { page, limit, language, publishedOnly = true, isPublished, farmerId, q }) {
+  async findTrainings(db, { page, limit, language, publishedOnly = true, isPublished, farmerId, q, reviewStatus }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
@@ -388,6 +557,10 @@ export const learningHubRepo: LearningHubRepo = {
     } else if (typeof isPublished === 'boolean') {
       conditions.push(`t.is_published = $${idx++}`);
       params.push(isPublished);
+    }
+    if (reviewStatus) {
+      conditions.push(`t.review_status = $${idx++}`);
+      params.push(reviewStatus);
     }
     if (language) {
       conditions.push(`t.language = $${idx++}`);
@@ -416,7 +589,8 @@ export const learningHubRepo: LearningHubRepo = {
     const querySql = `
       SELECT t.id, t.title, t.description, t.training_date::text AS training_date,
              t.start_time, t.end_time, t.mode, t.location, t.instructor, t.capacity,
-             t.language, t.is_published, t.created_at, t.updated_at,
+             t.language, t.is_published, t.review_status, t.submitted_for_review_at,
+             t.reviewed_by, t.reviewed_at, t.review_note, t.created_at, t.updated_at,
              (SELECT count(*)::int FROM learning_training_enrollments e WHERE e.training_id = t.id) AS enrolled_count,
              ${enrolledSelect}
       FROM learning_trainings t
@@ -443,7 +617,8 @@ export const learningHubRepo: LearningHubRepo = {
     const res = await db.query<TrainingRow>(
       `SELECT t.id, t.title, t.description, t.training_date::text AS training_date,
               t.start_time, t.end_time, t.mode, t.location, t.instructor, t.capacity,
-              t.language, t.is_published, t.created_at, t.updated_at,
+              t.language, t.is_published, t.review_status, t.submitted_for_review_at,
+              t.reviewed_by, t.reviewed_at, t.review_note, t.created_at, t.updated_at,
               (SELECT count(*)::int FROM learning_training_enrollments e WHERE e.training_id = t.id) AS enrolled_count,
               ${enrolledSelect}
        FROM learning_trainings t
@@ -461,7 +636,8 @@ export const learningHubRepo: LearningHubRepo = {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING id, title, description, training_date::text AS training_date,
                  start_time, end_time, mode, location, instructor, capacity,
-                 language, is_published, created_at, updated_at`,
+                 language, is_published, review_status, submitted_for_review_at,
+                 reviewed_by, reviewed_at, review_note, created_at, updated_at`,
       [
         body.title,
         body.description ?? null,
@@ -538,7 +714,8 @@ export const learningHubRepo: LearningHubRepo = {
        WHERE id = $1
        RETURNING id, title, description, training_date::text AS training_date,
                  start_time, end_time, mode, location, instructor, capacity,
-                 language, is_published, created_at, updated_at,
+                 language, is_published, review_status, submitted_for_review_at,
+                 reviewed_by, reviewed_at, review_note, created_at, updated_at,
                  (SELECT count(*)::int FROM learning_training_enrollments WHERE training_id = $1) AS enrolled_count`,
       params,
     );
@@ -596,7 +773,7 @@ export const learningHubRepo: LearningHubRepo = {
   },
 
   // ── Groups ─────────────────────────────────────────────────────────────────
-  async findGroups(db, { page, limit, category, farmerId, q, sort }) {
+  async findGroups(db, { page, limit, category, communityId, farmerId, q, sort, reviewStatus }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
@@ -604,6 +781,14 @@ export const learningHubRepo: LearningHubRepo = {
     if (category) {
       conditions.push(`g.category = $${idx++}`);
       params.push(category);
+    }
+    if (communityId) {
+      conditions.push(`g.community_id = $${idx++}`);
+      params.push(communityId);
+    }
+    if (reviewStatus) {
+      conditions.push(`g.review_status = $${idx++}`);
+      params.push(reviewStatus);
     }
     if (q) {
       conditions.push(`g.name ILIKE $${idx++} ESCAPE '\\'`);
@@ -636,7 +821,9 @@ export const learningHubRepo: LearningHubRepo = {
     }
 
     const querySql = `
-      SELECT g.id, g.name, g.description, g.category, g.archived_at, g.created_at, g.updated_at,
+      SELECT g.id, g.name, g.description, g.category, g.archived_at, g.community_id,
+             g.review_status, g.submitted_for_review_at, g.reviewed_by, g.reviewed_at, g.review_note,
+             g.created_at, g.updated_at,
              (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = g.id) AS member_count,
              ${joinedSelect}
       FROM learning_groups g
@@ -661,7 +848,9 @@ export const learningHubRepo: LearningHubRepo = {
     }
 
     const res = await db.query<GroupRow>(
-      `SELECT g.id, g.name, g.description, g.category, g.archived_at, g.created_at, g.updated_at,
+      `SELECT g.id, g.name, g.description, g.category, g.archived_at, g.community_id,
+              g.review_status, g.submitted_for_review_at, g.reviewed_by, g.reviewed_at, g.review_note,
+              g.created_at, g.updated_at,
               (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = g.id) AS member_count,
               ${joinedSelect}
        FROM learning_groups g
@@ -673,10 +862,12 @@ export const learningHubRepo: LearningHubRepo = {
 
   async createGroup(db, body) {
     const res = await db.query<GroupRow>(
-      `INSERT INTO learning_groups (name, description, category)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, description, category, archived_at, created_at, updated_at`,
-      [body.name, body.description ?? null, body.category],
+      `INSERT INTO learning_groups (name, description, category, community_id)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, name, description, category, archived_at, community_id,
+                 review_status, submitted_for_review_at, reviewed_by, reviewed_at, review_note,
+                 created_at, updated_at`,
+      [body.name, body.description ?? null, body.category, body.communityId ?? null],
     );
     const row = res.rows[0]!;
     row.member_count = 0;
@@ -701,12 +892,18 @@ export const learningHubRepo: LearningHubRepo = {
       sets.push(`category = $${idx++}`);
       params.push(patch.category);
     }
+    if (patch.communityId !== undefined) {
+      sets.push(`community_id = $${idx++}`);
+      params.push(patch.communityId);
+    }
 
     const res = await db.query<GroupRow>(
       `UPDATE learning_groups
        SET ${sets.join(', ')}
        WHERE id = $1
-       RETURNING id, name, description, category, archived_at, created_at, updated_at,
+       RETURNING id, name, description, category, archived_at, community_id,
+                 review_status, submitted_for_review_at, reviewed_by, reviewed_at, review_note,
+                 created_at, updated_at,
                  (SELECT count(*)::int FROM learning_group_memberships WHERE group_id = $1) AS member_count`,
       params,
     );
@@ -723,7 +920,9 @@ export const learningHubRepo: LearningHubRepo = {
       `UPDATE learning_groups
        SET archived_at = now(), updated_at = now()
        WHERE id = $1
-       RETURNING id, name, description, category, archived_at, created_at, updated_at,
+       RETURNING id, name, description, category, archived_at, community_id,
+                 review_status, submitted_for_review_at, reviewed_by, reviewed_at, review_note,
+                 created_at, updated_at,
                  (SELECT count(*)::int FROM learning_group_memberships WHERE group_id = $1) AS member_count`,
       [id],
     );
@@ -764,5 +963,146 @@ export const learningHubRepo: LearningHubRepo = {
       [groupId, farmerId],
     );
     return (res.rowCount ?? 0) > 0;
+  },
+
+  // ── Content Review (BR-59t) ────────────────────────────────────────────────
+  async submitReview(db, type, id, note) {
+    if (type === 'articles') {
+      const res = await db.query<ArticleRow>(
+        `UPDATE learning_articles
+         SET review_status = 'PENDING_REVIEW',
+             submitted_for_review_at = now(),
+             review_note = COALESCE($2, review_note),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, title, content, snippet, read_time, author, tag, language,
+                   is_published, review_status, submitted_for_review_at, reviewed_by,
+                   reviewed_at, review_note, created_at, updated_at,
+                   ${ARTICLE_CROPS}`,
+        [id, note ?? null],
+      );
+      return res.rows[0] ?? null;
+    }
+    if (type === 'videos') {
+      const res = await db.query<VideoRow>(
+        `UPDATE learning_videos
+         SET review_status = 'PENDING_REVIEW',
+             submitted_for_review_at = now(),
+             review_note = COALESCE($2, review_note),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, title, description, video_url, duration, author, language,
+                   is_featured, is_published, review_status, submitted_for_review_at,
+                   reviewed_by, reviewed_at, review_note, created_at, updated_at,
+                   ${VIDEO_CROPS}`,
+        [id, note ?? null],
+      );
+      return res.rows[0] ?? null;
+    }
+    if (type === 'trainings') {
+      const res = await db.query<TrainingRow>(
+        `UPDATE learning_trainings
+         SET review_status = 'PENDING_REVIEW',
+             submitted_for_review_at = now(),
+             review_note = COALESCE($2, review_note),
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, title, description, training_date::text AS training_date,
+                   start_time, end_time, mode, location, instructor, capacity,
+                   language, is_published, review_status, submitted_for_review_at,
+                   reviewed_by, reviewed_at, review_note, created_at, updated_at,
+                   (SELECT count(*)::int FROM learning_training_enrollments e WHERE e.training_id = learning_trainings.id) AS enrolled_count,
+                   false AS is_enrolled`,
+        [id, note ?? null],
+      );
+      return res.rows[0] ?? null;
+    }
+    const res = await db.query<GroupRow>(
+      `UPDATE learning_groups
+       SET review_status = 'PENDING_REVIEW',
+           submitted_for_review_at = now(),
+           review_note = COALESCE($2, review_note),
+           updated_at = now()
+       WHERE id = $1
+       RETURNING id, name, description, category, archived_at, community_id,
+                 review_status, submitted_for_review_at, reviewed_by, reviewed_at,
+                 review_note, created_at, updated_at,
+                 (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = learning_groups.id) AS member_count,
+                 false AS is_joined`,
+      [id, note ?? null],
+    );
+    return res.rows[0] ?? null;
+  },
+
+  async reviewContent(db, type, id, status, reviewerId, note) {
+    if (type === 'articles') {
+      const res = await db.query<ArticleRow>(
+        `UPDATE learning_articles
+         SET review_status = $2,
+             reviewed_by = $3,
+             reviewed_at = now(),
+             review_note = $4,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, title, content, snippet, read_time, author, tag, language,
+                   is_published, review_status, submitted_for_review_at, reviewed_by,
+                   reviewed_at, review_note, created_at, updated_at,
+                   ${ARTICLE_CROPS}`,
+        [id, status, reviewerId, note ?? null],
+      );
+      return res.rows[0] ?? null;
+    }
+    if (type === 'videos') {
+      const res = await db.query<VideoRow>(
+        `UPDATE learning_videos
+         SET review_status = $2,
+             reviewed_by = $3,
+             reviewed_at = now(),
+             review_note = $4,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, title, description, video_url, duration, author, language,
+                   is_featured, is_published, review_status, submitted_for_review_at,
+                   reviewed_by, reviewed_at, review_note, created_at, updated_at,
+                   ${VIDEO_CROPS}`,
+        [id, status, reviewerId, note ?? null],
+      );
+      return res.rows[0] ?? null;
+    }
+    if (type === 'trainings') {
+      const res = await db.query<TrainingRow>(
+        `UPDATE learning_trainings
+         SET review_status = $2,
+             reviewed_by = $3,
+             reviewed_at = now(),
+             review_note = $4,
+             updated_at = now()
+         WHERE id = $1
+         RETURNING id, title, description, training_date::text AS training_date,
+                   start_time, end_time, mode, location, instructor, capacity,
+                   language, is_published, review_status, submitted_for_review_at,
+                   reviewed_by, reviewed_at, review_note, created_at, updated_at,
+                   (SELECT count(*)::int FROM learning_training_enrollments e WHERE e.training_id = learning_trainings.id) AS enrolled_count,
+                   false AS is_enrolled`,
+        [id, status, reviewerId, note ?? null],
+      );
+      return res.rows[0] ?? null;
+    }
+    const res = await db.query<GroupRow>(
+      `UPDATE learning_groups
+       SET review_status = $2,
+           reviewed_by = $3,
+           reviewed_at = now(),
+           review_note = $4,
+           updated_at = now()
+       WHERE id = $1
+       RETURNING id, name, description, category, archived_at, community_id,
+                 review_status, submitted_for_review_at, reviewed_by, reviewed_at,
+                 review_note, created_at, updated_at,
+                 (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = learning_groups.id) AS member_count,
+                 false AS is_joined`,
+      [id, status, reviewerId, note ?? null],
+    );
+    return res.rows[0] ?? null;
   },
 };

@@ -24,6 +24,13 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t, type TranslationKey } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { useArchiveCommunity } from '../../api/communitiesHooks';
+import { useAdminQaQuestion, useModerateAdminQaQuestion, usePostAdminQaAnswer } from '../../api/qaHooks';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { canManageLearning } from './communityLogic';
+import { buildAnswerBody, canModerate, canSendAnswer, qaThreadView, threadSubtitle } from './qaLogic';
 
 function ThreeDotsVerticalIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -113,91 +120,107 @@ function ArchiveBoxIcon({ size = 18, color = adminColors.warning.text }: { size?
   );
 }
 
-function ActivatePlayIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Path d="M10 8l6 4-6 4V8z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-// ─── Chat Message Model ───────────────────────────────────────────────────────
-
-export interface ChatMessage {
-  id: string;
-  sender: string;
-  senderType: 'farmer' | 'admin';
-  body: string;
-  timestamp: string;
-  statusText?: string;
-}
-
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg-1',
-    sender: 'Ramesh Kumar (Farmer)',
-    senderType: 'farmer',
-    body: 'Does mulching work for tomato beds too, or only root crops?',
-    timestamp: '11 Oct 2026, 09:12',
-  },
-  {
-    id: 'msg-2',
-    sender: 'Demo TOHFA Admin',
-    senderType: 'admin',
-    body: 'Yes, straw mulch works well for tomato too — keep a 2-3 inch layer, away from the stem.',
-    timestamp: '11 Oct 2026, 10:05',
-    statusText: 'Sent',
-  },
-  {
-    id: 'msg-3',
-    sender: 'Selvi (Farmer)',
-    senderType: 'farmer',
-    body: 'How often should the mulch layer be replaced?',
-    timestamp: '12 Oct 2026, 14:40',
-  },
-];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface QuestionAnswerChatScreenProps {
   onBack: () => void;
   role?: string | undefined;
-  articleTitle?: string;
-  contentType?: string;
-  onNavigateDetails?: () => void;
-  onNavigateEdit?: () => void;
+  /** The question whose thread is shown; absent means no conversation is open. */
+  questionId?: string | undefined;
+  /** The thread's community, so the menu can open or edit it. */
+  onNavigateDetails?: ((communityId?: string) => void) | undefined;
+  onNavigateEdit?: ((communityId?: string) => void) | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * One Q&A thread (BR-59u): the question, then every answer, read from
+ * GET /admin/qa/questions/{id} and replied to with POST .../answers.
+ *
+ * Anyone with `farmer.learning.qa_participate` answers — farmers and
+ * administrators alike — so a bubble's side follows the author's role, not the
+ * viewer. There is no edit or delete control on any message: editing is the
+ * author's own act on the server and a moderator delete has no designed
+ * control, so none is drawn that would fire a request.
+ *
+ * The thread menu: View Details and Edit Community open the question's own
+ * community (disabled when the question has none). Block Chat moderates THIS
+ * question (PATCH .../moderate, isBlocked) and flips to Unblock Chat once it is
+ * blocked; Archive Community archives the question's community. Both ask first.
+ * Block Community and Deactivate Community have no endpoint and stay drawn,
+ * disabled. Nothing reports success before its request settled.
+ */
 export function QuestionAnswerChatScreen({
   onBack,
-  role,
-  articleTitle = 'Mulching for water retention',
-  contentType = 'Article',
+  questionId,
   onNavigateDetails,
   onNavigateEdit,
+  can,
 }: QuestionAnswerChatScreenProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [inputText, setInputText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
-  const [communityStatus, setCommunityStatus] = useState<'Active' | 'Blocked' | 'Deactivated' | 'Archived'>('Active');
-  const [isChatBlocked, setIsChatBlocked] = useState(false);
+  const [inputErrorKey, setInputErrorKey] = useState<TranslationKey | null>(null);
 
-  const handleSendMessage = () => {
-    if (!inputText.trim()) return;
-    const newMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
-      sender: role === 'SUPER_ADMIN' ? 'Super Admin' : 'Demo TOHFA Admin',
-      senderType: 'admin',
-      body: inputText.trim(),
-      timestamp: 'Just now',
-      statusText: 'Sent',
-    };
-    setMessages((prev) => [...prev, newMsg]);
-    setInputText('');
+  const allowed = canManageLearning(can);
+  const thread = useAdminQaQuestion(questionId, { enabled: allowed });
+  const post = usePostAdminQaAnswer();
+  const moderate = useModerateAdminQaQuestion();
+  const archive = useArchiveCommunity();
+
+  const dto = thread.data;
+  const messages = dto === undefined ? [] : qaThreadView(dto);
+  const communityId = dto?.communityId ?? undefined;
+  const mayModerate = canModerate(can);
+  const sendDisabled = !canSendAnswer(can) || dto === undefined || inputText.trim() === '' || post.isPending;
+  const blockDisabled = !mayModerate || dto === undefined || moderate.isPending;
+  const archiveDisabled = !mayModerate || communityId === undefined || archive.isPending;
+  const actionError = post.error ?? moderate.error ?? archive.error;
+
+  const handleSend = () => {
+    if (sendDisabled || dto === undefined) return;
+    const built = buildAnswerBody(inputText);
+    if (!built.ok) {
+      setInputErrorKey(built.errorKey);
+      return;
+    }
+    setInputErrorKey(null);
+    // The box is cleared only once the reply is stored; a failure keeps what was typed.
+    post.mutate({ questionId: dto.id, content: built.body.content }, { onSuccess: () => setInputText('') });
   };
 
-  const hasPendingFarmerMessage = messages.length > 0 && messages[messages.length - 1]?.senderType === 'farmer';
+  const handleBlock = () => {
+    if (blockDisabled || dto === undefined) return;
+    setShowMenu(false);
+    const next = !dto.isBlocked;
+    const prefix = next ? 'community.chat.block' : 'community.chat.unblock';
+    Alert.alert(t(`${prefix}.confirm.title` as TranslationKey), t(`${prefix}.confirm.message` as TranslationKey), [
+      { text: t('community.action.cancel'), style: 'cancel' },
+      {
+        text: t(`${prefix}.confirm.action` as TranslationKey),
+        style: next ? 'destructive' : 'default',
+        onPress: () => moderate.mutate({ id: dto.id, body: { isBlocked: next } }),
+      },
+    ]);
+  };
+
+  const handleArchive = () => {
+    if (archiveDisabled || communityId === undefined) return;
+    setShowMenu(false);
+    Alert.alert(t('community.archive.confirm.title'), t('community.archive.confirm.message'), [
+      { text: t('community.action.cancel'), style: 'cancel' },
+      {
+        text: t('community.archive.confirm.action'),
+        style: 'destructive',
+        onPress: () =>
+          archive.mutate(communityId, {
+            onSuccess: () => {
+              Alert.alert(t('community.publish.success.title'), t('community.community.archived'));
+            },
+          }),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -217,9 +240,7 @@ export function QuestionAnswerChatScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Question & Answer</Text>
-            <Text style={styles.headerSubtitle}>
-              {articleTitle} · {contentType}
-            </Text>
+            <Text style={styles.headerSubtitle}>{threadSubtitle(dto)}</Text>
           </View>
           <TouchableOpacity
             style={styles.threeDotsBtn}
@@ -242,45 +263,49 @@ export function QuestionAnswerChatScreen({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Chat Messages */}
-          {messages.map((item) => {
-            const isAdmin = item.senderType === 'admin';
-            return (
-              <View
-                key={item.id}
-                style={[
-                  styles.messageBubbleWrap,
-                  isAdmin ? styles.adminBubbleWrap : styles.farmerBubbleWrap,
-                ]}
-              >
+          {!allowed ? (
+            <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+          ) : questionId === undefined ? (
+            <AdminEmptyState title={t('community.chat.noThread')} />
+          ) : dto === undefined && thread.error !== null && thread.error !== undefined ? (
+            <AdminErrorState error={thread.error} onRetry={() => void thread.refetch()} />
+          ) : dto === undefined ? (
+            <AdminLoadingState />
+          ) : (
+            <>
+              {messages.map((message) => (
                 <View
-                  style={[
-                    styles.messageBubble,
-                    isAdmin ? styles.adminBubble : styles.farmerBubble,
-                  ]}
+                  key={message.id}
+                  style={[styles.messageBubbleWrap, message.side === 'admin' ? styles.adminBubbleWrap : styles.farmerBubbleWrap]}
+                  testID={`community.chat.message.${message.id}`}
                 >
-                  <Text style={[styles.senderName, isAdmin ? styles.senderNameAdmin : styles.senderNameFarmer]}>
-                    {item.sender}
-                  </Text>
-                  <Text style={styles.messageBody}>{item.body}</Text>
-                  <Text style={styles.messageTimestamp}>
-                    {item.timestamp}
-                    {item.statusText ? ` · ${item.statusText}` : ''}
-                  </Text>
+                  <View style={[styles.messageBubble, message.side === 'admin' ? styles.adminBubble : styles.farmerBubble]}>
+                    <Text style={[styles.senderName, message.side === 'admin' ? styles.senderNameAdmin : styles.senderNameFarmer]}>
+                      {message.author}
+                    </Text>
+                    {message.title !== null ? <Text style={styles.senderName}>{message.title}</Text> : null}
+                    <Text style={styles.messageBody}>{message.content}</Text>
+                    {message.blockedNote !== null ? <Text style={styles.messageTimestamp}>{message.blockedNote}</Text> : null}
+                    <Text style={styles.messageTimestamp}>{message.timestamp}</Text>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-
-          {/* Centered Awaiting indicator matching Screenshot 1 */}
-          {hasPendingFarmerMessage && (
-            <View style={styles.awaitingWrap}>
-              <Text style={styles.awaitingText}>Awaiting your reply</Text>
-            </View>
+              ))}
+              {dto.answers.length === 0 ? (
+                <View style={styles.awaitingWrap}>
+                  <Text style={styles.awaitingText}>{t('community.chat.noAnswers')}</Text>
+                </View>
+              ) : null}
+            </>
           )}
         </ScrollView>
 
         {/* ─── Bottom Reply Input Bar (Screenshot 1 left) ─── */}
+        {inputErrorKey !== null ? <Text style={styles.chatError}>{t(inputErrorKey)}</Text> : null}
+        {actionError !== null && actionError !== undefined ? (
+          <Text style={styles.chatError} testID="community.chat.error">
+            {t(adminErrorKey(actionError))}
+          </Text>
+        ) : null}
         <View style={styles.bottomBar}>
           <TextInput
             style={styles.replyInput}
@@ -289,12 +314,17 @@ export function QuestionAnswerChatScreen({
             value={inputText}
             onChangeText={setInputText}
             multiline
+            testID="community.chat.input"
           />
           <TouchableOpacity
-            style={styles.sendBtn}
-            onPress={handleSendMessage}
+            style={[styles.sendBtn, sendDisabled && styles.actionUnavailable]}
+            onPress={sendDisabled ? undefined : handleSend}
+            disabled={sendDisabled}
             activeOpacity={0.8}
             accessibilityLabel="Send reply"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: sendDisabled, busy: post.isPending }}
+            testID="community.chat.send"
           >
             <SendArrowIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
@@ -308,153 +338,104 @@ export function QuestionAnswerChatScreen({
           onPress={() => setShowMenu(false)}
         >
           <View style={styles.menuDropdown}>
-            {/* 1. View Details (Present in all variations) */}
+            {/* 1. View Details (Present in all variations): the question's own community. */}
             <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowMenu(false);
-                onNavigateDetails?.();
-              }}
+              style={[styles.menuItem, communityId === undefined && styles.actionUnavailable]}
+              onPress={
+                communityId === undefined
+                  ? undefined
+                  : () => {
+                      setShowMenu(false);
+                      onNavigateDetails?.(communityId);
+                    }
+              }
+              disabled={communityId === undefined}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: communityId === undefined }}
+              testID="community.chat.menu.details"
             >
               <EyeIcon size={18} color={adminColors.ink} />
               <Text style={styles.menuItemText}>View Details</Text>
             </TouchableOpacity>
             <View style={styles.menuDivider} />
 
-            {/* Variation 1: Active Community */}
-            {communityStatus === 'Active' && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onNavigateEdit?.();
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <PencilEditMenuIcon size={18} color={adminColors.ink} />
-                  <Text style={styles.menuItemText}>Edit Community</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={[styles.menuItem, communityId === undefined && styles.actionUnavailable]}
+              onPress={
+                communityId === undefined
+                  ? undefined
+                  : () => {
+                      setShowMenu(false);
+                      onNavigateEdit?.(communityId);
+                    }
+              }
+              disabled={communityId === undefined}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: communityId === undefined }}
+              testID="community.chat.menu.edit"
+            >
+              <PencilEditMenuIcon size={18} color={adminColors.ink} />
+              <Text style={styles.menuItemText}>Edit Community</Text>
+            </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setIsChatBlocked((prev) => !prev);
-                    Alert.alert('Chat Status', isChatBlocked ? 'Chat has been unblocked.' : 'Chat has been blocked.');
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <BlockChatIcon size={18} color={adminColors.ink} />
-                  <Text style={styles.menuItemText}>{isChatBlocked ? 'Unblock Chat' : 'Block Chat'}</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
+            {/* Block Chat moderates this question; Archive archives its community.
+                Block Community and Deactivate have no endpoint: disabled, with one note. */}
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={[styles.menuItem, blockDisabled && styles.actionUnavailable]}
+              onPress={blockDisabled ? undefined : handleBlock}
+              disabled={blockDisabled}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: blockDisabled }}
+              testID="community.chat.menu.blockChat"
+            >
+              <BlockChatIcon size={18} color={adminColors.ink} />
+              <Text style={styles.menuItemText}>{t(dto?.isBlocked === true ? 'community.chat.unblock' : 'community.chat.block')}</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
 
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setCommunityStatus('Blocked');
-                    Alert.alert('Community Blocked', 'This community has been blocked from public access.');
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <BlockCommunityIcon size={18} color={adminColors.danger.text} />
-                  <Text style={[styles.menuItemText, { color: adminColors.danger.text }]}>Block Community</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={[styles.menuItem, styles.actionUnavailable]}
+              disabled
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              testID="community.chat.menu.blockCommunity"
+            >
+              <BlockCommunityIcon size={18} color={adminColors.danger.text} />
+              <Text style={[styles.menuItemText, { color: adminColors.danger.text }]}>Block Community</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
 
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setCommunityStatus('Deactivated');
-                    Alert.alert('Community Deactivated', 'This community has been paused and marked inactive.');
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <DeactivateCommunityIcon size={18} color={adminColors.danger.text} />
-                  <Text style={[styles.menuItemText, { color: adminColors.danger.text }]}>Deactivate Community</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={[styles.menuItem, styles.actionUnavailable]}
+              disabled
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              testID="community.chat.menu.deactivate"
+            >
+              <DeactivateCommunityIcon size={18} color={adminColors.danger.text} />
+              <Text style={[styles.menuItemText, { color: adminColors.danger.text }]}>Deactivate Community</Text>
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
 
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setCommunityStatus('Archived');
-                    Alert.alert('Community Archived', 'This community has been archived.');
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <ArchiveBoxIcon size={18} color={adminColors.warning.text} />
-                  <Text style={styles.menuItemText}>Archive community</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* Variation 2: Blocked Community */}
-            {communityStatus === 'Blocked' && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    onNavigateEdit?.();
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <PencilEditMenuIcon size={18} color={adminColors.ink} />
-                  <Text style={styles.menuItemText}>Edit Community</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setCommunityStatus('Active');
-                    Alert.alert('Community Activated', 'This community is now active.');
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <ActivatePlayIcon size={18} color={adminColors.success.text} />
-                  <Text style={[styles.menuItemText, { color: adminColors.success.text }]}>Activate Community</Text>
-                </TouchableOpacity>
-                <View style={styles.menuDivider} />
-
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    setCommunityStatus('Archived');
-                    Alert.alert('Community Archived', 'This community has been archived.');
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <ArchiveBoxIcon size={18} color={adminColors.warning.text} />
-                  <Text style={styles.menuItemText}>Archive community</Text>
-                </TouchableOpacity>
-              </>
-            )}
-
-            {/* Variation 3: Archived or Deactivated Community */}
-            {(communityStatus === 'Archived' || communityStatus === 'Deactivated') && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  setCommunityStatus('Active');
-                  Alert.alert('Community Activated', 'This community is now active.');
-                }}
-                activeOpacity={0.75}
-              >
-                <ActivatePlayIcon size={18} color={adminColors.success.text} />
-                <Text style={[styles.menuItemText, { color: adminColors.success.text }]}>Activate Community</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.menuItem, archiveDisabled && styles.actionUnavailable]}
+              onPress={archiveDisabled ? undefined : handleArchive}
+              disabled={archiveDisabled}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: archiveDisabled }}
+              testID="community.chat.menu.archive"
+            >
+              <ArchiveBoxIcon size={18} color={adminColors.warning.text} />
+              <Text style={styles.menuItemText}>Archive community</Text>
+            </TouchableOpacity>
+            <Text style={styles.menuNote}>{t('community.gap.chat.actions')}</Text>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -499,6 +480,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: adminColors.ink,
+  },
+  /** The designed control, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  menuNote: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chatError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '700',
+    paddingHorizontal: adminSpacing.lg,
+    paddingBottom: 6,
+  },
+  bottomNote: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    paddingHorizontal: adminSpacing.lg,
+    paddingBottom: 6,
   },
   menuDivider: {
     height: 1,

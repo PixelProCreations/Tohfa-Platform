@@ -189,6 +189,128 @@ export const listingKeys = {
 };
 
 /**
+ * Learning Hub (api/learning.ts). One module for all four resources, so a
+ * write to any of them refetches the whole module — the screens show them
+ * side by side and a stale tab is worse than a refetch. No warehouse takes
+ * part: learning content is platform-wide, so every key carries `undefined`
+ * (which the key renders as 'all'), not a warehouse id.
+ *
+ * `page` is deliberately NOT in any key: useNumberedList accumulates the pages
+ * of one query, so putting the page number in the key would start a new list
+ * on every load-more.
+ */
+export const LEARNING_MODULE = 'learning';
+
+export interface LearningListKeyFilters {
+  language?: string | undefined;
+  tag?: string | undefined;
+  isPublished?: boolean | undefined;
+  category?: string | undefined;
+  sort?: string | undefined;
+  q?: string | undefined;
+  limit?: number | undefined;
+  /** BR-59t: the review-status filter of the four content lists. */
+  reviewStatus?: string | undefined;
+  /** BR-59s: the community filter of the groups list. */
+  communityId?: string | undefined;
+}
+
+function learningList(resource: string) {
+  return (filters: LearningListKeyFilters = {}) =>
+    adminKeys.scoped(LEARNING_MODULE, undefined, {
+      resource,
+      language: filters.language ?? null,
+      tag: filters.tag ?? null,
+      isPublished: filters.isPublished ?? null,
+      category: filters.category ?? null,
+      sort: filters.sort ?? null,
+      q: filters.q ?? null,
+      limit: filters.limit ?? null,
+      reviewStatus: filters.reviewStatus ?? null,
+      communityId: filters.communityId ?? null,
+    });
+}
+
+function learningDetail(resource: string) {
+  return (id: string | undefined) => adminKeys.scoped(LEARNING_MODULE, undefined, { resource, id: id ?? null });
+}
+
+export const learningKeys = {
+  articles: learningList('articles'),
+  article: learningDetail('article'),
+  videos: learningList('videos'),
+  video: learningDetail('video'),
+  trainings: learningList('trainings'),
+  training: learningDetail('training'),
+  groups: learningList('groups'),
+  group: learningDetail('group'),
+  /** The farmer.learning.manage surface: its own keys, because a caller may hold one permission and not the other. */
+  hubArticles: learningList('hubArticles'),
+  hubArticle: learningDetail('hubArticle'),
+};
+
+/**
+ * Communities (api/communities.ts, BR-59s). Platform-wide like the Learning Hub,
+ * so no warehouse takes part. `page` is NOT in any key, for the reason given on
+ * LEARNING_MODULE. The nested lists (a community's groups and members) are keyed
+ * by the community id so two communities never share a cache entry.
+ */
+export const COMMUNITIES_MODULE = 'communities';
+
+export interface CommunityListKeyFilters {
+  category?: string | undefined;
+  isArchived?: boolean | undefined;
+  q?: string | undefined;
+  sort?: string | undefined;
+  limit?: number | undefined;
+}
+
+export const communityKeys = {
+  list: (filters: CommunityListKeyFilters = {}) =>
+    adminKeys.scoped(COMMUNITIES_MODULE, undefined, {
+      resource: 'list',
+      category: filters.category ?? null,
+      isArchived: filters.isArchived ?? null,
+      q: filters.q ?? null,
+      sort: filters.sort ?? null,
+      limit: filters.limit ?? null,
+    }),
+  detail: (id: string | undefined) => adminKeys.scoped(COMMUNITIES_MODULE, undefined, { resource: 'detail', id: id ?? null }),
+  groups: (id: string | undefined, limit?: number) =>
+    adminKeys.scoped(COMMUNITIES_MODULE, undefined, { resource: 'groups', id: id ?? null, limit: limit ?? null }),
+  members: (id: string | undefined, q?: string, limit?: number) =>
+    adminKeys.scoped(COMMUNITIES_MODULE, undefined, { resource: 'members', id: id ?? null, q: q ?? null, limit: limit ?? null }),
+};
+
+/**
+ * Community Q&A (api/qa.ts, BR-59u). Platform-wide; `page` stays out of the key.
+ */
+export const QA_MODULE = 'qa';
+
+export interface QaListKeyFilters {
+  communityId?: string | undefined;
+  contentType?: string | undefined;
+  contentId?: string | undefined;
+  q?: string | undefined;
+  authorUserId?: string | undefined;
+  limit?: number | undefined;
+}
+
+export const qaKeys = {
+  list: (filters: QaListKeyFilters = {}) =>
+    adminKeys.scoped(QA_MODULE, undefined, {
+      resource: 'list',
+      communityId: filters.communityId ?? null,
+      contentType: filters.contentType ?? null,
+      contentId: filters.contentId ?? null,
+      q: filters.q ?? null,
+      authorUserId: filters.authorUserId ?? null,
+      limit: filters.limit ?? null,
+    }),
+  detail: (id: string | undefined) => adminKeys.scoped(QA_MODULE, undefined, { resource: 'detail', id: id ?? null }),
+};
+
+/**
  * Purchase Orders (api/purchaseOrders.ts), read-only. Unset filters are null
  * so the key shape is stable.
  */
@@ -212,4 +334,18 @@ export const purchaseOrderKeys = {
     }),
   detail: (warehouseId: string | undefined, id: string | undefined) =>
     adminKeys.scoped(PURCHASE_ORDERS_MODULE, warehouseId, { resource: 'detail', id: id ?? null }),
+};
+
+/**
+ * Zone Management (api/zones.ts). Zones are reference data the server does not
+ * scope by warehouse for the roles that open this screen, so the warehouse is
+ * left out of the key (it lands in the 'all' slot of adminKeys.scoped).
+ */
+export const ZONES_MODULE = 'zones';
+
+export const zoneKeys = {
+  list: (status: string | undefined) => adminKeys.scoped(ZONES_MODULE, undefined, { resource: 'list', status: status ?? null }),
+  detail: (id: string | undefined) => adminKeys.scoped(ZONES_MODULE, undefined, { resource: 'detail', id: id ?? null }),
+  warehouses: () => adminKeys.scoped(ZONES_MODULE, undefined, { resource: 'warehouses' }),
+  farmers: (zoneId: string | null) => adminKeys.scoped(ZONES_MODULE, undefined, { resource: 'farmers', zoneId }),
 };

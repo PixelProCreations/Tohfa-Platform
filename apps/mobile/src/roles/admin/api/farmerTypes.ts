@@ -242,9 +242,8 @@ export interface ApplicationRowView {
   zoneId: string | null;
   slaDueAt: string | null;
   documentsComplete: boolean | null;
-  /** No human application code or KYC status exists for an application. */
-  applicationCode: null;
-  kycStatus: null;
+  applicationCode: string | null;
+  kycStatus: string | null;
 }
 
 export interface ApplicationAddressView {
@@ -320,8 +319,7 @@ export interface ApplicationDetailView {
   rejectionReason: string | null;
   infoRequest: string | null;
   zoneId: string | null;
-  /** No API source. */
-  applicationCode: null;
+  applicationCode: string | null;
   reviewHistory: null;
   documentVerification: null;
   declaration: null;

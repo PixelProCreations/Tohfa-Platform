@@ -28,7 +28,12 @@ const HOSTS = {
   warehouseMore: 'roles/admin/screens/warehouse/dashboard-home-more/MoreScreen.tsx',
 } as const;
 const FLOW = 'roles/admin/screens/farmers/FarmersFlow.tsx';
-const ALL = [APP, ...Object.values(HOSTS), `${DASH}/MainWarehouseAdminDashboardScreen.tsx`, FLOW];
+const ALL = [
+  APP,
+  ...Object.values(HOSTS),
+  `${DASH}/MainWarehouseAdminDashboardScreen.tsx`,
+  FLOW,
+];
 
 const FARMER_SCREENS = [
   'AdminAllFarmersScreen',
@@ -39,9 +44,23 @@ const FARMER_SCREENS = [
   'AdminApplicationRejectScreen',
 ];
 
+/**
+ * The Farmer Management flow components a host may mount. There are two, and
+ * that is the whole point of the single-flow test below: FarmersFlow is the
+ * shared Module 1 flow, and FarmerManagementFlow is the design branch's Super
+ * Admin shell around the same live screens. A host mounts ONE of them.
+ */
+const FLOW_COMPONENTS = ['FarmersFlow', 'FarmerManagementFlow'] as const;
+
 /** The JSX of every <FarmersFlow ... /> mount in a file. */
 function flowMounts(src: string): string[] {
   return [...src.matchAll(/<FarmersFlow\b[\s\S]*?\/>/g)].map((m) => m[0]);
+}
+
+/** The JSX of every Farmer Management flow mount in a file, either component. */
+function anyFlowMounts(src: string): string[] {
+  const pattern = new RegExp(`<(?:${FLOW_COMPONENTS.join('|')})\\b[\\s\\S]*?\\/>`, 'g');
+  return [...src.matchAll(pattern)].map((m) => m[0]);
 }
 
 describe('farmers entry wiring: no fixtures, no grant-all can', () => {
@@ -77,12 +96,28 @@ describe('farmers entry wiring: no fixtures, no grant-all can', () => {
 });
 
 describe('farmers entry wiring: every entry is gated by farmer.profile.view_all', () => {
-  it.each(Object.entries(HOSTS))('%s mounts FarmersFlow with its own can and gates the entry with canOpenFarmers', (_name, file) => {
+  it.each(Object.entries(HOSTS))('%s mounts its farmers flow with its own can and gates the entry with canOpenFarmers', (_name, file) => {
     const src = code(read(file));
-    const mounts = flowMounts(src);
+    const mounts = anyFlowMounts(src);
     expect(mounts.length, file).toBeGreaterThan(0);
     for (const m of mounts) expect(m).toMatch(/\bcan=\{(can|adminCan)\}/);
     expect(src).toMatch(/canOpenFarmers\((can|adminCan)\)/);
+  });
+
+  /**
+   * The defect this guard exists for: the Super Admin dashboard's Farmers tab
+   * rendered the design shell (FarmerManagementFlow) AND, hidden behind
+   * `display: 'none'`, a second live FarmersFlow — a mount that showed
+   * nothing but still fetched, and was there only so the assertion above
+   * found a FarmersFlow. One entry point, one flow.
+   */
+  it.each(Object.entries(HOSTS))('%s reaches farmers through exactly ONE Farmer Management flow', (_name, file) => {
+    const src = code(read(file));
+    const mounted = FLOW_COMPONENTS.filter((c) => new RegExp(`<${c}\\b`).test(src));
+    expect(mounted, `${file} mounts ${mounted.join(' and ')}`).toHaveLength(1);
+    expect(src, `${file} renders a farmers flow it never shows`).not.toMatch(
+      new RegExp(`display:\\s*'none'[\\s\\S]{0,200}<(?:${FLOW_COMPONENTS.join('|')})\\b`),
+    );
   });
 
   it('the dashboards build can from the signed-in user\'s /auth/me permissions (makeCan), never a default grant', () => {
@@ -111,7 +146,7 @@ describe('farmers entry wiring: removed screens and catalogue', () => {
 
   it('DEMO_ALL_FARMERS is gone; only the legacy FarmerListItem type remains for the satellite screens', () => {
     expect(code(read('roles/admin/screens/farmers/list/legacyFarmerListItem.ts'))).not.toMatch(/DEMO_ALL_FARMERS/);
-    expect(code(read('roles/admin/screens/farmers/AdminAllFarmersScreen.tsx'))).not.toMatch(/DEMO_ALL_FARMERS/);
+    expect(code(read('roles/admin/screens/farmers/list/FarmersListScreen.tsx'))).not.toMatch(/DEMO_ALL_FARMERS/);
   });
 
   it('the entry labels live in their own catalogue, registered in the admin i18n', () => {

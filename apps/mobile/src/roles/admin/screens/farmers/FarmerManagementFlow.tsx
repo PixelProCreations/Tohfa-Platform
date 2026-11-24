@@ -1,18 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
 import { type Can } from '../../permissions/can';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { useFarmerList } from '../../api/farmerHooks';
 import {
   AdminAllFarmersScreen,
+  type ApplicationListItem,
   type FarmerListItem,
 } from './AdminAllFarmersScreen';
-import {
-  DEMO_ALL_FARMERS,
-} from './farmerManagementFixtures';
+import { toDesignFarmerItem } from './allFarmersMappers';
 import { AdminFarmerDetailScreen, type FarmerDetailTabType } from './AdminFarmerDetailScreen';
 import { AdminFarmMapScreen } from './AdminFarmMapScreen';
 import { AdminRatingScorecardScreen } from './AdminRatingScorecardScreen';
 import { AdminEditRatingCategoriesScreen } from './AdminEditRatingCategoriesScreen';
 import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
+import { AdminAddFarmerScreen } from './AdminAddFarmerScreen';
 import { AdminComplianceTiersScreen } from '../certifications/AdminComplianceTiersScreen';
 import { AdminCertVerificationScreen } from '../certifications/AdminCertVerificationScreen';
 import { AuditDetailRecordScreen } from '../audits/AuditDetailRecordScreen';
@@ -21,7 +22,6 @@ import {
   type AuditHistoryRecord,
 } from '../audits/FarmerAuditHistoryScreen';
 import { AdminApplicationDetailScreen } from '../registration/AdminApplicationDetailScreen';
-import { SuperAdminFarmersManagementScreen } from './SuperAdminFarmersManagementScreen';
 import {
   SuperAdminVerificationComplianceScreen,
   type ComplianceFarmer,
@@ -82,7 +82,7 @@ export function FarmerManagementFlow({
   const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(
     initialFarmer ?? null,
   );
-  const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<ApplicationListItem | null>(null);
   const [farmerDetailInitialTab, setFarmerDetailInitialTab] =
     useState<FarmerDetailTabType>('Personal');
   const [farmerDetailReturnView, setFarmerDetailReturnView] =
@@ -95,8 +95,8 @@ export function FarmerManagementFlow({
     useState<FarmerManagementSubView>('compliance');
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<AuditHistoryRecord | null>(null);
   const [selectedComplianceMeta, setSelectedComplianceMeta] = useState<ComplianceFarmer | null>(null);
-  const [selectedPayout, setSelectedPayout] = useState<PayoutDetailItem | null>(null);
-  const [allFarmersStatusFilter, setAllFarmersStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
+  const [selectedPayout, _setSelectedPayout] = useState<PayoutDetailItem | null>(null);
+  const [allFarmersStatusFilter, _setAllFarmersStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [allFarmersShowFilter, setAllFarmersShowFilter] = useState(false);
 
   useEffect(() => {
@@ -106,6 +106,14 @@ export function FarmerManagementFlow({
   const isSuperAdmin = role === 'SUPER_ADMIN';
   const hasPermission = (perm: string) => isSuperAdmin || (can ? can(perm) : false);
 
+  const warehouseId = (userScope as { warehouseId?: string } | undefined)?.warehouseId;
+  const farmerListQuery = useFarmerList(warehouseId);
+  // The live rows through the honest mapper (what the API sent, or an absent field): no fixture, no guessed rating, tier or farm name.
+  const allFarmers: FarmerListItem[] = useMemo(
+    () => farmerListQuery.items.map(toDesignFarmerItem),
+    [farmerListQuery.items],
+  );
+
   const handleSelectFarmer = (farmer: FarmerListItem) => {
     setSelectedFarmer(farmer);
     setFarmerDetailInitialTab('Personal');
@@ -113,44 +121,24 @@ export function FarmerManagementFlow({
     setSubView('farmer_detail');
   };
 
-  const matchComplianceFarmer = (cFarmer: ComplianceFarmer): FarmerListItem => {
-    const base =
-      DEMO_ALL_FARMERS.find(
-        (f: any) =>
-          f.code === cFarmer.farmerId ||
-          (f as any).farmerId === cFarmer.farmerId ||
-          f.name.toLowerCase() === cFarmer.name.toLowerCase() ||
-          f.id === cFarmer.id,
-      ) ?? DEMO_ALL_FARMERS[0]!;
-    const initials = cFarmer.name
-      .split(' ')
-      .map((p) => p[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase();
-    const numericRating = parseFloat(cFarmer.ratingScore);
-    return {
-      ...base,
-      id: cFarmer.id,
-      name: cFarmer.name,
-      initials: initials || base.initials || 'FA',
-      code: cFarmer.farmerId,
-      location: cFarmer.zone,
-      farmingType: cFarmer.certificationType,
-      kycVerifiedText: cFarmer.kycStatus === 'Verified' ? 'KYC Verified' : cFarmer.kycStatus,
-      rating: Number.isFinite(numericRating)
-        ? Math.min(5, Math.max(1, Number((numericRating / 20).toFixed(1))))
-        : (base.rating ?? null),
-    } as unknown as FarmerListItem;
+  /**
+   * Opens a farmer's detail from a compliance card. The card carries the real
+   * farmer id, so the live farmer is looked up, not rebuilt from the card's
+   * display strings; a card whose farmer is no longer loaded opens nothing.
+   */
+  const openFromCompliance = (cFarmer: ComplianceFarmer, tab: FarmerDetailTabType) => {
+    const live = allFarmers.find((f) => f.id === cFarmer.id);
+    if (live === undefined) return;
+    setSelectedComplianceMeta(cFarmer);
+    setSelectedFarmer(live);
+    setFarmerDetailInitialTab(tab);
+    setFarmerDetailReturnView('compliance');
+    setSubView('farmer_detail');
   };
 
   const handleViewCompliance = (cFarmer: ComplianceFarmer) => {
     if (!hasPermission('certification.view') && !hasPermission('farmer.document.verify')) return;
-    setSelectedComplianceMeta(cFarmer);
-    setSelectedFarmer(matchComplianceFarmer(cFarmer));
-    setFarmerDetailInitialTab('Verification & Compliance');
-    setFarmerDetailReturnView('compliance');
-    setSubView('farmer_detail');
+    openFromCompliance(cFarmer, 'Verification & Compliance');
   };
 
   const handleViewCertificate = (cFarmer: ComplianceFarmer) => {
@@ -161,43 +149,31 @@ export function FarmerManagementFlow({
     ) {
       return;
     }
-    setSelectedComplianceMeta(cFarmer);
-    setSelectedFarmer(matchComplianceFarmer(cFarmer));
-    setFarmerDetailInitialTab('KYC');
-    setFarmerDetailReturnView('compliance');
-    setSubView('farmer_detail');
+    openFromCompliance(cFarmer, 'KYC');
   };
 
   const handleViewRatingDetails = (cFarmer: ComplianceFarmer) => {
     if (!hasPermission('farmer.rating.view') && !hasPermission('farmer.profile.view_all')) return;
-    setSelectedComplianceMeta(cFarmer);
-    setSelectedFarmer(matchComplianceFarmer(cFarmer));
-    setFarmerDetailInitialTab('Ratings');
-    setFarmerDetailReturnView('compliance');
-    setSubView('farmer_detail');
+    openFromCompliance(cFarmer, 'Ratings');
   };
 
   const handleViewAuditRecord = (cFarmer: ComplianceFarmer) => {
     if (!hasPermission('audit.view') && !hasPermission('farmer.profile.view_all')) return;
-    setSelectedComplianceMeta(cFarmer);
-    setSelectedFarmer(matchComplianceFarmer(cFarmer));
-    setFarmerDetailInitialTab('Farmer Records');
-    setFarmerDetailReturnView('compliance');
-    setSubView('farmer_detail');
+    openFromCompliance(cFarmer, 'Farmer Records');
   };
 
   const handleViewHistory = (cFarmer: ComplianceFarmer) => {
     if (!hasPermission('audit.view') && !hasPermission('farmer.profile.view_all')) return;
-    setSelectedComplianceMeta(cFarmer);
-    setSelectedFarmer(matchComplianceFarmer(cFarmer));
-    setFarmerDetailInitialTab('History');
-    setFarmerDetailReturnView('compliance');
-    setSubView('farmer_detail');
+    openFromCompliance(cFarmer, 'History');
   };
 
   if (subView === 'records_list') {
     return (
       <SuperAdminFarmRecordsListScreen
+        farmers={allFarmers}
+        isLoading={farmerListQuery.isLoading}
+        error={farmerListQuery.error}
+        onRetry={farmerListQuery.refresh}
         onBack={() => setSubView('overview')}
         onSelectRecord={(farmer) => {
           setSelectedFarmer(farmer);
@@ -205,14 +181,15 @@ export function FarmerManagementFlow({
           setFarmerDetailReturnView('records_list');
           setSubView('farmer_detail');
         }}
+        onAddRecord={() => setSubView('add_farmer')}
       />
     );
   }
 
-  if (subView === 'records') {
+  if (subView === 'records' && selectedFarmer) {
     return (
       <AdminFarmerDetailScreen
-        farmer={selectedFarmer ?? DEMO_ALL_FARMERS[0]}
+        farmer={selectedFarmer}
         initialTab="Farmer Records"
         can={can}
         onBack={() => setSubView('overview')}
@@ -235,6 +212,12 @@ export function FarmerManagementFlow({
       <SuperAdminVerificationComplianceScreen
         can={can}
         role={role}
+        farmers={farmerListQuery.items}
+        isLoading={farmerListQuery.isLoading}
+        error={farmerListQuery.error}
+        onRetry={farmerListQuery.refresh}
+        hasMore={farmerListQuery.hasMore}
+        warehouseId={warehouseId}
         onBack={() => setSubView('overview')}
         onViewCompliance={handleViewCompliance}
         onViewCertificate={handleViewCertificate}
@@ -255,15 +238,17 @@ export function FarmerManagementFlow({
   }
 
   if (subView === 'audit_record' && selectedFarmer) {
+    // The compliance card's score only belongs to the farmer it was read for.
+    const meta = selectedComplianceMeta?.id === selectedFarmer.id ? selectedComplianceMeta : null;
     return (
       <AuditDetailRecordScreen
         farmerName={selectedFarmer.name}
-        farmId={selectedFarmer.code ?? selectedFarmer.id ?? 'FMR-00124'}
-        quarterTitle={selectedAuditRecord?.title ?? `Q2 2026 Audit — ${selectedComplianceMeta?.ratingScore ?? '82/100'}`}
-        date={selectedAuditRecord?.date ?? selectedComplianceMeta?.lastUpdated ?? '26 Oct 2026'}
-        auditor={selectedAuditRecord?.auditor ?? 'AgriCert Co.'}
-        type={selectedAuditRecord?.type ?? selectedComplianceMeta?.certificationType ?? 'Internal'}
-        score={selectedComplianceMeta?.ratingScore ?? '82 / 100'}
+        farmId={selectedFarmer.code ?? selectedFarmer.id}
+        quarterTitle={selectedAuditRecord?.title ?? ADMIN_NO_VALUE}
+        date={selectedAuditRecord?.date ?? ADMIN_NO_VALUE}
+        auditor={selectedAuditRecord?.auditor ?? ADMIN_NO_VALUE}
+        type={selectedAuditRecord?.type ?? ADMIN_NO_VALUE}
+        score={meta?.ratingScore ?? ADMIN_NO_VALUE}
         record={selectedAuditRecord}
         onBack={() => setSubView(auditRecordReturnView)}
       />
@@ -274,8 +259,8 @@ export function FarmerManagementFlow({
     return (
       <FarmerAuditHistoryScreen
         farmerName={selectedFarmer.name}
-        farmId={selectedFarmer.code ?? selectedFarmer.id ?? 'FMR-00124'}
-        zone={selectedFarmer.location ?? 'Coonoor, Nilgiris'}
+        farmId={selectedFarmer.code ?? selectedFarmer.id}
+        zone={selectedFarmer.location ?? ADMIN_NO_VALUE}
         onBack={() => setSubView(auditHistoryReturnView)}
         onSelectAuditRecord={(rec) => {
           setSelectedAuditRecord(rec);
@@ -324,11 +309,11 @@ export function FarmerManagementFlow({
     );
   }
 
-  if (subView === 'payout_bank_details') {
+  if (subView === 'payout_bank_details' && selectedFarmer) {
     return (
       <FarmerBankAccountDetailsScreen
-        farmerName={selectedFarmer?.name || 'Ramesh Kumar'}
-        farmerId={selectedFarmer?.code || selectedFarmer?.id || 'FMR-00124'}
+        farmerName={selectedFarmer.name}
+        farmerId={selectedFarmer.code ?? selectedFarmer.id}
         role={role}
         can={can}
         onBack={() => setSubView('farmer_detail')}
@@ -336,44 +321,68 @@ export function FarmerManagementFlow({
     );
   }
 
-  if (subView === 'payout_detail') {
+  if (subView === 'payout_detail' && selectedFarmer) {
     return (
       <FarmerPayoutDetailScreen
         payout={selectedPayout ?? undefined}
-        farmerName={selectedFarmer?.name || 'Kumar'}
-        farmerId={selectedFarmer?.code || selectedFarmer?.id || 'FMR-00098'}
+        farmerName={selectedFarmer.name}
+        farmerId={selectedFarmer.code ?? selectedFarmer.id}
         role={role}
         onBack={() => setSubView('farmer_detail')}
       />
     );
   }
 
-  if (subView === 'add_farmer' || (subView === 'edit_farmer' && selectedFarmer)) {
+  if (subView === 'add_farmer') {
     return (
-      <AdminEditFarmerScreen
-        farmer={selectedFarmer ?? DEMO_ALL_FARMERS[0]!}
-        can={can}
-        onBack={() => setSubView(selectedFarmer ? 'farmer_detail' : 'overview')}
-        onSave={(_updated) => setSubView(selectedFarmer ? 'farmer_detail' : 'overview')}
+      <AdminAddFarmerScreen
+        onBack={() => setSubView('overview')}
+        onCreated={(f) => {
+          // Only what the server sent: a farmer just created has no rating yet, so the dash, not a starting score or tier.
+          setSelectedFarmer({
+            id: f.id,
+            code: f.tohfaFarmerId,
+            name: f.fullName,
+            initials: f.fullName.slice(0, 2).toUpperCase(),
+            location: f.address.village ?? ADMIN_NO_VALUE,
+            status: f.accountStatus,
+            rating: f.rating.overallRating,
+            ...(f.rating.ratingTier === null ? {} : { ratingTier: f.rating.ratingTier.label }),
+          });
+          setFarmerDetailInitialTab('Personal');
+          setFarmerDetailReturnView('overview');
+          setSubView('farmer_detail');
+        }}
       />
     );
   }
 
-  if (subView === 'application_detail' && selectedApplicationId) {
+  if (subView === 'edit_farmer' && selectedFarmer) {
+    return (
+      <AdminEditFarmerScreen
+        farmer={selectedFarmer}
+        can={can}
+        onBack={() => setSubView('farmer_detail')}
+        onSave={(_updated) => setSubView('farmer_detail')}
+      />
+    );
+  }
+
+  if (subView === 'application_detail' && selectedApplication) {
     return (
       <AdminApplicationDetailScreen
-        applicationId={selectedApplicationId}
+        applicationId={selectedApplication.id}
         can={can}
         onBack={() => {
-          setSelectedApplicationId(null);
+          setSelectedApplication(null);
           setSubView('applications');
         }}
         onApprove={() => {
-          setSelectedApplicationId(null);
+          setSelectedApplication(null);
           setSubView('applications');
         }}
         onReject={() => {
-          setSelectedApplicationId(null);
+          setSelectedApplication(null);
           setSubView('applications');
         }}
       />
@@ -385,7 +394,11 @@ export function FarmerManagementFlow({
       <AdminAllFarmersScreen
         showBottomNav={false}
         initialTab="farmers"
+        initialStatusFilter={allFarmersStatusFilter}
+        initialShowFilter={allFarmersShowFilter}
         can={can}
+        role={role}
+        userScope={userScope as { zoneId?: string; warehouseId?: string } | undefined}
         onBack={() => {
           setAllFarmersShowFilter(false);
           setSubView('overview');
@@ -397,7 +410,7 @@ export function FarmerManagementFlow({
           setSubView('farmer_detail');
         }}
         onReviewApplication={(app) => {
-          setSelectedApplicationId(app.id);
+          setSelectedApplication(app);
           setSubView('application_detail');
         }}
       />
@@ -409,11 +422,10 @@ export function FarmerManagementFlow({
       <AdminAllFarmersScreen
         showBottomNav={false}
         initialTab="applications"
-        can={can}
         onBack={() => setSubView('overview')}
         onSelectFarmer={handleSelectFarmer}
         onReviewApplication={(app) => {
-          setSelectedApplicationId(app.id);
+          setSelectedApplication(app);
           setSubView('application_detail');
         }}
       />
@@ -446,45 +458,26 @@ export function FarmerManagementFlow({
     );
   }
 
-  // Primary entry screen:
-  // For SUPER_ADMIN, display SuperAdminFarmersManagementScreen (matching Image 2 Screen 1)
-  // For other roles, mount the standard AdminAllFarmersScreen
-  if (role === 'SUPER_ADMIN') {
-    return (
-      <SuperAdminFarmersManagementScreen
-        can={can}
-        role={role}
-        onBack={onBack}
-        onSelectFarmer={handleSelectFarmer}
-        onOpenAllFarmers={(statusFilter = 'All', showFilter = false) => {
-          setAllFarmersStatusFilter(statusFilter);
-          setAllFarmersShowFilter(showFilter);
-          setSubView('all_farmers');
-        }}
-        onOpenSubscriptionOverview={() => {
-          setSelectedFarmer(DEMO_ALL_FARMERS[0] ?? null);
-          setFarmerDetailInitialTab('Subscription');
-          setFarmerDetailReturnView('overview');
-          setSubView('farmer_detail');
-        }}
-        onOpenApprovalInbox={onOpenApprovalInbox}
-        onOpenFarmRecords={() => setSubView('records_list')}
-        onOpenVerificationCompliance={() => setSubView('compliance')}
-        onOpenApplications={() => setSubView('applications')}
-        onAddFarmer={() => setSubView('add_farmer')}
-      />
-    );
-  }
-
+  // Primary entry screen: shared RBAC-driven AdminAllFarmersScreen
   return (
     <AdminAllFarmersScreen
       showBottomNav={false}
+      role={role}
+      can={can}
+      userScope={userScope as { zoneId?: string; warehouseId?: string } | undefined}
       onBack={onBack}
       onSelectFarmer={handleSelectFarmer}
       onReviewApplication={(app) => {
-        setSelectedApplicationId(app.id);
+        setSelectedApplication(app);
         setSubView('application_detail');
       }}
+      onOpenFarmRecords={() => setSubView('records_list')}
+      onOpenVerificationCompliance={() => setSubView('compliance')}
+      onOpenApplications={() => setSubView('applications')}
+      onAddFarmer={() => setSubView('add_farmer')}
+      onOpenApprovalInbox={onOpenApprovalInbox}
+      // No farmer is chosen yet, and none is invented: the admin picks one from the live list.
+      onOpenSubscriptionOverview={() => setSubView('all_farmers')}
     />
   );
 }

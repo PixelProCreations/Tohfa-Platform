@@ -42,10 +42,6 @@ export interface FinanceHubActions {
   onOpenTransactionHistory?: (() => void) | undefined;
   /** Report & Export: no destination yet (design report archive is fixture-only). */
   onOpenReports?: (() => void) | undefined;
-  /** Profit & Loss: stub until finance.pnl.view backend is ready. */
-  onOpenProfitLoss?: (() => void) | undefined;
-  /** Payment Methods: gated by payment.method.configure. */
-  onOpenPaymentMethods?: (() => void) | undefined;
 }
 
 export type FinanceHubTileId =
@@ -57,9 +53,7 @@ export type FinanceHubTileId =
   | 'invoices'
   | 'reviewReturns'
   | 'transactionHistory'
-  | 'reportExport'
-  | 'profitLoss'
-  | 'paymentMethods';
+  | 'reportExport';
 
 export interface FinanceHubTileDef {
   id: FinanceHubTileId;
@@ -95,10 +89,6 @@ export const FINANCE_HUB_TILES: readonly FinanceHubTileDef[] = [
   },
   // reportExport: no backend destination yet; always rendered (owner rule), toast without callback.
   { id: 'reportExport', callback: 'onOpenReports', codes: ['report.export.file'], labelKey: 'financeHub.tile.reportExport', alwaysShow: true },
-  // profitLoss: finance.pnl.view gated; stub until PnL API is ready; alwaysShow so users see it.
-  { id: 'profitLoss', callback: 'onOpenProfitLoss', codes: ['finance.pnl.view'], labelKey: 'financeHub.tile.profitLoss', alwaysShow: true },
-  // paymentMethods: super-admin only code; shown only when callback is present and code granted.
-  { id: 'paymentMethods', callback: 'onOpenPaymentMethods', codes: ['payment.method.configure'], labelKey: 'financeHub.tile.paymentMethods' },
 ];
 
 /** Header filter button (design: finance filter sheet). */

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   StyleSheet,
   Text,
@@ -135,8 +136,8 @@ export const DEMO_PAYOUT_ITEMS: PayoutDetailItem[] = [
 ];
 
 export function FarmerPayoutTabSection({
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FMR-00124',
+  farmerName = ADMIN_NO_VALUE,
+  farmerId = ADMIN_NO_VALUE,
   onOpenBankDetails,
   onOpenPayoutDetail,
 }: FarmerPayoutTabSectionProps): React.JSX.Element {
@@ -224,7 +225,7 @@ export function FarmerPayoutTabSection({
           <View style={styles.bankDetailsColumn}>
             <View style={styles.accountDetailRow}>
               <Text style={styles.detailPropLabel}>Account Holder :</Text>
-              <Text style={styles.detailPropValue}>{farmerName} Farm</Text>
+              <Text style={styles.detailPropValue}>{farmerName}</Text>
             </View>
 
             <View style={styles.accountDetailRow}>

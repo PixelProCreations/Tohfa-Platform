@@ -75,6 +75,18 @@ export async function createFarmerApplication(
   });
 }
 
+export interface PublicZoneItem {
+  id: string;
+  name: string;
+  warehouseTown: string;
+}
+
+export async function fetchPublicZones(): Promise<PublicZoneItem[]> {
+  return await request<PublicZoneItem[]>('/zones', {
+    method: 'GET',
+  });
+}
+
 /**
  * Full draft returned by `GET /farmers/applications/:id` -- everything saved so far via
  * `PATCH /farmers/applications/:id/steps/:step`, not just the lightweight status timeline

@@ -91,6 +91,7 @@ export interface ListAdminApplicationsOptions {
     | 'REJECTED'
     | undefined;
   zoneId?: string | undefined;
+  hasZone?: boolean | undefined;
   zoneIds?: string[] | undefined;
   submittedAfter?: string | undefined;
   q?: string | undefined;
@@ -243,26 +244,6 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
   async findZoneByTaluk(db, taluk, district) {
     const trimmedTaluk = taluk.trim();
-    if (trimmedTaluk.toLowerCase() === 'kundah') {
-      const cfgRes = await db.query<{ value: unknown }>(
-        `SELECT value FROM system_config WHERE key = 'kundah_zone_name' LIMIT 1`,
-      );
-      const val = cfgRes.rows[0]?.value;
-      const zoneNameOrCode =
-        typeof val === 'string'
-          ? val
-          : typeof val === 'object' && val !== null
-            ? String(val)
-            : null;
-      if (zoneNameOrCode) {
-        const zoneRes = await db.query<{ id: string; code: string; name: string }>(
-          `SELECT id, code, name FROM zones WHERE (name = $1 OR code = $1) AND is_active = true LIMIT 1`,
-          [zoneNameOrCode],
-        );
-        if (zoneRes.rows[0]) return zoneRes.rows[0];
-      }
-    }
-
     const query = district
       ? `SELECT gz.zone_id AS id, gz.zone_code AS code, gz.zone_name AS name
            FROM geographic_zones gz
@@ -335,7 +316,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
           SET status = $2,
               is_draft = CASE WHEN $3 = true THEN false ELSE is_draft END,
               submitted_at = CASE WHEN $3 = true AND submitted_at IS NULL THEN now() ELSE submitted_at END,
-              zone_id = COALESCE($4, zone_id),
+              zone_id = CASE WHEN $3 = true THEN $4 ELSE COALESCE($4, zone_id) END,
               updated_at = now()
         WHERE id = $1 AND ($5::text IS NULL OR status = $5::application_status)
         RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
@@ -401,6 +382,11 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
     } else if (options.zoneId !== undefined) {
       conditions.push(`fa.zone_id = $${paramIndex++}::uuid`);
       values.push(options.zoneId);
+    }
+    if (options.hasZone === true) {
+      conditions.push('fa.zone_id IS NOT NULL');
+    } else if (options.hasZone === false) {
+      conditions.push('fa.zone_id IS NULL');
     }
     if (options.submittedAfter !== undefined) {
       conditions.push(`fa.submitted_at >= $${paramIndex++}`);

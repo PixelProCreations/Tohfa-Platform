@@ -40,6 +40,7 @@ import {
   type FarmerDocumentRow,
   type FarmerPatch,
   type FarmerProfileRow,
+  type FarmerSummaryResult,
   type UserPatch,
 } from './admin-farmers.repo.js';
 import {
@@ -54,6 +55,8 @@ import {
   type AdminFarmerSubscription,
   type ListAdminFarmersQuery,
   type UpdateAdminFarmerBody,
+  type UpdateAdminFarmerStatusBody,
+  type CreateAdminFarmerBody,
 } from './admin-farmers.schema.js';
 
 /** BR-54c: a signed read URL lives for this long (same lifetime as the farmer's own documents). */
@@ -73,6 +76,7 @@ export interface AdminFarmersServiceDeps {
 
 export interface AdminFarmersService {
   list(scope: ResolvedScope, query: ListAdminFarmersQuery): Promise<AdminFarmerListResponse>;
+  getSummary(scope: ResolvedScope): Promise<FarmerSummaryResult>;
   get(scope: ResolvedScope, farmerId: string): Promise<AdminFarmerDetail>;
   update(
     scope: ResolvedScope,
@@ -84,6 +88,14 @@ export interface AdminFarmersService {
   verifyDocument(scope: ResolvedScope, farmerId: string, documentId: string): Promise<AdminFarmerDocument>;
   listBankAccounts(scope: ResolvedScope, farmerId: string): Promise<AdminFarmerPayoutDestinationListResponse>;
   getSubscription(scope: ResolvedScope, farmerId: string): Promise<AdminFarmerSubscription>;
+  updateStatus(
+    scope: ResolvedScope,
+    disableScope: ResolvedScope | null,
+    reactivateScope: ResolvedScope | null,
+    farmerId: string,
+    body: UpdateAdminFarmerStatusBody,
+  ): Promise<AdminFarmerDetail>;
+  create(scope: ResolvedScope, body: CreateAdminFarmerBody): Promise<AdminFarmerDetail>;
 }
 
 /** The single place a scope becomes SQL for this module. Columns: `f` farmers, `z` zones. */
@@ -241,6 +253,10 @@ export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps>
       return { items: result.items, page: { nextCursor: result.nextCursor, hasMore: result.hasMore } };
     },
 
+    async getSummary(scope) {
+      return await repo.getSummary(db, farmerScopeFilter(scope));
+    },
+
     async get(scope, farmerId) {
       const profile = await repo.findProfile(db, farmerId, farmerScopeFilter(scope));
       if (profile === null) throw notFound(farmerId);
@@ -363,6 +379,90 @@ export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps>
         listingLimit = typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
       }
       return { farmerId, current, freeTierLimits: { enforced, listingLimit } };
+    },
+
+    async updateStatus(scope, disableScope, reactivateScope, farmerId, body) {
+      if (body.action === 'DISABLE' && disableScope === null && scope.roleCode !== 'SUPER_ADMIN' && scope.roleCode !== 'TOHFA_ADMIN') {
+        throw new AppError('FORBIDDEN', { detail: 'farmer.account.disable required to disable a farmer account.' });
+      }
+      if (body.action === 'ACTIVATE' && reactivateScope === null && scope.roleCode !== 'SUPER_ADMIN') {
+        throw new AppError('FORBIDDEN', { detail: 'farmer.account.reactivate required to reactivate a farmer account.' });
+      }
+
+      return transaction(async (tx) => {
+        if (!(await repo.lockFarmer(tx, farmerId, farmerScopeFilter(scope)))) throw notFound(farmerId);
+        const before = await repo.findProfile(tx, farmerId, farmerScopeFilter(scope));
+        if (before === null) throw notFound(farmerId);
+
+        const isReactivation = body.action === 'ACTIVATE';
+        const userStatus = isReactivation ? 'ACTIVE' : 'DISABLED';
+        const isActive = isReactivation;
+        const isMarketBlocked = !isReactivation;
+        const marketBlockReason = isReactivation ? null : `${body.action}: ${body.reason}`;
+
+        await repo.updateFarmerStatus(tx, farmerId, {
+          userStatus,
+          isActive,
+          isMarketBlocked,
+          marketBlockReason,
+          actorId: scope.userId ?? '00000000-0000-4000-8000-000000000001',
+          reason: body.reason,
+          isReactivation,
+        });
+
+        await writeAuditLog(tx, {
+          actorId: scope.userId ?? null,
+          actorRole: scope.roleCode,
+          actionCode: isReactivation
+            ? 'farmer.account.reactivate'
+            : body.action === 'DISABLE'
+              ? 'farmer.account.disable'
+              : 'farmer.account.deactivate',
+          entityType: 'farmer',
+          entityId: farmerId,
+          before: {
+            accountStatus: before.accountStatus,
+            isMarketBlocked: before.isMarketBlocked,
+            marketBlockReason: before.marketBlockReason,
+          },
+          after: {
+            accountStatus: userStatus,
+            isMarketBlocked,
+            marketBlockReason,
+            reason: body.reason,
+            note: body.note ?? null,
+          },
+          changedFields: ['accountStatus', 'isMarketBlocked', 'marketBlockReason'],
+        });
+
+        const updated = await repo.findProfile(tx, farmerId, farmerScopeFilter(scope));
+        return assemble(tx, updated!);
+      });
+    },
+
+    async create(scope, body) {
+      return transaction(async (tx) => {
+        const farmerId = await repo.createFarmer(tx, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId ?? null,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.profile.create',
+          entityType: 'farmer',
+          entityId: farmerId,
+          before: null,
+          after: {
+            fullName: body.fullName,
+            mobile: body.mobile,
+            zoneId: body.zoneId,
+            village: body.village,
+          },
+          changedFields: ['fullName', 'mobile', 'zoneId', 'village'],
+        });
+
+        const profile = await repo.findProfile(tx, farmerId, farmerScopeFilter(scope));
+        if (profile === null) throw notFound(farmerId);
+        return assemble(tx, profile);
+      });
     },
   };
 }

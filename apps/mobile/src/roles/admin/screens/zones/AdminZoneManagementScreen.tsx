@@ -9,7 +9,7 @@
  * Uses Admin Theme tokens strictly: adminColors, adminRadius, adminSpacing, adminType, adminShadow.
  * Uses OverviewDashboardCard & OverviewCardsGrid for KPI cards.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { DimensionValue } from 'react-native';
 import {
   Alert,
@@ -36,6 +36,41 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { useFarmerSummary } from '../../api/farmerHooks';
+import { useAdminZone, useAdminZones, useFarmersAllPages, useZoneWarehouses } from '../../api/zonesHooks';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import {
+  NO_ZONE,
+  attentionItems,
+  bulkExistingFarmers as toBulkExistingFarmers,
+  countText,
+  farmerDistribution,
+  findZone,
+  findZoneByLabel,
+  mapSlotLabels,
+  percentWidth,
+  recentZones,
+  reportMetrics,
+  shareOfMax,
+  toZoneFarmerView,
+  toZoneView,
+  toZoneViews,
+  unassignedFarmers as toUnassignedFarmers,
+  warehouseDistribution,
+  warehouseMappingsFor,
+  zoneFarmerCounts,
+  zoneKpis,
+  zoneLabel,
+  type BulkFarmerItem,
+  type LocationData,
+  type UnassignedFarmerData,
+  type ZoneData,
+  type ZoneFarmerData,
+  type ZoneWarehouseMappingData,
+} from './zonesLogic';
 
 export interface AdminZoneManagementScreenProps {
   onBack: () => void;
@@ -71,596 +106,14 @@ export interface AssignmentSummaryRecord {
   skippedCount: number;
 }
 
-export interface LocationData {
-  id: string;
-  code: string;
-  name: string;
-  type: 'Town' | 'Village' | 'Locality';
-  zoneId: string;
-  zoneName: string;
-  district: string;
-  taluk: string;
-  pinCode: string;
-  farmersCount: number;
-  status: 'Active' | 'Inactive';
-  latitude?: string | undefined;
-  longitude?: string | undefined;
-  notes?: string | undefined;
-}
-
-export interface ZoneFarmerData {
-  id: string;
-  name: string;
-  code: string;
-  location: string;
-  zoneId: string;
-  phone: string;
-  farmingType: 'Organic' | 'Natural' | 'Biodynamic' | 'Conventional';
-  acres: number;
-  status: 'Active' | 'Inactive';
-  verification: 'Verified' | 'Pending';
-}
-
-export interface ZoneWarehouseMappingData {
-  id: string;
-  code: string;
-  name: string;
-  type: string;
-  sinceDate: string;
-  status: 'Active' | 'Inactive';
-  isMapped: boolean;
-}
-
-export const INITIAL_ZONE_FARMERS: ZoneFarmerData[] = [
-  {
-    id: 'fmr-00002',
-    name: 'Rajesh Kumar',
-    code: 'FMR-00002',
-    location: 'Lovedale',
-    zoneId: 'zn-001',
-    phone: '98XXXXX210',
-    farmingType: 'Organic',
-    acres: 2.5,
-    status: 'Active',
-    verification: 'Verified',
-  },
-  {
-    id: 'fmr-00014',
-    name: 'Murugan Devi',
-    code: 'FMR-00014',
-    location: 'Ooty Town',
-    zoneId: 'zn-001',
-    phone: '97XXXXX884',
-    farmingType: 'Natural',
-    acres: 1.8,
-    status: 'Active',
-    verification: 'Pending',
-  },
-  {
-    id: 'fmr-00027',
-    name: 'Selvam Raj',
-    code: 'FMR-00027',
-    location: 'Ketti',
-    zoneId: 'zn-001',
-    phone: '96XXXXX031',
-    farmingType: 'Biodynamic',
-    acres: 3.1,
-    status: 'Active',
-    verification: 'Verified',
-  },
-];
-
-export interface UnassignedFarmerData {
-  id: string;
-  name: string;
-  code: string;
-  registeredLocation: string;
-  verification: 'Verified' | 'Pending';
-}
-
-export const INITIAL_UNASSIGNED_FARMERS: UnassignedFarmerData[] = [
-  { id: 'fmr-00249', name: 'Priya Pillai', code: 'FMR-00249', registeredLocation: 'Masinagudi', verification: 'Verified' },
-  { id: 'fmr-00250', name: 'Karthik Nair', code: 'FMR-00250', registeredLocation: 'Masinagudi', verification: 'Pending' },
-  { id: 'fmr-00251', name: 'Saraswathi Kumar', code: 'FMR-00251', registeredLocation: 'Naduvattam', verification: 'Verified' },
-  { id: 'fmr-00252', name: 'Velu Krishnan', code: 'FMR-00252', registeredLocation: 'Naduvattam', verification: 'Verified' },
-  { id: 'fmr-00254', name: 'Mani Devi', code: 'FMR-00254', registeredLocation: 'Sholur', verification: 'Verified' },
-  { id: 'fmr-00255', name: 'Geetha Gounder', code: 'FMR-00255', registeredLocation: 'Ooty Town', verification: 'Pending' },
-  { id: 'fmr-00256', name: 'Sundar Murthy', code: 'FMR-00256', registeredLocation: 'Coonoor Town', verification: 'Verified' },
-  { id: 'fmr-00257', name: 'Valli Raj', code: 'FMR-00257', registeredLocation: 'Kotagiri Town', verification: 'Verified' },
-  { id: 'fmr-00258', name: 'Raman Rani', code: 'FMR-00258', registeredLocation: 'Gudalur Town', verification: 'Verified' },
-  { id: 'fmr-00259', name: 'Pushpa Pillai', code: 'FMR-00259', registeredLocation: 'Devala', verification: 'Verified' },
-  { id: 'fmr-00260', name: 'Murugan Nair', code: 'FMR-00260', registeredLocation: 'Wellington', verification: 'Pending' },
-];
-
-export interface BulkFarmerItem {
-  id: string;
-  name: string;
-  code: string;
-  district: string;
-  registeredLocation: string;
-  verification: 'Verified' | 'Pending';
-  assignedZoneName?: string;
-  disabled?: boolean;
-}
-
-export const INITIAL_BULK_EXISTING_FARMERS: BulkFarmerItem[] = [
-  { id: 'fmr-00001', name: 'Meenakshi Kumar', code: 'FMR-00001', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00002', name: 'Selvam Krishnan', code: 'FMR-00002', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00003', name: 'Lakshmi Subramani', code: 'FMR-00003', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00004', name: 'Senthil Devi', code: 'FMR-00004', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Pending', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00005', name: 'Kavitha Gounder', code: 'FMR-00005', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00006', name: 'Ravi Murthy', code: 'FMR-00006', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00007', name: 'Anitha Raj', code: 'FMR-00007', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00008', name: 'Palani Rani', code: 'FMR-00008', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00009', name: 'Priya Pillai', code: 'FMR-00009', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Pending', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00025', name: 'Kavitha Gounder', code: 'FMR-00025', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00026', name: 'Ravi Murthy', code: 'FMR-00026', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00027', name: 'Anitha Raj', code: 'FMR-00027', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00028', name: 'Palani Rani', code: 'FMR-00028', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00029', name: 'Priya Pillai', code: 'FMR-00029', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Verified', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00030', name: 'Karthik Nair', code: 'FMR-00030', district: 'Nilgiris', registeredLocation: 'Ooty Town', verification: 'Pending', assignedZoneName: 'Ooty Zone' },
-  { id: 'fmr-00051', name: 'Subramani Rao', code: 'FMR-00051', district: 'Nilgiris', registeredLocation: 'Kotagiri Town', verification: 'Verified', assignedZoneName: 'Kotagiri Zone' },
-  { id: 'fmr-00077', name: 'Kannan Pillai', code: 'FMR-00077', district: 'Nilgiris', registeredLocation: 'Coonoor Town', verification: 'Pending', disabled: true },
-  { id: 'fmr-00103', name: 'Devika Nair', code: 'FMR-00103', district: 'Nilgiris', registeredLocation: 'Gudalur Town', verification: 'Verified', assignedZoneName: 'Gudalur Zone' },
-];
-
-export const INITIAL_ZONE_WAREHOUSES: ZoneWarehouseMappingData[] = [
-  {
-    id: 'wh-main',
-    code: 'WH-MAIN',
-    name: 'Ooty Main Warehouse',
-    type: 'Main warehouse',
-    sinceDate: '2026-03-20',
-    status: 'Active',
-    isMapped: true,
-  },
-  {
-    id: 'wh-sub1',
-    code: 'WH-SUB1',
-    name: 'Coonoor Sub-Warehouse',
-    type: 'Sub warehouse',
-    sinceDate: '2026-03-20',
-    status: 'Active',
-    isMapped: true,
-  },
-];
-
-export const INITIAL_LOCATIONS: LocationData[] = [
-  // Ooty Zone locations (ZM-06 reference)
-  {
-    id: 'loc-001',
-    code: 'LOC-001',
-    name: 'Ooty Town',
-    type: 'Town',
-    zoneId: 'zn-001',
-    zoneName: 'Ooty Zone (OOT)',
-    district: 'Nilgiris',
-    taluk: 'Udhagamandalam',
-    pinCode: '643001',
-    farmersCount: 20,
-    status: 'Active',
-    latitude: '11.4102',
-    longitude: '76.6950',
-  },
-  {
-    id: 'loc-002',
-    code: 'LOC-002',
-    name: 'Lovedale',
-    type: 'Village',
-    zoneId: 'zn-001',
-    zoneName: 'Ooty Zone (OOT)',
-    district: 'Nilgiris',
-    taluk: 'Udhagamandalam',
-    pinCode: '643003',
-    farmersCount: 12,
-    status: 'Active',
-    latitude: '11.3850',
-    longitude: '76.7120',
-  },
-  {
-    id: 'loc-003',
-    code: 'LOC-003',
-    name: 'Thalakunda',
-    type: 'Locality',
-    zoneId: 'zn-001',
-    zoneName: 'Ooty Zone (OOT)',
-    district: 'Nilgiris',
-    taluk: 'Udhagamandalam',
-    pinCode: '643006',
-    farmersCount: 12,
-    status: 'Active',
-    latitude: '11.4500',
-    longitude: '76.6700',
-  },
-  {
-    id: 'loc-004',
-    code: 'LOC-004',
-    name: 'Ketti',
-    type: 'Village',
-    zoneId: 'zn-001',
-    zoneName: 'Ooty Zone (OOT)',
-    district: 'Nilgiris',
-    taluk: 'Udhagamandalam',
-    pinCode: '643215',
-    farmersCount: 10,
-    status: 'Active',
-    latitude: '11.3700',
-    longitude: '76.7400',
-  },
-  {
-    id: 'loc-005',
-    code: 'LOC-005',
-    name: 'Fingergrove',
-    type: 'Locality',
-    zoneId: 'zn-001',
-    zoneName: 'Ooty Zone (OOT)',
-    district: 'Nilgiris',
-    taluk: 'Udhagamandalam',
-    pinCode: '643004',
-    farmersCount: 7,
-    status: 'Active',
-    latitude: '11.4200',
-    longitude: '76.7050',
-  },
-  {
-    id: 'loc-006',
-    code: 'LOC-006',
-    name: 'Avalanche',
-    type: 'Village',
-    zoneId: 'zn-001',
-    zoneName: 'Ooty Zone (OOT)',
-    district: 'Nilgiris',
-    taluk: 'Kundah',
-    pinCode: '643004',
-    farmersCount: 5,
-    status: 'Inactive',
-    latitude: '11.3000',
-    longitude: '76.5900',
-  },
-  // Coonoor Zone locations (ZM-05 reference)
-  {
-    id: 'loc-007',
-    code: 'LOC-007',
-    name: 'Coonoor Town',
-    type: 'Town',
-    zoneId: 'zn-002',
-    zoneName: 'Coonoor Zone (COO)',
-    district: 'Nilgiris',
-    taluk: 'Coonoor',
-    pinCode: '643101',
-    farmersCount: 22,
-    status: 'Active',
-    latitude: '11.3530',
-    longitude: '76.7959',
-  },
-  {
-    id: 'loc-008',
-    code: 'LOC-008',
-    name: 'Wellington',
-    type: 'Town',
-    zoneId: 'zn-002',
-    zoneName: 'Coonoor Zone (COO)',
-    district: 'Nilgiris',
-    taluk: 'Coonoor',
-    pinCode: '643231',
-    farmersCount: 16,
-    status: 'Active',
-    latitude: '11.3667',
-    longitude: '76.7833',
-  },
-  {
-    id: 'loc-009',
-    code: 'LOC-009',
-    name: 'Aruvankadu',
-    type: 'Village',
-    zoneId: 'zn-002',
-    zoneName: 'Coonoor Zone (COO)',
-    district: 'Nilgiris',
-    taluk: 'Coonoor',
-    pinCode: '643202',
-    farmersCount: 12,
-    status: 'Active',
-    latitude: '11.3750',
-    longitude: '76.8100',
-  },
-  {
-    id: 'loc-010',
-    code: 'LOC-010',
-    name: 'Burliyar',
-    type: 'Village',
-    zoneId: 'zn-002',
-    zoneName: 'Coonoor Zone (COO)',
-    district: 'Nilgiris',
-    taluk: 'Coonoor',
-    pinCode: '643102',
-    farmersCount: 8,
-    status: 'Active',
-    latitude: '11.3300',
-    longitude: '76.8400',
-  },
-  {
-    id: 'loc-011',
-    code: 'LOC-011',
-    name: 'Kattery',
-    type: 'Village',
-    zoneId: 'zn-002',
-    zoneName: 'Coonoor Zone (COO)',
-    district: 'Nilgiris',
-    taluk: 'Coonoor',
-    pinCode: '643213',
-    farmersCount: 6,
-    status: 'Active',
-    latitude: '11.3450',
-    longitude: '76.7700',
-  },
-  // Kotagiri Zone locations
-  {
-    id: 'loc-012',
-    code: 'LOC-012',
-    name: 'Kotagiri Town',
-    type: 'Town',
-    zoneId: 'zn-003',
-    zoneName: 'Kotagiri Zone (KOT)',
-    district: 'Nilgiris',
-    taluk: 'Kotagiri',
-    pinCode: '643217',
-    farmersCount: 16,
-    status: 'Active',
-    latitude: '11.4218',
-    longitude: '76.8617',
-  },
-  {
-    id: 'loc-013',
-    code: 'LOC-013',
-    name: 'Aravenu',
-    type: 'Village',
-    zoneId: 'zn-003',
-    zoneName: 'Kotagiri Zone (KOT)',
-    district: 'Nilgiris',
-    taluk: 'Kotagiri',
-    pinCode: '643201',
-    farmersCount: 12,
-    status: 'Active',
-    latitude: '11.4080',
-    longitude: '76.8750',
-  },
-  {
-    id: 'loc-014',
-    code: 'LOC-014',
-    name: 'Denad',
-    type: 'Village',
-    zoneId: 'zn-003',
-    zoneName: 'Kotagiri Zone (KOT)',
-    district: 'Nilgiris',
-    taluk: 'Kotagiri',
-    pinCode: '643217',
-    farmersCount: 8,
-    status: 'Active',
-    latitude: '11.4400',
-    longitude: '76.8850',
-  },
-  {
-    id: 'loc-015',
-    code: 'LOC-015',
-    name: 'Milidhane',
-    type: 'Locality',
-    zoneId: 'zn-003',
-    zoneName: 'Kotagiri Zone (KOT)',
-    district: 'Nilgiris',
-    taluk: 'Kotagiri',
-    pinCode: '643217',
-    farmersCount: 5,
-    status: 'Active',
-    latitude: '11.4150',
-    longitude: '76.8450',
-  },
-  // Gudalur Zone locations
-  {
-    id: 'loc-016',
-    code: 'LOC-016',
-    name: 'Gudalur Town',
-    type: 'Town',
-    zoneId: 'zn-004',
-    zoneName: 'Gudalur Zone (GUD)',
-    district: 'Nilgiris',
-    taluk: 'Gudalur',
-    pinCode: '643212',
-    farmersCount: 12,
-    status: 'Active',
-    latitude: '11.5030',
-    longitude: '76.4917',
-  },
-  {
-    id: 'loc-017',
-    code: 'LOC-017',
-    name: 'Devala',
-    type: 'Village',
-    zoneId: 'zn-004',
-    zoneName: 'Gudalur Zone (GUD)',
-    district: 'Nilgiris',
-    taluk: 'Gudalur',
-    pinCode: '643270',
-    farmersCount: 7,
-    status: 'Active',
-    latitude: '11.4710',
-    longitude: '76.3820',
-  },
-  {
-    id: 'loc-018',
-    code: 'LOC-018',
-    name: 'Masinagudi',
-    type: 'Village',
-    zoneId: 'zn-004',
-    zoneName: 'Gudalur Zone (GUD)',
-    district: 'Nilgiris',
-    taluk: 'Gudalur',
-    pinCode: '643223',
-    farmersCount: 5,
-    status: 'Active',
-    latitude: '11.5720',
-    longitude: '76.6430',
-  },
-  {
-    id: 'loc-019',
-    code: 'LOC-019',
-    name: 'Pandalur',
-    type: 'Village',
-    zoneId: 'zn-004',
-    zoneName: 'Gudalur Zone (GUD)',
-    district: 'Nilgiris',
-    taluk: 'Pandalur',
-    pinCode: '643233',
-    farmersCount: 3,
-    status: 'Active',
-    latitude: '11.4870',
-    longitude: '76.3380',
-  },
-  {
-    id: 'loc-020',
-    code: 'LOC-020',
-    name: 'Cherambadi',
-    type: 'Locality',
-    zoneId: 'zn-004',
-    zoneName: 'Gudalur Zone (GUD)',
-    district: 'Nilgiris',
-    taluk: 'Pandalur',
-    pinCode: '643205',
-    farmersCount: 2,
-    status: 'Active',
-    latitude: '11.5200',
-    longitude: '76.2800',
-  },
-];
-
-export interface ZoneData {
-  id: string;
-  code: string;
-  shortCode: string;
-  name: string;
-  district: string;
-  taluk: string;
-  locationsCount: number;
-  farmersCount: number;
-  warehousesCount: number;
-  farmAreaAcres: number;
-  verifiedFarmers: number;
-  activeFarmers: number;
-  status: 'Active' | 'Inactive';
-  createdDate: string;
-  manager: string;
-  description: string;
-  contact: string;
-  boundaryPoints: number;
-  warehouses: string[];
-}
-
-const INITIAL_ZONES: ZoneData[] = [
-  {
-    id: 'zn-001',
-    code: 'ZN-001',
-    shortCode: 'OOT',
-    name: 'Ooty Zone',
-    district: 'Nilgiris',
-    taluk: 'Udhagamandalam',
-    locationsCount: 6,
-    farmersCount: 92,
-    warehousesCount: 2,
-    farmAreaAcres: 312.4,
-    verifiedFarmers: 78,
-    activeFarmers: 89,
-    status: 'Active',
-    createdDate: '2026-03-10',
-    manager: 'Demo Farmer Admin One',
-    description: 'Ooty and surrounding farming locations.',
-    contact: 'Not set',
-    boundaryPoints: 4,
-    warehouses: ['Ooty Main', 'Coonoor Sub'],
-  },
-  {
-    id: 'zn-002',
-    code: 'ZN-002',
-    shortCode: 'COO',
-    name: 'Coonoor Zone',
-    district: 'Nilgiris',
-    taluk: 'Coonoor',
-    locationsCount: 5,
-    farmersCount: 64,
-    warehousesCount: 1,
-    farmAreaAcres: 245.0,
-    verifiedFarmers: 58,
-    activeFarmers: 62,
-    status: 'Active',
-    createdDate: '2026-03-12',
-    manager: 'Demo Farmer Admin Two',
-    description: 'Coonoor valley and temperate horticulture belts.',
-    contact: 'Not set',
-    boundaryPoints: 4,
-    warehouses: ['Coonoor Sub'],
-  },
-  {
-    id: 'zn-003',
-    code: 'ZN-003',
-    shortCode: 'KOT',
-    name: 'Kotagiri Zone',
-    district: 'Nilgiris',
-    taluk: 'Kotagiri',
-    locationsCount: 4,
-    farmersCount: 41,
-    warehousesCount: 1,
-    farmAreaAcres: 180.5,
-    verifiedFarmers: 38,
-    activeFarmers: 40,
-    status: 'Active',
-    createdDate: '2026-03-15',
-    manager: 'Demo Farmer Admin One',
-    description: 'Kotagiri slopes, organic crops and tea cultivation.',
-    contact: 'Not set',
-    boundaryPoints: 4,
-    warehouses: ['Kotagiri Sub'],
-  },
-  {
-    id: 'zn-004',
-    code: 'ZN-004',
-    shortCode: 'GUD',
-    name: 'Gudalur Zone',
-    district: 'Nilgiris',
-    taluk: 'Gudalur',
-    locationsCount: 5,
-    farmersCount: 29,
-    warehousesCount: 1,
-    farmAreaAcres: 125.8,
-    verifiedFarmers: 24,
-    activeFarmers: 28,
-    status: 'Active',
-    createdDate: '2026-03-20',
-    manager: 'Demo Farmer Admin Three',
-    description: 'Gudalur foothills, spices and sub-tropical fruit crops.',
-    contact: 'Not set',
-    boundaryPoints: 4,
-    warehouses: ['Gudalur Market Sub'],
-  },
-  {
-    id: 'zn-005',
-    code: 'ZN-005',
-    shortCode: 'KUN',
-    name: 'Kundah Zone',
-    district: 'Nilgiris',
-    taluk: 'Kundah',
-    locationsCount: 4,
-    farmersCount: 22,
-    warehousesCount: 0,
-    farmAreaAcres: 95.0,
-    verifiedFarmers: 16,
-    activeFarmers: 19,
-    status: 'Inactive',
-    createdDate: '2026-04-02',
-    manager: 'None',
-    description: 'Kundah upper reservoir catchment farming belt.',
-    contact: 'Not set',
-    boundaryPoints: 4,
-    warehouses: ['None'],
-  },
-];
+export type {
+  BulkFarmerItem,
+  LocationData,
+  UnassignedFarmerData,
+  ZoneData,
+  ZoneFarmerData,
+  ZoneWarehouseMappingData,
+} from './zonesLogic';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -707,65 +160,68 @@ function SearchIcon({ size = 16, color = adminColors.muted }: { size?: number; c
   );
 }
 
+/** No location resource exists in the API: every zone has none, and none can be added. */
+const NO_LOCATIONS: LocationData[] = [];
+
+/** No transfer history exists in the API. */
+const NO_TRANSFERS: Array<{ id: string; text: string }> = [];
+
+/** Views that must not be replaced by a loading / error state: they are forms with nothing to read. */
+const FORM_VIEWS: readonly ZoneScreenView[] = ['add_zone', 'add_location'];
+
 export function AdminZoneManagementScreen({
   onBack,
   onSelectZone,
 }: AdminZoneManagementScreenProps): React.JSX.Element {
   const [currentView, setCurrentView] = useState<ZoneScreenView>('dashboard');
-  const [zones, setZones] = useState<ZoneData[]>(INITIAL_ZONES);
-  const [selectedZone, setSelectedZone] = useState<ZoneData>(INITIAL_ZONES[0]!);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [actionMenuZone, setActionMenuZone] = useState<ZoneData | null>(null);
   const [detailsSubTab, setDetailsSubTab] = useState<'Overview' | 'Locations' | 'Farmers' | 'Warehouses'>('Overview');
 
   // Filter States for Zone List
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [filterDistrict, setFilterDistrict] = useState<string>('All');
 
-  // Location Management & Assigned Locations State (ZM-05, ZM-06, ZM-07)
-  const [locations, setLocations] = useState<LocationData[]>(INITIAL_LOCATIONS);
-  const [selectedLocationZone, setSelectedLocationZone] = useState<string>('Ooty Zone (OOT)');
+  // Location views (ZM-05, ZM-06, ZM-07). There is no location resource, so these are forms and filters only.
+  const locations = NO_LOCATIONS;
+  const [selectedLocationZone, setSelectedLocationZone] = useState<string>('');
   const [locationSearchQuery, setLocationSearchQuery] = useState('');
   const [locationFilterType, setLocationFilterType] = useState('All');
   const [locationFilterStatus, setLocationFilterStatus] = useState('All');
 
-  // Add Location Form State (ZM-07)
-  const [newLocZone, setNewLocZone] = useState('Ooty Zone (OOT)');
+  // ZM-07 Add Location form state
+  const [newLocZone, setNewLocZone] = useState('');
   const [newLocName, setNewLocName] = useState('');
   const [newLocType, setNewLocType] = useState<'Village' | 'Town' | 'Locality'>('Village');
-  const [newLocTaluk, setNewLocTaluk] = useState('Udhagamandalam');
-  const [newLocPin, setNewLocPin] = useState('643001');
+  const [newLocTaluk, setNewLocTaluk] = useState('');
+  const [newLocPin, setNewLocPin] = useState('');
   const [newLocSearchPlace, setNewLocSearchPlace] = useState('');
-  const [newLocLat, setNewLocLat] = useState('11.4102');
-  const [newLocLong, setNewLocLong] = useState('76.6950');
+  const [newLocLat, setNewLocLat] = useState('');
+  const [newLocLong, setNewLocLong] = useState('');
   const [pinDropped, setPinDropped] = useState(false);
   const [newLocStatus, setNewLocStatus] = useState<'Active' | 'Inactive'>('Active');
   const [newLocNotes, setNewLocNotes] = useState('');
   const [previousViewBeforeAddLoc, setPreviousViewBeforeAddLoc] = useState<'location_management' | 'edit_zone'>('location_management');
 
-  // ZM-08 Zone Map & Boundary State
-  const [_mapSelectedZone, setMapSelectedZone] = useState('Ooty Zone (OOT)');
-  const [_mapSearchQuery, _setMapSearchQuery] = useState('');
+  // ZM-08 Zone Map & Boundary State (a schematic: the API carries no zone geometry)
   const [mapSelectedTool, setMapSelectedTool] = useState<'View' | 'Add pin' | 'Select' | 'Draw boundary' | 'Edit boundary'>('View');
   const [droppedPinCoords, setDroppedPinCoords] = useState<{ x: number; y: number } | null>(null);
   const [selectedMarkersCount, setSelectedMarkersCount] = useState<number>(0);
   const [drawnBoundaryPoints, setDrawnBoundaryPoints] = useState<Array<{ x: number; y: number }>>([]);
 
   // ZM-09 Zone Farmer List State
-  const [farmerSelectedZone, setFarmerSelectedZone] = useState('Ooty Zone (OOT)');
+  const [farmerSelectedZone, setFarmerSelectedZone] = useState('');
   const [farmerSearchQuery, setFarmerSearchQuery] = useState('');
-  const [farmerFilterLocation, _setFarmerFilterLocation] = useState('All');
-  const [farmerFilterStatus, _setFarmerFilterStatus] = useState('All');
-  const [farmerFilterType, _setFarmerFilterType] = useState('All');
-  const [farmerFilterVerification, _setFarmerFilterVerification] = useState('All');
-  const [farmersList, setFarmersList] = useState<ZoneFarmerData[]>(INITIAL_ZONE_FARMERS);
+  const [farmerFilterLocation] = useState('All');
+  const [farmerFilterStatus] = useState('All');
+  const [farmerFilterType] = useState('All');
+  const [farmerFilterVerification] = useState('All');
 
-  // ZM-10 & ZM-11 Assign Farmers State
+  // ZM-10 / ZM-11 Assign Farmers & Bulk Assignment State
   const [previousViewBeforeAssign, setPreviousViewBeforeAssign] = useState<ZoneScreenView>('dashboard');
   const [assignStep, setAssignStep] = useState<1 | 2 | 3 | 4>(1);
-  const [assignSelectedZoneId, setAssignSelectedZoneId] = useState<string>('zn-001');
-  const [assignSelectedLocationId, setAssignSelectedLocationId] = useState<string>('loc-005');
-  const [unassignedFarmers, setUnassignedFarmers] = useState<UnassignedFarmerData[]>(INITIAL_UNASSIGNED_FARMERS);
+  const [assignSelectedZoneId, setAssignSelectedZoneId] = useState<string>('');
+  const [assignSelectedLocationId, setAssignSelectedLocationId] = useState<string>('');
   const [assignFarmerSearch, setAssignFarmerSearch] = useState('');
   const [assignSelectedFarmerIds, setAssignSelectedFarmerIds] = useState<string[]>([]);
   const [bulkStep, setBulkStep] = useState<1 | 2>(1);
@@ -780,27 +236,22 @@ export function AdminZoneManagementScreen({
   const [bulkOpenFilterDropdown, setBulkOpenFilterDropdown] = useState<'district' | 'location' | 'verification' | null>(null);
   const [bulkSelectedFarmerIds, setBulkSelectedFarmerIds] = useState<string[]>([]);
   const [bulkVisibleLimit, setBulkVisibleLimit] = useState<number>(10);
-  const [bulkExistingFarmers, setBulkExistingFarmers] = useState<BulkFarmerItem[]>(INITIAL_BULK_EXISTING_FARMERS);
-  const [lastAssignmentResult, setLastAssignmentResult] = useState<AssignmentSummaryRecord | null>(null);
+  // Nothing can be assigned (no endpoint), so no result is ever produced; the summary view stays reachable only by a result.
+  const [lastAssignmentResult] = useState<AssignmentSummaryRecord | null>(null);
 
   // ZM-12 Farmer Zone Transfer State
   const [transferSearchFarmer, setTransferSearchFarmer] = useState('');
-  const [transferSelectedFarmer, setTransferSelectedFarmer] = useState<ZoneFarmerData>(INITIAL_ZONE_FARMERS[1]!);
-  const [transferNewZone, _setTransferNewZone] = useState('Coonoor Zone');
-  const [transferNewLocation, _setTransferNewLocation] = useState('Wellington');
-  const [transferReason, setTransferReason] = useState('Farm land expanded into Wellington block border.');
-  const [recentTransfers, setRecentTransfers] = useState([
-    { id: 'TR-0014', text: 'Rajesh Kumar: Gudalur Zone to Ooty Zone — 2026-10-02' },
-  ]);
+  const [transferSelectedFarmer, setTransferSelectedFarmer] = useState<ZoneFarmerData | null>(null);
+  const [transferReason, setTransferReason] = useState('');
+  const recentTransfers = NO_TRANSFERS;
 
   // ZM-13 Zone Warehouse Mapping State
-  const [warehouseSelectedZone, setWarehouseSelectedZone] = useState('Ooty Zone (OOT)');
-  const [warehouseMappings, setWarehouseMappings] = useState<ZoneWarehouseMappingData[]>(INITIAL_ZONE_WAREHOUSES);
+  const [warehouseSelectedZone, setWarehouseSelectedZone] = useState('');
 
-  // ZM-14 Zone Reports State
+  // ZM-14 Zone-wise Reports State
   const [reportDateFrom, setReportDateFrom] = useState('');
   const [reportDateTo, setReportDateTo] = useState('');
-  const [reportZone, setReportZone] = useState('All zones');
+  const [reportZone, setReportZone] = useState('');
   const [reportFarmerStatus, setReportFarmerStatus] = useState('All');
   const [reportFarmingType, setReportFarmingType] = useState('All');
   const [showReportZoneDropdown, setShowReportZoneDropdown] = useState(false);
@@ -808,62 +259,143 @@ export function AdminZoneManagementScreen({
   const [showReportTypeDropdown, setShowReportTypeDropdown] = useState(false);
 
   // ZM-15 Zone Status & Deactivation State
-  const [deactivationZone, setDeactivationZone] = useState<ZoneData>(INITIAL_ZONES[4]!);
+  const [deactivationZoneId, setDeactivationZoneId] = useState<string | null>(null);
   const [deactivationReason, setDeactivationReason] = useState('');
   const [previousViewBeforeDeactivation, setPreviousViewBeforeDeactivation] = useState<ZoneScreenView>('dashboard');
 
-  // Add / Edit Zone Form State
+  // ZM-04 / ZM-05 Add / Edit Zone form State
   const [formZoneName, setFormZoneName] = useState('');
   const [formZoneCode, setFormZoneCode] = useState('');
-  const [formDistrict, setFormDistrict] = useState('Nilgiris');
   const [formDescription, setFormDescription] = useState('');
-  const [formManager, setFormManager] = useState('None');
+  const [formManager, setFormManager] = useState('');
   const [formContact, setFormContact] = useState('');
   const [formStatus, setFormStatus] = useState<'Active' | 'Inactive'>('Active');
-  const [isEditingExisting, setIsEditingExisting] = useState(false);
+
+  // ─── Live data ──────────────────────────────────────────────────────────────
+  // Zones: GET /admin/zones?status=ALL. Farmer counts: GET /admin/farmers/summary (zones[]; ACTIVE zones only).
+  const liveZones = useAdminZones();
+  const liveSummary = useFarmerSummary(undefined);
+  const summary = liveSummary.summary;
+  const zones = useMemo(() => toZoneViews(liveZones.zones, summary), [liveZones.zones, summary]);
+  const zonesState = queryViewState({ isLoading: liveZones.isLoading, error: liveZones.error, itemCount: zones.length });
+  const zonesReady = liveZones.zones !== undefined;
+
+  const warehousesWanted = currentView === 'dashboard' || currentView === 'details' || currentView === 'warehouse_mapping';
+  const liveWarehouses = useZoneWarehouses({ enabled: warehousesWanted });
+
+  // The selected zone: the list row, plus the detail read (manager) and its farmer list (verified / active sub-counts).
+  const selectedDetail = useAdminZone(selectedZoneId ?? undefined);
+  const selectedFarmers = useFarmersAllPages(
+    { zoneId: selectedZoneId ?? undefined },
+    { enabled: selectedZoneId !== null && currentView === 'details' },
+  );
+  const selectedZone: ZoneData = useMemo(() => {
+    const dto = liveZones.zones?.find((z) => z.id === selectedZoneId);
+    if (dto === undefined) return NO_ZONE;
+    const counts = zoneFarmerCounts(selectedFarmers.items, selectedFarmers.allPagesLoaded);
+    return toZoneView(dto, {
+      farmersCount: findZone(zones, dto.id)?.farmersCount ?? null,
+      detail: selectedDetail.zone?.id === dto.id ? selectedDetail.zone : undefined,
+      verifiedFarmers: counts.verified,
+      activeFarmers: counts.active,
+    });
+  }, [liveZones.zones, selectedZoneId, zones, selectedDetail.zone, selectedFarmers.items, selectedFarmers.allPagesLoaded]);
+
+  const deactivationDetail = useAdminZone(deactivationZoneId ?? undefined);
+  const deactivationZone: ZoneData = useMemo(() => {
+    const dto = liveZones.zones?.find((z) => z.id === deactivationZoneId);
+    if (dto === undefined) return NO_ZONE;
+    return toZoneView(dto, {
+      farmersCount: findZone(zones, dto.id)?.farmersCount ?? null,
+      detail: deactivationDetail.zone?.id === dto.id ? deactivationDetail.zone : undefined,
+    });
+  }, [liveZones.zones, deactivationZoneId, zones, deactivationDetail.zone]);
+
+  // The Farmers tab / Zone Farmer List: GET /admin/farmers?zoneId=, all pages.
+  const farmerZone = findZoneByLabel(zones, farmerSelectedZone);
+  const farmerListWanted = currentView === 'farmer_list' || (currentView === 'details' && detailsSubTab === 'Farmers');
+  const zoneFarmerPool = useFarmersAllPages({ zoneId: farmerZone?.id }, { enabled: farmerListWanted && farmerZone !== undefined });
+
+  // The Assign / Bulk wizards need every farmer to find the ones with no zone.
+  const poolWanted = currentView === 'assign_farmers' || currentView === 'bulk_assign';
+  const farmerPool = useFarmersAllPages({}, { enabled: poolWanted });
+  const unassignedFarmers: UnassignedFarmerData[] = useMemo(() => toUnassignedFarmers(farmerPool.items), [farmerPool.items]);
+  const bulkExistingFarmers: BulkFarmerItem[] = useMemo(() => toBulkExistingFarmers(farmerPool.items, zones), [farmerPool.items, zones]);
+
+  const poolFailed = farmerPool.error !== null && farmerPool.error !== undefined && farmerPool.items.length === 0;
+
+  const warehouseZone = findZoneByLabel(zones, warehouseSelectedZone);
+  const warehouseMappings: ZoneWarehouseMappingData[] = useMemo(
+    () => warehouseMappingsFor(warehouseZone, liveWarehouses.warehouses),
+    [warehouseZone, liveWarehouses.warehouses],
+  );
+
+  const report = useMemo(() => reportMetrics(zonesReady ? zones : undefined, summary, reportZone === '' ? null : reportZone), [
+    zonesReady,
+    zones,
+    summary,
+    reportZone,
+  ]);
+  const reportMax = Math.max(0, ...report.farmersByZone.map((row) => row.count ?? 0));
+
+  const mapLabels = useMemo(() => mapSlotLabels(zones, 5), [zones]);
+
+  const kpis = useMemo(
+    () => zoneKpis(zonesReady ? zones : undefined, summary, liveWarehouses.warehouses),
+    [zonesReady, zones, summary, liveWarehouses.warehouses],
+  );
+
+  const farmerRows = useMemo(() => farmerDistribution(zones, summary), [zones, summary]);
+  const warehouseRows = useMemo(() => warehouseDistribution(zones), [zones]);
+  const newestZones = useMemo(() => recentZones(zones, 3), [zones]);
+  const attention = useMemo(() => attentionItems(zones), [zones]);
+
+  /** A figure the API may not have: the number, or the dash. */
+  const figure = (value: number | null): string => countText(value, ADMIN_NO_VALUE);
+
+  /** Zone changes have no server endpoint yet: say so, change nothing. */
+  const notifyUnavailable = () => {
+    Alert.alert(t('zones.unavailable.title'), t('zones.unavailable.body'));
+  };
 
   // Navigation handlers
   const handleNavigateToDetails = (zone: ZoneData) => {
-    const zoneLabel = `${zone.name} (${zone.shortCode})`;
-    setSelectedZone(zone);
-    setSelectedLocationZone(zoneLabel);
-    setFarmerSelectedZone(zoneLabel);
-    setWarehouseSelectedZone(zoneLabel);
+    const label = zoneLabel(zone);
+    setSelectedZoneId(zone.id);
+    setSelectedLocationZone(label);
+    setFarmerSelectedZone(label);
+    setWarehouseSelectedZone(label);
     setDetailsSubTab('Overview');
     setCurrentView('details');
     onSelectZone?.(zone.id);
   };
 
   const handleNavigateToAddZone = () => {
-    setIsEditingExisting(false);
     setFormZoneName('');
     setFormZoneCode('');
-    setFormDistrict('Nilgiris');
     setFormDescription('');
-    setFormManager('None');
+    setFormManager('');
     setFormContact('');
     setFormStatus('Active');
     setCurrentView('add_zone');
   };
 
   const handleNavigateToEditZone = (zone: ZoneData) => {
-    setSelectedZone(zone);
-    setIsEditingExisting(true);
+    setSelectedZoneId(zone.id);
     setFormZoneName(zone.name);
     setFormZoneCode(zone.shortCode);
-    setFormDistrict(zone.district);
-    setFormDescription(zone.description);
-    setFormManager(zone.manager);
-    setFormContact(zone.contact === 'Not set' ? '' : zone.contact);
+    setFormDescription(zone.description ?? '');
+    setFormManager(zone.manager ?? '');
+    setFormContact(zone.contact ?? '');
     setFormStatus(zone.status);
     setCurrentView('edit_zone');
   };
 
   const handleNavigateToLocationManagement = (zoneName?: string) => {
     if (zoneName) {
-      const match = zones.find((z) => z.name === zoneName || z.id === zoneName);
+      const match = findZoneByLabel(zones, zoneName);
       if (match) {
-        setSelectedLocationZone(`${match.name} (${match.shortCode})`);
+        setSelectedLocationZone(zoneLabel(match));
       }
     }
     setCurrentView('location_management');
@@ -875,17 +407,17 @@ export function AdminZoneManagementScreen({
   ) => {
     setPreviousViewBeforeAddLoc(from);
     if (zoneName) {
-      setNewLocZone(zoneName);
+      setNewLocZone(findZoneByLabel(zones, zoneName) ? zoneLabel(findZoneByLabel(zones, zoneName)!) : zoneName);
     } else {
-      setNewLocZone(`${selectedZone.name} (${selectedZone.shortCode})`);
+      setNewLocZone(zoneLabel(selectedZone));
     }
     setNewLocName('');
     setNewLocType('Village');
-    setNewLocTaluk('Udhagamandalam');
-    setNewLocPin('643001');
+    setNewLocTaluk('');
+    setNewLocPin('');
     setNewLocSearchPlace('');
-    setNewLocLat('11.4102');
-    setNewLocLong('76.6950');
+    setNewLocLat('');
+    setNewLocLong('');
     setPinDropped(false);
     setNewLocStatus('Active');
     setNewLocNotes('');
@@ -894,9 +426,9 @@ export function AdminZoneManagementScreen({
 
   const handleNavigateToZoneMap = (zoneName?: string) => {
     if (zoneName) {
-      const match = zones.find((z) => z.name === zoneName || z.id === zoneName);
+      const match = findZoneByLabel(zones, zoneName);
       if (match) {
-        setMapSelectedZone(`${match.name} (${match.shortCode})`);
+        setSelectedZoneId(match.id);
       }
     }
     setCurrentView('zone_map');
@@ -908,72 +440,6 @@ export function AdminZoneManagementScreen({
     setAssignFarmerSearch('');
     setAssignSelectedFarmerIds([]);
     setCurrentView('assign_farmers');
-  };
-
-  const handleConfirmFarmerAssignment = () => {
-    const targetZone = zones.find((z) => z.id === assignSelectedZoneId) ?? zones[0];
-    const targetLoc = locations.find((l) => l.id === assignSelectedLocationId) ?? locations[0];
-    const chosenFarmers = unassignedFarmers.filter((f) => assignSelectedFarmerIds.includes(f.id));
-    if (!targetZone || !targetLoc || chosenFarmers.length === 0) return;
-
-    const newlyAssigned: ZoneFarmerData[] = chosenFarmers.map((f) => ({
-      id: f.id,
-      name: f.name,
-      code: f.code,
-      location: targetLoc.name,
-      zoneId: targetZone.id,
-      phone: '98XXXXX000',
-      farmingType: 'Organic',
-      acres: 2.0,
-      status: 'Active',
-      verification: f.verification,
-    }));
-
-    setFarmersList((prev) => [...newlyAssigned, ...prev]);
-    setUnassignedFarmers((prev) => prev.filter((f) => !assignSelectedFarmerIds.includes(f.id)));
-    setBulkExistingFarmers((prev) => [
-      ...chosenFarmers.map((f) => ({
-        id: f.id,
-        name: f.name,
-        code: f.code,
-        district: 'Nilgiris',
-        registeredLocation: f.registeredLocation,
-        verification: f.verification,
-        assignedZoneName: targetZone.name,
-      })),
-      ...prev,
-    ]);
-    setZones((prev) =>
-      prev.map((z) =>
-        z.id === targetZone.id
-          ? {
-              ...z,
-              farmersCount: z.farmersCount + chosenFarmers.length,
-              activeFarmers: z.activeFarmers + chosenFarmers.length,
-            }
-          : z
-      )
-    );
-    setLocations((prev) =>
-      prev.map((l) =>
-        l.id === targetLoc.id ? { ...l, farmersCount: l.farmersCount + chosenFarmers.length } : l
-      )
-    );
-
-    setLastAssignmentResult({
-      source: 'Assign Farmers',
-      zoneId: targetZone.id,
-      zoneLabel: `${targetZone.name} (${targetZone.shortCode})`,
-      zoneName: targetZone.name,
-      locationName: targetLoc.name,
-      locationType: targetLoc.type,
-      assignedFarmers: newlyAssigned,
-      skippedCount: 0,
-    });
-    setAssignStep(1);
-    setAssignFarmerSearch('');
-    setAssignSelectedFarmerIds([]);
-    setCurrentView('assigned_farmers');
   };
 
   const handleNavigateToBulkAssign = () => {
@@ -992,74 +458,6 @@ export function AdminZoneManagementScreen({
     setCurrentView('bulk_assign');
   };
 
-  const handleConfirmBulkAssignment = () => {
-    const targetZone = zones.find((z) => z.id === bulkTargetZoneId);
-    const targetLoc = locations.find((l) => l.id === bulkTargetLocationId);
-    if (!targetZone || !targetLoc) return;
-
-    const eligibleChosen = unassignedFarmers.filter((f) => bulkSelectedFarmerIds.includes(f.id));
-    const skippedCount = Math.max(0, bulkSelectedFarmerIds.length - eligibleChosen.length);
-    const newlyAssigned: ZoneFarmerData[] = eligibleChosen.map((f) => ({
-      id: f.id,
-      name: f.name,
-      code: f.code,
-      location: targetLoc.name,
-      zoneId: targetZone.id,
-      phone: '98XXXXX000',
-      farmingType: 'Organic',
-      acres: 2.0,
-      status: 'Active',
-      verification: f.verification,
-    }));
-
-    if (eligibleChosen.length > 0) {
-      setFarmersList((prev) => [...newlyAssigned, ...prev]);
-      setUnassignedFarmers((prev) => prev.filter((f) => !bulkSelectedFarmerIds.includes(f.id)));
-      setBulkExistingFarmers((prev) => [
-        ...eligibleChosen.map((f) => ({
-          id: f.id,
-          name: f.name,
-          code: f.code,
-          district: 'Nilgiris',
-          registeredLocation: f.registeredLocation,
-          verification: f.verification,
-          assignedZoneName: targetZone.name,
-        })),
-        ...prev,
-      ]);
-      setZones((prev) =>
-        prev.map((z) =>
-          z.id === targetZone.id
-            ? {
-                ...z,
-                farmersCount: z.farmersCount + eligibleChosen.length,
-                activeFarmers: z.activeFarmers + eligibleChosen.length,
-              }
-            : z
-        )
-      );
-      setLocations((prev) =>
-        prev.map((l) =>
-          l.id === targetLoc.id ? { ...l, farmersCount: l.farmersCount + eligibleChosen.length } : l
-        )
-      );
-    }
-
-    setLastAssignmentResult({
-      source: 'Bulk Farmer Assignment',
-      zoneId: targetZone.id,
-      zoneLabel: `${targetZone.name} (${targetZone.shortCode})`,
-      zoneName: targetZone.name,
-      locationName: targetLoc.name,
-      locationType: targetLoc.type,
-      assignedFarmers: newlyAssigned,
-      skippedCount,
-    });
-    setBulkStep(1);
-    setBulkSelectedFarmerIds([]);
-    setCurrentView('assigned_farmers');
-  };
-
   const handleNavigateToFarmerTransfer = (farmer: ZoneFarmerData) => {
     setTransferSelectedFarmer(farmer);
     setCurrentView('farmer_transfer');
@@ -1071,235 +469,27 @@ export function AdminZoneManagementScreen({
 
   const handleNavigateToZoneStatus = (zone?: ZoneData, from: ZoneScreenView = 'dashboard') => {
     if (zone) {
-      setDeactivationZone(zone);
-    } else {
-      const kundah = zones.find((z) => z.code === 'ZN-005') ?? zones[4] ?? INITIAL_ZONES[0]!;
-      setDeactivationZone(kundah);
+      setDeactivationZoneId(zone.id);
     }
     setPreviousViewBeforeDeactivation(from);
     setCurrentView('zone_status_deactivation');
   };
 
-  const handleExportReport = () => {
-    Alert.alert(
-      'Export Report',
-      `Zone-wise report generated for ${reportZone} (${reportFarmerStatus} status, ${reportFarmingType} farming type).\nExported as CSV to Downloads.`,
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleDeactivateZone = () => {
-    if (deactivationReason.trim().length < 5) {
-      Alert.alert(
-        'Reason Required',
-        'Please enter a valid reason (at least 5 characters) for deactivating this zone. This will be recorded in the activity log.'
-      );
-      return;
-    }
-    const updatedZone = { ...deactivationZone, status: 'Inactive' as const };
-    setDeactivationZone(updatedZone);
-    setZones((prev) =>
-      prev.map((z) => (z.id === updatedZone.id ? updatedZone : z))
-    );
-    if (selectedZone.id === updatedZone.id) {
-      setSelectedZone(updatedZone);
-    }
-    Alert.alert(
-      'Zone Deactivated',
-      `${updatedZone.name} (${updatedZone.code}) has been deactivated. Existing farmer assignments remain frozen.`,
-      [{ text: 'OK', onPress: () => setDeactivationReason('') }]
-    );
-  };
-
-  const handleReactivateZone = () => {
-    if (deactivationReason.trim().length < 5) {
-      Alert.alert(
-        'Reason Required',
-        'Please enter a valid reason (at least 5 characters) for reactivating this zone. This will be recorded in the activity log.'
-      );
-      return;
-    }
-    const updatedZone = { ...deactivationZone, status: 'Active' as const };
-    setDeactivationZone(updatedZone);
-    setZones((prev) =>
-      prev.map((z) => (z.id === updatedZone.id ? updatedZone : z))
-    );
-    if (selectedZone.id === updatedZone.id) {
-      setSelectedZone(updatedZone);
-    }
-    Alert.alert(
-      'Zone Reactivated',
-      `${updatedZone.name} is now Active. Farmers can now be assigned normally.`,
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleArchiveZone = () => {
-    if (deactivationReason.trim().length < 5) {
-      Alert.alert(
-        'Reason Required',
-        'Please enter a valid reason (at least 5 characters) before archiving this zone.'
-      );
-      return;
-    }
-    if (deactivationZone.farmersCount > 0) {
-      Alert.alert(
-        'Cannot Archive Zone',
-        `${deactivationZone.farmersCount} farmers are kept assigned and frozen in ${deactivationZone.name}. Archiving requires transferring them first.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Transfer Farmers',
-            onPress: () => {
-              handleNavigateToAssignFarmers('zone_status_deactivation');
-            },
-          },
-        ]
-      );
-      return;
-    }
-    Alert.alert(
-      'Archive Zone',
-      `Are you sure you want to archive ${deactivationZone.name}? This will permanently remove it from active operations.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          style: 'destructive',
-          onPress: () => {
-            setZones((prev) => prev.filter((z) => z.id !== deactivationZone.id));
-            Alert.alert('Zone Archived', `${deactivationZone.name} has been archived.`);
-            setCurrentView('list');
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSaveNewLocation = () => {
-    if (!newLocName.trim() || !newLocPin.trim()) {
-      Alert.alert('Required Fields', 'Please enter a Location name and PIN code.');
-      return;
-    }
-
-    const nextId = `loc-${String(locations.length + 1).padStart(3, '0')}`;
-    const nextCode = `LOC-${String(locations.length + 1).padStart(3, '0')}`;
-    const matchedZone =
-      zones.find((z) => newLocZone.includes(z.shortCode) || newLocZone.includes(z.name)) ||
-      selectedZone;
-
-    const newLoc: LocationData = {
-      id: nextId,
-      code: nextCode,
-      name: newLocName.trim(),
-      type: newLocType,
-      zoneId: matchedZone.id,
-      zoneName: `${matchedZone.name} (${matchedZone.shortCode})`,
-      district: 'Nilgiris',
-      taluk: newLocTaluk.trim() || 'Udhagamandalam',
-      pinCode: newLocPin.trim(),
-      farmersCount: 0,
-      status: newLocStatus,
-      latitude: pinDropped ? newLocLat : undefined,
-      longitude: pinDropped ? newLocLong : undefined,
-      notes: newLocNotes.trim() || undefined,
-    };
-
-    setLocations((prev) => [newLoc, ...prev]);
-    setZones((prev) =>
-      prev.map((z) =>
-        z.id === matchedZone.id ? { ...z, locationsCount: z.locationsCount + 1 } : z
-      )
-    );
-
-    Alert.alert('Location Added', `Location "${newLocName}" added to ${matchedZone.name}.`);
-    setCurrentView(previousViewBeforeAddLoc);
-  };
-
-  const handleRemoveLocation = (locId: string) => {
-    setLocations((prev) => prev.filter((l) => l.id !== locId));
-    setZones((prev) =>
-      prev.map((z) =>
-        z.id === selectedZone.id
-          ? { ...z, locationsCount: Math.max(0, z.locationsCount - 1) }
-          : z
-      )
-    );
-  };
-
-  const handleToggleLocationStatus = (locId: string) => {
-    setLocations((prev) =>
-      prev.map((l) =>
-        l.id === locId
-          ? { ...l, status: l.status === 'Active' ? 'Inactive' : 'Active' }
-          : l
-      )
-    );
-  };
-
-  const handleSaveZone = (asDraft: boolean = false) => {
-    if (!formZoneName.trim() || !formZoneCode.trim()) {
-      Alert.alert('Required Fields', 'Please enter a Zone Name and 2-5 letter Zone Code.');
-      return;
-    }
-
-    const shortCode = formZoneCode.trim().toUpperCase();
-    if (isEditingExisting) {
-      setZones((prev) =>
-        prev.map((z) =>
-          z.id === selectedZone.id
-            ? {
-              ...z,
-              name: formZoneName.trim(),
-              shortCode,
-              district: formDistrict,
-              description: formDescription.trim(),
-              manager: formManager,
-              contact: formContact.trim() || 'Not set',
-              status: formStatus,
-            }
-            : z
-        )
-      );
-      Alert.alert('Success', `Zone ${formZoneName} updated successfully.`);
-    } else {
-      const nextNum = zones.length + 1;
-      const code = `ZN-00${nextNum}`;
-      const newZone: ZoneData = {
-        id: `zn-00${nextNum}`,
-        code,
-        shortCode,
-        name: formZoneName.trim(),
-        district: formDistrict,
-        taluk: 'Nilgiris Belt',
-        locationsCount: 3,
-        farmersCount: 10,
-        warehousesCount: 1,
-        farmAreaAcres: 45.0,
-        verifiedFarmers: 8,
-        activeFarmers: 10,
-        status: asDraft ? 'Inactive' : formStatus,
-        createdDate: '2026-10-15',
-        manager: formManager,
-        description: formDescription.trim() || 'Newly created sourcing zone.',
-        contact: formContact.trim() || 'Not set',
-        boundaryPoints: 4,
-        warehouses: ['Ooty Main'],
-      };
-      setZones((prev) => [newZone, ...prev]);
-      Alert.alert('Zone Created', `Zone ${formZoneName} (${code}) created successfully.`);
-    }
-
-    setCurrentView('list');
-  };
+  // Every write below has no endpoint in docs/openapi.yaml (zone create / edit / status, locations,
+  // farmer assignment and transfer, mapping, export). The controls stay drawn; none changes anything.
+  const handleConfirmFarmerAssignment = notifyUnavailable;
+  const handleConfirmBulkAssignment = notifyUnavailable;
+  const handleExportReport = notifyUnavailable;
+  const handleDeactivateZone = notifyUnavailable;
+  const handleReactivateZone = notifyUnavailable;
+  const handleArchiveZone = notifyUnavailable;
+  const handleSaveNewLocation = notifyUnavailable;
+  const handleRemoveLocation = (_locId: string) => notifyUnavailable();
+  const handleSaveZone = (_asDraft: boolean = false) => notifyUnavailable();
+  const handleToggleLocationStatus = (_locId: string) => notifyUnavailable();
 
   const renderLocationManagementContent = () => {
-    const matchedZone =
-      zones.find(
-        (z) =>
-          selectedLocationZone.includes(z.shortCode) ||
-          selectedLocationZone.includes(z.name)
-      ) || selectedZone;
+    const matchedZone = findZoneByLabel(zones, selectedLocationZone) ?? selectedZone;
 
     const zoneLocations = locations.filter(
       (l) => l.zoneId === matchedZone.id || l.zoneName.includes(matchedZone.shortCode)
@@ -1339,7 +529,7 @@ export function AdminZoneManagementScreen({
               }
             }}
           >
-            <Text style={styles.dropdownVal}>{selectedLocationZone}</Text>
+            <Text style={styles.dropdownVal}>{selectedLocationZone || ADMIN_NO_VALUE}</Text>
             <ChevronDownIcon />
           </TouchableOpacity>
         </View>
@@ -1398,8 +588,17 @@ export function AdminZoneManagementScreen({
 
         {/* Location Count Heading */}
         <Text style={styles.resultsCountText}>
-          {filteredLocations.length} of {zoneLocations.length} locations in {matchedZone.name}
+          {t('zones.locations.countLine', {
+            shown: filteredLocations.length,
+            total: zoneLocations.length,
+            zone: matchedZone.name || ADMIN_NO_VALUE,
+          })}
         </Text>
+        {zoneLocations.length === 0 ? (
+          <View style={styles.cardContainer}>
+            <Text style={styles.farmerMetaText}>{t('zones.locations.empty')}</Text>
+          </View>
+        ) : null}
 
         {/* Location Cards List */}
         <View style={styles.zoneCardsList}>
@@ -1436,8 +635,8 @@ export function AdminZoneManagementScreen({
                       setNewLocType(loc.type);
                       setNewLocTaluk(loc.taluk);
                       setNewLocPin(loc.pinCode);
-                      setNewLocLat(loc.latitude || '11.4102');
-                      setNewLocLong(loc.longitude || '76.6950');
+                      setNewLocLat(loc.latitude ?? '');
+                      setNewLocLong(loc.longitude ?? '');
                       setPreviousViewBeforeAddLoc('location_management');
                       setCurrentView('add_location');
                     }}
@@ -1464,24 +663,23 @@ export function AdminZoneManagementScreen({
   };
 
   const renderFarmerListContent = () => {
-    const zoneObj = zones.find(
-      (z) => `${z.name} (${z.shortCode})` === farmerSelectedZone
-    );
+    const zoneObj = farmerZone;
     const q = farmerSearchQuery.trim().toLowerCase();
-    const zoneFarmers = farmersList.filter(
-      (f) => !zoneObj || f.zoneId === zoneObj.id
-    );
+    const zoneFarmers: ZoneFarmerData[] = zoneFarmerPool.items.map(toZoneFarmerView);
     const zoneFilteredFarmers = zoneFarmers.filter(
-      (f) =>
-        !q ||
-        f.name.toLowerCase().includes(q) ||
-        f.code.toLowerCase().includes(q) ||
-        f.location.toLowerCase().includes(q)
+      (f) => !q || f.name.toLowerCase().includes(q) || f.code.toLowerCase().includes(q) || f.phone.includes(q)
     );
-    const zoneTotalCount = Math.max(
-      zoneFilteredFarmers.length,
-      zoneObj?.farmersCount ?? zoneFilteredFarmers.length
-    );
+    // The total is the summary's count for the zone; never the length of a half-loaded list.
+    const zoneTotalText = countText(zoneObj?.farmersCount ?? null, ADMIN_NO_VALUE);
+    const farmersLeft =
+      zoneObj?.farmersCount === null || zoneObj === undefined
+        ? null
+        : Math.max(0, zoneObj.farmersCount - zoneFarmerPool.items.length);
+    const zoneNameText = zoneObj?.name || ADMIN_NO_VALUE;
+    if (zoneObj !== undefined && zoneFarmerPool.isLoading) return <AdminLoadingState />;
+    if (zoneObj !== undefined && zoneFarmerPool.items.length === 0 && zoneFarmerPool.error !== null && zoneFarmerPool.error !== undefined) {
+      return <AdminErrorState error={zoneFarmerPool.error} onRetry={zoneFarmerPool.refresh} />;
+    }
 
     return (
       <>
@@ -1499,7 +697,7 @@ export function AdminZoneManagementScreen({
               }
             }}
           >
-            <Text style={styles.dropdownVal}>{farmerSelectedZone}</Text>
+            <Text style={styles.dropdownVal}>{farmerSelectedZone || ADMIN_NO_VALUE}</Text>
             <ChevronDownIcon />
           </TouchableOpacity>
         </View>
@@ -1553,7 +751,7 @@ export function AdminZoneManagementScreen({
             <TouchableOpacity
               style={styles.secondaryActionButton}
               activeOpacity={0.8}
-              onPress={() => Alert.alert('Export List', `Exporting farmer roster for ${farmerSelectedZone}.`)}
+              onPress={notifyUnavailable}
             >
               <Text style={styles.secondaryActionText}>Export List</Text>
             </TouchableOpacity>
@@ -1568,15 +766,16 @@ export function AdminZoneManagementScreen({
         </View>
 
         <Text style={styles.farmerCountHeader}>
-          {zoneFilteredFarmers.length} of {zoneTotalCount} farmers in{' '}
-          {farmerSelectedZone.split(' (')[0]}
+          {t('zones.farmers.countHeader', {
+            shown: zoneFilteredFarmers.length,
+            total: zoneTotalText,
+            zone: zoneNameText,
+          })}
         </Text>
 
         {zoneFilteredFarmers.length === 0 ? (
           <View style={styles.cardContainer}>
-            <Text style={styles.farmerMetaText}>
-              No matching farmers found in {farmerSelectedZone.split(' (')[0]}.
-            </Text>
+            <Text style={styles.farmerMetaText}>{t('zones.farmers.empty', { zone: zoneNameText })}</Text>
           </View>
         ) : (
           zoneFilteredFarmers.map((farmer) => (
@@ -1584,8 +783,8 @@ export function AdminZoneManagementScreen({
               <View style={styles.farmerCardHeader}>
                 <Text style={styles.farmerName}>{farmer.name}</Text>
                 <View style={styles.farmerBadgeRow}>
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>{farmer.status}</Text>
+                  <View style={farmer.status === 'Active' ? styles.activeBadge : styles.inactiveBadge}>
+                    <Text style={farmer.status === 'Active' ? styles.activeBadgeText : styles.inactiveBadgeText}>{farmer.status}</Text>
                   </View>
                   <View
                     style={
@@ -1608,10 +807,10 @@ export function AdminZoneManagementScreen({
               </View>
 
               <Text style={styles.farmerCodeLoc}>
-                {farmer.code} · {farmer.location}
+                {t('zones.farmers.codeLoc', { code: farmer.code, location: ADMIN_NO_VALUE })}
               </Text>
               <Text style={styles.farmerMetaText}>
-                {farmer.phone} · {farmer.farmingType} · {farmer.acres} acres
+                {t('zones.farmers.metaLine', { phone: farmer.phone, type: ADMIN_NO_VALUE, acres: ADMIN_NO_VALUE })}
               </Text>
 
               <View style={styles.farmerCardBtnRow}>
@@ -1619,10 +818,7 @@ export function AdminZoneManagementScreen({
                   style={styles.farmerCardBtn}
                   activeOpacity={0.8}
                   onPress={() =>
-                    Alert.alert(
-                      'Farmer Details',
-                      `Farmer: ${farmer.name}\nCode: ${farmer.code}\nLocation: ${farmer.location}`
-                    )
+                    Alert.alert(farmer.name, t('zones.farmers.detailsBody', { code: farmer.code, location: ADMIN_NO_VALUE }))
                   }
                 >
                   <Text style={styles.farmerCardBtnText}>View Farmer</Text>
@@ -1639,9 +835,7 @@ export function AdminZoneManagementScreen({
               <TouchableOpacity
                 style={styles.farmerProfileBtn}
                 activeOpacity={0.8}
-                onPress={() =>
-                  Alert.alert('Farmer Profile', `Viewing full profile for ${farmer.name}.`)
-                }
+                onPress={() => Alert.alert(farmer.name, t('zones.farmers.profileUnavailable'))}
               >
                 <Text style={styles.farmerProfileBtnText}>View Farmer Profile</Text>
               </TouchableOpacity>
@@ -1649,14 +843,14 @@ export function AdminZoneManagementScreen({
           ))
         )}
 
-        {/* Show More Button */}
-        <TouchableOpacity
-          style={styles.showMoreBtn}
-          activeOpacity={0.8}
-          onPress={() => Alert.alert('Load More', 'Loading remaining farmers...')}
-        >
-          <Text style={styles.showMoreBtnText}>Show more (89 left)</Text>
-        </TouchableOpacity>
+        {/* Show More Button: only while pages remain (they load automatically; this is the manual nudge). */}
+        {zoneFarmerPool.hasMore ? (
+          <TouchableOpacity style={styles.showMoreBtn} activeOpacity={0.8} onPress={zoneFarmerPool.loadMore}>
+            <Text style={styles.showMoreBtnText}>
+              {farmersLeft === null ? t('zones.farmers.showMore') : t('zones.farmers.showMoreLeft', { count: farmersLeft })}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </>
     );
   };
@@ -1677,45 +871,36 @@ export function AdminZoneManagementScreen({
             }
           }}
         >
-          <Text style={styles.dropdownVal}>{warehouseSelectedZone}</Text>
+          <Text style={styles.dropdownVal}>{warehouseSelectedZone || ADMIN_NO_VALUE}</Text>
           <ChevronDownIcon />
         </TouchableOpacity>
       </View>
 
       {/* Warehouse Mapping Cards */}
+      {warehouseMappings.length === 0 ? (
+        <View style={styles.cardContainer}>
+          <Text style={styles.farmerMetaText}>{t('zones.warehouse.noneMapped')}</Text>
+        </View>
+      ) : null}
       {warehouseMappings.map((wh) => (
         <View key={wh.id} style={styles.warehouseCard}>
           <View style={styles.warehouseCardHeader}>
             <Text style={styles.warehouseName}>{wh.name}</Text>
-            <View style={styles.activeBadge}>
-              <Text style={styles.activeBadgeText}>{wh.status}</Text>
+            <View style={wh.status === 'Active' ? styles.activeBadge : styles.inactiveBadge}>
+              <Text style={wh.status === 'Active' ? styles.activeBadgeText : styles.inactiveBadgeText}>{wh.status}</Text>
             </View>
           </View>
           <Text style={styles.warehouseSubtitle}>
-            {wh.code} · {wh.type} · since {wh.sinceDate}
+            {t('zones.warehouse.subtitle', {
+              code: wh.code === '' ? ADMIN_NO_VALUE : wh.code,
+              type: liveWarehouses.warehouses === undefined ? ADMIN_NO_VALUE : wh.type,
+              since: ADMIN_NO_VALUE,
+            })}
           </Text>
           <TouchableOpacity
             style={styles.turnOffMappingBtn}
             activeOpacity={0.8}
-            onPress={() => {
-              Alert.alert(
-                'Turn off mapping',
-                `Are you sure you want to turn off mapping for ${wh.name}?`,
-                [
-                  { text: 'Cancel', style: 'cancel' },
-                  {
-                    text: 'Turn Off',
-                    style: 'destructive',
-                    onPress: () => {
-                      setWarehouseMappings((prev) =>
-                        prev.filter((item) => item.id !== wh.id)
-                      );
-                      Alert.alert('Mapping Removed', `Mapping for ${wh.name} has been turned off.`);
-                    },
-                  },
-                ]
-              );
-            }}
+            onPress={notifyUnavailable}
           >
             <Text style={styles.turnOffMappingText}>Turn off mapping</Text>
           </TouchableOpacity>
@@ -1726,20 +911,7 @@ export function AdminZoneManagementScreen({
       <TouchableOpacity
         style={styles.addMappingBtn}
         activeOpacity={0.8}
-        onPress={() => {
-          const nextId = `wh-map-${warehouseMappings.length + 1}`;
-          const newMapping: ZoneWarehouseMappingData = {
-            id: nextId,
-            code: 'WH-KOTA',
-            name: 'Kotagiri Sub-Warehouse',
-            type: 'Sub warehouse',
-            sinceDate: '2026-10-15',
-            status: 'Active',
-            isMapped: true,
-          };
-          setWarehouseMappings((prev) => [...prev, newMapping]);
-          Alert.alert('Mapping Added', 'Kotagiri Sub-Warehouse added to zone mapping.');
-        }}
+        onPress={notifyUnavailable}
       >
         <Text style={styles.addMappingBtnText}>Add Mapping</Text>
       </TouchableOpacity>
@@ -1801,6 +973,11 @@ export function AdminZoneManagementScreen({
     return true;
   });
 
+  // Loading and failure replace the body of every view that reads zones; an EMPTY zone list is not blocked:
+  // it is a real answer, and each view draws its own empty state.
+  const blocked = (zonesState === 'loading' || zonesState === 'error') && !FORM_VIEWS.includes(currentView);
+  const contentView: ZoneScreenView | null = blocked ? null : currentView;
+
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1846,16 +1023,28 @@ export function AdminZoneManagementScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {blocked ? (
+          zonesState === 'loading' ? (
+            <AdminLoadingState />
+          ) : (
+            <AdminErrorState error={liveZones.error} onRetry={liveZones.refresh} />
+          )
+        ) : null}
+
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 1: ZM-01 ZONE DASHBOARD
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'dashboard' && (
+        {contentView === 'dashboard' && (
           <>
+            {zonesState === 'empty' ? (
+              <AdminEmptyState title={t('zones.empty.title')} subtitle={t('zones.empty.subtitle')} />
+            ) : null}
+
             {/* 8 KPI Cards using OverviewDashboardCard */}
             <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
               <OverviewDashboardCard
                 title="Total Zones"
-                value="5"
+                value={figure(kpis.totalZones)}
                 icon="categories"
                 tone="default"
                 titlePosition="bottom"
@@ -1864,7 +1053,7 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Active Zones"
-                value="4"
+                value={figure(kpis.activeZones)}
                 icon="clipboard"
                 tone="success"
                 titlePosition="bottom"
@@ -1872,7 +1061,7 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Inactive Zones"
-                value="1"
+                value={figure(kpis.inactiveZones)}
                 icon="alert"
                 tone="warning"
                 titlePosition="bottom"
@@ -1880,8 +1069,7 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Total Locations"
-                value="27"
-                subtitle="24 in zones, 3 not in a zone"
+                value={figure(kpis.totalLocations)}
                 icon="market"
                 tone="default"
                 titlePosition="bottom"
@@ -1889,8 +1077,8 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Assigned Farmers"
-                value="248"
-                subtitle="of 260 registered"
+                value={figure(kpis.assignedFarmers)}
+                subtitle={kpis.registeredFarmers === null ? undefined : t('zones.kpi.ofRegistered', { count: kpis.registeredFarmers })}
                 icon="users"
                 tone="default"
                 titlePosition="bottom"
@@ -1898,8 +1086,8 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Unassigned Farmers"
-                value="12"
-                subtitle="need a zone"
+                value={figure(kpis.unassignedFarmers)}
+                subtitle={t('zones.kpi.needZone')}
                 icon="alert"
                 tone="danger"
                 titlePosition="bottom"
@@ -1907,7 +1095,7 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Main Warehouses"
-                value="1"
+                value={figure(kpis.mainWarehouses)}
                 icon="building"
                 tone="default"
                 titlePosition="bottom"
@@ -1915,7 +1103,7 @@ export function AdminZoneManagementScreen({
               />
               <OverviewDashboardCard
                 title="Sub-Warehouses"
-                value="3"
+                value={figure(kpis.subWarehouses)}
                 icon="store"
                 tone="default"
                 titlePosition="bottom"
@@ -1964,20 +1152,17 @@ export function AdminZoneManagementScreen({
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Zone-wise farmer distribution</Text>
               <View style={styles.cardContainer}>
-                {[
-                  { name: 'Ooty Zone', val: 92, pct: '92%' },
-                  { name: 'Coonoor Zone', val: 64, pct: '64%' },
-                  { name: 'Kotagiri Zone', val: 41, pct: '41%' },
-                  { name: 'Gudalur Zone', val: 29, pct: '29%' },
-                  { name: 'Kundah Zone', val: 22, pct: '22%' },
-                ].map((item, idx) => (
-                  <View key={item.name} style={[styles.distRow, idx === 4 && { marginBottom: 0 }]}>
+                {farmerRows.length === 0 ? (
+                  <Text style={styles.farmerMetaText}>{t('zones.empty.subtitle')}</Text>
+                ) : null}
+                {farmerRows.map((item, idx) => (
+                  <View key={item.id} style={[styles.distRow, idx === farmerRows.length - 1 && { marginBottom: 0 }]}>
                     <View style={styles.distTextRow}>
                       <Text style={styles.distZoneLabel}>{item.name}</Text>
-                      <Text style={styles.distZoneValue}>{item.val}</Text>
+                      <Text style={styles.distZoneValue}>{figure(item.count)}</Text>
                     </View>
                     <View style={styles.progressBarTrack}>
-                      <View style={[styles.progressBarFill, { width: item.pct as DimensionValue }]} />
+                      <View style={[styles.progressBarFill, { width: percentWidth(item.ratio) as DimensionValue }]} />
                     </View>
                   </View>
                 ))}
@@ -1988,20 +1173,15 @@ export function AdminZoneManagementScreen({
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Zone-wise location distribution</Text>
               <View style={styles.cardContainer}>
-                {[
-                  { name: 'Ooty Zone', val: 6, pct: '100%' },
-                  { name: 'Coonoor Zone', val: 5, pct: '83%' },
-                  { name: 'Kotagiri Zone', val: 4, pct: '66%' },
-                  { name: 'Gudalur Zone', val: 5, pct: '83%' },
-                  { name: 'Kundah Zone', val: 4, pct: '66%' },
-                ].map((item, idx) => (
-                  <View key={item.name} style={[styles.distRow, idx === 4 && { marginBottom: 0 }]}>
+                {/* No location resource exists: every zone's count is the dash and its bar is empty. */}
+                {zones.map((zone, idx) => (
+                  <View key={zone.id} style={[styles.distRow, idx === zones.length - 1 && { marginBottom: 0 }]}>
                     <View style={styles.distTextRow}>
-                      <Text style={styles.distZoneLabel}>{item.name}</Text>
-                      <Text style={styles.distZoneValue}>{item.val}</Text>
+                      <Text style={styles.distZoneLabel}>{zone.name}</Text>
+                      <Text style={styles.distZoneValue}>{figure(zone.locationsCount)}</Text>
                     </View>
                     <View style={styles.progressBarTrack}>
-                      <View style={[styles.progressBarFill, { width: item.pct as DimensionValue }]} />
+                      <View style={[styles.progressBarFill, { width: shareOfMax(zone.locationsCount, 0) as DimensionValue }]} />
                     </View>
                   </View>
                 ))}
@@ -2012,19 +1192,13 @@ export function AdminZoneManagementScreen({
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Zone-wise warehouse distribution</Text>
               <View style={styles.cardContainer}>
-                {[
-                  { name: 'Ooty Zone', wh: 'Ooty Main, Coonoor Sub' },
-                  { name: 'Coonoor Zone', wh: 'Coonoor Sub' },
-                  { name: 'Kotagiri Zone', wh: 'Kotagiri Sub' },
-                  { name: 'Gudalur Zone', wh: 'Gudalur Market Sub' },
-                  { name: 'Kundah Zone', wh: 'None' },
-                ].map((item, idx) => (
-                  <React.Fragment key={item.name}>
+                {warehouseRows.map((item, idx) => (
+                  <React.Fragment key={item.id}>
                     <View style={styles.whRow}>
                       <Text style={styles.whZoneLabel}>{item.name}</Text>
-                      <Text style={styles.whZoneVal}>{item.wh}</Text>
+                      <Text style={styles.whZoneVal}>{item.warehouse ?? t('zones.warehouse.none')}</Text>
                     </View>
-                    {idx < 4 ? <View style={styles.dashedDivider} /> : null}
+                    {idx < warehouseRows.length - 1 ? <View style={styles.dashedDivider} /> : null}
                   </React.Fragment>
                 ))}
               </View>
@@ -2034,7 +1208,7 @@ export function AdminZoneManagementScreen({
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Recently created zones</Text>
               <View style={styles.cardContainer}>
-                {zones.slice(0, 3).map((zone, idx) => (
+                {newestZones.map((zone, idx) => (
                   <React.Fragment key={zone.id}>
                     <TouchableOpacity
                       style={styles.recentZoneRow}
@@ -2044,7 +1218,7 @@ export function AdminZoneManagementScreen({
                       <View style={styles.recentZoneLeft}>
                         <Text style={styles.recentZoneName}>{zone.name}</Text>
                         <Text style={styles.recentZoneMeta}>
-                          {zone.code} · created {zone.createdDate}
+                          {t('zones.fmt.createdMeta', { code: zone.code, date: zone.createdDate ?? ADMIN_NO_VALUE })}
                         </Text>
                       </View>
                       <View
@@ -2061,48 +1235,38 @@ export function AdminZoneManagementScreen({
                         </Text>
                       </View>
                     </TouchableOpacity>
-                    {idx < 2 ? <View style={styles.dashedDivider} /> : null}
+                    {idx < newestZones.length - 1 ? <View style={styles.dashedDivider} /> : null}
                   </React.Fragment>
                 ))}
               </View>
             </View>
 
-            {/* Zones requiring attention (3) */}
+            {/* Zones requiring attention */}
             <View style={styles.sectionWrap}>
-              <Text style={styles.sectionHeaderTitle}>Zones requiring attention (3)</Text>
+              <Text style={styles.sectionHeaderTitle}>{t('zones.dashboard.attentionTitle', { count: attention.length })}</Text>
               <View style={styles.cardContainer}>
-                <TouchableOpacity
-                  style={styles.attentionBlock}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    const kundah = zones.find((z) => z.code === 'ZN-005') ?? zones[4] ?? INITIAL_ZONES[0]!;
-                    handleNavigateToZoneStatus(kundah, 'dashboard');
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={styles.attentionTitle}>Kundah Zone</Text>
-                    <Text style={{ fontSize: 11, color: adminColors.brand, fontWeight: '700' }}>Review Status →</Text>
-                  </View>
-                  <Text style={styles.attentionDesc}>
-                    22 farmers are still assigned to an inactive zone. Transfer them, or keep them frozen.
-                  </Text>
-                </TouchableOpacity>
-                <View style={styles.dashedDivider} />
-
-                <View style={styles.attentionBlock}>
-                  <Text style={styles.attentionTitle}>Gudalur Zone</Text>
-                  <Text style={styles.attentionDesc}>
-                    No active warehouse mapping gap risk — verify Gudalur Market Sub stays active.
-                  </Text>
-                </View>
-                <View style={styles.dashedDivider} />
-
-                <View style={styles.attentionBlock}>
-                  <Text style={styles.attentionTitle}>All zones</Text>
-                  <Text style={styles.attentionDesc}>
-                    Boundaries are schematic; 2 zone boundaries have not been reviewed for overlap.
-                  </Text>
-                </View>
+                {attention.length === 0 ? <Text style={styles.attentionDesc}>{t('zones.attention.none')}</Text> : null}
+                {attention.map((item, idx) => (
+                  <React.Fragment key={item.key}>
+                    <TouchableOpacity
+                      style={styles.attentionBlock}
+                      activeOpacity={0.7}
+                      onPress={() => {
+                        const target = findZone(zones, item.zoneId);
+                        if (target) handleNavigateToZoneStatus(target, 'dashboard');
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.attentionTitle}>{item.zoneName}</Text>
+                        <Text style={{ ...adminType.caption, color: adminColors.brand, fontWeight: '700' }}>{t('zones.attention.review')}</Text>
+                      </View>
+                      <Text style={styles.attentionDesc}>
+                        {t(item.kind === 'inactive' ? 'zones.attention.inactive' : 'zones.attention.noWarehouse', { zone: item.zoneName })}
+                      </Text>
+                    </TouchableOpacity>
+                    {idx < attention.length - 1 ? <View style={styles.dashedDivider} /> : null}
+                  </React.Fragment>
+                ))}
               </View>
             </View>
 
@@ -2110,24 +1274,17 @@ export function AdminZoneManagementScreen({
             <View style={styles.sectionWrap}>
               <Text style={styles.sectionHeaderTitle}>Unassigned farmers</Text>
               <View style={styles.cardContainer}>
+                {/* The per-location split has no source (a farmer's registered location is not in any read): one dashed row. */}
                 {[
-                  { loc: 'Farmers without a zone', count: '12' },
-                  { loc: 'Registered in Masinagudi', count: '2' },
-                  { loc: 'Registered in Naduvattam', count: '2' },
-                  { loc: 'Registered in Sholur', count: '2' },
-                  { loc: 'Registered in Ooty Town', count: '1' },
-                  { loc: 'Registered in Coonoor Town', count: '1' },
-                  { loc: 'Registered in Kotagiri Town', count: '1' },
-                  { loc: 'Registered in Gudalur Town', count: '1' },
-                  { loc: 'Registered in Devala', count: '1' },
-                  { loc: 'Registered in Wellington', count: '1' },
+                  { key: 'withoutZone', loc: t('zones.dashboard.unassignedLabel'), count: figure(kpis.unassignedFarmers) },
+                  { key: 'byLocation', loc: t('zones.dashboard.unassignedByLocation'), count: ADMIN_NO_VALUE },
                 ].map((r, i) => (
-                  <React.Fragment key={r.loc}>
+                  <React.Fragment key={r.key}>
                     <View style={styles.unassignedRow}>
                       <Text style={styles.unassignedLabel}>{r.loc}</Text>
                       <Text style={styles.unassignedBoldVal}>{r.count}</Text>
                     </View>
-                    {i < 9 ? <View style={styles.dashedDivider} /> : null}
+                    {i < 1 ? <View style={styles.dashedDivider} /> : null}
                   </React.Fragment>
                 ))}
 
@@ -2146,7 +1303,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 2: ZM-02 ZONE LIST
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'list' && (
+        {contentView === 'list' && (
           <>
             {/* Search & Filter Card */}
             <View style={styles.filterCard}>
@@ -2172,13 +1329,11 @@ export function AdminZoneManagementScreen({
                 </View>
                 <View style={styles.filterDropdownCol}>
                   <Text style={styles.filterFieldLabel}>District</Text>
-                  <TouchableOpacity
-                    style={styles.dropdownBox}
-                    onPress={() => setFilterDistrict(filterDistrict === 'All' ? 'Nilgiris' : 'All')}
-                  >
-                    <Text style={styles.dropdownVal}>{filterDistrict}</Text>
+                  {/* The zone API carries no district: nothing to filter by. */}
+                  <View style={styles.dropdownBox}>
+                    <Text style={styles.dropdownVal}>{ADMIN_NO_VALUE}</Text>
                     <ChevronDownIcon />
-                  </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
@@ -2205,7 +1360,6 @@ export function AdminZoneManagementScreen({
                   onPress={() => {
                     setSearchQuery('');
                     setFilterStatus('All');
-                    setFilterDistrict('All');
                   }}
                 >
                   <Text style={styles.clearFiltersBtnText}>Clear filters</Text>
@@ -2221,8 +1375,11 @@ export function AdminZoneManagementScreen({
 
             {/* Results count text */}
             <Text style={styles.resultsCountText}>
-              {filteredZones.length} of {zones.length} zones
+              {t('zones.fmt.resultsCount', { shown: filteredZones.length, total: zones.length })}
             </Text>
+            {zones.length === 0 ? (
+              <AdminEmptyState title={t('zones.empty.title')} subtitle={t('zones.empty.subtitle')} />
+            ) : null}
 
             {/* 5 Zone Cards (Exact Mockup ZM-02) */}
             <View style={styles.zoneCardsList}>
@@ -2263,13 +1420,17 @@ export function AdminZoneManagementScreen({
                     </View>
 
                     <Text style={styles.zoneListItemCodeLine}>
-                      {zone.code} · {zone.shortCode} · {zone.district}
+                      {t('zones.fmt.codeLine', { code: zone.code, shortCode: zone.shortCode, district: ADMIN_NO_VALUE })}
                     </Text>
                     <Text style={styles.zoneListItemStatsLine}>
-                      {zone.locationsCount} locations · {zone.farmersCount} farmers · {zone.warehousesCount} warehouses
+                      {t('zones.fmt.statsLine', {
+                        locations: figure(zone.locationsCount),
+                        farmers: figure(zone.farmersCount),
+                        warehouses: figure(zone.warehousesCount),
+                      })}
                     </Text>
                     <Text style={styles.zoneListItemDateLine}>
-                      Created {zone.createdDate}
+                      {t('zones.fmt.createdLine', { date: zone.createdDate ?? ADMIN_NO_VALUE })}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -2281,7 +1442,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 3: ZM-03 ZONE DETAILS
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'details' && (
+        {contentView === 'details' && (
           <>
             {/* Main Zone Card */}
             <View style={styles.cardContainer}>
@@ -2309,18 +1470,20 @@ export function AdminZoneManagementScreen({
               </View>
 
               <Text style={[styles.zoneListItemCodeLine, { marginBottom: 12 }]}>
-                {selectedZone.code} · Code {selectedZone.shortCode} · {selectedZone.district}
+                {t('zones.fmt.detailCodeLine', { code: selectedZone.code, shortCode: selectedZone.shortCode, district: ADMIN_NO_VALUE })}
               </Text>
 
               <View style={styles.detailsTableRow}>
                 <Text style={styles.detailsTableLabel}>Zone manager</Text>
-                <Text style={styles.detailsTableValBold}>{selectedZone.manager}</Text>
+                <Text style={styles.detailsTableValBold}>
+                  {!selectedZone.managerLoaded ? ADMIN_NO_VALUE : (selectedZone.manager ?? t('zones.manager.none'))}
+                </Text>
               </View>
               <View style={styles.dashedDivider} />
 
               <View style={styles.detailsTableRow}>
                 <Text style={styles.detailsTableLabel}>Created</Text>
-                <Text style={styles.detailsTableValBold}>{selectedZone.createdDate}</Text>
+                <Text style={styles.detailsTableValBold}>{selectedZone.createdDate ?? ADMIN_NO_VALUE}</Text>
               </View>
 
               {/* Action buttons */}
@@ -2353,13 +1516,13 @@ export function AdminZoneManagementScreen({
                       detailsSubTab === tab && styles.detailsTabPillActive,
                     ]}
                     onPress={() => {
-                      const zoneLabel = `${selectedZone.name} (${selectedZone.shortCode})`;
+                      const label = zoneLabel(selectedZone);
                       if (tab === 'Locations') {
-                        setSelectedLocationZone(zoneLabel);
+                        setSelectedLocationZone(label);
                       } else if (tab === 'Farmers') {
-                        setFarmerSelectedZone(zoneLabel);
+                        setFarmerSelectedZone(label);
                       } else if (tab === 'Warehouses') {
-                        setWarehouseSelectedZone(zoneLabel);
+                        setWarehouseSelectedZone(label);
                       }
                       setDetailsSubTab(tab);
                     }}
@@ -2387,7 +1550,7 @@ export function AdminZoneManagementScreen({
                 <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
                   <OverviewDashboardCard
                     title="Locations"
-                    value={selectedZone.locationsCount}
+                    value={figure(selectedZone.locationsCount)}
                     icon="market"
                     tone="default"
                     titlePosition="bottom"
@@ -2395,7 +1558,7 @@ export function AdminZoneManagementScreen({
                   />
                   <OverviewDashboardCard
                     title="Farmers"
-                    value={selectedZone.farmersCount}
+                    value={figure(selectedZone.farmersCount)}
                     icon="users"
                     tone="default"
                     titlePosition="bottom"
@@ -2403,7 +1566,7 @@ export function AdminZoneManagementScreen({
                   />
                   <OverviewDashboardCard
                     title="Warehouses"
-                    value={selectedZone.warehousesCount}
+                    value={figure(selectedZone.warehousesCount)}
                     icon="building"
                     tone="default"
                     titlePosition="bottom"
@@ -2411,7 +1574,7 @@ export function AdminZoneManagementScreen({
                   />
                   <OverviewDashboardCard
                     title="Farm area (acres)"
-                    value={selectedZone.farmAreaAcres}
+                    value={figure(selectedZone.farmAreaAcres)}
                     icon="categories"
                     tone="success"
                     titlePosition="bottom"
@@ -2424,7 +1587,7 @@ export function AdminZoneManagementScreen({
                   <View style={styles.detailsTableRow}>
                     <Text style={styles.detailsTableLabel}>Verified farmers</Text>
                     <Text style={styles.detailsTableValBold}>
-                      {selectedZone.verifiedFarmers} of {selectedZone.farmersCount}
+                      {t('zones.fmt.ofTotal', { part: figure(selectedZone.verifiedFarmers), total: figure(selectedZone.farmersCount) })}
                     </Text>
                   </View>
                   <View style={styles.dashedDivider} />
@@ -2432,7 +1595,7 @@ export function AdminZoneManagementScreen({
                   <View style={styles.detailsTableRow}>
                     <Text style={styles.detailsTableLabel}>Active farmers</Text>
                     <Text style={styles.detailsTableValBold}>
-                      {selectedZone.activeFarmers} of {selectedZone.farmersCount}
+                      {t('zones.fmt.ofTotal', { part: figure(selectedZone.activeFarmers), total: figure(selectedZone.farmersCount) })}
                     </Text>
                   </View>
                   <View style={styles.dashedDivider} />
@@ -2440,21 +1603,21 @@ export function AdminZoneManagementScreen({
                   <View style={styles.detailsTableRow}>
                     <Text style={styles.detailsTableLabel}>Description</Text>
                     <Text style={[styles.detailsTableValBold, { flex: 1, textAlign: 'right', marginLeft: 10 }]}>
-                      {selectedZone.description}
+                      {selectedZone.description ?? ADMIN_NO_VALUE}
                     </Text>
                   </View>
                   <View style={styles.dashedDivider} />
 
                   <View style={styles.detailsTableRow}>
                     <Text style={styles.detailsTableLabel}>Contact</Text>
-                    <Text style={styles.detailsTableValBold}>{selectedZone.contact}</Text>
+                    <Text style={styles.detailsTableValBold}>{selectedZone.contact ?? ADMIN_NO_VALUE}</Text>
                   </View>
                   <View style={styles.dashedDivider} />
 
                   <View style={styles.detailsTableRow}>
                     <Text style={styles.detailsTableLabel}>Boundary</Text>
                     <Text style={styles.detailsTableValBold}>
-                      {selectedZone.boundaryPoints} points
+                      {selectedZone.boundaryPoints === null ? ADMIN_NO_VALUE : t('zones.fmt.points', { count: selectedZone.boundaryPoints })}
                     </Text>
                   </View>
                 </View>
@@ -2493,7 +1656,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 4: ZM-04 ADD / EDIT NEW ZONE
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'add_zone' && (
+        {contentView === 'add_zone' && (
           <>
             <View style={styles.cardContainer}>
               <Text style={styles.inputLabelRequired}>Zone name *</Text>
@@ -2533,7 +1696,7 @@ export function AdminZoneManagementScreen({
 
               <Text style={styles.inputLabelRequired}>District *</Text>
               <View style={styles.dropdownBox}>
-                <Text style={styles.dropdownVal}>{formDistrict}</Text>
+                <Text style={styles.dropdownVal}>{ADMIN_NO_VALUE}</Text>
                 <ChevronDownIcon />
               </View>
 
@@ -2552,21 +1715,11 @@ export function AdminZoneManagementScreen({
               <Text style={styles.inputLabelOptional}>
                 Zone manager <Text style={styles.optionalTag}>Optional</Text>
               </Text>
-              <TouchableOpacity
-                style={styles.dropdownBox}
-                onPress={() => {
-                  setFormManager(
-                    formManager === 'None'
-                      ? 'Demo Farmer Admin One'
-                      : formManager === 'Demo Farmer Admin One'
-                        ? 'Demo Farmer Admin Two'
-                        : 'None'
-                  );
-                }}
-              >
-                <Text style={styles.dropdownVal}>{formManager}</Text>
+              {/* No endpoint assigns a manager: the box shows the current one and does nothing. */}
+              <View style={styles.dropdownBox}>
+                <Text style={styles.dropdownVal}>{formManager || t('zones.manager.none')}</Text>
                 <ChevronDownIcon />
-              </TouchableOpacity>
+              </View>
               <Text style={styles.inputHelperText}>
                 A Farmer Admin account. Each Farmer Admin has one zone (rbac scope zone_id).
               </Text>
@@ -2635,10 +1788,8 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 5: ZM-05 EDIT ZONE (Images 1 & 2)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'edit_zone' && (() => {
-          const zoneAssignedLocations = locations.filter(
-            (l) => l.zoneId === selectedZone.id || l.zoneName.includes(selectedZone.shortCode)
-          );
+        {contentView === 'edit_zone' && (() => {
+          const zoneAssignedLocations = locations.filter((l) => l.zoneId === selectedZone.id);
           return (
             <>
               {/* Form Card */}
@@ -2681,21 +1832,11 @@ export function AdminZoneManagementScreen({
                 <Text style={styles.inputLabelOptional}>
                   Zone manager <Text style={styles.optionalTag}>Optional</Text>
                 </Text>
-                <TouchableOpacity
-                  style={styles.dropdownBox}
-                  onPress={() => {
-                    setFormManager(
-                      formManager === 'None'
-                        ? 'Demo Farmer Admin One'
-                        : formManager === 'Demo Farmer Admin One'
-                          ? 'Demo Farmer Admin Two'
-                          : 'None'
-                    );
-                  }}
-                >
-                  <Text style={styles.dropdownVal}>{formManager}</Text>
+                {/* No endpoint assigns a manager: the box shows the current one and does nothing. */}
+                <View style={styles.dropdownBox}>
+                  <Text style={styles.dropdownVal}>{formManager || t('zones.manager.none')}</Text>
                   <ChevronDownIcon />
-                </TouchableOpacity>
+                </View>
 
                 <Text style={styles.inputLabelOptional}>
                   Contact number <Text style={styles.optionalTag}>Optional</Text>
@@ -2744,7 +1885,7 @@ export function AdminZoneManagementScreen({
 
               {/* Assigned Locations Section */}
               <Text style={styles.sectionHeading}>
-                Assigned locations ({zoneAssignedLocations.length})
+                {t('zones.edit.assignedLocations', { count: zoneAssignedLocations.length })}
               </Text>
               <View style={styles.cardContainer}>
                 {zoneAssignedLocations.map((loc, idx) => (
@@ -2791,9 +1932,9 @@ export function AdminZoneManagementScreen({
               <Text style={styles.sectionHeading}>Change history</Text>
               <View style={styles.cardContainer}>
                 <View style={styles.historyRow}>
-                  <Text style={styles.historyTimestamp}>2026-03-12 09:00</Text>
+                  <Text style={styles.historyTimestamp}>{selectedZone.createdDate ?? ADMIN_NO_VALUE}</Text>
                   <Text style={styles.historyActionText}>
-                    Zone created · <Text style={{ fontWeight: '800' }}>Demo Super Admin</Text>
+                    {t('zones.history.created')} · <Text style={{ fontWeight: '800' }}>{ADMIN_NO_VALUE}</Text>
                   </Text>
                 </View>
               </View>
@@ -2803,10 +1944,7 @@ export function AdminZoneManagementScreen({
                 <TouchableOpacity
                   style={styles.primaryActionButton}
                   activeOpacity={0.8}
-                  onPress={() => {
-                    handleSaveZone(false);
-                    setCurrentView('details');
-                  }}
+                  onPress={() => handleSaveZone(false)}
                 >
                   <Text style={styles.primaryActionText}>Review Changes</Text>
                 </TouchableOpacity>
@@ -2825,12 +1963,12 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 6: ZM-06 LOCATION MANAGEMENT (Images 3 & 4)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'location_management' && renderLocationManagementContent()}
+        {contentView === 'location_management' && renderLocationManagementContent()}
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 7: ZM-07 ADD LOCATION (Image 5)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'add_location' && (
+        {contentView === 'add_location' && (
           <>
             {/* Form Card */}
             <View style={styles.cardContainer}>
@@ -2875,7 +2013,7 @@ export function AdminZoneManagementScreen({
               <Text style={styles.inputLabelRequired}>District</Text>
               <TextInput
                 style={[styles.formInput, { backgroundColor: adminColors.canvas, color: adminColors.muted }]}
-                value="Nilgiris"
+                value={ADMIN_NO_VALUE}
                 editable={false}
               />
 
@@ -2917,15 +2055,14 @@ export function AdminZoneManagementScreen({
                 style={styles.schematicMapBox}
                 activeOpacity={0.85}
                 onPress={() => {
+                  // A schematic has no coordinates: the pin is marked, the fields stay for the admin to type.
                   setPinDropped(true);
-                  setNewLocLat('11.4128');
-                  setNewLocLong('76.6983');
                 }}
               >
                 {pinDropped ? (
                   <View style={styles.mapPinIndicator}>
                     <View style={styles.mapPinDot} />
-                    <Text style={styles.mapPinText}>Pin dropped: 11.4128° N, 76.6983° E</Text>
+                    <Text style={styles.mapPinText}>{t('zones.map.pinDropped')}</Text>
                   </View>
                 ) : (
                   <Text style={styles.schematicMapText}>
@@ -3017,7 +2154,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 8: ZM-08 ZONE MAP & BOUNDARY
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'zone_map' && (
+        {contentView === 'zone_map' && (
           <>
             {/* Tool Chips Row */}
             <ScrollView
@@ -3116,7 +2253,7 @@ export function AdminZoneManagementScreen({
                     />
                   ))}
 
-                  {/* 1. Zone GUD (Gudalur) - Top Left */}
+                  {/* 1. Zone slot 1 - Top Left */}
                   <Rect
                     x="16"
                     y="14"
@@ -3129,25 +2266,25 @@ export function AdminZoneManagementScreen({
                     fillOpacity={0.55}
                   />
                   <SvgText x="60" y="52" fill={adminColors.ink} fontSize="10.5" fontWeight="800" textAnchor="middle">
-                    GUD
+                    {mapLabels[0] ?? ADMIN_NO_VALUE}
                   </SvgText>
-                  {/* GUD Pins */}
+                  {/* slot pins: no location data, so no count */}
                   <Circle cx="38" cy="30" r="5.5" fill={adminColors.purple.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="38" y="43" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">4</SvgText>
+                  <SvgText x="38" y="43" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="76" cy="40" r="5.5" fill={adminColors.purple.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="76" y="53" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">7</SvgText>
+                  <SvgText x="76" y="53" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="52" cy="68" r="5.5" fill={adminColors.purple.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="52" y="81" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">14</SvgText>
+                  <SvgText x="52" y="81" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="32" cy="94" r="5.5" fill={adminColors.purple.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="32" y="107" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">10</SvgText>
+                  <SvgText x="32" y="107" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="82" cy="92" r="5.5" fill={adminColors.purple.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="82" y="105" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">3</SvgText>
+                  <SvgText x="82" y="105" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
-                  {/* 2. Zone OOT (Ooty) - Top Center */}
+                  {/* 2. Zone slot 2 - Top Center */}
                   <Rect
                     x="116"
                     y="14"
@@ -3160,28 +2297,28 @@ export function AdminZoneManagementScreen({
                     fillOpacity={0.65}
                   />
                   <SvgText x="168" y="30" fill={adminColors.ink} fontSize="10.5" fontWeight="800" textAnchor="middle">
-                    OOT
+                    {mapLabels[1] ?? ADMIN_NO_VALUE}
                   </SvgText>
-                  {/* OOT Pins */}
+                  {/* slot pins: no location data, so no count */}
                   <Circle cx="136" cy="28" r="5.5" fill={adminColors.brand} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="136" y="41" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">12</SvgText>
+                  <SvgText x="136" y="41" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="192" cy="28" r="5.5" fill={adminColors.brand} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="192" y="41" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">18</SvgText>
+                  <SvgText x="192" y="41" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="168" cy="46" r="5.5" fill={adminColors.brand} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="168" y="59" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">30</SvgText>
+                  <SvgText x="168" y="59" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="134" cy="62" r="5.5" fill={adminColors.brand} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="134" y="75" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">7</SvgText>
+                  <SvgText x="134" y="75" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="160" cy="68" r="5.5" fill={adminColors.brand} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="160" y="81" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">5</SvgText>
+                  <SvgText x="160" y="81" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="200" cy="62" r="5.5" fill={adminColors.brand} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="200" y="75" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">10</SvgText>
+                  <SvgText x="200" y="75" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
-                  {/* 3. Zone COO (Coonoor) - Center Middle */}
+                  {/* 3. Zone slot 3 - Center Middle */}
                   <Rect
                     x="126"
                     y="94"
@@ -3194,25 +2331,25 @@ export function AdminZoneManagementScreen({
                     fillOpacity={0.6}
                   />
                   <SvgText x="173" y="108" fill={adminColors.ink} fontSize="10.5" fontWeight="800" textAnchor="middle">
-                    COO
+                    {mapLabels[2] ?? ADMIN_NO_VALUE}
                   </SvgText>
-                  {/* COO Pins */}
+                  {/* slot pins: no location data, so no count */}
                   <Circle cx="142" cy="104" r="5.5" fill={adminColors.success.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="142" y="117" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">6</SvgText>
+                  <SvgText x="142" y="117" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="196" cy="102" r="5.5" fill={adminColors.success.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="196" y="115" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">16</SvgText>
+                  <SvgText x="196" y="115" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="173" cy="118" r="5.5" fill={adminColors.success.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="173" y="131" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">22</SvgText>
+                  <SvgText x="173" y="131" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="150" cy="134" r="5.5" fill={adminColors.success.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="150" y="147" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">12</SvgText>
+                  <SvgText x="150" y="147" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="202" cy="136" r="5.5" fill={adminColors.success.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="202" y="149" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">8</SvgText>
+                  <SvgText x="202" y="149" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
-                  {/* 4. Zone KOT (Kotagiri) - Right */}
+                  {/* 4. Zone slot 4 - Right */}
                   <Rect
                     x="230"
                     y="72"
@@ -3225,22 +2362,22 @@ export function AdminZoneManagementScreen({
                     fillOpacity={0.6}
                   />
                   <SvgText x="275" y="90" fill={adminColors.ink} fontSize="10.5" fontWeight="800" textAnchor="middle">
-                    KOT
+                    {mapLabels[3] ?? ADMIN_NO_VALUE}
                   </SvgText>
-                  {/* KOT Pins */}
+                  {/* slot pins: no location data, so no count */}
                   <Circle cx="296" cy="84" r="5.5" fill={adminColors.info.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="296" y="97" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">12</SvgText>
+                  <SvgText x="296" y="97" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="272" cy="104" r="5.5" fill={adminColors.info.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="272" y="117" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">16</SvgText>
+                  <SvgText x="272" y="117" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="248" cy="126" r="5.5" fill={adminColors.info.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="248" y="139" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">9</SvgText>
+                  <SvgText x="248" y="139" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="290" cy="132" r="5.5" fill={adminColors.info.text} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="290" y="145" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">5</SvgText>
+                  <SvgText x="290" y="145" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
-                  {/* 5. Zone KUN (Kundah) - Bottom Left */}
+                  {/* 5. Zone slot 5 - Bottom Left */}
                   <Rect
                     x="16"
                     y="134"
@@ -3254,32 +2391,32 @@ export function AdminZoneManagementScreen({
                     fillOpacity={0.5}
                   />
                   <SvgText x="65" y="152" fill={adminColors.ink} fontSize="10.5" fontWeight="800" textAnchor="middle">
-                    KUN
+                    {mapLabels[4] ?? ADMIN_NO_VALUE}
                   </SvgText>
-                  {/* KUN Pins */}
+                  {/* slot pins: no location data, so no count */}
                   <Circle cx="94" cy="144" r="5.5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="94" y="157" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">6</SvgText>
+                  <SvgText x="94" y="157" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="64" cy="164" r="5.5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="64" y="177" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">9</SvgText>
+                  <SvgText x="64" y="177" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="38" cy="178" r="5.5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="38" y="191" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">4</SvgText>
+                  <SvgText x="38" y="191" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="96" cy="182" r="5.5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.5" />
-                  <SvgText x="96" y="195" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">3</SvgText>
+                  <SvgText x="96" y="195" fill={adminColors.ink} fontSize="7.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   {/* 6. Unassigned Pins (outside zones) */}
                   <Circle cx="116" cy="120" r="5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.2" />
-                  <SvgText x="116" y="131" fill={adminColors.ink} fontSize="6.5" fontWeight="700" textAnchor="middle">0</SvgText>
+                  <SvgText x="116" y="131" fill={adminColors.ink} fontSize="6.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="268" cy="26" r="5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.2" />
-                  <SvgText x="268" y="37" fill={adminColors.ink} fontSize="6.5" fontWeight="700" textAnchor="middle">0</SvgText>
+                  <SvgText x="268" y="37" fill={adminColors.ink} fontSize="6.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
                   <Circle cx="305" cy="30" r="5" fill={adminColors.muted} stroke={adminColors.onBrand} strokeWidth="1.2" />
-                  <SvgText x="305" y="41" fill={adminColors.ink} fontSize="6.5" fontWeight="700" textAnchor="middle">0</SvgText>
+                  <SvgText x="305" y="41" fill={adminColors.ink} fontSize="6.5" fontWeight="700" textAnchor="middle">{ADMIN_NO_VALUE}</SvgText>
 
-                  {/* 7. Edit Boundary Handles (OOT mode) */}
+                  {/* 7. Edit Boundary Handles */}
                   {mapSelectedTool === 'Edit boundary' && (
                     <G>
                       {[
@@ -3363,8 +2500,7 @@ export function AdminZoneManagementScreen({
 
             {/* Helper Text below map */}
             <Text style={styles.mapCanvasHelperText}>
-              {mapSelectedTool === 'View' &&
-                'Tap a zone to focus it. Numbers show farmers at each location.'}
+              {mapSelectedTool === 'View' && t('zones.map.viewHelper')}
               {mapSelectedTool === 'Add pin' &&
                 'Tap the map to drop a pin, then add a location there.'}
               {mapSelectedTool === 'Select' &&
@@ -3380,8 +2516,8 @@ export function AdminZoneManagementScreen({
               <View style={styles.mapActionSingleCard}>
                 <Text style={styles.mapActionMutedText}>
                   {droppedPinCoords
-                    ? `Pin dropped at (${droppedPinCoords.x}, ${droppedPinCoords.y})`
-                    : 'No pin yet.'}
+                    ? t('zones.map.pinAt', { x: droppedPinCoords.x, y: droppedPinCoords.y })
+                    : t('zones.map.noPin')}
                 </Text>
               </View>
             )}
@@ -3402,7 +2538,7 @@ export function AdminZoneManagementScreen({
                     activeOpacity={0.8}
                     onPress={() => {
                       if (selectedMarkersCount > 0) {
-                        Alert.alert('Locations Added', `${selectedMarkersCount} locations assigned to Ooty Zone.`);
+                        notifyUnavailable();
                         setSelectedMarkersCount(0);
                       }
                     }}
@@ -3413,7 +2549,7 @@ export function AdminZoneManagementScreen({
                         selectedMarkersCount > 0 && styles.mapActionHalfBtnActiveText,
                       ]}
                     >
-                      Add to OOT
+                      {t('zones.map.addTo', { zone: selectedZone.shortCode || ADMIN_NO_VALUE })}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -3457,23 +2593,7 @@ export function AdminZoneManagementScreen({
                   ]}
                   activeOpacity={0.8}
                   onPress={() => {
-                    if (drawnBoundaryPoints.length >= 3) {
-                      Alert.alert(
-                        'Review Boundary',
-                        `New zone boundary polygon drawn with ${drawnBoundaryPoints.length} vertices. Save changes?`,
-                        [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Save Boundary',
-                            onPress: () => {
-                              Alert.alert('Saved', 'Zone boundary saved.');
-                              setDrawnBoundaryPoints([]);
-                              setMapSelectedTool('View');
-                            },
-                          },
-                        ]
-                      );
-                    }
+                    if (drawnBoundaryPoints.length >= 3) notifyUnavailable();
                   }}
                 >
                   <Text
@@ -3492,26 +2612,26 @@ export function AdminZoneManagementScreen({
               <View style={styles.mapActionOverviewCard}>
                 <View style={styles.mapMetricRow}>
                   <Text style={styles.mapMetricLabel}>Points</Text>
-                  <Text style={styles.mapMetricValue}>4</Text>
+                  <Text style={styles.mapMetricValue}>{ADMIN_NO_VALUE}</Text>
                 </View>
                 <View style={styles.reportDashedDivider} />
                 <View style={styles.mapMetricRow}>
                   <Text style={styles.mapMetricLabel}>Area (map units)</Text>
-                  <Text style={styles.mapMetricValue}>924</Text>
+                  <Text style={styles.mapMetricValue}>{ADMIN_NO_VALUE}</Text>
                 </View>
                 <View style={styles.reportDashedDivider} />
                 <View style={styles.mapActionBtnRow}>
                   <TouchableOpacity
                     style={styles.mapActionHalfBtn}
                     activeOpacity={0.8}
-                    onPress={() => Alert.alert('Point Removed', 'Corner control point removed.')}
+                    onPress={notifyUnavailable}
                   >
                     <Text style={styles.mapActionHalfBtnText}>Remove point</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.mapActionHalfOutlineBtn}
                     activeOpacity={0.8}
-                    onPress={() => Alert.alert('Boundary Reset', 'Boundary restored to original coordinates.')}
+                    onPress={notifyUnavailable}
                   >
                     <Text style={styles.mapActionHalfOutlineBtnText}>Reset</Text>
                   </TouchableOpacity>
@@ -3519,7 +2639,7 @@ export function AdminZoneManagementScreen({
                 <TouchableOpacity
                   style={[styles.mapActionFullBtn, styles.mapActionFullBtnActive]}
                   activeOpacity={0.8}
-                  onPress={() => Alert.alert('Boundary Saved', 'Ooty Zone boundary updated successfully.')}
+                  onPress={notifyUnavailable}
                 >
                   <Text style={[styles.mapActionFullBtnText, styles.mapActionFullBtnActiveText]}>
                     Review and Save
@@ -3533,7 +2653,7 @@ export function AdminZoneManagementScreen({
               <Text style={styles.mapSectionHeaderText}>Overlapping boundaries</Text>
             </View>
             <View style={styles.mapOverlapCard}>
-              <Text style={styles.mapOverlapText}>No zone boundaries overlap.</Text>
+              <Text style={styles.mapOverlapText}>{ADMIN_NO_VALUE}</Text>
             </View>
           </>
         )}
@@ -3541,12 +2661,12 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 9: ZM-09 ZONE FARMER LIST (Images 3 & 4)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'farmer_list' && renderFarmerListContent()}
+        {contentView === 'farmer_list' && renderFarmerListContent()}
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 10: ZM-10 ASSIGN FARMERS (Steps 1–4 Wizard)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'assign_farmers' && (() => {
+        {contentView === 'assign_farmers' && (() => {
           const activeAssignZones = zones.filter((z) => z.status === 'Active');
           const assignZone = activeAssignZones.find((z) => z.id === assignSelectedZoneId) ?? activeAssignZones[0];
           const assignZoneLocations = assignZone
@@ -3559,8 +2679,7 @@ export function AdminZoneManagementScreen({
             if (!queryLower) return true;
             return (
               f.name.toLowerCase().includes(queryLower) ||
-              f.code.toLowerCase().includes(queryLower) ||
-              f.registeredLocation.toLowerCase().includes(queryLower)
+              f.code.toLowerCase().includes(queryLower)
             );
           });
           const selectedAssignFarmers = unassignedFarmers.filter((f) =>
@@ -3642,7 +2761,7 @@ export function AdminZoneManagementScreen({
                   </View>
 
                   {activeAssignZones.map((zone) => {
-                    const zoneLocCount = locations.filter((l) => l.zoneId === zone.id).length || zone.locationsCount;
+                    const zoneLocCount = zone.locationsCount;
                     const isSelected = assignZone?.id === zone.id;
                     return (
                       <TouchableOpacity
@@ -3667,7 +2786,7 @@ export function AdminZoneManagementScreen({
                             </View>
                           </View>
                           <Text style={styles.assignChoiceSubtitle}>
-                            {zoneLocCount} locations · {zone.farmersCount} farmers
+                            {t('zones.assign.zoneSubtitle', { locations: figure(zoneLocCount), farmers: figure(zone.farmersCount) })}
                           </Text>
                         </View>
                         <View style={styles.assignChoosePill}>
@@ -3809,6 +2928,9 @@ export function AdminZoneManagementScreen({
                     </View>
                   </View>
 
+                  {farmerPool.isLoading ? <AdminLoadingState /> : null}
+                  {poolFailed ? <AdminErrorState error={farmerPool.error} onRetry={farmerPool.refresh} /> : null}
+
                   <View style={styles.assignCountRow}>
                     <Text style={styles.assignCountText}>
                       {assignSelectedFarmerIds.length} selected · {filteredUnassignedFarmers.length}{' '}
@@ -3816,7 +2938,7 @@ export function AdminZoneManagementScreen({
                     </Text>
                   </View>
 
-                  {filteredUnassignedFarmers.length === 0 ? (
+                  {filteredUnassignedFarmers.length === 0 && (farmerPool.isLoading || poolFailed) ? null : filteredUnassignedFarmers.length === 0 ? (
                     <View style={styles.cardContainer}>
                       <Text style={styles.assignEmptyTitle}>No matching unassigned farmers</Text>
                       <Text style={styles.assignEmptySubtitle}>
@@ -3864,7 +2986,7 @@ export function AdminZoneManagementScreen({
                               </View>
                             </View>
                             <Text style={styles.assignChoiceSubtitle}>
-                              {farmer.code} · registered in {farmer.registeredLocation}
+                              {t('zones.assign.registeredIn', { code: farmer.code, location: ADMIN_NO_VALUE })}
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -3915,13 +3037,13 @@ export function AdminZoneManagementScreen({
                   <View style={styles.cardContainer}>
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Zone</Text>
-                      <Text style={styles.reviewValue}>{assignZone?.name ?? '—'}</Text>
+                      <Text style={styles.reviewValue}>{assignZone?.name ?? ADMIN_NO_VALUE}</Text>
                     </View>
                     <View style={styles.dashedDivider} />
 
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Location</Text>
-                      <Text style={styles.reviewValue}>{assignLocation?.name ?? '—'}</Text>
+                      <Text style={styles.reviewValue}>{assignLocation?.name ?? ADMIN_NO_VALUE}</Text>
                     </View>
                     <View style={styles.dashedDivider} />
 
@@ -3939,7 +3061,7 @@ export function AdminZoneManagementScreen({
                             <View style={{ flex: 1 }}>
                               <Text style={styles.assignReviewFarmerName}>{farmer.name}</Text>
                               <Text style={styles.assignReviewFarmerMeta}>
-                                {farmer.code} · registered in {farmer.registeredLocation}
+                                {t('zones.assign.registeredIn', { code: farmer.code, location: ADMIN_NO_VALUE })}
                               </Text>
                             </View>
                             <View
@@ -3995,7 +3117,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 11: ZM-11 BULK FARMER ASSIGNMENT (2-Step Flow)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'bulk_assign' && (() => {
+        {contentView === 'bulk_assign' && (() => {
           const activeBulkZones = zones.filter((z) => z.status === 'Active');
           const bulkTargetZone = activeBulkZones.find((z) => z.id === bulkTargetZoneId);
           const bulkTargetLocations = bulkTargetZone
@@ -4007,28 +3129,26 @@ export function AdminZoneManagementScreen({
             id: f.id,
             name: f.name,
             code: f.code,
-            district: 'Nilgiris',
-            registeredLocation: f.registeredLocation,
+            district: null,
+            registeredLocation: null,
             verification: f.verification,
           }));
           const allBulkFarmers: BulkFarmerItem[] = [...eligibleCatalog, ...bulkExistingFarmers];
 
-          const regLocationOptions = [
-            'All',
-            ...Array.from(new Set(allBulkFarmers.map((f) => f.registeredLocation))),
-          ];
+          // A farmer's registered location is in no read the app has: the filter offers "All" only.
+          const regLocationOptions: string[] = ['All'];
 
           const bulkQueryLower = bulkSearchQuery.trim().toLowerCase();
           const filteredBulkFarmers = allBulkFarmers.filter((f) => {
             if (bulkQueryLower) {
               const matchesSearch =
                 f.name.toLowerCase().includes(bulkQueryLower) ||
-                f.code.toLowerCase().includes(bulkQueryLower) ||
-                f.registeredLocation.toLowerCase().includes(bulkQueryLower);
+                f.code.toLowerCase().includes(bulkQueryLower);
               if (!matchesSearch) return false;
             }
-            if (bulkDistrictFilter !== 'All' && f.district !== bulkDistrictFilter) return false;
-            if (bulkRegLocationFilter !== 'All' && f.registeredLocation !== bulkRegLocationFilter) return false;
+            // District and registered location are unknown for every farmer, so a chosen value matches none.
+            if (bulkDistrictFilter !== 'All' && f.district === null) return false;
+            if (bulkRegLocationFilter !== 'All' && f.registeredLocation === null) return false;
             if (bulkVerificationFilter !== 'All' && f.verification !== bulkVerificationFilter) return false;
             return true;
           });
@@ -4375,6 +3495,9 @@ export function AdminZoneManagementScreen({
                     </View>
                   </View>
 
+                  {farmerPool.isLoading ? <AdminLoadingState /> : null}
+                  {poolFailed ? <AdminErrorState error={farmerPool.error} onRetry={farmerPool.refresh} /> : null}
+
                   {/* Match Count */}
                   <View style={styles.assignCountRow}>
                     <Text style={styles.assignCountText}>
@@ -4427,7 +3550,7 @@ export function AdminZoneManagementScreen({
                           </View>
 
                           <Text style={styles.assignChoiceSubtitle}>
-                            {farmer.code} · registered in {farmer.registeredLocation}
+                            {t('zones.assign.registeredIn', { code: farmer.code, location: ADMIN_NO_VALUE })}
                           </Text>
 
                           <View style={styles.bulkStatusPillWrap}>
@@ -4510,7 +3633,7 @@ export function AdminZoneManagementScreen({
                     <View style={styles.reviewRow}>
                       <Text style={styles.reviewLabel}>Target</Text>
                       <Text style={styles.reviewValue}>
-                        {bulkTargetZone?.name ?? '—'} / {bulkTargetLocation?.name ?? '—'}
+                        {bulkTargetZone?.name ?? ADMIN_NO_VALUE} / {bulkTargetLocation?.name ?? ADMIN_NO_VALUE}
                       </Text>
                     </View>
                     <View style={styles.dashedDivider} />
@@ -4595,7 +3718,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 11B: ASSIGNED FARMERS CONFIRMATION (From Assign / Bulk Assign)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'assigned_farmers' && lastAssignmentResult && (
+        {contentView === 'assigned_farmers' && lastAssignmentResult && (
           <>
             <View style={styles.assignSuccessHeroCard}>
               <View style={styles.assignSuccessHeaderRow}>
@@ -4741,7 +3864,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 12: ZM-12 FARMER ZONE TRANSFER (Image 5 middle)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'farmer_transfer' && (
+        {contentView === 'farmer_transfer' && (
           <>
             {/* Find a Farmer Card */}
             <View style={styles.cardContainer}>
@@ -4756,7 +3879,7 @@ export function AdminZoneManagementScreen({
               <TouchableOpacity
                 style={[styles.secondaryActionButton, { width: '100%', marginTop: 8 }]}
                 activeOpacity={0.8}
-                onPress={() => Alert.alert('Search Farmer', 'Searching farmer records...')}
+                onPress={notifyUnavailable}
               >
                 <Text style={styles.secondaryActionText}>Search</Text>
               </TouchableOpacity>
@@ -4769,7 +3892,9 @@ export function AdminZoneManagementScreen({
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>Farmer</Text>
                 <Text style={styles.reviewValue}>
-                  {transferSelectedFarmer.name} ({transferSelectedFarmer.code})
+                  {transferSelectedFarmer === null
+                    ? ADMIN_NO_VALUE
+                    : t('zones.transfer.farmerLine', { name: transferSelectedFarmer.name, code: transferSelectedFarmer.code })}
                 </Text>
               </View>
               <View style={styles.dashedDivider} />
@@ -4777,20 +3902,23 @@ export function AdminZoneManagementScreen({
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>Current zone / location</Text>
                 <Text style={styles.reviewValue}>
-                  Ooty Zone / {transferSelectedFarmer.location}
+                  {t('zones.transfer.currentLine', {
+                    zone: findZone(zones, transferSelectedFarmer?.zoneId)?.name ?? ADMIN_NO_VALUE,
+                    location: ADMIN_NO_VALUE,
+                  })}
                 </Text>
               </View>
               <View style={styles.dashedDivider} />
 
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>New zone</Text>
-                <Text style={styles.reviewValue}>{transferNewZone}</Text>
+                <Text style={styles.reviewValue}>{ADMIN_NO_VALUE}</Text>
               </View>
               <View style={styles.dashedDivider} />
 
               <View style={styles.reviewRow}>
                 <Text style={styles.reviewLabel}>New location</Text>
-                <Text style={styles.reviewValue}>{transferNewLocation}</Text>
+                <Text style={styles.reviewValue}>{ADMIN_NO_VALUE}</Text>
               </View>
               <View style={styles.dashedDivider} />
 
@@ -4821,20 +3949,7 @@ export function AdminZoneManagementScreen({
               <TouchableOpacity
                 style={styles.primaryActionButton}
                 activeOpacity={0.8}
-                onPress={() => {
-                  setRecentTransfers((prev) => [
-                    {
-                      id: `TR-00${prev.length + 14}`,
-                      text: `${transferSelectedFarmer.name}: Ooty Zone to ${transferNewZone} — 2026-10-15`,
-                    },
-                    ...prev,
-                  ]);
-                  Alert.alert(
-                    'Transfer Confirmed',
-                    `${transferSelectedFarmer.name} transferred to ${transferNewZone} / ${transferNewLocation}.`
-                  );
-                  setCurrentView('farmer_list');
-                }}
+                onPress={notifyUnavailable}
               >
                 <Text style={styles.primaryActionText}>Confirm Transfer</Text>
               </TouchableOpacity>
@@ -4843,6 +3958,7 @@ export function AdminZoneManagementScreen({
             {/* Recent Transfers Section */}
             <Text style={styles.sectionHeading}>Recent transfers</Text>
             <View style={[styles.cardContainer, { marginBottom: 20 }]}>
+              {recentTransfers.length === 0 ? <Text style={styles.recentTransferText}>{ADMIN_NO_VALUE}</Text> : null}
               {recentTransfers.map((item, idx) => (
                 <React.Fragment key={item.id}>
                   <View style={styles.recentTransferRow}>
@@ -4859,12 +3975,12 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 13: ZM-13 ZONE WAREHOUSE MAPPING (Image 5 right)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'warehouse_mapping' && renderWarehouseMappingContent()}
+        {contentView === 'warehouse_mapping' && renderWarehouseMappingContent()}
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 14: ZM-14 / SA-M18-S14 ZONE-WISE REPORTS
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'zone_reports' && (
+        {contentView === 'zone_reports' && (
           <>
             {/* Filter Card */}
             <View style={styles.reportFilterCard}>
@@ -4904,30 +4020,32 @@ export function AdminZoneManagementScreen({
                   activeOpacity={0.8}
                   onPress={() => setShowReportZoneDropdown((prev) => !prev)}
                 >
-                  <Text style={styles.reportDropdownSelectorText}>{reportZone}</Text>
+                  <Text style={styles.reportDropdownSelectorText}>
+                    {findZone(zones, reportZone)?.name ?? t('zones.report.allZones')}
+                  </Text>
                   <ChevronDownIcon color={adminColors.muted} />
                 </TouchableOpacity>
                 {showReportZoneDropdown && (
                   <View style={styles.inlineDropdownList}>
-                    {['All zones', 'Ooty Zone', 'Coonoor Zone', 'Kotagiri Zone', 'Gudalur Zone', 'Kundah Zone'].map((zName) => (
+                    {[{ id: '', name: t('zones.report.allZones') }, ...zones.map((z) => ({ id: z.id, name: z.name }))].map((zOpt) => (
                       <TouchableOpacity
-                        key={zName}
+                        key={zOpt.id || 'all'}
                         style={[
                           styles.inlineDropdownItem,
-                          reportZone === zName && styles.inlineDropdownItemActive,
+                          reportZone === zOpt.id && styles.inlineDropdownItemActive,
                         ]}
                         onPress={() => {
-                          setReportZone(zName);
+                          setReportZone(zOpt.id);
                           setShowReportZoneDropdown(false);
                         }}
                       >
                         <Text
                           style={[
                             styles.inlineDropdownItemText,
-                            reportZone === zName && styles.inlineDropdownItemTextActive,
+                            reportZone === zOpt.id && styles.inlineDropdownItemTextActive,
                           ]}
                         >
-                          {zName}
+                          {zOpt.name}
                         </Text>
                       </TouchableOpacity>
                     ))}
@@ -5029,27 +4147,20 @@ export function AdminZoneManagementScreen({
               <Text style={styles.reportSectionTitle}>Farmers by zone (incl. no zone)</Text>
             </View>
             <View style={styles.reportCard}>
-              {[
-                { name: 'Ooty Zone', count: 92, percent: '100%' },
-                { name: 'Coonoor Zone', count: 64, percent: '69.5%' },
-                { name: 'Kotagiri Zone', count: 41, percent: '44.5%' },
-                { name: 'Gudalur Zone', count: 29, percent: '31.5%' },
-                { name: 'Kundah Zone', count: 22, percent: '23.9%' },
-                { name: 'No zone', count: 12, percent: '13%' },
-              ].map((item, idx) => (
+              {report.farmersByZone.map((item, idx) => (
                 <View
-                  key={item.name}
+                  key={item.key}
                   style={[
                     styles.reportBarItem,
-                    idx === 5 && { marginBottom: 0 },
+                    idx === report.farmersByZone.length - 1 && { marginBottom: 0 },
                   ]}
                 >
                   <View style={styles.reportBarHeader}>
-                    <Text style={styles.reportBarLabel}>{item.name}</Text>
-                    <Text style={styles.reportBarCount}>{item.count}</Text>
+                    <Text style={styles.reportBarLabel}>{item.name ?? t('zones.report.noZone')}</Text>
+                    <Text style={styles.reportBarCount}>{figure(item.count)}</Text>
                   </View>
                   <View style={styles.reportProgressTrack}>
-                    <View style={[styles.reportProgressFill, { width: item.percent as DimensionValue }]} />
+                    <View style={[styles.reportProgressFill, { width: shareOfMax(item.count, reportMax) as DimensionValue }]} />
                   </View>
                 </View>
               ))}
@@ -5062,12 +4173,12 @@ export function AdminZoneManagementScreen({
             <View style={styles.reportCard}>
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Active</Text>
-                <Text style={styles.reportMetricValue}>245</Text>
+                <Text style={styles.reportMetricValue}>{figure(report.active)}</Text>
               </View>
               <View style={styles.reportDashedDivider} />
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Inactive</Text>
-                <Text style={styles.reportMetricValue}>15</Text>
+                <Text style={styles.reportMetricValue}>{figure(report.inactive)}</Text>
               </View>
             </View>
 
@@ -5078,12 +4189,12 @@ export function AdminZoneManagementScreen({
             <View style={styles.reportCard}>
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Verified</Text>
-                <Text style={styles.reportMetricValue}>192</Text>
+                <Text style={styles.reportMetricValue}>{figure(report.verified)}</Text>
               </View>
               <View style={styles.reportDashedDivider} />
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Pending</Text>
-                <Text style={styles.reportMetricValue}>68</Text>
+                <Text style={styles.reportMetricValue}>{figure(report.pending)}</Text>
               </View>
             </View>
 
@@ -5092,24 +4203,20 @@ export function AdminZoneManagementScreen({
               <Text style={styles.reportSectionTitle}>Farming type</Text>
             </View>
             <View style={styles.reportCard}>
-              {[
-                { name: 'Organic', count: 158, percent: '100%' },
-                { name: 'Natural', count: 72, percent: '45.5%' },
-                { name: 'Biodynamic', count: 30, percent: '19%' },
-              ].map((item, idx) => (
+              {report.farmingTypes.map((item, idx) => (
                 <View
-                  key={item.name}
+                  key={item.key}
                   style={[
                     styles.reportBarItem,
-                    idx === 2 && { marginBottom: 0 },
+                    idx === report.farmingTypes.length - 1 && { marginBottom: 0 },
                   ]}
                 >
                   <View style={styles.reportBarHeader}>
-                    <Text style={styles.reportBarLabel}>{item.name}</Text>
-                    <Text style={styles.reportBarCount}>{item.count}</Text>
+                    <Text style={styles.reportBarLabel}>{t(`zones.report.type.${item.key}`)}</Text>
+                    <Text style={styles.reportBarCount}>{figure(item.count)}</Text>
                   </View>
                   <View style={styles.reportProgressTrack}>
-                    <View style={[styles.reportProgressFill, { width: item.percent as DimensionValue }]} />
+                    <View style={[styles.reportProgressFill, { width: shareOfMax(item.count, 0) as DimensionValue }]} />
                   </View>
                 </View>
               ))}
@@ -5122,12 +4229,16 @@ export function AdminZoneManagementScreen({
             <View style={styles.reportCard}>
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Total farm area</Text>
-                <Text style={styles.reportMetricValue}>612.8 acres</Text>
+                <Text style={styles.reportMetricValue}>{figure(report.totalFarmAreaAcres)}</Text>
               </View>
               <View style={styles.reportDashedDivider} />
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Warehouses mapped</Text>
-                <Text style={styles.reportMetricValue}>5 of 5 active zones</Text>
+                <Text style={styles.reportMetricValue}>
+                  {report.mappedZones === null || report.activeZoneCount === null
+                    ? ADMIN_NO_VALUE
+                    : t('zones.report.mappedOf', { mapped: report.mappedZones, total: report.activeZoneCount })}
+                </Text>
               </View>
             </View>
           </>
@@ -5136,7 +4247,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 15: ZM-15 / SA-M18-S15 ZONE STATUS & DEACTIVATION
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'zone_status_deactivation' && (
+        {contentView === 'zone_status_deactivation' && (
           <>
             {/* Zone Identity Card */}
             <View style={styles.zoneIdentityCard}>
@@ -5161,7 +4272,7 @@ export function AdminZoneManagementScreen({
                 </View>
               </View>
               <Text style={styles.zoneIdentitySubtitle}>
-                {deactivationZone.code} · Code {deactivationZone.shortCode}
+                {t('zones.fmt.codeOnlyLine', { code: deactivationZone.code, shortCode: deactivationZone.shortCode })}
               </Text>
             </View>
 
@@ -5173,11 +4284,9 @@ export function AdminZoneManagementScreen({
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Farmers assigned</Text>
                 <Text style={styles.reportMetricValue}>
-                  {deactivationZone.farmersCount}{' '}
+                  {figure(deactivationZone.farmersCount)}{' '}
                   <Text style={styles.reportMetricSubValue}>
-                    {deactivationZone.status === 'Inactive'
-                      ? '(frozen — no new assignments)'
-                      : '(active assignments)'}
+                    {deactivationZone.status === 'Inactive' ? t('zones.status.frozen') : t('zones.status.activeAssignments')}
                   </Text>
                 </Text>
               </View>
@@ -5185,36 +4294,38 @@ export function AdminZoneManagementScreen({
 
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Locations</Text>
-                <Text style={styles.reportMetricValue}>{deactivationZone.locationsCount}</Text>
+                <Text style={styles.reportMetricValue}>{figure(deactivationZone.locationsCount)}</Text>
               </View>
               <View style={styles.reportDashedDivider} />
 
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Active warehouse mappings</Text>
-                <Text style={styles.reportMetricValue}>{deactivationZone.warehousesCount}</Text>
+                <Text style={styles.reportMetricValue}>{figure(deactivationZone.warehousesCount)}</Text>
               </View>
               <View style={styles.reportDashedDivider} />
 
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Zone manager</Text>
                 <Text style={styles.reportMetricValue}>
-                  {deactivationZone.manager === 'None' ? 'Not assigned' : deactivationZone.manager}
+                  {!deactivationZone.managerLoaded ? ADMIN_NO_VALUE : (deactivationZone.manager ?? t('zones.manager.none'))}
                 </Text>
               </View>
               <View style={styles.reportDashedDivider} />
 
               <View style={styles.reportMetricRow}>
                 <Text style={styles.reportMetricLabel}>Pending operations</Text>
-                <Text style={styles.reportMetricValue}>0</Text>
+                <Text style={styles.reportMetricValue}>{ADMIN_NO_VALUE}</Text>
               </View>
             </View>
 
             {/* Warning Callout Box */}
             <View style={styles.deactivationWarningCard}>
               <Text style={styles.deactivationWarningText}>
-                {deactivationZone.farmersCount > 0
-                  ? `${deactivationZone.farmersCount} farmers are kept assigned and frozen in this inactive zone. Archiving requires transferring them first.`
-                  : 'No farmers are assigned to this zone. Archiving can proceed once confirmed.'}
+                {deactivationZone.farmersCount === null
+                  ? t('zones.status.warningUnknown')
+                  : deactivationZone.farmersCount > 0
+                    ? t('zones.status.warningFarmers', { count: deactivationZone.farmersCount })
+                    : t('zones.status.warningNone')}
               </Text>
             </View>
 
@@ -5349,7 +4460,7 @@ export function AdminZoneManagementScreen({
                   onPress={() => {
                     const target = actionMenuZone;
                     setActionMenuZone(null);
-                    setReportZone(target.name);
+                    setReportZone(target.id);
                     handleNavigateToReports();
                   }}
                 >

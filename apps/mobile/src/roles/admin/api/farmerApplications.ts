@@ -76,6 +76,7 @@ export interface FarmerApplicationDto {
   step4Documents?: ApplicationStepPayload;
   submittedAt: string | null;
   createdAt: string;
+  applicationCode?: string | null;
   // Spec-only (docs/openapi.yaml FarmerApplication / FarmerApplicationSummary); not sent today.
   tohfaFarmerId?: string | null;
   zoneId?: string | null;

@@ -202,6 +202,12 @@ tags:
     description: |
       Educational knowledge base (articles, videos, training workshops) and community groups
       with farmer enrollment and group memberships (BR-59).
+  - name: Communities
+    description: |
+      WhatsApp-style community containers for organizing farmer learning groups (BR-59s).
+  - name: Q&A Chat
+    description: |
+      Community and knowledge Q&A chat discussions and moderation (BR-59u).
   - name: Help
     description: Customer-facing Help & FAQ read (published admin content, BR-82).
   - name: Wishlist
@@ -2315,6 +2321,10 @@ paths:
         - name: zoneId
           in: query
           schema: { type: string, format: uuid }
+        - name: hasZone
+          in: query
+          schema: { type: boolean }
+          description: Filter applications by whether a zone has been assigned/detected (BR-143).
         - name: submittedAfter
           in: query
           schema: { type: string, format: date-time }
@@ -5481,6 +5491,94 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: createAdminFarmer
+      summary: Create a new farmer account (admin)
+      description: Directly registers an active, approved farmer account.
+      x-permission: farmer.profile.edit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, mobile, zoneId, village]
+              properties:
+                fullName: { type: string, minLength: 2, maxLength: 120 }
+                mobile: { type: string, pattern: '^\+91[6-9]\d{9}$' }
+                email: { type: string, format: email, nullable: true }
+                zoneId: { type: string, format: uuid }
+                village: { type: string, minLength: 1, maxLength: 120 }
+                taluk: { type: string, nullable: true }
+                district: { type: string, default: 'The Nilgiris' }
+                pincode: { type: string, pattern: '^[1-9][0-9]{5}$', nullable: true }
+                aadhaarLast4: { type: string, pattern: '^\d{4}$', nullable: true }
+                farmingExperienceYears: { type: integer, minimum: 0, maximum: 120, nullable: true }
+                addressLine1: { type: string, nullable: true }
+      responses:
+        '201':
+          description: The created farmer profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/summary:
+    get:
+      tags: [Farmer Profile & Certifications]
+      operationId: getAdminFarmerSummary
+      summary: Get overview KPI statistics and zone breakdown for farmer management
+      description: |
+        Returns aggregated counts for the 8 overview KPI cards (Total Farmers, Pending Applications,
+        Active, Deactivated, Inactive, Expired Certifications, Active Subscriptions, Approval Inbox)
+        and distribution of farmers across zones.
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-108]
+      responses:
+        '200':
+          description: Summary KPI metrics and zone breakdown.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - totalFarmers
+                  - pendingApplications
+                  - activeFarmers
+                  - deactivatedFarmers
+                  - inactiveFarmers
+                  - expiredCertifications
+                  - activeSubscriptions
+                  - approvalInbox
+                  - zones
+                properties:
+                  totalFarmers: { type: integer, minimum: 0 }
+                  pendingApplications: { type: integer, minimum: 0 }
+                  activeFarmers: { type: integer, minimum: 0 }
+                  deactivatedFarmers: { type: integer, minimum: 0 }
+                  inactiveFarmers: { type: integer, minimum: 0 }
+                  expiredCertifications: { type: integer, minimum: 0 }
+                  activeSubscriptions: { type: integer, minimum: 0 }
+                  approvalInbox: { type: integer, minimum: 0 }
+                  zones:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, code, name, count, ratio]
+                      properties:
+                        id: { type: string, format: uuid }
+                        code: { type: string }
+                        name: { type: string }
+                        count: { type: integer, minimum: 0 }
+                        ratio: { type: number, minimum: 0, maximum: 1 }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/farmers/{id}:
     get:
@@ -5559,6 +5657,47 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}/status:
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: updateAdminFarmerStatus
+      summary: Deactivate, disable, or reactivate a farmer account (admin)
+      description: |
+        Changes account lifecycle status (DEACTIVATE, DISABLE, ACTIVATE).
+        DISABLE requires `farmer.account.disable`; ACTIVATE requires `farmer.account.reactivate`.
+      x-permission: farmer.profile.edit
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, reason]
+              properties:
+                action:
+                  type: string
+                  enum: [DEACTIVATE, DISABLE, ACTIVATE]
+                reason:
+                  type: string
+                  minLength: 3
+                  maxLength: 500
+                note:
+                  type: string
+                  maxLength: 1000
+      responses:
+        '200':
+          description: The updated farmer profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -8016,6 +8155,10 @@ paths:
         - name: isPublished
           in: query
           schema: { type: boolean }
+        - name: reviewStatus
+          in: query
+          schema: { type: string, enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED] }
+          description: Filter by review status (BR-59t).
         - name: q
           in: query
           schema: { type: string, minLength: 1, maxLength: 80 }
@@ -8150,6 +8293,10 @@ paths:
         - name: isPublished
           in: query
           schema: { type: boolean }
+        - name: reviewStatus
+          in: query
+          schema: { type: string, enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED] }
+          description: Filter by review status (BR-59t).
         - name: q
           in: query
           schema: { type: string, minLength: 1, maxLength: 80 }
@@ -8284,6 +8431,10 @@ paths:
         - name: isPublished
           in: query
           schema: { type: boolean }
+        - name: reviewStatus
+          in: query
+          schema: { type: string, enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED] }
+          description: Filter by review status (BR-59t).
         - name: q
           in: query
           schema: { type: string, minLength: 1, maxLength: 80 }
@@ -8416,6 +8567,13 @@ paths:
         - name: category
           in: query
           schema: { type: string }
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: reviewStatus
+          in: query
+          schema: { type: string, enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED] }
+          description: Filter by review status (BR-59t).
         - name: q
           in: query
           schema: { type: string, minLength: 1, maxLength: 80 }
@@ -8555,6 +8713,755 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/{type}/{id}/submit-review:
+    post:
+      tags: [Learning Hub]
+      operationId: submitLearningContentReview
+      summary: Submit learning content for review (BR-59t)
+      description: Transitions review status to PENDING_REVIEW and records submittedForReviewAt. Review and published states are independent (BR-59t).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [articles, videos, trainings, groups]
+          description: Learning content type.
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Learning content id.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitReviewRequest'
+      responses:
+        '200':
+          description: Content submitted for review.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/learning/{type}/{id}/review:
+    post:
+      tags: [Learning Hub]
+      operationId: reviewLearningContent
+      summary: Super Admin review decision on learning content (BR-59t)
+      description: Super Admin approves or rejects submitted learning content, recording decision status, reviewer, timestamp, and optional note. Review and published states are independent (BR-59t).
+      x-permission: learning.content.review
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - name: type
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [articles, videos, trainings, groups]
+          description: Learning content type.
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Learning content id.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewContentRequest'
+      responses:
+        '200':
+          description: Review decision recorded.
+          content:
+            application/json:
+              schema:
+                type: object
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/communities:
+    get:
+      tags: [Communities]
+      operationId: listCommunities
+      summary: List communities (admin)
+      description: Returns paginated communities with optional category, archive status, search, and sorting (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: isArchived
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [name, members, groups, createdAt] }
+      responses:
+        '200':
+          description: Paginated communities list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunitiesListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Communities]
+      operationId: createCommunity
+      summary: Create a community
+      description: Creates a new WhatsApp-style community container (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommunityRequest'
+      responses:
+        '201':
+          description: Community created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Community'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/communities/{id}:
+    get:
+      tags: [Communities]
+      operationId: getCommunity
+      summary: Get community details
+      description: Returns details of a community container with member and group counts (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Community details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Community'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Communities]
+      operationId: updateCommunity
+      summary: Update a community
+      description: Updates community name, description, category, or rules (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCommunityRequest'
+      responses:
+        '200':
+          description: Community updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Community'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/communities/{id}/archive:
+    post:
+      tags: [Communities]
+      operationId: archiveCommunity
+      summary: Archive a community
+      description: Marks a community container as archived (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Community archived.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Community'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/communities/{id}/groups:
+    get:
+      tags: [Communities]
+      operationId: listCommunityGroups
+      summary: List groups in a community
+      description: Returns paginated learning groups belonging to this community (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Paginated groups in this community.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroupsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/communities/{id}/members:
+    get:
+      tags: [Communities]
+      operationId: listCommunityMembers
+      summary: List derived members in a community
+      description: Returns paginated distinct farmers who belong to any group in this community (BR-59s).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '200':
+          description: Paginated derived members of this community.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommunityMembersListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/qa/questions:
+    get:
+      tags: [Q&A Chat]
+      operationId: listFarmerQaQuestions
+      summary: List Q&A questions (farmer)
+      description: Returns paginated questions filtered by community, content, or search query (BR-59u).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: contentType
+          in: query
+          schema: { type: string, enum: [articles, videos, trainings, groups] }
+        - name: contentId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - name: authorUserId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Paginated questions list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListQuestionsResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Q&A Chat]
+      operationId: askFarmerQaQuestion
+      summary: Ask a question (farmer)
+      description: Post a new question attached to a community or knowledge item (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskQuestionRequest'
+      responses:
+        '201':
+          description: Created question.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/qa/questions/{id}:
+    get:
+      tags: [Q&A Chat]
+      operationId: getFarmerQaQuestion
+      summary: Get question detail with answers (farmer)
+      description: Returns question detail with all its answers (BR-59u).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Question detail with answers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionDetail'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Q&A Chat]
+      operationId: updateFarmerQaQuestion
+      summary: Update own question (farmer)
+      description: Author updates their own question title or content (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuestionRequest'
+      responses:
+        '200':
+          description: Updated question.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Q&A Chat]
+      operationId: deleteFarmerQaQuestion
+      summary: Delete own question (farmer)
+      description: Author soft-deletes their own question (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Question deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/qa/questions/{id}/answers:
+    post:
+      tags: [Q&A Chat]
+      operationId: postFarmerQaAnswer
+      summary: Post answer to a question (farmer)
+      description: Any farmer can answer a question (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostAnswerRequest'
+      responses:
+        '201':
+          description: Created answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaAnswer'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/qa/answers/{id}:
+    patch:
+      tags: [Q&A Chat]
+      operationId: updateFarmerQaAnswer
+      summary: Update own answer (farmer)
+      description: Author updates their own answer (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAnswerRequest'
+      responses:
+        '200':
+          description: Updated answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaAnswer'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Q&A Chat]
+      operationId: deleteFarmerQaAnswer
+      summary: Delete own answer (farmer)
+      description: Author soft-deletes their own answer (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Answer deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/qa/questions:
+    get:
+      tags: [Q&A Chat]
+      operationId: listAdminQaQuestions
+      summary: List Q&A questions (admin)
+      description: Returns paginated questions across all communities and content (BR-59u).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: communityId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: contentType
+          in: query
+          schema: { type: string, enum: [articles, videos, trainings, groups] }
+        - name: contentId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - name: authorUserId
+          in: query
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Paginated questions list.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListQuestionsResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Q&A Chat]
+      operationId: askAdminQaQuestion
+      summary: Ask a question (admin)
+      description: Admin posts a new question (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AskQuestionRequest'
+      responses:
+        '201':
+          description: Created question.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/qa/questions/{id}:
+    get:
+      tags: [Q&A Chat]
+      operationId: getAdminQaQuestion
+      summary: Get question detail with answers (admin)
+      description: Returns question detail with unmasked blocked content and block reasons (BR-59u).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Question detail with answers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionDetail'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Q&A Chat]
+      operationId: updateAdminQaQuestion
+      summary: Update question (admin)
+      description: Author updates their own question (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateQuestionRequest'
+      responses:
+        '200':
+          description: Updated question.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Q&A Chat]
+      operationId: deleteAdminQaQuestion
+      summary: 'Moderate: delete question (admin)'
+      description: Moderator soft-deletes a question with audit logging (BR-59u).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Question deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/qa/questions/{id}/answers:
+    post:
+      tags: [Q&A Chat]
+      operationId: postAdminQaAnswer
+      summary: Post answer to a question (admin)
+      description: Admin participates by answering a question (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostAnswerRequest'
+      responses:
+        '201':
+          description: Created answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaAnswer'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/qa/answers/{id}:
+    patch:
+      tags: [Q&A Chat]
+      operationId: updateAdminQaAnswer
+      summary: Update answer (admin)
+      description: Author updates their own answer (BR-59u).
+      x-permission: farmer.learning.qa_participate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAnswerRequest'
+      responses:
+        '200':
+          description: Updated answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaAnswer'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Q&A Chat]
+      operationId: deleteAdminQaAnswer
+      summary: 'Moderate: delete answer (admin)'
+      description: Moderator soft-deletes an answer with audit logging (BR-59u).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '204':
+          description: Answer deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/qa/questions/{id}/moderate:
+    patch:
+      tags: [Q&A Chat]
+      operationId: moderateAdminQaQuestion
+      summary: Moderate question (block/unblock)
+      description: Moderator blocks or unblocks a question, recording reason and audit log (BR-59u).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateContentRequest'
+      responses:
+        '200':
+          description: Moderated question.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaQuestionSummary'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/qa/answers/{id}/moderate:
+    patch:
+      tags: [Q&A Chat]
+      operationId: moderateAdminQaAnswer
+      summary: Moderate answer (block/unblock)
+      description: Moderator blocks or unblocks an answer, recording reason and audit log (BR-59u).
+      x-permission: community.group.moderate
+      x-business-rules: [BR-59]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateContentRequest'
+      responses:
+        '200':
+          description: Moderated answer.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QaAnswer'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me/support-tickets/categories:
@@ -16572,6 +17479,214 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/announcements:
+    get:
+      tags: [Platform]
+      operationId: listAdminAnnouncements
+      summary: Announcements the caller may manage
+      description: |
+        The authoring view of the same `announcements` table that `GET /system-messages` reads
+        (BR-65, BR-134). Unlike that reader view it also shows scheduled, expired and retired
+        announcements, and carries the stored target rather than only what a reader may see.
+
+        Confined by the two create grants (BR-213): a holder of `announcement.system_wide.create`
+        sees every non-warehouse announcement (`SYSTEM_WIDE`, and any legacy `ZONE` / `ROLE` row);
+        a holder of `announcement.warehouse.create` sees `WAREHOUSE` announcements within its own
+        warehouse scope (`all` for a Main Warehouse Admin, the assigned warehouses for a Sub
+        Warehouse Admin). Announcements outside that are ABSENT from the page, never 403 — a 403
+        would confirm the row exists.
+
+        `status` is derived, never stored: `RETIRED` (it was retired), else `SCHEDULED`
+        (`startsAt` in the future), else `EXPIRED` (`endsAt` has passed), else `ACTIVE`.
+        Ordered by `createdAt` descending, cursor-paged.
+      x-permission-any-of: [announcement.system_wide.create, announcement.warehouse.create]
+      x-business-rules: [BR-213, BR-65, BR-134]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: target
+          in: query
+          required: false
+          schema: { type: string, enum: [SYSTEM_WIDE, WAREHOUSE, ZONE, ROLE] }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string, enum: [SCHEDULED, ACTIVE, EXPIRED, RETIRED] }
+        - name: type
+          in: query
+          required: false
+          schema: { type: string, enum: [GENERAL, MAINTENANCE, ALERT, PROMOTION] }
+        - name: warehouseId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Paged announcements.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminAnnouncement' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+    post:
+      tags: [Platform]
+      operationId: createAdminAnnouncement
+      summary: Publish an announcement
+      description: |
+        Publishes an announcement (BR-213). The permission that applies depends on `target`
+        (`x-permission-any-of` below; a caller holding neither code is 403 before the body is read):
+        `SYSTEM_WIDE` requires `announcement.system_wide.create` (SUPER_ADMIN, TOHFA_ADMIN),
+        `WAREHOUSE` requires `announcement.warehouse.create` (also MAIN_WH_ADMIN `all`,
+        SUB_WH_ADMIN `own`). A caller that passes the route gate but lacks the code for the
+        requested target is 403 `FORBIDDEN`, and the refused attempt is recorded as one `DENIED`
+        audit row (BR-35b).
+
+        `warehouseId` is required for `WAREHOUSE` and refused for `SYSTEM_WIDE` (422 either way),
+        and must name a live warehouse (422). With an `own` grant it must be one of the caller's
+        assigned warehouses; another warehouse is 403 `WAREHOUSE_SCOPE_VIOLATION` with nothing
+        written.
+
+        SPEC GAP: `target: ZONE` and `target: ROLE` are refused 422 `VALIDATION_FAILED` on
+        `body.target`. The `announcements` table supports both, but `docs/rbac.json` defines no
+        `announcement.zone.create` or `announcement.role.create`, and this endpoint does not invent
+        one. Existing rows with those scopes are still listed, edited and retired here.
+
+        `startsAt` omitted means publish now; `endsAt` omitted means "runs until retired". `endsAt`
+        must be after `startsAt` (422 on `body.endsAt` otherwise — `announcements_window_chk`).
+        `type` defaults to `GENERAL` and `locale` to `en` (BR-134).
+
+        The announcement and ONE audit row (action code = the target's create permission, entity
+        type `announcement`, with the created image and the warehouse id) are one transaction
+        (BR-35).
+      x-permission-any-of: [announcement.system_wide.create, announcement.warehouse.create]
+      x-business-rules: [BR-213, BR-134, BR-35]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminAnnouncementCreate' }
+      responses:
+        '201':
+          description: The announcement, as published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAnnouncement' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/announcements/{id}:
+    patch:
+      tags: [Platform]
+      operationId: updateAdminAnnouncement
+      summary: Edit an announcement
+      description: |
+        Edits a live announcement (BR-213). The permission that applies is decided by the STORED
+        target, not the body: the row is loaded under the same filter the list uses, so an
+        announcement outside the caller's authority is 404, never 403.
+
+        Retargeting is deliberately not possible: `target` and `warehouseId` are not accepted,
+        because moving a row between targets would be a create under a code the caller may not
+        hold. Retire it and publish a new one.
+
+        At least one field is required (422 on an empty body). `endsAt` must stay after the
+        effective `startsAt` (422 on `body.endsAt`). A RETIRED announcement cannot be edited: 409
+        `INVALID_STATE_TRANSITION`, nothing written.
+
+        The change and ONE `announcement.update` audit row (entity type `announcement`, before and
+        after images of the editable fields and `changedFields`) are one transaction (BR-35).
+      x-permission-any-of: [announcement.system_wide.create, announcement.warehouse.create]
+      x-business-rules: [BR-213, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminAnnouncementUpdate' }
+      responses:
+        '200':
+          description: The announcement after the edit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAnnouncement' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/announcements/{id}/retire:
+    post:
+      tags: [Platform]
+      operationId: retireAdminAnnouncement
+      summary: Retire an announcement so it stops reaching readers
+      description: |
+        Retires the announcement `id` (BR-213). Retiring sets `announcements.deleted_at`, which is
+        exactly the clause the reader-facing visibility rule checks (BR-65), so the announcement
+        stops appearing in `GET /system-messages` immediately while the row and its per-user read
+        markers survive for the audit trail and the admin list (`status: RETIRED`).
+
+        UNCONFIRMED: retire is modelled as that soft delete because the table has no `retiredAt`
+        column of its own; the owner has not defined retire semantics. No migration was added.
+
+        An announcement outside the caller's authority is 404, never 403. Idempotent: an already
+        retired announcement is 200 with its current state, the original `retiredAt` kept, and no
+        audit row. A real retire writes ONE `announcement.retire` audit row (entity type
+        `announcement`, before/after images and the optional `reason`) in the same transaction
+        (BR-35).
+      x-permission-any-of: [announcement.system_wide.create, announcement.warehouse.create]
+      x-business-rules: [BR-213, BR-65, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminAnnouncementRetire' }
+      responses:
+        '200':
+          description: The announcement after the retire (or unchanged, if it was already retired).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAnnouncement' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /zones:
+    get:
+      tags: [Platform]
+      operationId: listPublicZones
+      summary: List zones for public registration
+      description: |
+        Returns the public reference list of active agricultural zones for the farmer registration picker.
+        Unauthenticated (security: []). Exposes only zone id, display name, and warehouse town.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-143]
+      responses:
+        '200':
+          description: List of active zones.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PublicZoneListItem' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/zones:
     get:
       tags: [Platform]
@@ -20683,6 +21798,118 @@ components:
           type: [string, 'null']
           description: The predicate a `conditional` grant is evaluated with; null otherwise.
 
+    AdminAnnouncement:
+      type: object
+      description: |
+        An announcement in the authoring view (BR-213). The same row the reader-facing
+        `SystemMessage` exposes, plus the stored target, the derived `status` and the audit
+        timestamps. `retiredAt` is `announcements.deleted_at` under its domain name.
+      additionalProperties: false
+      required:
+        [id, target, warehouseId, zoneId, roleId, type, title, body, locale, startsAt, endsAt,
+         status, retiredAt, createdBy, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        target:
+          type: string
+          enum: [SYSTEM_WIDE, WAREHOUSE, ZONE, ROLE]
+          description: |
+            `announcements.scope`. Only SYSTEM_WIDE and WAREHOUSE can be authored; ZONE and ROLE
+            rows are readable here but have no create permission in `docs/rbac.json`.
+        warehouseId:
+          type: [string, 'null']
+          format: uuid
+          description: Set only when `target` is WAREHOUSE.
+        zoneId:
+          type: [string, 'null']
+          format: uuid
+          description: Set only when `target` is ZONE. Read-only; this endpoint cannot author one.
+        roleId:
+          type: [string, 'null']
+          format: uuid
+          description: Set only when `target` is ROLE. Read-only; this endpoint cannot author one.
+        type:
+          type: string
+          enum: [GENERAL, MAINTENANCE, ALERT, PROMOTION]
+          description: BR-134. UNCONFIRMED value set; matches `announcements_type_chk`.
+        title: { type: string }
+        body: { type: string }
+        locale: { type: string, enum: [en, ta] }
+        startsAt: { type: string, format: date-time }
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+          description: Null means the announcement runs until it is retired.
+        status:
+          type: string
+          enum: [SCHEDULED, ACTIVE, EXPIRED, RETIRED]
+          description: |
+            Derived, never stored. RETIRED beats the window; otherwise SCHEDULED, EXPIRED or
+            ACTIVE from `startsAt` / `endsAt`. The ACTIVE set is what BR-65 shows readers.
+        retiredAt:
+          type: [string, 'null']
+          format: date-time
+          description: When it was retired (`announcements.deleted_at`); null while it is not.
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    AdminAnnouncementCreate:
+      type: object
+      description: |
+        BR-213. `target` selects the permission the request is checked against. ZONE and ROLE are
+        refused: no create permission exists for them.
+      additionalProperties: false
+      required: [target, title, body]
+      properties:
+        target:
+          type: string
+          enum: [SYSTEM_WIDE, WAREHOUSE]
+          description: |
+            SYSTEM_WIDE requires `announcement.system_wide.create`; WAREHOUSE requires
+            `announcement.warehouse.create`, confined to the caller's warehouses by an `own` grant.
+        warehouseId:
+          type: string
+          format: uuid
+          description: Required when `target` is WAREHOUSE, refused otherwise. Must be a live warehouse.
+        type: { type: string, enum: [GENERAL, MAINTENANCE, ALERT, PROMOTION], default: GENERAL }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, minLength: 1, maxLength: 5000 }
+        locale: { type: string, enum: [en, ta], default: en }
+        startsAt:
+          type: string
+          format: date-time
+          description: Omitted means publish now.
+        endsAt:
+          type: [string, 'null']
+          format: date-time
+          description: Must be after `startsAt`. Omitted or null means it runs until retired.
+
+    AdminAnnouncementUpdate:
+      type: object
+      description: |
+        BR-213. At least one field is required. `target` and `warehouseId` are deliberately absent:
+        retargeting would be a create under a permission the caller may not hold.
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        type: { type: string, enum: [GENERAL, MAINTENANCE, ALERT, PROMOTION] }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        body: { type: string, minLength: 1, maxLength: 5000 }
+        locale: { type: string, enum: [en, ta] }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+
+    AdminAnnouncementRetire:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Optional free-text reason, recorded in the audit row only.
+
     DisableAdminAccountRequest:
       type: object
       additionalProperties: false
@@ -24776,12 +26003,13 @@ components:
     CropMaster:
       type: object
       description: |
-        A crop taxonomy row (`crop_master`). Allow-list response: `hsnCode` and the
-        raw `categoryId` join are internal and not exposed here — the mobile crop
-        screens only need name/nameTa/iconKey/defaultUnit for display and picking.
-      required: [id, slug, name, nameTa, categoryId, botanicalName, defaultUnit, seasonMonths, shelfLifeDays, iconKey, isActive]
+        A crop taxonomy row (`crop_master`). Allow-list response: `hsnCode` is
+        internal and never exposed. The admin Crop Data screen also reads the
+        taxonomy fields, `createdBy`/`createdByName` and the timestamps (BR-150, BR-150n).
+      required: [id, code, slug, name, nameTa, categoryId, botanicalName, defaultUnit, seasonMonths, shelfLifeDays, iconKey, isActive, gradeSystem, durationDays, storageTemp, description, deactivationReason, createdBy, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
+        code: { type: string, example: CRP-001, description: Human-readable crop code, server-generated and unique (BR-150). }
         slug: { type: string, example: carrot }
         name: { type: string }
         nameTa: { type: [string, 'null'] }
@@ -24794,6 +26022,21 @@ components:
         shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
         iconKey: { type: [string, 'null'] }
         isActive: { type: boolean }
+        gradeSystem: { type: [string, 'null'], example: Standard Quality System, description: Descriptive preset label only; never alters the operational produce grades (BR-150). }
+        durationDays: { type: [string, 'null'], example: 90 - 120 days }
+        storageTemp: { type: [string, 'null'], example: '10°C - 12°C, 85-90% RH' }
+        description: { type: [string, 'null'] }
+        deactivationReason: { type: [string, 'null'], description: Set when the crop type is retired (`isActive` false). }
+        createdBy: { type: [string, 'null'], format: uuid, description: The admin user who created the crop type; null for seeded or legacy crops. }
+        createdByName:
+          type: [string, 'null']
+          description: |
+            `users.full_name` of `createdBy`, beside it and never instead of it; null when
+            `createdBy` is null (BR-150n). Admin staff identity, so it is returned only by
+            the `/admin/crop-master` endpoints and is omitted (absent, not null) on
+            `GET /farmers/me/crop-master`.
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time, description: Null until the first edit. }
 
     CropMasterCreateRequest:
       type: object
@@ -24812,6 +26055,10 @@ components:
           items: { type: integer, minimum: 1, maximum: 12 }
         shelfLifeDays: { type: integer, exclusiveMinimum: 0 }
         iconKey: { type: string, maxLength: 80 }
+        gradeSystem: { type: string, minLength: 1, maxLength: 120 }
+        durationDays: { type: string, minLength: 1, maxLength: 120, example: 90 - 120 days }
+        storageTemp: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: string, maxLength: 2000 }
       additionalProperties: false
 
     CropMasterUpdateRequest:
@@ -24833,6 +26080,11 @@ components:
         shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
         iconKey: { type: [string, 'null'], maxLength: 80 }
         isActive: { type: boolean }
+        gradeSystem: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        durationDays: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        storageTemp: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        deactivationReason: { type: [string, 'null'], maxLength: 1000, description: Recorded when retiring a crop type (`isActive` false). }
         # BR-181 catalog display metadata (shown on GET /catalog/products; not echoed in this response).
         tasteNotes: { type: [string, 'null'], maxLength: 300 }
         harvestSeason: { type: [string, 'null'], maxLength: 80 }
@@ -28078,9 +29330,32 @@ components:
         ip: { type: [string, 'null'] }
         at: { type: string, format: date-time }
 
+    LearningCropRef:
+      type: object
+      description: >
+        BR-59r. A crop chip on a piece of learning content: the subset of the crop_master row the
+        UI needs to render it. nameTa is the Tamil name, null when it has not been entered.
+        A crop that is soft-deleted after it was tagged is omitted from this list.
+      required: [id, name, nameTa]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        nameTa: { type: [string, 'null'] }
+
+    LearningCropIds:
+      type: array
+      description: >
+        BR-59r. The complete set of crop_master ids this content is about, replacing whatever was
+        stored before. On a PATCH, OMITTING the field leaves the existing tags unchanged, and
+        sending [] clears them all. Duplicates are collapsed. An id that is not a live crop_master
+        row (unknown, or soft-deleted) rejects the whole request with 422 VALIDATION_FAILED and is
+        never silently dropped. An inactive-but-not-deleted crop is accepted.
+      maxItems: 100
+      items: { type: string, format: uuid }
+
     LearningArticle:
       type: object
-      required: [id, title, content, readTime, author, tag, language, isPublished, createdAt, updatedAt]
+      required: [id, title, content, readTime, author, tag, language, isPublished, crops, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -28091,13 +29366,25 @@ components:
         tag: { type: string }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
+        reviewStatus:
+          type: string
+          enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED]
+          description: BR-59t. Review workflow status, independent of isPublished.
+        submittedForReviewAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewNote: { type: [string, 'null'] }
+        crops:
+          type: array
+          description: BR-59r. Ordered by crop name. Empty when the article is not tagged.
+          items: { $ref: '#/components/schemas/LearningCropRef' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
     LearningArticleSummary:
       type: object
       description: A list row. Carries the snippet only; the full body is returned by the detail endpoint.
-      required: [id, title, readTime, author, tag, language, isPublished, createdAt, updatedAt]
+      required: [id, title, readTime, author, tag, language, isPublished, crops, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -28107,6 +29394,18 @@ components:
         tag: { type: string }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
+        reviewStatus:
+          type: string
+          enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED]
+          description: BR-59t. Review workflow status, independent of isPublished.
+        submittedForReviewAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewNote: { type: [string, 'null'] }
+        crops:
+          type: array
+          description: BR-59r. Ordered by crop name. Empty when the article is not tagged.
+          items: { $ref: '#/components/schemas/LearningCropRef' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -28131,6 +29430,7 @@ components:
         tag: { type: string, minLength: 1, maxLength: 80 }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
+        cropIds: { $ref: '#/components/schemas/LearningCropIds' }
 
     UpdateLearningArticleRequest:
       type: object
@@ -28143,10 +29443,11 @@ components:
         tag: { type: string, minLength: 1, maxLength: 80 }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
+        cropIds: { $ref: '#/components/schemas/LearningCropIds' }
 
     LearningVideo:
       type: object
-      required: [id, title, videoUrl, duration, author, language, isFeatured, isPublished, createdAt, updatedAt]
+      required: [id, title, videoUrl, duration, author, language, isFeatured, isPublished, crops, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -28157,6 +29458,18 @@ components:
         language: { type: string, enum: [en, ta] }
         isFeatured: { type: boolean }
         isPublished: { type: boolean }
+        reviewStatus:
+          type: string
+          enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED]
+          description: BR-59t. Review workflow status, independent of isPublished.
+        submittedForReviewAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewNote: { type: [string, 'null'] }
+        crops:
+          type: array
+          description: BR-59r. Ordered by crop name. Empty when the video is not tagged.
+          items: { $ref: '#/components/schemas/LearningCropRef' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -28186,6 +29499,7 @@ components:
         language: { type: string, enum: [en, ta] }
         isFeatured: { type: boolean }
         isPublished: { type: boolean }
+        cropIds: { $ref: '#/components/schemas/LearningCropIds' }
 
     UpdateLearningVideoRequest:
       type: object
@@ -28203,6 +29517,7 @@ components:
         language: { type: string, enum: [en, ta] }
         isFeatured: { type: boolean }
         isPublished: { type: boolean }
+        cropIds: { $ref: '#/components/schemas/LearningCropIds' }
 
     LearningTraining:
       type: object
@@ -28222,6 +29537,14 @@ components:
         isEnrolled: { type: boolean }
         language: { type: string, enum: [en, ta] }
         isPublished: { type: boolean }
+        reviewStatus:
+          type: string
+          enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED]
+          description: BR-59t. Review workflow status, independent of isPublished.
+        submittedForReviewAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewNote: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -28289,6 +29612,15 @@ components:
         isJoined: { type: boolean }
         isArchived: { type: boolean }
         archivedAt: { type: [string, 'null'], format: date-time }
+        communityId: { type: [string, 'null'], format: uuid }
+        reviewStatus:
+          type: string
+          enum: [NOT_SUBMITTED, PENDING_REVIEW, APPROVED, REJECTED]
+          description: BR-59t. Review workflow status, independent of isPublished.
+        submittedForReviewAt: { type: [string, 'null'], format: date-time }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+        reviewNote: { type: [string, 'null'] }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -28308,6 +29640,7 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         description: { type: [string, 'null'], maxLength: 2000 }
         category: { type: string, minLength: 1, maxLength: 80 }
+        communityId: { type: [string, 'null'], format: uuid }
 
     UpdateLearningGroupRequest:
       type: object
@@ -28315,6 +29648,28 @@ components:
         name: { type: string, minLength: 1, maxLength: 120 }
         description: { type: [string, 'null'], maxLength: 2000 }
         category: { type: string, minLength: 1, maxLength: 80 }
+        communityId: { type: [string, 'null'], format: uuid }
+
+    SubmitReviewRequest:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 1000
+          description: Optional submission note.
+
+    ReviewContentRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, REJECTED]
+          description: Review decision status.
+        note:
+          type: string
+          maxLength: 1000
+          description: Optional reviewer decision note.
 
     GroupMembershipResponse:
       type: object
@@ -28323,6 +29678,180 @@ components:
         groupId: { type: string, format: uuid }
         farmerId: { type: string, format: uuid }
         joinedAt: { type: string, format: date-time }
+
+    Community:
+      type: object
+      required: [id, name, category, isArchived, groupCount, memberCount, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        category: { type: string }
+        rules: { type: [string, 'null'] }
+        isArchived: { type: boolean }
+        archivedAt: { type: [string, 'null'], format: date-time }
+        groupCount: { type: integer }
+        memberCount: { type: integer }
+        createdBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CommunitiesListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Community'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    CreateCommunityRequest:
+      type: object
+      required: [name, category]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        category: { type: string, minLength: 1, maxLength: 100 }
+        rules: { type: [string, 'null'], maxLength: 4000 }
+
+    UpdateCommunityRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        description: { type: [string, 'null'], maxLength: 2000 }
+        category: { type: string, minLength: 1, maxLength: 100 }
+        rules: { type: [string, 'null'], maxLength: 4000 }
+
+    CommunityMemberGroup:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    CommunityMember:
+      type: object
+      required: [farmerId, farmerName, phone, joinedAt, groupCount, groups]
+      properties:
+        farmerId: { type: string, format: uuid }
+        farmerName: { type: string }
+        phone: { type: string }
+        village: { type: [string, 'null'] }
+        joinedAt: { type: string, format: date-time }
+        groupCount: { type: integer }
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityMemberGroup'
+
+    CommunityMembersListResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CommunityMember'
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    QaAuthor:
+      type: object
+      required: [id, displayName, role]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        role: { type: string, enum: [FARMER, ADMIN] }
+
+    QaAnswer:
+      type: object
+      required: [id, questionId, content, author, isBlocked, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        questionId: { type: string, format: uuid }
+        content: { type: string }
+        author: { $ref: '#/components/schemas/QaAuthor' }
+        isBlocked: { type: boolean }
+        blockReason: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    QaQuestionSummary:
+      type: object
+      required: [id, title, content, author, answerCount, isBlocked, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        communityId: { type: string, format: uuid, nullable: true }
+        contentType: { type: string, enum: [articles, videos, trainings, groups], nullable: true }
+        contentId: { type: string, format: uuid, nullable: true }
+        title: { type: string }
+        content: { type: string }
+        author: { $ref: '#/components/schemas/QaAuthor' }
+        answerCount: { type: integer, minimum: 0 }
+        isBlocked: { type: boolean }
+        blockReason: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    QaQuestionDetail:
+      allOf:
+        - $ref: '#/components/schemas/QaQuestionSummary'
+        - type: object
+          required: [answers]
+          properties:
+            answers:
+              type: array
+              items: { $ref: '#/components/schemas/QaAnswer' }
+
+    ListQuestionsResponse:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/QaQuestionSummary' }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+
+    AskQuestionRequest:
+      type: object
+      required: [title, content]
+      properties:
+        communityId: { type: string, format: uuid, nullable: true }
+        contentType: { type: string, enum: [articles, videos, trainings, groups], nullable: true }
+        contentId: { type: string, format: uuid, nullable: true }
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, minLength: 1, maxLength: 10000 }
+
+    UpdateQuestionRequest:
+      type: object
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, minLength: 1, maxLength: 10000 }
+
+    PostAnswerRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 10000 }
+
+    UpdateAnswerRequest:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string, minLength: 1, maxLength: 10000 }
+
+    ModerateContentRequest:
+      type: object
+      properties:
+        isBlocked: { type: boolean }
+        blockReason: { type: string, maxLength: 500, nullable: true }
+        softDelete: { type: boolean }
 
     SupportTicketCategory:
       type: object
@@ -30574,6 +32103,16 @@ components:
         pageSize: { type: integer, minimum: 1 }
         total: { type: integer }
         expiryWarningDays: { type: integer, minimum: 0, description: The EXPIRING_SOON window the statuses were derived with. }
+
+    PublicZoneListItem:
+      type: object
+      description: Minimal public zone item for applicant picker (BR-143).
+      required: [id, name, warehouseTown]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Ooty Zone }
+        warehouseTown: { type: string, example: Udhagamandalam }
 
     AdminZoneListItem:
       type: object

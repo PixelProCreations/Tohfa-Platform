@@ -12,6 +12,12 @@ export interface ZoneListRow {
   createdAt: Date;
 }
 
+export interface PublicZoneRow {
+  id: string;
+  name: string;
+  warehouseTown: string;
+}
+
 export interface ZoneDetailRow extends ZoneListRow {
   manager: {
     userId: string;
@@ -29,6 +35,7 @@ export interface ZonesListFilter {
 export interface ZonesRepo {
   list(db: Executor, filter: ZonesListFilter): Promise<ZoneListRow[]>;
   findById(db: Executor, id: string): Promise<ZoneDetailRow | null>;
+  listPublic(db: Executor): Promise<PublicZoneRow[]>;
 }
 
 export const zonesRepo: ZonesRepo = {
@@ -121,5 +128,19 @@ export const zonesRepo: ZonesRepo = {
       ...zone,
       manager,
     };
+  },
+
+  async listPublic(db) {
+    const query = `
+      SELECT z.id,
+             z.name,
+             COALESCE(w.city, '') AS "warehouseTown"
+        FROM zones z
+        LEFT JOIN warehouses w ON w.id = z.warehouse_id
+       WHERE z.is_active = true AND z.deleted_at IS NULL
+       ORDER BY z.name ASC
+    `;
+    const result = await db.query<PublicZoneRow>(query);
+    return result.rows;
   },
 };

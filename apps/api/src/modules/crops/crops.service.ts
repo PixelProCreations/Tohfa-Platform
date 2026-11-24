@@ -133,7 +133,9 @@ export function createCropsService(deps: Partial<CropsServiceDeps> = {}): CropsS
   return {
     async listCropMaster(scope) {
       ownFarmerId(scope);
-      const items = await repo.listCropMaster(db, true);
+      const rows = await repo.listCropMaster(db, true);
+      // A farmer picking a crop type has no need of which admin created it.
+      const items = rows.map(({ createdByName: _createdByName, ...rest }) => rest);
       return { items };
     },
 

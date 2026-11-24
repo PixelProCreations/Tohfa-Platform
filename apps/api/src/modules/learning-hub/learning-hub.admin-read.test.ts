@@ -180,6 +180,64 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
       expect(spy).not.toHaveBeenCalled();
     });
 
+    it('BR-59t: submit-review returns 401 unauth, 403 for non-admins, 200 for TOHFA_ADMIN and SUPER_ADMIN', async () => {
+      spies.push(vi.spyOn(learningHubService, 'submitReview').mockResolvedValue({ id: testId } as never));
+
+      // 401
+      expect((await request(server).post(`/v1/admin/learning/articles/${testId}/submit-review`).send({})).status).toBe(401);
+
+      // 403
+      for (const roleToken of [tokens.farmerAdmin, tokens.mainWhAdmin, tokens.subWhAdmin, tokens.farmer, tokens.customer]) {
+        const res = await request(server)
+          .post(`/v1/admin/learning/articles/${testId}/submit-review`)
+          .set('Authorization', `Bearer ${roleToken}`)
+          .send({});
+        expect(res.status).toBe(403);
+      }
+
+      // 200
+      for (const roleToken of [tokens.tohfaAdmin, tokens.superAdmin]) {
+        const res = await request(server)
+          .post(`/v1/admin/learning/articles/${testId}/submit-review`)
+          .set('Authorization', `Bearer ${roleToken}`)
+          .send({});
+        expect(res.status).toBe(200);
+      }
+    });
+
+    it('BR-59t: review content returns 401 unauth, 403 for non-superadmins (including TOHFA_ADMIN), 200 for SUPER_ADMIN', async () => {
+      spies.push(vi.spyOn(learningHubService, 'reviewContent').mockResolvedValue({ id: testId } as never));
+
+      // 401
+      expect(
+        (await request(server).post(`/v1/admin/learning/articles/${testId}/review`).send({ status: 'APPROVED' })).status,
+      ).toBe(401);
+
+      // 403 for TOHFA_ADMIN and others
+      for (const roleToken of [tokens.tohfaAdmin, tokens.farmerAdmin, tokens.mainWhAdmin, tokens.subWhAdmin, tokens.farmer, tokens.customer]) {
+        const res = await request(server)
+          .post(`/v1/admin/learning/articles/${testId}/review`)
+          .set('Authorization', `Bearer ${roleToken}`)
+          .send({ status: 'APPROVED' });
+        expect(res.status).toBe(403);
+      }
+
+      // 200 for SUPER_ADMIN
+      const res = await request(server)
+        .post(`/v1/admin/learning/articles/${testId}/review`)
+        .set('Authorization', `Bearer ${tokens.superAdmin}`)
+        .send({ status: 'APPROVED' });
+      expect(res.status).toBe(200);
+    });
+
+    it('BR-59t: invalid review status in request body is rejected with 422', async () => {
+      const res = await request(server)
+        .post(`/v1/admin/learning/articles/${testId}/review`)
+        .set('Authorization', `Bearer ${tokens.superAdmin}`)
+        .send({ status: 'UNKNOWN_STATUS' });
+      expect(res.status).toBe(422);
+    });
+
     it('BR-59l: ?isPublished=false over HTTP reaches the admin list services as boolean false; true as true; absent as undefined', async () => {
       const page = { items: [], total: 0, page: 1, limit: 20 };
       const cases = [

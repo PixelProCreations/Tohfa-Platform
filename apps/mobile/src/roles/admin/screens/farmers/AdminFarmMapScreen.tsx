@@ -64,7 +64,7 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
         {/* Title & Subtitle */}
         <Text style={styles.title}>Farm FMB & Zones</Text>
         <Text style={styles.subtitle}>
-          {farmer.name} · {farmer.farmName ?? 'Wild Eden Organic Farms'} · 6 zones marked
+          {[farmer.name, farmer.farmName].filter(Boolean).join(' · ')} · 6 zones marked
         </Text>
 
         {/* Map Card */}

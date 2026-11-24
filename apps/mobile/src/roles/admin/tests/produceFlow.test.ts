@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import rbac from '../../../../../../docs/rbac.json';
 import { makeCan } from '../permissions/can';
+import { cropCategoryOptions, designCategoryForSlug } from '../screens/produce/produceLogic';
 
 function getRolePermissions(roleCode: string): string[] {
   return rbac.permissions
@@ -47,5 +48,36 @@ describe('Produce Control & Crop Data Flow & Taxonomy (M4-S01 & M4-S28a,b,c)', (
       'Standard Market Grade',
     ];
     expect(gradeSystems).toHaveLength(3);
+  });
+});
+
+describe('Crop Data category filter options come from the fetched categories', () => {
+  it('lists every fetched category, in the API order, with none dropped', () => {
+    const options = cropCategoryOptions([
+      { id: 'c-1', name: 'Vegetables', slug: 'vegetables' },
+      { id: 'c-2', name: 'Pulses', slug: 'pulses' },
+      { id: 'c-3', name: 'Fruits', slug: 'fruits' },
+    ]);
+    expect(options.map((o) => o.id)).toEqual(['c-1', 'c-2', 'c-3']);
+  });
+
+  it('does not invent a category the API did not return', () => {
+    const options = cropCategoryOptions([{ id: 'c-1', name: 'Vegetables', slug: 'vegetables' }]);
+    expect(options).toHaveLength(1);
+    expect(options.some((o) => o.slug === 'spices')).toBe(false);
+  });
+
+  it('keeps the design label for the three seeded slugs and leaves others without one', () => {
+    const options = cropCategoryOptions([
+      { id: 'c-1', name: 'Fruits', slug: 'fruits' },
+      { id: 'c-2', name: 'Pulses', slug: 'pulses' },
+    ]);
+    expect(options[0]?.design).toBe('Fruit');
+    expect(options[1]?.design).toBeUndefined();
+    expect(designCategoryForSlug('spices')).toBe('Spice');
+  });
+
+  it('returns no options before the categories have loaded', () => {
+    expect(cropCategoryOptions(undefined)).toEqual([]);
   });
 });

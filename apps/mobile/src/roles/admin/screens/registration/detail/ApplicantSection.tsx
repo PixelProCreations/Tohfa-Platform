@@ -1,16 +1,28 @@
 /**
- * 01 · Applicant. Name, phone and address come from the application (step 1).
+ * 01 · Personal details (step 1), in the 2026-11-19 design's field order:
+ * full name, date of birth, gender, mobile number, the Aadhaar with its
+ * helper line, and the address.
+ *
+ * Two things the design asserts that the API does not:
+ *   - the Aadhaar itself. Only the last four digits are ever sent (BR-33b),
+ *     by design, so the row shows the masked form and nothing else.
+ *   - the green "OTP Verified" badge beside the mobile number. No field on
+ *     the application says whether the number was verified, so the badge is
+ *     drawn and reads as the dash rather than claiming a verification.
+ *
  * In the Approved state the design adds Zone, Application ID, status and the
- * approved date: the API sends no zone, no human application code and no
- * decision date today (farmerTypes.ts), so those render as the "not
- * available" dash, never as the design's demo values.
+ * approved date: the API sends no zone name and no human application code,
+ * so those render as the dash, never as the design's demo values.
  */
 import React from 'react';
+import { Text, View } from 'react-native';
 import type { ApplicationStatus } from '../../../api/farmerApplications';
 import type { ApplicationDetailView } from '../../../api/farmerTypes';
 import { t } from '../../../i18n';
-import { Card, InfoRow, SectionHeading } from '../applications/ApplicationParts';
-import { dayOrDash, notAvailable, orDash, statusLabel } from '../applications/applicationLogic';
+import { Card, InfoRow, StepHeader } from '../applications/ApplicationParts';
+import { dayOrDash, dobLabel, maskAadhaar, notAvailable, orDash, statusLabel } from '../applications/applicationLogic';
+import { detailStyles } from './detailStyles';
+import { stepState, APPLICATION_STEP_COUNT } from './reviewFacts';
 
 function addressText(app: ApplicationDetailView): string {
   const a = app.applicant.address;
@@ -18,6 +30,19 @@ function addressText(app: ApplicationDetailView): string {
     (p): p is string => p !== null && p !== '',
   );
   return parts.join(', ');
+}
+
+/** The design's badge beside the mobile number; nothing reports a verification, so it shows the dash. */
+function OtpBadge() {
+  return (
+    <View
+      style={detailStyles.badgeUnknown}
+      testID="farmerApps.otpBadge"
+      accessibilityHint={t('farmerApps.applicant.otpUnknown')}
+    >
+      <Text style={detailStyles.badgeUnknownText}>{notAvailable()}</Text>
+    </View>
+  );
 }
 
 export interface ApplicantSectionProps {
@@ -32,16 +57,29 @@ export function ApplicantSection({ app, status, decidedAt }: ApplicantSectionPro
   const approved = status === 'APPROVED';
   return (
     <>
-      <SectionHeading label={t('farmerApps.section.applicant')} />
+      <StepHeader
+        label={t('farmerApps.section.applicant')}
+        step={1}
+        total={APPLICATION_STEP_COUNT}
+        state={stepState(app, 1)}
+      />
       <Card>
         <InfoRow label={t('farmerApps.field.name')} value={orDash(app.applicant.name)} />
-        <InfoRow label={t('farmerApps.field.phone')} value={orDash(app.applicant.mobile)} />
+        <InfoRow label={t('farmerApps.field.dob')} value={dobLabel(app.applicant.dob)} />
+        <InfoRow label={t('farmerApps.field.gender')} value={orDash(app.applicant.gender)} />
+        <InfoRow label={t('farmerApps.field.phone')} value={orDash(app.applicant.mobile)} valueSuffix={<OtpBadge />} />
+        {/* BR-33b: the full number is never in the API response, by design. */}
+        <InfoRow
+          label={t('farmerApps.field.aadhaar')}
+          hint={t('farmerApps.field.aadhaarHint')}
+          value={maskAadhaar(app.applicant.aadhaarLast4)}
+        />
         <InfoRow label={t('farmerApps.field.address')} value={orDash(addressText(app))} />
         {approved ? (
           <>
-            {/* No zone name and no human application code in the API response (a spec zoneId would be a bare uuid). */}
+            {/* No zone name in the API response (a spec zoneId would be a bare uuid). */}
             <InfoRow label={t('farmerApps.field.zone')} value={notAvailable()} />
-            <InfoRow label={t('farmerApps.field.applicationId')} value={notAvailable()} />
+            <InfoRow label={t('farmerApps.field.applicationId')} value={orDash(app.applicationCode)} />
             <InfoRow label={t('farmerApps.field.applicationStatus')} value={statusLabel(status)} />
             <InfoRow label={t('farmerApps.field.submitted')} value={dayOrDash(app.submittedAt)} />
             <InfoRow label={t('farmerApps.field.approved')} value={dayOrDash(decidedAt)} last />

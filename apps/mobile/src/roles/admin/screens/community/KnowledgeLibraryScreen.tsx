@@ -22,6 +22,22 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { useLearningArticles, useLearningGroups, useLearningTrainings, useLearningVideos } from '../../api/learningHooks';
+import { useCommunities } from '../../api/communitiesHooks';
+import { t } from '../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import {
+  articleRow,
+  canManageLearning,
+  groupLibraryRow,
+  searchParam,
+  totalText,
+  trainingRow,
+  videoRow,
+  type LibraryRowView,
+} from './communityLogic';
+import { canModerateCommunities, communityRow } from './communitiesLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -78,15 +94,6 @@ function SmallArrowRightIcon({ size = 12, color = adminColors.muted }: { size?: 
 
 export type KnowledgeCategoryTab = 'Articles' | 'Videos' | 'Trainings' | 'Groups' | 'Communities';
 
-export interface KnowledgeLibraryItem {
-  id: string;
-  title: string;
-  typeBadge: 'Article' | 'Video' | 'Announcement' | 'Group Post' | 'Training';
-  statusBadge: 'Draft' | 'Published' | 'Pending Review' | 'Active';
-  subtitle: string;
-  highlightBorder?: boolean;
-}
-
 const CATEGORY_TABS: KnowledgeCategoryTab[] = [
   'Articles',
   'Videos',
@@ -95,57 +102,36 @@ const CATEGORY_TABS: KnowledgeCategoryTab[] = [
   'Communities',
 ];
 
-const INITIAL_ITEMS: KnowledgeLibraryItem[] = [
-  {
-    id: 'k-1',
-    title: 'Tomato leaf curl management',
-    typeBadge: 'Article',
-    statusBadge: 'Draft',
-    subtitle: 'Guide · Tomato · Expert verified · English · Demo TOHFA Admin',
-  },
-  {
-    id: 'k-2',
-    title: 'Tomato leaf curl management',
-    typeBadge: 'Video',
-    statusBadge: 'Published',
-    subtitle: 'Guide · Tomato · Expert verified · English · Demo TOHFA Admin',
-  },
-  {
-    id: 'k-3',
-    title: 'Mulching for water retention',
-    typeBadge: 'Article',
-    statusBadge: 'Pending Review',
-    subtitle: 'Article · General · Not crop-specific · English · Demo TOHFA Admin',
-    highlightBorder: true,
-  },
-  {
-    id: 'k-4',
-    title: 'New fair-price ceiling for Q4',
-    typeBadge: 'Announcement',
-    statusBadge: 'Published',
-    subtitle: 'Notice · All zones · English · Demo TOHFA Admin',
-  },
-  {
-    id: 'k-5',
-    title: 'Coonoor Organic Growers',
-    typeBadge: 'Group Post',
-    statusBadge: 'Active',
-    subtitle: '42 members · Coonoor zone · Demo TOHFA Admin',
-  },
-];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface KnowledgeLibraryScreenProps {
   onBack: () => void;
-  onSelectItem?: (item: KnowledgeLibraryItem) => void;
+  onSelectItem?: (item: LibraryRowView) => void;
   onNavigateAddVideo?: () => void;
   onNavigateCreateContent?: () => void;
+  /** Opens a community from the Communities tab. */
+  onSelectCommunity?: (communityId: string) => void;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * One tab per Learning Hub resource: articles, videos, trainings and groups
+ * (GET /admin/learning/*, BR-59l/BR-59n). Only the open tab fetches.
+ *
+ * The fifth tab, Communities, reads GET /admin/communities (BR-59s), which needs
+ * `community.group.moderate` rather than the learning permission; the content
+ * type and status chips apply to the four content resources only.
+ *
+ * The item count is the server's `total` for the open tab, never a count of
+ * the loaded rows. The type/status chips narrow what is already loaded; the
+ * search box is the server's `q`.
+ */
 export function KnowledgeLibraryScreen({
   onBack,
   onSelectItem,
+  onSelectCommunity,
+  can,
 }: KnowledgeLibraryScreenProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeCategoryTab>('Articles');
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,27 +143,55 @@ export function KnowledgeLibraryScreen({
 
   const tabScrollRef = useRef<ScrollViewInstance>(null);
 
-  // Filtered Items
-  const filteredItems = useMemo(() => {
-    return INITIAL_ITEMS.filter((item) => {
-      // Search
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = item.title.toLowerCase().includes(query);
-        const matchesSub = item.subtitle.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesSub) return false;
-      }
-      // Type Filter
-      if (filterType !== 'All' && item.typeBadge !== filterType) {
-        return false;
-      }
-      // Status Filter
-      if (filterStatus !== 'All' && item.statusBadge !== filterStatus) {
-        return false;
-      }
-      return true;
-    });
-  }, [searchQuery, filterType, filterStatus]);
+  const allowed = canManageLearning(can);
+  const q = searchParam(searchQuery);
+  const search = q === undefined ? {} : { q };
+
+  const articles = useLearningArticles(search, { enabled: allowed && activeTab === 'Articles' });
+  const videos = useLearningVideos(search, { enabled: allowed && activeTab === 'Videos' });
+  const trainings = useLearningTrainings(search, { enabled: allowed && activeTab === 'Trainings' });
+  const groups = useLearningGroups(search, { enabled: allowed && activeTab === 'Groups' });
+  const communitiesAllowed = canModerateCommunities(can);
+  const communities = useCommunities(search, { enabled: communitiesAllowed && activeTab === 'Communities' });
+
+  const list =
+    activeTab === 'Articles'
+      ? articles
+      : activeTab === 'Videos'
+        ? videos
+        : activeTab === 'Trainings'
+          ? trainings
+          : activeTab === 'Groups'
+            ? groups
+            : communities;
+
+  const rows = useMemo((): LibraryRowView[] => {
+    if (activeTab === 'Articles') return articles.items.map(articleRow);
+    if (activeTab === 'Videos') return videos.items.map(videoRow);
+    if (activeTab === 'Trainings') return trainings.items.map(trainingRow);
+    if (activeTab === 'Groups') return groups.items.map(groupLibraryRow);
+    return [];
+  }, [activeTab, articles.items, videos.items, trainings.items, groups.items]);
+
+  const filteredItems = useMemo(
+    () =>
+      rows.filter((row) => {
+        if (filterType !== 'All' && row.typeBadge !== filterType) return false;
+        // Compare the canonical status, not its translated label.
+        if (filterStatus !== 'All' && row.status !== filterStatus) return false;
+        return true;
+      }),
+    [rows, filterType, filterStatus],
+  );
+
+  const isCommunitiesTab = activeTab === 'Communities';
+  const communityRows = useMemo(() => communities.items.map((dto, index) => communityRow(dto, index)), [communities.items]);
+  const tabAllowed = isCommunitiesTab ? communitiesAllowed : allowed;
+  const viewState = queryViewState({
+    isLoading: list.isLoading,
+    error: list.error,
+    itemCount: isCommunitiesTab ? communityRows.length : filteredItems.length,
+  });
 
   const handleResetFilters = () => {
     setFilterType('All');
@@ -298,18 +312,55 @@ export function KnowledgeLibraryScreen({
         </View>
 
         {/* ─── Items Count Caption (Screenshots 1 & 2: "12 items") ─── */}
-        <Text style={styles.countText}>12 items</Text>
+        <Text style={styles.countText} testID="community.library.count">
+          {t('community.library.count', { total: totalText(list.total) })}
+        </Text>
 
         {/* ─── Cards List (Screenshots 1 & 2) ─── */}
+        {!tabAllowed ? (
+          <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+        ) : viewState === 'loading' ? (
+          <AdminLoadingState />
+        ) : viewState === 'error' ? (
+          <AdminErrorState error={list.error} onRetry={list.refresh} />
+        ) : viewState === 'empty' ? (
+          <AdminEmptyState title={t(isCommunitiesTab ? 'community.empty.communities' : 'community.empty.library')} />
+        ) : isCommunitiesTab ? (
+          <View style={styles.cardsList}>
+            {communityRows.map((row) => (
+              <TouchableOpacity
+                key={row.id}
+                style={styles.itemCard}
+                onPress={() => onSelectCommunity?.(row.id)}
+                activeOpacity={0.7}
+                testID={`community.library.community.${row.id}`}
+              >
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {row.name}
+                  </Text>
+                  <View style={[styles.statusBadge, row.status === 'Active' && styles.activeBadge]}>
+                    <Text style={[styles.statusBadgeText, row.status === 'Active' && styles.activeBadgeText]}>{row.statusText}</Text>
+                  </View>
+                </View>
+                <Text style={styles.cardSubtitle} numberOfLines={1}>
+                  {row.subtitle}
+                </Text>
+              </TouchableOpacity>
+            ))}
+            {list.hasMore ? (
+              <TouchableOpacity style={styles.loadMoreBtn} onPress={list.loadMore} activeOpacity={0.8}>
+                <Text style={styles.loadMoreBtnText}>{t('community.loadMore')}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        ) : (
         <View style={styles.cardsList}>
           {filteredItems.map((item) => {
             return (
               <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.itemCard,
-                  item.highlightBorder && styles.itemCardHighlighted,
-                ]}
+                key={`${item.kind}:${item.id}`}
+                style={styles.itemCard}
                 onPress={() => onSelectItem && onSelectItem(item)}
                 activeOpacity={0.7}
               >
@@ -321,22 +372,20 @@ export function KnowledgeLibraryScreen({
                   <View
                     style={[
                       styles.statusBadge,
-                      item.statusBadge === 'Published' && styles.publishedBadge,
-                      item.statusBadge === 'Draft' && styles.draftBadge,
-                      item.statusBadge === 'Pending Review' && styles.pendingBadge,
-                      item.statusBadge === 'Active' && styles.activeBadge,
+                      item.status === 'Published' && styles.publishedBadge,
+                      item.status === 'Draft' && styles.draftBadge,
+                      item.status === 'Active' && styles.activeBadge,
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusBadgeText,
-                        item.statusBadge === 'Published' && styles.publishedBadgeText,
-                        item.statusBadge === 'Draft' && styles.draftBadgeText,
-                        item.statusBadge === 'Pending Review' && styles.pendingBadgeText,
-                        item.statusBadge === 'Active' && styles.activeBadgeText,
+                        item.status === 'Published' && styles.publishedBadgeText,
+                        item.status === 'Draft' && styles.draftBadgeText,
+                        item.status === 'Active' && styles.activeBadgeText,
                       ]}
                     >
-                      {item.statusBadge}
+                      {item.statusText}
                     </Text>
                   </View>
                 </View>
@@ -348,7 +397,6 @@ export function KnowledgeLibraryScreen({
                       styles.typeBadge,
                       item.typeBadge === 'Article' && styles.articleBadge,
                       item.typeBadge === 'Video' && styles.videoBadge,
-                      item.typeBadge === 'Announcement' && styles.announcementBadge,
                       item.typeBadge === 'Group Post' && styles.groupPostBadge,
                     ]}
                   >
@@ -357,7 +405,6 @@ export function KnowledgeLibraryScreen({
                         styles.typeBadgeText,
                         item.typeBadge === 'Article' && styles.articleBadgeText,
                         item.typeBadge === 'Video' && styles.videoBadgeText,
-                        item.typeBadge === 'Announcement' && styles.announcementBadgeText,
                         item.typeBadge === 'Group Post' && styles.groupPostBadgeText,
                       ]}
                     >
@@ -366,14 +413,21 @@ export function KnowledgeLibraryScreen({
                   </View>
                 </View>
 
-                {/* Subtitle */}
+                {/* Subtitle: the designed meta line. Its crop and expert-verification
+                    slots have no field in the spec, so they carry the dash. */}
                 <Text style={styles.cardSubtitle} numberOfLines={1}>
                   {item.subtitle}
                 </Text>
               </TouchableOpacity>
             );
           })}
+          {list.hasMore ? (
+            <TouchableOpacity style={styles.loadMoreBtn} onPress={list.loadMore} activeOpacity={0.8}>
+              <Text style={styles.loadMoreBtnText}>{t('community.loadMore')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
+        )}
       </ScrollView>
 
       {/* ─── Suitable Filter Popup Modal ─── */}
@@ -398,7 +452,9 @@ export function KnowledgeLibraryScreen({
             {/* Type Filter */}
             <Text style={styles.filterSectionTitle}>Content Type</Text>
             <View style={styles.filterChipsRow}>
-              {['All', 'Article', 'Video', 'Announcement', 'Group Post'].map((t) => (
+              {/* The spec has four content types. "Announcement" is not one of
+                  them, so it is not offered as a filter that can never match. */}
+              {['All', 'Article', 'Video', 'Training', 'Group Post'].map((t) => (
                 <TouchableOpacity
                   key={t}
                   style={[styles.filterChip, filterType === t && styles.filterChipActive]}
@@ -415,7 +471,10 @@ export function KnowledgeLibraryScreen({
             {/* Status Filter */}
             <Text style={styles.filterSectionTitle}>Status</Text>
             <View style={styles.filterChipsRow}>
-              {['All', 'Published', 'Draft', 'Pending Review', 'Active'].map((s) => (
+              {/* isPublished (articles/videos/trainings) and isArchived (groups)
+                  are the only states these resources have; there is no review
+                  state anywhere in the spec. */}
+              {['All', 'Published', 'Draft', 'Active', 'Archived'].map((s) => (
                 <TouchableOpacity
                   key={s}
                   style={[styles.filterChip, filterStatus === s && styles.filterChipActive]}
@@ -605,6 +664,15 @@ const styles = StyleSheet.create({
   // ─── Cards List ───
   cardsList: {
     gap: 12,
+  },
+  loadMoreBtn: {
+    alignSelf: 'center',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+  },
+  loadMoreBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   itemCard: {
     backgroundColor: adminColors.card,

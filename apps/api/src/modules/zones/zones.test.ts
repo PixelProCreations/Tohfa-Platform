@@ -241,7 +241,7 @@ describeIfDatabase('Zones Module (BR-161 Priority 1)', () => {
       expect(res.status).toBe(200);
 
       const ooty = res.body.find((z: { code: string }) => z.code === 'ZONE-OOTY');
-      expect(ooty.taluks).toEqual(['Ooty', 'Udhagamandalam']);
+      expect(ooty.taluks).toEqual(['Kundah', 'Ooty', 'Udhagamandalam']);
 
       const guda = res.body.find((z: { code: string }) => z.code === 'ZONE-GUDA');
       expect(guda.taluks).toEqual(['Gudalur', 'Pandalur']);
@@ -432,6 +432,44 @@ describeIfDatabase('Zones Module (BR-161 Priority 1)', () => {
         .set('Authorization', `Bearer ${farmerAdminToken}`);
       expect(outOfScopeRes.status).toBe(404);
       expect(outOfScopeRes.body.code).toBe('NOT_FOUND');
+    });
+  });
+
+  describe('BR-143: GET /v1/zones (Public List)', () => {
+    it('returns 200 without authentication (security: [])', async () => {
+      const res = await request(app).get('/v1/zones');
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('exposes only the minimum fields (id, name, warehouseTown) on every item and no sensitive data', async () => {
+      const res = await request(app).get('/v1/zones');
+      expect(res.status).toBe(200);
+      expect(res.body.length).toBeGreaterThanOrEqual(4);
+
+      for (const item of res.body) {
+        expect(Object.keys(item).sort()).toEqual(['id', 'name', 'warehouseTown'].sort());
+        expect(typeof item.id).toBe('string');
+        expect(typeof item.name).toBe('string');
+        expect(typeof item.warehouseTown).toBe('string');
+        expect(item).not.toHaveProperty('code');
+        expect(item).not.toHaveProperty('shortCode');
+        expect(item).not.toHaveProperty('manager');
+        expect(item).not.toHaveProperty('warehouseId');
+        expect(item).not.toHaveProperty('taluks');
+      }
+    });
+
+    it('returns all 4 canonical warehouse zones with their warehouse towns', async () => {
+      const res = await request(app).get('/v1/zones');
+      expect(res.status).toBe(200);
+
+      const towns = res.body.map((z: { warehouseTown: string }) => z.warehouseTown);
+      expect(towns).toContain('Udhagamandalam');
+      expect(towns).toContain('Coonoor');
+      expect(towns).toContain('Kotagiri');
+      expect(towns).toContain('Gudalur');
     });
   });
 });

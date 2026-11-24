@@ -59,8 +59,16 @@ import type { WarehouseScope } from '../warehouse';
 import { SuperAdminMoreScreen } from './SuperAdminMoreScreen';
 import { FarmersFlow } from '../farmers/FarmersFlow';
 import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
+import { FarmerManagementFlow, type FarmerManagementSubView } from '../farmers/FarmerManagementFlow';
 import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
-import { FinanceManagementFlow } from '../finance';
+import {
+  FinanceManagementFlow,
+  PLStatementScreen,
+  PayoutProcessingScreen,
+  ProfitLossScreen,
+  PaymentMethodsScreen,
+} from '../finance';
+import { FinanceBusinessOverviewScreen } from './FinanceBusinessOverviewScreen';
 import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
 import { PricingFlow } from '../pricing/PricingFlow';
 import { ProduceControlFlow } from '../produce';
@@ -88,7 +96,10 @@ import {
 } from '../config';
 import { ApprovalsInboxScreen } from './ApprovalsInboxScreen';
 import { ApprovalDetailPayoutScreen } from './ApprovalDetailPayoutScreen';
+import { AdminWorkQueueScreen } from './AdminWorkQueueScreen';
 import { AlertThresholdsScreen } from './AlertThresholdsScreen';
+import { ComplianceTierThresholdsScreen, type AlertThresholdData } from './ComplianceTierThresholdsScreen';
+import { BulkPriceUpdateScreen } from './BulkPriceUpdateScreen';
 import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
 import { RetailPricingScreen } from './RetailPricingScreen';
 import { ScheduleMarketOpenCloseScreen } from './ScheduleMarketOpenCloseScreen';
@@ -103,10 +114,18 @@ import {
   AnnouncementsScreen,
   AllRecentReportsScreen,
 } from '../reports';
-import { PLStatementScreen } from '../finance';
 import { ReportsScreen } from '../warehouse/reports/ReportsScreen';
 import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
 import type { ProfileRoute } from '../warehouse/profile-settings/types';
+import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
+import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
+
+const SUPER_ADMIN_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = [
+  { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (WH-MAIN)' },
+  { warehouseId: 'WH-COON', warehouseName: 'Coonoor (WH-SUB1)' },
+  { warehouseId: 'WH-KOT', warehouseName: 'Kotagiri (WH-SUB2)' },
+  { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
+];
 
 export type SuperAdminTab = 'Overview' | 'Farmers' | 'Warehouse' | 'Finance' | 'Menu';
 
@@ -209,11 +228,19 @@ export function SuperAdminDashboardScreen({
     | 'config_integration'
     | 'config_company'
     | 'config_audit_logs'
+    | 'payout_processing'
+    | 'finance_flow'
+    | 'profit_loss'
+    | 'payment_methods'
+    | 'finance_business_overview'
+    | 'bulk_price_update'
+    | 'compliance_tier_thresholds'
     | null
   >(null);
 
   const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<AdminAccountData | null>(null);
   const [selectedAdminProfile, setSelectedAdminProfile] = useState<AdminAccountData | null>(null);
+  const [selectedThresholdData, setSelectedThresholdData] = useState<AlertThresholdData | undefined>(undefined);
   const [activeReportsSub, setActiveReportsSub] = useState<
     | 'analytics'
     | 'pl'
@@ -227,6 +254,33 @@ export function SuperAdminDashboardScreen({
     | null
   >(null);
   const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>('razorpay');
+  const [farmerInitialTab, setFarmerInitialTab] = useState<'farmers' | 'applications'>('farmers');
+  const [farmerSubView, setFarmerSubView] = useState<FarmerManagementSubView>('overview');
+  const farmerUserScope = useMemo(
+    () => ({ warehouseId: undefined }),
+    [],
+  );
+
+  const [warehouseModule, setWarehouseModule] = useState<
+    'admin' | 'transfers' | 'inventory' | 'staff' | 'add_profile'
+  >('admin');
+  const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string>('M3S01');
+  const [inventoryScope, setInventoryScope] = useState<WarehouseScope>({
+    warehouseId: undefined,
+    warehouseName: 'All Warehouses',
+  });
+  const [financeSubScreen, setFinanceSubScreen] = useState<string>('overview');
+
+  const handleSelectTab = (tab: SuperAdminTab) => {
+    if (tab === 'Farmers') {
+      setFarmerInitialTab('farmers');
+      setFarmerSubView('overview');
+    }
+    if (tab === 'Warehouse') {
+      setWarehouseModule('admin');
+    }
+    setActiveTab(tab);
+  };
 
   useEffect(() => {
     fetchMe()
@@ -509,23 +563,83 @@ export function SuperAdminDashboardScreen({
     );
   }
 
+  if (activeSubScreen === 'work_queue') {
+    return (
+      <AdminWorkQueueScreen
+        can={adminCan}
+        role="SUPER_ADMIN"
+        onBack={() => setActiveSubScreen(null)}
+        onReviewException={() => setActiveSubScreen('purchase_orders')}
+        onReviewApplication={() => {
+          setFarmerInitialTab('applications');
+          setFarmerSubView('applications');
+          setActiveTab('Farmers');
+          setActiveSubScreen(null);
+        }}
+        onViewAudit={() => {
+          setActiveSubScreen('audit_management');
+        }}
+      />
+    );
+  }
+
   if (activeSubScreen === 'alert_thresholds') {
     return (
       <AlertThresholdsScreen
         can={adminCan}
         onBack={() => setActiveSubScreen(null)}
-        onAddThreshold={() => {}}
-        onEditThreshold={() => {}}
+        onAddThreshold={() => {
+          setSelectedThresholdData(undefined);
+          setActiveSubScreen('compliance_tier_thresholds');
+        }}
+        onEditThreshold={(item) => {
+          setSelectedThresholdData(item);
+          setActiveSubScreen('compliance_tier_thresholds');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'compliance_tier_thresholds') {
+    return (
+      <ComplianceTierThresholdsScreen
+        initialData={selectedThresholdData}
+        can={adminCan}
+        onBack={() => setActiveSubScreen('alert_thresholds')}
+        onSave={() => setActiveSubScreen('alert_thresholds')}
       />
     );
   }
 
   if (activeSubScreen === 'fair_price_ceiling') {
-    return <FairPriceCeilingScreen onBack={() => setActiveSubScreen(null)} />;
+    return (
+      <FairPriceCeilingScreen
+        can={adminCan}
+        onBack={() => setActiveSubScreen(null)}
+        onNavigateToRetailPricing={() => setActiveSubScreen('retail_pricing')}
+        onNavigateToHistory={() => setActiveSubScreen('pricing_flow')}
+        onBulkUpdate={() => setActiveSubScreen('bulk_price_update')}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'bulk_price_update') {
+    return (
+      <BulkPriceUpdateScreen
+        can={adminCan}
+        onBack={() => setActiveSubScreen('fair_price_ceiling')}
+        onApplied={() => setActiveSubScreen('fair_price_ceiling')}
+      />
+    );
   }
 
   if (activeSubScreen === 'retail_pricing') {
-    return <RetailPricingScreen onBack={() => setActiveSubScreen(null)} />;
+    return (
+      <RetailPricingScreen
+        can={adminCan}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
   }
 
   if (activeSubScreen === 'schedule_market') {
@@ -539,34 +653,193 @@ export function SuperAdminDashboardScreen({
     );
   }
 
+  if (activeSubScreen === 'payout_processing') {
+    return (
+      <PayoutProcessingScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'finance_flow') {
+    return (
+      <FinanceManagementFlow
+        role="SUPER_ADMIN"
+        can={adminCan}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'profit_loss') {
+    return (
+      <ProfitLossScreen
+        can={adminCan}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'payment_methods') {
+    return (
+      <PaymentMethodsScreen
+        can={adminCan}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'finance_business_overview') {
+    return (
+      <FinanceBusinessOverviewScreen
+        can={adminCan}
+        onBack={() => setActiveSubScreen(null)}
+        onSelectPayout={(payoutId) => {
+          setSelectedPayoutId(payoutId);
+          setActiveSubScreen('approval_payout_detail');
+        }}
+        onNavigateSubScreen={(sub) => {
+          if (sub === 'payout_processing') setActiveSubScreen('payout_processing');
+          else if (sub === 'reports_main') setActiveSubScreen('reports_main');
+          else if (sub === 'finance_flow') setActiveSubScreen('finance_flow');
+          else if (sub === 'payment_methods') setActiveSubScreen('payment_methods');
+          else if (sub === 'pl_statement') setActiveSubScreen('profit_loss');
+        }}
+      />
+    );
+  }
+
   // ─── Main Tabs Rendering ───────────────────────────────────────────────────
 
-  // Tab 2: Farmers
+  // Tab 2: Farmers (Consolidated FarmerManagementFlow)
   if (activeTab === 'Farmers' && canOpenFarmers(adminCan)) {
     return (
       <SafeAreaView style={styles.container}>
         <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.tabContainer}>
-          <FarmersFlow can={adminCan} onBack={() => setActiveTab('Overview')} />
+          <FarmerManagementFlow
+            can={adminCan}
+            role="SUPER_ADMIN"
+            initialTab={farmerInitialTab}
+            userScope={farmerUserScope}
+            onBack={() => setActiveTab('Overview')}
+            onSubViewChange={setFarmerSubView}
+            onOpenApprovalInbox={() => setActiveSubScreen('approval_inbox')}
+            onNavigateTab={(tab: string) => {
+              if (tab === 'Dashboard' || tab === 'Home') setActiveTab('Overview');
+              else if (tab === 'Farmers') {
+                setFarmerInitialTab('farmers');
+                setFarmerSubView('overview');
+                setActiveTab('Farmers');
+              }
+              else if (tab === 'Reports') setActiveSubScreen('reports_main');
+              else if (tab === 'Profile') setActiveTab('Menu');
+            }}
+          />
         </View>
-        {renderBottomTabBar(activeTab, setActiveTab)}
+        {farmerSubView === 'overview' ? renderBottomTabBar(activeTab, handleSelectTab) : null}
       </SafeAreaView>
     );
   }
 
-  // Tab 3: Warehouse & Inventory
+  // Tab 3: Warehouse & Operations (Direct Inventory Overview)
   if (activeTab === 'Warehouse') {
+    if (warehouseModule === 'transfers') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <TransfersFlow
+              scope={allWarehouses}
+              can={activeCan}
+              onBack={() => setWarehouseModule('admin')}
+            />
+          </View>
+        </SafeAreaView>
+      );
+    }
+    if (warehouseModule === 'inventory') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <InventoryFlow
+              scope={inventoryScope}
+              can={activeCan}
+              initialScreen={inventoryInitialScreen}
+              warehouseOptions={SUPER_ADMIN_WAREHOUSE_OPTIONS}
+              onBack={() => setWarehouseModule('admin')}
+            />
+          </View>
+        </SafeAreaView>
+      );
+    }
+    if (warehouseModule === 'staff') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <StaffFlow
+              scope={allWarehouses}
+              can={activeCan}
+              role="SUPER_ADMIN"
+              initialScreen="Staff"
+              onBack={() => setWarehouseModule('admin')}
+            />
+          </View>
+        </SafeAreaView>
+      );
+    }
+    if (warehouseModule === 'add_profile') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <AddWarehouseProfileScreen
+              onBack={() => setWarehouseModule('admin')}
+              onSuccess={() => setWarehouseModule('admin')}
+            />
+          </View>
+        </SafeAreaView>
+      );
+    }
+    // Default: Direct Inventory & Warehouse Screen (AdminOperationsOverviewScreen)
     return (
       <SafeAreaView style={styles.container}>
         <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.tabContainer}>
-          <InventoryFlow
-            scope={allWarehouses}
+          <AdminOperationsOverviewScreen
+            initialViewMode="warehouses"
             can={activeCan}
             onBack={() => setActiveTab('Overview')}
+            onPlusAction={() => setWarehouseModule('add_profile')}
+            onNavigateToStockLedger={(whId) => {
+              setInventoryScope(whId ? { warehouseId: whId } : allWarehouses);
+              setInventoryInitialScreen('M3S07');
+              setWarehouseModule('inventory');
+            }}
+            onNavigateToStockVerification={(whId) => {
+              setInventoryScope(whId ? { warehouseId: whId } : allWarehouses);
+              setInventoryInitialScreen('M3S10');
+              setWarehouseModule('inventory');
+            }}
+            onNavigateToTransfers={() => {
+              setWarehouseModule('transfers');
+            }}
+            onSelectWarehouse={(whId) => {
+              setInventoryScope(whId ? { warehouseId: whId } : allWarehouses);
+              setInventoryInitialScreen('M3S01');
+              setWarehouseModule('inventory');
+            }}
+            onExportReports={() => {
+              setActiveSubScreen('reports_main');
+            }}
+            onNotifications={() => {
+              setActiveSubScreen('notifications');
+            }}
           />
         </View>
-        {renderBottomTabBar(activeTab, setActiveTab)}
+        {warehouseModule === 'admin' ? renderBottomTabBar(activeTab, handleSelectTab) : null}
       </SafeAreaView>
     );
   }
@@ -578,15 +851,17 @@ export function SuperAdminDashboardScreen({
         <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.tabContainer}>
           <FinanceManagementFlow
+            role="SUPER_ADMIN"
             can={adminCan}
             showBackButton={true}
             onBack={() => setActiveTab('Overview')}
             onTabChange={(tab) => {
               setActiveTab(tab as any);
             }}
+            onSubScreenChange={setFinanceSubScreen}
           />
         </View>
-        {renderBottomTabBar(activeTab, setActiveTab)}
+        {financeSubScreen === 'overview' ? renderBottomTabBar(activeTab, handleSelectTab) : null}
       </SafeAreaView>
     );
   }
@@ -620,7 +895,7 @@ export function SuperAdminDashboardScreen({
             onLogout={onSignOut}
           />
         </View>
-        {renderBottomTabBar(activeTab, setActiveTab)}
+        {renderBottomTabBar(activeTab, handleSelectTab)}
       </SafeAreaView>
     );
   }
@@ -682,28 +957,44 @@ export function SuperAdminDashboardScreen({
                 title: t('superAdminDashboard.kpi.totalFarmers'),
                 value: '214',
                 icon: <NavFarmersIcon size={20} color={adminColors.brand} />,
-                onPress: () => setActiveTab('Farmers'),
+                onPress: () => {
+                  setFarmerInitialTab('farmers');
+                  setFarmerSubView('overview');
+                  setActiveTab('Farmers');
+                },
               },
               {
                 title: t('superAdminDashboard.kpi.pendingApplications'),
                 value: '9',
                 icon: <ClipboardListIcon size={20} color={adminColors.warning.text} />,
                 tone: 'warning' as const,
-                onPress: () => setActiveTab('Farmers'),
+                onPress: () => {
+                  setFarmerInitialTab('applications');
+                  setFarmerSubView('applications');
+                  setActiveTab('Farmers');
+                },
               },
               {
                 title: t('superAdminDashboard.kpi.activeFarmers'),
                 value: '196',
                 icon: <NavFarmersIcon size={20} color={adminColors.success.text} />,
                 tone: 'success' as const,
-                onPress: () => setActiveTab('Farmers'),
+                onPress: () => {
+                  setFarmerInitialTab('farmers');
+                  setFarmerSubView('overview');
+                  setActiveTab('Farmers');
+                },
               },
               {
                 title: t('superAdminDashboard.kpi.deactivatedFarmers'),
                 value: '9',
                 icon: <TrashIcon size={20} color={adminColors.danger.text} />,
                 tone: 'danger' as const,
-                onPress: () => setActiveTab('Farmers'),
+                onPress: () => {
+                  setFarmerInitialTab('farmers');
+                  setFarmerSubView('overview');
+                  setActiveTab('Farmers');
+                },
               },
               {
                 title: t('superAdminDashboard.kpi.pendingListings'),
@@ -1044,7 +1335,7 @@ export function SuperAdminDashboardScreen({
       ) : null}
 
       {/* Bottom Navigation Bar */}
-      {renderBottomTabBar(activeTab, setActiveTab)}
+      {renderBottomTabBar(activeTab, handleSelectTab)}
     </SafeAreaView>
   );
 }

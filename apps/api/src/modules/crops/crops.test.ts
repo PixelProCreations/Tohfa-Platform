@@ -27,7 +27,13 @@ import type {
   UpdateCropMasterPatch,
   UpdateFarmCropPatch,
 } from './crops.repo.js';
-import type { CreateFarmCropBody, CropMasterResponse, FarmCropResponse } from './crops.schema.js';
+import {
+  createCropMasterBody,
+  cropMasterResponse,
+  type CreateFarmCropBody,
+  type CropMasterResponse,
+  type FarmCropResponse,
+} from './crops.schema.js';
 import { createCropsService, createCropTaxonomyAdminService, type TransactionRunner } from './crops.service.js';
 
 // ---------------------------------------------------------------------------
@@ -118,6 +124,9 @@ function createFakeRepo() {
         description: null,
         deactivationReason: null,
         createdBy: null,
+        createdByName: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: null,
       },
     ],
     [
@@ -141,6 +150,9 @@ function createFakeRepo() {
         description: null,
         deactivationReason: null,
         createdBy: null,
+        createdByName: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: null,
       },
     ],
   ]);
@@ -308,6 +320,9 @@ function createFakeRepo() {
         description: data.description ?? null,
         deactivationReason: null,
         createdBy: data.createdBy ?? null,
+        createdByName: data.createdBy === undefined || data.createdBy === null ? null : 'Test Admin',
+        createdAt: new Date().toISOString(),
+        updatedAt: null,
       };
       cropMaster.set(c.id, c);
       return { ...c };
@@ -603,6 +618,181 @@ describe('crops — crop_master taxonomy', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Crop taxonomy response shape — taxonomy fields, timestamps, creator name
+// ---------------------------------------------------------------------------
+
+/** A full crop_master DB row as the repo's SELECT returns it (snake_case, Date timestamps). */
+function cropMasterDbRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: CROP_MASTER_CARROT,
+    code: 'CRP-001',
+    slug: 'carrot',
+    name: 'Carrot',
+    name_ta: null,
+    category_id: CATEGORY_ID,
+    botanical_name: null,
+    default_unit: 'kg',
+    season_months: null,
+    shelf_life_days: null,
+    icon_key: null,
+    is_active: true,
+    grade_system: 'Standard Quality System',
+    duration_days: '90 - 120 days',
+    storage_temp: '0C - 1C',
+    description: 'Orange root vegetable',
+    deactivation_reason: null,
+    created_by: IDS.userTohfaAdmin,
+    created_by_name: 'Asha Admin',
+    created_at: new Date('2026-11-01T10:00:00.000Z'),
+    updated_at: new Date('2026-11-20T08:30:00.000Z'),
+    ...overrides,
+  };
+}
+
+/** An Executor that records the SQL it was given and answers every query with `rows`. */
+function rowsExecutor(rows: Array<Record<string, unknown>>): Executor & { sql: string[] } {
+  const sql: string[] = [];
+  return {
+    sql,
+    query: (async (text: string) => {
+      sql.push(text);
+      return { rows, rowCount: rows.length };
+    }) as unknown as Executor['query'],
+  };
+}
+
+describe('crops — crop_master response shape', () => {
+  it('BR-150n: the create body accepts gradeSystem, durationDays, storageTemp and description and persists them', async () => {
+    const parsed = createCropMasterBody.parse({
+      slug: 'beetroot',
+      name: 'Beetroot',
+      categoryId: CATEGORY_ID,
+      gradeSystem: 'Standard Quality System',
+      durationDays: '55 - 70 days',
+      storageTemp: '0C - 2C',
+      description: 'Deep red root',
+    });
+    expect(parsed).toMatchObject({
+      gradeSystem: 'Standard Quality System',
+      durationDays: '55 - 70 days',
+      storageTemp: '0C - 2C',
+      description: 'Deep red root',
+    });
+    // ...and the body still rejects anything outside the allow-list.
+    expect(createCropMasterBody.safeParse({ slug: 'x', name: 'X', categoryId: CATEGORY_ID, hsnCode: '0706' }).success).toBe(false);
+
+    const { admin, cropMaster } = setup();
+    const created = await admin.create(adminScope, parsed);
+    expect(created).toMatchObject({ gradeSystem: 'Standard Quality System', durationDays: '55 - 70 days', storageTemp: '0C - 2C', description: 'Deep red root' });
+    expect(cropMaster.get(created.id)?.description).toBe('Deep red root');
+  });
+
+  it('BR-150n: the response schema carries createdAt, updatedAt and createdByName beside createdBy', () => {
+    const base = {
+      id: CROP_MASTER_CARROT,
+      code: 'CRP-001',
+      slug: 'carrot',
+      name: 'Carrot',
+      nameTa: null,
+      categoryId: CATEGORY_ID,
+      botanicalName: null,
+      defaultUnit: 'kg',
+      seasonMonths: null,
+      shelfLifeDays: null,
+      iconKey: null,
+      isActive: true,
+      gradeSystem: null,
+      durationDays: null,
+      storageTemp: null,
+      description: null,
+      deactivationReason: null,
+      createdBy: IDS.userTohfaAdmin,
+      createdByName: 'Asha Admin',
+      createdAt: '2026-11-01T10:00:00.000Z',
+      updatedAt: null,
+    };
+    const parsed = cropMasterResponse.parse(base);
+    expect(parsed.createdAt).toBe('2026-11-01T10:00:00.000Z');
+    expect(parsed.updatedAt).toBeNull();
+    expect(parsed.createdByName).toBe('Asha Admin');
+    expect(parsed.createdBy).toBe(IDS.userTohfaAdmin);
+    // createdAt is mandatory — the screen computes "Recently added (7d)" from it.
+    const { createdAt: _drop, ...withoutCreatedAt } = base;
+    expect(cropMasterResponse.safeParse(withoutCreatedAt).success).toBe(false);
+  });
+
+  it('BR-150n: the repo selects created_at/updated_at and the creator name via users, and maps every field', async () => {
+    const { cropsRepo } = await import('./crops.repo.js');
+    const db = rowsExecutor([cropMasterDbRow()]);
+    const [item] = await cropsRepo.listCropMaster(db, false);
+
+    expect(db.sql[0]).toMatch(/created_at/);
+    expect(db.sql[0]).toMatch(/updated_at/);
+    expect(db.sql[0]).toMatch(/FROM users/i);
+    // The allow-list doctrine: the hsn code must still never be selected.
+    expect(db.sql[0]).not.toMatch(/hsn_code/);
+
+    expect(item).toMatchObject({
+      gradeSystem: 'Standard Quality System',
+      durationDays: '90 - 120 days',
+      storageTemp: '0C - 1C',
+      description: 'Orange root vegetable',
+      deactivationReason: null,
+      code: 'CRP-001',
+      createdBy: IDS.userTohfaAdmin,
+      createdByName: 'Asha Admin',
+      createdAt: '2026-11-01T10:00:00.000Z',
+      updatedAt: '2026-11-20T08:30:00.000Z',
+    });
+    expect(Object.keys(item ?? {})).not.toContain('hsnCode');
+    // The mapped row must satisfy the published response schema.
+    expect(cropMasterResponse.safeParse(item).success).toBe(true);
+  });
+
+  it('BR-150n: a crop with no creator (created_by NULL) or never edited (updated_at NULL) maps to nulls, not a crash', async () => {
+    const { cropsRepo } = await import('./crops.repo.js');
+    const db = rowsExecutor([cropMasterDbRow({ created_by: null, created_by_name: null, updated_at: null })]);
+    const item = await cropsRepo.findCropMaster(db, CROP_MASTER_CARROT);
+    expect(item?.createdBy).toBeNull();
+    expect(item?.createdByName).toBeNull();
+    expect(item?.updatedAt).toBeNull();
+    expect(item?.createdAt).toBe('2026-11-01T10:00:00.000Z');
+    expect(cropMasterResponse.safeParse(item).success).toBe(true);
+  });
+
+  it('BR-150n: INSERT ... RETURNING and UPDATE ... RETURNING return the same shape, including the creator name', async () => {
+    const { cropsRepo } = await import('./crops.repo.js');
+    const db = rowsExecutor([cropMasterDbRow()]);
+    const created = await cropsRepo.createCropMaster(db, {
+      slug: 'carrot',
+      name: 'Carrot',
+      categoryId: CATEGORY_ID,
+      defaultUnit: 'kg',
+      createdBy: IDS.userTohfaAdmin,
+    });
+    expect(created.createdByName).toBe('Asha Admin');
+    const returning = db.sql.find((s) => s.includes('INSERT INTO crop_master'));
+    expect(returning).toMatch(/RETURNING[\s\S]*created_at/);
+    const updated = await cropsRepo.updateCropMaster(db, CROP_MASTER_CARROT, { name: 'Carrot 2' });
+    expect(updated?.createdAt).toBe('2026-11-01T10:00:00.000Z');
+    expect(db.sql.find((s) => s.includes('UPDATE crop_master'))).toMatch(/RETURNING[\s\S]*updated_at/);
+  });
+
+  it('BR-150n: the admin list returns the creator name, the farmer-facing list does not (staff identity stays out of the farmer response)', async () => {
+    const { service, admin, cropMaster } = setup();
+    const created = await admin.create(adminScope, { slug: 'spinach', name: 'Spinach', categoryId: CATEGORY_ID, defaultUnit: 'kg' as const });
+    expect(created.createdByName).toBe('Test Admin');
+    expect((await admin.list(adminScope)).items.find((i) => i.slug === 'spinach')?.createdByName).toBe('Test Admin');
+
+    const farmerItems = (await service.listCropMaster(farmerScope(FARMER_A))).items;
+    expect(farmerItems.map((i) => i.slug)).toContain('spinach');
+    for (const item of farmerItems) expect(item).not.toHaveProperty('createdByName');
+    // The fake's stored row is untouched — only the farmer response is narrowed.
+    expect(cropMaster.get(created.id)?.createdByName).toBe('Test Admin');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // RBAC sanity — farmer.crops.* is never granted to CUSTOMER; admin taxonomy is 403 to FARMER/CUSTOMER
 // ---------------------------------------------------------------------------
 
@@ -742,6 +932,15 @@ describeIfDatabase('cropsRepo (integration)', () => {
       expect(created.createdBy).toBe(IDS.userTohfaAdmin);
       expect(created.deactivationReason).toBeNull();
       expect(created.isActive).toBe(true);
+      // BR-150n: timestamps and the creator's display name come back from the same statement.
+      expect(typeof created.createdAt).toBe('string');
+      expect(Number.isNaN(Date.parse(created.createdAt))).toBe(false);
+      expect(created.updatedAt).toBeNull();
+      const creator = await tx.query<{ full_name: string }>('SELECT full_name FROM users WHERE id = $1', [IDS.userTohfaAdmin]);
+      expect(created.createdByName).toBe(creator.rows[0]?.full_name ?? null);
+      const listed = (await cropsRepo.listCropMaster(tx, false)).find((c) => c.id === created.id);
+      expect(listed?.createdByName).toBe(created.createdByName);
+      expect(listed?.createdAt).toBe(created.createdAt);
 
       const updated = await cropsRepo.updateCropMaster(tx, created.id, {
         isActive: false,
@@ -749,7 +948,31 @@ describeIfDatabase('cropsRepo (integration)', () => {
       });
       expect(updated?.isActive).toBe(false);
       expect(updated?.deactivationReason).toBe('Seasonal end');
+      // BR-150n: the touch trigger stamps updated_at on the first edit.
+      expect(typeof updated?.updatedAt).toBe('string');
 
+      throw new Error('__rollback_test_fixture__');
+    }).catch((error: unknown) => {
+      if (!(error instanceof Error) || error.message !== '__rollback_test_fixture__') throw error;
+    });
+  });
+
+  it('BR-150n: a crop with no creator returns createdByName null from Postgres', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const { withTransaction } = await import('../../db/pool.js');
+    const { cropsRepo } = await import('./crops.repo.js');
+
+    await withTransaction(async (tx) => {
+      const catRes = await tx.query<{ id: string }>('SELECT id FROM categories LIMIT 1');
+      const categoryId = catRes.rows[0]?.id ?? newId();
+      const created = await cropsRepo.createCropMaster(tx, {
+        slug: `test-nocreator-${Date.now()}`,
+        name: 'No Creator Crop',
+        categoryId,
+        defaultUnit: 'kg',
+      });
+      expect(created.createdBy).toBeNull();
+      expect(created.createdByName).toBeNull();
       throw new Error('__rollback_test_fixture__');
     }).catch((error: unknown) => {
       if (!(error instanceof Error) || error.message !== '__rollback_test_fixture__') throw error;

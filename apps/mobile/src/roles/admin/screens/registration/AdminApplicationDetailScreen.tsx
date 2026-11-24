@@ -25,7 +25,7 @@
  * applicationLogic.ts).
  */
 import React, { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { FarmerApplicationDto } from '../../api/farmerApplications';
 import { useApplication, useApproveApplication } from '../../api/farmerHooks';
@@ -37,18 +37,20 @@ import { BackButtonCard, HeaderBanner } from './applications/ApplicationParts';
 import {
   applicationAccess,
   isNotFound,
-  notAvailable,
   orDash,
   statusLabel,
   statusTone,
   type PendingApplicationItem,
 } from './applications/applicationLogic';
 import { ActionBar } from './detail/ActionBar';
+import { detailStyles } from './detail/detailStyles';
 import { ApplicantSection } from './detail/ApplicantSection';
 import { DecisionSection, type DecisionState } from './detail/DecisionSection';
 import { DocumentsSection } from './detail/DocumentsSection';
 import { FarmingSection } from './detail/FarmingSection';
 import { FarmSection } from './detail/FarmSection';
+import { MoreInfoSection } from './detail/MoreInfoSection';
+import { TrackingSection } from './detail/TrackingSection';
 
 export interface AdminApplicationDetailScreenProps {
   /** The application to review. */
@@ -71,6 +73,41 @@ export interface AdminApplicationDetailScreenProps {
   onApprove?: (() => void) | undefined;
   /** @deprecated Ignored: Request More Info was dropped (owner decision). Phase 3 drops it. */
   onRequestMoreInfo?: (() => void) | undefined;
+}
+
+/**
+ * The design's 01/02/03 header pills. Only the first is a real place: nothing
+ * in this app can move an application into farm verification or an audit (an
+ * audit needs a farmerId, which a pending application has none of), so 02 and
+ * 03 are drawn as disabled signposts with the reason under them, and their
+ * screens are not built here.
+ */
+function ModePills() {
+  const pills: { key: string; label: string; active: boolean }[] = [
+    { key: 'requestInfo', label: t('farmerApps.pill.requestInfo'), active: true },
+    { key: 'waitingAudit', label: t('farmerApps.pill.waitingAudit'), active: false },
+    { key: 'scheduleAudit', label: t('farmerApps.pill.scheduleAudit'), active: false },
+  ];
+  return (
+    <>
+      <View style={detailStyles.modePillBar}>
+        {pills.map((pill) => (
+          // DESIGN-ONLY: no endpoint yet (nothing moves an application into verification or an audit).
+          <TouchableOpacity
+            key={pill.key}
+            style={[detailStyles.modePill, pill.active ? detailStyles.modePillActive : detailStyles.unavailable]}
+            testID="farmerApps.modePill"
+            disabled
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true, selected: pill.active }}
+            accessibilityHint={pill.active ? undefined : t('farmerApps.pill.unavailable')}
+          >
+            <Text style={[detailStyles.modePillText, pill.active ? detailStyles.modePillTextActive : null]}>{pill.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </>
+  );
 }
 
 function LightShell({ onBack, children }: { onBack: () => void; children: React.ReactNode }) {
@@ -162,11 +199,12 @@ export const AdminApplicationDetailScreen: React.FC<AdminApplicationDetailScreen
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <HeaderBanner
         title={orDash(app.applicant.name)}
-        // No human application code exists ("APP-2026-…" in the design).
-        subtitle={`${notAvailable()} · `}
+        subtitle={`${orDash(app.applicationCode)} · `}
         onBack={onBack}
         status={{ label: statusLabel(status), tone: statusTone(status), pill: state !== 'pending' }}
-      />
+      >
+        <ModePills />
+      </HeaderBanner>
 
       <ScrollView
         style={styles.scroll}
@@ -174,10 +212,14 @@ export const AdminApplicationDetailScreen: React.FC<AdminApplicationDetailScreen
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={live.isRefreshing} onRefresh={live.refresh} tintColor={adminColors.brand} />}
       >
+        {/* The design's order: 01 personal, 02 farm details, 03 location, 04 documents, 05 tracking. */}
         <ApplicantSection app={app} status={status} decidedAt={decidedAt ?? null} />
+        <FarmingSection app={app} approved={state === 'approved'} />
         <FarmSection app={app} />
         <DocumentsSection app={app} reviewing={state === 'pending'} />
-        <FarmingSection app={app} approved={state === 'approved'} />
+        <TrackingSection app={app} status={status} />
+        {/* Layout only: the request-information controls are drawn disabled (owner decision). */}
+        <MoreInfoSection app={app} />
         <DecisionSection app={app} state={state} />
       </ScrollView>
 

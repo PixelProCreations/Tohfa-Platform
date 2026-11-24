@@ -54,6 +54,7 @@ export interface WarehouseOverviewScreenProps {
   onOpenWarehouse?: ((warehouseId: string) => void) | undefined;
   /** Bell button (gated on notification.own.view by this screen); toast when no callback. */
   onOpenNotifications?: (() => void) | undefined;
+  onPlusAction?: (() => void) | undefined;
 }
 
 export function WarehouseOverviewScreen({
@@ -64,6 +65,7 @@ export function WarehouseOverviewScreen({
   onOpenTransfers,
   onOpenWarehouse,
   onOpenNotifications,
+  onPlusAction,
 }: WarehouseOverviewScreenProps) {
   const allowed = canViewWarehouseOverview(can);
   const has = (code: string) => allowed && can(code);
@@ -234,7 +236,7 @@ export function WarehouseOverviewScreen({
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <OverviewHeader onBack={onBack} onOpenNotifications={bellCallback} />
+      <OverviewHeader onBack={onBack} onOpenNotifications={bellCallback} onPlusAction={onPlusAction} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}

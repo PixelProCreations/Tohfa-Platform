@@ -6,6 +6,7 @@ import type {
   AdminZoneDetail,
   AdminZoneListItem,
   ListZonesQuery,
+  PublicZoneListItem,
 } from './zones.schema.js';
 import { zonesRepo, type ZoneDetailRow, type ZoneListRow, type ZonesRepo } from './zones.repo.js';
 
@@ -60,10 +61,19 @@ function toZoneDetail(row: ZoneDetailRow): AdminZoneDetail {
 export interface ZonesService {
   list(scope: ResolvedScope, query: ListZonesQuery): Promise<AdminZoneListItem[]>;
   get(scope: ResolvedScope, id: string): Promise<AdminZoneDetail>;
+  listPublic(): Promise<PublicZoneListItem[]>;
 }
 
 export function createZonesService(repo: ZonesRepo = zonesRepo): ZonesService {
   return {
+    async listPublic() {
+      const rows = await repo.listPublic(pool);
+      return rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        warehouseTown: r.warehouseTown,
+      }));
+    },
     async list(scope, query) {
       if (scope.level === ScopeLevel.OWN && scope.zoneIds.length === 0) {
         return [];

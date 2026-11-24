@@ -1,23 +1,37 @@
 /**
- * 03 · KYC documents: one card per document the applicant uploaded (step 4),
- * with the design's Preview sheet.
+ * 03 · KYC documents, in the 2026-11-19 design's card layout: a review-stage
+ * line ("Documents Under Review" / "Documents Requested" / "All documents
+ * verified"), then one card per document category, then the preview sheet.
  *
- * Not from the API, so not shown as data: the per-document Verified/Pending
- * badge (no verification status exists for application documents) and the
- * design's "2 more documents ... proposed list, to confirm" caption. "Mark
- * verified" is drawn as designed but disabled: there is no endpoint (or
- * permission code) for verifying an application document yet.
+ * Everything on a card comes from the application:
+ *   - the categories are `documentCategories(app)`, derived from the real
+ *     `documents` array, never from the design's three fixed cards;
+ *   - a category the applicant did not supply keeps its card and shows the
+ *     "not available" dash with the reason, so the gap is visible;
+ *   - the verification badge renders the dash, because the API reports no
+ *     verification for an application's documents at all.
+ *
+ * Drawn as designed but disabled, each with its own note: "Mark verified"
+ * (no verify endpoint or permission code exists for an application document —
+ * the farmers module's is for a farmer, who does not exist until approval).
  * The design's dimmed demo plot card behind the sheet is not ported.
  */
 import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { ApplicationDetailView, ApplicationDocumentView } from '../../../api/farmerTypes';
-import { t } from '../../../i18n';
+import { t, type TranslationKey } from '../../../i18n';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { SectionHeading } from '../applications/ApplicationParts';
-import { dayOrDash, documentTypeLabel, maskAadhaar } from '../applications/applicationLogic';
+import { StepHeader } from '../applications/ApplicationParts';
+import { dayOrDash, documentTypeLabel, maskAadhaar, notAvailable, orDash } from '../applications/applicationLogic';
 import { detailStyles } from './detailStyles';
+import {
+  documentCategories,
+  documentReviewStage,
+  documentVerificationState,
+  type DocumentCategoryView,
+} from './documentReview';
+import { APPLICATION_STEP_COUNT, stepState } from './reviewFacts';
 
 function DocumentIcon() {
   return (
@@ -50,15 +64,47 @@ function MarkVerifiedButton({ style, textStyle }: { style: object; textStyle: ob
   );
 }
 
-function documentSubline(doc: ApplicationDocumentView, app: ApplicationDetailView): string {
+/**
+ * The design's green Verified / amber Pending pill. Today it can only be the
+ * dash: nothing in the application says a document was checked.
+ */
+function VerificationBadge({ app }: { app: ApplicationDetailView }) {
+  const state = documentVerificationState(app);
+  const style = state === 'verified' ? detailStyles.badgeVerified : state === 'pending' ? detailStyles.badgePending : detailStyles.badgeUnknown;
+  const textStyle =
+    state === 'verified' ? detailStyles.badgeVerifiedText : state === 'pending' ? detailStyles.badgePendingText : detailStyles.badgeUnknownText;
+  const label =
+    state === 'verified' ? t('farmerApps.doc.badge.verified') : state === 'pending' ? t('farmerApps.doc.badge.pending') : notAvailable();
+  return (
+    <View style={style} accessibilityHint={state === 'unknown' ? t('farmerApps.doc.verifyUnavailable') : undefined}>
+      <Text style={textStyle}>{label}</Text>
+    </View>
+  );
+}
+
+/** The category title: the API's docType label, or the two derived categories' own names. */
+function categoryLabel(category: DocumentCategoryView): string {
+  if (category.key === 'FMB_SKETCH') return t('farmerApps.doc.category.FMB_SKETCH');
+  if (category.key === 'BANK_DETAILS') return t('farmerApps.doc.category.BANK_DETAILS');
+  return documentTypeLabel(category.key);
+}
+
+function documentSubline(document: ApplicationDocumentView, app: ApplicationDetailView): string {
   const submitted = t('farmerApps.doc.submitted', { date: dayOrDash(app.submittedAt) });
   // BR-33b: the identity proof shows the Aadhaar's last 4 digits only.
   const what =
-    doc.docType === 'ID_PROOF' && app.applicant.aadhaarLast4 !== null
+    document.docType === 'ID_PROOF' && app.applicant.aadhaarLast4 !== null
       ? t('farmerApps.doc.aadhaar', { masked: maskAadhaar(app.applicant.aadhaarLast4) })
-      : (doc.docSubType ?? doc.fileName);
+      : (document.docSubType ?? document.fileName);
   return what === null ? submitted : `${what} · ${submitted}`;
 }
+
+const REVIEW_STAGE_KEY: Record<ReturnType<typeof documentReviewStage>, TranslationKey | null> = {
+  requested: 'farmerApps.doc.reviewStage.requested',
+  allVerified: 'farmerApps.doc.reviewStage.allVerified',
+  underReview: 'farmerApps.doc.reviewStage.underReview',
+  unknown: null,
+};
 
 export interface DocumentsSectionProps {
   app: ApplicationDetailView;
@@ -68,42 +114,73 @@ export interface DocumentsSectionProps {
 
 export function DocumentsSection({ app, reviewing }: DocumentsSectionProps) {
   const [preview, setPreview] = useState<ApplicationDocumentView | null>(null);
-  const { documents } = app;
+  const categories = documentCategories(app);
+  const stageKey = REVIEW_STAGE_KEY[documentReviewStage(app)];
 
   return (
     <>
-      <SectionHeading label={t('farmerApps.section.documents')} />
-      {documents.length === 0 ? (
-        <View style={detailStyles.docCard}>
-          <Text style={detailStyles.docSub}>{t('farmerApps.doc.none')}</Text>
-        </View>
-      ) : (
-        <View style={detailStyles.docList}>
-          {documents.map((doc, index) => (
-            <View key={`${doc.docType ?? 'doc'}-${index}`} style={detailStyles.docCard}>
-              <View style={detailStyles.docHeaderRow}>
-                <Text style={detailStyles.docTitle}>{documentTypeLabel(doc.docType)}</Text>
-              </View>
-              <Text style={detailStyles.docSub}>{documentSubline(doc, app)}</Text>
-              {reviewing ? (
-                <View style={detailStyles.docButtonsRow}>
-                  <TouchableOpacity
-                    style={detailStyles.outlineBtn}
-                    onPress={() => setPreview(doc)}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                    testID="farmerApps.preview"
-                  >
-                    <Text style={detailStyles.outlineBtnText}>{t('farmerApps.doc.preview')}</Text>
-                  </TouchableOpacity>
-                  <MarkVerifiedButton style={detailStyles.filledBtn} textStyle={detailStyles.filledBtnText} />
-                </View>
-              ) : null}
-            </View>
-          ))}
+      <StepHeader
+        label={t('farmerApps.section.documents')}
+        step={4}
+        total={APPLICATION_STEP_COUNT}
+        state={stepState(app, 4)}
+      />
+
+      <View style={detailStyles.stageLine}>
+        <Text style={detailStyles.stageLineLabel}>{t('farmerApps.doc.reviewStage.label')}</Text>
+        <Text style={detailStyles.stageLineValue}>{stageKey === null ? notAvailable() : t(stageKey)}</Text>
+      </View>
+      {app.infoRequest === null || app.infoRequest.trim() === '' ? null : (
+        <View style={detailStyles.infoBox}>
+          <Text style={detailStyles.infoText}>{app.infoRequest}</Text>
         </View>
       )}
-      {reviewing && documents.length > 0 ? <Text style={detailStyles.caption}>{t('farmerApps.doc.verifyUnavailable')}</Text> : null}
+
+      <View style={detailStyles.docList}>
+        {categories.map((category) => (
+          <View key={category.key} style={detailStyles.docCard}>
+            <View style={detailStyles.docHeaderRow}>
+              <Text style={detailStyles.docTitle}>{categoryLabel(category)}</Text>
+              {category.state === 'supplied' ? <VerificationBadge app={app} /> : null}
+            </View>
+
+            {category.state === 'supplied' ? (
+              category.documents.map((document, index) => (
+                <React.Fragment key={`${document.fileName ?? 'file'}-${index}`}>
+                  <Text style={detailStyles.docSub}>{documentSubline(document, app)}</Text>
+                  {/* The design prints a file name and a size; the name is real, the size is not reported at all. */}
+                  <Text style={detailStyles.docSub}>
+                    {`${t('farmerApps.doc.fileLabel')}: ${orDash(document.fileName)} · ${t('farmerApps.doc.sizeLabel')}: ${notAvailable()}`}
+                  </Text>
+                </React.Fragment>
+              ))
+            ) : (
+              <Text style={detailStyles.docSub}>
+                {`${notAvailable()} · ${t(category.emptyReasonKey ?? 'farmerApps.doc.notSupplied')}`}
+              </Text>
+            )}
+
+            {reviewing && category.state === 'supplied' && category.documents.length > 0 ? (
+              <View style={detailStyles.docButtonsRow}>
+                <TouchableOpacity
+                  style={detailStyles.outlineBtn}
+                  onPress={() => setPreview(category.documents[0] ?? null)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  testID="farmerApps.preview"
+                >
+                  <Text style={detailStyles.outlineBtnText}>{t('farmerApps.doc.preview')}</Text>
+                </TouchableOpacity>
+                <MarkVerifiedButton style={detailStyles.filledBtn} textStyle={detailStyles.filledBtnText} />
+              </View>
+            ) : null}
+          </View>
+        ))}
+      </View>
+
+      {app.documents.length === 0 ? <Text style={detailStyles.caption}>{t('farmerApps.doc.none')}</Text> : null}
+      {reviewing ? <Text style={detailStyles.caption}>{t('farmerApps.doc.verifyUnavailable')}</Text> : null}
+      <Text style={detailStyles.caption}>{t('farmerApps.doc.sizeUnavailable')}</Text>
 
       <Modal visible={preview !== null} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
         <View style={styles.backdrop}>
@@ -145,16 +222,16 @@ const styles = StyleSheet.create({
     gap: adminSpacing.lg,
     ...adminShadow.lg,
   },
-  sheetTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  sheetTitle: { ...adminType.sectionHead, color: adminColors.ink, textAlign: 'center' },
   fileBox: {
-    backgroundColor: adminColors.canvas,
+    backgroundColor: adminColors.warehouse.warmCanvas,
     borderWidth: 1,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.xl,
-    paddingVertical: adminSpacing.xl,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.xsSm,
+    gap: adminSpacing.sm,
   },
   fileName: { ...adminType.rowTitle, color: adminColors.ink },
   fileSub: { ...adminType.rowMeta, color: adminColors.muted },

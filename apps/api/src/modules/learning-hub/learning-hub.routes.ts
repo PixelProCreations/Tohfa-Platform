@@ -10,6 +10,7 @@ import {
   createTrainingBody,
   createVideoBody,
   learningIdParams,
+  learningTypeParams,
   listAdminArticlesQuery,
   listAdminGroupsQuery,
   listAdminTrainingsQuery,
@@ -18,6 +19,8 @@ import {
   listGroupsQuery,
   listTrainingsQuery,
   listVideosQuery,
+  reviewContentBody,
+  submitReviewBody,
   updateArticleBody,
   updateGroupBody,
   updateTrainingBody,
@@ -463,5 +466,35 @@ adminLearningRouter.delete(
     const { id } = getValidated(req, 'params', learningIdParams);
     await learningHubService.deleteGroup(scope, id);
     res.status(204).end();
+  }),
+);
+
+// ── Content Review Workflow (BR-59t) ──────────────────────────────────────────
+
+// POST /v1/admin/learning/:type/:id/submit-review
+adminLearningRouter.post(
+  '/learning/:type/:id/submit-review',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ params: learningTypeParams, body: submitReviewBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { type, id } = getValidated(req, 'params', learningTypeParams);
+    const body = getValidated(req, 'body', submitReviewBody);
+    res.json(await learningHubService.submitReview(scope, type, id, body));
+  }),
+);
+
+// POST /v1/admin/learning/:type/:id/review
+adminLearningRouter.post(
+  '/learning/:type/:id/review',
+  requireAuth,
+  requirePermission('learning.content.review'),
+  validate({ params: learningTypeParams, body: reviewContentBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { type, id } = getValidated(req, 'params', learningTypeParams);
+    const body = getValidated(req, 'body', reviewContentBody);
+    res.json(await learningHubService.reviewContent(scope, type, id, body));
   }),
 );

@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   ScrollView,
   StyleSheet,
@@ -52,29 +53,6 @@ export interface DiaryEntry {
   addedBy: string;
 }
 
-const DEMO_DIARY_ENTRIES: DiaryEntry[] = [
-  {
-    id: 'd1',
-    category: 'Nutrient',
-    activity: 'Compost application',
-    badgeType: 'on_behalf',
-    badgeLabel: 'Added on behalf',
-    datePlot: '26 Oct 2026 · Plot 2 (1.2 acre) · 90 minutes · Linked crop: Tomato',
-    workforce: 'Workforce: 2 workers, 4 hrs each · 2 photos',
-    addedBy: 'Added by Demo Super Admin on behalf',
-  },
-  {
-    id: 'd2',
-    category: 'Weed',
-    activity: 'Hand weeding',
-    badgeType: 'farmers_own',
-    badgeLabel: "Farmer's own",
-    datePlot: '24 Oct 2026 · Plot 1 (1.8 acre) · 120 minutes · No linked crop',
-    workforce: 'No workforce logged · 0 photos',
-    addedBy: 'Added by Ramesh Kumar',
-  },
-];
-
 export function SuperAdminFarmRecordsScreen({
   can,
   farmer,
@@ -84,25 +62,12 @@ export function SuperAdminFarmRecordsScreen({
   onSelectFarmer,
 }: SuperAdminFarmRecordsScreenProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<FarmRecordTab>('Diary');
-  const [searchQuery, setSearchQuery] = useState('');
   const [addRecordInitialTab, setAddRecordInitialTab] = useState<AddRecordTab | null>(null);
   const [editingRecordData, setEditingRecordData] = useState<EditFarmRecordData | null>(null);
 
-  const activeFarmerName = farmer?.farmName ?? farmer?.name ?? 'Ramesh Kumar Farm';
-  const activeFarmerCode = farmer?.code ?? (farmer as any)?.farmerId ?? 'FMR-00124';
-  const activeFarmerPhone = farmer?.mobile ?? (farmer as any)?.phone ?? '+91 90000 20000';
-
-  const filteredEntries = useMemo(() => {
-    if (!searchQuery.trim()) return DEMO_DIARY_ENTRIES;
-    const q = searchQuery.toLowerCase().trim();
-    return DEMO_DIARY_ENTRIES.filter(
-      (e) =>
-        e.category.toLowerCase().includes(q) ||
-        e.activity.toLowerCase().includes(q) ||
-        e.datePlot.toLowerCase().includes(q) ||
-        e.addedBy.toLowerCase().includes(q),
-    );
-  }, [searchQuery]);
+  const activeFarmerName = farmer?.farmName ?? farmer?.name ?? ADMIN_NO_VALUE;
+  const activeFarmerCode = farmer?.code ?? (farmer as any)?.farmerId ?? ADMIN_NO_VALUE;
+  const activeFarmerPhone = farmer?.mobile ?? (farmer as any)?.phone ?? ADMIN_NO_VALUE;
 
   if (editingRecordData !== null) {
     return (

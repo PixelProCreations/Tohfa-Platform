@@ -42,6 +42,7 @@ export interface Step1PersonalData {
   state?: string | undefined;
   country?: string | undefined;
   pincode?: string | undefined;
+  zoneId?: string | undefined;
 }
 
 /**

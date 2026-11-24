@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   Alert,
   Platform,
@@ -178,8 +179,8 @@ export interface FarmerBankAccountDetailsScreenProps {
 }
 
 export function FarmerBankAccountDetailsScreen({
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FR-00124',
+  farmerName = ADMIN_NO_VALUE,
+  farmerId = ADMIN_NO_VALUE,
   role,
   can: _can,
   onBack,

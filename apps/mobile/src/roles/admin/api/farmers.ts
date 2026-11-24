@@ -346,3 +346,60 @@ export function getFarmerSubscription(id: string, signal?: AbortSignal): Promise
 export function getFarmerRating(id: string, signal?: AbortSignal): Promise<FarmRatingDto> {
   return adminGet<FarmRatingDto>(`${farmerPath(id)}/rating`, undefined, signal);
 }
+
+export interface FarmerSummaryDto {
+  totalFarmers: number;
+  pendingApplications: number;
+  activeFarmers: number;
+  deactivatedFarmers: number;
+  inactiveFarmers: number;
+  expiredCertifications: number;
+  activeSubscriptions: number;
+  approvalInbox: number;
+  zones: Array<{
+    id: string;
+    code: string;
+    name: string;
+    count: number;
+    ratio: number;
+  }>;
+}
+
+export function getFarmerSummary(signal?: AbortSignal): Promise<FarmerSummaryDto> {
+  return adminGet<FarmerSummaryDto>(`${BASE}/summary`, undefined, signal);
+}
+
+export interface UpdateFarmerStatusPayload {
+  action: 'DEACTIVATE' | 'DISABLE' | 'ACTIVATE';
+  reason: string;
+  note?: string | undefined;
+}
+
+export function updateFarmerStatus(
+  id: string,
+  payload: UpdateFarmerStatusPayload,
+  signal?: AbortSignal,
+): Promise<AdminFarmerDetailDto> {
+  return adminPost<AdminFarmerDetailDto>(`${farmerPath(id)}/status`, payload, signal ? { signal } : undefined);
+}
+
+export interface CreateFarmerPayload {
+  fullName: string;
+  mobile: string;
+  email?: string | null | undefined;
+  zoneId: string;
+  village: string;
+  taluk?: string | null | undefined;
+  district?: string | undefined;
+  pincode?: string | null | undefined;
+  aadhaarLast4?: string | null | undefined;
+  farmingExperienceYears?: number | null | undefined;
+  addressLine1?: string | null | undefined;
+}
+
+export function createFarmer(
+  payload: CreateFarmerPayload,
+  signal?: AbortSignal,
+): Promise<AdminFarmerDetailDto> {
+  return adminPost<AdminFarmerDetailDto>(BASE, payload, signal ? { signal } : undefined);
+}

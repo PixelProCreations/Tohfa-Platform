@@ -134,6 +134,30 @@ export function acresLabel(value: number | null | undefined): string {
   return value === null || value === undefined ? notAvailable() : t('farmerApps.acres', { value });
 }
 
+/**
+ * The stored date of birth. The applicant's own app sends either an ISO day
+ * or the "DD / MM / YYYY" text it collected, so an ISO value is formatted the
+ * way every other date on these screens is and anything else is shown exactly
+ * as stored — reformatting a string we cannot parse would be inventing a date.
+ */
+export function dobLabel(dob: string | null | undefined): string {
+  if (dob === null || dob === undefined || dob.trim() === '') return notAvailable();
+  return /^\d{4}-\d{2}-\d{2}/.test(dob.trim()) ? dayOrDash(dob) : dob;
+}
+
+export function yearsLabel(value: number | null | undefined): string {
+  return value === null || value === undefined ? notAvailable() : t('farmerApps.years', { value });
+}
+
+export function farmCountLabel(value: number | null | undefined): string {
+  return value === null || value === undefined ? notAvailable() : t('farmerApps.farms', { value });
+}
+
+/** "11.3421, 76.7891" from a location's GPS, or the dash when it sent none. */
+export function gpsLabel(gps: { lat: number; lng: number } | null | undefined): string {
+  return gps === null || gps === undefined ? notAvailable() : t('farmerApps.gps', { lat: gps.lat, lng: gps.lng });
+}
+
 const DOC_TYPES = ['ID_PROOF', 'FARM_DOC', 'CERTIFICATE', 'OTHER'] as const;
 
 export function documentTypeLabel(docType: string | null): string {

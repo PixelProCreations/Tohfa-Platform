@@ -1096,6 +1096,21 @@
       "source": "specification gap — added for M7 Learning Hub (BR-59)"
     },
     {
+      "code": "farmer.learning.qa_participate",
+      "module": "Farmers Management",
+      "description": "Participate in Learning Hub and Community Q&A discussions: ask questions, post answers, and edit or delete own posts (BR-59u).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "own",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for Antigravity Brief 03 Q&A Chat (BR-59u)"
+    },
+    {
       "code": "farmer.learning.manage",
       "module": "Farmers Management",
       "description": "Create, edit, view and manage learning hub content (articles, videos, trainings, groups).",
@@ -1124,6 +1139,21 @@
         "CUSTOMER": "none"
       },
       "source": "specification gap — added for M7 Learning Hub (BR-59)"
+    },
+    {
+      "code": "learning.content.review",
+      "module": "Farmers Management",
+      "description": "Review and make approval/rejection decisions on learning hub content submitted for review (BR-59t).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "Antigravity Brief 02 (BR-59t)"
     },
     {
       "code": "farmer.support_ticket.manage_own",

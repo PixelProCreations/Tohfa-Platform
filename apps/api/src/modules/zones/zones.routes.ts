@@ -8,6 +8,17 @@ import { zonesService } from './zones.service.js';
 
 export const adminZonesRouter: Router = Router();
 
+export const publicZonesRouter: Router = Router();
+
+// GET /v1/zones — list zones for public applicant picker (BR-143)
+publicZonesRouter.get(
+  '/',
+  asyncHandler(async (_req, res) => {
+    const items = await zonesService.listPublic();
+    res.status(200).json(items);
+  }),
+);
+
 adminZonesRouter.use(requireAuth);
 adminZonesRouter.use(requirePermission('zone.view'));
 

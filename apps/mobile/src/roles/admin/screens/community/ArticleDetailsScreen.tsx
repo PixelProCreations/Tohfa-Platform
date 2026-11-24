@@ -25,6 +25,12 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { useLearningArticle, useUpdateLearningArticle } from '../../api/learningHooks';
+import { adminErrorKey } from '../../api/errors';
+import { t, type TranslationKey } from '../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import { articleDetailView, canManageLearning, dash } from './communityLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -83,40 +89,6 @@ function PencilWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: nu
   );
 }
 
-// ─── Thread Data Model ────────────────────────────────────────────────────────
-
-export interface MessageThread {
-  id: string;
-  sender: string;
-  status: 'Unread' | 'Replied';
-  preview: string;
-  timestamp: string;
-}
-
-const SAMPLE_THREADS: MessageThread[] = [
-  {
-    id: 'thread-1',
-    sender: 'Selvi (Farmer)',
-    status: 'Unread',
-    preview: 'How often should the mulch layer be replaced?',
-    timestamp: '12 Oct 2026, 14:40',
-  },
-  {
-    id: 'thread-2',
-    sender: 'Ramesh Kumar (Farmer)',
-    status: 'Replied',
-    preview: 'Does mulching work for tomato beds too, or only root crops?',
-    timestamp: '11 Oct 2026, 09:12',
-  },
-  {
-    id: 'thread-3',
-    sender: 'Meena (Farmer)',
-    status: 'Replied',
-    preview: 'Thanks, this helped with my cabbage bed too.',
-    timestamp: '13 Oct 2026, 08:05',
-  },
-];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ArticleDetailsScreenProps {
@@ -124,25 +96,79 @@ export interface ArticleDetailsScreenProps {
   onOpenChatThread?: (threadId: string) => void;
   onOpenContentDetails?: () => void;
   onEditArticle?: () => void;
+  /** GET /admin/learning/articles/{id} (BR-59m); absent means nothing to read. */
+  articleId?: string | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * One article (BR-59m), plus the designed "Recent messages" panel.
+ *
+ * There is no question-and-answer endpoint in docs/openapi.yaml, so the thread
+ * list cannot be loaded and the thread count is the dash. The demo threads
+ * that used to fill it have gone; the panel stays and says why it is empty.
+ *
+ * The status badge shows the only state an article has — isPublished (BR-59l).
+ * "Approved" and "Pending Review" are design vocabulary with no field behind
+ * them, so they are never asserted here.
+ */
 export function ArticleDetailsScreen({
   onBack,
   onOpenChatThread,
   onOpenContentDetails,
   onEditArticle,
+  articleId,
+  can,
 }: ArticleDetailsScreenProps) {
   const [showEditModal, setShowEditModal] = useState(false);
-  const [articleTitle, setArticleTitle] = useState('Mulching for water retention');
-  const [articleStatus, setArticleStatus] = useState<'Approved' | 'Pending Review' | 'Draft'>('Approved');
 
+  const allowed = canManageLearning(can);
+  const query = useLearningArticle(articleId, { enabled: allowed });
+  const view = articleDetailView(query.data);
+  const articleQueryState = queryViewState({
+    isLoading: query.isPending && allowed && articleId !== undefined,
+    error: query.error,
+    itemCount: query.data === undefined ? 0 : 1,
+  });
+
+  const [titleDraft, setTitleDraft] = useState<string | null>(null);
+  const [titleErrorKey, setTitleErrorKey] = useState<TranslationKey | null>(null);
+  const update = useUpdateLearningArticle();
+  // The stored title until the administrator types; never the dash in an input.
+  const articleTitle = titleDraft ?? query.data?.title ?? '';
+  const isSaving = update.isPending;
+  const saveDisabled = !allowed || articleId === undefined || query.data === undefined || isSaving;
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setTitleDraft(null);
+    setTitleErrorKey(null);
+  };
+
+  /**
+   * PATCH /admin/learning/articles/{id} (BR-59d). The status chips are not part
+   * of it: an article's only state is isPublished, and Publish / Unpublish live
+   * on the content detail screen. The success alert is inside onSuccess so a
+   * refused or failed save is never reported as done.
+   */
   const handleSaveEdit = () => {
-    if (!articleTitle.trim()) {
-      Alert.alert('Required Field', 'Please enter an article title.');
+    if (saveDisabled || articleId === undefined) return;
+    const title = articleTitle.trim();
+    if (title === '' || title.length > 200) {
+      setTitleErrorKey('community.validation.articleTitle');
       return;
     }
-    setShowEditModal(false);
-    Alert.alert('Success', 'Article details updated successfully.');
+    setTitleErrorKey(null);
+    update.mutate(
+      { id: articleId, body: { title } },
+      {
+        onSuccess: () => {
+          closeEditModal();
+          Alert.alert(t('community.action.saved.title'), t('community.article.updated'));
+        },
+      },
+    );
   };
 
   return (
@@ -191,64 +217,48 @@ export function ArticleDetailsScreen({
           <FieldLandscapeBanner />
           <View style={styles.bannerInfo}>
             <View style={styles.bannerTitleRow}>
-              <Text style={styles.bannerTitle}>{articleTitle}</Text>
+              <Text style={styles.bannerTitle} testID="community.article.title">{view.title}</Text>
               <View style={styles.badgeGroup}>
                 <View style={styles.approvedBadge}>
-                  <Text style={styles.approvedBadgeText}>{articleStatus}</Text>
+                  <Text style={styles.approvedBadgeText}>{view.statusText}</Text>
                 </View>
                 <View style={styles.articleBadge}>
                   <Text style={styles.articleBadgeText}>Article</Text>
                 </View>
               </View>
             </View>
-            <Text style={styles.bannerSubtitle}>
-              General · Not crop-specific · English · Demo TOHFA Admin
-            </Text>
-            <Text style={styles.bannerDate}>Submitted 10 Oct 2026, 09:00</Text>
+            {/* tag · crop (no field) · language · author */}
+            <Text style={styles.bannerSubtitle}>{view.subtitle}</Text>
+            <Text style={styles.bannerDate}>{view.submittedText}</Text>
           </View>
         </TouchableOpacity>
 
         {/* ─── Recent Messages Header (Screenshot 1 right) ─── */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeading}>Recent messages</Text>
-          <Text style={styles.sectionHeadingMeta}>{SAMPLE_THREADS.length} threads</Text>
+          <Text style={styles.sectionHeadingMeta} testID="community.article.threadCount">
+            {t('community.article.threads', { count: dash() })}
+          </Text>
         </View>
 
         {/* ─── Recent Messages Threads List ─── */}
         <View style={styles.threadsList}>
-          {SAMPLE_THREADS.map((item) => {
-            const isUnread = item.status === 'Unread';
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.threadCard}
-                onPress={() => onOpenChatThread && onOpenChatThread(item.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.threadHeaderRow}>
-                  <Text style={styles.threadSender}>{item.sender}</Text>
-                  <View style={isUnread ? styles.unreadBadge : styles.repliedBadge}>
-                    <Text style={isUnread ? styles.unreadBadgeText : styles.repliedBadgeText}>
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.threadPreview} numberOfLines={2}>
-                  {item.preview}
-                </Text>
-
-                <Text style={styles.threadTimestamp}>{item.timestamp}</Text>
-              </TouchableOpacity>
-            );
-          })}
+          {!allowed ? (
+            <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+          ) : articleQueryState === 'loading' ? (
+            <AdminLoadingState />
+          ) : articleQueryState === 'error' ? (
+            <AdminErrorState error={query.error} onRetry={() => void query.refetch()} />
+          ) : (
+            <AdminEmptyState title={t('community.gap.messages.title')} subtitle={t('community.gap.messages.subtitle')} />
+          )}
         </View>
       </ScrollView>
 
       {/* Floating Action Button matching Screenshot 1 right */}
       <TouchableOpacity
         style={styles.fabBtn}
-        onPress={() => onOpenChatThread && onOpenChatThread('thread-1')}
+        onPress={() => onOpenChatThread && onOpenChatThread(articleId ?? '')}
         activeOpacity={0.85}
         accessibilityLabel="Open Q&A Chat"
       >
@@ -259,12 +269,12 @@ export function ArticleDetailsScreen({
         visible={showEditModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowEditModal(false)}
+        onRequestClose={closeEditModal}
       >
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setShowEditModal(false)}
+          onPress={closeEditModal}
         >
           <TouchableOpacity
             style={styles.modalCard}
@@ -274,7 +284,7 @@ export function ArticleDetailsScreen({
             <View style={styles.modalHeaderRow}>
               <Text style={styles.modalTitle}>Edit Article</Text>
               <TouchableOpacity
-                onPress={() => setShowEditModal(false)}
+                onPress={closeEditModal}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Text style={styles.modalCloseText}>✕</Text>
@@ -285,21 +295,26 @@ export function ArticleDetailsScreen({
             <TextInput
               style={styles.textInput}
               value={articleTitle}
-              onChangeText={setArticleTitle}
+              onChangeText={setTitleDraft}
               placeholder="Article title"
               placeholderTextColor={adminColors.placeholder}
+              testID="community.article.editTitle"
             />
 
             <Text style={styles.inputLabel}>Status</Text>
             <View style={styles.statusChipsRow}>
               {(['Approved', 'Pending Review', 'Draft'] as const).map((st) => {
-                const isSelected = articleStatus === st;
+                // The one status the server knows: not published is a draft.
+                const isSelected = st === 'Draft' && query.data?.isPublished === false;
                 return (
                   <TouchableOpacity
                     key={st}
-                    style={[styles.statusChip, isSelected && styles.statusChipSelected]}
-                    onPress={() => setArticleStatus(st)}
+                    style={[styles.statusChip, isSelected && styles.statusChipSelected, styles.actionUnavailable]}
+                    disabled
                     activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: true, selected: isSelected }}
+                    testID={`community.article.status.${st}`}
                   >
                     <Text style={[styles.statusChipText, isSelected && styles.statusChipTextSelected]}>
                       {st}
@@ -308,6 +323,18 @@ export function ArticleDetailsScreen({
                 );
               })}
             </View>
+
+            <Text style={styles.modalNote}>{t('community.gap.article.status')}</Text>
+            {titleErrorKey !== null ? (
+              <Text style={styles.modalError} testID="community.article.editValidation">
+                {t(titleErrorKey)}
+              </Text>
+            ) : null}
+            {update.error !== null && update.error !== undefined ? (
+              <Text style={styles.modalError} testID="community.article.editError">
+                {t(adminErrorKey(update.error))}
+              </Text>
+            ) : null}
 
             <View style={styles.modalActions}>
               {onEditArticle && (
@@ -324,11 +351,17 @@ export function ArticleDetailsScreen({
               )}
 
               <TouchableOpacity
-                style={styles.saveActionBtn}
-                onPress={handleSaveEdit}
+                style={[styles.saveActionBtn, saveDisabled && styles.actionUnavailable]}
+                onPress={saveDisabled ? undefined : handleSaveEdit}
+                disabled={saveDisabled}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: saveDisabled, busy: isSaving }}
+                testID="community.article.editSave"
               >
-                <Text style={styles.saveActionBtnText}>Save Changes</Text>
+                <Text style={styles.saveActionBtnText}>
+                  {isSaving ? t('community.action.saving') : 'Save Changes'}
+                </Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -603,6 +636,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: adminColors.ink,
     backgroundColor: adminColors.canvas,
+  },
+  /** The designed control, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  modalNote: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    marginTop: 8,
+  },
+  modalError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    marginTop: 6,
   },
   statusChipsRow: {
     flexDirection: 'row',

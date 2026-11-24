@@ -22,6 +22,11 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { useLearningGroups } from '../../api/learningHooks';
+import { t } from '../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import { canManageLearning, groupSortParam, matchesStatusFilter, searchParam, toGroupRow, totalText } from './communityLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -103,76 +108,6 @@ function PlusMiniIcon({ size = 16, color = adminColors.ink }: { size?: number; c
   );
 }
 
-// ─── Data Types ──────────────────────────────────────────────────────────────
-
-export interface GroupListItem {
-  id: string;
-  name: string;
-  community: string;
-  farmersCount: number;
-  status: 'Active' | 'Archived';
-  colorType: 'ochre' | 'sage' | 'purple' | 'info' | 'brand';
-}
-
-const INITIAL_GROUPS: GroupListItem[] = [
-  {
-    id: 'grp-1',
-    name: 'Tomato Growers Circle',
-    community: 'Nilgiris Organic Growers',
-    farmersCount: 24,
-    status: 'Active',
-    colorType: 'ochre',
-  },
-  {
-    id: 'grp-2',
-    name: 'Organic Certification Prep',
-    community: 'Nilgiris Organic Growers',
-    farmersCount: 18,
-    status: 'Active',
-    colorType: 'sage',
-  },
-  {
-    id: 'grp-3',
-    name: 'Cardamom Spice Group',
-    community: 'Coonoor Spice Collective',
-    farmersCount: 14,
-    status: 'Active',
-    colorType: 'purple',
-  },
-  {
-    id: 'grp-4',
-    name: 'Nilgiris Coffee Planters',
-    community: 'Nilgiris Organic Growers',
-    farmersCount: 16,
-    status: 'Active',
-    colorType: 'brand',
-  },
-  {
-    id: 'grp-5',
-    name: 'Hill Garlic Collective',
-    community: 'Nilgiris Organic Growers',
-    farmersCount: 12,
-    status: 'Active',
-    colorType: 'ochre',
-  },
-  {
-    id: 'grp-6',
-    name: 'Carrot Producers Hub',
-    community: 'Nilgiris Organic Growers',
-    farmersCount: 20,
-    status: 'Active',
-    colorType: 'info',
-  },
-  {
-    id: 'grp-7',
-    name: 'Bio-dynamic Tea Growers',
-    community: 'Kotagiri Tea Farmers',
-    farmersCount: 9,
-    status: 'Active',
-    colorType: 'sage',
-  },
-];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface GroupsListScreenProps {
@@ -181,14 +116,25 @@ export interface GroupsListScreenProps {
   onNavigateCreateGroup?: () => void;
   onNavigateEditGroup?: (groupId?: string) => void;
   onNavigateCreatePost?: (groupId?: string) => void;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * GET /admin/learning/groups (BR-59n). The server sorts and searches; the
+ * archived/active chip has no server filter, so it narrows the loaded rows.
+ *
+ * The design's "Community" filter and the community line under each group name
+ * have no field on the wire — there is no community resource — so the chip row
+ * keeps only "All" and the subtitle carries the dash.
+ */
 export function GroupsListScreen({
   onBack,
   onSelectGroup,
   onNavigateCreateGroup,
   onNavigateEditGroup,
   onNavigateCreatePost,
+  can,
 }: GroupsListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -199,35 +145,14 @@ export function GroupsListScreen({
   const [filterStatus, setFilterStatus] = useState<'All' | 'Active' | 'Archived'>('All');
   const [sortBy, setSortBy] = useState<'farmers' | 'alphabetical'>('farmers');
 
-  // Filtered and Sorted Groups
-  const filteredGroups = useMemo(() => {
-    let result = INITIAL_GROUPS.filter((item) => {
-      // Search
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesName = item.name.toLowerCase().includes(query);
-        const matchesComm = item.community.toLowerCase().includes(query);
-        if (!matchesName && !matchesComm) return false;
-      }
-      // Community
-      if (filterCommunity !== 'All' && item.community !== filterCommunity) {
-        return false;
-      }
-      // Status
-      if (filterStatus !== 'All' && item.status !== filterStatus) {
-        return false;
-      }
-      return true;
-    });
+  const allowed = canManageLearning(can);
+  const q = searchParam(searchQuery);
+  const list = useLearningGroups({ ...(q === undefined ? {} : { q }), sort: groupSortParam(sortBy) }, { enabled: allowed });
 
-    if (sortBy === 'farmers') {
-      result = [...result].sort((a, b) => b.farmersCount - a.farmersCount);
-    } else {
-      result = [...result].sort((a, b) => a.name.localeCompare(b.name));
-    }
+  const rows = useMemo(() => list.items.map((dto, index) => toGroupRow(dto, index)), [list.items]);
+  const filteredGroups = useMemo(() => rows.filter((row) => matchesStatusFilter(row.status, filterStatus)), [rows, filterStatus]);
 
-    return result;
-  }, [searchQuery, filterCommunity, filterStatus, sortBy]);
+  const viewState = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: filteredGroups.length });
 
   const handleResetFilters = () => {
     setFilterCommunity('All');
@@ -302,9 +227,20 @@ export function GroupsListScreen({
         </View>
 
         {/* ─── Count Caption (Screenshot 2: "7 groups") ─── */}
-        <Text style={styles.countText}>{INITIAL_GROUPS.length} groups</Text>
+        <Text style={styles.countText} testID="community.groups.count">
+          {t('community.groups.count', { total: totalText(list.total) })}
+        </Text>
 
         {/* ─── Group Cards List (Screenshot 2) ─── */}
+        {!allowed ? (
+          <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+        ) : viewState === 'loading' ? (
+          <AdminLoadingState />
+        ) : viewState === 'error' ? (
+          <AdminErrorState error={list.error} onRetry={list.refresh} />
+        ) : viewState === 'empty' ? (
+          <AdminEmptyState title={t('community.empty.groups')} />
+        ) : (
         <View style={styles.cardsList}>
           {filteredGroups.map((group) => {
             const isItemArchived = group.status === 'Archived';
@@ -319,11 +255,11 @@ export function GroupsListScreen({
                 <View
                   style={[
                     styles.thumbnail,
-                    group.colorType === 'ochre' && styles.ochreThumbnail,
-                    group.colorType === 'sage' && styles.sageThumbnail,
-                    group.colorType === 'purple' && styles.purpleThumbnail,
-                    group.colorType === 'brand' && styles.brandThumbnail,
-                    group.colorType === 'info' && styles.infoThumbnail,
+                    group.swatch === 'ochre' && styles.ochreThumbnail,
+                    group.swatch === 'sage' && styles.sageThumbnail,
+                    group.swatch === 'purple' && styles.purpleThumbnail,
+                    group.swatch === 'brand' && styles.brandThumbnail,
+                    group.swatch === 'info' && styles.infoThumbnail,
                   ]}
                 />
 
@@ -346,7 +282,7 @@ export function GroupsListScreen({
                             isItemArchived ? styles.archivedBadgeText : styles.activeBadgeText,
                           ]}
                         >
-                          {group.status}
+                          {group.statusText}
                         </Text>
                       </View>
                       <TouchableOpacity
@@ -363,14 +299,21 @@ export function GroupsListScreen({
                     </View>
                   </View>
 
+                  {/* community · N farmers — the community half has no endpoint, so it is the dash. */}
                   <Text style={styles.cardSubtitle} numberOfLines={1}>
-                    {group.community} · {group.farmersCount} farmers
+                    {group.subtitle}
                   </Text>
                 </View>
               </TouchableOpacity>
             );
           })}
+          {list.hasMore ? (
+            <TouchableOpacity style={styles.loadMoreBtn} onPress={list.loadMore} activeOpacity={0.8}>
+              <Text style={styles.loadMoreBtnText}>{t('community.loadMore')}</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
+        )}
       </ScrollView>
 
       {/* ─── Suitable Filter Popup Modal ─── */}
@@ -392,15 +335,11 @@ export function GroupsListScreen({
           >
             <Text style={styles.modalTitle}>Filter Groups</Text>
 
-            {/* Community Filter */}
+            {/* Community Filter: there is no community resource, so "All" is
+                the only option the server can honour. */}
             <Text style={styles.filterSectionTitle}>Community</Text>
             <View style={styles.filterChipsRow}>
-              {[
-                'All',
-                'Nilgiris Organic Growers',
-                'Coonoor Spice Collective',
-                'Kotagiri Tea Farmers',
-              ].map((comm) => (
+              {['All'].map((comm) => (
                 <TouchableOpacity
                   key={comm}
                   style={[styles.filterChip, filterCommunity === comm && styles.filterChipActive]}
@@ -642,6 +581,15 @@ const styles = StyleSheet.create({
   // ─── Group Cards List ───
   cardsList: {
     gap: 12,
+  },
+  loadMoreBtn: {
+    alignSelf: 'center',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+  },
+  loadMoreBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   groupCard: {
     flexDirection: 'row',

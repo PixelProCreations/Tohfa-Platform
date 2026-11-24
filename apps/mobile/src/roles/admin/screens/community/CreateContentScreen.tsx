@@ -18,6 +18,18 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t, type TranslationKey } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { useCreateLearningArticle, useUpdateLearningArticle } from '../../api/learningHooks';
+import { useCreateAdminAnnouncement } from '../../api/announcementsHooks';
+import type { LearningArticleSummaryDto, LearningCropRef } from '../../api/learning';
+import { useMyAdminAccount } from '../../api/profileHooks';
+import { buildArticleBody, buildArticleUpdateBody, canManageLearning } from './communityLogic';
+import { ANNOUNCEMENT_AUDIENCES, buildAnnouncementBody, canPublishAnnouncement } from './announcementLogic';
+import { EditItemGate, type EditTarget } from './EditItemGate';
+import { CropPicker } from './CropPicker';
+import { useCropPicker } from './useCropPicker';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -58,6 +70,20 @@ const CONTENT_TYPE_OPTIONS: ContentTypeOption[] = [
   'Video',
 ];
 
+/**
+ * The option values above are the screen's own internal discriminator; what the
+ * admin reads comes from the catalogue. "Video" shows as "Training Video"
+ * (owner, 2026-11-24) — it is an instruction video, still a learning video, not
+ * a scheduled training.
+ */
+const CONTENT_TYPE_LABEL: Record<ContentTypeOption, TranslationKey> = {
+  Article: 'community.type.article',
+  'Farming Guide': 'community.type.farmingGuide',
+  Information: 'community.type.information',
+  Announcement: 'community.type.announcement',
+  Video: 'community.type.video',
+};
+
 const FARMING_CATEGORIES = [
   'Select',
   'Organic Farming',
@@ -69,8 +95,6 @@ const FARMING_CATEGORIES = [
   'Harvesting & Post-Harvest Handling',
   'Government Schemes and Farming Updates',
 ];
-
-const AVAILABLE_CROPS = ['Tomato', 'Beans', 'Cabbage', 'Carrot', 'Potato', 'Garlic'];
 
 const FARMING_TYPES = ['Natural', 'Organic', 'Bio-dynamic'];
 
@@ -86,13 +110,6 @@ const ANNOUNCEMENT_CATEGORIES = [
   'Training & Workshop',
 ];
 
-const AUDIENCE_OPTIONS = [
-  'All',
-  'All Farmers',
-  'Sub-Warehouse Managers',
-  'Buyers & Retailers',
-  'Field Officers',
-];
 
 // ─── Component Props ──────────────────────────────────────────────────────────
 
@@ -101,7 +118,6 @@ export interface CreateContentInitialData {
   title?: string;
   shortDescription?: string;
   farmingCategory?: string;
-  selectedCrops?: string[];
   selectedFarmingType?: string;
   suitableConditions?: string;
   instructions?: string;
@@ -113,6 +129,24 @@ export interface CreateContentInitialData {
   fullDescription?: string;
   announcementCategory?: string;
   audience?: string;
+  readTime?: string;
+}
+
+/**
+ * What an opened article puts in the form. Only fields the article actually has
+ * are filled; farming type, conditions, precautions and references have no
+ * stored value, so they stay at the form's own defaults rather than being
+ * guessed.
+ */
+export function articleInitialData(dto: LearningArticleSummaryDto & { content?: string }): CreateContentInitialData {
+  return {
+    contentType: 'Article',
+    title: dto.title,
+    shortDescription: dto.snippet ?? '',
+    farmingCategory: dto.tag,
+    instructions: dto.content ?? '',
+    readTime: dto.readTime,
+  };
 }
 
 export interface CreateContentScreenProps {
@@ -121,15 +155,79 @@ export interface CreateContentScreenProps {
   onBack: () => void;
   onSubmitSuccess?: (() => void) | undefined;
   onNavigateAddVideo?: (() => void) | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means nothing can be saved. */
+  can?: ((code: string) => boolean) | undefined;
+  /**
+   * The article being edited. Present means EDIT mode: the form is held back
+   * until the item is loaded (EditItemGate), is prefilled from it, and Save is
+   * PATCH /admin/learning/articles/{id} — never a POST. Absent means create.
+   */
+  editing?: EditTarget | undefined;
 }
 
-export function CreateContentScreen({
+/**
+ * Create an article (BR-59d). "Article", "Farming Guide" and "Information" are
+ * three labels for the one resource the API has — POST /admin/learning/articles —
+ * and Publish is the real request. What it cannot do stays drawn and disabled,
+ * each with its reason, rather than raising a success toast with nothing sent:
+ *
+ *   - Submit for Review: an unsaved item has no id to submit. It is available
+ *     from the saved item (ContentItemDetailScreen), where the review workflow
+ *     (BR-59t) lives; review is its own axis and never gates Publish here.
+ *   - Attachments: there is no upload endpoint and an article has no
+ *     attachment field.
+ *
+ * The Announcement type is a different request (BR-213): Publish POSTs
+ * /admin/announcements with target SYSTEM_WIDE, needs
+ * `announcement.system_wide.create` rather than the learning permission, and is
+ * reported only once the request settled. Of the "Send to" audiences only "All"
+ * can be sent (ZONE and ROLE targets cannot be authored: 422), so the role
+ * audiences are drawn, disabled, with a note.
+ *
+ * Only the fields an article has are sent (title, summary, body, category, read
+ * time, author, related crops (BR-59r)); farming type, conditions, precautions, references and
+ * visibility have no field and are not claimed as saved. A video is its own
+ * screen (AddVideoScreen). There is no training form in this designed screen.
+ */
+export function CreateContentScreen({ editing, ...props }: CreateContentScreenProps) {
+  if (editing === undefined) return <CreateContentForm {...props} />;
+  return (
+    <EditItemGate target={editing} onBack={props.onBack} can={props.can}>
+      {(content) =>
+        content.kind === 'article' ? (
+          <CreateContentForm
+            key={content.dto.id}
+            {...props}
+            edit={{
+              id: content.dto.id,
+              author: content.dto.author,
+              crops: content.dto.crops,
+              initialData: articleInitialData(content.dto),
+            }}
+          />
+        ) : (
+          <></>
+        )
+      }
+    </EditItemGate>
+  );
+}
+
+interface CreateContentFormProps extends Omit<CreateContentScreenProps, 'editing'> {
+  /** Set only once the item being edited is in hand. */
+  edit?: { id: string; author: string; crops: LearningCropRef[]; initialData: CreateContentInitialData } | undefined;
+}
+
+function CreateContentForm({
   initialType = 'Article',
-  initialData,
+  initialData: createInitialData,
+  edit,
   onBack,
   onSubmitSuccess,
   onNavigateAddVideo,
-}: CreateContentScreenProps) {
+  can,
+}: CreateContentFormProps) {
+  const initialData = edit?.initialData ?? createInitialData;
   // Common / Article Form State
   const [contentType, setContentType] = useState<ContentTypeOption>(
     initialData?.contentType || initialType
@@ -137,7 +235,6 @@ export function CreateContentScreen({
   const [title, setTitle] = useState(initialData?.title || '');
   const [shortDescription, setShortDescription] = useState(initialData?.shortDescription || '');
   const [farmingCategory, setFarmingCategory] = useState(initialData?.farmingCategory || 'Select');
-  const [selectedCrops, setSelectedCrops] = useState<string[]>(initialData?.selectedCrops || []);
   const [selectedFarmingType, setSelectedFarmingType] = useState<string>(initialData?.selectedFarmingType || 'Natural');
   const [suitableConditions, setSuitableConditions] = useState(initialData?.suitableConditions || '');
   const [instructions, setInstructions] = useState(initialData?.instructions || '');
@@ -153,12 +250,13 @@ export function CreateContentScreen({
   const [audience, setAudience] = useState(initialData?.audience || 'All');
 
   React.useEffect(() => {
-    if (initialData) {
+    // An edit takes its values once, from useState above; re-applying them on a
+    // later render would overwrite what the admin has typed.
+    if (edit === undefined && initialData) {
       if (initialData.contentType) setContentType(initialData.contentType);
       if (initialData.title !== undefined) setTitle(initialData.title);
       if (initialData.shortDescription !== undefined) setShortDescription(initialData.shortDescription);
       if (initialData.farmingCategory) setFarmingCategory(initialData.farmingCategory);
-      if (initialData.selectedCrops) setSelectedCrops(initialData.selectedCrops);
       if (initialData.selectedFarmingType) setSelectedFarmingType(initialData.selectedFarmingType);
       if (initialData.suitableConditions !== undefined) setSuitableConditions(initialData.suitableConditions);
       if (initialData.instructions !== undefined) setInstructions(initialData.instructions);
@@ -170,8 +268,9 @@ export function CreateContentScreen({
       if (initialData.fullDescription !== undefined) setFullDescription(initialData.fullDescription);
       if (initialData.announcementCategory) setAnnouncementCategory(initialData.announcementCategory);
       if (initialData.audience) setAudience(initialData.audience);
+      if (initialData.readTime !== undefined) setReadTime(initialData.readTime);
     }
-  }, [initialData]);
+  }, [initialData, edit]);
 
   // Modal Dropdowns
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
@@ -182,109 +281,104 @@ export function CreateContentScreen({
 
   const isAnnouncement = contentType === 'Announcement';
 
-  const toggleCrop = (crop: string) => {
-    setSelectedCrops((prev) =>
-      prev.includes(crop) ? prev.filter((c) => c !== crop) : [...prev, crop]
-    );
-  };
+  const allowed = canManageLearning(can);
+  // BR-59r: the chips are the crop list from the server; an edit starts from the item's own tags.
+  const cropPicker = useCropPicker(can, edit?.crops);
+  const create = useCreateLearningArticle();
+  const update = useUpdateLearningArticle();
+  const announce = useCreateAdminAnnouncement();
+  // The author is the signed-in administrator, fetched; never a typed or assumed name.
+  const me = useMyAdminAccount({ enabled: allowed });
+  const [readTime, setReadTime] = useState(initialData?.readTime ?? '');
+  const [formErrorKey, setFormErrorKey] = useState<TranslationKey | null>(null);
 
-  const handleSubmitForReview = () => {
-    if (isAnnouncement) {
-      if (!announcementTitle.trim()) {
-        Alert.alert('Required Field', 'Please enter an announcement title.');
-        return;
-      }
-      if (!shortSummary.trim()) {
-        Alert.alert('Required Field', 'Please enter a short summary.');
-        return;
-      }
-      if (!fullDescription.trim()) {
-        Alert.alert('Required Field', 'Please enter full description.');
-        return;
-      }
-      Alert.alert(
-        'Submit for Review',
-        `Submit announcement "${announcementTitle}" for moderation review?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Submit',
-            style: 'default',
-            onPress: () => {
-              Alert.alert('Success', 'Announcement submitted for review successfully.');
-              if (onSubmitSuccess) onSubmitSuccess();
-              else onBack();
-            },
-          },
-        ]
-      );
+  const isSaving = create.isPending || update.isPending || announce.isPending;
+  const saveError = create.error ?? update.error ?? announce.error;
+  // An announcement needs its own permission; an article waits for the learning one.
+  const mayPublish = isAnnouncement ? canPublishAnnouncement(can) : allowed;
+  const publishDisabled = !mayPublish || isSaving;
+
+  const handlePublishAnnouncement = () => {
+    const built = buildAnnouncementBody({
+      title: announcementTitle,
+      summary: shortSummary,
+      description: fullDescription,
+      category: announcementCategory,
+      audience,
+    });
+    if (!built.ok) {
+      setFormErrorKey(built.errorKey);
       return;
     }
-
-    const effectiveTitle = title.trim() || 'Mulching for water retention';
-    Alert.alert(
-      'Submit for Review',
-      `Submit "${effectiveTitle}" (${contentType}) for moderation review?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          style: 'default',
-          onPress: () => {
-            Alert.alert('Success', 'Content submitted for review successfully.');
-            if (onSubmitSuccess) onSubmitSuccess();
-            else onBack();
-          },
-        },
-      ]
-    );
+    setFormErrorKey(null);
+    // Only a settled request reports anything; a failure renders announce.error.
+    announce.mutate(built.body, {
+      onSuccess: () => {
+        Alert.alert(t('community.publish.success.title'), t('community.announcement.published'));
+        if (onSubmitSuccess) onSubmitSuccess();
+        else onBack();
+      },
+    });
   };
 
   const handlePublish = () => {
+    if (publishDisabled) return;
     if (isAnnouncement) {
-      if (!announcementTitle.trim()) {
-        Alert.alert('Required Field', 'Please enter an announcement title.');
+      handlePublishAnnouncement();
+      return;
+    }
+    if (edit !== undefined) {
+      // The stored author stays: the person editing is not the author.
+      const builtUpdate = buildArticleUpdateBody({
+        title,
+        summary: shortDescription,
+        body: instructions,
+        category: farmingCategory,
+        readTime,
+        author: edit.author,
+        cropIds: cropPicker.cropIdsForUpdate,
+      });
+      if (!builtUpdate.ok) {
+        setFormErrorKey(builtUpdate.errorKey);
         return;
       }
-      Alert.alert(
-        'Publish Announcement',
-        `Are you sure you want to immediately publish "${announcementTitle}" to ${audience}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Publish',
-            style: 'default',
-            onPress: () => {
-              Alert.alert('Published', `Announcement broadcasted to ${audience} successfully.`);
-              if (onSubmitSuccess) onSubmitSuccess();
-              else onBack();
-            },
-          },
-        ]
-      );
-      return;
-    }
-
-    if (!title.trim()) {
-      Alert.alert('Required Field', 'Please enter a title for the content.');
-      return;
-    }
-    Alert.alert(
-      'Publish Content',
-      `Are you sure you want to immediately publish "${title}" to ${visibility}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
+      setFormErrorKey(null);
+      update.mutate(
+        { id: edit.id, body: builtUpdate.body },
         {
-          text: 'Publish',
-          style: 'default',
-          onPress: () => {
-            Alert.alert('Published', 'Content published successfully.');
+          onSuccess: () => {
+            Alert.alert(t('community.publish.success.title'), t('community.content.updated'));
             if (onSubmitSuccess) onSubmitSuccess();
             else onBack();
           },
         },
-      ]
-    );
+      );
+      return;
+    }
+    // The body of an article is the "Instructions" field; the summary is the snippet.
+    const built = buildArticleBody({
+      title,
+      summary: shortDescription,
+      body: instructions,
+      category: farmingCategory,
+      readTime,
+      author: me.authorName,
+      cropIds: cropPicker.cropIdsForCreate,
+    });
+    if (!built.ok) {
+      setFormErrorKey(built.errorKey);
+      return;
+    }
+    setFormErrorKey(null);
+    // Only a settled request reports anything: the alert is in onSuccess, and a
+    // failure renders create.error instead.
+    create.mutate(built.body, {
+      onSuccess: () => {
+        Alert.alert(t('community.publish.success.title'), t('community.content.created'));
+        if (onSubmitSuccess) onSubmitSuccess();
+        else onBack();
+      },
+    });
   };
 
   return (
@@ -302,7 +396,7 @@ export function CreateContentScreen({
           >
             <BackArrowWhiteIcon size={20} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Content</Text>
+          <Text style={styles.headerTitle}>{edit !== undefined ? t('community.edit.title') : 'Create Content'}</Text>
         </View>
       </View>
 
@@ -323,7 +417,7 @@ export function CreateContentScreen({
           onPress={() => setShowTypeDropdown(true)}
           activeOpacity={0.7}
         >
-          <Text style={styles.dropdownValueText}>{contentType}</Text>
+          <Text style={styles.dropdownValueText}>{t(CONTENT_TYPE_LABEL[contentType])}</Text>
           <ChevronDownIcon size={16} />
         </TouchableOpacity>
 
@@ -427,7 +521,8 @@ export function CreateContentScreen({
           <>
             {/* Dynamic Title Input */}
             <Text style={styles.fieldLabel}>
-              {`${contentType} title`}<Text style={styles.requiredAsterisk}> *</Text>
+              {t('community.field.titleFor', { type: t(CONTENT_TYPE_LABEL[contentType]) })}
+              <Text style={styles.requiredAsterisk}> *</Text>
             </Text>
             <TextInput
               style={styles.singleLineInput}
@@ -435,6 +530,7 @@ export function CreateContentScreen({
               onChangeText={setTitle}
               placeholder=""
               placeholderTextColor={adminColors.placeholder}
+              testID="community.createContent.title"
             />
 
             {/* Short Description Input */}
@@ -447,6 +543,7 @@ export function CreateContentScreen({
               onChangeText={setShortDescription}
               placeholder=""
               placeholderTextColor={adminColors.placeholder}
+              testID="community.createContent.shortDescription"
               multiline
               numberOfLines={3}
             />
@@ -471,13 +568,28 @@ export function CreateContentScreen({
               <ChevronDownIcon size={16} />
             </TouchableOpacity>
 
-            {/* Author (Read-only lock) */}
+            {/* Read time: free text the API requires ("4 min read"), so it is asked for. */}
+            <Text style={styles.fieldLabel}>
+              {t('community.form.readTime')}<Text style={styles.requiredAsterisk}> *</Text>
+            </Text>
+            <TextInput
+              style={styles.singleLineInput}
+              value={readTime}
+              onChangeText={setReadTime}
+              placeholder=""
+              placeholderTextColor={adminColors.placeholder}
+              testID="community.createContent.readTime"
+            />
+
+            {/* Author (Read-only lock): the signed-in administrator, as the server reports them. */}
             <View style={styles.labelWithIconRow}>
-              <Text style={styles.fieldLabelNoMargin}>Author</Text>
+              <Text style={styles.fieldLabelNoMargin}>{t('community.form.author')}</Text>
               <LockSmallIcon size={13} color={adminColors.muted} />
             </View>
             <View style={styles.readOnlyInput}>
-              <Text style={styles.readOnlyText}>Super Admin</Text>
+              <Text style={styles.readOnlyText} testID="community.createContent.author">
+                {edit !== undefined ? edit.author : me.authorName ?? ADMIN_NO_VALUE}
+              </Text>
             </View>
 
             {/* 2 · Farming information */}
@@ -485,23 +597,7 @@ export function CreateContentScreen({
 
             {/* Related Crops Multi-select chips */}
             <Text style={styles.fieldLabel}>Related crops</Text>
-            <View style={styles.chipsRow}>
-              {AVAILABLE_CROPS.map((crop) => {
-                const isSelected = selectedCrops.includes(crop);
-                return (
-                  <TouchableOpacity
-                    key={crop}
-                    style={[styles.chip, isSelected && styles.chipActive]}
-                    onPress={() => toggleCrop(crop)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
-                      {crop}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <CropPicker picker={cropPicker} styles={styles} />
 
             {/* Farming Types Chips */}
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Farming types</Text>
@@ -544,6 +640,7 @@ export function CreateContentScreen({
               placeholder=""
               placeholderTextColor={adminColors.placeholder}
               multiline
+              testID="community.createContent.instructions"
             />
 
             {/* Notice Warning Text (Screenshot 4) */}
@@ -582,15 +679,16 @@ export function CreateContentScreen({
             <Text style={[styles.sectionHeader, { marginTop: 22 }]}>3 · Attachments</Text>
 
             <TouchableOpacity
-              style={styles.addAttachmentBtn}
-              onPress={() => Alert.alert('Add Attachments', 'Document picker simulated.')}
+              style={[styles.addAttachmentBtn, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              testID="community.createContent.attachments"
             >
               <Text style={styles.addAttachmentBtnText}>Add images or PDF documents</Text>
             </TouchableOpacity>
-            <Text style={styles.helperText}>
-              JPG, PNG or PDF, up to 10 MB (proposed). Checked again on the server.
-            </Text>
+            <Text style={styles.helperText}>{t('community.gap.content.attachments')}</Text>
 
             {/* 4 · Publishing settings */}
             <Text style={[styles.sectionHeader, { marginTop: 22 }]}>4 · Publishing settings</Text>
@@ -616,24 +714,51 @@ export function CreateContentScreen({
             </View>
           </>
         )}
+        {/* Why the notes sit at the end of the form rather than in the docked
+            footer: the footer is the designed three-button row and is left as
+            drawn. These are the lines directly above it. */}
+        {isAnnouncement ? null : <Text style={styles.subCaption}>{t('community.gap.content.unsent')}</Text>}
+        <Text style={styles.subCaption}>{t('community.gap.content.review')}</Text>
+        {!mayPublish ? (
+          <Text style={styles.formError}>{t(isAnnouncement ? 'community.denied.announcement' : 'community.denied.subtitle')}</Text>
+        ) : null}
+        {formErrorKey !== null ? (
+          <Text style={styles.formError} testID="community.createContent.validation">
+            {t(formErrorKey)}
+          </Text>
+        ) : null}
+        {saveError !== null && saveError !== undefined ? (
+          <Text style={styles.formError} testID="community.createContent.error">
+            {t(adminErrorKey(saveError))}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {/* ─── Bottom Docked Actions (Screenshot 4) ─── */}
       <View style={styles.dockedFooter}>
         <TouchableOpacity
-          style={styles.submitSolidBtn}
-          onPress={handleSubmitForReview}
+          style={[styles.submitSolidBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="community.createContent.submitForReview"
         >
           <Text style={styles.submitSolidBtnText}>Submit for Review</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.publishOutlineBtn}
-          onPress={handlePublish}
+          style={[styles.publishOutlineBtn, publishDisabled && styles.actionUnavailable]}
+          onPress={publishDisabled ? undefined : handlePublish}
+          disabled={publishDisabled}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: publishDisabled, busy: isSaving }}
+          testID="community.createContent.publish"
         >
-          <Text style={styles.publishOutlineBtnText}>Publish</Text>
+          <Text style={styles.publishOutlineBtnText}>
+            {isSaving ? t('community.action.saving') : edit !== undefined ? t('community.action.saveChanges') : 'Publish'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -666,7 +791,8 @@ export function CreateContentScreen({
                 onPress={() => {
                   setShowTypeDropdown(false);
                   if (item === 'Video') {
-                    if (onNavigateAddVideo) onNavigateAddVideo();
+                    // An edit must not wander into the create-video form.
+                    if (edit === undefined && onNavigateAddVideo) onNavigateAddVideo();
                     return;
                   }
                   setContentType(item);
@@ -678,7 +804,7 @@ export function CreateContentScreen({
                     contentType === item && styles.dropdownMenuItemTextActive,
                   ]}
                 >
-                  {item}
+                  {t(CONTENT_TYPE_LABEL[item])}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -808,28 +934,43 @@ export function CreateContentScreen({
             <View style={styles.dropdownHeaderRow}>
               <Text style={styles.dropdownHeaderTitle}>Send to</Text>
             </View>
-            {AUDIENCE_OPTIONS.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  audience === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setAudience(item);
-                  setShowAudienceDropdown(false);
-                }}
-              >
-                <Text
+            {ANNOUNCEMENT_AUDIENCES.map(({ label: item, target }) => {
+              // Only "All" is a target that can be authored; the role audiences
+              // are drawn, disabled, and the note below says why.
+              const unavailable = target === null;
+              return (
+                <TouchableOpacity
+                  key={item}
                   style={[
-                    styles.dropdownMenuItemText,
-                    audience === item && styles.dropdownMenuItemTextActive,
+                    styles.dropdownMenuItem,
+                    audience === item && styles.dropdownMenuItemActive,
+                    unavailable && styles.actionUnavailable,
                   ]}
+                  onPress={
+                    unavailable
+                      ? undefined
+                      : () => {
+                          setAudience(item);
+                          setShowAudienceDropdown(false);
+                        }
+                  }
+                  disabled={unavailable}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: unavailable }}
+                  testID={`community.createContent.audience.${item}`}
                 >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Text
+                    style={[
+                      styles.dropdownMenuItemText,
+                      audience === item && styles.dropdownMenuItemTextActive,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <Text style={styles.audienceNote}>{t('community.gap.announcement.audience')}</Text>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -840,6 +981,13 @@ export function CreateContentScreen({
 // ─── Styles Strictly Derived From Admin Theme ───────────────────────────────
 
 const styles = StyleSheet.create({
+  audienceNote: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+  },
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
@@ -1058,6 +1206,22 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
     fontSize: 12.5,
     fontWeight: '800',
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  subCaption: {
+    ...adminType.caption,
+    fontSize: 10.5,
+    color: adminColors.muted,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  formError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    marginTop: 6,
   },
   publishOutlineBtn: {
     flex: 1,

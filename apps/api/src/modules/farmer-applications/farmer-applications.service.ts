@@ -173,6 +173,7 @@ function mapApplicationResponse(row: FarmerApplicationRow, reviewHistory?: Revie
     zoneId: row.zone_id ?? null,
     village,
     areaAcres,
+    applicationCode: `APP-${(row.created_at instanceof Date ? row.created_at : new Date(row.created_at)).getFullYear()}-${row.id.slice(-4).toUpperCase()}`,
     submittedAt: row.submitted_at?.toISOString() ?? null,
     slaDueAt,
     documentsComplete,
@@ -487,12 +488,19 @@ export function createFarmerApplicationsService(
         });
       }
 
-      // BR-143 / BR-19: Normalize taluk and derive zone if possible
+      // BR-143 / BR-19: Explicit farmer zone choice beats taluk auto-derivation
       const personal = (app.step1_personal as Record<string, unknown>) ?? {};
+      const rawZoneId = personal['zoneId'];
       const rawTaluk = personal['taluk'];
       const rawDistrict = personal['district'];
       let derivedZoneId: string | null = null;
-      if (typeof rawTaluk === 'string' && rawTaluk.trim().length > 0) {
+      if (typeof rawZoneId === 'string' && rawZoneId.trim().length > 0) {
+        const active = await repo.isZoneActive(pool, rawZoneId.trim());
+        if (active) {
+          derivedZoneId = rawZoneId.trim();
+        }
+      }
+      if (derivedZoneId === null && typeof rawTaluk === 'string' && rawTaluk.trim().length > 0) {
         const districtStr =
           typeof rawDistrict === 'string' && rawDistrict.trim().length > 0 ? rawDistrict.trim() : null;
         const matchedZone = await repo.findZoneByTaluk(pool, rawTaluk.trim(), districtStr);
@@ -761,14 +769,23 @@ export function createFarmerApplicationsService(
           resolvedZoneId = app.zone_id;
         } else {
           const personal = (app.step1_personal as Record<string, unknown>) ?? {};
-          const rawTaluk = personal['taluk'];
-          const rawDistrict = personal['district'];
-          if (typeof rawTaluk === 'string' && rawTaluk.trim().length > 0) {
-            const districtStr =
-              typeof rawDistrict === 'string' && rawDistrict.trim().length > 0 ? rawDistrict.trim() : null;
-            const matched = await repo.findZoneByTaluk(tx, rawTaluk.trim(), districtStr);
-            if (matched !== null) {
-              resolvedZoneId = matched.id;
+          const rawZoneId = personal['zoneId'];
+          if (typeof rawZoneId === 'string' && rawZoneId.trim().length > 0) {
+            const active = await repo.isZoneActive(tx, rawZoneId.trim());
+            if (active) {
+              resolvedZoneId = rawZoneId.trim();
+            }
+          }
+          if (resolvedZoneId === null) {
+            const rawTaluk = personal['taluk'];
+            const rawDistrict = personal['district'];
+            if (typeof rawTaluk === 'string' && rawTaluk.trim().length > 0) {
+              const districtStr =
+                typeof rawDistrict === 'string' && rawDistrict.trim().length > 0 ? rawDistrict.trim() : null;
+              const matched = await repo.findZoneByTaluk(tx, rawTaluk.trim(), districtStr);
+              if (matched !== null) {
+                resolvedZoneId = matched.id;
+              }
             }
           }
         }
@@ -885,8 +902,8 @@ export function createFarmerApplicationsService(
            ON CONFLICT (user_id) DO UPDATE SET
              application_status = 'APPROVED',
              kyc_status = 'VERIFIED',
-             tohfa_farmer_id = COALESCE(farmers.tohfa_farmer_id, EXCLUDED.tohfa_farmer_id),
-             zone_id = EXCLUDED.zone_id,
+             tohfa_farmer_id = EXCLUDED.tohfa_farmer_id,
+             zone_id = COALESCE(farmers.zone_id, EXCLUDED.zone_id),
              farming_experience_years = COALESCE(farmers.farming_experience_years, EXCLUDED.farming_experience_years),
              address_line1 = COALESCE(farmers.address_line1, EXCLUDED.address_line1),
              village = COALESCE(farmers.village, EXCLUDED.village),

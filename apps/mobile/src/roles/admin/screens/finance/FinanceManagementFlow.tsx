@@ -28,6 +28,8 @@ import { ReturnsRmaRefundsScreen } from './ReturnsRmaRefundsScreen';
 import { SalesIncomeRevenueScreen } from './SalesIncomeRevenueScreen';
 import { TransactionHistoryScreen } from './TransactionHistoryScreen';
 import { WalletDeductionFlow } from './WalletDeductionFlow';
+import { PayoutTransactionsListScreen } from './PayoutTransactionsListScreen';
+import { PayoutBatchListScreen } from './PayoutBatchListScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -166,6 +168,24 @@ function GoToPaymentMethodsIcon({ size = 26, color = adminColors.brand }: { size
   );
 }
 
+function GoToPayoutTransactionsIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h13m0 0l-3.5-3.5M17 8l-3.5 3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 16H7m0 0l3.5-3.5M7 16l3.5 3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function GoToPayoutBatchIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M8 12h8M8 16h5" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ─── Local OverviewActionCard ───────────────────────────────────────────────
 
 function OverviewActionCard({
@@ -206,6 +226,8 @@ export type FinanceSubScreen =
   | 'walletDeduction'
   | 'invoicesGst'
   | 'reviewReturns'
+  | 'payoutTransactions'
+  | 'payoutBatch'
   | 'transactionHistory'
   | 'reportExport'
   | 'paymentMethods';
@@ -217,6 +239,7 @@ export interface FinanceManagementFlowProps {
   showBackButton?: boolean | undefined;
   onBack: () => void;
   onTabChange?: ((tab: string) => void) | undefined;
+  onSubScreenChange?: ((subScreen: FinanceSubScreen) => void) | undefined;
 }
 
 export function FinanceManagementFlow({
@@ -226,10 +249,20 @@ export function FinanceManagementFlow({
   showBackButton = false,
   onBack,
   onTabChange,
+  onSubScreenChange,
 }: FinanceManagementFlowProps) {
-  const [subScreen, setSubScreen] = useState<FinanceSubScreen>(initialSubScreen);
+  const [subScreen, setSubScreenState] = useState<FinanceSubScreen>(initialSubScreen);
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
   const [showExportToast, setShowExportToast] = useState<boolean>(false);
+
+  const setSubScreen = (newSub: FinanceSubScreen) => {
+    setSubScreenState(newSub);
+    onSubScreenChange?.(newSub);
+  };
+
+  React.useEffect(() => {
+    onSubScreenChange?.(subScreen);
+  }, [subScreen, onSubScreenChange]);
 
   // RBAC checks
   const canConfigurePayments = can('payment.method.configure') || role === 'SUPER_ADMIN';
@@ -242,6 +275,7 @@ export function FinanceManagementFlow({
   if (subScreen === 'walletDeduction') {
     return (
       <WalletDeductionFlow
+        role={role}
         onBack={() => setSubScreen('customerWallet')}
         onSuccess={() => setSubScreen('customerWallet')}
       />
@@ -302,6 +336,14 @@ export function FinanceManagementFlow({
 
   if (subScreen === 'reviewReturns') {
     return <ReturnsRmaRefundsScreen can={can} onBack={() => setSubScreen('overview')} />;
+  }
+
+  if (subScreen === 'payoutTransactions') {
+    return <PayoutTransactionsListScreen onBack={() => setSubScreen('overview')} />;
+  }
+
+  if (subScreen === 'payoutBatch') {
+    return <PayoutBatchListScreen onBack={() => setSubScreen('overview')} />;
   }
 
   if (subScreen === 'transactionHistory') {
@@ -592,6 +634,16 @@ export function FinanceManagementFlow({
               title="Review Returns"
               icon={<GoToReviewReturnsIcon size={24} color={adminColors.brand} />}
               onPress={() => setSubScreen('reviewReturns')}
+            />
+            <OverviewActionCard
+              title="Payout Transactions list"
+              icon={<GoToPayoutTransactionsIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('payoutTransactions')}
+            />
+            <OverviewActionCard
+              title="Payout Batch list"
+              icon={<GoToPayoutBatchIcon size={24} color={adminColors.brand} />}
+              onPress={() => setSubScreen('payoutBatch')}
             />
             <OverviewActionCard
               title="Transaction History"

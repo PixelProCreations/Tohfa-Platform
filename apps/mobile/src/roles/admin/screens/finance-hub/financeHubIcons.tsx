@@ -216,6 +216,4 @@ export const FINANCE_HUB_TILE_ICONS: Record<FinanceHubTileId, (props: IconProps)
   reviewReturns: GoToReviewReturnsIcon,
   transactionHistory: GoToTransactionHistoryIcon,
   reportExport: GoToReportExportIcon,
-  profitLoss: GoToProfitLossIcon,
-  paymentMethods: GoToPaymentMethodsIcon,
 };

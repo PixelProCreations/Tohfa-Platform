@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   Alert,
   Modal,
@@ -59,7 +60,7 @@ const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
   speciesVariety: ['Ooty Carrot', 'Nantes', 'Pusa Kesar', 'Roma'],
   suitableSeason: ['Kharif', 'Rabi', 'Zaid', 'All Seasons'],
   suitableZone: ['Coonoor', 'Ooty', 'Kotagiri', 'Nilgiris'],
-  suitableSoil: ['Coonoor', 'Ooty', 'Red Loam', 'Black Clay', 'Forest Loam'],
+  suitableSoil: ['Coonoor', 'Ooty', 'Loam', 'Black Clay', 'Forest Loam'],
   gradeSupported: ['Grade (G1)', 'Grade (G2)', 'Grade (G3)', 'Not Mentions'],
   livestockType: ['Cattle', 'Poultry', 'Goat', 'Sheep'],
   livestockId: ['COW-01', 'COW-02', 'GOAT-01', 'CHK-01'],
@@ -105,8 +106,8 @@ const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
 
 export function AdminAddFarmRecordScreen({
   initialTab = 'Diary',
-  farmerName = 'Ramesh Kumar',
-  farmerId = 'FMR-00124',
+  farmerName = ADMIN_NO_VALUE,
+  farmerId = ADMIN_NO_VALUE,
   allowAddOptions = true,
   mode = 'add',
   initialRecord,

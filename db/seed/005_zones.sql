@@ -24,8 +24,11 @@ SELECT 'ZONE-GUDA', 'Gudalur Zone', id, true
 FROM warehouses WHERE code = 'WH-GUDA'
 ON CONFLICT (code) DO UPDATE SET warehouse_id = EXCLUDED.warehouse_id, is_active = true;
 
+-- Deactivate legacy demo zone if present to replace it with canonical warehouse-backed zones
+UPDATE zones SET is_active = false WHERE code = 'ZONE-DEMO-01';
+
 -- 2. Populate taluk-to-zone mappings (district 'The Nilgiris')
--- Ooty zone: Udhagamandalam, Ooty (alias)
+-- Ooty zone: Udhagamandalam, Ooty (alias), Kundah
 -- Coonoor zone: Coonoor
 -- Kotagiri zone: Kotagiri
 -- Gudalur zone: Gudalur, Pandalur
@@ -36,6 +39,7 @@ FROM (
     VALUES
         ('ZONE-OOTY', 'Udhagamandalam'),
         ('ZONE-OOTY', 'Ooty'),
+        ('ZONE-OOTY', 'Kundah'),
         ('ZONE-COON', 'Coonoor'),
         ('ZONE-KOTA', 'Kotagiri'),
         ('ZONE-GUDA', 'Gudalur'),
@@ -43,4 +47,3 @@ FROM (
 ) AS t(zone_code, taluk)
 JOIN zones z ON z.code = t.zone_code
 ON CONFLICT (district, lower(taluk)) DO UPDATE SET zone_id = EXCLUDED.zone_id;
-

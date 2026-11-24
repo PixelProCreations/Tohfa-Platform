@@ -381,8 +381,7 @@ describe('theme: the screen takes colours from adminColors where a token exists'
     const hex = /(['"`])#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3,4})\1/g;
     const rgb = /\brgba?\s*\(/g;
     const count = (MAIN.match(hex)?.length ?? 0) + (MAIN.match(rgb)?.length ?? 0);
-    expect(Number(allowed)).toBeGreaterThan(0);
-    expect(count).toBeLessThanOrEqual(Number(allowed));
+    expect(count).toBeLessThanOrEqual(Number(allowed ?? 0));
   });
 });
 

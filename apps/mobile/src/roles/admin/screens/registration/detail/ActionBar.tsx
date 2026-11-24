@@ -12,7 +12,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { t } from '../../../i18n';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { partStyles } from '../applications/ApplicationParts';
 import { applicationErrorKey } from '../applications/applicationLogic';
 
@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.lg,
+    paddingTop: adminSpacing.smMd,
+    paddingBottom: adminSpacing.xl,
     gap: adminSpacing.sm,
     ...adminShadow.lg,
   },
@@ -93,33 +93,40 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.lg,
+    paddingTop: adminSpacing.smMd,
+    paddingBottom: adminSpacing.xl,
     flexDirection: 'row',
     ...adminShadow.lg,
   },
   row: { flexDirection: 'row', gap: adminSpacing.md },
+  /**
+   * The design's primary action is the brand orange, not a green: the bar
+   * reads as one filled Approve and one outlined Reject. Its label is 15/800,
+   * which adminType has no step for — adminType.sectionHead (13/800) is used.
+   */
   approveBtn: {
     flex: 1,
-    backgroundColor: adminColors.success.text,
-    borderRadius: adminRadius.md,
-    paddingVertical: adminSpacing.md,
+    height: ADMIN_BUTTON_HEIGHT,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
   busy: { opacity: 0.6 },
-  approveText: { ...adminType.rowTitle, color: adminColors.onBrand },
+  approveText: { ...adminType.sectionHead, color: adminColors.onBrand },
   rejectBtn: {
     flex: 1,
+    height: ADMIN_BUTTON_HEIGHT,
     backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: adminColors.danger.text,
-    borderRadius: adminRadius.md,
-    paddingVertical: adminSpacing.md,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rejectText: { ...adminType.rowTitle, color: adminColors.danger.text },
+  // The design's Reject label is the amber-brown #B45309; adminColors.warning.text is the nearest token.
+  rejectText: { ...adminType.sectionHead, color: adminColors.warning.text },
   readOnlyBox: {
     flex: 1,
     backgroundColor: adminColors.warning.bg,

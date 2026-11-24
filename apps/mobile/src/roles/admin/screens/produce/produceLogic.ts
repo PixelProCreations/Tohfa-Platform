@@ -146,6 +146,27 @@ export function designCategoryForSlug(slug: string | undefined): DesignCropCateg
   return DESIGN_CROP_CATEGORIES.find((c) => CATEGORY_SLUG[c] === slug);
 }
 
+/** A category the crop filter offers: one per fetched catalog category, never a hardcoded list. */
+export interface CropCategoryOption {
+  id: string;
+  slug: string;
+  /** The category's own name, shown when it has no design label. */
+  name: string;
+  /** The design's label for the three seeded slugs, undefined for any other category. */
+  design: DesignCropCategory | undefined;
+}
+
+/**
+ * Filter options from GET /catalog/categories, in the API's order. Every
+ * category is kept: the design's three are only the ones with a design label,
+ * not the only ones that exist. Undefined (not loaded yet) gives no options.
+ */
+export function cropCategoryOptions(
+  items: readonly { id: string; name: string; slug: string }[] | undefined,
+): CropCategoryOption[] {
+  return (items ?? []).map((c) => ({ id: c.id, slug: c.slug, name: c.name, design: designCategoryForSlug(c.slug) }));
+}
+
 export interface CropKpis {
   total: number;
   active: number;

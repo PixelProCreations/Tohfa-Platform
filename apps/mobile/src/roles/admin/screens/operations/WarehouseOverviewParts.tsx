@@ -35,6 +35,14 @@ function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: IconProp
   );
 }
 
+function PlusWhiteIcon({ size = 20, color = adminColors.onBrand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function WarehouseHeaderIcon({ size = 22, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -110,9 +118,11 @@ function BellWhiteIcon({ size = 22, color = adminColors.onBrand }: IconProps) {
 export function OverviewHeader({
   onBack,
   onOpenNotifications,
+  onPlusAction,
 }: {
   onBack?: (() => void) | undefined;
   onOpenNotifications?: (() => void) | undefined;
+  onPlusAction?: (() => void) | undefined;
 }) {
   return (
     <View style={styles.headerBanner}>
@@ -135,18 +145,32 @@ export function OverviewHeader({
             {t('warehouseOverview.header.title')}
           </Text>
         </View>
-        {onOpenNotifications !== undefined ? (
-          <TouchableOpacity
-            testID="warehouseOverview.notifications"
-            style={styles.headerBackBtn}
-            onPress={onOpenNotifications}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel={t('warehouseOverview.header.notifications')}
-          >
-            <BellWhiteIcon />
-          </TouchableOpacity>
-        ) : null}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {onPlusAction !== undefined ? (
+            <TouchableOpacity
+              testID="warehouseOverview.plus"
+              style={styles.headerBackBtn}
+              onPress={onPlusAction}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Add Warehouse"
+            >
+              <PlusWhiteIcon />
+            </TouchableOpacity>
+          ) : null}
+          {onOpenNotifications !== undefined ? (
+            <TouchableOpacity
+              testID="warehouseOverview.notifications"
+              style={styles.headerBackBtn}
+              onPress={onOpenNotifications}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={t('warehouseOverview.header.notifications')}
+            >
+              <BellWhiteIcon />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
     </View>
   );

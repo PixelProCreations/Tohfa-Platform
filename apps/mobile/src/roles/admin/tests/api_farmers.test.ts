@@ -20,6 +20,7 @@ import { adminErrorKey } from '../api/errors';
 import {
   ERROR_CODES,
   FARMER_LOCKED_FIELDS,
+  createFarmer,
   getFarmer,
   getFarmerRating,
   getFarmerSubscription,
@@ -27,6 +28,7 @@ import {
   listFarmerDocuments,
   listFarmers,
   updateFarmer,
+  updateFarmerStatus,
   verifyFarmerDocument,
 } from '../api/farmers';
 import { ADMIN_REQUEST_TIMEOUT_MS } from '../api/http';
@@ -148,6 +150,29 @@ describe('farmer bank, subscription and rating clients', () => {
     requestMock.mockRejectedValueOnce(problem('FORBIDDEN', 403));
     const err = await listFarmerBankAccounts(FARMER).catch((e: unknown) => e);
     expect(adminErrorKey(err)).toBe('admin.error.FORBIDDEN');
+  });
+
+  it('updateFarmerStatus POSTs to /admin/farmers/{id}/status', async () => {
+    await updateFarmerStatus(FARMER, { action: 'DISABLE', reason: 'Failed KYC' });
+    expect(lastCall().path).toBe(`/admin/farmers/${FARMER}/status`);
+    expect(lastCall().options).toMatchObject({
+      method: 'POST',
+      body: { action: 'DISABLE', reason: 'Failed KYC' },
+    });
+  });
+
+  it('createFarmer POSTs to /admin/farmers', async () => {
+    await createFarmer({
+      fullName: 'New Farmer',
+      mobile: '+919876543210',
+      zoneId: '20000000-0000-4000-8000-000000000001',
+      village: 'Coonoor',
+    });
+    expect(lastCall().path).toBe('/admin/farmers');
+    expect(lastCall().options).toMatchObject({
+      method: 'POST',
+      body: { fullName: 'New Farmer', mobile: '+919876543210' },
+    });
   });
 });
 

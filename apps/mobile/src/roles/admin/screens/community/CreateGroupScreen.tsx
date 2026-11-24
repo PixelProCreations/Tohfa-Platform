@@ -19,6 +19,14 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t, type TranslationKey } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { useCreateLearningGroup, useUpdateLearningGroup } from '../../api/learningHooks';
+import { useCommunities } from '../../api/communitiesHooks';
+import { AdminErrorState } from '../warehouse/shared/AsyncStates';
+import { buildGroupBody, canManageLearning } from './communityLogic';
+import { canModerateCommunities, communityNameOf, communityOptions } from './communitiesLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -66,15 +74,6 @@ function CheckboxSquare({ checked }: { checked: boolean }) {
 
 // ─── Option Constants ─────────────────────────────────────────────────────────
 
-const PARENT_COMMUNITIES = [
-  'Select',
-  'Coonoor Organic Farmers',
-  'Ooty Vegetable Growers',
-  'Nilgiris Tea & Spice Community',
-  'Kotagiri Horticulture Society',
-  'All Communities',
-];
-
 // Exact list matching Screenshot 5
 const GROUP_CATEGORIES = [
   'Select',
@@ -103,41 +102,56 @@ const WHO_CAN_POST_OPTIONS = ['All', 'All members', 'Admins only', 'Moderators a
 
 const WHO_CAN_COMMENT_OPTIONS = ['All', 'All members', 'Admins only'];
 
-export interface DemoFarmerItem {
-  id: string;
-  name: string;
-  zone: string;
-  farmingType: string;
-}
-
-const INITIAL_DEMO_FARMERS: DemoFarmerItem[] = [
-  { id: 'FMR-00101', name: 'Demo Farmer 01', zone: 'Zone A', farmingType: 'Natural' },
-  { id: 'FMR-00102', name: 'Demo Farmer 02', zone: 'Zone B', farmingType: 'Organic' },
-  { id: 'FMR-00103', name: 'Demo Farmer 03', zone: 'Zone C', farmingType: 'Bio-dynamic' },
-  { id: 'FMR-00104', name: 'Demo Farmer 04', zone: 'Zone D', farmingType: 'Natural' },
-  { id: 'FMR-00105', name: 'Demo Farmer 05', zone: 'Zone A', farmingType: 'Organic' },
-  { id: 'FMR-00106', name: 'Demo Farmer 06', zone: 'Zone B', farmingType: 'Bio-dynamic' },
-  { id: 'FMR-00107', name: 'Demo Farmer 07', zone: 'Zone C', farmingType: 'Natural' },
-  { id: 'FMR-00108', name: 'Demo Farmer 08', zone: 'Zone D', farmingType: 'Organic' },
-  { id: 'FMR-00109', name: 'Demo Farmer 09', zone: 'Zone A', farmingType: 'Natural' },
-  { id: 'FMR-00110', name: 'Demo Farmer 10', zone: 'Zone B', farmingType: 'Organic' },
-];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface CreateGroupScreenProps {
   onBack: () => void;
   onSubmitSuccess?: () => void;
   isEditing?: boolean;
+  /** The group being edited (PATCH /admin/learning/groups/{id}); creating needs none. */
+  groupId?: string | undefined;
+  /** The opened group's current values, so an edit starts from what is stored. */
+  initialGroup?:
+    | { name: string; description?: string | null | undefined; category: string; communityId?: string | null | undefined }
+    | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means nothing can be saved. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
-export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }: CreateGroupScreenProps) {
+/**
+ * Create or edit a community group (BR-59d). The group itself is real —
+ * POST /admin/learning/groups, or PATCH .../{id} when editing — and carries
+ * exactly three fields: name, description and category. Everything else on the
+ * designed form is drawn and says it is not saved, with one addition: the
+ * parent community (BR-59s). A group may belong to one community, chosen from
+ * GET /admin/communities and sent as `communityId`; choosing none sends nothing
+ * on a create and `null` on an edit (which clears it). The selector needs
+ * `community.group.moderate` to read the community list; without it the control
+ * is drawn disabled and the group is still saveable.
+ *
+ *   - Language, visibility, membership, posting rights, targeting: a group has
+ *     no such field.
+ *   - Cover image: no image field on a group and no upload endpoint.
+ *   - Farmers: there is no bulk-member endpoint for an administrator, so the
+ *     group is created WITHOUT members and the screen never claims otherwise.
+ *     The farmer list below is the designed picker, not a roster.
+ */
+export function CreateGroupScreen({
+  onBack,
+  onSubmitSuccess,
+  isEditing = false,
+  groupId,
+  initialGroup,
+  can,
+}: CreateGroupScreenProps) {
   // 1 · Group Information State
-  const [groupName, setGroupName] = useState('');
-  const [groupDescription, setGroupDescription] = useState('');
-  const [parentCommunity, setParentCommunity] = useState('Select');
-  const [groupCategory, setGroupCategory] = useState('Select');
+  const [groupName, setGroupName] = useState(initialGroup?.name ?? '');
+  const [groupDescription, setGroupDescription] = useState(initialGroup?.description ?? '');
+  const [groupCategory, setGroupCategory] = useState(initialGroup?.category ?? 'Select');
   const [groupLanguage, setGroupLanguage] = useState('Select');
+  // BR-59s: the parent community. null is "none"; an edit starts from the stored one.
+  const [parentCommunityId, setParentCommunityId] = useState<string | null>(initialGroup?.communityId ?? null);
+  const [showParentModal, setShowParentModal] = useState(false);
 
   // 2 · Group Targeting State
   const [farmingType, setFarmingType] = useState('All');
@@ -153,15 +167,10 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
 
   // 4 · Add Farmers State
   const [farmerSearchQuery, setFarmerSearchQuery] = useState('');
-  const [farmerFilterRegion, setFarmerFilterRegion] = useState('All');
-  const [farmerFilterType, setFarmerFilterType] = useState('All');
-  const [selectedFarmerIds, setSelectedFarmerIds] = useState<string[]>([]);
 
   // 5 · Confirmation State
-  const [notifyAddedFarmers, setNotifyAddedFarmers] = useState(false);
 
   // Modal Dropdown Visibility States
-  const [showCommunityModal, setShowCommunityModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showFarmingTypeModal, setShowFarmingTypeModal] = useState(false);
@@ -171,60 +180,59 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
   const [showMembershipModal, setShowMembershipModal] = useState(false);
   const [showWhoCanPostModal, setShowWhoCanPostModal] = useState(false);
   const [showWhoCanCommentModal, setShowWhoCanCommentModal] = useState(false);
-  const [showFarmerFilterRegionModal, setShowFarmerFilterRegionModal] = useState(false);
-  const [showFarmerFilterTypeModal, setShowFarmerFilterTypeModal] = useState(false);
 
-  const toggleFarmerSelection = (id: string) => {
-    setSelectedFarmerIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
+  const allowed = canManageLearning(can);
+  const parentAllowed = canModerateCommunities(can);
+  const communityList = useCommunities({ isArchived: false }, { enabled: parentAllowed });
+  const parentOptions = communityOptions(communityList.items);
+  const parentDisabled = !parentAllowed;
+  const createGroup = useCreateLearningGroup();
+  const updateGroup = useUpdateLearningGroup();
+  const [formErrorKey, setFormErrorKey] = useState<TranslationKey | null>(null);
 
-  const handleUploadImage = () => {
-    Alert.alert('Upload Cover Image', 'Image picker opened. Select cover image for group.');
-  };
+  // An edit with no group opened has nothing to PATCH, and a create must not
+  // stand in for it.
+  const missingEditTarget = isEditing && groupId === undefined;
+  const isSaving = createGroup.isPending || updateGroup.isPending;
+  const saveDisabled = !allowed || missingEditTarget || isSaving;
+  const saveError = createGroup.error ?? updateGroup.error;
 
   const handleCreateGroup = () => {
-    if (!groupName.trim()) {
-      Alert.alert('Required Field', 'Please enter a group name.');
+    if (saveDisabled) return;
+    const built = buildGroupBody({
+      name: groupName,
+      description: groupDescription,
+      category: groupCategory,
+      // A create files the group under a parent only when one was chosen; an edit
+      // always states it, so choosing "none" clears a stored parent (null).
+      ...(isEditing ? { communityId: parentCommunityId } : parentCommunityId === null ? {} : { communityId: parentCommunityId }),
+    });
+    if (!built.ok) {
+      setFormErrorKey(built.errorKey);
       return;
     }
-    if (parentCommunity === 'Select') {
-      Alert.alert('Required Field', 'Please select a parent community.');
-      return;
-    }
-    if (groupCategory === 'Select') {
-      Alert.alert('Required Field', 'Please select a group category.');
-      return;
-    }
-
-    Alert.alert(
-      isEditing ? 'Group Updated' : 'Group Created',
-      isEditing ? `Group "${groupName}" updated successfully.` : `Group "${groupName}" created successfully with ${selectedFarmerIds.length} farmers added.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onSubmitSuccess) onSubmitSuccess();
-            else onBack();
+    setFormErrorKey(null);
+    // Only a settled request reports anything: the alert is in onSuccess, and a
+    // failure renders saveError instead. No farmer count is claimed — nothing
+    // here adds a member.
+    const onSuccess = () => {
+      Alert.alert(
+        t('community.publish.success.title'),
+        t(isEditing ? 'community.group.updated' : 'community.group.created'),
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (onSubmitSuccess) onSubmitSuccess();
+              else onBack();
+            },
           },
-        },
-      ]
-    );
+        ],
+      );
+    };
+    if (isEditing && groupId !== undefined) updateGroup.mutate({ id: groupId, body: built.body }, { onSuccess });
+    else createGroup.mutate(built.body, { onSuccess });
   };
-
-  // Filter demo farmers
-  const filteredFarmers = INITIAL_DEMO_FARMERS.filter((f) => {
-    const matchesSearch =
-      !farmerSearchQuery.trim() ||
-      f.name.toLowerCase().includes(farmerSearchQuery.toLowerCase()) ||
-      f.id.toLowerCase().includes(farmerSearchQuery.toLowerCase());
-    const matchesRegion =
-      farmerFilterRegion === 'All' || f.zone.toLowerCase().includes(farmerFilterRegion.toLowerCase());
-    const matchesType =
-      farmerFilterType === 'All' || f.farmingType.toLowerCase() === farmerFilterType.toLowerCase();
-    return matchesSearch && matchesRegion && matchesType;
-  });
 
   return (
     <SafeAreaView style={styles.root}>
@@ -263,6 +271,7 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           style={styles.singleLineInput}
           value={groupName}
           onChangeText={setGroupName}
+          testID="community.createGroup.name"
           placeholder=""
           placeholderTextColor={adminColors.placeholder}
         />
@@ -275,6 +284,7 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           style={[styles.multilineInput, { minHeight: 74 }]}
           value={groupDescription}
           onChangeText={setGroupDescription}
+          testID="community.createGroup.description"
           placeholder=""
           placeholderTextColor={adminColors.placeholder}
           multiline
@@ -285,21 +295,24 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
         <Text style={styles.fieldLabel}>
           Parent community<Text style={styles.requiredAsterisk}> *</Text>
         </Text>
+        {/* BR-59s: the parent community, from GET /admin/communities. */}
         <TouchableOpacity
-          style={styles.dropdownInput}
-          onPress={() => setShowCommunityModal(true)}
+          style={[styles.dropdownInput, parentDisabled && styles.actionUnavailable]}
+          onPress={parentDisabled ? undefined : () => setShowParentModal(true)}
+          disabled={parentDisabled}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: parentDisabled }}
+          testID="community.createGroup.parent"
         >
-          <Text
-            style={[
-              styles.dropdownValueText,
-              parentCommunity === 'Select' && { color: adminColors.muted },
-            ]}
-          >
-            {parentCommunity}
+          <Text style={[styles.dropdownValueText, parentCommunityId === null && { color: adminColors.muted }]}>
+            {parentCommunityId === null ? 'Select' : communityNameOf(parentCommunityId, parentOptions)}
           </Text>
           <ChevronDownIcon size={16} />
         </TouchableOpacity>
+        {parentAllowed && communityList.error !== null && communityList.error !== undefined ? (
+          <AdminErrorState error={communityList.error} onRetry={communityList.refresh} />
+        ) : null}
 
         {/* Group category * (Screenshot 5) */}
         <Text style={styles.fieldLabel}>
@@ -324,12 +337,16 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
         {/* Cover image (Outline Button) */}
         <Text style={styles.fieldLabel}>Cover image</Text>
         <TouchableOpacity
-          style={styles.uploadImageBtn}
-          onPress={handleUploadImage}
+          style={[styles.uploadImageBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="community.createGroup.cover"
         >
           <Text style={styles.uploadImageBtnText}>Upload images</Text>
         </TouchableOpacity>
+        <Text style={styles.draftNoteText}>{t('community.gap.group.cover')}</Text>
 
         {/* Group language * */}
         <Text style={styles.fieldLabel}>
@@ -467,6 +484,8 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           style={styles.singleLineInput}
           value={farmerSearchQuery}
           onChangeText={setFarmerSearchQuery}
+          editable={false}
+          testID="community.createGroup.farmerSearch"
           placeholder=""
           placeholderTextColor={adminColors.placeholder}
         />
@@ -476,11 +495,14 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           <View style={styles.filterCol}>
             <Text style={styles.fieldLabel}>Region or zone</Text>
             <TouchableOpacity
-              style={styles.dropdownInput}
-              onPress={() => setShowFarmerFilterRegionModal(true)}
+              style={[styles.dropdownInput, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              testID="community.createGroup.farmerRegion"
             >
-              <Text style={styles.dropdownValueText}>{farmerFilterRegion}</Text>
+              <Text style={styles.dropdownValueText}>All</Text>
               <ChevronDownIcon size={16} />
             </TouchableOpacity>
           </View>
@@ -488,48 +510,23 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           <View style={styles.filterCol}>
             <Text style={styles.fieldLabel}>Farming type</Text>
             <TouchableOpacity
-              style={styles.dropdownInput}
-              onPress={() => setShowFarmerFilterTypeModal(true)}
+              style={[styles.dropdownInput, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
+              testID="community.createGroup.farmerType"
             >
-              <Text style={styles.dropdownValueText}>{farmerFilterType}</Text>
+              <Text style={styles.dropdownValueText}>All</Text>
               <ChevronDownIcon size={16} />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Match count caption */}
-        <Text style={styles.farmerMatchCaption}>
-          24 farmers match (first 10 shown). No contact details are shown.
+        {/* No farmer lookup exists: the picker is drawn, disabled, and says so. */}
+        <Text style={styles.farmerMatchCaption} testID="community.createGroup.farmerNote">
+          {t('community.gap.group.farmers')}
         </Text>
-
-        {/* Farmer selection list */}
-        <View style={styles.farmerListContainer}>
-          {filteredFarmers.map((farmer, index) => {
-            const isSelected = selectedFarmerIds.includes(farmer.id);
-            return (
-              <TouchableOpacity
-                key={farmer.id}
-                style={[
-                  styles.farmerItemRow,
-                  index < filteredFarmers.length - 1 && styles.farmerItemBorder,
-                ]}
-                onPress={() => toggleFarmerSelection(farmer.id)}
-                activeOpacity={0.7}
-              >
-                <CheckboxSquare checked={isSelected} />
-                <View style={styles.farmerInfoCol}>
-                  <Text style={styles.farmerNameText}>
-                    {`${farmer.id} · ${farmer.name}`}
-                  </Text>
-                  <Text style={styles.farmerSubText}>
-                    {`${farmer.zone} · ${farmer.farmingType} · —`}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
 
         {/* ══════════════════════════════════════════════════════════════════════
             5 · CONFIRMATION (Screenshot 4)
@@ -548,59 +545,68 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           {/* Row 2: Parent community */}
           <View style={styles.confirmRow}>
             <Text style={styles.confirmLabel}>Parent community</Text>
-            <Text style={styles.confirmValue}>
-              {parentCommunity !== 'Select' ? parentCommunity : '—'}
-            </Text>
+            <Text style={styles.confirmValue}>{communityNameOf(parentCommunityId, parentOptions)}</Text>
           </View>
           <View style={styles.dashedDivider} />
 
-          {/* Row 3: Selected farmers */}
-          <View style={styles.confirmRow}>
-            <Text style={styles.confirmLabel}>Selected farmers</Text>
-            <Text style={styles.confirmValue}>{selectedFarmerIds.length}</Text>
-          </View>
-          <View style={styles.dashedDivider} />
-
-          {/* Row 4: Membership method */}
+          {/* Membership method */}
           <View style={styles.confirmRow}>
             <Text style={styles.confirmLabel}>Membership method</Text>
             <Text style={styles.confirmValue}>
               {membershipMethod !== 'All' ? membershipMethod : '—'}
             </Text>
           </View>
-          <View style={styles.dashedDivider} />
-
-          {/* Row 5: Notification */}
-          <View style={styles.confirmRow}>
-            <Text style={styles.confirmLabel}>Notification</Text>
-            <Text style={[styles.confirmValue, styles.confirmValueBold]}>
-              In-app, if enabled
-            </Text>
-          </View>
         </View>
 
         {/* Checkbox: Notify the added farmers in the app */}
         <TouchableOpacity
-          style={[styles.checkboxRow, { marginTop: 14 }]}
-          onPress={() => setNotifyAddedFarmers(!notifyAddedFarmers)}
+          style={[styles.checkboxRow, { marginTop: 14 }, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="community.createGroup.notify"
         >
-          <CheckboxSquare checked={notifyAddedFarmers} />
+          <CheckboxSquare checked={false} />
           <Text style={styles.checkboxLabel}>Notify the added farmers in the app</Text>
         </TouchableOpacity>
 
         {/* Sub-caption */}
         <Text style={styles.draftNoteText}>Saving a group as a draft is not supported.</Text>
+
+        {/* Why these notes sit at the end of the form rather than in the docked
+            footer: the footer is the designed two-button row, left as drawn. */}
+        <Text style={styles.draftNoteText}>{t('community.gap.group.unsent')}</Text>
+        <Text style={styles.draftNoteText}>{t('community.gap.group.language')}</Text>
+        <Text style={styles.draftNoteText}>{t('community.gap.group.members')}</Text>
+        {missingEditTarget ? <Text style={styles.formError}>{t('community.gap.group.noId')}</Text> : null}
+        {!allowed ? <Text style={styles.formError}>{t('community.denied.subtitle')}</Text> : null}
+        {formErrorKey !== null ? (
+          <Text style={styles.formError} testID="community.createGroup.validation">
+            {t(formErrorKey)}
+          </Text>
+        ) : null}
+        {saveError !== null && saveError !== undefined ? (
+          <Text style={styles.formError} testID="community.createGroup.error">
+            {t(adminErrorKey(saveError))}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {/* ─── Bottom Docked Actions (Screenshots 1-4) ─── */}
       <View style={styles.dockedFooter}>
         <TouchableOpacity
-          style={styles.footerBtn}
-          onPress={handleCreateGroup}
+          style={[styles.footerBtn, saveDisabled && styles.actionUnavailable]}
+          onPress={saveDisabled ? undefined : handleCreateGroup}
+          disabled={saveDisabled}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: saveDisabled, busy: isSaving }}
+          testID="community.createGroup.submit"
         >
-          <Text style={styles.footerBtnText}>{isEditing ? 'Save Changes' : 'Create Group'}</Text>
+          <Text style={styles.footerBtnText}>
+            {isSaving ? t('community.action.saving') : isEditing ? 'Save Changes' : 'Create Group'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -616,42 +622,6 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
           DROPDOWN MODALS
          ══════════════════════════════════════════════════════════════════════ */}
 
-      {/* Parent Community Modal */}
-      <Modal visible={showCommunityModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowCommunityModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.categoryDropdownHeader}>
-              <Text style={styles.categoryDropdownHeaderText}>Select</Text>
-            </View>
-            {PARENT_COMMUNITIES.filter((c) => c !== 'Select').map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  parentCommunity === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setParentCommunity(item);
-                  setShowCommunityModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    parentCommunity === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Group Category Modal (Screenshot 5) */}
       <Modal visible={showCategoryModal} transparent animationType="fade">
@@ -667,6 +637,7 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
             {GROUP_CATEGORIES.filter((c) => c !== 'Select').map((item) => (
               <TouchableOpacity
                 key={item}
+                testID={`community.createGroup.category.${item}`}
                 style={[
                   styles.dropdownMenuItem,
                   groupCategory === item && styles.dropdownMenuItemActive,
@@ -683,6 +654,42 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
                   ]}
                 >
                   {item}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Parent Community Modal (BR-59s): the active communities the server returned, and "none". */}
+      <Modal visible={showParentModal} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowParentModal(false)}>
+          <View style={styles.dropdownMenuCard}>
+            <View style={styles.categoryDropdownHeader}>
+              <Text style={styles.categoryDropdownHeaderText}>Select</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.dropdownMenuItem, parentCommunityId === null && styles.dropdownMenuItemActive]}
+              onPress={() => {
+                setParentCommunityId(null);
+                setShowParentModal(false);
+              }}
+              testID="community.createGroup.parent.none"
+            >
+              <Text style={[styles.dropdownMenuItemText, parentCommunityId === null && styles.dropdownMenuItemTextActive]}>{ADMIN_NO_VALUE}</Text>
+            </TouchableOpacity>
+            {parentOptions.map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[styles.dropdownMenuItem, parentCommunityId === option.id && styles.dropdownMenuItemActive]}
+                onPress={() => {
+                  setParentCommunityId(option.id);
+                  setShowParentModal(false);
+                }}
+                testID={`community.createGroup.parent.option.${option.id}`}
+              >
+                <Text style={[styles.dropdownMenuItemText, parentCommunityId === option.id && styles.dropdownMenuItemTextActive]}>
+                  {option.name}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -986,79 +993,7 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }
         </TouchableOpacity>
       </Modal>
 
-      {/* Farmer Filter Region Modal */}
-      <Modal visible={showFarmerFilterRegionModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowFarmerFilterRegionModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.dropdownHeaderRow}>
-              <Text style={styles.dropdownHeaderTitle}>Region or zone</Text>
-            </View>
-            {REGIONS_ZONES.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  farmerFilterRegion === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setFarmerFilterRegion(item);
-                  setShowFarmerFilterRegionModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    farmerFilterRegion === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
-      {/* Farmer Filter Type Modal */}
-      <Modal visible={showFarmerFilterTypeModal} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowFarmerFilterTypeModal(false)}
-        >
-          <View style={styles.dropdownMenuCard}>
-            <View style={styles.dropdownHeaderRow}>
-              <Text style={styles.dropdownHeaderTitle}>Farming type</Text>
-            </View>
-            {FARMING_TYPES.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[
-                  styles.dropdownMenuItem,
-                  farmerFilterType === item && styles.dropdownMenuItemActive,
-                ]}
-                onPress={() => {
-                  setFarmerFilterType(item);
-                  setShowFarmerFilterTypeModal(false);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.dropdownMenuItemText,
-                    farmerFilterType === item && styles.dropdownMenuItemTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -1285,6 +1220,15 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
 
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  formError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    marginTop: 6,
+  },
   draftNoteText: {
     ...adminType.caption,
     fontSize: 10.5,

@@ -16,6 +16,24 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { t } from '../../i18n';
+import { adminErrorKey } from '../../api/errors';
+import { useUpdateLearningArticle, useUpdateLearningTraining, useUpdateLearningVideo } from '../../api/learningHooks';
+import { useAdminQaQuestions } from '../../api/qaHooks';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import {
+  canManageLearning,
+  contentDetailView,
+  editRouteOf,
+  publishAction,
+  type ContentDto,
+  type ContentKind,
+  type MetaRow,
+} from './communityLogic';
+import { useContentItem } from './useContentItem';
+import { useReviewActions } from './useReviewActions';
+import { contentTypeOf } from './reviewLogic';
+import { questionRow } from './qaLogic';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -41,25 +59,125 @@ function PencilEditIcon({ size = 18, color = adminColors.onBrand }: { size?: num
   );
 }
 
+// ─── Metadata card ────────────────────────────────────────────────────────────
+
+/** The designed dotted card. Every row is drawn, dash included. */
+function MetaCard({ rows }: { rows: readonly MetaRow[] }) {
+  return (
+    <View style={styles.metaCard}>
+      {rows.map((row, index) => (
+        <React.Fragment key={row.labelKey}>
+          {index > 0 ? <View style={styles.dottedDivider} /> : null}
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabel}>{t(row.labelKey)}</Text>
+            <Text style={styles.metaValueBold} numberOfLines={1}>
+              {row.value}
+            </Text>
+          </View>
+        </React.Fragment>
+      ))}
+    </View>
+  );
+}
+
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface ContentItemDetailScreenProps {
   onBack: () => void;
   role?: string | undefined;
-  onNavigateChat?: () => void;
+  /** Opens a Q&A thread; the id is the question to show, absent when there is none to open. */
+  onNavigateChat?: (questionId?: string) => void;
   onNavigateMessages?: () => void;
-  onNavigateEditContent?: () => void;
+  /** Receives the opened item (undefined if it has not loaded) so the edit form updates it. */
+  onNavigateEditContent?: (content: ContentDto | undefined) => void;
+  /** Which of the four Learning Hub resources was opened, and its id. */
+  contentKind?: ContentKind | undefined;
+  contentId?: string | undefined;
+  /** docs/rbac.json codes the signed-in admin holds; absent means no fetch. */
+  can?: ((code: string) => boolean) | undefined;
 }
 
+/**
+ * One content item (BR-59m), read from whichever of the four resources the
+ * library row came from.
+ *
+ * The designed metadata rows that no Learning Hub field answers stay and carry
+ * the dash: there is no publishedAt (isPublished is a flag, not a date), no
+ * expiry, no visibility setting, and no upload pipeline to report "Processing"
+ * for — a video is a URL. `duration` is free text and is shown exactly as
+ * stored. "Featured" is real, but only for a video.
+ *
+ * The Replies panel is the Q&A questions asked about this item (BR-59u,
+ * GET /admin/qa/questions?contentType&contentId); a row opens its thread.
+ *
+ * The footer: Publish is the real PATCH (BR-59d/BR-59l) and reads its own label
+ * from the item's `isPublished`, so a published item offers Unpublish. The
+ * review button (BR-59t) is a separate axis: it submits the item for review or,
+ * for a reviewer, records the decision, and never reads or moves `isPublished`.
+ * Publishing is not blocked by review state, and a published item can be
+ * pending review at the same time. For an administrator with no designed slot
+ * for it (the non-Super-Admin footer), the button appears only when there is
+ * something to send.
+ */
 export function ContentItemDetailScreen({
   onBack,
   role,
   onNavigateChat,
   onNavigateMessages,
   onNavigateEditContent,
+  contentKind,
+  contentId,
+  can,
 }: ContentItemDetailScreenProps) {
-  const handleOpenChat = () => {
-    if (onNavigateChat) onNavigateChat();
+  const allowed = canManageLearning(can);
+  const content = useContentItem(contentKind, contentId, allowed);
+  // Edit needs an opened item whose kind has an edit form; otherwise it would
+  // open a blank form and Save there would create a duplicate.
+  const editDisabled = !allowed || contentId === undefined || editRouteOf(contentKind) === null;
+  const view = contentDetailView(content.content);
+
+  // One PATCH hook per resource that has an `isPublished` to move. All three
+  // are created every render (hooks cannot be conditional); only the one
+  // matching the opened item is ever fired. A group has no published state, so
+  // it has no hook here — publishAction disables the button for it.
+  const updateArticle = useUpdateLearningArticle();
+  const updateVideo = useUpdateLearningVideo();
+  const updateTraining = useUpdateLearningTraining();
+  const publish = publishAction(content.content);
+  const isPublishing = updateArticle.isPending || updateVideo.isPending || updateTraining.isPending;
+  const publishError = updateArticle.error ?? updateVideo.error ?? updateTraining.error;
+  const publishDisabled = publish.disabled || isPublishing || !allowed;
+  const review = useReviewActions(content.content, can);
+  // The questions asked about this item; the QA list needs the learning permission.
+  const replies = useAdminQaQuestions(
+    contentKind === undefined || contentId === undefined ? {} : { contentType: contentTypeOf(contentKind), contentId },
+    { enabled: allowed && contentKind !== undefined && contentId !== undefined },
+  );
+  const replyRows = replies.items.map(questionRow);
+  const firstQuestionId = replyRows[0]?.id;
+
+  const handlePublish = () => {
+    const item = content.content;
+    const next = publish.nextIsPublished;
+    if (item === undefined || next === null || publishDisabled) return;
+    const vars = { id: item.dto.id, body: { isPublished: next } };
+    // Only a settled mutation reports anything: the alert is in onSuccess, and
+    // a failure renders publishError instead.
+    const onSuccess = () => {
+      Alert.alert(
+        t('community.publish.success.title'),
+        t(next ? 'community.publish.published' : 'community.publish.unpublished'),
+      );
+    };
+    if (item.kind === 'video') updateVideo.mutate(vars, { onSuccess });
+    else if (item.kind === 'training') updateTraining.mutate(vars, { onSuccess });
+    else if (item.kind === 'article') updateArticle.mutate(vars, { onSuccess });
+  };
+
+  const footerNoteKey = publish.noteKey;
+
+  const handleOpenChat = (questionId?: string) => {
+    if (onNavigateChat) onNavigateChat(questionId);
     else if (onNavigateMessages) onNavigateMessages();
   };
 
@@ -79,15 +197,19 @@ export function ContentItemDetailScreen({
           >
             <BackArrowWhiteIcon size={20} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            Mulching for water retention
+          <Text style={styles.headerTitle} numberOfLines={1} testID="community.contentItem.title">
+            {view.title}
           </Text>
           {/* Edit Pencil Icon Button: redirects directly to Create Content with resumed details (No popup!) */}
           <TouchableOpacity
-            style={styles.headerEditBtn}
-            onPress={onNavigateEditContent}
+            style={[styles.headerEditBtn, editDisabled && styles.actionUnavailable]}
+            onPress={editDisabled ? undefined : () => onNavigateEditContent?.(content.content)}
+            disabled={editDisabled}
             activeOpacity={0.8}
             accessibilityLabel="Edit content details"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: editDisabled }}
+            testID="community.contentItem.edit"
           >
             <PencilEditIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
@@ -100,161 +222,149 @@ export function ContentItemDetailScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ─── Metadata Card (Matching Screenshot 1 top visible rows) ─── */}
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Published</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Expires</Text>
-            <Text style={styles.metaValueBold}>—</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Visibility</Text>
-            <Text style={styles.metaValueBold}>Everyone</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Featured</Text>
-            <Text style={styles.metaValueBold}>No</Text>
-          </View>
-        </View>
+        <MetaCard rows={view.shortMetaRows} />
 
         {/* ─── Description Section (Screenshot 1) ─── */}
         <Text style={styles.sectionHeading}>Description</Text>
-        <Text style={styles.descriptionText}>A demonstration of organic practices.</Text>
+        <Text style={styles.descriptionText}>{view.description}</Text>
 
-        {/* ─── Video Section (Screenshot 1) ─── */}
-        <Text style={styles.sectionHeading}>Video</Text>
-        <View style={styles.metaCard}>
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Source</Text>
-            <Text style={styles.metaValueBold}>Link</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>File or link</Text>
-            <Text style={styles.metaValueBold} numberOfLines={1}>
-              https://video.example.org/organic
+        {/* ─── Article body: the full content, which only an article has ─── */}
+        {view.body !== null ? (
+          <>
+            <Text style={styles.sectionHeading}>{t('community.section.body')}</Text>
+            <Text style={styles.descriptionText} testID="community.contentItem.body">
+              {view.body}
             </Text>
-          </View>
-          <View style={styles.dottedDivider} />
+          </>
+        ) : null}
 
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Duration</Text>
-            <Text style={styles.metaValueBold}>15 min 0 s</Text>
-          </View>
-          <View style={styles.dottedDivider} />
-
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Processing</Text>
-            <Text style={styles.metaValueBold}>Ready</Text>
-          </View>
-        </View>
+        {/* ─── Video Section (Screenshot 1): drawn only for a video ─── */}
+        {view.videoRows !== null ? (
+          <>
+            <Text style={styles.sectionHeading}>{t('community.section.video')}</Text>
+            <MetaCard rows={view.videoRows} />
+          </>
+        ) : null}
 
         {/* ─── Replies Section (Screenshot 1) ─── */}
         <Text style={styles.sectionHeading}>Replies</Text>
         <View style={styles.repliesList}>
-          {/* Reply 1: Selvi */}
-          <TouchableOpacity
-            style={styles.replyCard}
-            onPress={handleOpenChat}
-            activeOpacity={0.7}
-          >
-            <View style={styles.replyHeaderRow}>
-              <Text style={styles.replySender}>Selvi (Farmer)</Text>
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>Unread</Text>
-              </View>
-            </View>
-            <Text style={styles.replyPreview}>How often should the mulch layer be replaced?</Text>
-            <Text style={styles.replyTimestamp}>12 Oct 2026, 14:40</Text>
-          </TouchableOpacity>
-
-          {/* Reply 2: Ramesh Kumar */}
-          <TouchableOpacity
-            style={styles.replyCard}
-            onPress={handleOpenChat}
-            activeOpacity={0.7}
-          >
-            <View style={styles.replyHeaderRow}>
-              <Text style={styles.replySender}>Ramesh Kumar (Farmer)</Text>
-              <View style={styles.repliedBadge}>
-                <Text style={styles.repliedBadgeText}>Replied</Text>
-              </View>
-            </View>
-            <Text style={styles.replyPreview}>
-              Does mulching work for tomato beds too, or only root crops?
-            </Text>
-            <Text style={styles.replyTimestamp}>11 Oct 2026, 09:12</Text>
-          </TouchableOpacity>
-
-          {/* Reply 3: Meena */}
-          <TouchableOpacity
-            style={styles.replyCard}
-            onPress={handleOpenChat}
-            activeOpacity={0.7}
-          >
-            <View style={styles.replyHeaderRow}>
-              <Text style={styles.replySender}>Meena (Farmer)</Text>
-              <View style={styles.repliedBadge}>
-                <Text style={styles.repliedBadgeText}>Replied</Text>
-              </View>
-            </View>
-            <Text style={styles.replyPreview}>
-              Thanks, this helped with my cabbage bed too.
-            </Text>
-            <Text style={styles.replyTimestamp}>13 Oct 2026, 08:05</Text>
-          </TouchableOpacity>
+          {!allowed ? (
+            <AdminEmptyState title={t('community.denied.title')} subtitle={t('community.denied.subtitle')} />
+          ) : content.isLoading || (replyRows.length === 0 && replies.isLoading) ? (
+            <AdminLoadingState />
+          ) : content.error !== null && content.error !== undefined ? (
+            <AdminErrorState error={content.error} onRetry={content.refetch} />
+          ) : replyRows.length === 0 && replies.error !== null && replies.error !== undefined ? (
+            <AdminErrorState error={replies.error} onRetry={replies.refresh} />
+          ) : replyRows.length === 0 ? (
+            <AdminEmptyState title={t('community.empty.replies')} />
+          ) : (
+            replyRows.map((row) => (
+              <TouchableOpacity
+                key={row.id}
+                style={styles.replyCard}
+                onPress={() => handleOpenChat(row.id)}
+                activeOpacity={0.7}
+                testID={`community.contentItem.reply.${row.id}`}
+              >
+                <View style={styles.replyHeaderRow}>
+                  <Text style={styles.replySender}>{row.sender}</Text>
+                  {row.replied ? (
+                    <View style={styles.repliedBadge}>
+                      <Text style={styles.repliedBadgeText}>{t('community.replies.replied')}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={styles.replyPreview} numberOfLines={2}>
+                  {row.title}
+                </Text>
+                <Text style={styles.replyTimestamp}>{row.timestamp}</Text>
+              </TouchableOpacity>
+            ))
+          )}
         </View>
       </ScrollView>
 
       {/* ─── Docked Bottom Actions (Super Admin Image 3: Approval + Publish + Cancel) ─── */}
       {role === 'SUPER_ADMIN' ? (
         <View style={styles.dockedFooterTriple}>
-          <TouchableOpacity
-            style={styles.approvalSolidBtn}
-            onPress={() => {
-              Alert.alert('Content Approved', 'This content has been approved and verified.');
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.approvalSolidBtnText}>Approval</Text>
-          </TouchableOpacity>
+          {footerNoteKey !== null ? <Text style={styles.footerNote}>{t(footerNoteKey)}</Text> : null}
+          {review.error !== null && review.error !== undefined ? (
+            <Text style={styles.footerError} testID="community.contentItem.reviewError">
+              {t(adminErrorKey(review.error))}
+            </Text>
+          ) : null}
+          {publishError !== null && publishError !== undefined ? (
+            <Text style={styles.footerError} testID="community.contentItem.publishError">
+              {t(adminErrorKey(publishError))}
+            </Text>
+          ) : null}
 
-          <TouchableOpacity
-            style={styles.publishOutlineBtn}
-            onPress={() => {
-              Alert.alert('Content Published', 'This content has been published to the Knowledge Library.');
-            }}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.publishOutlineBtnText}>Publish</Text>
-          </TouchableOpacity>
+          <View style={styles.footerActionsRow}>
+            <TouchableOpacity
+              style={[styles.approvalSolidBtn, review.disabled && styles.actionUnavailable]}
+              onPress={review.disabled ? undefined : review.onPress}
+              disabled={review.disabled}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: review.disabled, busy: review.isPending }}
+              testID="community.contentItem.approval"
+            >
+              <Text style={styles.approvalSolidBtnText}>{review.isPending ? t('community.action.saving') : t(review.action.labelKey)}</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.cancelOutlineBtn}
-            onPress={onBack}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.cancelOutlineBtnText}>Cancel</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.publishOutlineBtn, publishDisabled && styles.actionUnavailable]}
+              onPress={handlePublish}
+              disabled={publishDisabled}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: publishDisabled, busy: isPublishing }}
+              testID="community.contentItem.publish"
+            >
+              <Text style={styles.publishOutlineBtnText}>
+                {isPublishing ? t('community.action.saving') : t(publish.labelKey)}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelOutlineBtn}
+              onPress={onBack}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelOutlineBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.dockedFooter}>
           <TouchableOpacity
-            style={styles.primarySolidBtn}
-            onPress={handleOpenChat}
+            style={[styles.primarySolidBtn, firstQuestionId === undefined && onNavigateMessages === undefined && styles.actionUnavailable]}
+            onPress={
+              firstQuestionId === undefined && onNavigateMessages === undefined ? undefined : () => handleOpenChat(firstQuestionId)
+            }
+            disabled={firstQuestionId === undefined && onNavigateMessages === undefined}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: firstQuestionId === undefined && onNavigateMessages === undefined }}
+            testID="community.contentItem.viewChat"
           >
             <Text style={styles.primarySolidBtnText}>View chat</Text>
           </TouchableOpacity>
+          {review.action.kind !== 'none' ? (
+            <TouchableOpacity
+              style={[styles.publishOutlineBtn, review.disabled && styles.actionUnavailable]}
+              onPress={review.disabled ? undefined : review.onPress}
+              disabled={review.disabled}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: review.disabled, busy: review.isPending }}
+              testID="community.contentItem.approval"
+            >
+              <Text style={styles.publishOutlineBtnText}>{review.isPending ? t('community.action.saving') : t(review.action.labelKey)}</Text>
+            </TouchableOpacity>
+          ) : null}
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={onBack}
@@ -482,9 +592,28 @@ const styles = StyleSheet.create({
     borderTopColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 12,
+    // A column so the notes and the server's failure sit above the designed
+    // row of buttons, which keeps its own layout unchanged.
+    flexDirection: 'column',
+    gap: 6,
+    ...adminShadow.md,
+  },
+  footerActionsRow: {
     flexDirection: 'row',
     gap: 10,
-    ...adminShadow.md,
+  },
+  footerNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  footerError: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '700',
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
   },
   approvalSolidBtn: {
     flex: 1.2,

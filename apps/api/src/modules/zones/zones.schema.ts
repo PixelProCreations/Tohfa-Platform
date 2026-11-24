@@ -37,6 +37,15 @@ export const adminZoneListItemSchema = z
   .strict();
 export type AdminZoneListItem = z.infer<typeof adminZoneListItemSchema>;
 
+export const publicZoneListItemSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string(),
+    warehouseTown: z.string(),
+  })
+  .strict();
+export type PublicZoneListItem = z.infer<typeof publicZoneListItemSchema>;
+
 export const zoneManagerSchema = z
   .object({
     userId: z.string().uuid(),

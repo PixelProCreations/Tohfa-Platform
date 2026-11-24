@@ -39,21 +39,27 @@ import {
   toPayoutDestination,
 } from './farmerMappers';
 import {
+  createFarmer,
   getFarmer,
   getFarmerRating,
   getFarmerSubscription,
+  getFarmerSummary,
   listFarmerBankAccounts,
   listFarmerDocuments,
   listFarmers,
   updateFarmer,
+  updateFarmerStatus,
   verifyFarmerDocument,
   type AdminFarmerAccountStatus,
   type AdminFarmerDetailDto,
   type AdminFarmerDocumentDto,
   type AdminFarmerListItemDto,
   type AdminFarmerListPage,
+  type CreateFarmerPayload,
+  type FarmerSummaryDto,
   type RatingTierCode,
   type UpdateAdminFarmerBody,
+  type UpdateFarmerStatusPayload,
 } from './farmers';
 import type {
   ApplicationDetailView,
@@ -65,7 +71,7 @@ import type {
   FarmerSubscriptionView,
   PayoutDestinationView,
 } from './farmerTypes';
-import { useAdminMutation, useAdminQuery, useCursorList, useIdempotencyKey, type CursorList } from './hooks';
+import { useAdminMutation, useAdminQuery, useCursorList, useIdempotencyKey, type AdminQueryOptions, type CursorList } from './hooks';
 import { adminKeys, applicationKeys, farmerKeys, FARMER_APPLICATIONS_MODULE, FARMERS_MODULE } from './queryKeys';
 
 /** What a data screen needs to pick an AsyncState and to refresh. */
@@ -109,11 +115,13 @@ export interface FarmerListFilters {
 export function useFarmerList(
   warehouseId: string | undefined,
   filters: FarmerListFilters = {},
+  options: AdminQueryOptions = {},
 ): CursorList<FarmerRowView, AdminFarmerListPage> {
   return useCursorList<AdminFarmerListItemDto, FarmerRowView, AdminFarmerListPage>(
     farmerKeys.list(warehouseId, filters),
     (cursor, signal) => listFarmers({ ...filters, cursor }, signal),
     toFarmerRow,
+    options,
   );
 }
 
@@ -251,6 +259,24 @@ export function useVerifyFarmerDocument(farmerId: string | undefined): LiveActio
   return useAction(mutation.mutate, mutation);
 }
 
+/** POST /admin/farmers/{id}/status (farmer.account.disable / reactivate / edit). */
+export function useUpdateFarmerStatus(farmerId: string | undefined): LiveAction<UpdateFarmerStatusPayload, AdminFarmerDetailDto> {
+  const mutation = useAdminMutation<UpdateFarmerStatusPayload, AdminFarmerDetailDto>({
+    mutationFn: (body) => (farmerId === undefined ? noId() : updateFarmerStatus(farmerId, body)),
+    invalidates: [adminKeys.module(FARMERS_MODULE)],
+  });
+  return useAction(mutation.mutate, mutation);
+}
+
+/** POST /admin/farmers (farmer.profile.edit). */
+export function useCreateFarmer(): LiveAction<CreateFarmerPayload, AdminFarmerDetailDto> {
+  const mutation = useAdminMutation<CreateFarmerPayload, AdminFarmerDetailDto>({
+    mutationFn: (body) => createFarmer(body),
+    invalidates: [adminKeys.module(FARMERS_MODULE)],
+  });
+  return useAction(mutation.mutate, mutation);
+}
+
 // ---------------------------------------------------------------------------
 // Applications
 // ---------------------------------------------------------------------------
@@ -337,4 +363,19 @@ export function useRejectApplication(applicationId: string | undefined): LiveDec
 /** farmer.application.request_info. The design dropped the button; the client stays available. */
 export function useRequestApplicationInfo(applicationId: string | undefined): LiveDecision<RequestInfoApplicationBody> {
   return useDecision(applicationId, requestFarmerApplicationInfo);
+}
+
+export interface LiveFarmerSummary extends LiveQueryState {
+  summary: FarmerSummaryDto | undefined;
+}
+
+export function useFarmerSummary(warehouseId: string | undefined): LiveFarmerSummary {
+  const query = useAdminQuery<FarmerSummaryDto>(
+    ['admin', 'farmers', 'summary', warehouseId ?? 'all'],
+    (signal) => getFarmerSummary(signal),
+  );
+  return {
+    ...queryState(query, true),
+    summary: query.data,
+  };
 }

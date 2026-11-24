@@ -19,8 +19,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
-
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import { BackArrowIcon, FilterSlidersIcon, SearchIcon } from '../../components/AdminIcons';
 import { AdminStatusBadge } from '../../components';
@@ -79,8 +77,6 @@ export function AlertThresholdsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
       <View style={styles.header}>
         <TouchableOpacity
           onPress={onBack}

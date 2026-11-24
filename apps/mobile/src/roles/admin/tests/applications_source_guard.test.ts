@@ -48,6 +48,45 @@ describe('application review screens: source guard', () => {
     expect(offenders(/fontFamily\s*:/)).toEqual([]);
   });
 
+  /**
+   * The 2026-11-19 design's visual treatment was ported onto the review
+   * screen (card radii, hairlines, the segmented header pills, the green
+   * farming chips, the dark boundary panel, the orange action bar). The
+   * design file states all of that in raw hex and raw pixel numbers; none of
+   * those numbers may land here. Every colour, size, gap and radius on this
+   * screen resolves through adminColors / adminSpacing / adminRadius /
+   * adminType, so a design change is a token change, not a hunt through JSX.
+   */
+  it('the review screen states no raw colour, spacing or radius literal', () => {
+    const SCREEN = FILES.filter((f) => {
+      const rel = relName(f);
+      return rel === 'AdminApplicationDetailScreen.tsx' || rel.startsWith('detail/') || rel === 'applications/ApplicationParts.tsx';
+    });
+    expect(SCREEN.length).toBeGreaterThan(8);
+    const found: string[] = [];
+    const LITERAL = [
+      // colour
+      /(['"`])#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3,4})\1|\brgba?\s*\(/,
+      // spacing
+      /\b(?:padding|margin)(?:Top|Bottom|Left|Right|Vertical|Horizontal|Start|End)?\s*:\s*-?[0-9]/,
+      /\b(?:gap|rowGap|columnGap)\s*:\s*-?[0-9]/,
+      // radius and box size
+      /\bborder(?:Top|Bottom)?(?:Left|Right|Start|End)?Radius\s*:\s*[0-9]/,
+      /\b(?:width|height|minHeight|maxHeight|minWidth|maxWidth)\s*:\s*[0-9]/,
+      // type
+      /fontSize\s*:\s*[0-9]/,
+      /fontFamily\s*:/,
+    ];
+    for (const file of SCREEN) {
+      const src = code(read(file));
+      for (const pattern of LITERAL) {
+        const hit = pattern.exec(src);
+        if (hit !== null) found.push(`${relName(file)}: ${hit[0]}`);
+      }
+    }
+    expect(found, 'use adminColors / adminSpacing / adminRadius / adminType instead of a literal').toEqual([]);
+  });
+
   it('no role strings, no fail-open `can`, no `as any`', () => {
     expect(offenders(/\b(SUPER_ADMIN|TOHFA_ADMIN|FARMER_ADMIN|MAIN_WH_ADMIN|SUB_WH_ADMIN)\b/)).toEqual([]);
     expect(offenders(/\brole\??\s*[:=]/)).toEqual([]);
@@ -57,15 +96,82 @@ describe('application review screens: source guard', () => {
   });
 
   it('no spec caption, demo fixtures, Request More Info or cosmetic blocked banner', () => {
-    expect(offenders(/M3-S03b/, false)).toEqual([]);
+    expect(offenders(/M3-S03/, false)).toEqual([]);
     expect(offenders(/DEMO_PENDING_APPLICATIONS|Sathish|APP-2026|1\.8 acres/)).toEqual([]);
+    // The Request More Info section is drawn by the 2026-11-19 design, but it is
+    // layout only: nothing here may call the request-info client or the host's
+    // legacy callback until the owner decides the wiring.
     expect(offenders(/useRequestApplicationInfo|RequestInfo|onRequestMoreInfo\s*\(/)).toEqual([]);
     expect(offenders(/isBlocked|blockedAlert/)).toEqual([]);
+  });
+
+  /**
+   * The 2026-11-19 redesign (origin/Superadmin-main) is a pure mock: every
+   * name, file, id, date and coordinate in it is a placeholder with no API
+   * behind it. None of them may be copied across, not as a value and not as a
+   * `??` fallback.
+   */
+  it('no literal from the 2026-11-19 design file survives in the source', () => {
+    const fixtures = [
+      /Great Earth Organic Farm/,
+      /\bKumar\b/,
+      /TOHFA-2026-4817/,
+      /aadhaar_suresh|land_deed\.pdf/,
+      /PGS Organic|NPOP certificate/,
+      /3782\s?4591\s?0023/,
+      /11\.4064|76\.6932/,
+      /98765 43210/,
+      /Kotagiri Village/,
+      /12 \/ 06 \/ 1985/,
+      /0[59] Oct 2026|10 Oct 2026|15 Mar 2027/,
+      /All requirements met\. Ready for approval/,
+      /Identity proof re-upload/,
+      /Please re-upload a clear scan/,
+      // The redesign's remaining placeholders, from the sections ported in the
+      // second pass (personal details, farm details, locations, documents).
+      /Sathish/,
+      /Thottam Street/,
+      /Ooty, zone A/,
+      /2\.45 ac|1\.02 ha|0\.85 ha|0\.58 ha/,
+      /Zone [ABC]\b/,
+      /\bTomato\b|\bCarrot\b|\bCabbage\b/,
+      /±\s?8\s?m|1\.2 MB|3\.4 MB|2\.1 MB/,
+      /fmb-0101|kyc-doc-1|PLT-00124/,
+      /99801 00100/,
+      /Review in progress|Documents Under Review'/,
+      // The audit flow the design carries is deliberately not ported.
+      /waiting_audit|schedule_form|Schedule Audit|Audit Scheduled/,
+      // Its locally-held tracking state, which no endpoint can persist.
+      /setTrackingStatus|trackingOptions|handleSelectTrackingStatus/,
+    ];
+    for (const fixture of fixtures) {
+      expect(offenders(fixture, false), `design fixture ${String(fixture)}`).toEqual([]);
+    }
   });
 
   it('every unwired design control is marked DESIGN-ONLY', () => {
     const all = FILES.map(read).join('\n');
     expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.markVerified/);
     expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.saveProgress/);
+    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.updateTracking/);
+    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.sendMoreInfo/);
+    // The design's 02/03 header pills are signposts to screens nothing can reach.
+    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.modePill/);
+  });
+
+  /**
+   * The second pass draws the applicant's own answers (farming type, FMB
+   * state, tracking). None of them may become something a reviewer can change
+   * from here: there is no endpoint for any of it, and a control that looks
+   * editable claims one exists.
+   */
+  it('nothing newly drawn is interactive: no chip, pill or toggle carries an onPress', () => {
+    const all = FILES.map(read).join('\n');
+    for (const testId of ['farmerApps.farmingTypeChip', 'farmerApps.modePill', 'farmerApps.otpBadge', 'farmerApps.stepBadge']) {
+      const block = new RegExp(`testID="${testId.replace('.', '\\.')}"[\\s\\S]{0,400}?>`);
+      const match = block.exec(all);
+      expect(match, `${testId} is not drawn`).not.toBeNull();
+      expect(match![0], `${testId} has an onPress`).not.toMatch(/onPress/);
+    }
   });
 });
