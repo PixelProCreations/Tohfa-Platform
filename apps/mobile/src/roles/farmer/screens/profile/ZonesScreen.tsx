@@ -25,6 +25,9 @@ import {
   type FarmBoundaryMapOverlay,
   ScreenStatusBar,
   SafeAreaView,
+  ModalSafeArea,
+  EmptyState,
+  appAlert,
 } from '@tohfa/mobile-ui';
 import {
   useTheme,
@@ -920,9 +923,9 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
           />
         ) : (
           <View style={styles.centerFill}>
-            <Text style={[styles.emptyText, { color: colors.textSubtle }]}>
-              {farmsError ? '' : t('farmer.zones.noFarms')}
-            </Text>
+            {farmsError ? null : (
+              <EmptyState variant="screen" iconName="place" title={t('farmer.zones.noFarms')} />
+            )}
           </View>
         )}
 
@@ -1113,7 +1116,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
                 {zonesLoading ? (
                   <Skeleton height={MIN_TOUCH_TARGET * 3} width="100%" />
                 ) : zones.length === 0 ? (
-                  <Text style={[styles.emptyText, { color: colors.textSubtle }]}>{t('farmer.zones.empty')}</Text>
+                  <EmptyState variant="compact" iconName="park" title={t('farmer.zones.empty')} />
                 ) : (
                   <>
                     {/* Paging carousel: see the ZONE_CARD_WIDTH_RATIO docblock above for why
@@ -1352,11 +1355,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: weights.semibold,
     marginTop: spacing.sm,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    textAlign: 'center',
-    paddingVertical: spacing.md,
   },
 
   farmSelectorSkeleton: { marginTop: spacing.md },

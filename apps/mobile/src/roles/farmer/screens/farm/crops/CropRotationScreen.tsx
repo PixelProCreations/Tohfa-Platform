@@ -9,9 +9,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
-import { Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
+import { t } from '../../../../../i18n/farmer';
 import { getPlots } from '../../../api/farms';
 import { getCropRotation, type CropRotationEntry, type CoverCropWindow } from '../../../api/soil';
 
@@ -198,7 +199,7 @@ export function CropRotationScreen({ farmId, onBack }: CropRotationScreenProps):
       >
         {/* ── Zone Rotation Cards ── */}
         {rotationData.length === 0 ? (
-          <Text style={styles.emptyText}>No crop rotation plan recorded yet for this zone.</Text>
+          <EmptyState title={t('farmer.cropRotation.empty')} variant="screen" />
         ) : (
         rotationData.map((item) => (
           <View key={item.zoneId} style={styles.zoneCard}>
@@ -252,12 +253,6 @@ const styles = StyleSheet.create({
     color: P.red600,
     fontSize: typography.body,
     fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

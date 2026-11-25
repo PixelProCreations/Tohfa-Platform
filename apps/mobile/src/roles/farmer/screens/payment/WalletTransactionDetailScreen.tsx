@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
+import { t } from '../../../../i18n/farmer';
 import Svg, { Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
 
@@ -121,9 +122,12 @@ export function WalletTransactionDetailScreen({
             </View>
           </View>
         </View>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateText}>This transaction could not be opened.</Text>
-        </View>
+        <EmptyState
+          variant="screen"
+          iconName="account_balance_wallet"
+          title={t('farmer.wallet.detail.notFound')}
+          style={styles.emptyState}
+        />
       </SafeAreaView>
     );
   }
@@ -247,14 +251,6 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  emptyStateText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
   },
   headerTitle: {
     fontSize: typography.title,

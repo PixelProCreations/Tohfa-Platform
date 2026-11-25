@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 function NavDashboardIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
   return (
@@ -335,6 +337,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
 
         {/* Farmer Cards */}
         <View style={styles.listSection}>
+          {filteredFarmers.length === 0 ? <AdminEmptyState variant="compact" title={t('allFarmers.empty.title')} subtitle={t('allFarmers.empty.message')} /> : null}
           {filteredFarmers.map((item) => {
             const isDisabled = item.status === 'DISABLED';
             return (

@@ -65,7 +65,19 @@ export interface Tokens {
   readonly lineHeight: { readonly body: number; readonly heading: number };
   readonly spacing: Readonly<Record<SpacingName, number>>;
   readonly radius: Readonly<Record<RadiusName, number>>;
-  readonly size: { readonly minTouchTarget: number; readonly adminButtonHeight: number };
+  readonly size: {
+    readonly minTouchTarget: number;
+    readonly adminButtonHeight: number;
+    readonly buttonSmallHeight: number;
+    readonly emptyStateIcon: number;
+    readonly emptyStateIconCompact: number;
+    readonly emptyStateBadge: number;
+    readonly emptyStateBadgeCompact: number;
+    readonly emptyStateTextMaxWidth: number;
+    readonly emptyStateActionMinWidth: number;
+  };
+  /** The light wash that pairs with each role's `roleColor` (icon badges). */
+  readonly roleTintColor: Readonly<Record<RoleCodeWithColor, ColorName>>;
   readonly fontStack: Readonly<Record<FontStackName, string>>;
   readonly shadow: Readonly<Record<ShadowName, ShadowToken>>;
 }
@@ -103,6 +115,11 @@ export function typeStyle(name: TypeStyleName): TypeStyle {
 export function roleHex(role: RoleCodeWithColor): string {
   const colorName = tokens.roleColor[role];
   return (tokens.color?.[colorName] ?? lookup(colorName as any))?.hex ?? '#3F7D32';
+}
+
+/** Resolve a role code to the soft tint that pairs with its `roleHex` (badge fills). */
+export function roleTintHex(role: RoleCodeWithColor): string {
+  return lookup(tokens.roleTintColor[role]).hex;
 }
 
 /** Hex of a raw brand colour. */

@@ -11,6 +11,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { TOP_UP_HISTORY, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
 import type { TopUpHistoryRow, TopUpStatus, WalletTransactionRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -144,7 +145,7 @@ export function TopUpHistoryScreen({
         />
 
         {filtered.length === 0 ? (
-          <EmptyState title="No top-ups found" subtitle="Try another search or warehouse." />
+          <EmptyState title={t('wallet.history.empty.title')} subtitle={t('wallet.history.empty.subtitle')} />
         ) : (
           filtered.map((row) => (
             <TouchableOpacity

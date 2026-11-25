@@ -13,6 +13,9 @@
  * three response shapes is a separate, reviewed change.
  */
 import { setAccessToken } from '../../../shell/api/client';
+import { needsCustomerOnboarding } from '../../../shell/auth/customerOnboarding';
+import { forgetEntryRole, rememberEntryRole } from '../../../shell/auth/entryRole';
+import { unregisterPushForSession } from '../../../shell/notifications/push';
 import {
   fetchCurrentUser as apiFetchCurrentUser,
   forgotPassword as apiForgotPassword,
@@ -204,7 +207,93 @@ export async function logout(): Promise<void> {
   } catch {
     // Ignore network error on logout
   } finally {
+    await forgetEntryRole();
     await clearTokens();
     setAccessToken(null);
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * Passwordless customer sign-in (BR-153) -- the ONLY customer login path.
+ * The password/`/auth/otp/*` functions above are the pre-BR-153 flow, kept
+ * for their existing tests; new screens must not use them.
+ * ------------------------------------------------------------------ */
+
+export type { CustomerOtpChallenge, CustomerOtpVerifyResponse };
+
+/** BR-32/BR-153: the customer OTP is exactly 6 digits. */
+export const CUSTOMER_OTP_LENGTH = 6;
+
+/** 10-digit Indian mobile, first digit 6-9 (API pattern `^\+91[6-9][0-9]{9}$`). */
+export function isValidCustomerMobile(input: string): boolean {
+  return /^[6-9][0-9]{9}$/.test(stripIndianPrefix(input));
+}
+
+/** `98765 43210` / `+919876543210` / `09876543210` -> `+919876543210`. */
+export function toE164IndianMobile(input: string): string {
+  return `+91${stripIndianPrefix(input)}`;
+}
+
+function stripIndianPrefix(input: string): string {
+  const digits = input.replace(/[^0-9]/g, '');
+  if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits;
+}
+
+export function isValidCustomerOtp(code: string): boolean {
+  return new RegExp(`^[0-9]{${CUSTOMER_OTP_LENGTH}}$`).test(code.trim());
+}
+
+/** Step 1: `POST /auth/customer/otp/send`. Feed the challenge to `renderOtpState()` for the timer. */
+export function sendCustomerLoginOtp(mobile: string): Promise<CustomerOtpChallenge> {
+  return apiSendCustomerOtp({ mobile: toE164IndianMobile(mobile) });
+}
+
+/** Where a signed-in customer goes next; names match roles/farmer/App.tsx ScreenName. */
+export type CustomerPostLoginRoute = 'CustomerProfileName' | 'CustomerMain';
+
+export function resolveCustomerRouteAfterLogin(res: {
+  isNewUser?: boolean | undefined;
+  user?: { profileComplete?: boolean | undefined } | undefined;
+}): CustomerPostLoginRoute {
+  return needsCustomerOnboarding({ isNewUser: res.isNewUser, profileComplete: res.user?.profileComplete })
+    ? 'CustomerProfileName'
+    : 'CustomerMain';
+}
+
+export interface VerifyCustomerLoginInput {
+  mobile: string;
+  challengeId: string;
+  otp: string;
+  preferredLocale?: 'en' | 'ta' | undefined;
+}
+
+export interface CustomerLoginResult {
+  response: CustomerOtpVerifyResponse;
+  route: CustomerPostLoginRoute;
+}
+
+/**
+ * Step 2: `POST /auth/customer/otp/verify`. On success the tokens are written
+ * to THE shared secure store (the same one the client's refresh-on-401 reads)
+ * and the in-memory access token is set, so every following call is
+ * authenticated. Errors are thrown as `ApiError` (OTP_INVALID / OTP_EXPIRED /
+ * OTP_LOCKED / FORBIDDEN for a non-customer number / RATE_LIMITED) -- show
+ * them with `mapProblem()` from ./problem.
+ */
+export async function verifyCustomerLoginOtp(input: VerifyCustomerLoginInput): Promise<CustomerLoginResult> {
+  const response = await apiVerifyCustomerOtp({
+    mobile: toE164IndianMobile(input.mobile),
+    challengeId: input.challengeId,
+    otp: input.otp.trim(),
+    ...(input.preferredLocale === undefined ? {} : { preferredLocale: input.preferredLocale }),
+  });
+  await saveTokens(response.accessToken, response.refreshToken);
+  setAccessToken(response.accessToken);
+  // BR-135: this is the customer entry. A FARMER + CUSTOMER account signed in
+  // here (the server issues it a CUSTOMER-only session) must reopen the
+  // customer side on a cold start, not the farmer side /auth/me also lists.
+  await rememberEntryRole('CUSTOMER');
+  return { response, route: resolveCustomerRouteAfterLogin(response) };
 }

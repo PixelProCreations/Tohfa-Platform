@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../../../i18n/farmer';
 import { fetchMe, resolveRouteAfterAuth } from '../../api/auth';
 import { getAccessToken } from '../../storage/tokenStorage';
+import { readEntryRole, rolesForSession } from '../../../../shell/auth/entryRole';
 import { GradientOverlay } from './GradientOverlay';
 import { authPalette as P, typography } from '../../theme';
 import tohfaLogo from '../../assets/tohfa-logo.png';
@@ -85,7 +86,10 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
           return;
         }
 
-        const route = resolveRouteAfterAuth(me);
+        // BR-135: reopen the side this session was signed in through (farmer
+        // Login or customer sign-in); /auth/me lists every role the account holds.
+        const entry = await readEntryRole();
+        const route = resolveRouteAfterAuth({ ...me, roles: rolesForSession(entry, me.roles) });
         onNavigate(route.name, route.params);
       } catch {
         if (active) onNavigate('Welcome');

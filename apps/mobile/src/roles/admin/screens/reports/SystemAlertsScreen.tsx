@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 const PALETTE = {
   pageBg: '#FAF8F5',
@@ -372,10 +374,7 @@ export function SystemAlertsScreen({
           ))}
 
           {displayedAlerts.length === 0 && (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No active alerts</Text>
-              <Text style={styles.emptySub}>All platform thresholds are operating within safe parameters.</Text>
-            </View>
+            <AdminEmptyState variant="compact" title={t('reports.systemAlerts.empty.title')} subtitle={t('reports.systemAlerts.empty.message')} />
           )}
         </View>
 
@@ -524,26 +523,6 @@ const styles = StyleSheet.create({
   dismissBtn: {
     padding: 4,
     marginTop: 1,
-  },
-  emptyCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    borderWidth: 1.2,
-    borderColor: '#F0ECE6',
-    padding: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.textPrimary,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    textAlign: 'center',
   },
   configureBtn: {
     backgroundColor: PALETTE.cardBg,

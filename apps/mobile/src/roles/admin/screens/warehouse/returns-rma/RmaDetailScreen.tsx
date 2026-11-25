@@ -19,9 +19,10 @@
  */
 // Design id: M10-S02
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 
 import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
 import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { returnActions } from './mappers';
 import {
@@ -124,7 +125,7 @@ export function RmaDetailScreen({
             <ReturnItemsList items={d.items} />
 
             <SectionTitle>{t('returns.detail.timeline')}</SectionTitle>
-            {timeline.length === 0 ? <Text style={styles.muted}>{t('returns.detail.timelineEmpty')}</Text> : <ReturnsTimeline items={timeline} />}
+            {timeline.length === 0 ? <AdminEmptyState variant="compact" iconName={null} title={t('returns.detail.timelineEmpty')} /> : <ReturnsTimeline items={timeline} />}
           </ScrollView>
         )}
       </ReturnDetailGate>

@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
@@ -560,10 +560,12 @@ export function NotificationsScreen({
           })}
 
           {filteredNotifications.length === 0 && (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>{t('farmer.notifications.empty.title')}</Text>
-              <Text style={styles.emptySubtitle}>{t('farmer.notifications.empty.subtitle')}</Text>
-            </View>
+            <EmptyState
+              variant="screen"
+              iconName="notifications"
+              title={t('farmer.notifications.empty.title')}
+              message={t('farmer.notifications.empty.subtitle')}
+            />
           )}
         </ScrollView>
       )}
@@ -777,20 +779,5 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     color: P.twGray400,
     marginTop: 6,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.twGray700,
-  },
-  emptySubtitle: {
-    fontSize: typography.body,
-    color: P.twGray400,
-    marginTop: 4,
   },
 });

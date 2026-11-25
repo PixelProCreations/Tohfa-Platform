@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
@@ -408,9 +408,11 @@ export function NewFarmDiaryEntryStep2Screen({
             </TouchableOpacity>
           </View>
         ) : categories.length === 0 ? (
-          <View style={styles.statusBox}>
-            <Text style={styles.statusText}>{t('farmer.farmDiary.newEntry.step2.noCategoriesEmpty')}</Text>
-          </View>
+          <EmptyState
+            variant="compact"
+            iconName="inbox"
+            title={t('farmer.farmDiary.newEntry.step2.noCategoriesEmpty')}
+          />
         ) : (
           <>
             {/* ── 1. Category Section Heading ── */}
@@ -463,9 +465,11 @@ export function NewFarmDiaryEntryStep2Screen({
                 {/* ── Sub-Activity Radio Options List ── */}
                 <View style={styles.subActivityList}>
                   {activeCategory.subActivities.length === 0 ? (
-                    <Text style={styles.statusText}>
-                      {t('farmer.farmDiary.newEntry.step2.noSubActivities')}
-                    </Text>
+                    <EmptyState
+                      variant="compact"
+                      iconName={null}
+                      title={t('farmer.farmDiary.newEntry.step2.noSubActivities')}
+                    />
                   ) : (
                     activeCategory.subActivities.map((subAct) => {
                       const isSelected = selectedSubActivityKey === subAct.key;

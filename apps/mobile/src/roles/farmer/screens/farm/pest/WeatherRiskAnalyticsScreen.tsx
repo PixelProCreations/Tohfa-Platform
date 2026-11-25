@@ -8,8 +8,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';
 import {
@@ -145,7 +146,11 @@ export function WeatherRiskAnalyticsScreen({
                   </View>
                 ))
               ) : (
-                <Text style={styles.riskNoteBody}>No weather risk notes for your region right now.</Text>
+                <EmptyState
+                  variant="compact"
+                  iconName={null}
+                  title={t('farmer.weatherRisk.noNotes')}
+                />
               )}
               <View style={styles.disclaimerRow}>
                 <InfoCircleIcon size={14} color={P.twGray400} />
@@ -172,7 +177,11 @@ export function WeatherRiskAnalyticsScreen({
                   </View>
                 ))
               ) : (
-                <Text style={styles.emptyCardText}>No detections logged yet.</Text>
+                <EmptyState
+                  variant="compact"
+                  iconName={null}
+                  title={t('farmer.pestLibrary.analytics.noDetections')}
+                />
               )}
             </View>
 
@@ -190,7 +199,11 @@ export function WeatherRiskAnalyticsScreen({
                   ))}
                 </View>
               ) : (
-                <Text style={styles.emptyCardText}>No detections logged yet.</Text>
+                <EmptyState
+                  variant="compact"
+                  iconName={null}
+                  title={t('farmer.pestLibrary.analytics.noDetections')}
+                />
               )}
             </View>
 
@@ -212,7 +225,11 @@ export function WeatherRiskAnalyticsScreen({
                   </React.Fragment>
                 ))
               ) : (
-                <Text style={styles.emptyCardText}>No resolved detections logged yet.</Text>
+                <EmptyState
+                  variant="compact"
+                  iconName={null}
+                  title={t('farmer.pestLibrary.analytics.noResolved')}
+                />
               )}
 
               {/* Disclaimer Note */}
@@ -312,11 +329,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: P.twGray400,
     marginBottom: 12,
-  },
-  emptyCardText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    fontStyle: 'italic',
   },
   riskNoteItem: {
     marginBottom: 10,

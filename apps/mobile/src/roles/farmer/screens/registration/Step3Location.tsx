@@ -21,6 +21,7 @@ import {
   FarmBoundaryMap,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
+  5appAlert,
 } from '@tohfa/mobile-ui';
 
 const ChevronLeft = ({ size = 24, color = "currentColor" }) => (
@@ -1151,11 +1152,12 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
           </View>
         </View>
 
-        <View style={styles.emptyState}>
-          <Text style={[styles.emptyStateText, { color: colors.textSubtle }]}>
-            Add the first piece of land in this farming operation to continue.
-          </Text>
-        </View>
+        <EmptyState
+          variant="screen"
+          iconName="place"
+          title={t('farmer.registration.step3.emptyHint')}
+          style={styles.emptyState}
+        />
 
         <View
           style={[
@@ -1400,35 +1402,31 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
             </View>
 
             <View style={styles.rightControls} pointerEvents="box-none">
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.actionPill}
-                onPress={() => setIsSearchOpen(true)}
-              >
-                <SearchIcon size={14} color={colors.brandGreen} />
-                <Text style={styles.actionPillText}>Search</Text>
-              </TouchableOpacity>
+              <MapIconPill
+                label={t('farmer.map.search')}
+                hint={t('farmer.map.searchPlaceholder')}
+                onPress={() => patchSearch({ isOpen: true })}
+                renderIcon={(c) => <SearchIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+              />
 
-              <TouchableOpacity activeOpacity={0.8} style={styles.actionPill} onPress={handleLocateMe}>
-                <Crosshair size={14} color={colors.brandGreen} />
-                <Text style={styles.actionPillText}>
-                  {t('farmer.map.locateMe')}
-                </Text>
-              </TouchableOpacity>
+              <MapIconPill
+                label={t('farmer.map.locateMe')}
+                onPress={handleLocateMe}
+                renderIcon={(c) => <Crosshair size={MAP_PILL_ICON_SIZE} color={c} />}
+              />
 
-              <TouchableOpacity
-                activeOpacity={0.8}
+              <MapIconPill
+                label={mode === 'draw' ? t('farmer.map.doneDrawing') : t('farmer.map.drawBoundary')}
                 onPress={handleDrawBoundary}
-                style={[
+                6style={[
                   styles.actionPill,
-                  mode === 'draw' && { backgroundColor: colors.brandGreen, borderWidth: 0 },
+                  mode === 'draw' && styles.actionPillActive,
                 ]}
               >
                 <PenIcon size={14} color={mode === 'draw' ? colors.white : colors.brandGreen} />
                 <Text
                   style={[
-                    styles.actionPillText,
-                    mode === 'draw' && { color: colors.white },
+                    mode === 'draw' && styles.actionPillTextActive,
                   ]}
                 >
                   {mode === 'draw' ? t('farmer.map.doneDrawing') : t('farmer.map.drawBoundary')}
@@ -1437,20 +1435,18 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
 
               {/* Land in several places is the normal case, so adding the next parcel is a
                   first-class control and not buried at the end of the step. */}
-              <TouchableOpacity activeOpacity={0.8} style={styles.actionPill} onPress={handleAddLocation}>
-                <PlusIcon size={14} color={colors.brandGreen} />
-                <Text style={styles.actionPillText}>
-                  Add Location
-                </Text>
-              </TouchableOpacity>
+              <MapIconPill
+                label={t('farmer.map.addLocation')}
+                onPress={handleAddLocation}
+                renderIcon={(c) => <PlusIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+              />
 
               {isEditing && (
-                <View style={styles.editingBadge} pointerEvents="none">
-                  <PenIcon size={13} color={P.black} />
-                  <Text style={styles.editingText}>
-                    {t('farmer.map.editingBadge')}
-                  </Text>
-                </View>
+                <MapIconPill
+                  label={t('farmer.map.editingBadge')}
+                  tone="editing"
+                  renderIcon={(c) => <PenIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+                />
               )}
             </View>
           </View>

@@ -3188,6 +3188,7 @@ export default function App(): React.JSX.Element {
                     navigate('CropDetail');
                   }}
                   onNavigateToAudits={() => navigate('Audits')}
+                  onNavigateToNewCrop={() => navigate('NewCrop')}
                 />
               ) : currentTab === 'Listings' ? (
                 <ListingsScreen

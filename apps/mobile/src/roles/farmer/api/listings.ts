@@ -151,7 +151,7 @@ export function evalListingCeiling(
     return {
       isValid: false,
       error: 'PRICE_ABOVE_CEILING',
-      message: `Price exceeds fair-price ceiling of ₹${ceilingNum.toFixed(2)}/kg (BR-07)`,
+      message: `Price exceeds fair-price ceiling of ₹${ceilingNum.toFixed(2)}/kg`,
     };
   }
 

@@ -18,7 +18,7 @@ import {
   type Certification,
 } from '../../api/farmer';
 import { certificationDisplayName } from './certificationForm';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 
@@ -477,7 +477,20 @@ export function CertificationsScreen({
 
           {/* ── Cert cards ── */}
           {certs.length === 0 ? (
-            <Text style={S.emptyTxt}>{t('farmer.certifications.empty')}</Text>
+            <EmptyState
+              {...(onNavigateToAddCertification
+                ? {
+                  action: {
+                    label: t('farmer.certifications.add'),
+                    onPress: onNavigateToAddCertification,
+                    testID: 'certifications.empty.add',
+                  },
+                }
+                : {})}
+              iconName="verified"
+              title={t('farmer.certifications.empty')}
+              variant="compact"
+            />
           ) : (
             certs.map((item) => (
               <CertCard
@@ -579,13 +592,6 @@ const S = StyleSheet.create({
   errorTxt: { color: P.twRed600, fontSize: typography.body },
   errorRetry: { color: P.twRed600, fontSize: typography.body, fontWeight: '700', marginTop: 6 },
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-
-  emptyTxt: {
-    textAlign: 'center',
-    color: P.twGray500,
-    fontSize: typography.body,
-    paddingVertical: 24,
-  },
 
   addCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,

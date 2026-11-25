@@ -3314,6 +3314,7 @@ Every other place that adds a role creates a brand-new account in the same trans
 - `BR-135` (`apps/api/src/modules/admin-promotions/admin-promotions.role-exclusivity.test.ts`) Create and approve refuse a target that would keep FARMER, CUSTOMER, a live farmers row or another admin role after `fromRole` ends (409, nothing written), and still promote a target that keeps nothing.
 - `BR-135` (`apps/api/src/modules/farmer-applications/farmer-applications.role-exclusivity.test.ts`) Approval refuses an applicant account holding any of the four staff admin roles (also when found by mobile, also beside a group role) before anything is written, and approves a Farmer Admin, customer, or Farmer Admin + customer applicant.
 - `BR-135` (`apps/api/src/rbac/roleExclusivity.db.test.ts`, PostgreSQL) The triggers refuse each forbidden combination on insert and on restoring a soft-deleted farmers row, allow every subset of the group in several orders, ignore ended roles and soft-deleted farmers rows, do not re-check a repeated insert of a role already held, and the SQL group list (`app_br135_allowed_groups()`) matches `docs/rbac.json`.
+- `BR-135` (mobile: `apps/mobile/src/shell/auth/entryRole.test.ts`, `apps/mobile/src/roles/farmer/tests/login_entry_role.test.tsx`, `apps/mobile/src/roles/customer/tests/customer_foundation.test.ts`, `customer_otp_screen.test.tsx`) An account holding FARMER + CUSTOMER opens the side of the entry the person signed in through, whatever order the server lists its roles in: the farmer/staff Login completes a role selection with an admin role, else FARMER (never CUSTOMER), and its password, Google/Facebook and OTP paths route on FARMER; the customer OTP sign-in opens the customer side. An entry whose role the account does not hold is refused with a translated message (the farmer Login also ends the session it just received), never opened as the other role. The entry is remembered so the Splash restore and Create Password reopen the same side, and forgotten on sign-out. The client only selects among the roles the server returned; it never grants one.
 
 ---
 
@@ -3543,6 +3544,684 @@ Every other place that adds a role creates a brand-new account in the same trans
 - `BR-142h` Client: a password login refused with `UNAUTHENTICATED` shows the message that points to OTP sign-in.
 
 ---
+
+### BR-150 — Customer-to-customer wallet transfers are enabled, capped, idempotent, audited and double-entry
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/customer/screens/CustomerSendMoneyScreen.tsx` (Send Money UI; the Figma screens show Send Money in the customer app only); no requirement text. Enabled 2026-11-17 by product-owner decision. Peer-to-peer movement of stored value still raises anti-money-laundering / KYC questions (see **Open**) |
+| **Status** | DERIVED, ENABLED: `system_config.wallet_transfer.enabled = true` since migration 0150 (kept as an ops kill switch); limits are implementer defaults pending client confirmation |
+| **Layer** | Server-side: `wallet-transfers.service.ts` / `.repo.ts` / `.routes.ts`, `walletService.move`, `writeAuditLog`; tables `wallet_transactions` (types `TRANSFER_OUT`, `TRANSFER_IN`, 0110), `wallet_transfers` (append-only, 0111), `system_config` + `WALLET_DEBITED` template (0150); permissions `wallet.transfer.send` (CUSTOMER own), `wallet.transfer.view` (SUPER_ADMIN / TOHFA_ADMIN all) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Flag.** Unless `wallet_transfer.enabled` is the JSON boolean `true`, lookup and send are 403 `WALLET_TRANSFER_DISABLED` and nothing moves (`BR-150a`). 0150 sets it to `true`; ops may set it back to `false` at any time without a deploy.
+2. **Double entry.** A transfer writes, in ONE transaction, exactly one `TRANSFER_OUT` DEBIT on the sender's wallet, one `TRANSFER_IN` CREDIT on the recipient's wallet (created on demand) and one `wallet_transfers` row referencing both; balances change only through the ledger triggers (BR-36, `BR-150b`). Overdraft is 402 `WALLET_INSUFFICIENT` with nothing written (`BR-150c`).
+3. **Idempotency.** `Idempotency-Key` is required (422 without); it is claimed first in the same transaction; a replay returns the original 201 and moves nothing; the key with a different body is 409 `IDEMPOTENCY_KEY_REUSED` (`BR-150d`).
+4. **Limits** (`system_config`; money strings unless noted; defaults in brackets): amount >= `wallet_transfer.min_amount` [10.00] and <= `wallet_transfer.max_per_txn` [2000.00]; since 00:00 Asia/Kolkata the sender's total sent plus this amount <= `wallet_transfer.max_daily` [5000.00] and the number of transfers including this one <= `wallet_transfer.max_daily_count` [10, JSON number]; since the 1st of the Asia/Kolkata month the total sent plus this amount <= `wallet_transfer.max_per_month` [20000.00]. Otherwise 422 `WALLET_TRANSFER_LIMIT_EXCEEDED`. Both wallets are row-locked (in id order) before the sums are read, so concurrent sends can neither overdraw nor both slip under a cap. Missing or malformed limits are 500 `INTERNAL` (fail closed) (`BR-150e`).
+5. **Recipient.** Exact E.164 mobile of an ACTIVE, non-deleted customer whose wallet (if any) is ACTIVE; own number is 422 `WALLET_TRANSFER_SELF`; an unknown, DISABLED, deleted or frozen/closed-wallet recipient is the same 404 (`BR-150f`).
+6. **Lookup privacy.** Lookup returns only a masked name and mobile, never an id. It is rate limited per customer (`wallet_transfer.lookup_per_hour` [10]) and per client IP (`wallet_transfer.lookup_ip_per_hour` [30]) on a sliding hour (429 `RATE_LIMITED` + `Retry-After`; fails open if Redis is down, like the auth limiter), every "not eligible" reason gets the identical 404 body, and every lookup is padded to the same minimum latency (`BR-150g`).
+7. **Notification.** After commit (never on replay, best effort) `wallet.credited` is published for the recipient and `wallet.debited` (in-app template `WALLET_DEBITED`) for the sender, each with their new balance (`BR-150h`).
+8. **History.** `GET /wallets/me/transfers` (`wallet.own.view`) lists SENT and RECEIVED transfers with a masked counterparty (`BR-150i`).
+9. **Sender eligibility.** The sender's user must be ACTIVE (a customer becomes ACTIVE only by verifying the mobile OTP) and not deleted, the customer not deleted, and the wallet ACTIVE; otherwise lookup and send are 403 `FORBIDDEN` (`BR-150j`).
+10. **Note.** Optional, at most 100 characters, plain text: control, zero-width and bidi-override characters and `<` `>` are removed, whitespace collapsed; blank after that means no note (`BR-150k`).
+11. **Admin oversight.** `GET /admin/wallet-transfers` (`wallet.transfer.view`) lists every transfer unmasked, filterable by customer (either side), Asia/Kolkata date range and amount range (`BR-150l`). Flag/hold/reverse is NOT implemented.
+12. **Audit.** Every transfer writes one `audit_log` row (`wallet.transfer.send`, entity `wallet_transfer`) in the same transaction; a rolled-back transfer leaves none (`BR-150m`).
+
+**Failure mode if unenforced.** Stored value moves between strangers without KYC limits (mule accounts); a retry double-sends; a one-legged transfer creates or destroys money; lookup becomes a directory of customers' names.
+
+**Open (client sign-off) — TODO.** KYC tier required to send/receive (today: any ACTIVE OTP-verified customer) and AML policy (reporting thresholds, monitoring, PPI regulatory classification) are to be decided by the client; final limit values; admin flag/hold/reverse and the dispute process (out of scope, read-only admin list only); whether farmers may receive.
+
+**Test contract.** (`apps/api/src/modules/wallet-transfers/wallet-transfers.test.ts`, HTTP: `wallet-transfers.e2e.test.ts`)
+- `BR-150a` Flag false/missing/"true" -> 403 for lookup and send, no ledger row; 0150 leaves it `true`; switching it off stops sends.
+- `BR-150b` One TRANSFER_OUT + one TRANSFER_IN + one transfer record; balances follow; both wallets locked.
+- `BR-150c` Overdraft -> 402, nothing recorded, audited or announced.
+- `BR-150d` Replay moves once and returns the same body; changed body 409; missing key 422.
+- `BR-150e` 9.99 and 2000.01 refused; daily and monthly totals exactly at the max allowed, one paisa over refused; the (max_daily_count+1)th transfer refused; malformed config INTERNAL; two parallel sends cannot overdraw (real DB).
+- `BR-150f` Self 422, unknown 404, disabled/deleted/frozen recipient identical 404. `BR-150g` Lookup masked only; latency floor; 11th lookup per customer and per-IP cap 429. `BR-150h` Both events after commit with each party's balance; a failing publish never fails the transfer. `BR-150i` History direction and masking; bad cursor 422.
+- `BR-150j` PENDING/DISABLED/deleted sender or FROZEN/CLOSED wallet 403. `BR-150k` Note sanitised, 101 chars refused. `BR-150l` Admin list unmasked, filters, paging; customer 403. `BR-150m` One audit row per transfer.
+
+---
+
+### BR-151 — Search history is per-customer and capped; trending is k-anonymous
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/customer/screens/SearchScreen.tsx` ("Recent searches", "Trending Produce"); spec gap 2026-11-16, no requirement text |
+| **Status** | DERIVED (product decision pending): cap 10, k = 3, window 7 days are implementer defaults seeded in `system_config` (0113) |
+| **Layer** | Server-side: `catalog-search.service.ts`, `catalog-search.repo.ts`; table `customer_recent_searches` (0112); `system_config` keys `catalog.recent_searches_max`, `catalog.trending_min_searchers`, `catalog.trending_window_days` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Recent searches** (`GET/POST/DELETE /catalog/search/recent`, permission `catalog.search_history.manage`, CUSTOMER own) are keyed by the token's customer id only. A query is stored once per customer by its normalized form (trimmed, lower-cased, whitespace collapsed); re-searching moves it to the top. After every insert the customer's rows beyond `catalog.recent_searches_max` (oldest first) are deleted (`BR-151a`). Reads by an actor without a customer profile are empty; writes are 403 (`BR-151c`).
+2. **Trending** (`GET /catalog/search/trending`, public) returns only normalized queries searched by at least `catalog.trending_min_searchers` DISTINCT customers in the last `catalog.trending_window_days` days, plus the most ordered (by kg, cancelled and unpaid orders excluded) currently sellable products in that window. No customer id, order id or per-customer figure is returned (`BR-151b`).
+3. **Config** values must be positive integers; a missing or malformed value is 500 `INTERNAL` (fail closed), never a literal fallback (`BR-151d`).
+4. **Suggestions** (`GET /catalog/search/suggestions`, public) are `{type, id, name}` only, from sellable products (one per product) and active categories; farm-anonymous (BR-16, `BR-151e`).
+
+**Failure mode if unenforced.** One customer's private search text ("diabetic", a name) is broadcast as "trending" to everyone; history grows without bound; a suggestion serializer leaks farm identity.
+
+**Test contract.** (`apps/api/src/modules/catalog-search/catalog-search.test.ts`)
+- `BR-151a` Same query in any case/spacing keeps one entry moved to the top; the list is capped and the oldest pruned.
+- `BR-151b` A query searched by fewer than K distinct customers never trends; trending products are sellable and farm-anonymous.
+- `BR-151c` Recent searches are per customer; non-customer reads are empty, writes 403; DELETE with `q` removes one, without clears only the caller.
+- `BR-151d` Missing or invalid config (null, "10", 0, -1, 2.5, true) is `INTERNAL`.
+- `BR-151e` Suggestions are names only, deduped per product, allow-listed, limited.
+
+---
+
+### BR-152 — Home banners and curated sections are admin-managed, time-windowed, audit-logged and farm-anonymous
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/customer/screens/HomeScreen.tsx` (hero banner, curated rails), `apps/mobile/src/roles/customer/api/catalog.ts` (`heroBanners`); spec gap 2026-11-16 |
+| **Status** | DERIVED (product decision pending): who manages content (SA/TA) is UNCONFIRMED |
+| **Layer** | Server-side: `home-content.service.ts` / `.repo.ts`, `catalog.service.ts` `getCatalogHome`; tables `home_banners` (0114), `home_sections` (0115); permission `catalog.home_content.manage` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `/admin/banners` and `/admin/home-sections` (list, create, read, patch, delete) require `catalog.home_content.manage`. Every create, update and (soft) delete writes one `audit_log` row (`catalog.banner.*`, `catalog.home_section.*`) in the same transaction as the write (`BR-152a`).
+2. Targets must match the type: banner `NONE | CATEGORY | PRODUCT | URL` with exactly the matching target field; section `CATEGORY` (existing category) or `PRODUCTS` (1-50 existing product ids, deduplicated, order kept). `endsAt` must be after `startsAt`. Violations are 422 `VALIDATION_FAILED` and write nothing (`BR-152b`).
+3. An item is live when `isActive`, not deleted and `startsAt <= now < endsAt` (open ends allowed). Admin reads show a computed `status` (ACTIVE / SCHEDULED / EXPIRED / INACTIVE). `GET /catalog/home` returns live banners in `sortOrder` as `heroBanners` (deeplink `/categories/{id}`, `/products/{id}`, the URL, or null) and the same list in the original `banners` shape (`BR-152c`).
+4. When no admin banner is live, `banners`/`heroBanners` keep the pre-existing static placeholders, so the home payload never loses its hero (`BR-152d`).
+5. Section items are resolved at read time through the BR-16 allow-list serializer: a category rail shows that category's sellable products, a product rail its sellable products in order; both capped at `maxItems`; unsellable products drop out and empty rails are omitted (`BR-152e`).
+
+**Failure mode if unenforced.** A banner deep-links to a deleted category; expired promotions keep showing; a marketing edit has no audit trail; a curated rail leaks farm identity through a different serializer.
+
+**Test contract.** (`apps/api/src/modules/home-content/home-content.test.ts`)
+- `BR-152a` Create, update and delete each write one audit row on the write's own transaction; unknown/deleted id is 404.
+- `BR-152b` Missing/unknown target, wrong-type target, and an inverted window are 422 with nothing written.
+- `BR-152c` Status reflects window and flag; only live banners reach the home, in order, with derived deeplinks.
+- `BR-152d` With no live banner the static banners are returned and `sections` is empty.
+- `BR-152e` Section items carry no farm-identity key, keep order, are capped, skip unsellable, and empty rails are omitted.
+
+---
+
+### BR-153 — Customers sign in (and sign up) with mobile + OTP; no password required
+| | |
+|---|---|
+| **Source** | Product decision, 2026-11-17 (owner-approved customer passwordless login). Extends BR-32 (OTP), BR-142 (accounts with no password) |
+| **Status** | DERIVED (product decision) |
+| **Layer** | Server-side: `apps/api/src/modules/auth/customerOtp.service.ts`, `customerOtp.repo.ts`; routes `POST /auth/customer/otp/send`, `POST /auth/customer/otp/verify` (public, `authRateLimit`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Send.** `POST /auth/customer/otp/send { mobile }` issues a `LOGIN` OTP with the BR-32 rules (6 digits, 60 s resend → 429 `OTP_RESEND_TOO_SOON`, 3 attempts). The body is built only from the challenge, so it is identical for a registered, an unregistered and a non-customer number: it never reveals whether an account exists (`BR-153g`).
+2. **Verify.** `POST /auth/customer/otp/verify { mobile, challengeId, otp, preferredLocale?, deviceInfo? }` refuses a challenge for another mobile or purpose as 400 `OTP_INVALID` (`BR-153h`), applies BR-32 (wrong code 401 `OTP_INVALID`, third failure 429 `OTP_LOCKED`, correct code afterwards still locked, `BR-153d`), then claims the challenge with a single conditional `UPDATE ... WHERE consumed_at IS NULL`.
+3. **Outcome.** An existing CUSTOMER account is signed in (`isNewUser: false`, `BR-153b`). An unknown number gets, in one transaction, a CUSTOMER `users` row with **no password** and status ACTIVE, the CUSTOMER role, a `customers` row, a wallet and an `auth.customer.otp_register` audit row, and is signed in (`isNewUser: true`, `BR-153a`). An account that holds the CUSTOMER role together with other roles of its BR-135 group (FARMER, FARMER_ADMIN) is a customer too and is signed in as one: the token carries CUSTOMER alone and no `farmerId`, so this customer entry never opens the farmer side (amended 2026-11-24: a FARMER + CUSTOMER account, which BR-135 allows, could not use the customer entry at all). A number whose account does not hold CUSTOMER (a CUSTOMER `user_type` with no role rows still counts as holding it), or holds it beside a role outside its BR-135 group, is 403 `FORBIDDEN` with a generic detail that names no role; it is never signed in, converted or given a customer row (`BR-153c`). A DISABLED customer is 403 (`BR-153i`).
+4. **Session.** Tokens are minted exactly as `POST /auth/otp/verify` does (sessions row, hashed refresh token, refresh rotation via `/auth/refresh`). The body is `{ accessToken, refreshToken, tokenType, expiresIn, user, isNewUser }`.
+5. **No duplicates.** A replayed verify is 400 `OTP_INVALID` (already consumed). Two concurrent first sign-ins for one number are serialised by the partial UNIQUE index on `users.mobile`: the loser's transaction rolls back and it signs in to the winner's account (`BR-153f`).
+6. **Passwords stay optional.** Existing password login, `/auth/register/customer` and `/auth/otp/*` are unchanged. A customer without a password gets the same 401 from `/auth/login` as a wrong password (BR-142.3, no enumeration; the detail tells the user that an account without a password signs in with OTP) and may add one with `POST /auth/me/set-password`.
+
+**Failure mode if unenforced.** The send response becomes an oracle for registered numbers; a farmer's or admin's number is silently turned into (or logged in as) a customer; a replayed OTP creates two accounts or two sessions.
+
+**Test contract.** (`apps/api/src/modules/auth/customerOtp.test.ts`)
+- `BR-153a` Unknown number → new ACTIVE customer, no password, customers row + wallet, session + refresh token.
+- `BR-153b` Existing customer → signed in, nothing created.
+- `BR-153c` FARMER / ADMIN user type without the CUSTOMER role, a FARMER role without CUSTOMER, or CUSTOMER beside a staff admin role → generic 403, no session, nothing created. `BR-135/BR-153c` FARMER + CUSTOMER (either user type) and FARMER_ADMIN + CUSTOMER → signed in, token roles exactly `[CUSTOMER]`, no `farmerId`.
+- `BR-153d` Three wrong OTPs lock; the correct OTP is then 429 `OTP_LOCKED`.
+- `BR-153e` Resend inside 60 s → 429 `OTP_RESEND_TOO_SOON`; after 60 s accepted.
+- `BR-153f` Replay → 400, one account and one session; a lost UNIQUE(mobile) race signs in to the winner.
+- `BR-153g` Send response keys identical for registered, unregistered and farmer numbers.
+- `BR-153h` Challenge for another mobile or purpose → 400. `BR-153i` Disabled customer → 403.
+
+---
+
+### BR-155 — A customer files and reads returns only for their own handed-over orders
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-16): customer app "Return / report an issue"; extends BR-61 and BR-36; `docs/rbac.json` `rma.request.create_own`, `rma.request.view_own` (new spec-gap codes, CUSTOMER `own` only) |
+| **Status** | DERIVED (spec gap: `rma.request.process` grants CUSTOMER none, yet customers must raise returns) |
+| **Layer** | `returnRequests` service; `POST /orders/{orderId}/returns` gated by `requireAnyPermission([rma.request.process, rma.request.create_own])`; `GET /returns/me[/{id}]` on `rma.request.view_own` |
+| **Scope** | Track 1 |
+
+**Rule.** Staff keep filing and processing returns under `rma.request.process`. A customer files under `rma.request.create_own`: only against an order whose `customer_id` is theirs (another customer's or an unknown order is the same 404), only when the order is `DELIVERED` or `PICKED_UP` (else 409 `INVALID_STATE_TRANSITION`). For every caller an order item may appear once per request, and the requested quantity may not exceed the ordered quantity minus the quantity already on returns that were not `REJECTED`, compared in integer grams (422). The return, its items, its first status-history row and the audit row (`rma.request.create_own`) are one transaction. The customer response is an allow-list: id, orderId, status, reason, note, timestamps and per item id, orderItemId, requestedQty, acceptedQty; no warehouse, customer id, inspection condition/damaged quantity, actor or farm data (BR-16). The rest of the lifecycle stays BR-61.
+
+**Test contract.** `apps/api/src/modules/returnRequests/returnRequests.customer.test.ts`
+- `BR-155a` own DELIVERED / PICKED_UP order -> PENDING return, audited in the transaction.
+- `BR-155b` another customer's order, an unknown order, or a scope without a customer id -> 404.
+- `BR-155c` any other order status -> 409 and nothing written.
+- `BR-155d` foreign or duplicated order item -> 422. `BR-155e` over the remaining quantity -> 422; exactly the remainder is accepted.
+- `BR-155f`/`g`/`h` allow-list on create, list and detail; another customer's return is 404. `BR-155i` route gate: CUSTOMER admitted under create_own, staff under process, FARMER 403.
+
+---
+
+### BR-160 — A customer's profile, addresses and account are their own; deletion anonymises, never erases ledgers
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-16): customer app profile, address book and delete-account screens; owner decision 2026-11-16 (pickup AND home delivery). `docs/rbac.json` `customer.profile.edit`, `customer.gst_details.manage` (existing) and `customer.address.manage_own`, `customer.account.delete_own` (new spec-gap codes, CUSTOMER `own` only); migration 0090 |
+| **Status** | DERIVED (UNCONFIRMED implementer defaults: age 13-120, 20 harvest preferences, `email_otp_ttl_minutes` = 10, deletion refused while money or an open order remains) |
+| **Layer** | `customer-profile` and `customer-addresses` services, mounted at `/customers/me` and `/customers/me/addresses` |
+| **Scope** | Track 1 |
+
+**Rule.** Every read and write is keyed on the resolved scope's customer id; a scope without one, another customer's or a deleted address is 404, never 403 (BR-36). Addresses: soft delete; the first address becomes the default; exactly one live default per customer, changed in one transaction that clears the old one first and keeps `customers.default_address_id` in step; deleting the default leaves none. Profile: name, age, gender, harvest preferences and photo key are editable; email changes only after verifying a code sent to the new address (stored hashed, expiry `email_otp_ttl_minutes`, lock after `otp_max_attempts` wrong tries, length `otp_length`; an email held by another live user is 409; no email provider exists yet, so the send is 501 in production). GST details (`customer.gst_details.manage`) are validated (GSTIN format; business name for B2B/HORECA), un-verify a changed GSTIN and are audited. Delete account (`customer.account.delete_own`) is refused with 409 while the wallet balance is non-zero or an order is still open; otherwise users/customers PII is blanked (mobile replaced by an unassignable `+999…` placeholder), addresses are blanked and soft-deleted, sessions revoked, and an audit row without PII is written, all in one transaction. Orders, wallet transactions, status history and the audit log are untouched (CLAUDE.md 2.3).
+
+**Test contract.** `customer-addresses.test.ts`, `customer-profile.test.ts`: one default; cross-customer 404 on every address operation; soft delete clears the default; email set only after the OTP verifies; wrong codes lock; GST validated and audited; deletion refused with money or an open order; deletion anonymises and audits.
+
+---
+
+### BR-161 — Checkout offers pickup and home delivery; totals are integer paise with GST from system_config
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (pickup AND home delivery; payment stays wallet-only, BR-17); amends BR-21; applies BR-98's GST formula to online orders |
+| **Status** | DERIVED |
+| **Layer** | `orders` service checkout; `system_config.home_delivery_enabled` (migration 0090, default true), `delivery_fee`, `free_delivery_threshold`, `retail_gst_rate_percent` |
+| **Scope** | Track 1 |
+
+**Rule.** `PICKUP`/`WAREHOUSE_PICKUP` and `HOME_DELIVERY`/`DELIVERY` are client aliases of the `fulfilment_type` values `PICKUP` and `DELIVERY`; responses carry the stored value. A delivery order needs `home_delivery_enabled` (else 501), the caller's own live address (else 404), a date of today or later in Asia/Kolkata and a slot (422), and a slot row that is active and not full (409; a date/slot with no slot row is not capacity-limited). A pickup order stores no address, date or slot. Totals in integer paise: subtotal = sum of cart lines; delivery fee only for delivery below the free threshold; GST = round_half_up(subtotal x rate% / 100) once per order (BR-98; missing/invalid rate falls back to 0 and logs, BR-98i); discount 0; total = subtotal + fee + GST. The wallet comparison and shortfall use the Money helpers, never `Number()`.
+
+**Test contract.** `orders.pricing.test.ts` (`BR-98a`/`b`/`c`/`d`, fee threshold, aliases, Kolkata date); `orders.test.ts` `BR-21a` (delivery checkout with own address, fee, slot booking).
+
+---
+
+### BR-162 — Reorder rebuilds the cart from an own past order, subject to today's availability
+| | |
+|---|---|
+| **Source** | Requirements FR-C05 (reorder); `docs/rbac.json` `order.reorder_own` |
+| **Status** | DERIVED |
+| **Layer** | `POST /orders/{id}/reorder`, orders service via the cart service |
+
+**Rule.** Only the caller's own order (else 404). Each past line is added to the active cart at that order's warehouse and today's retail price through the normal cart path (BR-22 lock, BR-12 ONLINE bucket). A line refused as out of stock, over the online allocation or no longer priced is reported in `unavailable` (`OUT_OF_STOCK`, `INSUFFICIENT_ALLOCATION`, `DELISTED`) and the rest still succeed; any other failure propagates. The `Idempotency-Key` is required; the operation is idempotent by state: only the quantity the cart is missing is added, so a replay never doubles a reservation.
+
+**Test contract.** `orders.reorder.test.ts`.
+
+---
+
+### BR-163 — Customers are notified of order confirmation, dispatch, handover and wallet credits, after commit
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-16); `apps/api/src/events/bus.ts`, notification templates `ORDER_CONFIRMED`, `ORDER_DISPATCHED`, `ORDER_DELIVERED`, `WALLET_CREDITED` |
+| **Status** | DERIVED |
+| **Layer** | orders checkout, fulfilment dispatch / verify-otp, top-up (cash, Razorpay webhook, reconciliation) |
+
+**Rule.** `order.confirmed` (checkout), `order.dispatched` (dispatch of a DELIVERY order; a pickup order made READY_FOR_PICKUP publishes nothing), `order.delivered` (OTP-verified handover, DELIVERED or PICKED_UP) and `wallet.credited` (cash top-up, digital top-up capture) are published to the customer's user AFTER the transaction commits, never on an idempotent replay. Publishing is best-effort: a lookup or subscriber failure is logged and never fails or rolls back the business action. The notifications service maps each to in-app, push and (for confirmed / credited) SMS.
+
+**Test contract.** `orders.events.test.ts`.
+
+---
+
+### BR-170 — Pickup points are public, allow-listed, and never expose internal warehouse fields
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-17, Figma audit of the customer app); BR-23 (four fixed sites); `docs/openapi.yaml` `/pickup-points` |
+| **Status** | DERIVED (UNCONFIRMED implementer default: open-now is evaluated in Asia/Kolkata; a warehouse with no valid weekly hours is reported closed) |
+| **Layer** | `apps/api/src/modules/pickup-points/`, migration `0130` (`warehouses.is_public`, `warehouses.public_phone`) |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /pickup-points` is public (no auth, like the catalog) and lists warehouses where `is_public AND is_active AND deleted_at IS NULL`. The response is an allow-list: `id, name, address, phone, openingHours, isOpenNow, lat, lng` and, only when `lat`+`lng` are sent, `distanceKm` and `isNearest` (exactly one nearest; sorted nearest first). `phone` is `public_phone`, never `contact_phone`; capacity, code, type, pincode and every other column are never selected.
+
+**Test contract.** `pickup-points.test.ts`: allow-list only (planted internal columns never appear), IST open/closed, malformed hours closed, nearest and sort, lat/lng pairing.
+
+---
+
+### BR-171 — Serviceability is answered from served pincodes and a configured pickup radius; area requests are idempotent and rate limited
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-17, Figma audit of the customer app); BR-161 (delivery); `docs/openapi.yaml` `/serviceability`, `/service-area-requests`, `/admin/service-area-requests` |
+| **Status** | DERIVED (UNCONFIRMED implementer defaults: `serviceability.pickup_radius_km` = 60, `serviceability.area_request_rate_per_hour` = 5; the served-pincode seed is the four pickup-point pincodes with delivery) |
+| **Layer** | `apps/api/src/modules/serviceability/`, migration `0131`, permission `service_area.request.view` (SUPER_ADMIN, TOHFA_ADMIN) |
+| **Scope** | Track 1 |
+
+**Rule.** A pincode is serviceable only if it is an active `served_pincodes` row; a lat/lng only if the nearest public pickup point is within the configured radius (missing config fails closed with `INTERNAL`). `deliveryAvailable` is true only for a served pincode that offers delivery. `POST /service-area-requests` is public (a token adds the customer id), rate limited per IP (fails open if Redis is down), and idempotent per requester (customer id, else contact, else IP) and normalised area+locality+city: a repeat returns the original row with 200. The public response never echoes contact or customer id; the admin read does.
+
+**Test contract.** `serviceability.test.ts`, `rbac.test.ts` rows for `service_area.request.view`.
+
+---
+
+### BR-172 — Legal content is versioned, publicly readable, and published only by SA/TA with an audit row
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-17, Figma audit of the customer app); `docs/launch/privacy-policy.md`; `docs/openapi.yaml` `/legal/*`, `/admin/legal/{slug}` |
+| **Status** | DERIVED. The seeded TERMS text is a PLACEHOLDER; the client must supply the real terms |
+| **Layer** | `apps/api/src/modules/legal-content/`, migration `0132`, permission `legal.content.manage` (SUPER_ADMIN, TOHFA_ADMIN) |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /legal/privacy-policy` and `/legal/terms` are public and return the highest version for the language (default `en`). `PUT /admin/legal/{slug}` appends version n+1 in one transaction with one `legal.content.manage` audit row; earlier versions are never edited; identical text writes nothing. Concurrent publishes are serialised by an advisory lock.
+
+**Test contract.** `legal-content.test.ts`, `rbac.test.ts` rows for `legal.content.manage`.
+
+---
+
+### BR-180 — Customer addresses carry landmark, contact phone and an optional nearest pickup point; labels are HOME / OFFICE / OTHER
+
+| | |
+|---|---|
+| **Source** | Derived rule (Figma audit, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | customer-addresses schema, service, migration 0140 |
+
+**Rule.** `landmark` (max 200), `contactPhone` (10-15 digits, optional +) and `nearestPickupPointId` are optional. A pickup point must be an active, non-deleted warehouse, otherwise 422 `VALIDATION_FAILED`. Labels are HOME, OFFICE, OTHER; the legacy `WORK` is accepted on input and stored/returned as OFFICE (migration 0140 rewrites existing WORK rows).
+
+**Test contract.** `customer-addresses.test.ts` (BR-180 cases).
+
+---
+
+### BR-181 — Product display metadata is admin-managed, display-only and farm-anonymous
+
+| | |
+|---|---|
+| **Source** | Derived rule (Figma audit, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | catalog serializer, crop_master (0141), admin crop PATCH |
+
+**Rule.** `crop_master` carries nullable tasteNotes, harvestSeason, originRegion (a generic region such as Nilgiris, never a farm, farmer or village: BR-16), farmingType (ORGANIC/NATURAL/CONVENTIONAL), packSize + packUnit (KG/G/PIECE/BUNCH/DOZEN/PACK, set together, sales-unit label only: `unit` stays kg and orders stay in kg), compareAtPrice (MRP per kg) and the flags isComingSoon, comingTomorrow, isUnsalable; shelfLifeDays already existed. `discountPercent = floor((MRP - price) * 100 / MRP)` computed in integer paise, null unless MRP > price; it is display only and the order discount stays 0. ratingAverage / ratingCount aggregate `order_review_items` per product; farm ratings are untouched (BR-06). `sort=just_arrived` orders by most recently allocated to ONLINE. Set through the existing admin crop PATCH (`admin.crop_taxonomy.manage`, audited). The Product serializer stays a positive allow-list.
+
+**Test contract.** `catalog.test.ts` (BR-181 cases, BR-16b key list).
+
+---
+
+### BR-182 — Orders show a payment method label and a human pickup code; the handover OTP is unchanged
+
+| | |
+|---|---|
+| **Source** | Derived rule (Figma audit, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | orders service (orders.display.ts) |
+
+**Rule.** Order detail/checkout responses carry `paymentMethod`, `paymentMethodLabel` (e.g. Wallet) and, for PICKUP orders, `pickupCode` = `PICKUP-` + the last four digits of the order-number sequence (null for DELIVERY). The code is a quotable reference, not a secret and not the handover OTP (BR-20: hashed, shown once, verified by staff). Order share links are out of scope.
+
+**Test contract.** `orders.display.test.ts`; detail assertion in `orders.test.ts`.
+
+---
+
+### BR-183 — Wallet ledger filters and top-up receipts are own-only
+
+| | |
+|---|---|
+| **Source** | Derived rule (Figma audit, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | wallet schema, topup receipt endpoint |
+
+**Rule.** `GET /v1/wallets/me/transactions` filters by `type`, `from`/`to` (date-time or a bare UTC date covering the whole day, `to` inclusive) and `status` (only COMPLETED exists: BR-129). `GET /v1/wallets/me/topups/{topupId}` returns the caller's own top-up with status, amount, and once SUCCESS the ledger `transactionId` and `balanceAfter` (null before); an unknown or foreign id is 404 (BR-36). Cash top-up responses already return the ledger row (id, balanceAfter, status).
+
+**Test contract.** `wallet.filters.test.ts`, `topup.receipt.test.ts`.
+
+### BR-184 — Customer email OTP is delivered by a vendor-neutral email sender, rate-limited and never logged in clear
+
+| | |
+|---|---|
+| **Source** | Derived rule (BR-160 follow-up, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/email/`, customer-profile service, config |
+
+**Rule.** `POST /v1/customers/me/email/otp` sends the code through an `EmailSender` selected by `EMAIL_TRANSPORT` (`smtp` via nodemailer | `sendgrid` via the v3 Mail Send HTTP API | `log` | `disabled`; `EMAIL_PROVIDER` is an alias, `EMAIL_TRANSPORT` wins if both are set). `log` is the dev/test default and prints the message with the code redacted; `smtp` needs `SMTP_HOST` and `EMAIL_FROM`; `sendgrid` needs `SENDGRID_API_KEY` and `SENDGRID_FROM_EMAIL` (or `EMAIL_FROM`), uses a 10s timeout, and never puts the key, recipient or code in an error; production refuses to start unless the transport is `smtp` or `sendgrid`. If the transport is `disabled` the endpoint is 503 `EMAIL_NOT_CONFIGURED` (no rate budget spent); a transport failure is 502 `EMAIL_DELIVERY_FAILED` (vendor error never forwarded). Only the SHA-256 of the code is stored and compared in constant time. A new code may be requested after `OTP_RESEND_SECONDS` (429 `OTP_RESEND_TOO_SOON`) and at most `EMAIL_OTP_MAX_SENDS_PER_HOUR` (default 3) times per customer per hour (429 `RATE_LIMITED`). Verification locks after `system_config.otp_max_attempts` wrong codes (BR-160, BR-32a). The email carries TOHFA branding, the code, the `email_otp_ttl_minutes` expiry and an "ignore if not you" note, never farm information. The notifications EMAIL channel is dispatched per BR-186.
+
+**Test contract.** `email/email.test.ts` (smtp + sendgrid transports with mocked fetch, config selection/validation), `customer-profile.test.ts` (BR-184 cases).
+
+---
+
+### BR-185 — Authorised admins manage public pickup-point details; a public point must have a public phone
+
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-17, customers need real pickup-point data); BR-170; BR-23; `docs/openapi.yaml` `/admin/pickup-points` |
+| **Status** | DERIVED (UNCONFIRMED implementer defaults: Main Warehouse Admin is limited to their own warehouse here, unlike `warehouse.own.view`; a public point must carry a non-empty `publicPhone`; India-only normalisation for +91 numbers) |
+| **Layer** | `apps/api/src/modules/pickup-points/pickup-points.admin.*`, permission `pickup_point.manage` (SUPER_ADMIN, TOHFA_ADMIN all; MAIN_WH_ADMIN, SUB_WH_ADMIN own); no migration (uses `0130` columns) |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/pickup-points` lists every non-deleted warehouse in the actor's scope (public or not) with `id, name, address, publicPhone, isPublic, isActive, openingHours`. `PATCH /admin/pickup-points/{warehouseId}` accepts any of `publicPhone`, `isPublic`, `openingHours` (strict body, at least one field). `publicPhone` is an Indian mobile or landline (spaces, dashes, `+91`/`91`/`0` prefixes accepted) normalised to E.164, or an already-E.164 foreign number; `null` clears it. `openingHours` has the same shape the public endpoint parses (`mon`..`sun`, each `{closed:true}` or `{closed:false, open, close}`) but writes require zero-padded 24h `HH:MM` and `open < close`, so `isOpenNow` (string comparison in Asia/Kolkata) stays correct; `null` clears it (the point then reads closed). A point cannot be (or stay) `isPublic` with a null/empty `publicPhone` (422 `VALIDATION_FAILED`, checked against the resulting state). A warehouse outside the actor's scope, or unknown, is 404. The change and one `pickup_point.manage` audit row (before/after hold only `publicPhone, isPublic, openingHours`; `changedFields`) share one transaction. `contact_phone`, capacity and code are never read or written. `GET /pickup-points` (BR-170) is unchanged: same allow-list, `phone` now returns the stored `publicPhone`.
+
+**Test contract.** `pickup-points.admin.test.ts`: phone normalisation, body strictness and hours order, hours accepted by the admin schema are consumed by `isOpenNow`, scoped list, cross-scope 404 without audit, public-needs-phone, audit image; `rbac.test.ts` rows for `pickup_point.manage`.
+
+---
+
+### BR-186 — Notification EMAIL channel is a generic, transactional-first dispatch to the verified email only
+
+| | |
+|---|---|
+| **Source** | Derived rule (BR-52, BR-65, BR-184 follow-up, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `notifications.service` (`EVENT_EMAIL_MAP`), `notifications/email/email.dispatch.ts`, `jobs/worker.ts` |
+
+**Rule.** Events in `EVENT_EMAIL_MAP` (order.*, wallet.*, counter_offer.*, payout.released, farmer.application.*) create an EMAIL notification row (`QUEUED`) and a `notification-dispatch` job. Customer order/wallet events are transactional and always emailed; the others honour the BR-52 category opt-out like push (no per-channel EMAIL preference exists yet). The job sends only to a verified email (`customers.email_verified_at`); otherwise the row is closed `DELIVERED` with `error='skipped: no verified email'` and the job succeeds. An unconfigured transport is likewise recorded `skipped` (no retry storm). The email is the in-app title/body in a TOHFA-branded, HTML-escaped template: no farm identity, no OTP. Idempotent: only `QUEUED`/`FAILED` rows are sent, settled rows are a no-op on replay. Send failures retry with the queue backoff and dead-letter on the final attempt.
+
+**Test contract.** `notifications/email/email.dispatch.test.ts`, `notifications.test.ts` (BR-52 cases).
+
+---
+
+### BR-187 — An `own` scope with no resolvable customer id narrows to nothing
+
+| | |
+|---|---|
+| **Source** | Derived rule (BR-36 follow-up, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | Customer-own services and repos (`orders`, `fulfilment` tracking/events, `reviews`; the other customer-own modules already complied) |
+
+**Rule.** Several staff roles hold customer-own permissions at `own` (e.g. SUPER_ADMIN / TOHFA_ADMIN on `order.view_own`), but the customer scope dimension is `customer_id`, which a staff principal does not have. A customer-own read or write whose principal has no customer id answers 404 (by-id reads), 403 or an empty list, and never skips the owner predicate: "no customer id" means "no rows", never "all rows". Repo methods for customer-own reads take a mandatory customer id and return nothing when it is empty. Staff read customer orders only through the admin routes (`/admin/orders`, `order.list.view_all`), whose behaviour is unchanged.
+
+**Test contract.** `apps/api/src/modules/orders/own-scope-null-customer.test.ts`: SUPER_ADMIN (no customer id) on every customer-own endpoint gets 403/404/empty and none of another customer's data; the owner still reads; cross-customer is 404; the admin order route still answers.
+
+
+### BR-190 — Customer profile completeness is computed server-side
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/customers/me` and the `user` object of `POST /v1/auth/customer/otp/verify` carry `profileComplete` and `missingFields`. A profile is complete when the name is a real one (not blank and not the sign-up placeholder `TOHFA Customer`, case-insensitive) AND at least one onboarding field (`age`, `gender` or `harvestPreferences`) is set. `missingFields` lists `fullName` when the name is missing and, when no onboarding field is set, `age`, `gender` and `harvestPreferences` (any one of them satisfies the rule). The mobile app routes to onboarding while `profileComplete` is false.
+
+**Test contract.** `customer-profile/customer-profile.completeness.test.ts`, `customer-profile.test.ts`, `auth/customerOtp.test.ts` (BR-190 cases).
+
+---
+
+### BR-191 — A customer sets their own app language
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `PATCH /v1/customers/me` accepts `preferredLocale` (`en` or `ta`, anything else is 422), stored on `users.preferred_locale`, and `GET /v1/customers/me` returns it. No other user field becomes editable through this route.
+
+**Test contract.** `customer-profile/customer-profile.test.ts` (BR-191).
+
+---
+
+### BR-192 — WALLET_INSUFFICIENT carries a typed shortfall
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** A 402 `WALLET_INSUFFICIENT` problem (checkout, wallet transfers, any ledger debit) carries the documented top-level extension members `shortfall`, `balance` and `required`, all decimal money strings with `shortfall = required - balance`. Checkout also keeps `meta.shortfall` for older clients. Built in one place (`wallet/wallet.insufficient.ts`).
+
+**Test contract.** `wallet/wallet.insufficient.test.ts`, `orders/orders.test.ts` (BR-17a), `wallet/wallet.test.ts`.
+
+---
+
+### BR-193 — Per-top-up limits are configuration and are exposed to the app
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** A digital top-up amount must lie within `system_config` `topup_min_amount` .. `topup_max_amount` (money strings; defaults 100.00 and 50000.00 when unset or malformed, and when min exceeds max). Outside the range is 422 `VALIDATION_FAILED` with `errors['body.amount']` and `meta.topupLimits {min,max}`. `GET /v1/wallets/me` returns `topupLimits {min,max}`.
+
+**Test contract.** `wallet/topupLimits.test.ts`.
+
+---
+
+### BR-194 — The pickup QR carries only a signed order number and pickup code
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/orders/{id}` returns `pickupQr.payload` for PICKUP orders (null otherwise): `TOHFA|PICKUP|v1|<orderNumber>|<pickupCode>|<sig>`, `sig` being a truncated HMAC-SHA256 under a key derived from the server secret, so staff can verify it. The handover OTP (BR-20) is never in the payload, and the payload grants nothing by itself.
+
+**Test contract.** `orders/orders.display.test.ts` (BR-194).
+
+---
+
+### BR-195 — Order list rows carry item count and thumbnails
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** Each row of `GET /v1/orders` has `itemCount` and `thumbnails[]` (at most 3, largest line first): `productName` and `imageUrl`. The image URL is built only from the catalog CDN base and the product icon key (the same helper as the catalog, `catalog/catalog.image.ts`), never from a listing or upload, so it carries no farm information (BR-16).
+
+**Test contract.** `orders/orders.test.ts` (BR-195 DB case).
+
+---
+
+### BR-196 — A customer can cancel their own OPEN support ticket
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `POST /v1/support/tickets/{id}/cancel` (permission `support.ticket.create_own`, own tickets only) moves an OPEN ticket to CANCELLED and writes an audit row (`support.ticket.cancel`). Any other status (IN_PROGRESS, RESOLVED, CLOSED, CANCELLED) is 409 `CONFLICT`; another customer's ticket is 404. The admin ticket views show `CANCELLED`. Migration 0160 extends the status CHECK.
+
+**Test contract.** `customer-support/customer-support.test.ts` (BR-196).
+
+---
+
+### BR-197 — Display references on the own ledger and tickets
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/wallets/me/transactions` rows add `txnCode` (`TXN-` plus ten hex characters derived from the ledger id) and `orderNumber` (for rows referring to an order, else null); customer tickets add `orderNumber`. The shared admin wallet serializer is unchanged.
+
+**Test contract.** `wallet/wallet.insufficient.test.ts`, `customer-support/customer-support.test.ts` (BR-197).
+
+---
+
+### BR-198 — A customer lists their own service-area requests
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/service-area-requests/me` (permission `service_area.request.view_own`, CUSTOMER `own`) returns the caller's own requests, newest first, paged (`page`, `limit`), without contact or customer id. A scope with no customer id narrows to nothing (BR-187).
+
+**Test contract.** `serviceability/serviceability.test.ts` (BR-198), `rbac/rbac.test.ts`.
+
+---
+
+### BR-199 — A support ticket takes at most five photos
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `POST /v1/support/tickets` accepts at most five `photoUploadIds` (the app allows five); a sixth is 422.
+
+**Test contract.** `customer-support/customer-support.test.ts` (BR-199).
+
+---
+
+### BR-200 — The pre-checkout quote is priced by the checkout's own pricing path and writes nothing
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap B-1, added 2026-11-17). Extends BR-17, BR-22, BR-98, BR-161 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`orders.pricing.ts`, `orders.service.ts` `priceCart`/`quote`), migration `0170` |
+
+**Rule.** `POST /orders/quote` takes the checkout body (no `Idempotency-Key`) and returns what `POST /orders` would charge for the caller's cart right now: the cart lines, `subtotal`, `deliveryFee`, `handlingFee`, `gstRateBasisPoints`, `gstAmount`, `discount` (0), `totalAmount`, `freeDeliveryThreshold`, `walletBalance`, `walletSufficient` and `shortfall` (total − balance when insufficient, else `0.00`, the same figure as the BR-192 problem member), the cart lock (`lockExpiresAt`, `lockExpired`) and, for a delivery, the chosen slot (BR-201). Quote and checkout call ONE pricing path (`priceCart` → `computeCheckoutTotals`) with the same inputs, so `quote.totalAmount` equals the placed order's `totalAmount` by construction. `total = subtotal + delivery + handling + gst − discount`, integer paise: delivery = `system_config.delivery_fee` for a DELIVERY order below `free_delivery_threshold`, else 0; handling = `system_config.handling_fee` (default `0.00`, pickup and delivery alike, outside the GST base; a missing, malformed or negative value is 0); GST per BR-98. The handling fee is stored on the order (`orders.handling_fee`, migration 0170). A quote reserves, debits, books and creates nothing (it reads the wallet balance without creating a wallet). It fails like checkout does (403 without a customer id per BR-187, 404 without a cart, 404 for a foreign address, 422 for a past date or missing slot, 501 for a non-wallet method or disabled delivery, 409 `SLOT_FULL`), except that an expired lock is reported (`lockExpired: true`), not refused. Permission: `order.place`.
+
+**Test contract.** `apps/api/src/modules/orders/orders.quote.test.ts` (`BR-200a` property test over 300 random carts and configs: quote totals equal what checkout writes, and a quote calls no write method; `BR-200b`..`BR-200d`), `orders.pricing.test.ts` (`BR-200` handling fee and wallet coverage), `orders.quote.db.test.ts` (quote changes no allocation, wallet, cart, slot or order row; the order then placed has the quoted total).
+
+### BR-201 — Delivery slot availability is readable and a full slot is refused with SLOT_FULL
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap G-6, added 2026-11-17). Extends BR-161 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/delivery-slots/`, `orders.service.ts` |
+
+**Rule.** `GET /delivery-slots?warehouseId=&date=` (permission `order.place`) lists the three slots of the day in enum order, each with `label`, `startsAt`/`endsAt` (Asia/Kolkata windows 08-12, 12-16, 16-20), `capacity`, `booked`, `available` (= capacity − booked, never below 0), `isActive`, `bookable` and `cutoff` (= start − `system_config.delivery_slot_cutoff_minutes`, default 120) with `cutoffPassed`. A day/slot with no `delivery_slots` row is uncapped (`capacity`/`available` null, bookable), exactly as checkout books it. `bookable` = active and not full; that is what checkout enforces, and a quote or checkout on a slot that is not bookable is 409 `SLOT_FULL` (not the generic `CONFLICT`). An unknown or deleted warehouse is 404; a past date (Asia/Kolkata) is 422. The cutoff is enforced at quote and checkout by BR-210 (default 120 minutes is a configurable placeholder, UNCONFIRMED with the owner).
+
+**Test contract.** `apps/api/src/modules/delivery-slots/delivery-slots.test.ts` (`BR-201a`..`BR-201g` plus the HTTP integration), `orders.quote.test.ts` and `orders.quote.db.test.ts` (`SLOT_FULL` at quote and checkout).
+
+### BR-202 — Product detail lists every sellable grade as variants
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap B-3, added 2026-11-17). Extends BR-16, BR-24, BR-181 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/catalog/` |
+
+**Rule.** `GET /catalog/products/{id}` keeps every existing field (the lowest sellable grade, unchanged) and adds `variants[]`: one entry per sellable grade of the crop, sorted by grade, each `{grade, pricePerKg, availableKg, compareAtPrice, discountPercent, flags{isComingSoon, comingTomorrow, isUnsalable}}`, computed by the same pooled, shelf-capped (BR-100) aggregate as the detail and serialized through the BR-16 allow-list. List rows keep their (id, grade) identity. `ratingAverage`/`ratingCount` (product reviews only; farm ratings untouched, BR-06) are on list items and on the detail. The crop master has no variety grouping field, so no `variety` is exposed; `farm_crops.seed_variety` is farm-side data and never reaches a customer (BR-16).
+
+**Test contract.** `apps/api/src/modules/catalog/catalog.variants.test.ts` (`BR-202a`..`BR-202d`, BR-16 no-farm-field, HTTP integration).
+
+### BR-203 — Cart lines carry a stock flag from the BR-100 shelf figures
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap B-4, added 2026-11-17). Extends BR-22, BR-100 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/cart/`, `apps/api/src/db/shelfAvailability.ts` |
+
+**Rule.** Every line of a cart response (`GET`/`PUT /cart`, `POST /cart/items`) carries `availability` and `availableKg`. `backed` = the part of the line's hold still on its batch's shelf (`qty_available` − all claims ≥ 0 means fully backed; a batch that is not `ACTIVE` backs nothing); `more` = the further effective ONLINE availability (BR-100) of the same product and grade at the line's warehouse. `UNAVAILABLE` when backed < line quantity (checkout would 409), else `LOW_STOCK` when more < `system_config.cart_low_stock_threshold_kg` (default 2), else `OK`. `availableKg = backed + more`. Computed in integer grams; read-only.
+
+**Test contract.** `apps/api/src/modules/cart/cart.availability.test.ts` (`BR-203a`..`BR-203d` and the HTTP integration: OK, LOW_STOCK, then UNAVAILABLE once the batch leaves the shelf).
+
+### BR-204 — A return carries up to five of the customer's own ISSUE_PHOTO uploads
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration, added 2026-11-17). Extends BR-155, BR-16 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/returnRequests/`, migration `0170` (`return_requests.photo_keys`) |
+
+**Rule.** `POST /orders/{orderId}/returns` accepts `photoUploadIds` (0-5): each must be an upload the caller signed with purpose `ISSUE_PHOTO` (the support-ticket photo flow; EXIF/GPS stripped at upload), else 422 and nothing is written. Storage keys are stored; every response (the create response, `GET /returns/me`, `GET /returns/me/{id}`, and the staff list/detail) carries `photos` as short-lived signed read URLs, never keys.
+
+**Test contract.** `apps/api/src/modules/returnRequests/returnRequests.photos.test.ts` (`BR-204a`..`BR-204c`).
+
+### BR-205 — GET /auth/me tells a customer whether their profile is complete
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration, added 2026-11-17). Extends BR-190, BR-142 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/auth/` (`buildMe`), reusing `customer-profile.completeness.ts` |
+
+**Rule.** For a `CUSTOMER` user, `GET /auth/me` (and `PATCH /auth/me`, same shape) also returns `profileComplete` and `missingFields`, computed by the BR-190 `profileCompleteness` helper from the user's name and `customers` onboarding fields (a customer with no `customers` row is incomplete). Other user types get neither key. This lets mobile session restore route to onboarding without a second call.
+
+**Test contract.** `apps/api/src/modules/auth/auth.me.completeness.test.ts` (`BR-205a`..`BR-205c`).
+
+### BR-212 — Customer ticket creation accepts an optional Idempotency-Key so a retry never raises a second ticket
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration, added 2026-11-20). Extends BR-36 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/customer-support/` (`createTicket`), reusing the shared idempotency store |
+
+**Rule.** `POST /support/tickets` (permission `support.ticket.create_own`) accepts an optional `Idempotency-Key` header (at most 255 characters), scoped to the calling user and the `support_ticket.create` operation. The key is claimed before anything is written: the same key with the same body replays the original ticket (same id, nothing written, no second ticket); the same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours. A request without the header is never deduplicated: each call raises its own ticket. This lets the mobile client retry after a dropped connection without duplicating the ticket.
+
+**Test contract.** `apps/api/src/modules/customer-support/customer-support.test.ts` (`BR-212: the same Idempotency-Key and body replays the same ticket; a different body is 409`).
+
+### BR-213 — A gateway-paid order is created PENDING_PAYMENT and confirmed only by a verified capture
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20 (per-order gateway payment: WALLET + UPI + CARD + NETBANKING via Razorpay). Amends BR-17 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`assertPaymentMethod`, checkout, `confirmOrderPayment`), `apps/api/src/modules/payments/` (gateway interface, Razorpay and mock gateways), migration `0190_order_gateway_payment.sql` (or the next free number) |
+
+**Rule.**
+1. `POST /orders` (`order.place`) requires `Idempotency-Key` for every method. `paymentMethod` is one of `WALLET | UPI | CARD | NETBANKING | CASH`; `CASH` is refused (BR-216).
+2. `WALLET` is unchanged (BR-17): debit, `CONFIRMED` / `PAID`. The wallet balance check applies to `WALLET` only.
+3. `UPI`, `CARD` and `NETBANKING` create the order `PENDING_PAYMENT` / `payment_status = PENDING`, create a Razorpay order (`payment_capture: 1`) for the server-computed total (the client never sends an amount), record a `payments` row (`ref_type = ORDER`, unique `gateway_order_id`), set `payment_expires_at` (now + `system_config.order_payment_window_minutes`, default 15) and answer 201 with `payment: { gateway: 'RAZORPAY', gatewayOrderId, razorpayKeyId, amount, currency: 'INR', expiresAt }`.
+4. Stock, slot and cart are taken when the pending order is created, exactly as for a wallet order (allocation conversion, `SALE` stock movement, cart `CONVERTED`, slot booked).
+5. A replay with the same key returns the same order and the same `gatewayOrderId`; no second Razorpay order or `payments` row is created.
+6. The order becomes `CONFIRMED` / `PAID` only through BR-214. `order.confirmed` is not published for a pending order.
+7. `POST /orders/quote` accepts every method; `walletSufficient` only matters for `WALLET`.
+8. Razorpay unreachable when creating its order is 503 `PAYMENT_GATEWAY_UNAVAILABLE` and nothing is written.
+
+**Failure mode if unenforced.** Orders confirm against money that has not arrived, or the client is trusted for the amount and pays less than the total.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-213a` UPI/CARD/NETBANKING checkout returns 201 `PENDING_PAYMENT` / `PENDING` with the payment block, amount equal to the server total; `BR-213b` stock, slot and cart taken on creation; `BR-213c` same key replays the same order and gatewayOrderId, one Razorpay order; `BR-213d` WALLET unchanged and the balance check is WALLET-only; `BR-213e` gateway failure 503 `PAYMENT_GATEWAY_UNAVAILABLE`, nothing written).
+
+### BR-214 — Payment verification checks the signature and the gateway; verify and webhook converge on one idempotent confirmation
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20. Extends BR-213 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`POST /orders/{id}/payment/verify`, `confirmOrderPayment`), `apps/api/src/modules/payments/webhookDispatch.ts` (`/webhooks/razorpay` routing) |
+
+**Rule.**
+1. `POST /orders/{id}/payment/verify` (`order.place`, own order else 404) takes `{razorpayOrderId, razorpayPaymentId, razorpaySignature}`. The signature must be a timing-safe match of HMAC-SHA256(`order_id|payment_id`, Razorpay key secret), else 422 `PAYMENT_SIGNATURE_INVALID`; `razorpayOrderId` must equal the stored gateway order id.
+2. The server never trusts the client's success: it fetches the payment from Razorpay; it must be `captured`, for exactly `toPaise(total_amount)`, against the order's gateway order id, else 409 `PAYMENT_AMOUNT_MISMATCH`. A payment still `authorized` is 202 `PAYMENT_PENDING`.
+3. Verify and the `payment.captured` webhook (after its signature check, routed by the `payments` row: `TOPUP` to the existing top-up path, `ORDER` here) call ONE function, `confirmOrderPayment(gatewayOrderId, payment)`, which locks the order row `FOR UPDATE`:
+   - `PENDING_PAYMENT` → `CONFIRMED` / `PAID`, the `payments` row `CAPTURED` with `gateway_payment_id`, an `order_status_history` row, audit `order.payment.confirm`, and `order.confirmed` published AFTER commit;
+   - already `CONFIRMED` by the same payment id → 200, nothing written, no second event;
+   - `CANCELLED` → BR-215 late capture.
+   The UNIQUE `payments.gateway_payment_id` is the final guard against double confirmation.
+4. `payment.failed` only records the failed attempt; the order stays `PENDING_PAYMENT` until its window lapses and the customer may retry the same Razorpay order.
+
+**Failure mode if unenforced.** A forged or replayed client callback confirms an unpaid order; verify and webhook racing each other confirm twice and publish two `order.confirmed` events.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-214a` bad signature 422 `PAYMENT_SIGNATURE_INVALID`, nothing changed; `BR-214b` amount or order mismatch 409 `PAYMENT_AMOUNT_MISMATCH`; `BR-214c` authorized-only 202 `PAYMENT_PENDING`; `BR-214d` valid capture confirms once with one audit row and one event after commit; `BR-214e` verify then webhook (and webhook then verify) for the same payment confirms once; `BR-214f` webhook `ORDER` and `TOPUP` routing; `BR-214g` another customer's order 404).
+
+### BR-215 — The payment window, customer cancel and release; a late capture is REFUND_DUE for a manual refund
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20 (refunds are manual in the Razorpay dashboard). Extends BR-213, BR-214 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`POST /orders/{id}/cancel`, release), job `order-payment-expiry-sweep` (`apps/api/src/jobs/queue.ts`, `worker.ts`), `system_config.order_payment_window_minutes` |
+
+**Rule.**
+1. A pending gateway order has `payment_expires_at` = creation + `system_config.order_payment_window_minutes` (default 15).
+2. The job `order-payment-expiry-sweep` runs every minute: for each `PENDING_PAYMENT` order past `payment_expires_at` it asks Razorpay for the order's payments; a captured one is confirmed (BR-214), otherwise the order is cancelled with `cancellation_reason = 'PAYMENT_NOT_COMPLETED'`.
+3. `POST /orders/{id}/cancel` (`order.place`, own order else 404, `Idempotency-Key`) works only while the order is `PENDING_PAYMENT`, else 409 `ORDER_NOT_AWAITING_PAYMENT`. It checks the gateway first and confirms instead if the payment was actually captured; otherwise it cancels with `cancellation_reason = 'CUSTOMER_CANCELLED'`.
+4. Cancelling a pending order undoes the creation in ONE transaction: status `CANCELLED`, `payment_status = FAILED`, `consumed_qty -= qty` on the allocation, a `RELEASE` stock movement (+qty, ref `ORDER`), and the slot booking decremented by one.
+5. A capture that arrives after cancellation (verify, webhook or sweep): the order stays `CANCELLED`, its `payment_status` becomes `REFUND_DUE`, and verify answers 409 `ORDER_PAYMENT_EXPIRED`. There is no automatic refund call: staff refund it manually in the Razorpay dashboard.
+
+**Failure mode if unenforced.** Stock and slots are held forever by abandoned payments, or a customer pays for an order that was already released and never gets the money back.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-215a` sweep cancels an expired unpaid order and releases allocation, ledger and slot in one transaction; `BR-215b` sweep confirms an expired order whose payment was captured; `BR-215c` customer cancel releases and sets `CUSTOMER_CANCELLED`; `BR-215d` cancel of a non-pending order 409 `ORDER_NOT_AWAITING_PAYMENT`; `BR-215e` cancel finds a capture and confirms instead; `BR-215f` late capture keeps `CANCELLED`, sets `REFUND_DUE`, verify 409 `ORDER_PAYMENT_EXPIRED`).
+
+### BR-216 — Cash on delivery / at the shop stays disabled until the owner enables it
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20. Resolves open contradiction 9 for now |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`assertPaymentMethod`); `system_config.cod_enabled = false` (kept for the future, not read as a switch yet) |
+
+**Rule.** `POST /orders` with `paymentMethod: CASH` is 422 `PAYMENT_METHOD_DISABLED` (never 501) and nothing is written. The customer app shows the cash option as unavailable. Enabling it needs a new owner decision and its own rule (collection, reconciliation, OTP handover).
+
+**Failure mode if unenforced.** Orders confirm with no payment at all, breaking BR-17's core guarantee.
+
+**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-216a` CASH checkout 422 `PAYMENT_METHOD_DISABLED`, no order, no stock or slot taken); `apps/mobile/src/roles/customer/tests/checkout.payment.test.tsx` (`BR-216b` the cash option is shown disabled and a `PAYMENT_METHOD_DISABLED` answer is shown as "not available", not as a generic error).
+
+### BR-217 — The client never shows payment success without a server-confirmed order
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-20. Extends BR-214 |
+| **Status** | DERIVED |
+| **Layer** | `apps/mobile/src/roles/customer/` (`CheckoutScreen.tsx`, `api/orderPayment.ts`) |
+
+**Rule.** The customer app shows the order-success state only when the server returns the order with `status === 'CONFIRMED'`. A Razorpay SDK success is followed by `POST /orders/{id}/payment/verify` and, while not confirmed, polling `GET /orders/{id}` until `CONFIRMED` or `CANCELLED`; a pending result shows "Confirming your payment". An SDK cancel or failure offers retry (reopen the same `gatewayOrderId`) or cancel (`POST /orders/{id}/cancel`). The app never fabricates an order (no locally generated order number or fallback order on error) and never collects card number, expiry or CVV itself: the Razorpay sheet does (PCI).
+
+**Failure mode if unenforced.** Customers are told an unpaid or failed order succeeded, then nothing arrives.
+
+**Test contract.** `apps/mobile/src/roles/customer/tests/checkout.payment.test.tsx` (`BR-217a` success modal only for a `CONFIRMED` order; `BR-217b` SDK success with a pending verify shows "Confirming your payment" and polls; `BR-217c` SDK cancel offers retry and cancel; `BR-217d` a checkout error never produces a fabricated order; `BR-217e` no card number, expiry or CVV inputs are rendered).
+
+### BR-218 — Auth OTPs are issued and checked by one configured provider (Twilio Verify live); no silent mock fallback
+
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-24 (send login/registration OTPs for every role through Twilio Verify). Extends BR-32, BR-153 |
+| **Status** | DERIVED |
+| **Layer** | Server-side: `apps/api/src/modules/auth/otp/` (`OtpProvider`, `local.otpProvider.ts`, `twilioVerify.otpProvider.ts`, `otpProvider.config.ts`), `config.ts`; used by `auth.service.ts` (`sendOtp`, `verifyOtp`, `resetPassword`) and `customerOtp.service.ts` (`verify`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **One provider, every role.** `OTP_PROVIDER` selects `twilio` (Twilio Verify) or `local` (in-house code, hashed at rest, sent via `SMS_PROVIDER`). Every OTP path (`/auth/otp/*`, `/auth/register/customer`, `/auth/forgot-password` + `/auth/reset-password`, `/auth/customer/otp/*`) issues and checks codes through that single provider. There is no role-specific bypass.
+2. **BR-32 stays ours.** Resend cooldown, 3-attempt lockout, local expiry and single use are still enforced on the `otp_verifications` row, before the provider is asked. A locked, expired or consumed challenge never reaches Twilio. Twilio owns code generation and its own (longer) expiry; the row stores the hash of random bytes in `code_hash`, so it can never be satisfied by a local hash comparison.
+3. **Fail fast, never fall back.** `OTP_PROVIDER=twilio` with a missing or malformed `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` or `TWILIO_VERIFY_SERVICE_SID` refuses to boot. Production must set `OTP_PROVIDER` explicitly; `SMS_PROVIDER=mock` is already refused in production. A live provider never returns `_mockCode`. The test suite forces `local`.
+4. **Check.** Only Twilio `status: approved` is a correct code; `pending` is a wrong code (counts toward BR-32). Twilio errors map to: 404/20404 → 400 `OTP_EXPIRED`; 60202 → 429 `OTP_LOCKED`; 429/60203/20429 → 429 `OTP_PROVIDER_RATE_LIMITED`; 60200/21211/21614/60205 on send → 422 `OTP_DESTINATION_INVALID`; any other send failure → 502 `OTP_SMS_DELIVERY_FAILED`; any other check failure or network error → 503 `OTP_PROVIDER_UNAVAILABLE` (the challenge is not consumed).
+5. **Secrecy.** The full mobile number, the code and the auth token are never logged or put in an error; Twilio's own `message` (which echoes the number) is dropped.
+
+**Failure mode if unenforced.** Production silently runs a mock that accepts a code nobody received, or one role's path skips the real provider; a Twilio outage is read as a correct code; logs leak phone numbers or OTPs.
+
+**Test contract.** `apps/api/src/modules/auth/otp/twilioVerify.otpProvider.test.ts`, `otpProvider.config.test.ts`, `otpProvider.service.test.ts` (`BR-218` start/check success, wrong code, expired, locked, rate limited, invalid destination, outage, missing/malformed config, production without a provider, every role's path uses the provider, BR-32 still applies), `apps/mobile/src/shell/errors/describeError.test.ts` (the new codes have messages).
 
 ## Open contradictions — DO NOT GUESS
 

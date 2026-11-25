@@ -67,6 +67,9 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    // SMS User Consent API for OTP autofill (src/shell/otp, smsconsent module).
+    // No READ_SMS / RECEIVE_SMS permission is needed or added for it.
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

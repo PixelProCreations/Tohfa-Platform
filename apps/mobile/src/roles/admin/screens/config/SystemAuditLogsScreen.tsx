@@ -11,6 +11,8 @@ import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
 } from './SystemConfigScreen';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 export interface AuditLogItem {
   id: string;
@@ -142,6 +144,7 @@ export function SystemAuditLogsScreen({ onBack }: SystemAuditLogsScreenProps) {
         {/* Logs List */}
         <FlatList
           data={filteredLogs}
+          ListEmptyComponent={<AdminEmptyState variant="screen" title={t('systemAuditLogs.empty.title')} subtitle={t('systemAuditLogs.empty.message')} />}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}

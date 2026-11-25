@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -213,6 +215,7 @@ export function FarmerPayoutDuesScreen({
 
         {/* Farmer Dues List */}
         <View style={styles.duesListCol}>
+          {filteredList.length === 0 ? <AdminEmptyState variant="compact" title={t('payoutDues.empty.title')} subtitle={t('payoutDues.empty.message')} /> : null}
           {filteredList.map((item) => {
             const isOverdue = item.agingStatus === 'overdue';
             return (

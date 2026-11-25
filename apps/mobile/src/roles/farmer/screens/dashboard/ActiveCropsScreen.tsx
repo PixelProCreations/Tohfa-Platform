@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import type { DiaryPlot } from '../../api/farmDiary';
@@ -499,20 +499,21 @@ export function ActiveCropsScreen({
           );
         })}
 
-        {filteredCrops.length === 0 && (
-          <View style={styles.emptyState}>
-            <LeafIcon size={36} color={P.twGray400} />
-            <Text style={styles.emptyStateTitle}>
-              {allCrops.length === 0 ? t('farmer.crops.activeCrops.emptyTitle') : 'No crops in this view'}
-            </Text>
-            <TouchableOpacity
-              onPress={() => setActiveFilter('all')}
-              style={styles.resetFilterBtn}
-            >
-              <Text style={styles.resetFilterBtnText}>Show All Active Crops</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        {filteredCrops.length === 0 &&
+          (allCrops.length === 0 ? (
+            <EmptyState iconName="eco" title={t('farmer.crops.activeCrops.emptyTitle')} variant="screen" />
+          ) : (
+            <EmptyState
+              action={{
+                label: t('farmer.crops.activeCrops.showAll'),
+                onPress: () => setActiveFilter('all'),
+                testID: 'activeCrops.resetFilter',
+              }}
+              iconName="search"
+              title={t('farmer.crops.activeCrops.emptyFilteredTitle')}
+              variant="screen"
+            />
+          ))}
       </ScrollView>
     </SafeAreaView>
   );
@@ -799,32 +800,5 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: '600',
     color: P.brandGreen,
-  },
-
-  // Empty State
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-    gap: 8,
-  },
-  emptyStateTitle: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    marginTop: 4,
-  },
-  resetFilterBtn: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: P.twGreen50,
-    borderWidth: 1,
-    borderColor: P.twGreen100,
-  },
-  resetFilterBtnText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '600',
-    color: P.twGreen800,
   },
 });

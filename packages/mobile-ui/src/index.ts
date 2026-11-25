@@ -6,6 +6,7 @@ export * from './StickyFooter';
 export * from './Badge';
 export * from './EmptyState';
 export * from './ErrorState';
+export * from './FormAlert';
 export * from './Skeleton';
 export * from './Icon';
 export * from './FarmBoundaryMap';

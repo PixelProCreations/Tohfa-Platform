@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
-import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import { formatMoneyAmount } from '../../api/wallet';
@@ -140,7 +140,7 @@ export function MyListingsScreen({
             onRetry={() => void load()}
           />
         ) : state.items.length === 0 ? (
-          <Text style={styles.emptyText}>{t('farmer.listings.mine.empty')}</Text>
+          <EmptyState variant="screen" iconName="storefront" title={t('farmer.listings.mine.empty')} />
         ) : (
           state.items.map((item) => {
             const tone = listingStatusTone(item.status);
@@ -324,11 +324,5 @@ const styles = StyleSheet.create({
   alertText: {
     fontSize: typography.body,
     fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.slate500,
-    textAlign: 'center',
-    paddingVertical: 16,
   },
 });

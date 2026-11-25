@@ -36,6 +36,7 @@ vi.mock('react-native-svg', () => ({ default: 'Svg', Circle: 'Circle', Path: 'Pa
 vi.mock('@tohfa/mobile-ui', () => ({
   Button: 'Button',
   ErrorState: 'ErrorState',
+  FormAlert: 'FormAlert',
   Icon: 'Icon',
   SafeAreaView: 'SafeAreaView',
 }));
@@ -240,7 +241,10 @@ describe('BR-142h: password login refused', () => {
     await act(async () => submit.props.onPress());
 
     expect(onNavigate).not.toHaveBeenCalled();
-    const errors = tree.root.findAll((n) => (n.type as unknown) === 'ErrorState');
+    // Login shows action failures as a FormAlert banner (not the full-screen ErrorState).
+    const errors = tree.root.findAll(
+      (n) => (n.type as unknown) === 'FormAlert' && n.props.variant === 'banner',
+    );
     expect(errors).toHaveLength(1);
     expect(errors[0]!.props.message).toBe(t('farmer.auth.login.invalidCredentials'));
   });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator, FlatList, Text, TouchableOpacity } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useProducts, type ListProductsQuery, type Product } from '../api/catalog';
 import { Card } from '@tohfa/mobile-ui';
 import { colors } from '../theme';
@@ -39,17 +40,41 @@ export function ProductGridScreen({ categoryId }: { categoryId?: string }) {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={validItems}
-        keyExtractor={(item: Product) => item.id}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <Card style={styles.card}>
-            <Text style={{ fontSize: 16 }}>{item.name}</Text>
-            <Text style={{ fontSize: 14 }}>{item.pricePerKg}</Text>
-            <Text style={{ fontSize: 12 }}>Grade: {item.grade}</Text>
-          </Card>
-        )}
+      {query.isLoading ? (
+        <View style={styles.center}>
+          <ActivityIndicator testID="loading-indicator" color={customerColors.primary} />
+        </View>
+      ) : query.isError ? (
+        <View style={styles.center}>
+          <Text style={styles.message}>{t('catalog.common.loadError')}</Text>
+          <TouchableOpacity testID="retry" style={styles.retry} onPress={() => void query.refetch()}>
+            <Text style={styles.retryText}>{t('catalog.common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : items.length === 0 ? (
+        <EmptyState title={t('catalog.grid.empty')} />
+      ) : (
+        <FlatList
+          data={items}
+          keyExtractor={productKey}
+          numColumns={2}
+          renderItem={renderItem}
+          contentContainerStyle={styles.list}
+          onEndReachedThreshold={0.5}
+          onEndReached={() => {
+            if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+          }}
+          ListFooterComponent={query.isFetchingNextPage ? <ActivityIndicator style={styles.footer} /> : undefined}
+        />
+      )}
+      <CatalogNotice message={notice} onDismiss={clearNotice} />
+      <CartToast
+        visible={cartCount > 0}
+        itemCount={cartCount}
+        totalPrice={cart?.subtotal ?? '0.00'}
+        thumbnails={cartThumbnails}
+        hasFab={false}
+        onViewCart={() => onNavigate?.('Cart')}
       />
     </View>
   );

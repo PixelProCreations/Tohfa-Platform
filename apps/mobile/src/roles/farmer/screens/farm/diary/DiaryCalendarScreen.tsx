@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../../theme';
@@ -400,13 +400,15 @@ export function DiaryCalendarScreen({
               </TouchableOpacity>
             </View>
           ) : entriesForSelectedDay.length === 0 ? (
-            <View style={styles.emptyEntriesBox}>
-              <Text style={styles.emptyEntriesText}>
-                {day.entries.length > 0
+            <EmptyState
+              variant="compact"
+              iconName="calendar_today"
+              title={
+                day.entries.length > 0
                   ? t('farmer.farmDiary.calendar.emptyFilteredSubtitle')
-                  : t('farmer.farmDiary.calendar.emptySubtitle')}
-              </Text>
-            </View>
+                  : t('farmer.farmDiary.calendar.emptySubtitle')
+              }
+            />
           ) : (
             entriesForSelectedDay.map((r) => (
               <View key={r.entry.id} style={styles.entryCard}>

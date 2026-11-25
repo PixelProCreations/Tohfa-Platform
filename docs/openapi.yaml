@@ -276,7 +276,7 @@ paths:
         application (see Farmer Onboarding).
       security: []
       x-permission: public
-      x-business-rules: [BR-32]
+      x-business-rules: [BR-32, BR-218]
       requestBody:
         required: true
         content:
@@ -305,6 +305,13 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: |
+            The OTP provider (Twilio Verify, or the local SMS transport) could not send the code
+            (`OTP_SMS_DELIVERY_FAILED`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /auth/otp/send:
     post:
@@ -314,7 +321,7 @@ paths:
       description: 6-digit code, 60-second resend timer, 3-attempt lockout (BR-32).
       security: []
       x-permission: public
-      x-business-rules: [BR-32]
+      x-business-rules: [BR-32, BR-218]
       requestBody:
         required: true
         content:
@@ -335,6 +342,13 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: |
+            The OTP provider (Twilio Verify, or the local SMS transport) could not send the code
+            (`OTP_SMS_DELIVERY_FAILED`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /auth/otp/verify:
     post:
@@ -360,7 +374,7 @@ paths:
         client, which reads `hasPassword` from `GET /auth/me` (BR-142).
       security: []
       x-permission: public
-      x-business-rules: [BR-32, BR-39, BR-142]
+      x-business-rules: [BR-32, BR-39, BR-142, BR-218]
       requestBody:
         required: true
         content:
@@ -383,6 +397,97 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '503':
+          description: The OTP provider could not be reached to check the code; nothing was consumed (`OTP_PROVIDER_UNAVAILABLE`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /auth/customer/otp/send:
+    post:
+      tags: [Auth]
+      operationId: sendCustomerOtp
+      summary: Passwordless customer sign-in, step 1 — send a 6-digit OTP
+      description: |
+        Starts the passwordless customer sign-in (BR-153). Same OTP rules as BR-32: 6 digits,
+        60-second resend timer (429 `OTP_RESEND_TOO_SOON`), 3-attempt lockout. The purpose is
+        fixed server-side (`LOGIN`). The response is identical whether or not the number has an
+        account, so it cannot be used to enumerate registered numbers.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-32, BR-153, BR-218]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerOtpSendRequest' }
+            example: { mobile: '+919876543210' }
+      responses:
+        '202':
+          description: OTP dispatched (same body for registered and unregistered numbers).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpChallenge' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: The OTP provider (Twilio Verify, or the local SMS transport) could not send the code (`OTP_SMS_DELIVERY_FAILED`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /auth/customer/otp/verify:
+    post:
+      tags: [Auth]
+      operationId: verifyCustomerOtp
+      summary: Passwordless customer sign-in, step 2 — verify the OTP and sign in or register
+      description: |
+        Verifies the challenge (BR-32 checks; the challenge must belong to `mobile` and be a
+        `LOGIN` challenge) and claims it once. Then (BR-153):
+        - an existing CUSTOMER account is signed in (`isNewUser: false`);
+        - an unknown number gets a new CUSTOMER account with no password, status ACTIVE, a
+          `customers` row and a wallet, and is signed in (`isNewUser: true`);
+        - an account that holds CUSTOMER together with other roles of its BR-135 group
+          (FARMER, FARMER_ADMIN) is signed in as a customer: the token carries CUSTOMER alone
+          and no `farmerId` (BR-153c as amended 2026-11-24);
+        - a number whose account does not hold CUSTOMER (farmer-only, admin, staff), or holds it
+          beside a staff admin role, is refused with a generic 403 and is never signed in or
+          converted.
+        A session and a refresh token are created exactly as for `POST /auth/otp/verify`. A
+        replayed or concurrent verify of the same challenge is 400 `OTP_INVALID` and never
+        creates a second account (UNIQUE mobile + transaction).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-32, BR-142, BR-153, BR-218]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerOtpVerifyRequest' }
+            example:
+              mobile: '+919876543210'
+              challengeId: 0b2d0f2e-8b1c-4c1a-9f0a-9d3e6c1b2a30
+              otp: '482915'
+              preferredLocale: en
+      responses:
+        '200':
+          description: Signed in (and registered when `isNewUser` is true).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerOtpVerifyResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '503':
+          description: The OTP provider could not be reached to check the code; nothing was consumed (`OTP_PROVIDER_UNAVAILABLE`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /auth/login:
     post:
@@ -491,7 +596,7 @@ paths:
         (BR-32).
       security: []
       x-permission: public
-      x-business-rules: [BR-32]
+      x-business-rules: [BR-32, BR-218]
       requestBody:
         required: true
         content:
@@ -509,6 +614,13 @@ paths:
               schema: { $ref: '#/components/schemas/OtpChallenge' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: |
+            The OTP provider (Twilio Verify, or the local SMS transport) could not send the code
+            (`OTP_SMS_DELIVERY_FAILED`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /auth/reset-password:
     post:
@@ -520,7 +632,7 @@ paths:
         active session for that account (BR-32).
       security: []
       x-permission: public
-      x-business-rules: [BR-32]
+      x-business-rules: [BR-32, BR-218]
       requestBody:
         required: true
         content:
@@ -539,6 +651,11 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
+        '503':
+          description: The OTP provider could not be reached to check the code; nothing was consumed (`OTP_PROVIDER_UNAVAILABLE`, BR-218).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
 
   /auth/me/change-password:
     post:
@@ -17700,6 +17817,9 @@ components:
         * `OTP_LOCKED` — three failed attempts; a new challenge is required (BR-32).
         * `OTP_RESEND_TOO_SOON` — a resend was requested inside the 60-second window (BR-32).
         * `OTP_SMS_DELIVERY_FAILED` — the configured SMS provider rejected or failed to send the OTP (BR-32).
+        * `OTP_PROVIDER_RATE_LIMITED` — the OTP provider (Twilio Verify) refused too many sends or checks for this number; HTTP 429 (BR-218).
+        * `OTP_DESTINATION_INVALID` — the OTP provider cannot deliver an SMS to this number (invalid, landline or not a mobile); HTTP 422 (BR-218).
+        * `OTP_PROVIDER_UNAVAILABLE` — the OTP provider could not be reached to check a code; nothing was consumed; HTTP 503 (BR-218).
         * `AUDIT_QUARTER_TAKEN` — that farmer already has a non-cancelled audit in this fiscal year and quarter (BR-03).
         * `SCORE_OUT_OF_RANGE` — a rating or audit category score is out of range (BR-06).
         * `AUDIT_INCOMPLETE` — an audit cannot be completed because one or more of its 10 category scores is missing; a missing category is incomplete, not zero (BR-06).
@@ -18029,8 +18149,12 @@ components:
         password: { type: string, minLength: 1, maxLength: 128 }
         roleCode:
           type: string
-          description: Required on the second call when the account holds multiple admin roles.
-          enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN]
+          description: |
+            Sent on the second call when the account holds more than one role
+            (`requiresRoleSelection`). The mobile app also uses it to honour the entry the user
+            chose: its farmer/staff sign-in completes a FARMER + CUSTOMER account as FARMER.
+            A role the account does not hold is 401 `UNAUTHENTICATED`.
+          enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN, FARMER, CUSTOMER]
         deviceId: { type: string, maxLength: 120 }
         platform: { type: string, enum: [ios, android, web] }
         rememberDevice: { type: boolean, default: false }
@@ -18114,8 +18238,10 @@ components:
         platform: { type: string, enum: [ios, android, web] }
         roleCode:
           type: string
-          description: Required on the second call when the linked account holds multiple admin roles.
-          enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN]
+          description: |
+            Sent on the second call when the linked account holds more than one role
+            (`requiresRoleSelection`), as for `LoginRequest.roleCode`.
+          enum: [SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN, FARMER, CUSTOMER]
 
     OAuthProfile:
       type: object

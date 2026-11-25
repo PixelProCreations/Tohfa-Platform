@@ -11,6 +11,14 @@
     "test": "vitest run",
     "test:e2e": "maestro test .maestro/customer-golden-thread.yaml .maestro/farmer-golden-thread.yaml"
   },
+  "codegenConfig": {
+    "name": "TohfaMobileSpec",
+    "type": "modules",
+    "jsSrcsDir": "src/shell/otp/native",
+    "android": {
+      "javaPackageName": "com.tohfa.mobile.smsconsent"
+    }
+  },
   "dependencies": {
     "@babel/runtime": "^8.0.0",
     "@react-native-async-storage/async-storage": "^2.2.0",

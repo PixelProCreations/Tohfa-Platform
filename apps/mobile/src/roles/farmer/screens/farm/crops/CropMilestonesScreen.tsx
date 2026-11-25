@@ -375,7 +375,7 @@ export function CropMilestonesScreen({
         </View>
 
         {milestones.length === 0 ? (
-          <EmptyState title={t('farmer.cropMilestones.empty')} />
+          <EmptyState title={t('farmer.cropMilestones.empty')} variant="compact" />
         ) : null}
 
         {/* ── Horizontal Milestone Tabs ── */}

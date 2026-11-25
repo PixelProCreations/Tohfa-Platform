@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator, FlatList, Text } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useCategories } from '../api/catalog';
 import { Card } from '@tohfa/mobile-ui';
 import { colors } from '../theme';

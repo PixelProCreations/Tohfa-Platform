@@ -226,7 +226,7 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
             </KpiGrid>
             <SectionTitle>{t('reports.inventory.byCrop')}</SectionTitle>
             {items.length === 0 ? (
-              <Text style={styles.noMatch}>{t('reports.inventory.noMatch')}</Text>
+              <AdminEmptyState variant="compact" iconName="inbox" title={t('reports.inventory.noMatch')} />
             ) : (
               <RowStack>
                 {items.map((item) => (
@@ -723,7 +723,6 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   searchInput: { flex: 1, ...adminType.body, color: adminColors.ink, paddingVertical: 0 },
-  noMatch: { ...adminType.rowMeta, color: adminColors.muted },
   // Design hub grid (mod1213farmadmin `kpiGrid`): the card sets its own 48.5%
   // width. Row gap only: the design's column gap of 10 next to two 48.5% cards
   // overflows a 328dp row (360dp phone) and would stack the cards; space-between

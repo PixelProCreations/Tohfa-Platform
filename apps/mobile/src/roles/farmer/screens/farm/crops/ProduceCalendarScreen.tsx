@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import type { DiaryPlot } from '../../../api/farmDiary';
@@ -372,15 +372,19 @@ export function ProduceCalendarScreen({
 
         {/* ── Crop Cards ── */}
         {entries.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{t('farmer.crops.activeCrops.emptyTitle')}</Text>
-            <Text style={styles.emptySubtitle}>{t('farmer.crops.calendar.emptySubtitle')}</Text>
-          </View>
+          <EmptyState
+            iconName="eco"
+            message={t('farmer.crops.calendar.emptySubtitle')}
+            title={t('farmer.crops.activeCrops.emptyTitle')}
+            variant="screen"
+          />
         ) : filteredCrops.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{t('farmer.crops.calendar.emptyFilteredTitle')}</Text>
-            <Text style={styles.emptySubtitle}>{t('farmer.crops.calendar.emptyFilteredSubtitle')}</Text>
-          </View>
+          <EmptyState
+            iconName="search"
+            message={t('farmer.crops.calendar.emptyFilteredSubtitle')}
+            title={t('farmer.crops.calendar.emptyFilteredTitle')}
+            variant="screen"
+          />
         ) : (
           <View style={styles.cropList}>
             {filteredCrops.map((crop) => (
@@ -779,22 +783,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge,
     fontWeight: '700',
     marginLeft: 6,
-  },
-  emptyState: {
-    paddingVertical: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.twGray700,
-  },
-  emptySubtitle: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    marginTop: 4,
-    textAlign: 'center',
   },
   modalBackdrop: {
     flex: 1,

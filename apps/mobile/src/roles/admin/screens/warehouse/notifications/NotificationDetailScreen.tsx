@@ -20,6 +20,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { scopeLabel } from '../finance-expenses/FinanceParts';
 import {
@@ -61,7 +62,7 @@ export function NotificationDetailScreen({ scope, can, onBack, notification, onO
     >
       <ScrollView contentContainerStyle={[walletLayout.scrollContent, styles.content]} showsVerticalScrollIndicator={false}>
         {notification === undefined ? (
-          <EmptyState title="Notification not found" subtitle="It may have been cleared." />
+          <EmptyState title={t('notifications.detail.notFound.title')} subtitle={t('notifications.detail.notFound.subtitle')} />
         ) : (
           <>
             <Card centered>

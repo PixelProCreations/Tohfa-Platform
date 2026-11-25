@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
@@ -331,11 +331,11 @@ export function NewFarmDiaryEntryScreen({
             </TouchableOpacity>
           </View>
         ) : plots.length === 0 ? (
-          <View style={[styles.statusBox, styles.warningBox]}>
-            <Text style={styles.warningText}>
-              {t('farmer.farmDiary.newEntry.step1.noFieldsWarning')}
-            </Text>
-          </View>
+          <EmptyState
+            variant="compact"
+            iconName="warning"
+            title={t('farmer.farmDiary.newEntry.step1.noFieldsWarning')}
+          />
         ) : (
           <>
             {/* ── 1. Field Dropdown ── */}

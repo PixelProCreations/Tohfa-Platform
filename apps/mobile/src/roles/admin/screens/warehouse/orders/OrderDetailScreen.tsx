@@ -251,7 +251,7 @@ export function OrderDetailScreen({
 
           <Text style={styles.sectionHeader}>Order Items ({order.itemCount})</Text>
           <View style={styles.card}>
-            {order.lines.length === 0 ? <Text style={styles.orderItemSub}>{t('orders.empty.lines')}</Text> : null}
+            {order.lines.length === 0 ? <AdminEmptyState variant="compact" iconName={null} title={t('orders.empty.lines')} /> : null}
             {order.lines.map((item, idx) => (
               <View key={item.key}>
                 <View style={styles.orderItemHeaderRow}>
@@ -328,7 +328,7 @@ export function OrderDetailScreen({
           </View>
 
           <View style={styles.timelineCard}>
-            {timelinePreview.length === 0 ? <Text style={styles.timelineTime}>{t('orders.empty.timeline')}</Text> : null}
+            {timelinePreview.length === 0 ? <AdminEmptyState variant="compact" iconName={null} title={t('orders.empty.timeline')} /> : null}
             {timelinePreview.map((event, index) => (
               <View key={event.key} style={styles.timelineRow}>
                 <View style={styles.timelineIndicatorCol}>

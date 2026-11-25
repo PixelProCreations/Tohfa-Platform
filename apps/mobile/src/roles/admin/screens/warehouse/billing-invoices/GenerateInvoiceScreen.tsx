@@ -21,6 +21,8 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
 import {
   BillingButton,
   BillingScreen,
@@ -101,7 +103,7 @@ export function GenerateInvoiceScreen({
             </View>
           );
         })}
-        {filtered.length === 0 ? <Text style={styles.emptyText}>No eligible transactions.</Text> : null}
+        {filtered.length === 0 ? <AdminEmptyState variant="compact" title={t('billing.generate.empty')} /> : null}
 
         {isAllWarehouses(scope) ? (
           <>
@@ -138,5 +140,4 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.xs,
     marginBottom: adminSpacing.sm,
   },
-  emptyText: { ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.lg },
 });

@@ -158,7 +158,7 @@ export function StorageLocationDetailScreen({
 
                 <SectionTitle>{t('storageOps.location.section.stock')}</SectionTitle>
                 {stored.length === 0 && !batches.isLoading ? (
-                  <Text style={styles.muted}>{t('storageOps.location.noStock')}</Text>
+                  <AdminEmptyState variant="compact" title={t('storageOps.location.noStock')} />
                 ) : (
                   stored.map((b) => (
                     <TouchableOpacity

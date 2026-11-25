@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
 import type { WalletTransactionItem } from '../payment/WalletTransactionDetailScreen';
@@ -315,11 +315,11 @@ export function WalletScreen({
             <Text style={styles.sectionHeader}>{t('farmer.wallet.recentTransactions')}</Text>
 
             {transactions.length === 0 ? (
-              <View style={styles.emptyTxBox}>
-                <Text style={styles.emptyTxText}>
-                  {t('farmer.wallet.emptyTransactions')}
-                </Text>
-              </View>
+              <EmptyState
+                variant="compact"
+                iconName="account_balance_wallet"
+                title={t('farmer.wallet.emptyTransactions')}
+              />
             ) : (
               <View style={styles.txList}>
                 {transactions.map((tx) => {
@@ -484,19 +484,6 @@ const styles = StyleSheet.create({
     color: P.white,
     fontSize: typography.body,
     fontWeight: '600',
-  },
-  emptyTxBox: {
-    backgroundColor: P.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    paddingVertical: 28,
-    paddingHorizontal: 20,
-  },
-  emptyTxText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
   },
   actionRow: {
     flexDirection: 'row',

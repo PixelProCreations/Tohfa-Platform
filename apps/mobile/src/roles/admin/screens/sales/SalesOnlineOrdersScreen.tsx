@@ -12,6 +12,8 @@ import {
   BackChevronIcon,
   SALES_PALETTE,
 } from './SalesChannelOverviewScreen';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── Order Box Icon ──────────────────────────────────────────────────────────
 function PackageBoxIcon({ color = SALES_PALETTE.primaryOrange, size = 18 }: { color?: string; size?: number }) {
@@ -222,6 +224,7 @@ export function SalesOnlineOrdersScreen({
         {/* Orders List */}
         <FlatList
           data={filteredOrders}
+          ListEmptyComponent={<AdminEmptyState variant="screen" title={t('salesOnlineOrders.empty.title')} subtitle={t('salesOnlineOrders.empty.message')} />}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.ordersList}
           showsVerticalScrollIndicator={false}

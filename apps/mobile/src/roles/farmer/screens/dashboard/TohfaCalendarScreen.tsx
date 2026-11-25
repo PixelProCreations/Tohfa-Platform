@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, radius, spacing, typography } from '../../theme';
@@ -310,7 +310,11 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
         {/* Crop Bars Card */}
         <View style={styles.cropBarsCard}>
           {rows.length === 0 ? (
-            <Text style={styles.stateText}>{t('farmer.tohfaCalendar.empty', { count: summary.minGroupSize })}</Text>
+            <EmptyState
+              iconName="groups"
+              title={t('farmer.tohfaCalendar.empty', { count: summary.minGroupSize })}
+              variant="compact"
+            />
           ) : (
             rows.map((row, idx) => {
               const isFarmers = activeTab === 'Farmers';

@@ -82,7 +82,7 @@ export function CustomersListScreen({
   if (!can('customer.list.view')) {
     return (
       <CustomersScreen title="Customers" onBack={onBack}>
-        <EmptyState title="Customer list not available" subtitle="Your role does not include viewing customers." />
+        <EmptyState iconName="lock" title={t('customers.list.notAvailable.title')} subtitle={t('customers.list.notAvailable.subtitle')} />
       </CustomersScreen>
     );
   }

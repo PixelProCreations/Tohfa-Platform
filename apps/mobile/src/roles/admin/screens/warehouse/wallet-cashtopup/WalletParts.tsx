@@ -19,6 +19,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
 import { WarehouseSelector } from '../inventory';
+import { AdminEmptyState, type AdminEmptyStateProps } from '../shared/AsyncStates';
 import type { WarehouseScope, WarehouseTab } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -544,13 +545,13 @@ export function PermissionNote({ children }: { children: React.ReactNode }) {
   return <Text style={styles.permissionNote}>{children}</Text>;
 }
 
-export function EmptyState({ title, subtitle }: { title: string; subtitle?: string | undefined }) {
-  return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.emptySubtitle}>{subtitle}</Text> : null}
-    </View>
-  );
+/**
+ * Kept under this name and the `subtitle` prop so its ~35 callers (also imported
+ * from other warehouse folders) keep working. It no longer draws anything: it
+ * renders the shared EmptyState through AdminEmptyState (`subtitle` -> `message`).
+ */
+export function EmptyState(props: { title: string; subtitle?: string | undefined } & Omit<AdminEmptyStateProps, 'title' | 'subtitle'>) {
+  return <AdminEmptyState {...props} />;
 }
 
 // ─── Bottom tab bar ──────────────────────────────────────────────────────────
@@ -799,9 +800,6 @@ const styles = StyleSheet.create({
   buttonText: { ...adminType.sectionHead },
   permissionNote: { ...adminType.rowMeta, color: adminColors.muted, textAlign: 'center' },
 
-  emptyState: { alignItems: 'center', paddingVertical: adminSpacing.xxl, paddingHorizontal: adminSpacing.lg },
-  emptyTitle: { ...adminType.sectionHead, color: adminColors.ink, textAlign: 'center' },
-  emptySubtitle: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs, textAlign: 'center' },
 
   tabBar: {
     flexDirection: 'row',

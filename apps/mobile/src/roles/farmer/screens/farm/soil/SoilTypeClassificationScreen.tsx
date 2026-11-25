@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Polygon } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots, updatePlot, type Plot } from '../../../api/farms';
@@ -279,7 +280,7 @@ export function SoilTypeClassificationScreen({
         {saveError ? <Text style={styles.loadErrorText}>{saveError}</Text> : null}
 
         {plots.length === 0 ? (
-          <Text style={styles.notRecordedText}>No zones yet. Add a zone before recording a soil type.</Text>
+          <EmptyState variant="screen" iconName="park" title={t('farmer.soil.type.noZones')} />
         ) : (
         plots.map((plot, index) => {
           const currentType = soilTypeByPlot[plot.id] ?? null;

@@ -11,7 +11,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';
@@ -255,7 +256,7 @@ export function ErosionConservationScreen({
         showsVerticalScrollIndicator={false}
       >
         {records.length === 0 ? (
-          <Text style={styles.emptyText}>No erosion notes logged yet.</Text>
+          <EmptyState variant="screen" iconName="park" title={t('farmer.soil.erosion.empty')} />
         ) : (
         records.map((item) => {
           const badge = getRiskBadgeStyles(item.risk);
@@ -329,12 +330,6 @@ const styles = StyleSheet.create({
     color: P.red600,
     fontSize: typography.body,
     fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

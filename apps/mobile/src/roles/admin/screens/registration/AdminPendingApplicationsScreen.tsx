@@ -12,6 +12,8 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { ScrollViewInstance } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── Theme & Palette ─────────────────────────────────────────────────────────
 const P = {
@@ -309,6 +311,7 @@ export const AdminPendingApplicationsScreen: React.FC<Props> = ({
 
         {/* Application Cards */}
         <View style={styles.listSection}>
+          {filteredApps.length === 0 ? <AdminEmptyState variant="compact" title={t('pendingApplications.empty.title')} subtitle={t('pendingApplications.empty.message')} /> : null}
           {filteredApps.map((item) => (
             <TouchableOpacity
               key={item.id}

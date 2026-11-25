@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 const P = {
   bg: '#FAF8F5',
@@ -278,12 +280,7 @@ export function AllRecentReportsScreen({
         {/* Reports List */}
         <View style={styles.listSection}>
           {filteredReports.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No matching reports found</Text>
-              <Text style={styles.emptySub}>
-                Try adjusting your search query or filter category.
-              </Text>
-            </View>
+            <AdminEmptyState variant="compact" title={t('reports.recent.empty.title')} subtitle={t('reports.recent.empty.message')} />
           ) : (
             filteredReports.map((report) => (
               <TouchableOpacity
@@ -478,24 +475,5 @@ const styles = StyleSheet.create({
   fileSizeText: {
     fontSize: 11,
     color: '#9CA3AF',
-  },
-  emptyCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 12,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: P.cardBorder,
-  },
-  emptyTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: P.ink,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 12,
-    color: P.subtitle,
-    textAlign: 'center',
   },
 });

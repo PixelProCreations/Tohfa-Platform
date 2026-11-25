@@ -234,7 +234,7 @@ function SaleDetailBody({
       <Text style={styles.sectionHeading}>{t('sales.detail.section.items')}</Text>
       <View style={styles.card}>
         {sale.items.length === 0 ? (
-          <Text style={styles.breakdownLabel}>{t('sales.detail.noItems')}</Text>
+          <AdminEmptyState variant="compact" iconName={null} title={t('sales.detail.noItems')} />
         ) : (
           sale.items.map((item, idx) => (
             <View key={`${item.productId}:${item.grade}`}>
@@ -316,7 +316,7 @@ function SaleDetailBody({
       {/* ─── Timeline ─── */}
       <Text style={styles.sectionHeading}>{t('sales.detail.section.timeline')}</Text>
       {sale.timeline.length === 0 ? (
-        <Text style={styles.breakdownLabel}>{t('sales.detail.timeline.empty')}</Text>
+        <AdminEmptyState variant="compact" iconName={null} title={t('sales.detail.timeline.empty')} />
       ) : (
         <View style={styles.timelineCard}>
           {sale.timeline.map((step, idx) => {

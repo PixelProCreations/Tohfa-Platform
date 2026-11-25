@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatSafeDate } from '../../../polyfills';
@@ -376,9 +376,15 @@ export function MachineryListScreen({
             })}
 
             {filteredItems.length === 0 && (
-              <Text style={styles.emptyText}>
-                {machineryList.length === 0 ? t('farmer.farmAssets.emptyMachinery') : 'No machinery in this view'}
-              </Text>
+              <EmptyState
+                iconName={machineryList.length === 0 ? 'settings' : 'search'}
+                title={
+                  machineryList.length === 0
+                    ? t('farmer.farmAssets.emptyMachinery')
+                    : t('farmer.farmAssets.noMatchMachinery')
+                }
+                variant="screen"
+              />
             )}
           </View>
         </ScrollView>
@@ -663,13 +669,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
-  },
-
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
 
   // Floating Action Button

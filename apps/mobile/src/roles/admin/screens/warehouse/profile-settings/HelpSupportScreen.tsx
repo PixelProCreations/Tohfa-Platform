@@ -182,15 +182,15 @@ export function HelpSupportScreen({
         ) : null}
 
         <SectionTitle right={<StatusBadge label={t('profile.help.questionCount', { count: visibleArticles.length })} tone="brandSoft" />}>
-          {category !== null ? t('profile.help.categoryTitle', { category: category.toUpperCase() }) : 'FREQUENTLY ASKED QUESTIONS'}
+          {category !== null ? t('profile.help.categoryTitle', { category: category.toUpperCase() }) : t('profile.help.faqHeading')}
         </SectionTitle>
         {articles.length === 0 ? (
           <View style={styles.emptyCard}>
-            <EmptyState title={t('profile.help.empty')} />
+            <EmptyState variant="compact" title={t('profile.help.empty')} />
           </View>
         ) : visibleArticles.length === 0 ? (
           <View style={styles.emptyCard}>
-            <EmptyState title="No matching questions found." />
+            <EmptyState variant="compact" iconName="inbox" title={t('profile.help.noMatch')} />
             <TouchableOpacity
               onPress={() => {
                 setCategory(null);

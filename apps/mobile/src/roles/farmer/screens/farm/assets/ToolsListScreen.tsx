@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatSafeDate } from '../../../polyfills';
@@ -290,7 +290,7 @@ export function ToolsListScreen({
         })}
 
         {tools.length === 0 && (
-          <Text style={styles.emptyText}>{t('farmer.farmAssets.emptyTools')}</Text>
+          <EmptyState title={t('farmer.farmAssets.emptyTools')} variant="screen" />
         )}
       </ScrollView>
 
@@ -455,13 +455,6 @@ const styles = StyleSheet.create({
   dueText: {
     fontSize: typography.body,
     fontWeight: '600',
-  },
-
-  emptyText: {
-    fontSize: typography.body,
-    color: P.muted,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
 
   // Sticky Bottom

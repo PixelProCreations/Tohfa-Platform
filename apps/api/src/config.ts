@@ -10,6 +10,8 @@ import { config as loadDotenv } from 'dotenv';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { parseDatabaseSsl } from './db/poolConfig.js';
+import { resolveOtpProvider } from './modules/auth/otp/otpProvider.config.js';
+import type { OtpProviderName } from './modules/auth/otp/otpProvider.js';
 import { REPO_ROOT } from './paths.js';
 
 loadDotenv({ path: join(REPO_ROOT, '.env') });
@@ -95,6 +97,16 @@ const envSchema = z.object({
   // refusing to boot, so the rest of the API stays usable without one.
   OPENWEATHERMAP_API_KEY: z.string().default(''),
 
+  // BR-218: who issues and checks auth OTPs. `local` = in-house code sent via
+  // SMS_PROVIDER (mock in dev/test/CI); `twilio` = Twilio Verify. Unset means
+  // `local` outside production; production must set it (no silent default).
+  // Twilio credentials are secrets: real values live only in the gitignored .env.
+  OTP_PROVIDER: z.enum(['local', 'twilio']).optional(),
+  TWILIO_ACCOUNT_SID: z.string().trim().default(''),
+  TWILIO_AUTH_TOKEN: z.string().trim().default(''),
+  TWILIO_VERIFY_SERVICE_SID: z.string().trim().default(''),
+  OTP_PROVIDER_TIMEOUT_MS: intFromEnv(1_000, 60_000).default(10_000),
+
   OTP_LENGTH: intFromEnv(4, 8).default(6),
   OTP_TTL_SECONDS: intFromEnv(30, 3600).default(300),
   OTP_MAX_ATTEMPTS: intFromEnv(1, 20).default(3),
@@ -109,13 +121,33 @@ const envSchema = z.object({
   AUTH_RATE_LIMIT_IP_MAX: intFromEnv(1, 10_000).default(120),
   AUTH_RATE_LIMIT_IP_WINDOW_SECONDS: intFromEnv(1, 86_400).default(300),
 
+  // Vendor-neutral email (customer email OTP). `log` is dev/test only; production needs smtp or sendgrid.
+  // Selector precedence: EMAIL_TRANSPORT, else EMAIL_PROVIDER (alias), else log (non-prod).
+  EMAIL_TRANSPORT: z.enum(['smtp', 'sendgrid', 'log', 'disabled']).optional(),
+  EMAIL_PROVIDER: z.enum(['smtp', 'sendgrid', 'log', 'disabled']).optional(),
+  SENDGRID_API_KEY: z.string().optional(),
+  SENDGRID_FROM_EMAIL: z.string().email().optional(),
+  SENDGRID_FROM_NAME: z.string().min(1).optional(),
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: intFromEnv(1, 65535).default(587),
+  SMTP_SECURE: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  EMAIL_FROM: z.string().email().optional(),
+  EMAIL_FROM_NAME: z.string().min(1).default('TOHFA'),
+  EMAIL_OTP_MAX_SENDS_PER_HOUR: intFromEnv(1, 100).default(3),
+
   CORS_ORIGINS: csv.default('http://localhost:4200'),
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
 });
 
-export type Config = z.infer<typeof envSchema> & {
+export type Config = Omit<z.infer<typeof envSchema>, 'EMAIL_TRANSPORT' | 'OTP_PROVIDER'> & {
+  /** Resolved: unset means `log` outside production; production requires `smtp` or `sendgrid`. */
+  readonly EMAIL_TRANSPORT: 'smtp' | 'sendgrid' | 'log' | 'disabled';
+  /** Resolved by resolveOtpProvider (BR-218): never undefined, never a silent fallback. */
+  readonly OTP_PROVIDER: OtpProviderName;
   readonly isProduction: boolean;
   readonly isTest: boolean;
 };
@@ -143,8 +175,39 @@ function load(): Config {
     }
   }
 
+  let emailTransport = value.EMAIL_TRANSPORT ?? value.EMAIL_PROVIDER;
+  if (value.NODE_ENV === 'production') {
+    if (emailTransport !== 'smtp' && emailTransport !== 'sendgrid') {
+      throw new Error(
+        'EMAIL_TRANSPORT=smtp or sendgrid is required when NODE_ENV=production (customer email OTP needs a real mail transport)',
+      );
+    }
+  } else {
+    emailTransport ??= 'log';
+  }
+  if (emailTransport === 'smtp') {
+    const missing = (['SMTP_HOST', 'EMAIL_FROM'] as const).filter((k) => !value[k]);
+    if (missing.length > 0) throw new Error(`EMAIL_TRANSPORT=smtp requires ${missing.join(', ')}`);
+    if ((value.SMTP_USER === undefined) !== (value.SMTP_PASS === undefined)) {
+      throw new Error('SMTP_USER and SMTP_PASS must be set together');
+    }
+  }
+
+  if (emailTransport === 'sendgrid') {
+    const missing: string[] = [];
+    if (!value.SENDGRID_API_KEY) missing.push('SENDGRID_API_KEY');
+    if (!value.SENDGRID_FROM_EMAIL && !value.EMAIL_FROM) missing.push('SENDGRID_FROM_EMAIL (or EMAIL_FROM)');
+    if (missing.length > 0) throw new Error(`EMAIL_TRANSPORT=sendgrid requires ${missing.join(', ')}`);
+  }
+
+  // Throws (boot fails) on a missing/malformed Twilio credential or an
+  // unnamed provider in production. Messages name variables, never values.
+  const otpProvider = resolveOtpProvider(value);
+
   return {
     ...value,
+    OTP_PROVIDER: otpProvider,
+    EMAIL_TRANSPORT: emailTransport,
     isProduction: value.NODE_ENV === 'production',
     isTest: value.NODE_ENV === 'test',
   };

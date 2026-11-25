@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -336,10 +338,7 @@ export function ReportAddFieldScreen({
           })}
 
           {filteredFields.length === 0 && (
-            <View style={styles.emptyBox}>
-              <Text style={styles.emptyTitle}>No matching fields</Text>
-              <Text style={styles.emptySub}>Try searching for revenue, orders, crop, or stock.</Text>
-            </View>
+            <AdminEmptyState variant="compact" title={t('reports.addField.empty.title')} subtitle={t('reports.addField.empty.message')} />
           )}
         </View>
 
@@ -501,21 +500,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: PALETTE.greenSuccess,
-  },
-  emptyBox: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: PALETTE.textPrimary,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    textAlign: 'center',
   },
   doneBtn: {
     backgroundColor: PALETTE.orangePrimary,
