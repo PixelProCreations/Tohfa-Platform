@@ -51,8 +51,9 @@ outlined/error states. A plain card outline is `adminColors.border`. Contrast: `
 | `rowMeta` | 10.5 / 400 | row subtitle (`muted`) | `xl` | 16 | panels, sheets |
 | `caption` | 10 / 700 | delta, badge label | `full` | 100 | chips, badges, pills |
 
-- Type styles set no `fontFamily`: React Native then uses the native system font (SF / Roboto), which is
-  what the PDF specifies. Line heights are ours (~1.3x), the PDF gives none.
+- Type styles include `fontFamily` mapped to bundled **Poppins** weight files (`@tohfa/design-tokens` `fontFamily`),
+  and `FarmerFontProvider` in `App.tsx` normalizes `<Text>`/`<TextInput>` styles on admin screens too.
+  Line heights are ours (~1.3x), the PDF gives none.
 - `adminSpacing` is the platform scale (`xs 4, sm 8, md 12, lg 16, xl 24, xxl 32, xxxl 48`, plus the
   intent aliases in tokens.json). The admin PDF defines radii but no spacing.
 - `adminShadow.sm` alert cards, `.md` toasts/floating actions, `.lg` modals — spread them, they include
@@ -64,7 +65,7 @@ outlined/error states. A plain card outline is `adminColors.border`. Contrast: `
 - DON'T write a hex, `rgba(...)` or `shadowColor: '#000'` in a screen. Use `adminShadow.*`. For a
   translucent overlay or a colour the theme lacks, add a token (tokens.json, with a note) and expose it here.
 - DON'T add a local `PALETTE` / `P` / `COLORS` block — that is exactly what this theme replaces.
-- DON'T set `fontFamily: 'Poppins'` (or any font). DON'T import `roles/farmer/theme` from admin code.
+- DON'T hardcode `fontFamily: 'Poppins'` in screens — spread `adminType.*` instead. DON'T import `roles/farmer/theme` from admin code.
 - DO use status pairs for chips (`warning.bg` + `warning.text`); pick radius by intent (card `lg`, input `md`, pill `full`).
 
 ## Example: `components/TohfaToast.tsx`

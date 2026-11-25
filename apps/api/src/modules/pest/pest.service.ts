@@ -32,11 +32,17 @@
  */
 import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
-import { writeAuditLog } from '../../audit/auditLog.js';
+import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { farmerScopeFilter } from '../admin-farmers/admin-farmers.service.js';
 import {
   pestRepo,
+  type AdminPestIncident,
+  type AdminPestIncidentCursor,
+  type AdminPestIncidentDetail,
+  type AdminPestIncidentPatch,
+  type AdminPestIncidentSummary,
   type MonthCount,
   type PestDetection,
   type PestDetectionPatch,
@@ -51,8 +57,10 @@ import type {
   CreatePestDetectionBody,
   CreatePestTreatmentLogBody,
   CreatePestTreatmentReminderBody,
+  ListAdminPestIncidentsQuery,
   ListPestLibraryQuery,
   PestAnalyticsSummaryResponse,
+  UpdateAdminPestIncidentBody,
   UpdatePestDetectionBody,
   UpdatePestTreatmentReminderBody,
 } from './pest.schema.js';
@@ -555,7 +563,134 @@ export function createPestService(deps: Partial<PestServiceDeps> = {}): PestServ
         treatmentEffectiveness,
       };
     },
+
+    // -----------------------------------------------------------------------
+    // admin pest incident review (BR-229)
+    // -----------------------------------------------------------------------
+
+    async adminListIncidents(scope, query) {
+      const farmerScope = farmerScopeFilter(scope);
+      const cursor = query.cursor !== undefined ? decodeAdminPestCursor(query.cursor) : undefined;
+      const result = await repo.adminListIncidents(db, {
+        farmerScope,
+        status: query.status,
+        severity: query.severity,
+        zoneId: query.zoneId,
+        farmerId: query.farmerId,
+        q: query.q,
+        cursor,
+        limit: query.limit,
+      });
+      return {
+        items: result.items,
+        summary: result.summary,
+        page: {
+          nextCursor: result.next === null ? null : encodeAdminPestCursor(result.next),
+          hasMore: result.next !== null,
+        },
+      };
+    },
+
+    async adminGetIncident(scope, detectionId) {
+      const farmerScope = farmerScopeFilter(scope);
+      const incident = await repo.adminFindIncidentById(db, farmerScope, detectionId);
+      if (incident === null) {
+        throw new AppError('NOT_FOUND', { detail: 'Pest detection not found.' });
+      }
+      const { treatmentLogs, reminders } = await repo.adminListDetectionLogsAndReminders(db, detectionId);
+      return { ...incident, treatmentLogs, reminders };
+    },
+
+    async adminReviewIncident(scope, detectionId, body) {
+      return runTx(async (tx) => {
+        const farmerScope = farmerScopeFilter(scope);
+        const before = await repo.adminFindIncidentById(tx, farmerScope, detectionId, true);
+        if (before === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Pest detection not found.' });
+        }
+
+        const patch: AdminPestIncidentPatch = { reviewedBy: scope.userId };
+
+        if (Object.prototype.hasOwnProperty.call(body, 'pestLibraryId')) {
+          if (body.pestLibraryId === null) {
+            patch.pestLibraryId = null;
+          } else if (body.pestLibraryId !== undefined) {
+            const entry = await repo.findPestLibraryEntryById(tx, body.pestLibraryId);
+            if (entry === null) {
+              throw new AppError('VALIDATION_FAILED', {
+                status: 422,
+                detail: 'Pest library entry not found.',
+                errors: { 'body.pestLibraryId': ['Must reference a valid pest library entry.'] },
+              });
+            }
+            patch.pestLibraryId = entry.id;
+            if (before.scientificName === null && entry.scientificName !== null) {
+              patch.scientificName = entry.scientificName;
+            }
+          }
+        }
+
+        if (body.status !== undefined) {
+          patch.status = body.status;
+          if (body.status === 'Resolved' && before.status !== 'Resolved') {
+            patch.resolvedAt = 'NOW';
+          } else if (body.status !== 'Resolved' && before.status === 'Resolved') {
+            patch.resolvedAt = null;
+            patch.resolutionEffective = null;
+          }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(body, 'adminRecommendedTreatment')) {
+          patch.adminRecommendedTreatment = body.adminRecommendedTreatment ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(body, 'adminReviewNote')) {
+          patch.adminReviewNote = body.adminReviewNote ?? null;
+        }
+
+        const after = await repo.adminUpdateIncident(tx, farmerScope, detectionId, patch);
+        if (after === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Pest detection not found.' });
+        }
+
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.pest.review',
+          entityType: 'pest_detection',
+          entityId: detectionId,
+          before,
+          after,
+          changedFields: changedFields({ ...before }, { ...after }),
+        });
+        return after;
+      });
+    },
   };
+}
+
+function encodeAdminPestCursor(cursor: AdminPestIncidentCursor): string {
+  return Buffer.from(JSON.stringify([cursor.detectedOn, cursor.createdAt, cursor.id]), 'utf8').toString('base64url');
+}
+
+function decodeAdminPestCursor(raw: string): AdminPestIncidentCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      typeof parsed[0] === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(parsed[0]) &&
+      typeof parsed[1] === 'string' &&
+      !Number.isNaN(Date.parse(parsed[1])) &&
+      typeof parsed[2] === 'string' &&
+      /^[0-9a-f-]{36}$/i.test(parsed[2])
+    ) {
+      return { detectedOn: parsed[0], createdAt: parsed[1], id: parsed[2] };
+    }
+  } catch {
+    // fall through
+  }
+  throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
 }
 
 export interface PestService {
@@ -608,6 +743,17 @@ export interface PestService {
   ): Promise<PestTreatmentReminder>;
 
   getAnalyticsSummary(scope: ResolvedScope, farmId: string): Promise<PestAnalyticsSummaryResponse>;
+
+  adminListIncidents(
+    scope: ResolvedScope,
+    query: ListAdminPestIncidentsQuery,
+  ): Promise<{ items: AdminPestIncident[]; summary: AdminPestIncidentSummary; page: { nextCursor: string | null; hasMore: boolean } }>;
+  adminGetIncident(scope: ResolvedScope, detectionId: string): Promise<AdminPestIncidentDetail>;
+  adminReviewIncident(
+    scope: ResolvedScope,
+    detectionId: string,
+    body: UpdateAdminPestIncidentBody,
+  ): Promise<AdminPestIncident>;
 }
 
 /** The production instance. */

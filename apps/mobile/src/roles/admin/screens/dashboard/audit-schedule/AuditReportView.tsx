@@ -4,8 +4,8 @@
  * the server only renders it once the audit is COMPLETED.
  */
 import React from 'react';
-import { Alert, Linking, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
 import type { Can } from '../../../permissions/can';

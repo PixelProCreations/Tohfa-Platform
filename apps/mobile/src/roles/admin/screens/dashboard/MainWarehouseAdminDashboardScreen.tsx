@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, ModalSafeArea } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminOverlay, adminSpacing, adminType } from '../../theme';
 import { OverviewDashboardCard } from '../../components';
@@ -1889,9 +1889,10 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <Modal
           visible={showAlertsFilterModal}
           animationType="slide"
+          statusBarTranslucent
           onRequestClose={() => setShowAlertsFilterModal(false)}
         >
-          <SafeAreaView style={styles.alertsFullScreenFilterModal}>
+          <ModalSafeArea edges={['top']} style={styles.alertsFullScreenFilterModal}>
             <ScreenStatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
 
             {/* Top Orange Header */}
@@ -2045,7 +2046,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                 <Text style={styles.alertsModalResetBtnText}>{t('mainDashboard.alerts.filter.reset')}</Text>
               </TouchableOpacity>
             </View>
-          </SafeAreaView>
+          </ModalSafeArea>
         </Modal>
       </View>
     );

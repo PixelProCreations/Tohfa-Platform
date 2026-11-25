@@ -485,9 +485,7 @@ export function useOrderEventStream(orderId: string | null | undefined, enabled:
       handle?.close();
       onLive(false);
     };
-    // onLive is a state setter (stable).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId, enabled, qc]);
+  }, [orderId, enabled, qc, onLive]);
 }
 
 /**

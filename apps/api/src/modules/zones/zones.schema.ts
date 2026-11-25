@@ -71,3 +71,36 @@ export const adminZoneDetailSchema = z
   })
   .strict();
 export type AdminZoneDetail = z.infer<typeof adminZoneDetailSchema>;
+
+export const createZoneBody = z
+  .object({
+    code: z.string().trim().min(2).max(40),
+    name: z.string().trim().min(2).max(120),
+    warehouseId: z.string().uuid().optional(),
+    description: z.string().trim().max(1000).optional(),
+    taluks: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
+    isActive: z.boolean().default(true),
+  })
+  .strict();
+export type CreateZoneBody = z.infer<typeof createZoneBody>;
+
+export const updateZoneBody = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    warehouseId: z.string().uuid().nullable().optional(),
+    description: z.string().trim().max(1000).nullable().optional(),
+    taluks: z.array(z.string().trim().min(1).max(100)).max(50).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+  .refine((body) => Object.keys(body).length > 0, { message: 'At least one field must be supplied' });
+export type UpdateZoneBody = z.infer<typeof updateZoneBody>;
+
+export const transferZoneFarmersBody = z
+  .object({
+    targetZoneId: z.string().uuid('targetZoneId must be a UUID'),
+    farmerIds: z.array(z.string().uuid()).min(1).max(500).optional(),
+    reason: z.string().trim().min(3, 'reason must be at least 3 characters').max(500),
+  })
+  .strict();
+export type TransferZoneFarmersBody = z.infer<typeof transferZoneFarmersBody>;

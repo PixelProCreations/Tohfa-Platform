@@ -109,7 +109,7 @@ export function AddCustomerScreen({ can = DENY_ALL, onBack, onSuccess }: AddCust
   const [bizPinCode, setBizPinCode] = useState('');
 
   const [preferredWarehouseId, setPreferredWarehouseId] = useState<string | null>(null);
-  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+  const [_typeMenuOpen, setTypeMenuOpen] = useState(false);
   const [warehouseMenuOpen, setWarehouseMenuOpen] = useState(false);
 
   const canViewWarehouses = can('warehouse.all.view');

@@ -43,13 +43,23 @@ export function flattenStyle(style: unknown): Record<string, unknown> {
   return out;
 }
 
+const POPPINS_FAMILIES = new Set<string>(Object.values(tokens.fontFamily));
+
 /**
  * Returns the style with a Poppins fontFamily chosen from its fontWeight, and fontWeight removed.
- * An explicit fontFamily (an icon font, say) is never overridden and the style is returned as is.
+ * Non-Poppins explicit fonts (icons, monospace) are never overridden and the style is returned as is.
+ * If an explicit Poppins weight-specific family is already present (e.g. from `adminType`), `fontWeight`
+ * is still stripped and any overriding `fontWeight` wins so Android never applies synthetic bolding.
  */
 export function applyPoppins(style: unknown): Record<string, unknown> {
   const flat = flattenStyle(style);
-  if (flat['fontFamily']) return flat;
+  const existingFamily = flat['fontFamily'];
+  if (typeof existingFamily === 'string' && existingFamily.length > 0 && !POPPINS_FAMILIES.has(existingFamily)) {
+    return flat;
+  }
   const { fontWeight, ...rest } = flat;
+  if (typeof existingFamily === 'string' && POPPINS_FAMILIES.has(existingFamily) && fontWeight === undefined) {
+    return rest;
+  }
   return { ...rest, fontFamily: poppinsFamilyForWeight(fontWeight as FontWeightInput) };
 }

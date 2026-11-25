@@ -15,6 +15,7 @@ import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { authRepo } from '../auth/auth.repo.js';
 import { subAdminsRepo } from '../warehouse-ops/sub-admins.repo.js';
 import type {
+  AdminAccountDetail,
   AdminAccountListItem,
   AdminAccountZone,
   ListAdminAccountsQuery,
@@ -79,6 +80,8 @@ export interface AdminAccountsRepo {
 
   /** List admin accounts with keyset pagination and filtering. */
   listAdminAccounts(db: Executor, query: ListAdminAccountsQuery): Promise<ListAdminAccountsResponse>;
+  /** Fetch a single live ADMIN user's safe detail without credentials or mobile. */
+  getAdminAccountById(db: Executor, userId: string): Promise<AdminAccountDetail | null>;
 }
 
 const ACCOUNT_COLUMNS = `
@@ -270,6 +273,9 @@ export const adminAccountsRepo: AdminAccountsRepo = {
       conditions.push(`(u.full_name ILIKE $${params.length} OR (u.email IS NOT NULL AND u.email ILIKE $${params.length}))`);
     }
 
+    const filterWhereClause = `WHERE ${conditions.join(' AND ')}`;
+    const filterParams = [...params];
+
     if (query.cursor !== undefined && query.cursor.length > 0) {
       const after = requireKeysetCursor(CURSOR_TAGS.adminAccounts, query.cursor);
       params.push(after.ts, after.id);
@@ -286,6 +292,7 @@ export const adminAccountsRepo: AdminAccountsRepo = {
       email: string | null;
       status: 'PENDING' | 'ACTIVE' | 'DISABLED';
       roleCode: string;
+      roles: string[] | null;
       zones: AdminAccountZone[];
       cursor_ts: string;
     }>(
@@ -311,6 +318,17 @@ export const adminAccountsRepo: AdminAccountsRepo = {
            'ADMIN'
          ) AS "roleCode",
          COALESCE(
+           (SELECT array_agg(s.code ORDER BY s.hierarchy_level ASC, s.code ASC)
+              FROM (
+                SELECT DISTINCT r.code, r.hierarchy_level
+                  FROM user_roles ur
+                  JOIN roles r ON r.id = ur.role_id
+                 WHERE ur.user_id = u.id
+                   AND ${LIVE_ROLE}
+              ) s),
+           ARRAY[]::text[]
+         ) AS roles,
+         COALESCE(
            (SELECT json_agg(json_build_object('id', z.id, 'code', z.code, 'name', z.name) ORDER BY z.name)
               FROM (
                 SELECT DISTINCT z.id, z.code, z.name
@@ -330,6 +348,11 @@ export const adminAccountsRepo: AdminAccountsRepo = {
       params,
     );
 
+    const summaryRes = await db.query<{ total: number }>(
+      `SELECT COUNT(*)::int AS total FROM users u ${filterWhereClause}`,
+      filterParams,
+    );
+
     const hasMore = result.rows.length > limit;
     const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
     const last = rows[rows.length - 1];
@@ -341,15 +364,104 @@ export const adminAccountsRepo: AdminAccountsRepo = {
       fullName: r.fullName,
       email: r.email,
       roleCode: r.roleCode,
+      roles: Array.isArray(r.roles) ? r.roles : [],
       status: r.status,
       zones: Array.isArray(r.zones) ? r.zones : [],
     }));
 
     return {
       items,
+      summary: { total: summaryRes.rows[0]?.total ?? 0 },
       page: { nextCursor, hasMore },
       nextCursor,
       hasMore,
+    };
+  },
+
+  async getAdminAccountById(db, userId) {
+    const res = await db.query<{
+      id: string;
+      fullName: string;
+      email: string | null;
+      adminCode: string | null;
+      status: 'PENDING' | 'ACTIVE' | 'DISABLED';
+      roleCode: string;
+      roles: string[] | null;
+      zones: AdminAccountZone[];
+      createdAt: Date;
+      disabledAt: Date | null;
+      disabledBy: string | null;
+      disabledReason: string | null;
+    }>(
+      `SELECT
+         u.id,
+         u.full_name AS "fullName",
+         u.email,
+         ap.admin_code AS "adminCode",
+         u.status,
+         COALESCE(
+           (SELECT r.code
+              FROM user_roles ur
+              JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id
+               AND ${LIVE_ROLE}
+             ORDER BY r.hierarchy_level ASC, r.code ASC
+             LIMIT 1),
+           (SELECT r.code
+              FROM user_roles ur
+              JOIN roles r ON r.id = ur.role_id
+             WHERE ur.user_id = u.id
+             ORDER BY ur.valid_from DESC
+             LIMIT 1),
+           'ADMIN'
+         ) AS "roleCode",
+         COALESCE(
+           (SELECT array_agg(s.code ORDER BY s.hierarchy_level ASC, s.code ASC)
+              FROM (
+                SELECT DISTINCT r.code, r.hierarchy_level
+                  FROM user_roles ur
+                  JOIN roles r ON r.id = ur.role_id
+                 WHERE ur.user_id = u.id
+                   AND ${LIVE_ROLE}
+              ) s),
+           ARRAY[]::text[]
+         ) AS roles,
+         COALESCE(
+           (SELECT json_agg(json_build_object('id', z.id, 'code', z.code, 'name', z.name) ORDER BY z.name)
+              FROM (
+                SELECT DISTINCT z.id, z.code, z.name
+                  FROM user_roles ur
+                  JOIN zones z ON z.id = ur.zone_id
+                 WHERE ur.user_id = u.id
+                   AND ${LIVE_ROLE}
+                   AND z.deleted_at IS NULL
+              ) z),
+           '[]'::json
+         ) AS zones,
+         u.created_at AS "createdAt",
+         u.disabled_at AS "disabledAt",
+         u.disabled_by AS "disabledBy",
+         u.disabled_reason AS "disabledReason"
+        FROM users u
+        LEFT JOIN admin_profiles ap ON ap.user_id = u.id AND ap.deleted_at IS NULL
+       WHERE u.id = $1 AND u.deleted_at IS NULL AND u.user_type = 'ADMIN'`,
+      [userId],
+    );
+    const row = res.rows[0];
+    if (row === undefined) return null;
+    return {
+      id: row.id,
+      fullName: row.fullName,
+      email: row.email,
+      adminCode: row.adminCode,
+      roleCode: row.roleCode,
+      roles: Array.isArray(row.roles) ? row.roles : [],
+      status: row.status,
+      zones: Array.isArray(row.zones) ? row.zones : [],
+      createdAt: row.createdAt.toISOString(),
+      disabledAt: row.disabledAt === null ? null : row.disabledAt.toISOString(),
+      disabledBy: row.disabledBy,
+      disabledReason: row.disabledReason,
     };
   },
 };

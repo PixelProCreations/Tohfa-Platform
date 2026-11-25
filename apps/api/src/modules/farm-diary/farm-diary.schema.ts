@@ -34,6 +34,17 @@ export type WorkerPaymentStatus = (typeof workerPaymentStatuses)[number];
 export const plotIdParams = z.object({ plotId: z.string().uuid('plotId must be a UUID') }).strict();
 export type PlotIdParams = z.infer<typeof plotIdParams>;
 
+export const adminFarmerDiaryParams = z.object({ farmerId: z.string().uuid('farmerId must be a UUID') }).strict();
+export type AdminFarmerDiaryParams = z.infer<typeof adminFarmerDiaryParams>;
+
+export const adminFarmerEntryParams = z
+  .object({
+    farmerId: z.string().uuid('farmerId must be a UUID'),
+    entryId: z.string().uuid('entryId must be a UUID'),
+  })
+  .strict();
+export type AdminFarmerEntryParams = z.infer<typeof adminFarmerEntryParams>;
+
 export const entryIdParams = z.object({ entryId: z.string().uuid('entryId must be a UUID') }).strict();
 export type EntryIdParams = z.infer<typeof entryIdParams>;
 
@@ -139,6 +150,7 @@ export const listDiaryEntriesQuery = z
     month: isoMonth.optional(),
     plotId: z.string().uuid('plotId must be a UUID').optional(),
     categoryKey: taxonomyKey.optional(),
+    addedOnBehalf: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
     cursor: z.string().max(512).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
   })
@@ -323,6 +335,9 @@ const diaryEntryBase = z.object({
   totalLabourCostPaise: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+  createdByAdminId: z.string().uuid().nullable(),
+  createdByAdminName: z.string().nullable(),
+  addedOnBehalf: z.boolean(),
 });
 
 export const diaryEntrySummaryResponse = diaryEntryBase.extend({

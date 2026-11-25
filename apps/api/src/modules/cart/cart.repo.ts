@@ -76,6 +76,8 @@ export interface CartRepo {
     grade: ProduceGrade,
   ): Promise<{ price: string; cropName: string } | null>;
 
+  isWarehouseMarketOpen?(db: Executor, warehouseId: string): Promise<boolean>;
+
   findAndLockOnlineAllocation(
     db: Executor,
     params: {
@@ -269,6 +271,14 @@ export const cartRepo: CartRepo = {
       [cropId, grade],
     );
     return res.rows[0] ?? null;
+  },
+
+  async isWarehouseMarketOpen(db, warehouseId) {
+    const res = await db.query<{ is_market_open: boolean }>(
+      `SELECT is_market_open FROM warehouses WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [warehouseId],
+    );
+    return res.rows[0]?.is_market_open ?? false;
   },
 
   async findAndLockOnlineAllocation(db, params) {

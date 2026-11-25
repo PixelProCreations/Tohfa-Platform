@@ -4,8 +4,8 @@
  * for the shown IST month.
  */
 import React, { useMemo } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { AuditSummaryDto } from '../../../api/audits';
 import { adminColors, adminSpacing } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';

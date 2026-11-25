@@ -17,17 +17,92 @@ import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
+  adminFarmerDiaryParams,
+  adminFarmerEntryParams,
   categoryKeyForSubParams,
   categoryKeyParams,
   createDiaryCategoryBody,
+  createDiaryEntryBody,
   createDiarySubActivityBody,
+  listDiaryEntriesQuery,
   subActivityKeyParams,
   updateDiaryCategoryBody,
+  updateDiaryEntryBody,
   updateDiarySubActivityBody,
 } from './farm-diary.schema.js';
-import { diaryTaxonomyAdminService } from './farm-diary.service.js';
+import { adminFarmerDiaryService, diaryTaxonomyAdminService } from './farm-diary.service.js';
 
 export const adminDiaryTaxonomyRouter: Router = Router();
+export const adminFarmerDiaryRouter: Router = Router();
+
+// GET /v1/admin/farmers/:farmerId/diary — zone-scoped read-only farmer diary (BR-228)
+adminFarmerDiaryRouter.get(
+  '/:farmerId/diary',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  validate({ params: adminFarmerDiaryParams, query: listDiaryEntriesQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId } = getValidated(req, 'params', adminFarmerDiaryParams);
+    const query = getValidated(req, 'query', listDiaryEntriesQuery);
+    res.json(await adminFarmerDiaryService.listEntries(scope, farmerId, query));
+  }),
+);
+
+// GET /v1/admin/farmers/:farmerId/diary/entries
+adminFarmerDiaryRouter.get(
+  '/:farmerId/diary/entries',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  validate({ params: adminFarmerDiaryParams, query: listDiaryEntriesQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId } = getValidated(req, 'params', adminFarmerDiaryParams);
+    const query = getValidated(req, 'query', listDiaryEntriesQuery);
+    res.json(await adminFarmerDiaryService.listEntries(scope, farmerId, query));
+  }),
+);
+
+// GET /v1/admin/farmers/:farmerId/diary/entries/:entryId
+adminFarmerDiaryRouter.get(
+  '/:farmerId/diary/entries/:entryId',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  validate({ params: adminFarmerEntryParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, entryId } = getValidated(req, 'params', adminFarmerEntryParams);
+    res.json(await adminFarmerDiaryService.getEntry(scope, farmerId, entryId));
+  }),
+);
+
+// POST /v1/admin/farmers/:farmerId/diary/entries — create diary entry on behalf (BR-237)
+adminFarmerDiaryRouter.post(
+  '/:farmerId/diary/entries',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerDiaryParams, body: createDiaryEntryBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId } = getValidated(req, 'params', adminFarmerDiaryParams);
+    const body = getValidated(req, 'body', createDiaryEntryBody);
+    res.status(201).json(await adminFarmerDiaryService.createEntry(scope, farmerId, body));
+  }),
+);
+
+// PATCH /v1/admin/farmers/:farmerId/diary/entries/:entryId — edit diary entry on behalf (BR-237)
+adminFarmerDiaryRouter.patch(
+  '/:farmerId/diary/entries/:entryId',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerEntryParams, body: updateDiaryEntryBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, entryId } = getValidated(req, 'params', adminFarmerEntryParams);
+    const body = getValidated(req, 'body', updateDiaryEntryBody);
+    res.json(await adminFarmerDiaryService.updateEntry(scope, farmerId, entryId, body));
+  }),
+);
 
 // GET /v1/admin/diary/categories
 adminDiaryTaxonomyRouter.get(

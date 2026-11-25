@@ -20,6 +20,8 @@ export const UploadPurpose = {
   AUDIT_REPORT: 'AUDIT_REPORT',
   /** A warehouse compliance or property document (licence, FSSAI, lease ...) (BR-105). */
   WAREHOUSE_DOCUMENT: 'WAREHOUSE_DOCUMENT',
+  /** Supporting document/image attached to an approved inputs catalogue item (D11). */
+  INPUT_DOCUMENT: 'INPUT_DOCUMENT',
 } as const;
 
 export type UploadPurpose = (typeof UploadPurpose)[keyof typeof UploadPurpose];
@@ -65,6 +67,7 @@ export const signUploadBody = z.object({
     UploadPurpose.WORKER_ID_PROOF,
     UploadPurpose.AUDIT_REPORT,
     UploadPurpose.WAREHOUSE_DOCUMENT,
+    UploadPurpose.INPUT_DOCUMENT,
   ]),
   contentType: z.enum(ALLOWED_MIME_TYPES, {
     errorMap: () => ({

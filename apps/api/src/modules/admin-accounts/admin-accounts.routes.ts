@@ -34,6 +34,19 @@ adminAccountsRouter.get(
   }),
 );
 
+// GET /v1/admin/accounts/:id — admin account detail without secrets or mobile
+adminAccountsRouter.get(
+  '/:id',
+  requireAuth,
+  requireAnyPermission(['admin.staff.list_view', 'role.definition.view']),
+  validate({ params: adminAccountIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', adminAccountIdParams);
+    res.status(200).json(await adminAccountsService.getById(scope, id));
+  }),
+);
+
 // POST /v1/admin/accounts — the code that applies depends on the role in the body
 // (`x-permission-any-of` in docs/openapi.yaml). The gate admits a holder of any admin.*.create code;
 // the code for the requested role is resolved here and enforced by the service (BR-28, BR-28b).

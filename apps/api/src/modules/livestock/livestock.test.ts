@@ -304,6 +304,9 @@ function createFakeRepo() {
     notes: a.notes,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt === null ? null : a.updatedAt.toISOString(),
+    createdByAdminId: null,
+    createdByAdminName: null,
+    addedOnBehalf: false,
   });
 
   const toLogResponse = (p: StoredProductionLog): ProductionLogResponse => ({
@@ -322,6 +325,9 @@ function createFakeRepo() {
     notes: p.notes,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt === null ? null : p.updatedAt.toISOString(),
+    createdByAdminId: null,
+    createdByAdminName: null,
+    addedOnBehalf: false,
   });
 
   const findOwnedAnimal = (farmerId: string, animalId: string): StoredAnimal | null => {

@@ -238,11 +238,6 @@ function mount(props: Partial<React.ComponentProps<typeof AdminApplicationDetail
   return tree;
 }
 
-/** The buttons of the n-th Alert.alert call (the confirmation pop-ups). */
-function alertButtons(n = 0): { text: string; style?: string; onPress?: () => void }[] {
-  return vi.mocked(Alert.alert).mock.calls[n]![2] as { text: string; style?: string; onPress?: () => void }[];
-}
-
 /**
  * Press Approve in the action bar, then Confirm & Onboard Farmer on the
  * Approve Application screen it opens (the design's approval screen replaced

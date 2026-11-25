@@ -163,7 +163,7 @@ export interface PaymentMethodsScreenProps {
 
 export function PaymentMethodsScreen({
   onBack,
-  can = () => true,
+  can: _can = () => true,
   onSave,
 }: PaymentMethodsScreenProps) {
   const [activeCategory, setActiveCategory] = useState<'cash' | 'upi' | 'card' | 'wallet'>('cash');

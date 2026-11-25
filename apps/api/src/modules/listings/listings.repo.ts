@@ -54,6 +54,7 @@ export interface ListingRollup {
 export interface FarmerProfileRow {
   id: string;
   userId: string;
+  userStatus?: string;
   isMarketBlocked: boolean;
 }
 
@@ -102,9 +103,10 @@ function isoOrNull(value: Date | null): string | null {
 export const listingsRepo = {
   async findFarmerByUserId(db: Executor, userId: string): Promise<FarmerProfileRow | null> {
     const res = await db.query<FarmerProfileRow>(
-      `SELECT id, user_id AS "userId", is_market_blocked AS "isMarketBlocked"
-       FROM farmers
-       WHERE user_id = $1 AND deleted_at IS NULL
+      `SELECT f.id, f.user_id AS "userId", u.status AS "userStatus", f.is_market_blocked AS "isMarketBlocked"
+       FROM farmers f
+       JOIN users u ON u.id = f.user_id
+       WHERE f.user_id = $1 AND f.deleted_at IS NULL AND u.deleted_at IS NULL
        LIMIT 1`,
       [userId],
     );
@@ -113,9 +115,10 @@ export const listingsRepo = {
 
   async findFarmerById(db: Executor, farmerId: string): Promise<FarmerProfileRow | null> {
     const res = await db.query<FarmerProfileRow>(
-      `SELECT id, user_id AS "userId", is_market_blocked AS "isMarketBlocked"
-       FROM farmers
-       WHERE id = $1 AND deleted_at IS NULL
+      `SELECT f.id, f.user_id AS "userId", u.status AS "userStatus", f.is_market_blocked AS "isMarketBlocked"
+       FROM farmers f
+       JOIN users u ON u.id = f.user_id
+       WHERE f.id = $1 AND f.deleted_at IS NULL AND u.deleted_at IS NULL
        LIMIT 1`,
       [farmerId],
     );

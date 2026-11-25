@@ -3,8 +3,8 @@
  * currentView 'audit_details_m5'), with the Checklist.pdf document popup.
  */
 import React, { useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { Can } from '../../../permissions/can';
 import { adminColors, adminSpacing } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';

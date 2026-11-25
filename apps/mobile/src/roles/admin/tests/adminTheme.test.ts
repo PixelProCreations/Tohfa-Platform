@@ -194,22 +194,31 @@ describe('Admin theme — type, radius, spacing, elevation', () => {
     ['caption', 'adminCaption'],
   ] as const;
 
-  it('each text style equals its typeStyle token (size, line height, RN string weight)', () => {
+  it('each text style equals its typeStyle token (size, line height, RN string weight, Poppins family)', () => {
+    const familyForWeight = (w: number): string => {
+      if (w <= 400) return tokens.fontFamily.regular;
+      if (w < 600) return tokens.fontFamily.medium;
+      if (w < 700) return tokens.fontFamily.semibold;
+      if (w < 800) return tokens.fontFamily.bold;
+      return tokens.fontFamily.extrabold;
+    };
     for (const [themeName, tokenName] of styles) {
       const token = tokens.typeStyle[tokenName];
       expect(adminType[themeName], themeName).toEqual({
         fontSize: token.size,
         lineHeight: token.lineHeight,
         fontWeight: String(token.weight),
+        fontFamily: familyForWeight(token.weight),
       });
     }
   });
 
-  it('uses the native system font: no fontFamily is set, and no Poppins/Manrope anywhere', () => {
+  it('uses Poppins from @tohfa/design-tokens fontFamily (no Manrope in adminType)', () => {
     for (const [themeName] of styles) {
-      expect(adminType[themeName], themeName).not.toHaveProperty('fontFamily');
+      expect(adminType[themeName], themeName).toHaveProperty('fontFamily');
+      expect(adminType[themeName].fontFamily).toMatch(/^Poppins-/);
     }
-    expect(JSON.stringify(adminTheme)).not.toMatch(/poppins|manrope/i);
+    expect(JSON.stringify(adminTheme.type)).not.toMatch(/manrope/i);
     expect(ADMIN_FONT_STACK).toBe(tokens.fontStack.adminSans);
     expect(ADMIN_FONT_STACK).not.toMatch(/poppins|manrope/i);
   });
@@ -265,11 +274,11 @@ describe('Admin theme — type, radius, spacing, elevation', () => {
     expect(adminTheme.buttonHeight).toBe(ADMIN_BUTTON_HEIGHT);
   });
 
-  it('the theme source contains no raw colour literals and no Poppins', () => {
+  it('the theme source contains no raw colour literals and resolves fonts through @tohfa/design-tokens', () => {
     const src = fs.readFileSync(path.resolve(__dirname, '../theme/index.ts'), 'utf8');
     expect(src).not.toMatch(/#[0-9A-Fa-f]{3,8}\b/);
     expect(src).not.toMatch(/rgba?\(/);
-    expect(src).not.toMatch(/poppins/i);
+    expect(src).not.toMatch(/manrope/i);
   });
 });
 

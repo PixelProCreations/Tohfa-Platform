@@ -39,6 +39,7 @@ import { adminAccountsRepo, type AdminAccountRow, type AdminAccountsRepo } from 
 import {
   CREATE_PERMISSION_BY_ROLE,
   type AdminAccountCreated,
+  type AdminAccountDetail,
   type AdminAccountStatus,
   type CreateAdminAccountBody,
   type DisableAdminAccountBody,
@@ -60,6 +61,7 @@ export interface AdminAccountsServiceDeps {
 
 export interface AdminAccountsService {
   list(scope: ResolvedScope, query: ListAdminAccountsQuery): Promise<ListAdminAccountsResponse>;
+  getById(scope: ResolvedScope, userId: string): Promise<AdminAccountDetail>;
   disable(scope: ResolvedScope, userId: string, body: DisableAdminAccountBody): Promise<AdminAccountStatus>;
   /**
    * BR-28 / BR-112. `gateScope` is what the route's any-of gate attached (who is acting); `createScope`
@@ -127,6 +129,12 @@ export function createAdminAccountsService(deps: Partial<AdminAccountsServiceDep
   return {
     async list(_scope, query) {
       return repo.listAdminAccounts(db, query);
+    },
+
+    async getById(_scope, userId) {
+      const account = await repo.getAdminAccountById(db, userId);
+      if (account === null) throw notFound(userId);
+      return account;
     },
 
     async disable(scope, userId, body) {

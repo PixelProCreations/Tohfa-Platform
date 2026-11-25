@@ -20,6 +20,7 @@ import type {
 } from './cart.schema.js';
 import { gramsToKg } from '../sales/sales.math.js';
 import { cartLineTotal, qtyGrams } from './cart.pricing.js';
+import { marketClosedError } from '../warehouses/market-control.js';
 
 /** D-01: quantities compared as integer grams, never as floats. "0.000" and malformed are <= 0. */
 function requirePositiveGrams(qtyKg: string): number {
@@ -224,6 +225,10 @@ export function createCartService(opts: {
         }
 
         const targetWarehouseId = input.warehouseId ?? cart.warehouse_id;
+        if (targetWarehouseId !== null && repo.isWarehouseMarketOpen) {
+          const open = await repo.isWarehouseMarketOpen(tx, targetWarehouseId);
+          if (!open) throw marketClosedError(targetWarehouseId);
+        }
 
         const allocation = await repo.findAndLockOnlineAllocation(tx, {
           cropId: input.productId,
@@ -318,6 +323,10 @@ export function createCartService(opts: {
 
         const lockHours = await repo.getCartLockHours(tx);
         const targetWarehouseId = input.warehouseId ?? cart.warehouse_id;
+        if (targetWarehouseId !== null && repo.isWarehouseMarketOpen) {
+          const open = await repo.isWarehouseMarketOpen(tx, targetWarehouseId);
+          if (!open) throw marketClosedError(targetWarehouseId);
+        }
 
         for (const itemInput of input.items) {
           const grams = requirePositiveGrams(itemInput.qtyKg);

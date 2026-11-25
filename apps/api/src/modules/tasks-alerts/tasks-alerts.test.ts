@@ -17,6 +17,7 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
+import { signAccessToken } from '../../auth/jwt.js';
 import type { Express } from 'express';
 import type { Server } from 'node:http';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
@@ -1221,5 +1222,79 @@ describeIfDatabase('Tasks and alerts routes (real app router, PostgreSQL)', () =
     const ok = await post({ until: ms(167 * 3600_000) });
     expect(ok.status, JSON.stringify(ok.body)).toBe(200);
     expect(ok.body.state).toBe('SNOOZED');
+  });
+
+  it('BR-230 (HTTP): GET and PATCH /v1/admin/alerts/thresholds enforce alert.threshold.configure, update system_config, and write audit_log', async () => {
+    // 403 for roles without alert.threshold.configure
+    for (const role of ['subH1', 'main', 'farmer'] as const) {
+      const rGet = await request(server).get('/v1/admin/alerts/thresholds').set('Authorization', auth(role));
+      expect(rGet.status, `${role} GET`).toBe(403);
+      const rPatch = await request(server)
+        .patch('/v1/admin/alerts/thresholds')
+        .set('Authorization', auth(role))
+        .send({ batchExpiryDays: 10 });
+      expect(rPatch.status, `${role} PATCH`).toBe(403);
+    }
+
+    const tohfaToken = signAccessToken({
+      sub: userA,
+      roles: [{ code: RoleCode.TOHFA_ADMIN }],
+      customerId: null,
+      farmerId: null,
+    });
+    const authHeader = `Bearer ${tohfaToken}`;
+
+    const beforeRes = await request(server).get('/v1/admin/alerts/thresholds').set('Authorization', authHeader);
+    expect(beforeRes.status).toBe(200);
+    expect(beforeRes.body).toMatchObject({
+      batchExpiryDays: expect.any(Number),
+      capacityUtilizationPercent: expect.any(Number),
+      lowStockThresholdKg: expect.any(Number),
+      snoozeMaxHours: expect.any(Number),
+    });
+    const originalExpiryDays = beforeRes.body.batchExpiryDays;
+    const nextExpiryDays = originalExpiryDays === 14 ? 21 : 14;
+
+    // 422 on negative/unknown fields
+    expect((await request(server).patch('/v1/admin/alerts/thresholds').set('Authorization', authHeader).send({})).status).toBe(422);
+    expect(
+      (await request(server).patch('/v1/admin/alerts/thresholds').set('Authorization', authHeader).send({ batchExpiryDays: -1 })).status,
+    ).toBe(422);
+    expect(
+      (await request(server).patch('/v1/admin/alerts/thresholds').set('Authorization', authHeader).send({ capacityUtilizationPercent: 101 })).status,
+    ).toBe(422);
+
+    const { pool } = await import('../../db/pool.js');
+    const priorCfg = await pool.query<{ updated_by: string | null }>(
+      `SELECT updated_by FROM system_config WHERE key = 'alert_batch_expiry_days'`,
+    );
+    const originalUpdatedBy = priorCfg.rows[0]?.updated_by ?? null;
+
+    try {
+      const patchRes = await request(server)
+        .patch('/v1/admin/alerts/thresholds')
+        .set('Authorization', authHeader)
+        .send({ batchExpiryDays: nextExpiryDays });
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body.batchExpiryDays).toBe(nextExpiryDays);
+
+      const verifyRes = await request(server).get('/v1/admin/alerts/thresholds').set('Authorization', authHeader);
+      expect(verifyRes.status).toBe(200);
+      expect(verifyRes.body.batchExpiryDays).toBe(nextExpiryDays);
+
+      const auditRes = await pool.query<{ action_code: string; entity_type: string; after: any }>(
+        `SELECT action_code, entity_type, after FROM audit_log WHERE action_code = 'alert.threshold.configure' ORDER BY created_at DESC LIMIT 1`,
+      );
+      expect(auditRes.rows[0]).toMatchObject({
+        action_code: 'alert.threshold.configure',
+        entity_type: 'system_config',
+      });
+      expect(auditRes.rows[0]?.after?.batchExpiryDays).toBe(nextExpiryDays);
+    } finally {
+      await pool.query(
+        `UPDATE system_config SET value = $1::jsonb, updated_by = $2, updated_at = now() WHERE key = 'alert_batch_expiry_days'`,
+        [JSON.stringify(originalExpiryDays), originalUpdatedBy],
+      );
+    }
   });
 });

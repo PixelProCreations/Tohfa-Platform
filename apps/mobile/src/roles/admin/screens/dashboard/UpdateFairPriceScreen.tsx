@@ -258,13 +258,11 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 4,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
     fontSize: 13,
     color: P.lightGray,
     marginBottom: 20,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   priceCard: {
     backgroundColor: P.cardBg,
@@ -278,7 +276,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: P.darkBrown,
     marginBottom: 16,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   priceRow: {
     flexDirection: 'row',
@@ -313,12 +310,10 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 2,
     lineHeight: 44,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   currentText: {
     fontSize: 12,
     color: P.lightGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   saveBtn: {
     flexDirection: 'row',
@@ -332,7 +327,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: adminColors.onBrand,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   saveBtnDisabled: {
     opacity: 0.5,
@@ -342,20 +336,17 @@ const styles = StyleSheet.create({
     color: P.lightGray,
     marginTop: 10,
     lineHeight: 17,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   errorText: {
     fontSize: 13,
     fontWeight: '600',
     color: P.danger,
     marginTop: 10,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   successText: {
     fontSize: 13,
     fontWeight: '600',
     color: P.success,
     marginTop: 10,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

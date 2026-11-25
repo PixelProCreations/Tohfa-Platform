@@ -9,6 +9,7 @@
  * holds (BR-06a range, BR-06b categories, BR-06 direct sum, BR-04a/b tiers) is
  * asserted here against `recordAuditRating`, the one remaining write.
  */
+import type { Server } from 'node:http';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
@@ -72,7 +73,9 @@ function auditInput(overrides: Partial<AuditRatingInput> = {}, values: number[] 
   };
 }
 
-interface StoredRating extends CreateAuditRatingData {
+interface StoredRating extends Omit<CreateAuditRatingData, 'sourceAuditId'> {
+  sourceAuditId: string | null;
+  editReason?: string | null;
   id: string;
   status: LatestRatingRow['status'];
   ratedAt: Date | null;
@@ -139,6 +142,13 @@ function createFakeRatings(overrides: Partial<FarmRatingsRepo> = {}): FakeRating
       seq += 1;
       const id = newId();
       ratings.push({ ...data, id, status: 'COMPLETE', ratedAt: new Date(), seq, scores: new Map() });
+      return id;
+    },
+    insertManualRating: async (tx, data) => {
+      writeTxs.push(tx);
+      seq += 1;
+      const id = newId();
+      ratings.push({ ...data, sourceAuditId: null, id, status: 'COMPLETE', ratedAt: new Date(), seq, scores: new Map() });
       return id;
     },
     insertScores: async (tx, ratingId, scores) => {
@@ -383,7 +393,7 @@ describe('FarmRatingsService (Unit)', () => {
     expect(result).toMatchObject({ periodLabel: 'CYCLE-1', overallRating: 83, source: 'MANUAL', sourceAuditId: null });
   });
 
-  it('BR-06e: docs/rbac.json carries farmer.rating.edit for SUPER_ADMIN and TOHFA_ADMIN only (reinstated by owner decision 2026-11-09; no endpoint yet)', () => {
+  it('BR-06e: docs/rbac.json carries farmer.rating.edit for SUPER_ADMIN and TOHFA_ADMIN only (re-enabled by owner decision 2026-11-25)', () => {
     const rbac = loadRbac();
     const codes = rbac.document.permissions
       .map((permission) => permission.code)
@@ -402,10 +412,10 @@ describe('FarmRatingsService (Unit)', () => {
     }
   });
 
-  it('BR-06e: the service exposes no manual write (setRating is gone)', () => {
+  it('BR-06e: the service exposes setRating alongside getAdminRating, getMyRating, recordAuditRating', () => {
     const service = serviceWith(createFakeRatings());
-    expect('setRating' in service).toBe(false);
-    expect(Object.keys(service).sort()).toEqual(['getAdminRating', 'getMyRating', 'recordAuditRating']);
+    expect(typeof service.setRating).toBe('function');
+    expect(Object.keys(service).sort()).toEqual(['getAdminRating', 'getMyRating', 'recordAuditRating', 'setRating']);
   });
 
   it('a farmer with no farmer profile gets 404 from GET /me (defensive)', async () => {
@@ -457,20 +467,31 @@ describe('Farm rating routes (BR-06e)', () => {
     farmerId: FARMER_ID,
     customerId: null,
   });
-  const body = { modules: [{ categoryCode: 'CERTIFICATION', score: 8 }] };
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('BR-06e: PUT /admin/farmers/{id}/rating no longer exists (404 for every caller, never reaches a write)', async () => {
-    for (const token of [superAdmin, farmerAdminSouth, farmer]) {
-      const res = await request(app)
+  it('BR-06e (D7): PUT /admin/farmers/{id}/rating allows SUPER_ADMIN/TOHFA_ADMIN with farmer.rating.edit and forbids FARMER_ADMIN/FARMER (403)', async () => {
+    const spy = vi.spyOn(farmRatingsService, 'setRating').mockResolvedValue({ overallRating: 75 } as never);
+    const validBody = {
+      reason: 'Field inspection adjustment',
+      scores: [{ categoryCode: 'CERTIFICATION', score: 8 }],
+    };
+
+    const saOk = await request(app)
+      .put(`/v1/admin/farmers/${FARMER_ID}/rating`)
+      .set('Authorization', `Bearer ${superAdmin}`)
+      .send(validBody);
+    expect(saOk.status).toBe(200);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    for (const token of [farmerAdminSouth, farmer]) {
+      const denied = await request(app)
         .put(`/v1/admin/farmers/${FARMER_ID}/rating`)
         .set('Authorization', `Bearer ${token}`)
-        .send(body);
-      expect([404, 405]).toContain(res.status);
-      expect(res.body.code).toBe('NOT_FOUND');
+        .send(validBody);
+      expect(denied.status).toBe(403);
     }
   });
 
@@ -615,5 +636,92 @@ describeIfDatabase('FarmRatingsRepo scope filtering (Integration)', () => {
     const otherZoneRow = await farmRatingsRepo.findFarmerForView(pool, farmerAtCoonoor, scope);
     expect(ownZoneRow).not.toBeNull();
     expect(otherZoneRow).toBeNull();
+  });
+});
+
+describeIfDatabase('PUT /v1/admin/farmers/:id/rating HTTP integration (BR-06e D7)', () => {
+  let ready = false;
+  let server: Server;
+  const adminId = newId();
+  const farmerUserId = newId();
+  const farmerId = newId();
+
+  beforeAll(async () => {
+    ready = await databaseReady('farm_ratings');
+    if (!ready) return;
+    const col = await pool.query<{ n: number }>(
+      `SELECT COUNT(*)::int AS n FROM information_schema.columns
+        WHERE table_name = 'farm_ratings' AND column_name = 'edit_reason'`,
+    );
+    if ((col.rows[0]?.n ?? 0) === 0) {
+      ready = false;
+      return;
+    }
+    const app = createApp();
+    server = app.listen(0);
+    await pool.query(
+      `INSERT INTO users (id, full_name, mobile, user_type, status) VALUES
+        ($1, 'Rating Admin', $3, 'ADMIN', 'ACTIVE'),
+        ($2, 'Rating Farmer', $4, 'FARMER', 'ACTIVE')`,
+      [adminId, farmerUserId, `+917${Math.floor(100000000 + Math.random() * 899999999)}`, `+917${Math.floor(100000000 + Math.random() * 899999999)}`],
+    );
+    await pool.query(
+      `INSERT INTO farmers (id, user_id, tohfa_farmer_id, kyc_status, application_status)
+       VALUES ($1, $2, $3, 'VERIFIED', 'APPROVED')`,
+      [farmerId, farmerUserId, `TF-${farmerId.slice(0, 6)}`],
+    );
+  });
+
+  afterAll(async () => {
+    server?.close();
+  });
+
+  it('validates 0..10 scores & reason, computes tier, updates farmer cache + editReason + audit_log', async (ctx) => {
+    if (!ready) return ctx.skip();
+
+    const adminToken = signAccessToken({
+      sub: adminId,
+      roles: [{ code: 'SUPER_ADMIN' }] as never,
+      farmerId: null,
+      customerId: null,
+    });
+
+    const cats = await pool.query<{ code: string }>(`SELECT code FROM rating_categories WHERE is_active = true ORDER BY sort_order`);
+    expect(cats.rows.length).toBeGreaterThan(0);
+
+    // Out-of-range score -> 422 SCORE_OUT_OF_RANGE
+    const badScore = await request(server)
+      .put(`/v1/admin/farmers/${farmerId}/rating`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        reason: 'Manual override check',
+        scores: cats.rows.map((c, idx) => ({ categoryCode: c.code, score: idx === 0 ? 11 : 7 })),
+      });
+    expect(badScore.status).toBe(422);
+    expect(badScore.body.code).toBe('SCORE_OUT_OF_RANGE');
+
+    // Valid full scores
+    const ok = await request(server)
+      .put(`/v1/admin/farmers/${farmerId}/rating`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        reason: 'Verified field calibration adjustment',
+        scores: cats.rows.map((c) => ({ categoryCode: c.code, score: 8, remarks: 'Good practice' })),
+      });
+    expect(ok.status).toBe(200);
+    expect(ok.body.overallRating).toBe(cats.rows.length * 8);
+    expect(ok.body.editReason).toBe('Verified field calibration adjustment');
+
+    const farmerRow = await pool.query<{ overall_rating: string | null }>(
+      `SELECT overall_rating::text FROM farmers WHERE id = $1`,
+      [farmerId],
+    );
+    expect(Number(farmerRow.rows[0]?.overall_rating)).toBe(cats.rows.length * 8);
+
+    const auditRes = await pool.query<{ action_code: string }>(
+      `SELECT action_code FROM audit_log WHERE entity_type = 'farm_rating' AND actor_id = $1`,
+      [adminId],
+    );
+    expect(auditRes.rows.map((r) => r.action_code)).toContain('farmer.rating.edit');
   });
 });

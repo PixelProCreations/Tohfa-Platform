@@ -2,7 +2,7 @@
     <!-- Unused by the manifest (android:label uses a literal string per
          flavor, see src/farmer|customer|admin/AndroidManifest.xml) but AGP's
          default template expects an app_name resource to exist. -->
-    <string name="app_name">TohfaMobile</string>
+    <string name="app_name">Tohfa Mobile</string>
 
     <!-- PLACEHOLDER — Facebook Login (farmer OAuth, see auth/oauth wiring in
          roles/farmer/screens/auth/LoginScreen.tsx). Replace with the real

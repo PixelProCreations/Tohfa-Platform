@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
+  listNotificationTemplatesQuery,
   listNotificationsQuery,
   notificationIdParam,
+  notificationTemplateIdParam,
   registerDeviceTokenBody,
   revokeDeviceTokenParam,
+  updateNotificationTemplateBody,
 } from './notifications.schema.js';
 import { notificationsService } from './notifications.service.js';
 
@@ -85,6 +88,49 @@ notificationsRouter.delete(
     const { token } = getValidated(req, 'params', revokeDeviceTokenParam);
     const result = await notificationsService.revokeDeviceToken(actor, token);
     res.json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// /v1/admin/notification-templates (BR-231, SUPER_ADMIN only)
+// ---------------------------------------------------------------------------
+
+export const adminNotificationTemplatesRouter: Router = Router();
+
+adminNotificationTemplatesRouter.get(
+  '/',
+  requireAuth,
+  requirePermission('notification.template.configure'),
+  validate({ query: listNotificationTemplatesQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', listNotificationTemplatesQuery);
+    res.json(await notificationsService.listTemplates(scope, query));
+  }),
+);
+
+adminNotificationTemplatesRouter.get(
+  '/:id',
+  requireAuth,
+  requirePermission('notification.template.configure'),
+  validate({ params: notificationTemplateIdParam }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', notificationTemplateIdParam);
+    res.json(await notificationsService.getTemplate(scope, id));
+  }),
+);
+
+adminNotificationTemplatesRouter.patch(
+  '/:id',
+  requireAuth,
+  requirePermission('notification.template.configure'),
+  validate({ params: notificationTemplateIdParam, body: updateNotificationTemplateBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', notificationTemplateIdParam);
+    const body = getValidated(req, 'body', updateNotificationTemplateBody);
+    res.json(await notificationsService.updateTemplate(scope, id, body));
   }),
 );
 

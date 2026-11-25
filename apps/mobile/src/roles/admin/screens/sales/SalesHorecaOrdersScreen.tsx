@@ -16,10 +16,9 @@ import {
 } from '../../theme';
 import { t } from '../../i18n';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
-import { BackChevronIcon, SALES_PALETTE } from './SalesChannelOverviewScreen';
+import { BackChevronIcon } from './SalesChannelOverviewScreen';
 import { useChannelOrders } from '../warehouse/sales-direct/useSalesData';
 import { AdminEmptyState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
-import { formatPaise } from '../../money/paise';
 
 export interface HorecaAccount {
   id: string;

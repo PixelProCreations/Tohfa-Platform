@@ -37,7 +37,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { TextInputInstance } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -467,6 +467,7 @@ export function PickupOtpScreen({
   if (view !== 'ready' || order === undefined || verify === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <Header title={t('orders.pickup.otpTitle')} onBack={onBack} />
           {view === 'loading' ? (
@@ -488,6 +489,7 @@ export function PickupOtpScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         {shown === 'verify' ? <VerifyStep order={order} onBack={goBack} onContinue={() => setStep('otp')} /> : null}
         {shown === 'otp' ? (

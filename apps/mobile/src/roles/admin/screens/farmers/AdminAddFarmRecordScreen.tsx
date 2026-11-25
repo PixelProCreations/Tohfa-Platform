@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle } from 'react-native-svg';
 import {
   adminColors,
   adminOverlay,
@@ -116,8 +116,8 @@ const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
  */
 export function AdminAddFarmRecordScreen({
   initialTab = 'Diary',
-  farmerName = ADMIN_NO_VALUE,
-  farmerId = ADMIN_NO_VALUE,
+  farmerName: _farmerName = ADMIN_NO_VALUE,
+  farmerId: _farmerId = ADMIN_NO_VALUE,
   allowAddOptions = true,
   mode = 'add',
   initialRecord,
@@ -335,15 +335,15 @@ export function AdminAddFarmRecordScreen({
   const [assetSources, setAssetSources] = useState(
     '',
   );
-  const [purchaseDate, setPurchaseDate] = useState(
+  const [_purchaseDate, _setPurchaseDate] = useState(
     isEditMode && initialRecord?.type === 'asset'
       ? (initialRecord.date ?? '')
       : '',
   );
-  const [serviceEveryDays, setServiceEveryDays] = useState(
+  const [_serviceEveryDays, _setServiceEveryDays] = useState(
     isEditMode && initialRecord?.type === 'asset' ? (initialRecord.serviceInterval ?? '') : '',
   );
-  const [assetNotes, setAssetNotes] = useState(
+  const [_assetNotes, _setAssetNotes] = useState(
     isEditMode && initialRecord?.type === 'asset' ? (initialRecord.notes ?? '') : '',
   );
 

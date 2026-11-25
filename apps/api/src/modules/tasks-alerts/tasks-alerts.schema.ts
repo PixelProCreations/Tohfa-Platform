@@ -167,3 +167,24 @@ export const itemStateResponse = z
   })
   .strict();
 export type ItemStateResponse = z.infer<typeof itemStateResponse>;
+
+export const alertThresholdsResponse = z
+  .object({
+    batchExpiryDays: z.number().int().min(0).nullable(),
+    capacityUtilizationPercent: z.number().min(0).max(100).nullable(),
+    lowStockThresholdKg: z.number().min(0).nullable(),
+    snoozeMaxHours: z.number().int().min(1).nullable(),
+  })
+  .strict();
+export type AlertThresholdsResponse = z.infer<typeof alertThresholdsResponse>;
+
+export const updateAlertThresholdsBody = z
+  .object({
+    batchExpiryDays: z.number().int().min(0).max(3650).optional(),
+    capacityUtilizationPercent: z.number().finite().min(0).max(100).optional(),
+    lowStockThresholdKg: z.number().finite().min(0).max(1_000_000).optional(),
+    snoozeMaxHours: z.number().int().min(1).max(8760).optional(),
+  })
+  .strict()
+  .refine((b) => Object.keys(b).length > 0, { message: 'At least one threshold field must be supplied' });
+export type UpdateAlertThresholdsBody = z.infer<typeof updateAlertThresholdsBody>;

@@ -17,7 +17,6 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +24,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import { BackArrowIcon, ChevronDownIcon, FilterSlidersIcon, SearchIcon } from '../../components/AdminIcons';
@@ -298,6 +298,7 @@ export function ApprovalsInboxScreen({ can, onBack, onSelectApproval }: Approval
 
   return (
     <SafeAreaView style={styles.root}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

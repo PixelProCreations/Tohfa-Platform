@@ -144,12 +144,13 @@ describeIfDatabase('Zones Module (BR-161 Priority 1)', () => {
 
     if (createdUserIds.length > 0) {
       await pool.query(`DELETE FROM user_roles WHERE user_id = ANY($1::uuid[])`, [createdUserIds]);
-      await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [createdUserIds]);
+      await pool.query(`UPDATE users SET deleted_at = now() WHERE id = ANY($1::uuid[])`, [createdUserIds]);
     }
 
     if (createdZoneIds.length > 0) {
+      await pool.query(`UPDATE farmers SET zone_id = $1 WHERE zone_id = ANY($2::uuid[])`, [ootyZoneId, createdZoneIds]);
       await pool.query(`DELETE FROM zone_taluks WHERE zone_id = ANY($1::uuid[])`, [createdZoneIds]);
-      await pool.query(`DELETE FROM zones WHERE id = ANY($1::uuid[])`, [createdZoneIds]);
+      await pool.query(`UPDATE zones SET deleted_at = now(), is_active = false WHERE id = ANY($1::uuid[])`, [createdZoneIds]);
     }
   });
 
@@ -470,6 +471,115 @@ describeIfDatabase('Zones Module (BR-161 Priority 1)', () => {
       expect(towns).toContain('Coonoor');
       expect(towns).toContain('Kotagiri');
       expect(towns).toContain('Gudalur');
+    });
+  });
+
+  describe('BR-240 (D10): Zones CRUD & Farmer Transfer', () => {
+    it('allows SUPER_ADMIN & TOHFA_ADMIN to create/update zone, enforces taluk uniqueness (409), blocks deactivation with farmers (409), and transfers farmers with audit_log', async () => {
+      const codeA = `Z-TST-${newId().slice(0, 6).toUpperCase()}`;
+      const codeB = `Z-DST-${newId().slice(0, 6).toUpperCase()}`;
+      const talukUnique = `Taluk-${newId().slice(0, 6)}`;
+
+      // FARMER_ADMIN & MAIN_WH_ADMIN forbidden (403)
+      const faDenied = await request(app)
+        .post('/v1/admin/zones')
+        .set('Authorization', `Bearer ${farmerAdminToken}`)
+        .send({ code: codeA, name: 'Test Zone Denied' });
+      expect(faDenied.status).toBe(403);
+
+      const whDenied = await request(app)
+        .post('/v1/admin/zones')
+        .set('Authorization', `Bearer ${mainWhAdminToken}`)
+        .send({ code: codeA, name: 'Test Zone Denied WH' });
+      expect(whDenied.status).toBe(403);
+
+      // SUPER_ADMIN creates source zone with warehouse and taluk
+      const createA = await request(app)
+        .post('/v1/admin/zones')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({
+          code: codeA,
+          name: 'Test Alpha Zone',
+          warehouseId: ootyWarehouseId,
+          description: 'Alpha test zone',
+          taluks: [talukUnique],
+        });
+      expect(createA.status).toBe(201);
+      const zoneAId = createA.body.id as string;
+      createdZoneIds.push(zoneAId);
+      expect(createA.body.taluks).toEqual([talukUnique]);
+
+      // TOHFA_ADMIN tries duplicate taluk -> 409 CONFLICT
+      const dupTaluk = await request(app)
+        .post('/v1/admin/zones')
+        .set('Authorization', `Bearer ${tohfaAdminToken}`)
+        .send({
+          code: codeB,
+          name: 'Test Beta Zone',
+          taluks: [talukUnique.toLowerCase()],
+        });
+      expect(dupTaluk.status).toBe(409);
+
+      // TOHFA_ADMIN creates destination zone B
+      const createB = await request(app)
+        .post('/v1/admin/zones')
+        .set('Authorization', `Bearer ${tohfaAdminToken}`)
+        .send({
+          code: codeB,
+          name: 'Test Beta Zone',
+          warehouseId: kotagiriWarehouseId,
+          taluks: [`BetaTaluk-${newId().slice(0, 6)}`],
+        });
+      expect(createB.status).toBe(201);
+      const zoneBId = createB.body.id as string;
+      createdZoneIds.push(zoneBId);
+
+      // Create farmer in Zone A
+      const fUserId = newId();
+      createdUserIds.push(fUserId);
+      await pool.query(
+        `INSERT INTO users (id, mobile, user_type, full_name, status) VALUES ($1, $2, 'FARMER', 'Zone Transfer Farmer', 'ACTIVE')`,
+        [fUserId, randomMobile()],
+      );
+      const fId = newId();
+      await pool.query(
+        `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, kyc_status, application_status)
+         VALUES ($1, $2, $3, $4, 'VERIFIED', 'APPROVED')`,
+        [fId, fUserId, `TF-${fId.slice(0, 6)}`, zoneAId],
+      );
+
+      // Deactivating Zone A while farmer is still assigned fails -> 409 CONFLICT with farmerCount
+      const blockDeactivate = await request(app)
+        .patch(`/v1/admin/zones/${zoneAId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ isActive: false });
+      expect(blockDeactivate.status).toBe(409);
+      expect(blockDeactivate.body.meta?.farmerCount).toBe(1);
+
+      // Transfer farmer from Zone A -> Zone B
+      const transfer = await request(app)
+        .post(`/v1/admin/zones/${zoneAId}/transfer-farmers`)
+        .set('Authorization', `Bearer ${tohfaAdminToken}`)
+        .send({ targetZoneId: zoneBId, reason: 'Rebalancing warehouse coverage' });
+      expect(transfer.status).toBe(200);
+      expect(transfer.body.transferredCount).toBe(1);
+      expect(transfer.body.transferredFarmerIds).toEqual([fId]);
+
+      // Deactivating Zone A now succeeds (0 farmers remain)
+      const okDeactivate = await request(app)
+        .patch(`/v1/admin/zones/${zoneAId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ isActive: false, name: 'Test Alpha Retired' });
+      expect(okDeactivate.status).toBe(200);
+      expect(okDeactivate.body.isActive).toBe(false);
+      expect(okDeactivate.body.name).toBe('Test Alpha Retired');
+
+      // Audit rows recorded for zone create, transfer, update
+      const auditRes = await pool.query<{ action_code: string }>(
+        `SELECT action_code FROM audit_log WHERE entity_type = 'zone' AND entity_id = $1 ORDER BY created_at ASC`,
+        [zoneAId],
+      );
+      expect(auditRes.rows.map((r) => r.action_code)).toEqual(['zone.create', 'zone.transfer_farmers', 'zone.update']);
     });
   });
 });

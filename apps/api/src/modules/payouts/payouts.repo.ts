@@ -34,6 +34,10 @@ export interface PayoutRow {
   released_at: Date | null;
   gateway_payout_id: string | null;
   failure_reason: string | null;
+  rejected_by?: string | null;
+  rejected_at?: Date | null;
+  rejection_reason?: string | null;
+  intimated_at?: Date | null;
   paid_at: Date | null;
   remarks: string | null;
   created_at: Date;
@@ -124,9 +128,16 @@ export interface PayoutRepo {
       releasedAt?: Date;
       gatewayPayoutId?: string;
       failureReason?: string;
+      rejectedBy?: string;
+      rejectedAt?: Date;
+      rejectionReason?: string;
+      intimatedAt?: Date;
+      intimatedBy?: string;
       paidAt?: Date;
     },
   ): Promise<void>;
+
+  isFarmerBlockedOrInactive?(db: Executor, farmerId: string): Promise<boolean>;
 
   getFarmerName(db: Executor, farmerId: string): Promise<string | null>;
 
@@ -217,7 +228,7 @@ export const payoutsRepo: PayoutRepo = {
         SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
         FROM payout_items pi
         JOIN payouts p ON p.id = pi.payout_id
-        WHERE p.status NOT IN ('FAILED', 'REVERSED')
+        WHERE p.status NOT IN ('FAILED', 'REVERSED', 'REJECTED')
         GROUP BY pi.goods_receipt_id
       ) paid ON paid.goods_receipt_id = gr.id
       WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
@@ -296,7 +307,7 @@ export const payoutsRepo: PayoutRepo = {
         SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
         FROM payout_items pi
         JOIN payouts p ON p.id = pi.payout_id
-        WHERE p.status NOT IN ('FAILED', 'REVERSED')
+        WHERE p.status NOT IN ('FAILED', 'REVERSED', 'REJECTED')
         GROUP BY pi.goods_receipt_id
       ) paid ON paid.goods_receipt_id = gr.id
       WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
@@ -341,7 +352,7 @@ export const payoutsRepo: PayoutRepo = {
          SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
          FROM payout_items pi
          JOIN payouts p ON p.id = pi.payout_id
-         WHERE p.status NOT IN ('FAILED', 'REVERSED')
+         WHERE p.status NOT IN ('FAILED', 'REVERSED', 'REJECTED')
          GROUP BY pi.goods_receipt_id
        ) paid ON paid.goods_receipt_id = gr.id
        WHERE gr.id = ANY($1::uuid[])
@@ -386,7 +397,8 @@ export const payoutsRepo: PayoutRepo = {
        RETURNING
          id, payout_number, farmer_id, amount::text, mode, status,
          requires_dual_approval, initiated_by, released_by, released_at,
-         gateway_payout_id, failure_reason, paid_at, null AS remarks,
+         gateway_payout_id, failure_reason, rejected_by, rejected_at,
+         rejection_reason, intimated_at, paid_at, null AS remarks,
          created_at, updated_at`,
       [
         payoutNumber,
@@ -418,6 +430,7 @@ export const payoutsRepo: PayoutRepo = {
          p.amount::text, p.mode, p.status,
          p.requires_dual_approval, p.initiated_by, p.released_by,
          p.released_at, p.gateway_payout_id, p.failure_reason,
+         p.rejected_by, p.rejected_at, p.rejection_reason, p.intimated_at,
          p.paid_at, null::text AS remarks, p.created_at, p.updated_at
        FROM payouts p
        JOIN farmers f ON f.id = p.farmer_id
@@ -450,7 +463,12 @@ export const payoutsRepo: PayoutRepo = {
          released_at = COALESCE($4, released_at),
          gateway_payout_id = COALESCE($5, gateway_payout_id),
          failure_reason = COALESCE($6, failure_reason),
-         paid_at = COALESCE($7, paid_at),
+         rejected_by = COALESCE($7, rejected_by),
+         rejected_at = COALESCE($8, rejected_at),
+         rejection_reason = COALESCE($9, rejection_reason),
+         intimated_at = COALESCE($10, intimated_at),
+         intimated_by = COALESCE($11, intimated_by),
+         paid_at = COALESCE($12, paid_at),
          updated_at = now()
        WHERE id = $1`,
       [
@@ -460,9 +478,25 @@ export const payoutsRepo: PayoutRepo = {
         params.releasedAt ?? null,
         params.gatewayPayoutId ?? null,
         params.failureReason ?? null,
+        params.rejectedBy ?? null,
+        params.rejectedAt ?? null,
+        params.rejectionReason ?? null,
+        params.intimatedAt ?? null,
+        params.intimatedBy ?? null,
         params.paidAt ?? null,
       ],
     );
+  },
+
+  async isFarmerBlockedOrInactive(db, farmerId) {
+    const res = await db.query<{ blocked: boolean }>(
+      `SELECT (u.status = 'DISABLED') AS blocked
+         FROM farmers f
+         JOIN users u ON u.id = f.user_id
+        WHERE f.id = $1 AND f.deleted_at IS NULL`,
+      [farmerId],
+    );
+    return res.rows[0]?.blocked ?? false;
   },
 
   async getFarmerName(db, farmerId) {
@@ -575,6 +609,10 @@ export const payoutsRepo: PayoutRepo = {
       params.push(query.toDate);
       conditions.push(`p.created_at <= $${params.length}::timestamptz`);
     }
+
+    const filterWhere = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const filterParams = [...params];
+
     if (query.cursor !== undefined && query.cursor.length > 0) {
       const after = requireKeysetCursor(CURSOR_TAGS.adminPayouts, query.cursor);
       params.push(after.ts, after.id);
@@ -632,8 +670,45 @@ export const payoutsRepo: PayoutRepo = {
       requestedBy: r.requested_by,
     }));
 
+    const summaryRes = await db.query<{
+      total: number;
+      requested: number;
+      pendingApproval: number;
+      approved: number;
+      processing: number;
+      paid: number;
+      failed: number;
+      reversed: number;
+      rejected: number;
+    }>(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE p.status = 'REQUESTED')::int AS requested,
+              COUNT(*) FILTER (WHERE p.status = 'PENDING_APPROVAL')::int AS "pendingApproval",
+              COUNT(*) FILTER (WHERE p.status = 'APPROVED')::int AS approved,
+              COUNT(*) FILTER (WHERE p.status = 'PROCESSING')::int AS processing,
+              COUNT(*) FILTER (WHERE p.status = 'PAID')::int AS paid,
+              COUNT(*) FILTER (WHERE p.status = 'FAILED')::int AS failed,
+              COUNT(*) FILTER (WHERE p.status = 'REVERSED')::int AS reversed,
+              COUNT(*) FILTER (WHERE p.status = 'REJECTED')::int AS rejected
+         FROM payouts p
+        ${filterWhere}`,
+      filterParams,
+    );
+    const summary = summaryRes.rows[0] ?? {
+      total: 0,
+      requested: 0,
+      pendingApproval: 0,
+      approved: 0,
+      processing: 0,
+      paid: 0,
+      failed: 0,
+      reversed: 0,
+      rejected: 0,
+    };
+
     return {
       items,
+      summary,
       page: { nextCursor, hasMore },
       nextCursor,
       hasMore,
@@ -654,6 +729,7 @@ export const payoutsRepo: PayoutRepo = {
       requested_by: string;
       bank_account_last4: string | null;
       failure_reason: string | null;
+      rejection_reason: string | null;
       released_at: Date | null;
       released_by_name: string | null;
     }>(
@@ -669,6 +745,7 @@ export const payoutsRepo: PayoutRepo = {
               COALESCE(u_init.full_name, 'System') AS requested_by,
               fba.account_number_last4 AS bank_account_last4,
               p.failure_reason,
+              p.rejection_reason,
               p.released_at,
               u_rel.full_name AS released_by_name
          FROM payouts p
@@ -801,7 +878,7 @@ export const payoutsRepo: PayoutRepo = {
     else if (row.status === 'PAID') approvalStatus = 'Paid';
     else if (row.status === 'REJECTED') approvalStatus = 'Rejected';
 
-    const rejectionReason = row.failure_reason ?? approvalsRes.rows.find((a) => a.note)?.note ?? null;
+    const rejectionReason = row.rejection_reason ?? row.failure_reason ?? approvalsRes.rows.find((a) => a.note)?.note ?? null;
 
     return {
       id: row.id,

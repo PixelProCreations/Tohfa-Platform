@@ -21,7 +21,8 @@
  * supplies `onRejectPayout`.
  */
 import React, { useMemo } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import {
@@ -164,6 +165,7 @@ export function FinanceBusinessOverviewScreen({
 
   return (
     <SafeAreaView style={styles.root}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

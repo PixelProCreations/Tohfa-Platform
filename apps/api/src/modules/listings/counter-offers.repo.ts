@@ -13,8 +13,10 @@
  * db/migrations/0004_produce_pricing_marketing.sql. The long COMMENT on
  * counter_offers is the authoritative statement of the negotiation semantics.
  */
+import { ScopeLevel } from '@tohfa/shared-types';
 import { writeAuditLog, type AuditEntry } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
+import { scopedWhere, type ResolvedScope } from '../../rbac/requirePermission.js';
 import type { ListAdminQueueQuery } from './counter-offers.schema.js';
 
 export type CounterActor = 'ADMIN' | 'FARMER';
@@ -427,10 +429,29 @@ export const counterOffersRepo = {
   async listAdminQueue(
     db: Executor,
     query: ListAdminQueueQuery,
-  ): Promise<{ items: unknown[]; page: { nextCursor: string | null; hasMore: boolean } }> {
+    scope?: ResolvedScope,
+  ): Promise<{
+    items: unknown[];
+    summary: {
+      total: number;
+      pending: number;
+      counterOffered: number;
+      approved: number;
+      rejected: number;
+      expired: number;
+    };
+    page: { nextCursor: string | null; hasMore: boolean };
+  }> {
     const conditions: string[] = ['l.deleted_at IS NULL'];
     const values: unknown[] = [];
     let idx = 1;
+
+    if (scope && scope.level === ScopeLevel.OWN) {
+      const zoneFilter = scopedWhere(scope, { zoneColumn: 'f.zone_id', startIndex: idx });
+      conditions.push(zoneFilter.sql);
+      values.push(...zoneFilter.params);
+      idx = zoneFilter.nextIndex;
+    }
 
     if (query.status) {
       conditions.push(`l.status = $${idx}`);
@@ -448,6 +469,11 @@ export const counterOffersRepo = {
       values.push(query.zoneId);
       idx += 1;
     }
+
+    // Snapshot filtered conditions before adding cursor/limit so summary reflects the whole filter set.
+    const filterWhere = `WHERE ${conditions.join(' AND ')}`;
+    const filterValues = [...values];
+
     if (query.cursor) {
       // cursor = base64(createdAt.toISOString() + '|' + id)
       const decoded = Buffer.from(query.cursor, 'base64').toString('utf8');
@@ -588,7 +614,167 @@ export const counterOffersRepo = {
       updatedAt: r.updatedAt,
     }));
 
-    return { items, page: { nextCursor, hasMore } };
+    const summaryRes = await db.query<{
+      total: number;
+      pending: number;
+      counterOffered: number;
+      approved: number;
+      rejected: number;
+      expired: number;
+    }>(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE l.status = 'PENDING_APPROVAL')::int AS pending,
+              COUNT(*) FILTER (WHERE l.status = 'COUNTER_OFFERED')::int AS "counterOffered",
+              COUNT(*) FILTER (WHERE l.status IN ('ACCEPTED', 'FULFILLED'))::int AS approved,
+              COUNT(*) FILTER (WHERE l.status = 'REJECTED')::int AS rejected,
+              COUNT(*) FILTER (WHERE l.status = 'EXPIRED')::int AS expired
+         FROM produce_listings l
+         JOIN farmers f ON f.id = l.farmer_id
+        ${filterWhere}`,
+      filterValues,
+    );
+    const summary = summaryRes.rows[0] ?? {
+      total: 0,
+      pending: 0,
+      counterOffered: 0,
+      approved: 0,
+      rejected: 0,
+      expired: 0,
+    };
+
+    return { items, summary, page: { nextCursor, hasMore } };
+  },
+
+  async findAdminQueueItemById(
+    db: Executor,
+    id: string,
+    scope?: ResolvedScope,
+  ): Promise<unknown | null> {
+    const conditions: string[] = ['l.id = $1', 'l.deleted_at IS NULL'];
+    const values: unknown[] = [id];
+    if (scope && scope.level === ScopeLevel.OWN) {
+      const zoneFilter = scopedWhere(scope, { zoneColumn: 'f.zone_id', startIndex: 2 });
+      conditions.push(zoneFilter.sql);
+      values.push(...zoneFilter.params);
+    }
+
+    const res = await db.query<{
+      id: string;
+      listingNumber: string;
+      farmerId: string;
+      farmerName: string | null;
+      tohfaFarmerId: string | null;
+      zoneId: string | null;
+      cropId: string;
+      cropName: string;
+      grade: string;
+      quantityKg: string;
+      askingPricePerKg: string;
+      ceilingPricePerKg: string | null;
+      finalPricePerKg: string | null;
+      finalQuantityKg: string | null;
+      status: string;
+      counterRoundsUsed: number;
+      activeOfferId: string | null;
+      activeOfferRound: number | null;
+      activeOfferPrice: string | null;
+      activeOfferQty: string | null;
+      activeOfferMsg: string | null;
+      activeOfferOfferedBy: string | null;
+      activeOfferExpiresAt: Date | null;
+      activeOfferStatus: string | null;
+      rejectionReason: string | null;
+      rejectionReasonCode: string | null;
+      version: number;
+      createdAt: Date;
+      updatedAt: Date | null;
+    }>(
+      `SELECT
+        l.id,
+        l.listing_number                     AS "listingNumber",
+        l.farmer_id                          AS "farmerId",
+        u.full_name                          AS "farmerName",
+        f.tohfa_farmer_id                    AS "tohfaFarmerId",
+        f.zone_id                            AS "zoneId",
+        l.crop_id                            AS "cropId",
+        c.name                               AS "cropName",
+        l.grade,
+        l.quantity_kg                        AS "quantityKg",
+        l.price_per_kg                       AS "askingPricePerKg",
+        fp.ceiling_price                     AS "ceilingPricePerKg",
+        l.final_price_per_kg                 AS "finalPricePerKg",
+        l.final_quantity_kg                  AS "finalQuantityKg",
+        l.status,
+        COALESCE(co_counts.cnt, 0)::int      AS "counterRoundsUsed",
+        co.id                                AS "activeOfferId",
+        co.round                             AS "activeOfferRound",
+        co.price_per_kg                      AS "activeOfferPrice",
+        co.quantity_kg                       AS "activeOfferQty",
+        co.message                           AS "activeOfferMsg",
+        co.actor                             AS "activeOfferOfferedBy",
+        co.expires_at                        AS "activeOfferExpiresAt",
+        co.status                            AS "activeOfferStatus",
+        l.rejection_reason                   AS "rejectionReason",
+        l.rejection_reason_code              AS "rejectionReasonCode",
+        l.version,
+        l.created_at                         AS "createdAt",
+        l.updated_at                         AS "updatedAt"
+       FROM produce_listings l
+       JOIN farmers f       ON f.id = l.farmer_id
+       JOIN users  u        ON u.id = f.user_id
+       JOIN crop_master c   ON c.id = l.crop_id
+       LEFT JOIN fair_prices fp ON fp.id = l.fair_price_id
+       LEFT JOIN counter_offers co
+         ON co.listing_id = l.id AND co.status = 'PENDING'
+       LEFT JOIN (
+         SELECT listing_id, COUNT(*)::int AS cnt
+         FROM counter_offers
+         WHERE actor = 'FARMER'
+         GROUP BY listing_id
+       ) co_counts ON co_counts.listing_id = l.id
+       WHERE ${conditions.join(' AND ')}
+       LIMIT 1`,
+      values,
+    );
+
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      id: r.id,
+      listingNumber: r.listingNumber,
+      farmerId: r.farmerId,
+      farmerName: r.farmerName,
+      tohfaFarmerId: r.tohfaFarmerId,
+      zoneId: r.zoneId,
+      cropId: r.cropId,
+      cropName: r.cropName,
+      grade: r.grade,
+      quantityKg: r.quantityKg,
+      askingPricePerKg: r.askingPricePerKg,
+      ceilingPricePerKg: r.ceilingPricePerKg,
+      finalPricePerKg: r.finalPricePerKg,
+      finalQuantityKg: r.finalQuantityKg,
+      status: r.status,
+      counterRoundsUsed: r.counterRoundsUsed,
+      activeCounterOffer: r.activeOfferId
+        ? {
+            id: r.activeOfferId,
+            listingId: r.id,
+            round: r.activeOfferRound,
+            offeredBy: r.activeOfferOfferedBy,
+            pricePerKg: r.activeOfferPrice,
+            quantityKg: r.activeOfferQty,
+            message: r.activeOfferMsg,
+            status: r.activeOfferStatus,
+            expiresAt: r.activeOfferExpiresAt,
+          }
+        : null,
+      rejectionReason: r.rejectionReason,
+      rejectionReasonCode: r.rejectionReasonCode,
+      version: r.version,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    };
   },
 
   async findEffectiveFairPrice(

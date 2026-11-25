@@ -20,7 +20,7 @@
 // Design id: M5S17 (M5S17_CancelOrder)
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import {
@@ -209,6 +209,7 @@ export function CancelOrderScreen({
   if (view !== 'ready' || order === undefined || cancel === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <Header title={t('orders.cancel.title')} onBack={onBack} />
           {view === 'loading' ? (
@@ -231,6 +232,7 @@ export function CancelOrderScreen({
   if (step === 'cancelled' && (cancelledHere || order.status === 'cancelled')) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <Header title={t('orders.cancel.cancelledTitle')} onBack={() => onNavigate?.('M5S01')} />
 
@@ -275,6 +277,7 @@ export function CancelOrderScreen({
   if (step === 'confirm' && reasonText !== null) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <Header title={t('orders.cancel.confirmTitle')} onBack={() => setStep('form')} />
 
@@ -327,6 +330,7 @@ export function CancelOrderScreen({
   // ─── STEP 1: Cancel Order Form ───────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <Header title={t('orders.cancel.title')} onBack={onBack} />
 

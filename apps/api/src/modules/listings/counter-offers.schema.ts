@@ -55,7 +55,16 @@ export const listingIdParams = z.object({
 /** GET /admin/listings — query parameters for the admin approval queue (S-22). */
 export const listAdminQueueQuery = z.object({
   status: z
-    .enum(['PENDING_APPROVAL', 'COUNTER_OFFERED', 'ACCEPTED', 'REJECTED', 'WITHDRAWN'])
+    .enum([
+      'PENDING_APPROVAL',
+      'COUNTER_OFFERED',
+      'ACCEPTED',
+      'REJECTED',
+      'WITHDRAWN',
+      'EXPIRED',
+      'FULFILLED',
+      'CANCELLED',
+    ])
     .optional(),
   cropId: z.string().uuid().optional(),
   zoneId: z.string().uuid().optional(),
@@ -63,3 +72,13 @@ export const listAdminQueueQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type ListAdminQueueQuery = z.infer<typeof listAdminQueueQuery>;
+
+export const adminListingQueueSummarySchema = z.object({
+  total: z.number().int(),
+  pending: z.number().int(),
+  counterOffered: z.number().int(),
+  approved: z.number().int(),
+  rejected: z.number().int(),
+  expired: z.number().int(),
+});
+export type AdminListingQueueSummary = z.infer<typeof adminListingQueueSummarySchema>;

@@ -18,7 +18,7 @@
  * The server enforces both and does not itself police the transition order, so
  * "which state offers which action" is this file's decision, written once.
  */
-import type { LearningContentType, LearningReviewStatus } from '../../api/learning';
+import type { LearningContentType } from '../../api/learning';
 import type { TranslationKey } from '../../i18n';
 import { canManageLearning, reviewStatusLabel, reviewStatusOf, type ContentDto, type ContentKind } from './communityLogic';
 

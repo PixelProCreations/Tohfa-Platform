@@ -13,8 +13,8 @@
  * host callback runs only after the write succeeded.
  */
 import React from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import type { AuditDetailDto } from '../../api/audits';
 import { adminErrorKey } from '../../api/errors';

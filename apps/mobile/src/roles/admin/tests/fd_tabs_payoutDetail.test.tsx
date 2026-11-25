@@ -24,6 +24,8 @@ vi.mock('react-native-svg', () => ({ default: 'Svg', Circle: 'Circle', Path: 'Pa
 vi.mock('@tohfa/mobile-ui', () => ({ ScreenStatusBar: 'ScreenStatusBar', SafeAreaView: 'SafeAreaView', Icon: 'Icon' }));
 vi.mock('../api/payoutsHooks', () => ({
   useApprovePayout: () => ({ run: vi.fn(), isPending: false, error: null }),
+  useRejectPayout: () => ({ run: vi.fn(), isPending: false, error: null, finish: vi.fn() }),
+  useIntimatePayout: () => ({ run: vi.fn(), isPending: false, error: null, finish: vi.fn() }),
 }));
 
 import { FarmerPayoutDetailScreen } from '../screens/farmers/FarmerPayoutDetailScreen';

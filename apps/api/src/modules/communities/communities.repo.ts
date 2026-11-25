@@ -36,7 +36,7 @@ export interface CommunityMemberRow {
   groups: Array<{ id: string; name: string }>;
 }
 
-export interface FindCommunitiesParams extends ListCommunitiesQuery {}
+export type FindCommunitiesParams = ListCommunitiesQuery;
 
 const escapeIlike = (s: string): string => s.replace(/[%_\\]/g, '\\$&');
 

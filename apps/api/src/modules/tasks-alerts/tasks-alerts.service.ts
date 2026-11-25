@@ -13,13 +13,15 @@
  *
  * Unconfirmed defaults are listed on each endpoint in docs/openapi.yaml.
  */
-import { pool, type Executor } from '../../db/pool.js';
+import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
+import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import {
   NO_THRESHOLDS,
   tasksAlertsRepo,
+  type AlertThresholdConfig,
   type AlertThresholds,
   type DerivedItem,
   type ItemCursor,
@@ -45,6 +47,7 @@ import {
   type TaskSummaryQuery,
   type TaskSummaryResponse,
   type TaskType,
+  type UpdateAlertThresholdsBody,
 } from './tasks-alerts.schema.js';
 
 /**
@@ -61,6 +64,8 @@ export interface TasksAlertsService {
   listAlerts(scope: ResolvedScope, query: ListAlertsQuery): Promise<AlertListResponse>;
   dismissAlert(scope: ResolvedScope, itemKey: string): Promise<ItemStateResponse>;
   snoozeAlert(scope: ResolvedScope, itemKey: string, body: SnoozeAlertBody): Promise<ItemStateResponse>;
+  getAlertThresholdConfig(scope: ResolvedScope): Promise<AlertThresholdConfig>;
+  updateAlertThresholds(scope: ResolvedScope, body: UpdateAlertThresholdsBody): Promise<AlertThresholdConfig>;
 }
 
 export interface TasksAlertsServiceDeps {
@@ -252,6 +257,28 @@ export function createTasksAlertsService(deps: TasksAlertsServiceDeps = {}): Tas
         });
       }
       return mapState(await repo.upsertState(db, { userId: scope.userId, kind: 'ALERT', itemKey, state: 'SNOOZED', snoozedUntil: until }));
+    },
+
+    async getAlertThresholdConfig(_scope) {
+      return repo.getAlertThresholdConfig(db);
+    },
+
+    async updateAlertThresholds(scope, body) {
+      return withTransaction(async (tx) => {
+        const before = await repo.getAlertThresholdConfig(tx);
+        const after = await repo.upsertAlertThresholds(tx, scope.userId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'alert.threshold.configure',
+          entityType: 'system_config',
+          entityId: null,
+          before,
+          after,
+          changedFields: changedFields({ ...before }, { ...after }),
+        });
+        return after;
+      });
     },
   };
 

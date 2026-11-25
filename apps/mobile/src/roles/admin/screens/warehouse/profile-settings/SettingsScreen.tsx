@@ -21,7 +21,7 @@
 import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { NEW_PASSWORD_MAX_LENGTH, NEW_PASSWORD_MIN_LENGTH, type ChangePasswordBody } from '../../../api/profile';
+import { type ChangePasswordBody } from '../../../api/profile';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { BankIcon } from '../../../components/AdminIcons';
 import { Card, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';

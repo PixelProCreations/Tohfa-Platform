@@ -5,7 +5,6 @@ import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { pool, type Executor } from '../../db/pool.js';
-import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { aScope, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import type {
@@ -21,12 +20,7 @@ import type {
 import {
   BLOCKED_MASKED_CONTENT,
   createQaChatService,
-  isModeratorScope,
-  mapAnswer,
-  mapAuthor,
-  mapQuestionSummary,
   qaChatService,
-  QaChatService,
 } from './qa-chat.service.js';
 
 // Mock token invalidation to avoid Redis timeouts in route tests

@@ -1,7 +1,7 @@
 // Design id: M3S03
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminType } from '../../../theme';
@@ -95,6 +95,7 @@ export function ProductStockDetailScreen({
   const productRef = product === undefined ? undefined : { cropId: product.cropId, grade: product.grade };
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader 
           title={product?.productName ?? ''}

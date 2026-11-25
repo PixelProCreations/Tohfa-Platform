@@ -21,6 +21,7 @@ import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { cropsService, type CropsService } from '../crops/crops.service.js';
 import { farmsService, type FarmsService } from '../farms/farms.service.js';
+import { farmerScopeFilter } from '../admin-farmers/admin-farmers.service.js';
 import { farmDiaryRepo, type EntryCursor, type FarmDiaryRepo, type UpdateEntryPatch, type WorkerRowInput } from './farm-diary.repo.js';
 import type {
   AdminDiaryCategoriesListResponse,
@@ -190,6 +191,122 @@ export interface FarmDiaryService {
   deletePhoto(scope: ResolvedScope, entryId: string, photoId: string): Promise<void>;
 }
 
+async function createEntryForFarmer(
+  repo: FarmDiaryRepo,
+  tx: Executor,
+  farmerId: string,
+  body: CreateDiaryEntryBody,
+  createdByAdminId: string | null = null,
+): Promise<DiaryEntryResponse> {
+  const minutes = assertMinutes(body.minutes); // BR-42c
+  const workers = validateWorkers(body.workers); // BR-44a/b
+
+  await assertActiveSubActivity(repo, tx, body.categoryKey, body.subActivityKey); // BR-42a
+
+  const owned = await repo.isPlotOwnedByFarmer(tx, body.plotId, farmerId);
+  if (!owned) {
+    throw new AppError('NOT_FOUND', { detail: `No plot with id ${body.plotId} is visible to you.` });
+  }
+
+  const farmCropId = await repo.findGrowingCropOnPlot(tx, body.plotId, body.farmCropId);
+  if (farmCropId === null) {
+    throw new AppError('DIARY_NO_ACTIVE_CROP', {
+      detail: `Plot ${body.plotId} has no crop in status GROWING${body.farmCropId === undefined ? '' : ` with id ${body.farmCropId}`}.`,
+      meta: { plotId: body.plotId },
+    });
+  }
+
+  const entryId = await repo.createEntry(tx, {
+    farmerId,
+    plotId: body.plotId,
+    farmCropId,
+    categoryKey: body.categoryKey,
+    subActivityKey: body.subActivityKey,
+    activityFields: body.activityFields,
+    minutes,
+    notes: body.notes ?? null,
+    activityOn: body.activityOn ?? null,
+    voiceNoteKey: body.voiceNoteKey ?? null,
+    voiceNoteDurationS: body.voiceNoteDurationS ?? null,
+    createdByAdminId,
+  });
+
+  if (workers.length > 0) {
+    await repo.replaceWorkers(tx, entryId, workers);
+  }
+
+  const created = await repo.findEntry(tx, farmerId, entryId);
+  if (created === null) throw entryNotFound(entryId);
+  return created;
+}
+
+async function updateEntryForFarmer(
+  repo: FarmDiaryRepo,
+  tx: Executor,
+  farmerId: string,
+  entryId: string,
+  body: UpdateDiaryEntryBody,
+): Promise<{ before: DiaryEntryResponse; after: DiaryEntryResponse }> {
+  if (body.minutes !== undefined) assertMinutes(body.minutes); // BR-42c
+  const workers = body.workers === undefined ? undefined : validateWorkers(body.workers); // BR-44a/b
+
+  const before = await repo.findEntry(tx, farmerId, entryId);
+  if (before === null) throw entryNotFound(entryId);
+
+  if (body.categoryKey !== undefined || body.subActivityKey !== undefined) {
+    await assertActiveSubActivity(
+      repo,
+      tx,
+      body.categoryKey ?? before.categoryKey,
+      body.subActivityKey ?? before.subActivityKey,
+    );
+  }
+
+  const patch: UpdateEntryPatch = {};
+  if (body.categoryKey !== undefined) patch.categoryKey = body.categoryKey;
+  if (body.subActivityKey !== undefined) patch.subActivityKey = body.subActivityKey;
+  if (body.minutes !== undefined) patch.minutes = body.minutes;
+  if (body.activityFields !== undefined) patch.activityFields = body.activityFields;
+  if (body.notes !== undefined) patch.notes = body.notes;
+  if (body.activityOn !== undefined) patch.activityOn = body.activityOn;
+  if (body.voiceNoteKey !== undefined) patch.voiceNoteKey = body.voiceNoteKey;
+  if (body.voiceNoteDurationS !== undefined) patch.voiceNoteDurationS = body.voiceNoteDurationS;
+
+  const updated = await repo.updateEntry(tx, farmerId, entryId, patch);
+  if (!updated) throw entryNotFound(entryId);
+
+  if (workers !== undefined) {
+    await repo.replaceWorkers(tx, entryId, workers);
+  }
+
+  const after = await repo.findEntry(tx, farmerId, entryId);
+  if (after === null) throw entryNotFound(entryId);
+  return { before, after };
+}
+
+async function listEntriesForFarmer(
+  repo: FarmDiaryRepo,
+  db: Executor,
+  farmerId: string,
+  query: ListDiaryEntriesQuery,
+): Promise<ListDiaryEntriesResponse> {
+  const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
+  const { items, next } = await repo.listEntries(db, {
+    farmerId,
+    date: query.date,
+    monthStart: query.month === undefined ? undefined : `${query.month}-01`,
+    plotId: query.plotId,
+    categoryKey: query.categoryKey,
+    addedOnBehalf: query.addedOnBehalf,
+    cursor,
+    limit: query.limit,
+  });
+  return {
+    items,
+    page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
+  };
+}
+
 export function createFarmDiaryService(deps: Partial<FarmDiaryServiceDeps> = {}): FarmDiaryService {
   const repo = deps.repo ?? farmDiaryRepo;
   const db = deps.db ?? pool;
@@ -248,75 +365,13 @@ export function createFarmDiaryService(deps: Partial<FarmDiaryServiceDeps> = {})
 
     async createEntry(scope, body) {
       const farmerId = ownFarmerId(scope);
-
-      // Pure-input rules first: they need no database and no ownership.
-      const minutes = assertMinutes(body.minutes); // BR-42c
-      const workers = validateWorkers(body.workers); // BR-44a/b
-
-      return runTx(async (tx) => {
-        await assertActiveSubActivity(repo, tx, body.categoryKey, body.subActivityKey); // BR-42a
-
-        // Ownership is re-derived from plots -> farms.farmer_id. A plot that
-        // is not the caller's is NOT_FOUND, not 403 (BR-40).
-        const owned = await repo.isPlotOwnedByFarmer(tx, body.plotId, farmerId);
-        if (!owned) {
-          throw new AppError('NOT_FOUND', { detail: `No plot with id ${body.plotId} is visible to you.` });
-        }
-
-        // BR-42b: against the real farm_crops table. Zero GROWING rows is a
-        // correct rejection, not something to stub around.
-        const farmCropId = await repo.findGrowingCropOnPlot(tx, body.plotId, body.farmCropId);
-        if (farmCropId === null) {
-          throw new AppError('DIARY_NO_ACTIVE_CROP', {
-            detail: `Plot ${body.plotId} has no crop in status GROWING${body.farmCropId === undefined ? '' : ` with id ${body.farmCropId}`}.`,
-            meta: { plotId: body.plotId },
-          });
-        }
-
-        const entryId = await repo.createEntry(tx, {
-          farmerId,
-          plotId: body.plotId,
-          farmCropId,
-          categoryKey: body.categoryKey,
-          subActivityKey: body.subActivityKey,
-          activityFields: body.activityFields,
-          minutes,
-          notes: body.notes ?? null,
-          activityOn: body.activityOn ?? null,
-          voiceNoteKey: body.voiceNoteKey ?? null,
-          voiceNoteDurationS: body.voiceNoteDurationS ?? null,
-        });
-
-        // Same transaction as the entry insert: an entry never exists without
-        // the workforce the farmer submitted with it.
-        if (workers.length > 0) {
-          await repo.replaceWorkers(tx, entryId, workers);
-        }
-
-        const created = await repo.findEntry(tx, farmerId, entryId);
-        if (created === null) throw entryNotFound(entryId);
-        return created;
-      });
+      assertMinutes(body.minutes); // BR-42c
+      validateWorkers(body.workers); // BR-44a/b
+      return runTx((tx) => createEntryForFarmer(repo, tx, farmerId, body, null));
     },
 
     async listEntries(scope, query) {
-      const farmerId = ownFarmerId(scope);
-      const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
-
-      const { items, next } = await repo.listEntries(db, {
-        farmerId,
-        date: query.date,
-        monthStart: query.month === undefined ? undefined : `${query.month}-01`,
-        plotId: query.plotId,
-        categoryKey: query.categoryKey,
-        cursor,
-        limit: query.limit,
-      });
-
-      return {
-        items,
-        page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
-      };
+      return listEntriesForFarmer(repo, db, ownFarmerId(scope), query);
     },
 
     async getCalendar(scope, query) {
@@ -334,51 +389,9 @@ export function createFarmDiaryService(deps: Partial<FarmDiaryServiceDeps> = {})
 
     async updateEntry(scope, entryId, body) {
       const farmerId = ownFarmerId(scope);
-
-      if (body.minutes !== undefined) assertMinutes(body.minutes); // BR-42c
-      const workers = body.workers === undefined ? undefined : validateWorkers(body.workers); // BR-44a/b
-
-      return runTx(async (tx) => {
-        // Existence/ownership first, so a foreign entry is NOT_FOUND before
-        // any validation error could hint that it exists (BR-43a). There is
-        // deliberately no age check on activity_on (BR-43c).
-        const existing = await repo.findEntry(tx, farmerId, entryId);
-        if (existing === null) throw entryNotFound(entryId);
-
-        // BR-42a is re-applied only when the pair changes. An untouched entry
-        // filed under a since-deactivated sub-activity stays editable
-        // (BR-45b: deactivation never invalidates existing entries).
-        if (body.categoryKey !== undefined || body.subActivityKey !== undefined) {
-          await assertActiveSubActivity(
-            repo,
-            tx,
-            body.categoryKey ?? existing.categoryKey,
-            body.subActivityKey ?? existing.subActivityKey,
-          );
-        }
-
-        const patch: UpdateEntryPatch = {};
-        if (body.categoryKey !== undefined) patch.categoryKey = body.categoryKey;
-        if (body.subActivityKey !== undefined) patch.subActivityKey = body.subActivityKey;
-        if (body.minutes !== undefined) patch.minutes = body.minutes;
-        if (body.activityFields !== undefined) patch.activityFields = body.activityFields;
-        if (body.notes !== undefined) patch.notes = body.notes;
-        if (body.activityOn !== undefined) patch.activityOn = body.activityOn;
-        if (body.voiceNoteKey !== undefined) patch.voiceNoteKey = body.voiceNoteKey;
-        if (body.voiceNoteDurationS !== undefined) patch.voiceNoteDurationS = body.voiceNoteDurationS;
-
-        const updated = await repo.updateEntry(tx, farmerId, entryId, patch);
-        if (!updated) throw entryNotFound(entryId);
-
-        // BR-44c: present => full replace in this transaction; absent => untouched.
-        if (workers !== undefined) {
-          await repo.replaceWorkers(tx, entryId, workers);
-        }
-
-        const after = await repo.findEntry(tx, farmerId, entryId);
-        if (after === null) throw entryNotFound(entryId);
-        return after;
-      });
+      if (body.minutes !== undefined) assertMinutes(body.minutes);
+      if (body.workers !== undefined) validateWorkers(body.workers);
+      return runTx(async (tx) => (await updateEntryForFarmer(repo, tx, farmerId, entryId, body)).after);
     },
 
     async deleteEntry(scope, entryId) {
@@ -568,3 +581,85 @@ export function createDiaryTaxonomyAdminService(
 }
 
 export const diaryTaxonomyAdminService: DiaryTaxonomyAdminService = createDiaryTaxonomyAdminService();
+
+export interface AdminFarmerDiaryService {
+  listEntries(scope: ResolvedScope, farmerId: string, query: ListDiaryEntriesQuery): Promise<ListDiaryEntriesResponse>;
+  getEntry(scope: ResolvedScope, farmerId: string, entryId: string): Promise<DiaryEntryResponse>;
+  createEntry(scope: ResolvedScope, farmerId: string, body: CreateDiaryEntryBody): Promise<DiaryEntryResponse>;
+  updateEntry(
+    scope: ResolvedScope,
+    farmerId: string,
+    entryId: string,
+    body: UpdateDiaryEntryBody,
+  ): Promise<DiaryEntryResponse>;
+}
+
+export function createAdminFarmerDiaryService(
+  deps: Partial<Pick<FarmDiaryServiceDeps, 'repo' | 'db' | 'runTx'>> = {},
+): AdminFarmerDiaryService {
+  const repo = deps.repo ?? farmDiaryRepo;
+  const db = deps.db ?? pool;
+  const runTx: TransactionRunner = deps.runTx ?? withTransaction;
+
+  async function requireVisibleFarmer(exec: Executor, scope: ResolvedScope, farmerId: string): Promise<string> {
+    const visibleFarmerId = await repo.findVisibleFarmerId(exec, farmerScopeFilter(scope), farmerId);
+    if (visibleFarmerId === null) {
+      throw new AppError('NOT_FOUND', { detail: `No farmer with id "${farmerId}" is visible to you.` });
+    }
+    return visibleFarmerId;
+  }
+
+  return {
+    async listEntries(scope, farmerId, query) {
+      const visibleFarmerId = await requireVisibleFarmer(db, scope, farmerId);
+      return listEntriesForFarmer(repo, db, visibleFarmerId, query);
+    },
+
+    async getEntry(scope, farmerId, entryId) {
+      const visibleFarmerId = await requireVisibleFarmer(db, scope, farmerId);
+      const entry = await repo.findEntry(db, visibleFarmerId, entryId);
+      if (entry === null) throw entryNotFound(entryId);
+      return entry;
+    },
+
+    async createEntry(scope, farmerId, body) {
+      assertMinutes(body.minutes);
+      validateWorkers(body.workers);
+      return runTx(async (tx) => {
+        const visibleFarmerId = await requireVisibleFarmer(tx, scope, farmerId);
+        const created = await createEntryForFarmer(repo, tx, visibleFarmerId, body, scope.userId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.diary.admin_create',
+          entityType: 'diary_entry',
+          entityId: created.id,
+          after: created,
+        });
+        return created;
+      });
+    },
+
+    async updateEntry(scope, farmerId, entryId, body) {
+      if (body.minutes !== undefined) assertMinutes(body.minutes);
+      if (body.workers !== undefined) validateWorkers(body.workers);
+      return runTx(async (tx) => {
+        const visibleFarmerId = await requireVisibleFarmer(tx, scope, farmerId);
+        const { before, after } = await updateEntryForFarmer(repo, tx, visibleFarmerId, entryId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.diary.admin_update',
+          entityType: 'diary_entry',
+          entityId: after.id,
+          before,
+          after,
+          changedFields: changedFields(before, after),
+        });
+        return after;
+      });
+    },
+  };
+}
+
+export const adminFarmerDiaryService: AdminFarmerDiaryService = createAdminFarmerDiaryService();

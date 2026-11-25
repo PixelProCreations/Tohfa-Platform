@@ -786,7 +786,7 @@ See also BR-66.
 
 **Test contract.**
 - `BR-38a` No scheduled job in Track 1 writes farmer-facing advisory content.
-- `BR-38b` The three enforcement jobs above are the only scheduled jobs, asserted against the job registry.
+- `BR-38b` The six scheduled jobs in `JOB_REGISTRY` (`certificate-expiry-sweep`, `counter-offer-expiry-sweep`, `daily-cash-reconciliation`, `cart-lock-reaper`, `market-schedule-executor`, `payout-settlement-poll`) are the only scheduled jobs, asserted against the job registry.
 
 ---
 
@@ -1480,11 +1480,12 @@ See also BR-66.
 3. **Dates:** Revenue dates use the Asia/Kolkata day of `completed_at`.
 4. **Span cap:** Report spans are capped by `system_config.finance_report_max_range_days` (default 366); a wider span is 422.
 5. **Raw aggregates only:** reports return sums and counts; no profit/loss, thresholds or scores.
+6. **Optional warehouse filter:** `GET /admin/finance/reports/{revenue,expenses}` accept optional `warehouseId`; an out-of-scope or inactive warehouse returns `404 NOT_FOUND`.
 
 **Failure mode if unenforced.** One warehouse's admin reads another's spend and takings (and a 403 would confirm which ids exist); unpaid or cancelled orders inflate revenue; a UTC day boundary shifts late-evening sales into the wrong day.
 
 **Test contract.** (`apps/api/src/modules/finance/finance.test.ts`; one id, `BR-63a`, is used for every read case)
-- `BR-63a` Out-of-scope expense or revenue row and unknown id are 404 for a Sub admin, lists and filters are empty; revenue is the PAID + completed-status definition; exact money sums (0.10 + 0.20 = 0.30); `from`/`to` bound `completed_at` by the Asia/Kolkata day; the report span cap is read from `system_config` (366 accepted, 367 is 422); cursor pagination; a foreign cursor is 422.
+- `BR-63a` Out-of-scope expense or revenue row and unknown id are 404 for a Sub admin, lists and filters are empty; optional `warehouseId` filter on finance reports narrows to a visible active warehouse or returns `404`; revenue is the PAID + completed-status definition; exact money sums (0.10 + 0.20 = 0.30); `from`/`to` bound `completed_at` by the Asia/Kolkata day; the report span cap is read from `system_config` (366 accepted, 367 is 422); cursor pagination; a foreign cursor is 422.
 
 ---
 
@@ -3854,20 +3855,6 @@ The `AdminOrderDetail` response on `GET /admin/orders/{orderId}`:
 
 **Test contract.**
 - `BR-154a`: `GET /admin/returns` filters by `q` and `warehouseId`.
-- `BR-154b`: Returns queue response includes KPI summary counts and list item `customerName` / `orderNumber`.
-
----
-
-### BR-155 — Admin Returns extended fields, computed return window eligibility, and projected refund calculation
-| | |
-|---|---|
-| **Source** | Code review 2026-11-16 (Batch 7 / P0-63) |
-| **Status** | ENFORCED |
-| **Layer** | Server-side: `apps/api/src/modules/returnRequests/` |
-| **Scope** | Track 1 |
-
-**Rule.**
-RMA return requests and detail responses:
 1. Support `issueCategory`, `issueTicket`, `requestedResolution`, `customerEvidence` array, `inspectionNotes`, and `inspectionPhotos` array.
 2. Computes `returnWindowEligible` boolean indicating whether the return was requested within the valid return window (7 days from order placement/completion).
 3. Computes `projectedRefundAmount` and `projectedRefundMethod` prior to refund execution.
@@ -4941,117 +4928,6 @@ RMA return requests and detail responses:
 **Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
 - `BR-219a` Approval inserts one `farmer_documents` row per recognised application document with its verification status, verifier and time; a REJECTED document blocks approval and is never copied.
 - `BR-219b` A document with no matching upload is not copied and is named in the audit row.
-
-### BR-220 — A gateway-paid order is created PENDING_PAYMENT and confirmed only by a verified capture
-
-| | |
-|---|---|
-| **Source** | Owner decision 2026-11-20 (per-order gateway payment: WALLET + UPI + CARD + NETBANKING via Razorpay). Amends BR-17 |
-| **Status** | DERIVED |
-| **Layer** | `apps/api/src/modules/orders/` (`assertPaymentMethod`, checkout, `confirmOrderPayment`), `apps/api/src/modules/payments/` (gateway interface, Razorpay and mock gateways), migration `0190_order_gateway_payment.sql` (or the next free number) |
-
-**Rule.**
-1. `POST /orders` (`order.place`) requires `Idempotency-Key` for every method. `paymentMethod` is one of `WALLET | UPI | CARD | NETBANKING | CASH`; `CASH` is refused (BR-223).
-2. `WALLET` is unchanged (BR-17): debit, `CONFIRMED` / `PAID`. The wallet balance check applies to `WALLET` only.
-3. `UPI`, `CARD` and `NETBANKING` create the order `PENDING_PAYMENT` / `payment_status = PENDING`, create a Razorpay order (`payment_capture: 1`) for the server-computed total (the client never sends an amount), record a `payments` row (`ref_type = ORDER`, unique `gateway_order_id`), set `payment_expires_at` (now + `system_config.order_payment_window_minutes`, default 15) and answer 201 with `payment: { gateway: 'RAZORPAY', gatewayOrderId, razorpayKeyId, amount, currency: 'INR', expiresAt }`.
-4. Stock, slot and cart are taken when the pending order is created, exactly as for a wallet order (allocation conversion, `SALE` stock movement, cart `CONVERTED`, slot booked).
-5. A replay with the same key returns the same order and the same `gatewayOrderId`; no second Razorpay order or `payments` row is created.
-6. The order becomes `CONFIRMED` / `PAID` only through BR-221. `order.confirmed` is not published for a pending order.
-7. `POST /orders/quote` accepts every method; `walletSufficient` only matters for `WALLET`.
-8. Razorpay unreachable when creating its order is 503 `PAYMENT_GATEWAY_UNAVAILABLE` and nothing is written.
-
-**Failure mode if unenforced.** Orders confirm against money that has not arrived, or the client is trusted for the amount and pays less than the total.
-
-**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-220a` UPI/CARD/NETBANKING checkout returns 201 `PENDING_PAYMENT` / `PENDING` with the payment block, amount equal to the server total; `BR-220b` stock, slot and cart taken on creation; `BR-220c` same key replays the same order and gatewayOrderId, one Razorpay order; `BR-220d` WALLET unchanged and the balance check is WALLET-only; `BR-220e` gateway failure 503 `PAYMENT_GATEWAY_UNAVAILABLE`, nothing written).
-
-### BR-221 — Payment verification checks the signature and the gateway; verify and webhook converge on one idempotent confirmation
-
-| | |
-|---|---|
-| **Source** | Owner decision 2026-11-20. Extends BR-220 |
-| **Status** | DERIVED |
-| **Layer** | `apps/api/src/modules/orders/` (`POST /orders/{id}/payment/verify`, `confirmOrderPayment`), `apps/api/src/modules/payments/webhookDispatch.ts` (`/webhooks/razorpay` routing) |
-
-**Rule.**
-1. `POST /orders/{id}/payment/verify` (`order.place`, own order else 404) takes `{razorpayOrderId, razorpayPaymentId, razorpaySignature}`. The signature must be a timing-safe match of HMAC-SHA256(`order_id|payment_id`, Razorpay key secret), else 422 `PAYMENT_SIGNATURE_INVALID`; `razorpayOrderId` must equal the stored gateway order id.
-2. The server never trusts the client's success: it fetches the payment from Razorpay; it must be `captured`, for exactly `toPaise(total_amount)`, against the order's gateway order id, else 409 `PAYMENT_AMOUNT_MISMATCH`. A payment still `authorized` is 202 `PAYMENT_PENDING`.
-3. Verify and the `payment.captured` webhook (after its signature check, routed by the `payments` row: `TOPUP` to the existing top-up path, `ORDER` here) call ONE function, `confirmOrderPayment(gatewayOrderId, payment)`, which locks the order row `FOR UPDATE`:
-   - `PENDING_PAYMENT` → `CONFIRMED` / `PAID`, the `payments` row `CAPTURED` with `gateway_payment_id`, an `order_status_history` row, audit `order.payment.confirm`, and `order.confirmed` published AFTER commit;
-   - already `CONFIRMED` by the same payment id → 200, nothing written, no second event;
-   - `CANCELLED` → BR-222 late capture.
-   The UNIQUE `payments.gateway_payment_id` is the final guard against double confirmation.
-4. `payment.failed` only records the failed attempt; the order stays `PENDING_PAYMENT` until its window lapses and the customer may retry the same Razorpay order.
-
-**Failure mode if unenforced.** A forged or replayed client callback confirms an unpaid order; verify and webhook racing each other confirm twice and publish two `order.confirmed` events.
-
-**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-221a` bad signature 422 `PAYMENT_SIGNATURE_INVALID`, nothing changed; `BR-221b` amount or order mismatch 409 `PAYMENT_AMOUNT_MISMATCH`; `BR-221c` authorized-only 202 `PAYMENT_PENDING`; `BR-221d` valid capture confirms once with one audit row and one event after commit; `BR-221e` verify then webhook (and webhook then verify) for the same payment confirms once; `BR-221f` webhook `ORDER` and `TOPUP` routing; `BR-221g` another customer's order 404).
-
-### BR-222 — The payment window, customer cancel and release; a late capture is REFUND_DUE for a manual refund
-
-| | |
-|---|---|
-| **Source** | Owner decision 2026-11-20 (refunds are manual in the Razorpay dashboard). Extends BR-220, BR-221 |
-| **Status** | DERIVED |
-| **Layer** | `apps/api/src/modules/orders/` (`POST /orders/{id}/cancel`, release), job `order-payment-expiry-sweep` (`apps/api/src/jobs/queue.ts`, `worker.ts`), `system_config.order_payment_window_minutes` |
-
-**Rule.**
-1. A pending gateway order has `payment_expires_at` = creation + `system_config.order_payment_window_minutes` (default 15).
-2. The job `order-payment-expiry-sweep` runs every minute: for each `PENDING_PAYMENT` order past `payment_expires_at` it asks Razorpay for the order's payments; a captured one is confirmed (BR-221), otherwise the order is cancelled with `cancellation_reason = 'PAYMENT_NOT_COMPLETED'`.
-3. `POST /orders/{id}/cancel` (`order.place`, own order else 404, `Idempotency-Key`) works only while the order is `PENDING_PAYMENT`, else 409 `ORDER_NOT_AWAITING_PAYMENT`. It checks the gateway first and confirms instead if the payment was actually captured; otherwise it cancels with `cancellation_reason = 'CUSTOMER_CANCELLED'`.
-4. Cancelling a pending order undoes the creation in ONE transaction: status `CANCELLED`, `payment_status = FAILED`, `consumed_qty -= qty` on the allocation, a `RELEASE` stock movement (+qty, ref `ORDER`), and the slot booking decremented by one.
-5. A capture that arrives after cancellation (verify, webhook or sweep): the order stays `CANCELLED`, its `payment_status` becomes `REFUND_DUE`, and verify answers 409 `ORDER_PAYMENT_EXPIRED`. There is no automatic refund call: staff refund it manually in the Razorpay dashboard.
-
-**Failure mode if unenforced.** Stock and slots are held forever by abandoned payments, or a customer pays for an order that was already released and never gets the money back.
-
-**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-222a` sweep cancels an expired unpaid order and releases allocation, ledger and slot in one transaction; `BR-222b` sweep confirms an expired order whose payment was captured; `BR-222c` customer cancel releases and sets `CUSTOMER_CANCELLED`; `BR-222d` cancel of a non-pending order 409 `ORDER_NOT_AWAITING_PAYMENT`; `BR-222e` cancel finds a capture and confirms instead; `BR-222f` late capture keeps `CANCELLED`, sets `REFUND_DUE`, verify 409 `ORDER_PAYMENT_EXPIRED`).
-
-### BR-223 — Cash on delivery / at the shop stays disabled until the owner enables it
-
-| | |
-|---|---|
-| **Source** | Owner decision 2026-11-20. Resolves open contradiction 9 for now |
-| **Status** | DERIVED |
-| **Layer** | `apps/api/src/modules/orders/` (`assertPaymentMethod`); `system_config.cod_enabled = false` (kept for the future, not read as a switch yet) |
-
-**Rule.** `POST /orders` with `paymentMethod: CASH` is 422 `PAYMENT_METHOD_DISABLED` (never 501) and nothing is written. The customer app shows the cash option as unavailable. Enabling it needs a new owner decision and its own rule (collection, reconciliation, OTP handover).
-
-**Failure mode if unenforced.** Orders confirm with no payment at all, breaking BR-17's core guarantee.
-
-**Test contract.** `apps/api/src/modules/orders/orders.payment.service.test.ts` (`BR-223a` CASH checkout 422 `PAYMENT_METHOD_DISABLED`, no order, no stock or slot taken); `apps/mobile/src/roles/customer/tests/checkout.payment.test.tsx` (`BR-223b` the cash option is shown disabled and a `PAYMENT_METHOD_DISABLED` answer is shown as "not available", not as a generic error).
-
-### BR-224 — The client never shows payment success without a server-confirmed order
-
-| | |
-|---|---|
-| **Source** | Owner decision 2026-11-20. Extends BR-221 |
-| **Status** | DERIVED |
-| **Layer** | `apps/mobile/src/roles/customer/` (`CheckoutScreen.tsx`, `api/orderPayment.ts`) |
-
-**Rule.** The customer app shows the order-success state only when the server returns the order with `status === 'CONFIRMED'`. A Razorpay SDK success is followed by `POST /orders/{id}/payment/verify` and, while not confirmed, polling `GET /orders/{id}` until `CONFIRMED` or `CANCELLED`; a pending result shows "Confirming your payment". An SDK cancel or failure offers retry (reopen the same `gatewayOrderId`) or cancel (`POST /orders/{id}/cancel`). The app never fabricates an order (no locally generated order number or fallback order on error) and never collects card number, expiry or CVV itself: the Razorpay sheet does (PCI).
-
-**Failure mode if unenforced.** Customers are told an unpaid or failed order succeeded, then nothing arrives.
-
-**Test contract.** `apps/mobile/src/roles/customer/tests/checkout.payment.test.tsx` (`BR-224a` success modal only for a `CONFIRMED` order; `BR-224b` SDK success with a pending verify shows "Confirming your payment" and polls; `BR-224c` SDK cancel offers retry and cancel; `BR-224d` a checkout error never produces a fabricated order; `BR-224e` no card number, expiry or CVV inputs are rendered).
-
-### BR-225 — Auth OTPs are issued and checked by one configured provider (Twilio Verify live); no silent mock fallback
-
-| | |
-|---|---|
-| **Source** | Owner decision 2026-11-24 (send login/registration OTPs for every role through Twilio Verify). Extends BR-32, BR-153 |
-| **Status** | DERIVED |
-| **Layer** | Server-side: `apps/api/src/modules/auth/otp/` (`OtpProvider`, `local.otpProvider.ts`, `twilioVerify.otpProvider.ts`, `otpProvider.config.ts`), `config.ts`; used by `auth.service.ts` (`sendOtp`, `verifyOtp`, `resetPassword`) and `customerOtp.service.ts` (`verify`) |
-| **Scope** | Track 1 |
-
-**Rule.**
-1. **One provider, every role.** `OTP_PROVIDER` selects `twilio` (Twilio Verify) or `local` (in-house code, hashed at rest, sent via `SMS_PROVIDER`). Every OTP path (`/auth/otp/*`, `/auth/register/customer`, `/auth/forgot-password` + `/auth/reset-password`, `/auth/customer/otp/*`) issues and checks codes through that single provider. There is no role-specific bypass.
-2. **BR-32 stays ours.** Resend cooldown, 3-attempt lockout, local expiry and single use are still enforced on the `otp_verifications` row, before the provider is asked. A locked, expired or consumed challenge never reaches Twilio. Twilio owns code generation and its own (longer) expiry; the row stores the hash of random bytes in `code_hash`, so it can never be satisfied by a local hash comparison.
-3. **Fail fast, never fall back.** `OTP_PROVIDER=twilio` with a missing or malformed `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` or `TWILIO_VERIFY_SERVICE_SID` refuses to boot. Production must set `OTP_PROVIDER` explicitly; `SMS_PROVIDER=mock` is already refused in production. A live provider never returns `_mockCode`. The test suite forces `local`.
-4. **Check.** Only Twilio `status: approved` is a correct code; `pending` is a wrong code (counts toward BR-32). Twilio errors map to: 404/20404 → 400 `OTP_EXPIRED`; 60202 → 429 `OTP_LOCKED`; 429/60203/20429 → 429 `OTP_PROVIDER_RATE_LIMITED`; 60200/21211/21614/60205 on send → 422 `OTP_DESTINATION_INVALID`; any other send failure → 502 `OTP_SMS_DELIVERY_FAILED`; any other check failure or network error → 503 `OTP_PROVIDER_UNAVAILABLE` (the challenge is not consumed).
-5. **Secrecy.** The full mobile number, the code and the auth token are never logged or put in an error; Twilio's own `message` (which echoes the number) is dropped.
-
-**Failure mode if unenforced.** Production silently runs a mock that accepts a code nobody received, or one role's path skips the real provider; a Twilio outage is read as a correct code; logs leak phone numbers or OTPs.
-
-**Test contract.** `apps/api/src/modules/auth/otp/twilioVerify.otpProvider.test.ts`, `otpProvider.config.test.ts`, `otpProvider.service.test.ts` (`BR-225` start/check success, wrong code, expired, locked, rate limited, invalid destination, outage, missing/malformed config, production without a provider, every role's path uses the provider, BR-32 still applies), `apps/mobile/src/shell/errors/describeError.test.ts` (the new codes have messages).
 
 ## Open contradictions — DO NOT GUESS
 

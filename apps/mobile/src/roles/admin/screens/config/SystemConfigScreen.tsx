@@ -9,7 +9,7 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { t } from '../../i18n';
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { adminColors } from '../../theme';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────

@@ -147,8 +147,8 @@ export function CommunitiesListScreen({
 
   // Filter States
   const [filterStatus, setFilterStatus] = useState<'All' | 'Active' | 'Archived'>('All');
-  const [filterMembership, setFilterMembership] = useState<'All' | 'Open' | 'Invitation-only'>('All');
-  const [filterDiscoverability, setFilterDiscoverability] = useState<'All' | 'Discoverable' | 'Hidden'>('All');
+  const [filterMembership, _setFilterMembership] = useState<'All' | 'Open' | 'Invitation-only'>('All');
+  const [filterDiscoverability, _setFilterDiscoverability] = useState<'All' | 'Discoverable' | 'Hidden'>('All');
 
   const handleResetFilters = () => {
     setFilterStatus('All');

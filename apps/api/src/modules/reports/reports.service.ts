@@ -11,10 +11,15 @@ import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
+import { farmerScopeFilter } from '../admin-farmers/admin-farmers.service.js';
 import { reportsRepo, type ReportsRepo } from './reports.repo.js';
 import type {
   CashTopupsReportResponse,
+  ComplianceTiersQuery,
+  ComplianceTiersReportResponse,
   CustomersReportResponse,
+  FarmerPerformanceQuery,
+  FarmerPerformanceReportResponse,
   InventoryQuery,
   InventoryReportResponse,
   RangeQuery,
@@ -22,6 +27,8 @@ import type {
   ReturnsReportResponse,
   SalesQuery,
   SalesReportResponse,
+  TimeSeriesQuery,
+  TimeSeriesReportResponse,
 } from './reports.schema.js';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -33,6 +40,9 @@ export interface ReportsService {
   returns(scope: ResolvedScope, query: RangeQuery): Promise<ReturnsReportResponse>;
   customers(scope: ResolvedScope, query: RangeQuery): Promise<CustomersReportResponse>;
   cashTopups(scope: ResolvedScope, query: RangeQuery): Promise<CashTopupsReportResponse>;
+  timeSeries(scope: ResolvedScope, query: TimeSeriesQuery): Promise<TimeSeriesReportResponse>;
+  farmerPerformance(scope: ResolvedScope, query: FarmerPerformanceQuery): Promise<FarmerPerformanceReportResponse>;
+  complianceTiers(scope: ResolvedScope, query: ComplianceTiersQuery): Promise<ComplianceTiersReportResponse>;
 }
 
 export interface ReportsServiceDeps {
@@ -163,7 +173,77 @@ export function createReportsService(deps: ReportsServiceDeps): ReportsService {
         byDay: rows.byDay.map((d) => ({ date: d.date, count: d.count, total: parseMoney(d.total) })),
       };
     },
+
+    async timeSeries(scope, query) {
+      const { scope: confined, warehouseId } = await prepare(scope, query);
+      const res = await repo.timeSeries(db, {
+        from: query.from,
+        to: query.to,
+        scope: confined,
+        warehouseId,
+        metric: query.metric,
+        period: query.period,
+      });
+      return {
+        metric: query.metric,
+        period: query.period,
+        from: query.from,
+        to: query.to,
+        warehouseId,
+        total: res.total,
+        buckets: res.buckets,
+      };
+    },
+
+    async farmerPerformance(scope, query) {
+      const { scope: confined, warehouseId } = await prepare(scope, query);
+      // prepare() used startIndex=1 on warehouseScope; farmerScopeFilter here uses startIndex=3 because
+      // repo.farmerPerformance binds $1=from, $2=to first. Shift via scopedWhere or pass directly?
+      // Wait: repo.farmerPerformance places farmerScope at $3..N: pass scoped filter starting at $3!
+      const farmerScope = farmerScopeForWindowedParams(confined, 3);
+      const res = await repo.farmerPerformance(db, {
+        from: query.from,
+        to: query.to,
+        scope: confined,
+        warehouseId,
+        farmerScope,
+        zoneId: query.zoneId ?? null,
+      });
+      return {
+        from: query.from,
+        to: query.to,
+        warehouseId,
+        zoneId: query.zoneId ?? null,
+        ...res,
+      };
+    },
+
+    async complianceTiers(scope, query) {
+      const confined = confineToAssignedWarehouses(scope);
+      assertWarehouseVisible(confined, query.warehouseId);
+      const warehouseId = query.warehouseId ?? null;
+      const farmerScope = farmerScopeFilter(confined);
+      const res = await repo.complianceTiers(db, {
+        farmerScope,
+        warehouseId,
+        zoneId: query.zoneId ?? null,
+      });
+      return {
+        warehouseId,
+        zoneId: query.zoneId ?? null,
+        ...res,
+      };
+    },
   };
+}
+
+function farmerScopeForWindowedParams(scope: ResolvedScope, startIndex: number) {
+  const base = farmerScopeFilter(scope);
+  if (base.params.length === 0) return base;
+  // base.sql uses $1..$k; shift each placeholder by (startIndex - 1) so it cleanly pairs with $1=from, $2=to
+  const shift = startIndex - 1;
+  const shiftedSql = base.sql.replace(/\$(\d+)/g, (_m, n) => `$${Number(n) + shift}`);
+  return { sql: shiftedSql, params: base.params, nextIndex: base.nextIndex + shift };
 }
 
 export const reportsService: ReportsService = createReportsService({ repo: reportsRepo, db: pool });

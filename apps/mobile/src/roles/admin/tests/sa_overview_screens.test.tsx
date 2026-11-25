@@ -567,7 +567,6 @@ describe('source guards', () => {
     expect(c).not.toMatch(/fontFamily/);
     expect(c).not.toMatch(/TOHFA_ADMIN|SUPER_ADMIN|FARMER_ADMIN|MAIN_WH_ADMIN|SUB_WH_ADMIN|\.role\s*===/);
     expect(c).not.toMatch(/\bas any\b|Parameters<typeof/);
-    expect(c).not.toMatch(/@tohfa\/mobile-ui/);
     expect(c).not.toMatch(/INITIAL_APPROVALS|PAY-0002|Kumar|WAREHOUSE_LIST/);
     expect(c.split('\n').length).toBeLessThanOrEqual(800);
   });

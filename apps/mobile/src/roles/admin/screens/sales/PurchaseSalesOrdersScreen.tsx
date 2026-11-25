@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  Alert,
   Modal,
   Platform,
   ScrollView,
@@ -15,7 +14,6 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
   adminOverlay,
-  adminRadius,
   adminShadow,
   adminSpacing,
   adminType,
@@ -24,6 +22,7 @@ import { OverviewCardsGrid, OverviewDashboardCard } from '../../components';
 import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseOrderReceiptScreen } from './PurchaseOrderReceiptScreen';
 import { PurchaseOrderPayoutScreen } from './PurchaseOrderPayoutScreen';
+import type { Can } from '../../permissions/can';
 import { SalesOrderDetailScreen, type SalesOrderRecord } from './SalesOrderDetailScreen';
 import { SalesInvoiceScreen } from './SalesInvoiceScreen';
 import { t } from '../../i18n';
@@ -175,8 +174,6 @@ const DEFAULT_EMPTY_PURCHASE_ORDER: PurchaseOrderRecord = {
   receiptStatus: 'Not received',
 };
 
-const PURCHASE_ORDERS_DATA: PurchaseOrderRecord[] = [];
-
 // ─── Filter Options (Strictly matching user screenshots) ────────────────────
 
 const FARMER_OPTIONS = ['All', 'Direct', 'Online', 'HORECA', 'Option 5'];
@@ -210,14 +207,14 @@ const DEFAULT_EMPTY_SALES_ORDER: SalesOrderRecord = {
   fulfilmentStatus: ADMIN_NO_VALUE,
 };
 
-const SALES_ORDERS_DATA: SalesOrderRecord[] = [];
-
 export interface PurchaseSalesOrdersScreenProps {
   onBack: () => void;
   onNavigateOrder?: (orderId: string) => void;
+  /** Permission check from /auth/me, handed to the payout screen. Missing disables its actions (fail closed). */
+  can?: Can | undefined;
 }
 
-export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseSalesOrdersScreenProps) {
+export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder, can }: PurchaseSalesOrdersScreenProps) {
   // Tabs: 'Purchase' | 'Sales'
   const [activeTab, setActiveTab] = useState<'Purchase' | 'Sales'>('Purchase');
 
@@ -547,6 +544,7 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
     return (
       <PurchaseOrderPayoutScreen
         order={selectedOrder}
+        can={can}
         onBack={() => setCurrentScreen('list')}
       />
     );

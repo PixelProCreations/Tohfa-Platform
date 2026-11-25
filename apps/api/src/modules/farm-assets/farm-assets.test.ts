@@ -148,6 +148,9 @@ function createFakeRepo() {
     notes: a.notes,
     createdAt: a.createdAt.toISOString(),
     updatedAt: a.updatedAt === null ? null : a.updatedAt.toISOString(),
+    createdByAdminId: null,
+    createdByAdminName: null,
+    addedOnBehalf: false,
   });
 
   const findOwned = (farmerId: string, assetId: string): StoredFarmAsset | null => {

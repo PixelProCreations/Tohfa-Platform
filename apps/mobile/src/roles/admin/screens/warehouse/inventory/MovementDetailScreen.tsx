@@ -17,7 +17,8 @@
  * adjustment approver.
  */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -198,6 +199,7 @@ export function MovementDetailScreen({ can, onNavigate, onBack, movement, wareho
   if (movement === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <SWAHeader title={t('inventory.stockMovement.title')} onBack={onBack} />
           <AdminEmptyState title={t('inventory.movementDetail.notFound')} />
@@ -217,6 +219,7 @@ export function MovementDetailScreen({ can, onNavigate, onBack, movement, wareho
   if (voucherOpen) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <SWAHeader title={t('inventory.stockMovement.receipt.title')} onBack={() => setVoucherOpen(false)} />
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -230,6 +233,7 @@ export function MovementDetailScreen({ can, onNavigate, onBack, movement, wareho
 
   return (
     <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader
           title={t('inventory.stockMovement.title')}

@@ -84,6 +84,7 @@ interface StoredFarmCrop {
   notes: string | null;
   createdAt: Date;
   updatedAt: Date | null;
+  createdByAdminId?: string | null;
 }
 
 /** Thrown by the fake repo to simulate the real `uq_farm_crops_one_growing_per_plot` unique-violation (pg code 23505). */
@@ -187,6 +188,9 @@ function createFakeRepo() {
       notes: c.notes,
       createdAt: c.createdAt.toISOString(),
       updatedAt: c.updatedAt === null ? null : c.updatedAt.toISOString(),
+      createdByAdminId: c.createdByAdminId ?? null,
+      createdByAdminName: null,
+      addedOnBehalf: Boolean(c.createdByAdminId),
     };
   };
 
@@ -222,6 +226,7 @@ function createFakeRepo() {
         notes: data.notes ?? null,
         createdAt: new Date(),
         updatedAt: null,
+        createdByAdminId: data.createdByAdminId ?? null,
       });
       return id;
     },

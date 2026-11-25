@@ -1026,5 +1026,211 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
         .set('Authorization', `Bearer ${superAdminToken}`);
       expect(res.status).toBe(404);
     });
+
+    it('BR-226: GET /admin/payouts returns summary with total and status breakdown unaffected by limit/cursor', async () => {
+      const res = await request(app)
+        .get(`/v1/admin/payouts?farmerId=${farmerId}&limit=1`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.items).toHaveLength(1);
+      expect(res.body.page.hasMore).toBe(true);
+      expect(res.body.summary).toMatchObject({
+        total: expect.any(Number),
+        requested: expect.any(Number),
+        pendingApproval: expect.any(Number),
+        approved: expect.any(Number),
+        processing: expect.any(Number),
+        paid: expect.any(Number),
+        failed: expect.any(Number),
+        reversed: expect.any(Number),
+      });
+      expect(res.body.summary.total).toBeGreaterThanOrEqual(2);
+      const sumByStatus =
+        res.body.summary.requested +
+        res.body.summary.pendingApproval +
+        res.body.summary.approved +
+        res.body.summary.processing +
+        res.body.summary.paid +
+        res.body.summary.failed +
+        res.body.summary.reversed +
+        (res.body.summary.rejected ?? 0);
+      expect(sumByStatus).toBe(res.body.summary.total);
+    });
+
+    it('BR-234 (D2): POST /admin/payouts/:id/reject rejects PENDING_APPROVAL payout, writes audit_log, and releases linked GRN dues', async () => {
+      // Ensure warehouse, zone, crop, PO, and GRN for dues release test
+      const whRes = await pool.query<{ id: string }>(`SELECT id FROM warehouses LIMIT 1`);
+      const whId = whRes.rows[0]!.id;
+      const cropRes = await pool.query<{ id: string }>(`SELECT id FROM crop_master LIMIT 1`);
+      const cropId = cropRes.rows[0]!.id;
+      const fpRes = await pool.query<{ id: string }>(`SELECT id FROM fair_prices WHERE crop_id = $1 LIMIT 1`, [cropId]);
+      const fairPriceId = fpRes.rows[0]?.id ?? (
+        await pool.query<{ id: string }>(
+          `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
+           VALUES ($1, 'GRADE_1', 100.00, '2020-01-01', $2) RETURNING id`,
+          [cropId, superAdminUserId],
+        )
+      ).rows[0]!.id;
+      const listRes = await pool.query<{ id: string }>(
+        `INSERT INTO produce_listings (listing_number, farmer_id, crop_id, grade, quantity_kg, price_per_kg, fair_price_id, status)
+         VALUES ($1, $2, $3, 'GRADE_1', 300.000, 50.00, $4, 'ACCEPTED') RETURNING id`,
+        [`LST-BR228-${Date.now()}`, farmerId, cropId, fairPriceId],
+      );
+      const poRes = await pool.query<{ id: string }>(
+        `INSERT INTO purchase_orders (po_number, farmer_id, listing_id, warehouse_id, crop_id, grade, quantity_kg, price_per_kg, total_amount, status, issued_by)
+         VALUES ($1, $2, $3, $4, $5, 'GRADE_1', 300, 50.00, 15000.00, 'ISSUED', $6)
+         RETURNING id`,
+        [`PO-BR228-${Date.now()}`, farmerId, listRes.rows[0]!.id, whId, cropId, superAdminUserId],
+      );
+      const grnRes = await pool.query<{ id: string }>(
+        `INSERT INTO goods_receipts (grn_number, purchase_order_id, warehouse_id, farmer_id, gross_qty_kg, accepted_qty_kg, status, received_by)
+         VALUES ($1, $2, $3, $4, 300.000, 300.000, 'ACCEPTED', $5)
+         RETURNING id`,
+        [`GRN-BR228-${Date.now()}`, poRes.rows[0]!.id, whId, farmerId, superAdminUserId],
+      );
+      const grnId = grnRes.rows[0]!.id;
+
+      // Create >10k payout (PENDING_APPROVAL) settling 12000.00 from grnId
+      const createRes = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${tohfaAdminToken}`)
+        .set('Idempotency-Key', `br228-create-${Date.now()}`)
+        .send({
+          farmerId,
+          amount: '12000.00',
+          mode: 'NEFT',
+          items: [{ goodsReceiptId: grnId, amount: '12000.00' }],
+        });
+      expect(createRes.status).toBe(201);
+      expect(createRes.body.status).toBe('PENDING_APPROVAL');
+      const payoutId = createRes.body.id;
+
+      // TOHFA Admin is forbidden (403)
+      const taRejectRes = await request(app)
+        .post(`/v1/admin/payouts/${payoutId}/reject`)
+        .set('Authorization', `Bearer ${tohfaAdminToken}`)
+        .set('Idempotency-Key', `br228-ta-${Date.now()}`)
+        .send({ reason: 'Bank mismatch found' });
+      expect(taRejectRes.status).toBe(403);
+
+      // Super Admin rejects
+      const rejectKey = `br228-reject-${Date.now()}`;
+      const rejectRes = await request(app)
+        .post(`/v1/admin/payouts/${payoutId}/reject`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', rejectKey)
+        .send({ reason: 'Duplicate claim — hold disbursement' });
+      expect(rejectRes.status).toBe(200);
+      expect(rejectRes.body.status).toBe('REJECTED');
+      expect(rejectRes.body.rejectionReason).toBe('Duplicate claim — hold disbursement');
+
+      // Audit log written
+      const auditRes = await pool.query<{ action_code: string }>(
+        `SELECT action_code FROM audit_log WHERE entity_type = 'payouts' AND entity_id = $1 AND action_code = 'payout.reject'`,
+        [payoutId],
+      );
+      expect(auditRes.rows.length).toBeGreaterThanOrEqual(1);
+
+      // Dues released back to 15000.00
+      const duesRes = await request(app)
+        .get(`/v1/admin/payout-dues?farmerId=${farmerId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      const restored = duesRes.body.items.find((d: { goodsReceiptId: string }) => d.goodsReceiptId === grnId);
+      expect(restored).toBeDefined();
+      expect(restored.amountDue).toBe('15000.00');
+
+      // Rejecting again is idempotent replay with same key, or 409 conflict with a fresh key
+      const replayRes = await request(app)
+        .post(`/v1/admin/payouts/${payoutId}/reject`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', rejectKey)
+        .send({ reason: 'Duplicate claim — hold disbursement' });
+      expect(replayRes.status).toBe(200);
+
+      const secondReject = await request(app)
+        .post(`/v1/admin/payouts/${payoutId}/reject`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `br228-reject2-${Date.now()}`)
+        .send({ reason: 'Another reason' });
+      expect(secondReject.status).toBe(409);
+    });
+
+    it('BR-229 (D3): POST /admin/payouts/:id/intimate notifies farmer via PAYOUT_INTIMATED and audits', async () => {
+      const createRes = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `br229-create-${Date.now()}`)
+        .send({
+          farmerId,
+          amount: '400.00',
+          mode: 'IMPS',
+        });
+      expect(createRes.status).toBe(201);
+      expect(createRes.body.status).toBe('APPROVED');
+      const payoutId = createRes.body.id;
+
+      const spy = vi.spyOn(eventBus, 'publish');
+      try {
+        const res = await request(app)
+          .post(`/v1/admin/payouts/${payoutId}/intimate`)
+          .set('Authorization', `Bearer ${tohfaAdminToken}`)
+          .send({ note: 'Expected bank credit within 24 hours.' });
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({
+          payoutId,
+          status: 'APPROVED',
+          note: 'Expected bank credit within 24 hours.',
+        });
+        expect(res.body.intimatedAt).toBeTruthy();
+
+        const published = spy.mock.calls.find(([name]) => name === ('payout.intimated' as string));
+        expect(published).toBeDefined();
+
+        const auditRes = await pool.query<{ action_code: string }>(
+          `SELECT action_code FROM audit_log WHERE entity_type = 'payouts' AND entity_id = $1 AND action_code = 'payout.intimate'`,
+          [payoutId],
+        );
+        expect(auditRes.rows.length).toBeGreaterThanOrEqual(1);
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('BR-236 (D4): POST /admin/payouts/bulk creates multiple payouts atomically with idempotency, dual-approval threshold, and over-allocation guard', async () => {
+      const idemKey = `br230-bulk-${Date.now()}`;
+      const res = await request(app)
+        .post('/v1/admin/payouts/bulk')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', idemKey)
+        .send({
+          items: [
+            { farmerId, amount: '300.00', mode: 'IMPS', remarks: 'Bulk 1' },
+            { farmerId, amount: '12500.00', mode: 'NEFT', remarks: 'Bulk 2' },
+          ],
+        });
+      expect(res.status).toBe(201);
+      expect(res.body.createdCount).toBe(2);
+      expect(res.body.totalAmount).toBe('12800.00');
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body.items[0].status).toBe('APPROVED');
+      expect(res.body.items[1].status).toBe('PENDING_APPROVAL');
+
+      // Replay returns exact same batch without creating duplicates
+      const replay = await request(app)
+        .post('/v1/admin/payouts/bulk')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', idemKey)
+        .send({
+          items: [
+            { farmerId, amount: '300.00', mode: 'IMPS', remarks: 'Bulk 1' },
+            { farmerId, amount: '12500.00', mode: 'NEFT', remarks: 'Bulk 2' },
+          ],
+        });
+      expect(replay.status).toBe(201);
+      expect(replay.body.items.map((p: { id: string }) => p.id)).toEqual(
+        res.body.items.map((p: { id: string }) => p.id),
+      );
+    });
   });
 });

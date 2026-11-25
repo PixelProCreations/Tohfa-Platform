@@ -268,7 +268,7 @@ export function AdminProfileScreen({
   // Contact / Editable fields
   const [mobileNumber, setMobileNumber] = useState(rbac.defaultMobile);
   const [emailAddress, setEmailAddress] = useState(rbac.defaultEmail);
-  const [address, setAddress] = useState(rbac.defaultAddress);
+  const [_address, _setAddress] = useState(rbac.defaultAddress);
 
   // Edit Buffer Fields
   const [editFullName, setEditFullName] = useState(fullName);

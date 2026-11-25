@@ -18,8 +18,6 @@ import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncSta
 import {
   adminColors,
   adminOverlay,
-  adminRadius,
-  adminShadow,
   adminSpacing,
   adminType,
 } from '../../theme';

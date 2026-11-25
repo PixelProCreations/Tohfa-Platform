@@ -420,14 +420,12 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
     fontSize: 13,
     color: P.lightGray,
     marginBottom: 24,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   fieldGroup: {
     marginBottom: 20,
@@ -437,7 +435,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: P.darkBrown,
     marginBottom: 8,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   input: {
     flexDirection: 'row',
@@ -456,7 +453,6 @@ const styles = StyleSheet.create({
   inputText: {
     fontSize: 15,
     color: P.darkBrown,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   inputPlaceholder: {
     color: P.lightGray,
@@ -465,7 +461,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: P.danger,
     marginTop: 4,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   picker: {
     backgroundColor: P.cardBg,
@@ -509,7 +504,6 @@ const styles = StyleSheet.create({
   pickerItemText: {
     fontSize: 15,
     color: P.darkBrown,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   datePickerRow: {
     flexDirection: 'row',
@@ -526,7 +520,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: P.border,
     textAlign: 'center',
-    fontFamily: 'Manrope, system-ui, sans-serif',
     backgroundColor: P.pageBg,
   },
   dateScroll: {
@@ -543,7 +536,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   saveBtn: {
     backgroundColor: P.orange,
@@ -561,7 +553,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   saveBtnDisabled: {
     opacity: 0.5,
@@ -571,6 +562,5 @@ const styles = StyleSheet.create({
     color: P.lightGray,
     marginTop: 10,
     lineHeight: 17,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

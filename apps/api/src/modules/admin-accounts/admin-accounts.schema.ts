@@ -132,13 +132,33 @@ export const adminAccountListItem = z.object({
   fullName: z.string(),
   email: z.string().nullable(),
   roleCode: z.string(),
+  roles: z.array(z.string()),
   status: z.enum(ACCOUNT_STATUSES),
   zones: z.array(adminAccountZoneSchema),
 });
 export type AdminAccountListItem = z.infer<typeof adminAccountListItem>;
 
+export const adminAccountDetail = z.object({
+  id: z.string().uuid(),
+  fullName: z.string(),
+  email: z.string().nullable(),
+  adminCode: z.string().nullable(),
+  roleCode: z.string(),
+  roles: z.array(z.string()),
+  status: z.enum(ACCOUNT_STATUSES),
+  zones: z.array(adminAccountZoneSchema),
+  createdAt: z.string().datetime(),
+  disabledAt: z.string().datetime().nullable(),
+  disabledBy: z.string().uuid().nullable(),
+  disabledReason: z.string().nullable(),
+});
+export type AdminAccountDetail = z.infer<typeof adminAccountDetail>;
+
 export interface ListAdminAccountsResponse {
   items: AdminAccountListItem[];
+  summary: {
+    total: number;
+  };
   page: {
     nextCursor: string | null;
     hasMore: boolean;

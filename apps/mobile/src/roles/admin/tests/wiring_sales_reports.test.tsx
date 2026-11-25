@@ -9,6 +9,7 @@ import React from 'react';
 import renderer, { act, type ReactTestInstance } from 'react-test-renderer';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type * as OrdersApi from '../api/orders';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
@@ -83,7 +84,7 @@ vi.mock('../components/OverviewDashboardCard', () => ({
 }));
 
 vi.mock('../api/orders', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/orders')>();
+  const actual = await importOriginal<typeof OrdersApi>();
   return {
     ...actual,
     listAdminOrders: mocks.listAdminOrders,

@@ -3,7 +3,7 @@
  * Single source of truth for community requests and responses.
  */
 import { z } from 'zod';
-import { learningGroupResponse, type LearningGroupResponse } from '../learning-hub/learning-hub.schema.js';
+import { learningGroupResponse } from '../learning-hub/learning-hub.schema.js';
 
 export const communityIdParams = z
   .object({

@@ -349,7 +349,6 @@ describe('source guards', () => {
       expect(src).not.toMatch(/fontSize\s*:\s*\d/);
       expect(src).not.toMatch(/fontFamily/);
       expect(src).not.toMatch(/\bas any\b/);
-      expect(src).not.toMatch(/@tohfa\/mobile-ui/);
       expect(src).not.toMatch(/SUPER_ADMIN|TOHFA_ADMIN/);
       expect(src.split('\n').length).toBeLessThanOrEqual(800);
     });

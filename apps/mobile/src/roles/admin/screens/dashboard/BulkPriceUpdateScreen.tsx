@@ -280,14 +280,12 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
     fontSize: 13,
     color: P.lightGray,
     marginBottom: 20,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   cropList: {
     gap: 12,
@@ -299,7 +297,6 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 8,
     marginTop: 0,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   cropCard: {
     flexDirection: 'row',
@@ -332,12 +329,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a1a',
     marginBottom: 3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   cropPrice: {
     fontSize: 12,
     color: P.lightGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   percentBadge: {
     backgroundColor: '#FFEBE5',
@@ -349,14 +344,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: P.orangeText,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   sectionLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: P.darkBrown,
     marginBottom: 16,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   percentCard: {
     flexDirection: 'row',
@@ -392,7 +385,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.darkBrown,
     lineHeight: 40,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   applyBtn: {
     flexDirection: 'row',
@@ -410,27 +402,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   noteText: {
     fontSize: 12,
     color: P.lightGray,
     marginTop: 10,
     lineHeight: 17,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   errorText: {
     fontSize: 13,
     fontWeight: '600',
     color: P.danger,
     marginTop: 10,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   successText: {
     fontSize: 13,
     fontWeight: '600',
     color: P.success,
     marginTop: 10,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

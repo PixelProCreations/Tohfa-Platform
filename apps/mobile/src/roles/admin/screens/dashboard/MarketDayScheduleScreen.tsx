@@ -174,14 +174,12 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
     fontSize: 13,
     color: P.lightGray,
     marginBottom: 20,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   dayList: {
     gap: 12,
@@ -216,7 +214,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#5D2510',
     lineHeight: 22,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   dateMonth: {
     fontSize: 10,
@@ -224,7 +221,6 @@ const styles = StyleSheet.create({
     color: P.red,
     letterSpacing: 0.5,
     marginTop: 1,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   dayInfo: {
     flex: 1,
@@ -234,14 +230,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A1A1A',
     marginBottom: 2,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   timeRange: {
     fontSize: 12.5,
     fontWeight: '400',
     color: '#1A1A1A',
     lineHeight: 17.6,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   addMarketBtn: {
     flexDirection: 'row',
@@ -260,13 +254,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   noteText: {
     fontSize: 12,
     color: P.lightGray,
     marginTop: 6,
     lineHeight: 17,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

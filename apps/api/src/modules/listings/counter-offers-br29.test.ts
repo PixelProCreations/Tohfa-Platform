@@ -230,4 +230,96 @@ describeIfDatabase('POST /admin/listings/:id/approve (BR-29)', () => {
     );
     expect(poRes.rows).toHaveLength(1);
   });
+
+  it('BR-226: GET /admin/listings returns summary counts across the filtered set unaffected by limit/cursor', async () => {
+    const res = await request(app)
+      .get(`/v1/admin/listings?zoneId=${zoneId}&limit=1`)
+      .set('Authorization', `Bearer ${farmerAdminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.page.hasMore).toBe(true);
+    expect(res.body.summary).toMatchObject({
+      total: expect.any(Number),
+      pending: expect.any(Number),
+      counterOffered: expect.any(Number),
+      approved: expect.any(Number),
+      rejected: expect.any(Number),
+      expired: expect.any(Number),
+    });
+    expect(res.body.summary.total).toBeGreaterThanOrEqual(2);
+    expect(res.body.summary.pending).toBeGreaterThanOrEqual(1);
+    expect(res.body.summary.approved).toBeGreaterThanOrEqual(1);
+  });
+
+  it('BR-233 (D1): FARMER_ADMIN sees only own-zone listings on GET /admin/listings and gets 404 on GET /admin/listings/:id for foreign zone', async () => {
+    // Create a second active zone, farmer, and listing in that other zone
+    const foreignZoneId = newId();
+    const foreignFarmerUserId = newId();
+    const foreignFarmerId = newId();
+    const foreignListingId = newId();
+    await pool.query(
+      `INSERT INTO zones (id, code, name, warehouse_id, is_active) VALUES ($1, $2, 'Foreign Zone D1', $3, true)`,
+      [foreignZoneId, `ZN-D1-${foreignZoneId.slice(0, 6)}`, warehouseId],
+    );
+    await pool.query(
+      `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'D1 Foreign Farmer', 'FARMER', 'ACTIVE')`,
+      [foreignFarmerUserId, `+9197${Math.floor(10000000 + Math.random() * 89999999)}`],
+    );
+    await pool.query(
+      `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, kyc_status, application_status) VALUES ($1, $2, $3, $4, 'VERIFIED', 'APPROVED')`,
+      [foreignFarmerId, foreignFarmerUserId, `TF-D1-${foreignFarmerId.slice(0, 6)}`, foreignZoneId],
+    );
+    const fpRes = await pool.query<{ id: string }>(
+      `SELECT id FROM fair_prices WHERE crop_id = $1 LIMIT 1`,
+      [cropId],
+    );
+    await pool.query(
+      `INSERT INTO produce_listings (id, listing_number, farmer_id, crop_id, grade, quantity_kg, price_per_kg, fair_price_id, status)
+       VALUES ($1, $2, $3, $4, 'GRADE_1', '80.000', '45.00', $5, 'ACCEPTED')`,
+      [foreignListingId, `LST-D1-${foreignListingId.slice(0, 6)}`, foreignFarmerId, cropId, fpRes.rows[0]!.id],
+    );
+
+    const superToken = signAccessToken({
+      sub: farmerAdminUserId,
+      roles: [{ code: RoleCode.SUPER_ADMIN }],
+      farmerId: null,
+      customerId: null,
+    });
+
+    try {
+      // Farmer Admin filtered by foreign zone sees 0 items (zone scope enforced server-side)
+      const faListRes = await request(app)
+        .get(`/v1/admin/listings?zoneId=${foreignZoneId}`)
+        .set('Authorization', `Bearer ${farmerAdminToken}`);
+      expect(faListRes.status).toBe(200);
+      expect(faListRes.body.items).toEqual([]);
+      expect(faListRes.body.summary.total).toBe(0);
+
+      // Farmer Admin fetching foreign listing detail gets 404 (not 403)
+      const faDetailForeign = await request(app)
+        .get(`/v1/admin/listings/${foreignListingId}`)
+        .set('Authorization', `Bearer ${farmerAdminToken}`);
+      expect(faDetailForeign.status).toBe(404);
+
+      // Farmer Admin fetching own-zone listing detail gets 200
+      const faDetailOwn = await request(app)
+        .get(`/v1/admin/listings/${peerListingId}`)
+        .set('Authorization', `Bearer ${farmerAdminToken}`);
+      expect(faDetailOwn.status).toBe(200);
+      expect(faDetailOwn.body.id).toBe(peerListingId);
+
+      // Super Admin can read foreign listing detail (200) and ACCEPTED status
+      const saDetailForeign = await request(app)
+        .get(`/v1/admin/listings/${foreignListingId}`)
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(saDetailForeign.status).toBe(200);
+      expect(saDetailForeign.body.status).toBe('ACCEPTED');
+    } finally {
+      await pool.query(`DELETE FROM produce_listings WHERE id = $1`, [foreignListingId]).catch(() => undefined);
+      await pool.query(`DELETE FROM farmers WHERE id = $1`, [foreignFarmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [foreignFarmerUserId]).catch(() => undefined);
+      await pool.query(`DELETE FROM zones WHERE id = $1`, [foreignZoneId]).catch(() => undefined);
+    }
+  });
 });

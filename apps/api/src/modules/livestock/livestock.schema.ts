@@ -79,6 +79,13 @@ export type AnimalIdParams = z.infer<typeof animalIdParams>;
 export const farmerIdParams = z.object({ farmerId: z.string().uuid('farmerId must be a UUID') }).strict();
 export type FarmerIdParams = z.infer<typeof farmerIdParams>;
 
+export const adminFarmerAnimalParams = z
+  .object({
+    farmerId: z.string().uuid('farmerId must be a UUID'),
+    animalId: z.string().uuid('animalId must be a UUID'),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // livestock_animals — create / update
 // ---------------------------------------------------------------------------
@@ -151,6 +158,7 @@ export const listAnimalsQuery = z
      *  animal that has left the herd drops off the default list). Pass
      *  explicitly to see history, e.g. `lifecycleStatus=SOLD`. */
     lifecycleStatus: z.enum(lifecycleStatuses).optional(),
+    addedOnBehalf: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
     cursor: z.string().max(512).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
   })
@@ -229,6 +237,7 @@ export const listProductionLogsQuery = z
     animalId: z.string().uuid('animalId must be a UUID').optional(),
     dateFrom: isoDate.optional(),
     dateTo: isoDate.optional(),
+    addedOnBehalf: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
     cursor: z.string().max(512).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
   })
@@ -262,6 +271,9 @@ export const animalResponse = z.object({
   notes: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+  createdByAdminId: z.string().uuid().nullable(),
+  createdByAdminName: z.string().nullable(),
+  addedOnBehalf: z.boolean(),
 });
 export type AnimalResponse = z.infer<typeof animalResponse>;
 
@@ -288,6 +300,9 @@ export const productionLogResponse = z.object({
   notes: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+  createdByAdminId: z.string().uuid().nullable(),
+  createdByAdminName: z.string().nullable(),
+  addedOnBehalf: z.boolean(),
 });
 export type ProductionLogResponse = z.infer<typeof productionLogResponse>;
 

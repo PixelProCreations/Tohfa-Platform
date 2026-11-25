@@ -100,7 +100,6 @@ import { InventoryFlow } from '../screens/warehouse/inventory/InventoryFlow';
 import { ReceivingFlow } from '../screens/warehouse/receiving-qc/ReceivingFlow';
 import { TransfersFlow } from '../screens/warehouse/transfers/TransfersFlow';
 import { SalesFlow } from '../screens/warehouse/sales-direct/SalesFlow';
-import { FinanceFlow } from '../screens/warehouse/finance-expenses/FinanceFlow';
 import { WalletFlow } from '../screens/warehouse/wallet-cashtopup/WalletFlow';
 import { ReturnsFlow } from '../screens/warehouse/returns-rma/ReturnsFlow';
 import { CustomersManagementFlow } from '../screens/customers-management';

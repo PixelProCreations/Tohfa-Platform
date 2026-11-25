@@ -68,7 +68,18 @@ export interface JobPayloads {
     attempts: number;
     failedAt: string;
   };
-  // TODO(STORY-FIN-09): 'payout-settlement-poll': { }
+  /**
+   * BR-244: Executes due warehouse market open/close schedules every minute.
+   */
+  'market-schedule-executor': { asOf?: string };
+  /**
+   * BR-246: Polls PROCESSING payouts against the payment gateway for settlement confirmation.
+   */
+  'payout-settlement-poll': PayoutSettlementPollPayload;
+}
+
+export interface PayoutSettlementPollPayload {
+  batchSize?: number;
 }
 
 export type JobName = keyof JobPayloads;
@@ -118,6 +129,20 @@ export const JOB_REGISTRY: { [N in JobName]: JobDefinition<N> } = {
     defaultPayload: { batchSize: 500 },
     // Every 5 minutes
     repeat: { pattern: '*/5 * * * *', tz: 'Asia/Kolkata' },
+  },
+  'market-schedule-executor': {
+    name: 'market-schedule-executor',
+    description:
+      'BR-244: evaluates due market_open_close_schedules in Asia/Kolkata and flips warehouses.is_market_open.',
+    defaultPayload: {},
+    repeat: { pattern: '* * * * *', tz: 'Asia/Kolkata' },
+  },
+  'payout-settlement-poll': {
+    name: 'payout-settlement-poll',
+    description:
+      'BR-246: polls PROCESSING farmer payouts against the gateway and transitions settled/failed rows.',
+    defaultPayload: { batchSize: 50 },
+    repeat: { pattern: '*/30 * * * *', tz: 'Asia/Kolkata' },
   },
   'notification-dispatch': {
     name: 'notification-dispatch',

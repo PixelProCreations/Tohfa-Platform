@@ -94,3 +94,21 @@ ordersRouter.post(
     res.status(200).json(result);
   }),
 );
+
+// BR-247: customer-initiated order cancellation while status = CONFIRMED.
+ordersRouter.post(
+  '/:id/cancel',
+  requireAuth,
+  requirePermission('order.cancel_own'),
+  validate({ params: orderIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', orderIdParamSchema);
+    const reason =
+      typeof (req.body as { reason?: unknown } | undefined)?.reason === 'string'
+        ? (req.body as { reason: string }).reason.trim()
+        : 'Cancelled by customer';
+    const result = await ordersService.cancelOwnOrder(actor, req.scope!, params.id, reason);
+    res.status(200).json(result);
+  }),
+);

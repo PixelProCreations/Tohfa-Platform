@@ -1,8 +1,12 @@
 /**
  * Farmer Payout Dues (design: origin/Superadmin-main), fed by
- * GET /admin/payout-dues (payout.dues.view). Read-only: there is no bulk payout
- * endpoint, so Bulk-Process is disabled (brief 07 P1 #2), and a due is not a
- * payout, so nothing here approves one.
+ * GET /admin/payout-dues (payout.dues.view). Read-only: Bulk-Process stays
+ * disabled although POST /admin/payouts/bulk now exists (BR-230, api/payouts.ts
+ * createBulkPayouts / useBulkCreatePayouts). That endpoint takes `items` of
+ * { farmerId, amount, mode: UPI|IMPS|NEFT, dueIds }, atomically, so wiring it
+ * needs an owner decision on the payment mode and on which dues the "< 10K"
+ * label selects (a due is not a payout). A due is not a payout, so nothing here
+ * approves one.
  *
  * The header total and farmer count are the server's `totals` over every due
  * (an unfiltered request), never a sum of one page (R4). Each aging chip asks
@@ -231,7 +235,7 @@ export function FarmerPayoutDuesScreen({
 
         {/* Action Buttons */}
         <View style={styles.btnStack}>
-          {/* Primary Bulk Process - Disabled per R3 (no backend endpoint) */}
+          {/* Primary Bulk Process - disabled until the payment mode / dues selection is decided (see file header) */}
           <TouchableOpacity
             style={[styles.primaryBtn, styles.actionUnavailable]}
             activeOpacity={1}

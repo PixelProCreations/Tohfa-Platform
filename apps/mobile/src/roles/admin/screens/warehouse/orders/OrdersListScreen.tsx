@@ -38,7 +38,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import type { OrderListStatusFilter } from '../../../api/orders';
@@ -258,6 +258,7 @@ export function OrdersListScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>

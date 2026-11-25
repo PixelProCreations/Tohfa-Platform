@@ -77,6 +77,28 @@ function createFakeRepo(maxRangeDays = 366): { repo: ReportsRepo; calls: string[
       calls.push('cashTopups');
       return { count: 0, total: '0.00', byDay: [] };
     },
+    async timeSeries() {
+      calls.push('timeSeries');
+      return { total: 0, buckets: [] };
+    },
+    async farmerPerformance() {
+      calls.push('farmerPerformance');
+      return {
+        totalFarmers: 0,
+        activeFarmers: 0,
+        marketBlockedFarmers: 0,
+        avgRating: null,
+        totalListings: 0,
+        approvedListings: 0,
+        acceptedKg: '0.000',
+        payoutsPaid: '0.00',
+        byZone: [],
+      };
+    },
+    async complianceTiers() {
+      calls.push('complianceTiers');
+      return { effectiveFrom: null, totalFarmers: 0, unratedCount: 0, tiers: [] };
+    },
   };
   return { repo, calls };
 }
@@ -891,5 +913,144 @@ describeIfDatabase('Reports (PostgreSQL)', () => {
       expect(await snapshot()).toEqual(before);
       expect(w.coon).toBeDefined();
     });
+  });
+
+  it('BR-232 (HTTP): GET /admin/reports/time-series, farmer-performance, and compliance-tiers enforce RBAC, scoping, bucketing, and range cap', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    const app = createApp();
+
+    const whRes = await pool.query<{ id: string; code: string }>(`SELECT id, code FROM warehouses WHERE is_active = true`);
+    const byCode = new Map(whRes.rows.map((r) => [r.code, r.id]));
+    const coon = byCode.get('WH-COON') ?? whRes.rows[0]!.id;
+    const kota = byCode.get('WH-KOTA') ?? whRes.rows[whRes.rows.length - 1]!.id;
+
+    const superUserId = newId();
+    const farmerUserId = newId();
+    const customerUserId = newId();
+    const subCoonUserId = newId();
+    await pool.query(
+      `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES
+       ($1, $2, 'Rep Super Admin', 'ADMIN', 'ACTIVE'),
+       ($3, $4, 'Rep Farmer', 'FARMER', 'ACTIVE'),
+       ($5, $6, 'Rep Customer', 'CUSTOMER', 'ACTIVE'),
+       ($7, $8, 'Rep Sub Coon', 'ADMIN', 'ACTIVE')`,
+      [
+        superUserId, `+9190${Math.floor(10000000 + Math.random() * 89999999)}`,
+        farmerUserId, `+9190${Math.floor(10000000 + Math.random() * 89999999)}`,
+        customerUserId, `+9190${Math.floor(10000000 + Math.random() * 89999999)}`,
+        subCoonUserId, `+9190${Math.floor(10000000 + Math.random() * 89999999)}`,
+      ],
+    );
+
+    const superToken = signAccessToken({ sub: superUserId, roles: [{ code: RoleCode.SUPER_ADMIN }], customerId: null, farmerId: null });
+    const farmerToken = signAccessToken({ sub: farmerUserId, roles: [{ code: RoleCode.FARMER }], customerId: null, farmerId: newId() });
+    const customerToken = signAccessToken({ sub: customerUserId, roles: [{ code: RoleCode.CUSTOMER }], customerId: newId(), farmerId: null });
+    const subToken = signAccessToken({ sub: subCoonUserId, roles: [{ code: RoleCode.SUB_WH_ADMIN, warehouseId: coon }], customerId: null, farmerId: null });
+
+    try {
+      // Unauthenticated & Farmer & Customer refused
+      for (const path of ['/v1/admin/reports/time-series?metric=sales_orders&period=day&from=2031-03-01&to=2031-03-10', '/v1/admin/reports/farmer-performance?from=2031-03-01&to=2031-03-10', '/v1/admin/reports/compliance-tiers']) {
+        expect((await request(app).get(path)).status).toBe(401);
+        expect((await request(app).get(path).set('Authorization', `Bearer ${farmerToken}`)).status).toBe(403);
+        expect((await request(app).get(path).set('Authorization', `Bearer ${customerToken}`)).status).toBe(403);
+      }
+
+      // Sub admin requesting another warehouse receives 404
+      if (coon !== kota) {
+        expect(
+          (await request(app)
+            .get(`/v1/admin/reports/time-series?metric=sales_orders&period=day&from=2031-03-01&to=2031-03-10&warehouseId=${kota}`)
+            .set('Authorization', `Bearer ${subToken}`)).status,
+        ).toBe(404);
+      }
+
+      // Range cap 422 check
+      expect(
+        (await request(app)
+          .get('/v1/admin/reports/time-series?metric=sales_revenue&period=day&from=2025-01-01&to=2031-01-01')
+          .set('Authorization', `Bearer ${superToken}`)).status,
+      ).toBe(422);
+
+      // Valid calls return structured shapes without zero-filling empty windows
+      const tsRes = await request(app)
+        .get('/v1/admin/reports/time-series?metric=sales_revenue&period=month&from=2034-01-01&to=2034-03-31')
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(tsRes.status).toBe(200);
+      expect(tsRes.body).toEqual({
+        metric: 'sales_revenue',
+        period: 'month',
+        from: '2034-01-01',
+        to: '2034-03-31',
+        warehouseId: null,
+        total: '0.00',
+        buckets: [],
+      });
+
+      const fpRes = await request(app)
+        .get('/v1/admin/reports/farmer-performance?from=2034-01-01&to=2034-03-31')
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(fpRes.status).toBe(200);
+      expect(fpRes.body).toMatchObject({
+        from: '2034-01-01',
+        to: '2034-03-31',
+        warehouseId: null,
+        zoneId: null,
+        totalFarmers: expect.any(Number),
+        activeFarmers: expect.any(Number),
+        marketBlockedFarmers: expect.any(Number),
+        byZone: expect.any(Array),
+      });
+
+      const ctRes = await request(app)
+        .get('/v1/admin/reports/compliance-tiers')
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(ctRes.status).toBe(200);
+      expect(ctRes.body).toMatchObject({
+        warehouseId: null,
+        zoneId: null,
+        totalFarmers: expect.any(Number),
+        unratedCount: expect.any(Number),
+        tiers: expect.any(Array),
+      });
+
+      // Verify every time-series metric & period runs cleanly against seeded Postgres inside rolled-back tx
+      await inRolledBackTx(async (tx) => {
+        const w = await seedWorld(tx);
+        const svc = await makeService(tx);
+        const mainAll = mainScope(ScopeLevel.ALL, 'farmer.profile.view_all');
+        for (const metric of [
+          'sales_revenue',
+          'sales_orders',
+          'new_farmers',
+          'farmer_applications',
+          'listings_approved',
+          'intake_kg',
+          'spoilage_loss_kg',
+          'payouts_paid',
+          'customer_count',
+        ] as const) {
+          for (const period of ['day', 'week', 'month'] as const) {
+            const out = await svc.timeSeries(mainAll, { from: '2031-03-10', to: '2031-03-12', metric, period });
+            expect(out.metric).toBe(metric);
+            expect(out.period).toBe(period);
+            if (metric === 'sales_orders' && period === 'day') {
+              // seedWorld o1 (03-10), o2+o3+o4 (03-11), o5 (03-09 excluded), o6 (03-13 excluded) -> 4 orders
+              expect(out.total).toBe(4);
+              expect(out.buckets.map((b) => [b.bucket, b.count])).toEqual([
+                ['2031-03-10', 1],
+                ['2031-03-11', 3],
+              ]);
+            }
+          }
+        }
+        const fp = await svc.farmerPerformance(mainAll, { from: '2031-03-10', to: '2031-03-12', warehouseId: w.coon });
+        expect(fp.warehouseId).toBe(w.coon);
+        const ct = await svc.complianceTiers(mainAll, {});
+        expect(ct.totalFarmers).toBeGreaterThanOrEqual(0);
+      });
+    } finally {
+      await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[superUserId, farmerUserId, customerUserId, subCoonUserId]]).catch(() => undefined);
+    }
   });
 });

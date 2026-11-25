@@ -29,6 +29,7 @@ import {
   UserPlusIcon,
 } from '../../components/AdminIcons';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
+import { ModalSafeArea } from '@tohfa/mobile-ui';
 import { AdminAddFarmRecordScreen, type AddRecordTab } from './AdminAddFarmRecordScreen';
 import { AdminEditFarmRecordScreen, type EditFarmRecordData } from './AdminEditFarmRecordScreen';
 import type { Can } from '../../permissions/can';
@@ -1518,33 +1519,37 @@ export function FarmRecordsSection({
           a crop, animal or asset opens the Add screen in edit mode. Both screens' saves
           are disabled until an admin write endpoint exists. */}
       {ownAddTab !== null ? (
-        <Modal visible animationType="slide" onRequestClose={() => setOwnAddTab(null)}>
-          <AdminAddFarmRecordScreen
-            initialTab={ownAddTab}
-            farmerName={farmerName}
-            farmerId={farmerCode}
-            allowAddOptions={false}
-            onBack={() => setOwnAddTab(null)}
-          />
-        </Modal>
-      ) : null}
-      {ownEditRecord !== null ? (
-        <Modal visible animationType="slide" onRequestClose={() => setOwnEditRecord(null)}>
-          {ownEditRecord.type === 'diary' ? (
-            <AdminEditFarmRecordScreen record={ownEditRecord} onBack={() => setOwnEditRecord(null)} />
-          ) : (
+        <Modal visible animationType="slide" statusBarTranslucent onRequestClose={() => setOwnAddTab(null)}>
+          <ModalSafeArea edges={['top']} style={{ flex: 1, backgroundColor: adminColors.canvas }}>
             <AdminAddFarmRecordScreen
-              initialTab={
-                ownEditRecord.type === 'crop' ? 'Plant' : ownEditRecord.type === 'livestock' ? 'Livestock' : 'Assets'
-              }
-              mode="edit"
-              initialRecord={ownEditRecord}
+              initialTab={ownAddTab}
               farmerName={farmerName}
               farmerId={farmerCode}
               allowAddOptions={false}
+              onBack={() => setOwnAddTab(null)}
+            />
+          </ModalSafeArea>
+        </Modal>
+      ) : null}
+      {ownEditRecord !== null ? (
+        <Modal visible animationType="slide" statusBarTranslucent onRequestClose={() => setOwnEditRecord(null)}>
+          <ModalSafeArea edges={['top']} style={{ flex: 1, backgroundColor: adminColors.canvas }}>
+            {ownEditRecord.type === 'diary' ? (
+              <AdminEditFarmRecordScreen record={ownEditRecord} onBack={() => setOwnEditRecord(null)} />
+            ) : (
+              <AdminAddFarmRecordScreen
+                initialTab={
+                  ownEditRecord.type === 'crop' ? 'Plant' : ownEditRecord.type === 'livestock' ? 'Livestock' : 'Assets'
+                }
+                mode="edit"
+                initialRecord={ownEditRecord}
+                farmerName={farmerName}
+                farmerId={farmerCode}
+                allowAddOptions={false}
               onBack={() => setOwnEditRecord(null)}
             />
           )}
+          </ModalSafeArea>
         </Modal>
       ) : null}
     </View>

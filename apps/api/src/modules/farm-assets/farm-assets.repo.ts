@@ -59,17 +59,8 @@ export interface FarmAssetCursor {
 export interface ListFarmAssetsArgs {
   farmerId: string;
   category?: FarmAssetCategory | undefined;
-  /**
-   * Present only when the caller asked for `dueOnly=true`. The value is
-   * `system_config.asset_service_due_soon_days` (the service fetches it via
-   * `getAssetServiceDueSoonDays`): a row counts as "due" for this filter the
-   * same way it counts as DUE_SOON-or-OVERDUE for the computed `status` field
-   * — `next_service_due_on <= current_date + dueWithinDays`. Filtering in SQL
-   * (rather than fetching everything and discarding in application code)
-   * keeps FarmInventoryScreen.tsx's per-category due counts cheap even as a
-   * farmer's asset register grows.
-   */
   dueWithinDays?: number | undefined;
+  addedOnBehalf?: boolean | undefined;
   cursor?: FarmAssetCursor | undefined;
   limit: number;
 }
@@ -91,6 +82,9 @@ export interface FarmAssetRecord {
   notes: string | null;
   createdAt: string;
   updatedAt: string | null;
+  createdByAdminId: string | null;
+  createdByAdminName: string | null;
+  addedOnBehalf: boolean;
 }
 
 export interface ListFarmAssetsResult {
@@ -107,7 +101,9 @@ export interface FarmAssetsRepo {
   /** Ownership is derived server-side — farms.farmer_id — never a client-supplied farmer id (root CLAUDE.md §2.1). */
   isFarmOwnedByFarmer(db: Executor, farmId: string, farmerId: string): Promise<boolean>;
 
-  createFarmAsset(db: Executor, data: CreateFarmAssetData): Promise<string>;
+  findPrimaryFarmIdByFarmer?(db: Executor, farmerId: string): Promise<string | null>;
+
+  createFarmAsset(db: Executor, data: CreateFarmAssetData & { createdByAdminId?: string | null }): Promise<string>;
 
   /** Full farm_assets row, owned by farmerId (via any of their farms) and not soft-deleted; else null. */
   findFarmAsset(db: Executor, farmerId: string, assetId: string): Promise<FarmAssetRecord | null>;
@@ -151,6 +147,8 @@ interface FarmAssetRow {
   created_at: Date;
   created_at_cursor: string;
   updated_at: Date | null;
+  created_by_admin_id: string | null;
+  created_by_admin_name: string | null;
 }
 
 function toFarmAsset(row: FarmAssetRow): FarmAssetRecord {
@@ -170,6 +168,9 @@ function toFarmAsset(row: FarmAssetRow): FarmAssetRecord {
     notes: row.notes,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
+    createdByAdminId: row.created_by_admin_id,
+    createdByAdminName: row.created_by_admin_name,
+    addedOnBehalf: row.created_by_admin_id !== null,
   };
 }
 
@@ -182,7 +183,9 @@ const FARM_ASSET_SELECT = `
          fa.next_service_due_on::text AS next_service_due_on,
          fa.notes, fa.created_at,
          to_char(fa.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
-         fa.updated_at
+         fa.updated_at,
+         fa.created_by_admin_id,
+         (SELECT u.full_name FROM users u WHERE u.id = fa.created_by_admin_id) AS created_by_admin_name
     FROM farm_assets fa
     JOIN farms f ON f.id = fa.farm_id
 `;
@@ -235,13 +238,25 @@ export const farmAssetsRepo: FarmAssetsRepo = {
     return result.rows.length > 0;
   },
 
+  async findPrimaryFarmIdByFarmer(db, farmerId) {
+    const result = await db.query<{ id: string }>(
+      `SELECT f.id
+         FROM farms f
+        WHERE f.farmer_id = $1 AND f.deleted_at IS NULL
+        ORDER BY f.is_primary DESC, f.created_at ASC
+        LIMIT 1`,
+      [farmerId],
+    );
+    return result.rows[0]?.id ?? null;
+  },
+
   async createFarmAsset(db, data) {
     const result = await db.query<{ id: string }>(
       `INSERT INTO farm_assets (
          farm_id, category, name, make_model, fuel_type, coverage_area_acres,
-         purchased_on, cost_paise, service_interval_days, last_serviced_on, notes
+         purchased_on, cost_paise, service_interval_days, last_serviced_on, notes, created_by_admin_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10::date, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9, $10::date, $11, $12)
        RETURNING id`,
       [
         data.farmId,
@@ -255,6 +270,7 @@ export const farmAssetsRepo: FarmAssetsRepo = {
         data.serviceIntervalDays,
         data.lastServicedOn ?? null,
         data.notes ?? null,
+        data.createdByAdminId ?? null,
       ],
     );
     return result.rows[0]!.id;
@@ -283,6 +299,9 @@ export const farmAssetsRepo: FarmAssetsRepo = {
     if (args.dueWithinDays !== undefined) {
       params.push(args.dueWithinDays);
       conditions.push(`fa.next_service_due_on IS NOT NULL AND fa.next_service_due_on <= (current_date + $${params.length}::int)`);
+    }
+    if (args.addedOnBehalf !== undefined) {
+      conditions.push(args.addedOnBehalf ? 'fa.created_by_admin_id IS NOT NULL' : 'fa.created_by_admin_id IS NULL');
     }
     if (args.cursor !== undefined) {
       params.push(args.cursor.createdAt, args.cursor.id);

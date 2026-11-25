@@ -16,6 +16,7 @@
  * taxonomy tables).
  */
 import type { Executor } from '../../db/pool.js';
+import type { ScopedWhere } from '../../rbac/requirePermission.js';
 import type {
   AdminDiaryCategoriesListResponse,
   CreateDiaryCategoryBody,
@@ -55,6 +56,7 @@ export interface CreateEntryData {
   activityOn: string | null;
   voiceNoteKey: string | null;
   voiceNoteDurationS: number | null;
+  createdByAdminId?: string | null | undefined;
 }
 
 /** Only the keys present are written; `null` clears a nullable column. */
@@ -76,6 +78,7 @@ export interface ListEntriesArgs {
   monthStart?: string | undefined;
   plotId?: string | undefined;
   categoryKey?: string | undefined;
+  addedOnBehalf?: boolean | undefined;
   cursor?: EntryCursor | undefined;
   limit: number;
 }
@@ -196,6 +199,9 @@ export interface FarmDiaryRepo {
     key: string,
     patch: UpdateSubActivityPatch,
   ): Promise<DiarySubActivityResponse | null>;
+
+  // --- Admin read of farmer diary (BR-228) ---
+  findVisibleFarmerId(db: Executor, farmerScope: ScopedWhere, farmerId: string): Promise<string | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +242,8 @@ interface EntryRow {
   voice_note_duration_s: number | null;
   created_at: Date;
   updated_at: Date | null;
+  created_by_admin_id: string | null;
+  created_by_admin_name: string | null;
   total_labour_cost_paise: string;
   worker_count: string;
   photo_count: string;
@@ -317,6 +325,9 @@ function toSummary(row: EntryRow): DiaryEntrySummaryResponse {
     totalLabourCostPaise: Number(row.total_labour_cost_paise),
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
+    createdByAdminId: row.created_by_admin_id,
+    createdByAdminName: row.created_by_admin_name,
+    addedOnBehalf: row.created_by_admin_id !== null,
     workerCount: Number(row.worker_count),
     photoCount: Number(row.photo_count),
   };
@@ -334,6 +345,8 @@ const ENTRY_SELECT = `
          e.logged_at,
          to_char(e.logged_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS logged_at_cursor,
          e.voice_note_key, e.voice_note_duration_s, e.created_at, e.updated_at,
+         e.created_by_admin_id,
+         (SELECT u.full_name FROM users u WHERE u.id = e.created_by_admin_id) AS created_by_admin_name,
          COALESCE((SELECT ROUND(SUM(w.hours_worked * w.wage_rate_paise))::bigint
                      FROM diary_entry_workers w
                     WHERE w.diary_entry_id = e.id), 0)::text AS total_labour_cost_paise,
@@ -464,9 +477,9 @@ export const farmDiaryRepo: FarmDiaryRepo = {
     const result = await db.query<{ id: string }>(
       `INSERT INTO diary_entries (
          farmer_id, plot_id, farm_crop_id, category_key, sub_activity_key,
-         activity_fields, minutes, notes, activity_on, voice_note_key, voice_note_duration_s
+         activity_fields, minutes, notes, activity_on, voice_note_key, voice_note_duration_s, created_by_admin_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, COALESCE($9::date, current_date), $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, COALESCE($9::date, current_date), $10, $11, $12)
        RETURNING id`,
       [
         data.farmerId,
@@ -480,6 +493,7 @@ export const farmDiaryRepo: FarmDiaryRepo = {
         data.activityOn,
         data.voiceNoteKey,
         data.voiceNoteDurationS,
+        data.createdByAdminId ?? null,
       ],
     );
     return result.rows[0]!.id;
@@ -535,6 +549,9 @@ export const farmDiaryRepo: FarmDiaryRepo = {
       totalLabourCostPaise: summary.totalLabourCostPaise,
       createdAt: summary.createdAt,
       updatedAt: summary.updatedAt,
+      createdByAdminId: summary.createdByAdminId,
+      createdByAdminName: summary.createdByAdminName,
+      addedOnBehalf: summary.addedOnBehalf,
       activityFields: row.activity_fields,
       voiceNoteKey: row.voice_note_key,
       voiceNoteDurationS: row.voice_note_duration_s,
@@ -565,6 +582,9 @@ export const farmDiaryRepo: FarmDiaryRepo = {
     if (args.categoryKey !== undefined) {
       params.push(args.categoryKey);
       conditions.push(`e.category_key = $${params.length}`);
+    }
+    if (args.addedOnBehalf !== undefined) {
+      conditions.push(args.addedOnBehalf ? 'e.created_by_admin_id IS NOT NULL' : 'e.created_by_admin_id IS NULL');
     }
     if (args.cursor !== undefined) {
       params.push(args.cursor.activityOn, args.cursor.loggedAt, args.cursor.id);
@@ -768,5 +788,17 @@ export const farmDiaryRepo: FarmDiaryRepo = {
       retiredActivities: counts.retiredActivities,
       counts,
     };
+  },
+
+  async findVisibleFarmerId(db, farmerScope, farmerId) {
+    const res = await db.query<{ id: string }>(
+      `SELECT f.id
+         FROM farmers f
+         JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+         LEFT JOIN zones z ON z.id = f.zone_id
+        WHERE (${farmerScope.sql}) AND f.id = $${farmerScope.nextIndex} AND f.deleted_at IS NULL`,
+      [...farmerScope.params, farmerId],
+    );
+    return res.rows[0]?.id ?? null;
   },
 };

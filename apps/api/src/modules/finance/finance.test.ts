@@ -1418,4 +1418,50 @@ describeIfDatabase('Finance routes (real app router, PostgreSQL)', () => {
     const badCursor = await request(server).get('/v1/admin/expenses').query({ cursor: 'garbage' }).set('Authorization', auth('main'));
     expect(badCursor.status).toBe(422);
   });
+
+  it('BR-63a (HTTP): finance reports support optional warehouseId filter and return 404 when out of scope', async () => {
+    if (!ready) return;
+    // Create an expense under kotagiriId and confirm Main filtering to coonoorId excludes it while filtering to kotagiriId includes it
+    const key = `${tag}-wh-filter-${Date.now()}`;
+    const createKota = await request(server)
+      .post('/v1/admin/expenses')
+      .set('Authorization', auth('main'))
+      .set('Idempotency-Key', key)
+      .send({ ...goodBody(), warehouseId: kotagiriId, amount: '42.00', expenseDate: '2033-02-15' });
+    expect(createKota.status).toBe(201);
+
+    const revFiltered = await request(server)
+      .get('/v1/admin/finance/reports/revenue')
+      .query({ from: '2033-02-01', to: '2033-02-28', warehouseId: coonoorId })
+      .set('Authorization', auth('main'));
+    expect(revFiltered.status, JSON.stringify(revFiltered.body)).toBe(200);
+    expect(revFiltered.body.summary).toEqual({ count: 0, total: '0.00' });
+
+    const expCoonoor = await request(server)
+      .get('/v1/admin/finance/reports/expenses')
+      .query({ from: '2033-02-01', to: '2033-02-28', warehouseId: coonoorId })
+      .set('Authorization', auth('main'));
+    expect(expCoonoor.status).toBe(200);
+    expect(expCoonoor.body.summary.count).toBe(0);
+
+    const expKota = await request(server)
+      .get('/v1/admin/finance/reports/expenses')
+      .query({ from: '2033-02-01', to: '2033-02-28', warehouseId: kotagiriId })
+      .set('Authorization', auth('main'));
+    expect(expKota.status).toBe(200);
+    expect(expKota.body.summary.count).toBeGreaterThanOrEqual(1);
+
+    // Sub admin passing a foreign warehouse receives 404 (never 403 or leaked data)
+    const subForeignExp = await request(server)
+      .get('/v1/admin/finance/reports/expenses')
+      .query({ from: '2033-02-01', to: '2033-02-28', warehouseId: kotagiriId })
+      .set('Authorization', auth('subCoonoor'));
+    expect(subForeignExp.status).toBe(404);
+
+    const subForeignRev = await request(server)
+      .get('/v1/admin/finance/reports/revenue')
+      .query({ from: '2033-02-01', to: '2033-02-28', warehouseId: kotagiriId })
+      .set('Authorization', auth('subCoonoor'));
+    expect(subForeignRev.status).toBe(404);
+  });
 });

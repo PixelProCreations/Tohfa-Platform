@@ -119,7 +119,6 @@ import { SuperAdminDashboardScreen } from '../screens/dashboard/SuperAdminDashbo
 import { AdminProfileScreen } from '../screens/dashboard/AdminProfileScreen';
 import { NotificationsFlow } from '../screens/warehouse/notifications/NotificationsFlow';
 import { PricingFlow } from '../screens/pricing/PricingFlow';
-import { FarmersFlow } from '../screens/farmers/FarmersFlow';
 import { AdminReportsMainScreen } from '../screens/reports';
 import { ProduceControlFlow } from '../screens/produce';
 import { PurchaseOrdersFlow } from '../screens/purchase-orders/PurchaseOrdersFlow';

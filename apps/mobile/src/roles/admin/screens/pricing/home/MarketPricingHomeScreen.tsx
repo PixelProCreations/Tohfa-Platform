@@ -29,7 +29,6 @@ import {
   BulkUploadIcon,
   FairPriceIcon,
   FilterSlidersIcon,
-  ListingsQueueIcon,
   PriceHistoryCounterOfferIcon,
   PriceTagHeaderIcon,
   RetailPricingIcon,
@@ -84,7 +83,7 @@ export function MarketPricingHomeScreen({
   onNavigateToPriceHistory,
   onNavigateOverview,
   onOpenNotifications,
-  onNavigateToListingApproval,
+  onNavigateToListingApproval: _onNavigateToListingApproval,
   onSetFairPriceCeiling,
   onBulkUpdateCeilings,
 }: MarketPricingHomeScreenProps) {

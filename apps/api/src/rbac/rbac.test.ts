@@ -1620,6 +1620,144 @@ const GRANT_CASES: readonly GrantCase[] = [
     expected: ScopeLevel.NONE,
     because: 'An applicant or customer may never add a review note to an application (BR-218).',
   },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'SUPER_ADMIN may view and triage pest incidents across all zones (BR-229).',
+  },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'TOHFA_ADMIN may view and triage pest incidents across all zones (BR-229).',
+  },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'FARMER_ADMIN may view and triage pest incidents for farmers in their assigned zones (BR-229).',
+  },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no agronomy/pest triage authority (BR-229).',
+  },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no agronomy/pest triage authority (BR-229).',
+  },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'Farmers manage their own plot detections via farmer.pest.manage_own, not admin review (BR-229).',
+  },
+  {
+    permission: 'farmer.pest.review',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Customers never access farm pest incident administration (BR-229).',
+  },
+  // --- Brief 10 D1: Listing queue zone-scoped for Farmer Admin ---
+  {
+    permission: 'listing.queue.view_pending',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'D1 (owner 2026-11-25): Farmer Admin reads only farmers/listings in their own zone.',
+  },
+  // --- Brief 10 D2: Payout reject ---
+  {
+    permission: 'payout.reject',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D2: Super Admin may reject pending farmer payouts.',
+  },
+  {
+    permission: 'payout.reject',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'D2 implementer default: matches payout.approve_above_10k (SA only).',
+  },
+  // --- Brief 10 D5/D6: Admin farmer farm records on behalf ---
+  {
+    permission: 'farmer.farm_records.manage',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D5/D6: Super Admin can manage farmer farm records on behalf.',
+  },
+  {
+    permission: 'farmer.farm_records.manage',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D5/D6: TOHFA Admin can manage farmer farm records on behalf.',
+  },
+  {
+    permission: 'farmer.farm_records.manage',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.OWN,
+    because: 'D5/D6: Farmer Admin can manage farmer farm records in their own zone only.',
+  },
+  {
+    permission: 'farmer.farm_records.manage',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.NONE,
+    because: 'Farmers use their own /farmers/me/* permissions, not admin behalf.',
+  },
+  // --- Brief 10 D9: Subscription extend/waive widened to TOHFA Admin ---
+  {
+    permission: 'farmer.subscription.extend_waive',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D9: Super Admin can extend or waive a farmer subscription.',
+  },
+  {
+    permission: 'farmer.subscription.extend_waive',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D9 (owner 2026-11-25): TOHFA Admin can extend or waive a farmer subscription.',
+  },
+  {
+    permission: 'farmer.subscription.extend_waive',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'D9: Farmer Admin cannot extend or waive subscriptions.',
+  },
+  // --- Brief 10 D10: Zone management ---
+  {
+    permission: 'zone.manage',
+    role: RoleCode.SUPER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D10: Super Admin can create, update, deactivate zones and transfer farmers.',
+  },
+  {
+    permission: 'zone.manage',
+    role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'D10: TOHFA Admin can manage zones aligned with zone assignment.',
+  },
+  {
+    permission: 'zone.manage',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'D10: Farmer Admin cannot create/deactivate zones or bulk-transfer farmers.',
+  },
+  // --- Brief 10 D11: Approved inputs catalogue view ---
+  {
+    permission: 'inputs.catalog.view',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.VIEW,
+    because: 'D11: Farmers may read approved inputs catalogue entries.',
+  },
+  {
+    permission: 'inputs.catalog.view',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'D11: Customers have no access to agricultural inputs catalogue.',
+  },
 ];
 
 describe('docs/rbac.json grants', () => {

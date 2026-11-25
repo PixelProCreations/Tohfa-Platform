@@ -6,6 +6,8 @@ export type NotificationTemplateCode =
   | 'COUNTER_OFFER_EXPIRING'
   | 'GOODS_RECEIVED'
   | 'PAYOUT_RELEASED'
+  | 'PAYOUT_REJECTED'
+  | 'PAYOUT_INTIMATED'
   | 'ORDER_CONFIRMED'
   | 'ORDER_DISPATCHED'
   | 'ORDER_DELIVERED'
@@ -69,6 +71,24 @@ export const NOTIFICATION_DEEP_LINKS: Record<NotificationTemplateCode, DeepLinkR
     };
   },
   PAYOUT_RELEASED: (data) => {
+    const payoutId = String(data['payoutId'] ?? '');
+    return {
+      app: 'farmer-mobile',
+      screen: 'MainTabs',
+      url: `tohfa-farmer://app/main-tabs?tab=Wallet&payoutId=${encodeURIComponent(payoutId)}`,
+      params: { tab: 'Wallet', payoutId },
+    };
+  },
+  PAYOUT_REJECTED: (data) => {
+    const payoutId = String(data['payoutId'] ?? '');
+    return {
+      app: 'farmer-mobile',
+      screen: 'MainTabs',
+      url: `tohfa-farmer://app/main-tabs?tab=Wallet&payoutId=${encodeURIComponent(payoutId)}`,
+      params: { tab: 'Wallet', payoutId },
+    };
+  },
+  PAYOUT_INTIMATED: (data) => {
     const payoutId = String(data['payoutId'] ?? '');
     return {
       app: 'farmer-mobile',

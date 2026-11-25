@@ -58,9 +58,11 @@
  * (spaceStandard and every verdict are null) and no fallback constant is ever
  * substituted, the same stance as community planting (BR-136).
  */
+import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { assertVisibleFarmer } from '../admin-farmers/admin-farmers.service.js';
 import { farmsService, type FarmsService } from '../farms/farms.service.js';
 import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
 import {
@@ -430,21 +432,7 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
     async createAnimal(scope, body) {
       const farmerId = ownFarmerId(scope);
       const farmId = await ownPrimaryFarmId(scope);
-
-      return runTx(async (tx) => {
-        const data: CreateAnimalData = { ...body, farmId };
-        let animalId: string;
-        try {
-          animalId = await repo.createAnimal(tx, data);
-        } catch (error) {
-          if (isUniqueViolation(error)) throw animalTagConflict(body.tag);
-          throw error;
-        }
-
-        const created = await repo.findAnimal(tx, farmerId, animalId);
-        if (created === null) throw animalNotFound(animalId);
-        return created;
-      });
+      return runTx((tx) => createAnimalCore(repo, tx, farmerId, farmId, body, null));
     },
 
     async listAnimals(scope, query) {
@@ -454,6 +442,7 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
         farmerId,
         species: query.species,
         lifecycleStatus: query.lifecycleStatus,
+        addedOnBehalf: query.addedOnBehalf,
         cursor,
         limit: query.limit,
       });
@@ -472,125 +461,22 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
 
     async updateAnimal(scope, animalId, body) {
       const farmerId = ownFarmerId(scope);
-
-      return runTx(async (tx) => {
-        // Existence/ownership first, so a foreign animal is NOT_FOUND before
-        // any other error could hint that it exists.
-        const existing = await repo.findAnimal(tx, farmerId, animalId);
-        if (existing === null) throw animalNotFound(animalId);
-
-        const patch: UpdateAnimalPatch = {};
-        if (body.tag !== undefined) patch.tag = body.tag;
-        if (body.name !== undefined) patch.name = body.name;
-        if (body.species !== undefined) patch.species = body.species;
-        if (body.breed !== undefined) patch.breed = body.breed;
-        if (body.gender !== undefined) patch.gender = body.gender;
-        if (body.dateOfBirth !== undefined) patch.dateOfBirth = body.dateOfBirth;
-        if (body.source !== undefined) patch.source = body.source;
-        if (body.purchasedOn !== undefined) patch.purchasedOn = body.purchasedOn;
-        if (body.sourceFarm !== undefined) patch.sourceFarm = body.sourceFarm;
-        if (body.organicStatus !== undefined) patch.organicStatus = body.organicStatus;
-        if (body.withdrawalUntil !== undefined) patch.withdrawalUntil = body.withdrawalUntil;
-        if (body.notes !== undefined) patch.notes = body.notes;
-
-        let updated: boolean;
-        try {
-          updated = await repo.updateAnimal(tx, farmerId, animalId, patch);
-        } catch (error) {
-          if (isUniqueViolation(error)) throw animalTagConflict(body.tag ?? existing.tag);
-          throw error;
-        }
-        if (!updated) throw animalNotFound(animalId);
-
-        const after = await repo.findAnimal(tx, farmerId, animalId);
-        if (after === null) throw animalNotFound(animalId);
-        return after;
-      });
+      return runTx(async (tx) => (await updateAnimalCore(repo, tx, farmerId, animalId, body)).after);
     },
 
     async recordLifecycleEvent(scope, animalId, body) {
       const farmerId = ownFarmerId(scope);
-
-      return runTx(async (tx) => {
-        // Ownership check first (NOT_FOUND before BR-47's CONFLICT), the same
-        // ordering crops.service.ts uses for BR-46.
-        const existing = await repo.findAnimal(tx, farmerId, animalId);
-        if (existing === null) throw animalNotFound(animalId);
-
-        let inserted: boolean;
-        try {
-          inserted = await repo.insertLifecycleEvent(tx, farmerId, animalId, body);
-        } catch (error) {
-          if (isUniqueViolation(error)) throw livestockAlreadyExited(animalId); // BR-47a
-          throw error;
-        }
-        if (!inserted) throw animalNotFound(animalId);
-
-        // BR-47b: the event and the status flip happen in the same
-        // transaction — an action that partially applies (event recorded but
-        // the animal still shows ACTIVE, or vice versa) is a bug.
-        await repo.setAnimalLifecycleStatus(tx, animalId, body.eventType);
-
-        const after = await repo.findAnimal(tx, farmerId, animalId);
-        if (after === null) throw animalNotFound(animalId);
-        return after;
-      });
+      return runTx((tx) => recordLifecycleEventCore(repo, tx, farmerId, animalId, body, null));
     },
 
     async createProductionLog(scope, body) {
       const farmerId = ownFarmerId(scope);
       const farmId = await ownPrimaryFarmId(scope);
-
-      // The date is resolved here, not by the column default, so BR-139 below
-      // compares against exactly the date that gets stored.
-      const loggedOn = body.loggedOn ?? todayKolkata();
-      let restrictedFromSale = body.restrictedFromSale ?? false;
-
-      // BR-139 is a read-then-write: the withdrawal date decides what gets
-      // stored. Both happen in ONE transaction with the animal row locked
-      // (SELECT ... FOR UPDATE), so a treatment being recorded at the same
-      // moment either commits first (this request then sees the new date) or
-      // waits for this insert. Reading through the pool and inserting
-      // separately would let produce be stored sellable after a withdrawal began.
-      return runTx(async (tx) => {
-        // A production log naming an animalId must be one of the caller's own
-        // — cross-farmer resolution here would let a farmer attribute produce
-        // to livestock they do not own (root CLAUDE.md §2.1).
-        if (body.animalId !== undefined) {
-          const owned = await repo.findAnimalForUpdate(tx, farmerId, body.animalId);
-          if (owned === null) throw animalNotFound(body.animalId);
-          // BR-139: produce from an animal still under withdrawal on that day
-          // (the end date inclusive) cannot be offered for sale. The client may
-          // flag more produce as restricted, never less.
-          if (owned.withdrawalUntil !== null && owned.withdrawalUntil >= loggedOn) restrictedFromSale = true;
-        }
-
-        const data: CreateProductionLogData = { ...body, farmId, loggedOn, restrictedFromSale };
-        const id = await repo.createProductionLog(tx, data);
-        const created = await repo.findProductionLog(tx, farmerId, id);
-        if (created === null) {
-          throw new AppError('NOT_FOUND', { detail: `Production log ${id} could not be re-read after insert.` });
-        }
-        return created;
-      });
+      return runTx((tx) => createProductionLogCore(repo, tx, farmerId, farmId, body, null));
     },
 
     async listProductionLogs(scope, query) {
-      const farmerId = ownFarmerId(scope);
-      const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
-      const { items, next } = await repo.listProductionLogs(db, {
-        farmerId,
-        productType: query.productType,
-        animalId: query.animalId,
-        dateFrom: query.dateFrom,
-        dateTo: query.dateTo,
-        cursor,
-        limit: query.limit,
-      });
-      return {
-        items,
-        page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
-      };
+      return listProductionLogsCore(repo, db, ownFarmerId(scope), query);
     },
 
     // --- animal records ------------------------------------------------------
@@ -696,28 +582,262 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
 
 export const livestockService: LivestockService = createLivestockService();
 
-// ---------------------------------------------------------------------------
-// Admin service — read-only, `admin.livestock.view_all` (scope all)
-// ---------------------------------------------------------------------------
+async function createAnimalCore(
+  repo: LivestockRepo,
+  tx: Executor,
+  farmerId: string,
+  farmId: string,
+  body: CreateAnimalBody,
+  createdByAdminId: string | null,
+): Promise<AnimalResponse> {
+  const data: CreateAnimalData = { ...body, farmId, createdByAdminId };
+  let animalId: string;
+  try {
+    animalId = await repo.createAnimal(tx, data);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw animalTagConflict(body.tag);
+    throw error;
+  }
+  const created = await repo.findAnimal(tx, farmerId, animalId);
+  if (created === null) throw animalNotFound(animalId);
+  return created;
+}
+
+async function updateAnimalCore(
+  repo: LivestockRepo,
+  tx: Executor,
+  farmerId: string,
+  animalId: string,
+  body: UpdateAnimalBody,
+): Promise<{ before: AnimalResponse; after: AnimalResponse }> {
+  const before = await repo.findAnimal(tx, farmerId, animalId);
+  if (before === null) throw animalNotFound(animalId);
+
+  const patch: UpdateAnimalPatch = {};
+  if (body.tag !== undefined) patch.tag = body.tag;
+  if (body.name !== undefined) patch.name = body.name;
+  if (body.species !== undefined) patch.species = body.species;
+  if (body.breed !== undefined) patch.breed = body.breed;
+  if (body.gender !== undefined) patch.gender = body.gender;
+  if (body.dateOfBirth !== undefined) patch.dateOfBirth = body.dateOfBirth;
+  if (body.source !== undefined) patch.source = body.source;
+  if (body.purchasedOn !== undefined) patch.purchasedOn = body.purchasedOn;
+  if (body.sourceFarm !== undefined) patch.sourceFarm = body.sourceFarm;
+  if (body.organicStatus !== undefined) patch.organicStatus = body.organicStatus;
+  if (body.withdrawalUntil !== undefined) patch.withdrawalUntil = body.withdrawalUntil;
+  if (body.notes !== undefined) patch.notes = body.notes;
+
+  let updated: boolean;
+  try {
+    updated = await repo.updateAnimal(tx, farmerId, animalId, patch);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw animalTagConflict(body.tag ?? before.tag);
+    throw error;
+  }
+  if (!updated) throw animalNotFound(animalId);
+
+  const after = await repo.findAnimal(tx, farmerId, animalId);
+  if (after === null) throw animalNotFound(animalId);
+  return { before, after };
+}
+
+async function recordLifecycleEventCore(
+  repo: LivestockRepo,
+  tx: Executor,
+  farmerId: string,
+  animalId: string,
+  body: RecordLifecycleEventBody,
+  createdByAdminId: string | null,
+): Promise<AnimalResponse> {
+  const existing = await repo.findAnimal(tx, farmerId, animalId);
+  if (existing === null) throw animalNotFound(animalId);
+
+  let inserted: boolean;
+  try {
+    inserted = await repo.insertLifecycleEvent(tx, farmerId, animalId, body, createdByAdminId);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw livestockAlreadyExited(animalId); // BR-47a
+    throw error;
+  }
+  if (!inserted) throw animalNotFound(animalId);
+
+  await repo.setAnimalLifecycleStatus(tx, animalId, body.eventType);
+  const after = await repo.findAnimal(tx, farmerId, animalId);
+  if (after === null) throw animalNotFound(animalId);
+  return after;
+}
+
+async function createProductionLogCore(
+  repo: LivestockRepo,
+  tx: Executor,
+  farmerId: string,
+  farmId: string,
+  body: CreateProductionLogBody,
+  createdByAdminId: string | null,
+): Promise<ProductionLogResponse> {
+  const loggedOn = body.loggedOn ?? todayKolkata();
+  let restrictedFromSale = body.restrictedFromSale ?? false;
+
+  if (body.animalId !== undefined) {
+    const owned = await repo.findAnimalForUpdate(tx, farmerId, body.animalId);
+    if (owned === null) throw animalNotFound(body.animalId);
+    if (owned.withdrawalUntil !== null && owned.withdrawalUntil >= loggedOn) restrictedFromSale = true;
+  }
+
+  const data: CreateProductionLogData = { ...body, farmId, loggedOn, restrictedFromSale, createdByAdminId };
+  const id = await repo.createProductionLog(tx, data);
+  const created = await repo.findProductionLog(tx, farmerId, id);
+  if (created === null) {
+    throw new AppError('NOT_FOUND', { detail: `Production log ${id} could not be re-read after insert.` });
+  }
+  return created;
+}
+
+async function listProductionLogsCore(
+  repo: LivestockRepo,
+  db: Executor,
+  farmerId: string,
+  query: ListProductionLogsQuery,
+): Promise<ListProductionLogsResponse> {
+  const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
+  const { items, next } = await repo.listProductionLogs(db, {
+    farmerId,
+    productType: query.productType,
+    animalId: query.animalId,
+    dateFrom: query.dateFrom,
+    dateTo: query.dateTo,
+    addedOnBehalf: query.addedOnBehalf,
+    cursor,
+    limit: query.limit,
+  });
+  return {
+    items,
+    page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
+  };
+}
 
 export interface LivestockAdminService {
   listAnimalsForFarmer(scope: ResolvedScope, farmerId: string): Promise<ListAdminAnimalsResponse>;
+  createAnimalForFarmer(scope: ResolvedScope, farmerId: string, body: CreateAnimalBody): Promise<AnimalResponse>;
+  updateAnimalForFarmer(
+    scope: ResolvedScope,
+    farmerId: string,
+    animalId: string,
+    body: UpdateAnimalBody,
+  ): Promise<AnimalResponse>;
+  recordLifecycleEventForFarmer(
+    scope: ResolvedScope,
+    farmerId: string,
+    animalId: string,
+    body: RecordLifecycleEventBody,
+  ): Promise<AnimalResponse>;
+  listProductionLogsForFarmer(
+    scope: ResolvedScope,
+    farmerId: string,
+    query: ListProductionLogsQuery,
+  ): Promise<ListProductionLogsResponse>;
+  createProductionLogForFarmer(
+    scope: ResolvedScope,
+    farmerId: string,
+    body: CreateProductionLogBody,
+  ): Promise<ProductionLogResponse>;
 }
 
 export function createLivestockAdminService(
-  deps: Partial<Pick<LivestockServiceDeps, 'repo' | 'db'>> = {},
+  deps: Partial<Pick<LivestockServiceDeps, 'repo' | 'db' | 'runTx'>> = {},
 ): LivestockAdminService {
   const repo = deps.repo ?? livestockRepo;
   const db = deps.db ?? pool;
+  const runTx: TransactionRunner = deps.runTx ?? withTransaction;
+
+  async function primaryFarmId(tx: Executor, farmerId: string): Promise<string> {
+    const farmId = repo.findPrimaryFarmIdByFarmer ? await repo.findPrimaryFarmIdByFarmer(tx, farmerId) : null;
+    if (farmId === null) {
+      throw new AppError('NOT_FOUND', { detail: `No farm registered for farmer ${farmerId}.` });
+    }
+    return farmId;
+  }
 
   return {
     async listAnimalsForFarmer(_scope, farmerId) {
-      // No admin write path exists for this module (there is no admin-
-      // manageable livestock taxonomy, unlike crop_master), so there is
-      // nothing to audit-log here — this mirrors crops' read-only
-      // `listCropMaster` admin path, which also writes no audit_log row.
       const items = await repo.listAnimalsForFarmer(db, farmerId);
       return { items };
+    },
+
+    async createAnimalForFarmer(scope, farmerId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const farmId = await primaryFarmId(tx, farmerId);
+        const created = await createAnimalCore(repo, tx, farmerId, farmId, body, scope.userId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.livestock.admin_create_animal',
+          entityType: 'livestock_animal',
+          entityId: created.id,
+          after: created,
+        });
+        return created;
+      });
+    },
+
+    async updateAnimalForFarmer(scope, farmerId, animalId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const { before, after } = await updateAnimalCore(repo, tx, farmerId, animalId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.livestock.admin_update_animal',
+          entityType: 'livestock_animal',
+          entityId: animalId,
+          before,
+          after,
+          changedFields: changedFields(before, after),
+        });
+        return after;
+      });
+    },
+
+    async recordLifecycleEventForFarmer(scope, farmerId, animalId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const before = await repo.findAnimal(tx, farmerId, animalId);
+        const after = await recordLifecycleEventCore(repo, tx, farmerId, animalId, body, scope.userId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.livestock.admin_lifecycle_event',
+          entityType: 'livestock_animal',
+          entityId: animalId,
+          before: before ?? undefined,
+          after,
+          changedFields: before ? changedFields(before, after) : ['lifecycleStatus'],
+        });
+        return after;
+      });
+    },
+
+    async listProductionLogsForFarmer(scope, farmerId, query) {
+      await assertVisibleFarmer(db, scope, farmerId);
+      return listProductionLogsCore(repo, db, farmerId, query);
+    },
+
+    async createProductionLogForFarmer(scope, farmerId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const farmId = await primaryFarmId(tx, farmerId);
+        const created = await createProductionLogCore(repo, tx, farmerId, farmId, body, scope.userId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.livestock.admin_create_production',
+          entityType: 'livestock_production_log',
+          entityId: created.id,
+          after: created,
+        });
+        return created;
+      });
     },
   };
 }

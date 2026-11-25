@@ -282,3 +282,27 @@ export const adminFarmerSubscription = z.object({
   freeTierLimits: z.object({ enforced: z.boolean(), listingLimit: z.number().int().nullable() }),
 });
 export type AdminFarmerSubscription = z.infer<typeof adminFarmerSubscription>;
+
+const isoDateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD');
+
+export const extendSubscriptionBody = z
+  .object({
+    months: z.number().int().min(1).max(36).optional(),
+    periodEnd: isoDateOnly.optional(),
+    reason: z.string().trim().min(3, 'reason must be at least 3 characters').max(500),
+  })
+  .strict()
+  .refine((b) => b.months !== undefined || b.periodEnd !== undefined, {
+    message: 'Either months or periodEnd must be supplied',
+  });
+export type ExtendSubscriptionBody = z.infer<typeof extendSubscriptionBody>;
+
+export const waiveSubscriptionBody = z
+  .object({
+    tier: z.enum(['FREE', 'PAID']).default('PAID'),
+    months: z.number().int().min(1).max(36).default(12),
+    periodEnd: isoDateOnly.optional(),
+    reason: z.string().trim().min(3, 'reason must be at least 3 characters').max(500),
+  })
+  .strict();
+export type WaiveSubscriptionBody = z.infer<typeof waiveSubscriptionBody>;

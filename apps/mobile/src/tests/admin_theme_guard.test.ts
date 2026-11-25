@@ -183,7 +183,7 @@ describe('Admin theme guard (ratchet) — src/roles/admin', () => {
     ).toEqual([]);
   });
 
-  it("no admin file adds fontFamily: 'Poppins' beyond its baseline (the admin PDF uses the system font)", () => {
+  it("no admin screen hardcodes fontFamily: 'Poppins' beyond its baseline (spread adminType from src/roles/admin/theme instead)", () => {
     const offenders: string[] = [];
     for (const [file, s] of scan) {
       const allowed = baseline.poppins[file] ?? 0;
@@ -195,7 +195,7 @@ describe('Admin theme guard (ratchet) — src/roles/admin', () => {
     }
     expect(
       offenders,
-      `fontFamily 'Poppins' added to admin code:\n${offenders.join('\n')}\nUse adminType from src/roles/admin/theme (no fontFamily = native system font). ${README_HINT}`,
+      `Hardcoded fontFamily 'Poppins' added to admin screen code:\n${offenders.join('\n')}\nUse adminType from src/roles/admin/theme instead. ${README_HINT}`,
     ).toEqual([]);
   });
 

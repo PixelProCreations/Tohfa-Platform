@@ -24,6 +24,7 @@ import { walletService, type WalletService } from '../wallet/wallet.service.js';
 import { cartService, type CartService } from '../cart/cart.service.js';
 import { gramsToKg, kgToGrams } from '../sales/sales.math.js';
 import { createOrderEventPublisher, type OrderEventPublisher } from './orders.events.js';
+import { marketClosedError } from '../warehouses/market-control.js';
 import {
   ordersRepo,
   type OrdersRepo,
@@ -76,6 +77,14 @@ export interface OrdersService {
     orderId: string,
     idempotencyKey: string | undefined,
   ): Promise<ReorderResponse>;
+
+  /** BR-247: customer-initiated cancellation while order is CONFIRMED. */
+  cancelOwnOrder(
+    actor: Actor,
+    scope: ResolvedScope,
+    orderId: string,
+    reason?: string,
+  ): Promise<{ id: string; orderNumber: string; status: string }>;
 }
 
 /**
@@ -317,6 +326,11 @@ export function createOrdersService(opts: {
       }
 
       const placed = await withTransaction(async (tx) => {
+        if (repo.isWarehouseMarketOpen) {
+          const open = await repo.isWarehouseMarketOpen(tx, input.warehouseId);
+          if (!open) throw marketClosedError(input.warehouseId);
+        }
+
         if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
           try {
             await repo.checkAndBookDeliverySlot(
@@ -600,6 +614,109 @@ export function createOrdersService(opts: {
           hasMore,
         },
       };
+    },
+
+    async cancelOwnOrder(
+      actor: Actor,
+      _scope: ResolvedScope,
+      orderId: string,
+      reason: string,
+    ): Promise<{ id: string; orderNumber: string; status: string }> {
+      if (!actor.customerId) {
+        throw new AppError('FORBIDDEN', { detail: 'Only customers can cancel their own orders.' });
+      }
+      const cleanReason = reason.trim() || 'Cancelled by customer';
+
+      const outcome = await withTransaction(async (tx) => {
+        const orderRes = await tx.query<{
+          id: string;
+          order_number: string;
+          customer_id: string;
+          status: string;
+          payment_status: string;
+          payment_method: string | null;
+          total_amount: string;
+        }>(
+          `SELECT id, order_number, customer_id, status, payment_status, payment_method, total_amount::text AS total_amount
+             FROM orders
+            WHERE id = $1
+            FOR UPDATE`,
+          [orderId],
+        );
+        const order = orderRes.rows[0];
+        if (!order || order.customer_id !== actor.customerId) {
+          throw new AppError('NOT_FOUND', { detail: `Order ${orderId} not found.` });
+        }
+        if (order.status !== 'CONFIRMED') {
+          throw new AppError('CONFLICT', {
+            status: 409,
+            detail: `Order ${order.order_number} cannot be cancelled in status ${order.status}.`,
+          });
+        }
+
+        await tx.query(
+          `UPDATE orders
+              SET status = 'CANCELLED',
+                  cancelled_at = now(),
+                  cancellation_reason = $2,
+                  updated_at = now()
+            WHERE id = $1`,
+          [orderId, cleanReason],
+        );
+
+        const refundPaise =
+          order.payment_method === 'WALLET' && order.payment_status === 'PAID'
+            ? Math.round(Number(order.total_amount ?? 0) * 100)
+            : 0;
+        if (refundPaise > 0 && order.payment_status === 'PAID') {
+          const walletRes = await tx.query<{ id: string; balance: string }>(
+            `SELECT id, balance::text AS balance
+               FROM wallets
+              WHERE customer_id = $1
+              LIMIT 1
+                FOR UPDATE`,
+            [actor.customerId],
+          );
+          if (walletRes.rows[0]) {
+            const balanceAfter = (Number(walletRes.rows[0].balance) + refundPaise / 100).toFixed(2);
+            await tx.query(
+              `INSERT INTO wallet_transactions (wallet_id, idempotency_key, direction, type, amount, balance_after, ref_type, ref_id, remarks)
+               VALUES ($1, $2, 'CREDIT', 'ORDER_REFUND', ($3::numeric / 100.0), $4::numeric, 'ORDER_CANCEL', $5, $6)`,
+              [
+                walletRes.rows[0].id,
+                `order-cancel-${orderId}`,
+                refundPaise,
+                balanceAfter,
+                orderId,
+                `Refund for cancelled order ${order.order_number}`,
+              ],
+            );
+          }
+        }
+
+        await tx.query(
+          `INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note)
+           VALUES ($1, 'CONFIRMED', 'CANCELLED', $2, $3)`,
+          [orderId, actor.userId, cleanReason],
+        );
+
+        await writeAuditLog(tx, {
+          actorId: actor.userId,
+          actorRole: 'CUSTOMER',
+          actionCode: 'order.cancel_own',
+          entityType: 'orders',
+          entityId: orderId,
+          before: { status: 'CONFIRMED' },
+          after: { status: 'CANCELLED', reason: cleanReason },
+          changedFields: ['status', 'cancellationReason'],
+        });
+
+        return { id: order.id, orderNumber: order.order_number, status: 'CANCELLED' };
+      });
+
+      await events.publish('order.cancelled', outcome.id);
+
+      return outcome;
     },
   };
 }

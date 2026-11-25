@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Line, Path } from 'react-native-svg';
 import {
   ADMIN_BUTTON_HEIGHT,
   adminColors,

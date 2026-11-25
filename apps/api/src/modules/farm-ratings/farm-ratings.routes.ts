@@ -9,7 +9,7 @@ import { requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
-import { farmerIdParams } from './farm-ratings.schema.js';
+import { farmerIdParams, setFarmRatingBody } from './farm-ratings.schema.js';
 import { farmRatingsService } from './farm-ratings.service.js';
 
 /** Mounted at /v1/admin/farmers */
@@ -29,11 +29,20 @@ adminFarmRatingsRouter.get(
   }),
 );
 
-// There is deliberately NO write route (product decision 2026-10-01): a farm
-// rating is created only by completing an INTERNAL audit
-// (POST /v1/admin/audits/:id/complete, guarded by audit.conduct). The former
-// PUT /:id/rating and its farmer.rating.edit permission were removed; an
-// unmatched PUT now falls through to the 404 handler.
+// PUT /v1/admin/farmers/:id/rating — manual rating adjustment (BR-06e / D7)
+adminFarmRatingsRouter.put(
+  '/:id/rating',
+  requireAuth,
+  requirePermission('farmer.rating.edit'),
+  validate({ params: farmerIdParams, body: setFarmRatingBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', farmerIdParams);
+    const body = getValidated(req, 'body', setFarmRatingBody);
+    const result = await farmRatingsService.setRating(scope, id, body);
+    res.json(result);
+  }),
+);
 
 /** Mounted at /v1/farmers/me/rating */
 export const farmRatingsFarmerRouter: Router = Router();

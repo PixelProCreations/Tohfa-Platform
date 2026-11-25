@@ -157,3 +157,105 @@ export const cashTopupsReportResponse = z.object({
   byDay: z.array(dayCountTotal),
 });
 export type CashTopupsReportResponse = z.infer<typeof cashTopupsReportResponse>;
+
+export const timeSeriesMetrics = [
+  'sales_revenue',
+  'sales_orders',
+  'new_farmers',
+  'farmer_applications',
+  'listings_approved',
+  'intake_kg',
+  'spoilage_loss_kg',
+  'payouts_paid',
+  'customer_count',
+] as const;
+export type TimeSeriesMetric = (typeof timeSeriesMetrics)[number];
+
+export const timeSeriesPeriods = ['day', 'week', 'month'] as const;
+export type TimeSeriesPeriod = (typeof timeSeriesPeriods)[number];
+
+export const timeSeriesQuery = z
+  .object({
+    ...rangeFields,
+    metric: z.enum(timeSeriesMetrics),
+    period: z.enum(timeSeriesPeriods).default('day'),
+  })
+  .strict()
+  .refine(fromNotAfterTo, fromNotAfterToIssue);
+export type TimeSeriesQuery = z.infer<typeof timeSeriesQuery>;
+
+export const farmerPerformanceQuery = z
+  .object({
+    ...rangeFields,
+    zoneId: z.string().uuid('zoneId must be a UUID').optional(),
+  })
+  .strict()
+  .refine(fromNotAfterTo, fromNotAfterToIssue);
+export type FarmerPerformanceQuery = z.infer<typeof farmerPerformanceQuery>;
+
+export const complianceTiersQuery = z
+  .object({
+    warehouseId: warehouseIdSchema.optional(),
+    zoneId: z.string().uuid('zoneId must be a UUID').optional(),
+  })
+  .strict();
+export type ComplianceTiersQuery = z.infer<typeof complianceTiersQuery>;
+
+export interface TimeSeriesBucket {
+  bucket: string;
+  count: number;
+  value: string | number;
+}
+
+export interface TimeSeriesReportResponse {
+  metric: TimeSeriesMetric;
+  period: TimeSeriesPeriod;
+  from: string;
+  to: string;
+  warehouseId: string | null;
+  total: string | number;
+  buckets: TimeSeriesBucket[];
+}
+
+export interface FarmerPerformanceZoneRow {
+  zoneId: string | null;
+  zoneCode: string | null;
+  zoneName: string | null;
+  farmerCount: number;
+  avgRating: string | null;
+  acceptedKg: string;
+  payoutsPaid: string;
+}
+
+export interface FarmerPerformanceReportResponse {
+  from: string;
+  to: string;
+  warehouseId: string | null;
+  zoneId: string | null;
+  totalFarmers: number;
+  activeFarmers: number;
+  marketBlockedFarmers: number;
+  avgRating: string | null;
+  totalListings: number;
+  approvedListings: number;
+  acceptedKg: string;
+  payoutsPaid: string;
+  byZone: FarmerPerformanceZoneRow[];
+}
+
+export interface ComplianceTierRow {
+  tierCode: string;
+  label: string;
+  minScore: string;
+  maxScore: string | null;
+  farmerCount: number;
+}
+
+export interface ComplianceTiersReportResponse {
+  effectiveFrom: string | null;
+  warehouseId: string | null;
+  zoneId: string | null;
+  totalFarmers: number;
+  unratedCount: number;
+  tiers: ComplianceTierRow[];
+}

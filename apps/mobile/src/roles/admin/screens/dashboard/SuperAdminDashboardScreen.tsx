@@ -69,7 +69,6 @@ import {
 } from './superAdminHomeFigures';
 import type { WarehouseScope } from '../warehouse';
 import { SuperAdminMoreScreen } from './SuperAdminMoreScreen';
-import { FarmersFlow } from '../farmers/FarmersFlow';
 import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { FarmerManagementFlow, type FarmerManagementSubView } from '../farmers/FarmerManagementFlow';
 import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
@@ -92,20 +91,12 @@ import { AuditManagementFlow } from '../audits/AuditManagementFlow';
 import { InputsPestManagementFlow } from '../inputs';
 import { CommunityKnowledgeFlow } from '../community';
 import { AdminZoneManagementScreen } from '../zones';
-import { AdminProfileScreen } from './AdminProfileScreen';
 import { CreateAdminAccountScreen, type AdminAccountData } from './CreateAdminAccountScreen';
 import { ManageAdminsScreen } from './ManageAdminsScreen';
 import { AdminDetailProfileScreen } from './AdminDetailProfileScreen';
 import { AdminPermissionsMatrixScreen } from './AdminPermissionsMatrixScreen';
 import { AdminActivityLogsScreen } from './AdminActivityLogsScreen';
 import { AdminRequestsApprovalScreen } from './AdminRequestsApprovalScreen';
-import {
-  SystemConfigScreen,
-  EditChannelAllocationScreen,
-  IntegrationDetailScreen,
-  CompanyDetailsScreen,
-  SystemAuditLogsScreen,
-} from '../config';
 import { ApprovalsInboxScreen } from './ApprovalsInboxScreen';
 import { ApprovalDetailPayoutScreen } from './ApprovalDetailPayoutScreen';
 import { AdminWorkQueueScreen } from './AdminWorkQueueScreen';
@@ -153,7 +144,7 @@ export interface SuperAdminDashboardScreenProps {
 
 export function SuperAdminDashboardScreen({
   can: propsCan,
-  scope: propsScope,
+  scope: _propsScope,
   onSignOut,
   onSwitchRole,
   onNavigate,
@@ -251,7 +242,7 @@ export function SuperAdminDashboardScreen({
     | 'operational'
     | null
   >(null);
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>('razorpay');
+  const [_selectedIntegrationId, _setSelectedIntegrationId] = useState<string>('razorpay');
   const [farmerInitialTab, setFarmerInitialTab] = useState<'farmers' | 'applications'>('farmers');
   const [farmerSubView, setFarmerSubView] = useState<FarmerManagementSubView>('overview');
   const farmerUserScope = useMemo(

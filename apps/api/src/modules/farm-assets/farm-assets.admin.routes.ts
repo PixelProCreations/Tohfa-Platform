@@ -12,7 +12,13 @@ import { requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
-import { farmerIdParams, listFarmAssetsQuery } from './farm-assets.schema.js';
+import {
+  adminFarmerAssetParams,
+  createAdminFarmAssetBody,
+  farmerIdParams,
+  listFarmAssetsQuery,
+  updateFarmAssetBody,
+} from './farm-assets.schema.js';
 import { farmAssetsAdminService } from './farm-assets.service.js';
 
 export const adminFarmAssetsRouter: Router = Router();
@@ -28,5 +34,47 @@ adminFarmAssetsRouter.get(
     const { farmerId } = getValidated(req, 'params', farmerIdParams);
     const query = getValidated(req, 'query', listFarmAssetsQuery);
     res.json(await farmAssetsAdminService.listForFarmer(scope, farmerId, query));
+  }),
+);
+
+// POST /v1/admin/farmers/:farmerId/farm-assets
+adminFarmAssetsRouter.post(
+  '/:farmerId/farm-assets',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: farmerIdParams, body: createAdminFarmAssetBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId } = getValidated(req, 'params', farmerIdParams);
+    const body = getValidated(req, 'body', createAdminFarmAssetBody);
+    res.status(201).json(await farmAssetsAdminService.createForFarmer(scope, farmerId, body));
+  }),
+);
+
+// PATCH /v1/admin/farmers/:farmerId/farm-assets/:assetId
+adminFarmAssetsRouter.patch(
+  '/:farmerId/farm-assets/:assetId',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerAssetParams, body: updateFarmAssetBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, assetId } = getValidated(req, 'params', adminFarmerAssetParams);
+    const body = getValidated(req, 'body', updateFarmAssetBody);
+    res.json(await farmAssetsAdminService.updateForFarmer(scope, farmerId, assetId, body));
+  }),
+);
+
+// DELETE /v1/admin/farmers/:farmerId/farm-assets/:assetId
+adminFarmAssetsRouter.delete(
+  '/:farmerId/farm-assets/:assetId',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerAssetParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, assetId } = getValidated(req, 'params', adminFarmerAssetParams);
+    await farmAssetsAdminService.deleteForFarmer(scope, farmerId, assetId);
+    res.status(204).end();
   }),
 );

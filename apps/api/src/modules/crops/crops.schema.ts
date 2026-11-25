@@ -36,6 +36,20 @@ export type PlotIdParams = z.infer<typeof plotIdParams>;
 export const farmCropIdParams = z.object({ farmCropId: z.string().uuid('farmCropId must be a UUID') }).strict();
 export type FarmCropIdParams = z.infer<typeof farmCropIdParams>;
 
+export const adminFarmerPlotCropsParams = z
+  .object({
+    farmerId: z.string().uuid('farmerId must be a UUID'),
+    plotId: z.string().uuid('plotId must be a UUID'),
+  })
+  .strict();
+
+export const adminFarmerCropParams = z
+  .object({
+    farmerId: z.string().uuid('farmerId must be a UUID'),
+    farmCropId: z.string().uuid('farmCropId must be a UUID'),
+  })
+  .strict();
+
 export const cropMasterIdParams = z.object({ id: z.string().uuid('id must be a UUID') }).strict();
 export type CropMasterIdParams = z.infer<typeof cropMasterIdParams>;
 
@@ -103,6 +117,7 @@ export type UpdateFarmCropBody = z.infer<typeof updateFarmCropBody>;
 export const listFarmCropsQuery = z
   .object({
     status: z.enum(farmCropStatuses).optional(),
+    addedOnBehalf: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
     cursor: z.string().max(512).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
   })
@@ -244,6 +259,9 @@ export const farmCropResponse = z.object({
   notes: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+  createdByAdminId: z.string().uuid().nullable(),
+  createdByAdminName: z.string().nullable(),
+  addedOnBehalf: z.boolean(),
 });
 export type FarmCropResponse = z.infer<typeof farmCropResponse>;
 

@@ -49,6 +49,21 @@ export interface DomainEvents {
     amount: string;
     reference: string;
   };
+  'payout.rejected': {
+    userId: string;
+    payoutId: string;
+    amount: string;
+    reference: string;
+    reason: string;
+  };
+  'payout.intimated': {
+    userId: string;
+    payoutId: string;
+    amount: string;
+    reference: string;
+    note: string;
+    intimationId?: string;
+  };
   'order.confirmed': {
     userId: string;
     orderId: string;
@@ -64,6 +79,12 @@ export interface DomainEvents {
     userId: string;
     orderId: string;
     orderNumber: string;
+  };
+  'order.cancelled': {
+    userId: string;
+    orderId: string;
+    orderNumber: string;
+    reason: string;
   };
   'wallet.credited': {
     userId: string;

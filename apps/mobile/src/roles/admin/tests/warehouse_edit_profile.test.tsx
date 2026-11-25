@@ -45,7 +45,7 @@ vi.mock('react-native-svg', () => ({
   Polyline: 'Polyline',
   Rect: 'Rect',
 }));
-vi.mock('@tohfa/mobile-ui', () => ({ ScreenStatusBar: 'ScreenStatusBar', SafeAreaView: 'SafeAreaView' }));
+vi.mock('@tohfa/mobile-ui', () => ({ ScreenStatusBar: 'ScreenStatusBar', SafeAreaView: 'SafeAreaView', ModalSafeArea: 'ModalSafeArea' }));
 
 // Only the transport is replaced; every API module, hook and mapper above it stays real.
 const http = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));

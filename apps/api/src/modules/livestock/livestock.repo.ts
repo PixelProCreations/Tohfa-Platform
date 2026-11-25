@@ -77,6 +77,7 @@ export const MIN_INDOOR_SPACE_SQFT_KEY = 'livestock_min_indoor_space_sqft_per_an
 
 export interface CreateAnimalData extends CreateAnimalBody {
   farmId: string;
+  createdByAdminId?: string | null | undefined;
 }
 
 /** Only the keys present are written; `null` clears a nullable column. */
@@ -105,6 +106,7 @@ export interface ListAnimalsArgs {
   farmerId: string;
   species?: AnimalSpecies | undefined;
   lifecycleStatus?: LifecycleStatus | undefined;
+  addedOnBehalf?: boolean | undefined;
   cursor?: ListCursor | undefined;
   limit: number;
 }
@@ -123,6 +125,7 @@ export interface CreateProductionLogData extends Omit<CreateProductionLogBody, '
   farmId: string;
   loggedOn: string;
   restrictedFromSale: boolean;
+  createdByAdminId?: string | null | undefined;
 }
 
 export interface ListProductionLogsArgs {
@@ -131,6 +134,7 @@ export interface ListProductionLogsArgs {
   animalId?: string | undefined;
   dateFrom?: string | undefined;
   dateTo?: string | undefined;
+  addedOnBehalf?: boolean | undefined;
   cursor?: ListCursor | undefined;
   limit: number;
 }
@@ -213,6 +217,8 @@ export type BreedingRecordStorage = Omit<StoredBreedingRecord, 'id' | 'animalId'
 // ---------------------------------------------------------------------------
 
 export interface LivestockRepo {
+  findPrimaryFarmIdByFarmer?(db: Executor, farmerId: string): Promise<string | null>;
+
   createAnimal(db: Executor, data: CreateAnimalData): Promise<string>;
 
   /** Full livestock_animals row, owned by farmerId and not soft-deleted; else null. */
@@ -241,7 +247,13 @@ export interface LivestockRepo {
    * Throws the raw pg error (23505) on a second lifecycle event for the same
    * animal — the service translates it into `LIVESTOCK_ALREADY_EXITED` (BR-47a).
    */
-  insertLifecycleEvent(db: Executor, farmerId: string, animalId: string, body: RecordLifecycleEventBody): Promise<boolean>;
+  insertLifecycleEvent(
+    db: Executor,
+    farmerId: string,
+    animalId: string,
+    body: RecordLifecycleEventBody,
+    createdByAdminId?: string | null,
+  ): Promise<boolean>;
 
   /** Sets livestock_animals.lifecycle_status. Called in the same transaction as insertLifecycleEvent (BR-47b). */
   setAnimalLifecycleStatus(db: Executor, animalId: string, status: LifecycleStatus): Promise<void>;
@@ -327,6 +339,8 @@ interface AnimalRow {
   created_at: Date;
   created_at_cursor: string;
   updated_at: Date | null;
+  created_by_admin_id: string | null;
+  created_by_admin_name: string | null;
 }
 
 interface ProductionLogRow {
@@ -346,6 +360,8 @@ interface ProductionLogRow {
   created_at: Date;
   created_at_cursor: string;
   updated_at: Date | null;
+  created_by_admin_id: string | null;
+  created_by_admin_name: string | null;
 }
 
 function toAnimal(row: AnimalRow): AnimalResponse {
@@ -366,6 +382,9 @@ function toAnimal(row: AnimalRow): AnimalResponse {
     notes: row.notes,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
+    createdByAdminId: row.created_by_admin_id,
+    createdByAdminName: row.created_by_admin_name,
+    addedOnBehalf: row.created_by_admin_id !== null,
   };
 }
 
@@ -386,6 +405,9 @@ function toProductionLog(row: ProductionLogRow): ProductionLogResponse {
     notes: row.notes,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
+    createdByAdminId: row.created_by_admin_id,
+    createdByAdminName: row.created_by_admin_name,
+    addedOnBehalf: row.created_by_admin_id !== null,
   };
 }
 
@@ -398,7 +420,9 @@ const ANIMAL_SELECT = `
          la.withdrawal_until::text AS withdrawal_until,
          la.notes, la.created_at,
          to_char(la.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
-         la.updated_at
+         la.updated_at,
+         la.created_by_admin_id,
+         (SELECT u.full_name FROM users u WHERE u.id = la.created_by_admin_id) AS created_by_admin_name
     FROM livestock_animals la
 `;
 
@@ -408,7 +432,9 @@ const PRODUCTION_LOG_SELECT = `
          pl.batch_info, pl.sessions, pl.session, pl.quality_grade, pl.fat_percent,
          pl.restricted_from_sale, pl.notes, pl.created_at,
          to_char(pl.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
-         pl.updated_at
+         pl.updated_at,
+         pl.created_by_admin_id,
+         (SELECT u.full_name FROM users u WHERE u.id = pl.created_by_admin_id) AS created_by_admin_name
     FROM livestock_production_logs pl
 `;
 
@@ -975,13 +1001,25 @@ async function insertForAnimal<Row extends RecordRowBase, T>(
 // ---------------------------------------------------------------------------
 
 export const livestockRepo: LivestockRepo = {
+  async findPrimaryFarmIdByFarmer(db, farmerId) {
+    const result = await db.query<{ id: string }>(
+      `SELECT f.id
+         FROM farms f
+        WHERE f.farmer_id = $1 AND f.deleted_at IS NULL
+        ORDER BY f.is_primary DESC, f.created_at ASC
+        LIMIT 1`,
+      [farmerId],
+    );
+    return result.rows[0]?.id ?? null;
+  },
+
   async createAnimal(db, data) {
     const result = await db.query<{ id: string }>(
       `INSERT INTO livestock_animals (
          farm_id, tag, name, species, breed, gender, date_of_birth, source,
-         purchased_on, source_farm, organic_status, withdrawal_until, notes
+         purchased_on, source_farm, organic_status, withdrawal_until, notes, created_by_admin_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9::date, $10, $11, $12::date, $13)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::date, $8, $9::date, $10, $11, $12::date, $13, $14)
        RETURNING id`,
       [
         data.farmId,
@@ -997,6 +1035,7 @@ export const livestockRepo: LivestockRepo = {
         data.organicStatus,
         data.withdrawalUntil ?? null,
         data.notes ?? null,
+        data.createdByAdminId ?? null,
       ],
     );
     return result.rows[0]!.id;
@@ -1042,6 +1081,9 @@ export const livestockRepo: LivestockRepo = {
       params.push(args.species);
       conditions.push(`la.species = $${params.length}`);
     }
+    if (args.addedOnBehalf !== undefined) {
+      conditions.push(args.addedOnBehalf ? 'la.created_by_admin_id IS NOT NULL' : 'la.created_by_admin_id IS NULL');
+    }
     if (args.cursor !== undefined) {
       params.push(args.cursor.createdAt, args.cursor.id);
       const n = params.length;
@@ -1080,10 +1122,10 @@ export const livestockRepo: LivestockRepo = {
     return (result.rowCount ?? 0) > 0;
   },
 
-  async insertLifecycleEvent(db, farmerId, animalId, body) {
+  async insertLifecycleEvent(db, farmerId, animalId, body, createdByAdminId = null) {
     const result = await db.query(
-      `INSERT INTO livestock_lifecycle_events (animal_id, event_type, event_date, counterparty, sale_price_paise, reason, notes)
-       SELECT la.id, $2, COALESCE($3::date, current_date), $4, $5, $6, $7
+      `INSERT INTO livestock_lifecycle_events (animal_id, event_type, event_date, counterparty, sale_price_paise, reason, notes, created_by_admin_id)
+       SELECT la.id, $2, COALESCE($3::date, current_date), $4, $5, $6, $7, $9
          FROM livestock_animals la
          JOIN farms f ON f.id = la.farm_id
         WHERE la.id = $1 AND f.farmer_id = $8
@@ -1097,6 +1139,7 @@ export const livestockRepo: LivestockRepo = {
         body.reason ?? null,
         body.notes ?? null,
         farmerId,
+        createdByAdminId,
       ],
     );
     return (result.rowCount ?? 0) > 0;
@@ -1110,9 +1153,9 @@ export const livestockRepo: LivestockRepo = {
     const result = await db.query<{ id: string }>(
       `INSERT INTO livestock_production_logs (
          farm_id, animal_id, product_type, quantity, unit, logged_on, batch_info, sessions,
-         session, quality_grade, fat_percent, restricted_from_sale, notes
+         session, quality_grade, fat_percent, restricted_from_sale, notes, created_by_admin_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11, $12, $13)
+       VALUES ($1, $2, $3, $4, $5, $6::date, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id`,
       [
         data.farmId,
@@ -1128,6 +1171,7 @@ export const livestockRepo: LivestockRepo = {
         data.fatPercent ?? null,
         data.restrictedFromSale,
         data.notes ?? null,
+        data.createdByAdminId ?? null,
       ],
     );
     return result.rows[0]!.id;
@@ -1165,6 +1209,9 @@ export const livestockRepo: LivestockRepo = {
     if (args.dateTo !== undefined) {
       params.push(args.dateTo);
       conditions.push(`pl.logged_on <= $${params.length}::date`);
+    }
+    if (args.addedOnBehalf !== undefined) {
+      conditions.push(args.addedOnBehalf ? 'pl.created_by_admin_id IS NOT NULL' : 'pl.created_by_admin_id IS NULL');
     }
     if (args.cursor !== undefined) {
       params.push(args.cursor.createdAt, args.cursor.id);

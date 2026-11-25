@@ -673,6 +673,8 @@ describe('admin farmers router (BR-108g, BR-33a)', () => {
         'post /:id/documents/:docId/verify',
         'get /:id/bank-accounts',
         'get /:id/subscription',
+        'post /:id/subscription/extend',
+        'post /:id/subscription/waive',
       ]),
     );
   });

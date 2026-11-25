@@ -26,6 +26,7 @@ import { writeAuditLog, changedFields } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { assertVisibleFarmer } from '../admin-farmers/admin-farmers.service.js';
 import {
   cropsRepo,
   type CropsRepo,
@@ -125,6 +126,91 @@ export interface CropsService {
   getPlotRotationHistory(scope: ResolvedScope, plotId: string): Promise<PlotRotationHistoryResponse>;
 }
 
+async function createFarmCropForFarmer(
+  repo: CropsRepo,
+  tx: Executor,
+  farmerId: string,
+  plotId: string,
+  body: CreateFarmCropBody,
+  createdByAdminId: string | null = null,
+): Promise<FarmCropResponse> {
+  const owned = await repo.isPlotOwnedByFarmer(tx, plotId, farmerId);
+  if (!owned) throw plotNotFound(plotId);
+
+  const cropMaster = await repo.findCropMaster(tx, body.cropMasterId);
+  if (cropMaster === null) {
+    throw new AppError('NOT_FOUND', { detail: `No crop type with id ${body.cropMasterId}.` });
+  }
+
+  const farmCropId = await repo.createFarmCrop(tx, { ...body, plotId, createdByAdminId });
+  const created = await repo.findFarmCrop(tx, farmerId, farmCropId);
+  if (created === null) throw farmCropNotFound(farmCropId);
+  return created;
+}
+
+async function listFarmCropsForFarmer(
+  repo: CropsRepo,
+  db: Executor,
+  farmerId: string,
+  plotId: string,
+  query: ListFarmCropsQuery,
+): Promise<ListFarmCropsResponse> {
+  const owned = await repo.isPlotOwnedByFarmer(db, plotId, farmerId);
+  if (!owned) return { items: [], page: { nextCursor: null, hasMore: false } };
+
+  const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
+  const { items, next } = await repo.listFarmCrops(db, {
+    plotId,
+    status: query.status,
+    addedOnBehalf: query.addedOnBehalf,
+    cursor,
+    limit: query.limit,
+  });
+  return {
+    items,
+    page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
+  };
+}
+
+async function updateFarmCropForFarmer(
+  repo: CropsRepo,
+  tx: Executor,
+  farmerId: string,
+  farmCropId: string,
+  body: UpdateFarmCropBody,
+): Promise<{ before: FarmCropResponse; after: FarmCropResponse }> {
+  const before = await repo.findFarmCrop(tx, farmerId, farmCropId);
+  if (before === null) throw farmCropNotFound(farmCropId);
+
+  const patch: UpdateFarmCropPatch = {};
+  if (body.status !== undefined) patch.status = body.status;
+  if (body.plantedOn !== undefined) patch.plantedOn = body.plantedOn;
+  if (body.expectedHarvestOn !== undefined) patch.expectedHarvestOn = body.expectedHarvestOn;
+  if (body.actualHarvestOn !== undefined) patch.actualHarvestOn = body.actualHarvestOn;
+  if (body.expectedYieldKg !== undefined) patch.expectedYieldKg = body.expectedYieldKg;
+  if (body.actualYieldKg !== undefined) patch.actualYieldKg = body.actualYieldKg;
+  if (body.seedVariety !== undefined) patch.seedVariety = body.seedVariety;
+  if (body.seedCompany !== undefined) patch.seedCompany = body.seedCompany;
+  if (body.seedQuantity !== undefined) patch.seedQuantity = body.seedQuantity;
+  if (body.seedQuantityUnit !== undefined) patch.seedQuantityUnit = body.seedQuantityUnit;
+  if (body.seedCostPaise !== undefined) patch.seedCostPaise = body.seedCostPaise;
+  if (body.expectedGrade !== undefined) patch.expectedGrade = body.expectedGrade;
+  if (body.notes !== undefined) patch.notes = body.notes;
+
+  let updated: boolean;
+  try {
+    updated = await repo.updateFarmCrop(tx, farmerId, farmCropId, patch);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw cropPlotAlreadyGrowing(before.plotId); // BR-46
+    throw error;
+  }
+  if (!updated) throw farmCropNotFound(farmCropId);
+
+  const after = await repo.findFarmCrop(tx, farmerId, farmCropId);
+  if (after === null) throw farmCropNotFound(farmCropId);
+  return { before, after };
+}
+
 export function createCropsService(deps: Partial<CropsServiceDeps> = {}): CropsService {
   const repo = deps.repo ?? cropsRepo;
   const db = deps.db ?? pool;
@@ -141,46 +227,12 @@ export function createCropsService(deps: Partial<CropsServiceDeps> = {}): CropsS
 
     async createFarmCrop(scope, plotId, body) {
       const farmerId = ownFarmerId(scope);
-
-      return runTx(async (tx) => {
-        // Ownership is re-derived from plots -> farms.farmer_id. A plot that
-        // is not the caller's is NOT_FOUND, not 403 (root CLAUDE.md §2.1).
-        const owned = await repo.isPlotOwnedByFarmer(tx, plotId, farmerId);
-        if (!owned) throw plotNotFound(plotId);
-
-        const cropMaster = await repo.findCropMaster(tx, body.cropMasterId);
-        if (cropMaster === null) {
-          throw new AppError('NOT_FOUND', { detail: `No crop type with id ${body.cropMasterId}.` });
-        }
-
-        // New plantings start PLANNED (the farm_crops column default); moving
-        // one to GROWING happens via PATCH and is where BR-46 is checked.
-        const farmCropId = await repo.createFarmCrop(tx, { ...body, plotId });
-
-        const created = await repo.findFarmCrop(tx, farmerId, farmCropId);
-        if (created === null) throw farmCropNotFound(farmCropId);
-        return created;
-      });
+      return runTx((tx) => createFarmCropForFarmer(repo, tx, farmerId, plotId, body, null));
     },
 
     async listFarmCrops(scope, plotId, query) {
       const farmerId = ownFarmerId(scope);
-      const owned = await repo.isPlotOwnedByFarmer(db, plotId, farmerId);
-      // Cross-plot reads return an empty page, not 403/404 — the same
-      // doctrine farm-diary applies to a foreign plotId filter.
-      if (!owned) return { items: [], page: { nextCursor: null, hasMore: false } };
-
-      const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
-      const { items, next } = await repo.listFarmCrops(db, {
-        plotId,
-        status: query.status,
-        cursor,
-        limit: query.limit,
-      });
-      return {
-        items,
-        page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
-      };
+      return listFarmCropsForFarmer(repo, db, farmerId, plotId, query);
     },
 
     async getFarmCrop(scope, farmCropId) {
@@ -192,41 +244,7 @@ export function createCropsService(deps: Partial<CropsServiceDeps> = {}): CropsS
 
     async updateFarmCrop(scope, farmCropId, body) {
       const farmerId = ownFarmerId(scope);
-
-      return runTx(async (tx) => {
-        // Existence/ownership first, so a foreign crop is NOT_FOUND before any
-        // other error could hint that it exists.
-        const existing = await repo.findFarmCrop(tx, farmerId, farmCropId);
-        if (existing === null) throw farmCropNotFound(farmCropId);
-
-        const patch: UpdateFarmCropPatch = {};
-        if (body.status !== undefined) patch.status = body.status;
-        if (body.plantedOn !== undefined) patch.plantedOn = body.plantedOn;
-        if (body.expectedHarvestOn !== undefined) patch.expectedHarvestOn = body.expectedHarvestOn;
-        if (body.actualHarvestOn !== undefined) patch.actualHarvestOn = body.actualHarvestOn;
-        if (body.expectedYieldKg !== undefined) patch.expectedYieldKg = body.expectedYieldKg;
-        if (body.actualYieldKg !== undefined) patch.actualYieldKg = body.actualYieldKg;
-        if (body.seedVariety !== undefined) patch.seedVariety = body.seedVariety;
-        if (body.seedCompany !== undefined) patch.seedCompany = body.seedCompany;
-        if (body.seedQuantity !== undefined) patch.seedQuantity = body.seedQuantity;
-        if (body.seedQuantityUnit !== undefined) patch.seedQuantityUnit = body.seedQuantityUnit;
-        if (body.seedCostPaise !== undefined) patch.seedCostPaise = body.seedCostPaise;
-        if (body.expectedGrade !== undefined) patch.expectedGrade = body.expectedGrade;
-        if (body.notes !== undefined) patch.notes = body.notes;
-
-        let updated: boolean;
-        try {
-          updated = await repo.updateFarmCrop(tx, farmerId, farmCropId, patch);
-        } catch (error) {
-          if (isUniqueViolation(error)) throw cropPlotAlreadyGrowing(existing.plotId); // BR-46
-          throw error;
-        }
-        if (!updated) throw farmCropNotFound(farmCropId);
-
-        const after = await repo.findFarmCrop(tx, farmerId, farmCropId);
-        if (after === null) throw farmCropNotFound(farmCropId);
-        return after;
-      });
+      return runTx(async (tx) => (await updateFarmCropForFarmer(repo, tx, farmerId, farmCropId, body)).after);
     },
 
     async getPlotRotationHistory(scope, plotId) {
@@ -338,3 +356,75 @@ export function createCropTaxonomyAdminService(
 }
 
 export const cropTaxonomyAdminService: CropTaxonomyAdminService = createCropTaxonomyAdminService();
+
+export interface AdminFarmerCropsService {
+  listFarmCrops(
+    scope: ResolvedScope,
+    farmerId: string,
+    plotId: string,
+    query: ListFarmCropsQuery,
+  ): Promise<ListFarmCropsResponse>;
+  createFarmCrop(
+    scope: ResolvedScope,
+    farmerId: string,
+    plotId: string,
+    body: CreateFarmCropBody,
+  ): Promise<FarmCropResponse>;
+  updateFarmCrop(
+    scope: ResolvedScope,
+    farmerId: string,
+    farmCropId: string,
+    body: UpdateFarmCropBody,
+  ): Promise<FarmCropResponse>;
+}
+
+export function createAdminFarmerCropsService(
+  deps: Partial<Pick<CropsServiceDeps, 'repo' | 'db' | 'runTx'>> = {},
+): AdminFarmerCropsService {
+  const repo = deps.repo ?? cropsRepo;
+  const db = deps.db ?? pool;
+  const runTx: TransactionRunner = deps.runTx ?? withTransaction;
+
+  return {
+    async listFarmCrops(scope, farmerId, plotId, query) {
+      await assertVisibleFarmer(db, scope, farmerId);
+      return listFarmCropsForFarmer(repo, db, farmerId, plotId, query);
+    },
+
+    async createFarmCrop(scope, farmerId, plotId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const created = await createFarmCropForFarmer(repo, tx, farmerId, plotId, body, scope.userId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.crops.admin_create',
+          entityType: 'farm_crop',
+          entityId: created.id,
+          after: created,
+        });
+        return created;
+      });
+    },
+
+    async updateFarmCrop(scope, farmerId, farmCropId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const { before, after } = await updateFarmCropForFarmer(repo, tx, farmerId, farmCropId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.crops.admin_update',
+          entityType: 'farm_crop',
+          entityId: after.id,
+          before,
+          after,
+          changedFields: changedFields(before, after),
+        });
+        return after;
+      });
+    },
+  };
+}
+
+export const adminFarmerCropsService: AdminFarmerCropsService = createAdminFarmerCropsService();

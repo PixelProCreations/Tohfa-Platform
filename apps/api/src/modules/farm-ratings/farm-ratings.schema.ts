@@ -51,8 +51,30 @@ export const farmRatingResponse = z.object({
   ratedAt: z.string().nullable(),
   ratedBy: z.string().uuid().nullable().optional(),
   ratedByName: z.string().nullable().optional(),
+  editReason: z.string().nullable().optional(),
   // Additive (2026-10-01). null only for a farmer who has never been rated.
   source: z.enum(ratingSources).nullable(),
   sourceAuditId: z.string().uuid().nullable(),
 });
 export type FarmRatingResponse = z.infer<typeof farmRatingResponse>;
+
+/** PUT /v1/admin/farmers/:id/rating — manual rating adjustment (BR-06e / D7). */
+export const setFarmRatingBody = z
+  .object({
+    reason: z.string().trim().min(3, 'Edit reason must be at least 3 characters').max(1000),
+    periodLabel: z.string().trim().min(1).max(60).optional(),
+    notes: z.string().trim().max(2000).optional(),
+    scores: z
+      .array(
+        z
+          .object({
+            categoryCode: z.string().trim().min(1),
+            score: z.number(),
+            remarks: z.string().trim().max(1000).optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+export type SetFarmRatingBody = z.infer<typeof setFarmRatingBody>;

@@ -16,6 +16,7 @@
  * role; it hands off to customer/CustomerMainApp.tsx or its own MainTabs
  * once a role is known.
  */
+import './src/roles/farmer/theme/FarmerFont';
 import { AppRegistry, LogBox } from 'react-native';
 import App from './src/roles/farmer/App';
 

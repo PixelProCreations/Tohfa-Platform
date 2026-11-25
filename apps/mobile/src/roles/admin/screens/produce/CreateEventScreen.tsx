@@ -4,8 +4,8 @@
  * audience pick from the server's enums (calendar.schema.ts).
  */
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import type { Can } from '../../permissions/can';
 import { t } from '../../i18n';

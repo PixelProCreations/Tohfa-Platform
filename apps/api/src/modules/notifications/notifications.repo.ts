@@ -28,6 +28,26 @@ export interface NotificationTemplateRow {
   is_active: boolean;
 }
 
+export interface NotificationTemplateAdminRow extends NotificationTemplateRow {
+  updated_by: string | null;
+  created_at: Date;
+  updated_at: Date | null;
+}
+
+export interface ListTemplatesFilter {
+  code?: string | undefined;
+  channel?: string | undefined;
+  locale?: string | undefined;
+  isActive?: boolean | undefined;
+}
+
+export interface UpdateTemplateParams {
+  subject?: string | null | undefined;
+  bodyTemplate?: string | undefined;
+  isActive?: boolean | undefined;
+  updatedBy: string;
+}
+
 export interface CreateNotificationParams {
   userId: string;
   templateId?: string | undefined;
@@ -97,6 +117,10 @@ export interface NotificationsRepo {
   registerDeviceToken(db: Executor, params: RegisterDeviceTokenParams): Promise<DeviceTokenRow>;
   revokeDeviceToken(db: Executor, token: string, userId: string): Promise<boolean>;
   findActiveDeviceTokens(db: Executor, userId: string, app?: string | undefined): Promise<DeviceTokenRow[]>;
+
+  listTemplates(db: Executor, filter: ListTemplatesFilter): Promise<NotificationTemplateAdminRow[]>;
+  findTemplateById(db: Executor, id: string, forUpdate?: boolean): Promise<NotificationTemplateAdminRow | null>;
+  updateTemplate(db: Executor, id: string, params: UpdateTemplateParams): Promise<NotificationTemplateAdminRow | null>;
 }
 
 export const notificationsRepo: NotificationsRepo = {
@@ -342,5 +366,69 @@ export const notificationsRepo: NotificationsRepo = {
       params,
     );
     return result.rows;
+  },
+
+  async listTemplates(db, filter) {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (filter.code !== undefined) {
+      params.push(filter.code);
+      conditions.push(`code = $${params.length}`);
+    }
+    if (filter.channel !== undefined) {
+      params.push(filter.channel);
+      conditions.push(`channel = $${params.length}::notification_channel`);
+    }
+    if (filter.locale !== undefined) {
+      params.push(filter.locale);
+      conditions.push(`locale = $${params.length}`);
+    }
+    if (filter.isActive !== undefined) {
+      params.push(filter.isActive);
+      conditions.push(`is_active = $${params.length}`);
+    }
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const result = await db.query<NotificationTemplateAdminRow>(
+      `SELECT id, code, channel::text, locale, subject, body_template, is_active, updated_by, created_at, updated_at
+         FROM notification_templates
+        ${where}
+        ORDER BY code ASC, channel ASC, locale ASC`,
+      params,
+    );
+    return result.rows;
+  },
+
+  async findTemplateById(db, id, forUpdate = false) {
+    const result = await db.query<NotificationTemplateAdminRow>(
+      `SELECT id, code, channel::text, locale, subject, body_template, is_active, updated_by, created_at, updated_at
+         FROM notification_templates
+        WHERE id = $1
+        ${forUpdate ? 'FOR UPDATE' : ''}
+        LIMIT 1`,
+      [id],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async updateTemplate(db, id, params) {
+    const sets: string[] = ['updated_at = now()'];
+    const values: unknown[] = [id];
+    const pushField = (col: string, val: unknown) => {
+      values.push(val);
+      sets.push(`${col} = $${values.length}`);
+    };
+    pushField('updated_by', params.updatedBy);
+    if (params.subject !== undefined) pushField('subject', params.subject);
+    if (params.bodyTemplate !== undefined) pushField('body_template', params.bodyTemplate);
+    if (params.isActive !== undefined) pushField('is_active', params.isActive);
+
+    const result = await db.query<NotificationTemplateAdminRow>(
+      `UPDATE notification_templates
+          SET ${sets.join(', ')}
+        WHERE id = $1
+        RETURNING id, code, channel::text, locale, subject, body_template, is_active, updated_by, created_at, updated_at`,
+      values,
+    );
+    return result.rows[0] ?? null;
   },
 };

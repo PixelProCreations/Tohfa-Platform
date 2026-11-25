@@ -19,7 +19,7 @@ import { gradeLabel } from './mappers';
 import { movementReference } from './movementDetailMappers';
 import type { BatchRow, InventoryScreenBaseProps, ProductStock, StockLevel, StockMovementRow } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { Icon, SafeAreaView } from '@tohfa/mobile-ui';
+import { Icon, SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { SWAHeader } from '../../swa/components';
 
 export interface InventoryFiltersScreenProps extends InventoryScreenBaseProps {
@@ -219,6 +219,7 @@ export function InventoryFiltersScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader 
           title={t('inventory.filters.title')}

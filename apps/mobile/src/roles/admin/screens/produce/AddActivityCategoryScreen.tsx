@@ -5,8 +5,8 @@
  * it), then one POST .../sub-activities per configured sub-activity, in order.
  */
 import React, { useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import type { Can } from '../../permissions/can';
 import { t } from '../../i18n';

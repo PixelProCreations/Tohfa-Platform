@@ -13,6 +13,7 @@ import { writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import { isCalendarDate } from '../certifications/certifications.schema.js';
 import {
   decodeCursorParts,
@@ -260,17 +261,45 @@ export function createFinanceService(
 
     async revenueReport(scope, query) {
       await assertRangeWithinCap(query);
-      const byChannel = await repo.revenueByChannel(db, scope, { from: query.from, to: query.to });
-      const byDay: DayTotalRecord[] = await repo.revenueReportByDay(db, scope, query.from, query.to);
-      const byPaymentMethod = await repo.revenueReportByPaymentMethod(db, scope, query.from, query.to);
+      if (
+        query.warehouseId !== undefined &&
+        (!warehouseVisible(scope, query.warehouseId) || !(await repo.activeWarehouseExists(db, query.warehouseId)))
+      ) {
+        throw notFound('Warehouse', query.warehouseId);
+      }
+      const byChannel = await repo.revenueByChannel(db, scope, {
+        from: query.from,
+        to: query.to,
+        warehouseId: query.warehouseId,
+      });
+      const byDay: DayTotalRecord[] = await repo.revenueReportByDay(db, scope, query.from, query.to, query.warehouseId);
+      const byPaymentMethod = await repo.revenueReportByPaymentMethod(
+        db,
+        scope,
+        query.from,
+        query.to,
+        query.warehouseId,
+      );
       return { from: query.from, to: query.to, summary: sumTotals(byChannel), byDay, byChannel, byPaymentMethod };
     },
 
     async expenseReport(scope, query) {
       await assertRangeWithinCap(query);
-      const byDay = await repo.expenseReportByDay(db, scope, query.from, query.to);
-      const byCategory = await repo.expenseReportByCategory(db, scope, query.from, query.to);
-      const byPaymentMethod = await repo.expenseReportByPaymentMethod(db, scope, query.from, query.to);
+      if (
+        query.warehouseId !== undefined &&
+        (!warehouseVisible(scope, query.warehouseId) || !(await repo.activeWarehouseExists(db, query.warehouseId)))
+      ) {
+        throw notFound('Warehouse', query.warehouseId);
+      }
+      const byDay = await repo.expenseReportByDay(db, scope, query.from, query.to, query.warehouseId);
+      const byCategory = await repo.expenseReportByCategory(db, scope, query.from, query.to, query.warehouseId);
+      const byPaymentMethod = await repo.expenseReportByPaymentMethod(
+        db,
+        scope,
+        query.from,
+        query.to,
+        query.warehouseId,
+      );
       return { from: query.from, to: query.to, summary: sumTotals(byDay), byDay, byCategory, byPaymentMethod };
     },
   };

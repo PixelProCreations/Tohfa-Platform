@@ -1,14 +1,22 @@
+import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
-import { pool } from '../../db/pool.js';
+import { pool, withTransaction } from '../../db/pool.js';
 import { eventBus, type DomainEventName, type DomainEvents, type EventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
 import { logger } from '../../logger.js';
+import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import {
   notificationsRepo,
   type NotificationRow,
+  type NotificationTemplateAdminRow,
   type NotificationsRepo,
 } from './notifications.repo.js';
-import type { ListNotificationsQuery } from './notifications.schema.js';
+import type {
+  ListNotificationTemplatesQuery,
+  ListNotificationsQuery,
+  RegisterDeviceTokenBody,
+  UpdateNotificationTemplateBody,
+} from './notifications.schema.js';
 // Read-only, pool-level lookup from a sibling module's repo (not its routes or
 // service), so there is no import cycle and no layering inversion: the
 // dispatcher only needs "is this category on for this user".
@@ -26,9 +34,12 @@ export const EVENT_TEMPLATE_MAP: Record<DomainEventName, string> = {
   'counter_offer.expiring': 'COUNTER_OFFER_EXPIRING',
   'goods.received': 'GOODS_RECEIVED',
   'payout.released': 'PAYOUT_RELEASED',
+  'payout.rejected': 'PAYOUT_REJECTED',
+  'payout.intimated': 'PAYOUT_INTIMATED',
   'order.confirmed': 'ORDER_CONFIRMED',
   'order.dispatched': 'ORDER_DISPATCHED',
   'order.delivered': 'ORDER_DELIVERED',
+  'order.cancelled': 'ORDER_CANCELLED',
   'wallet.credited': 'WALLET_CREDITED',
   'wallet.debited': 'WALLET_DEBITED',
 };
@@ -44,6 +55,8 @@ export const EVENT_CATEGORY_MAP: Partial<Record<DomainEventName, NotificationCat
   'counter_offer.received': 'MARKETING',
   'counter_offer.expiring': 'MARKETING',
   'payout.released': 'PAYROLL',
+  'payout.rejected': 'PAYROLL',
+  'payout.intimated': 'PAYROLL',
   'wallet.credited': 'PAYROLL',
   'wallet.debited': 'PAYROLL',
 };
@@ -62,6 +75,7 @@ export const EVENT_EMAIL_MAP: Partial<Record<DomainEventName, { transactional: b
   'counter_offer.received': { transactional: false },
   'counter_offer.expiring': { transactional: false },
   'payout.released': { transactional: false },
+  'payout.intimated': { transactional: false },
   'farmer.application.approved': { transactional: false },
   'farmer.application.rejected': { transactional: false },
   'farmer.application.info_requested': { transactional: false },
@@ -90,7 +104,93 @@ function mapNotificationResponse(row: NotificationRow) {
   };
 }
 
-import type { RegisterDeviceTokenBody } from './notifications.schema.js';
+export const KNOWN_TEMPLATE_PLACEHOLDERS: Record<string, readonly string[]> = {
+  FARMER_APP_APPROVED: ['applicationId', 'tohfaFarmerId'],
+  FARMER_APP_REJECTED: ['applicationId', 'reason'],
+  FARMER_APP_INFO_REQUESTED: ['applicationId', 'message'],
+  COUNTER_OFFER_RECEIVED: ['listingId', 'offerPrice', 'originalPrice'],
+  COUNTER_OFFER_EXPIRING: ['listingId', 'hoursRemaining'],
+  GOODS_RECEIVED: ['grnNumber', 'quantityKg', 'produceName'],
+  PAYOUT_RELEASED: ['amount', 'reference'],
+  PAYOUT_REJECTED: ['amount', 'reference', 'reason'],
+  PAYOUT_INTIMATED: ['amount', 'reference', 'note'],
+  ORDER_CONFIRMED: ['orderNumber', 'totalAmount'],
+  ORDER_DISPATCHED: ['orderNumber'],
+  ORDER_DELIVERED: ['orderNumber'],
+  WALLET_CREDITED: ['amount', 'reference', 'balance'],
+  WALLET_DEBITED: ['amount', 'reference', 'balance'],
+};
+
+function extractValidPlaceholders(text: string): string[] {
+  const keys: string[] = [];
+  for (const m of text.matchAll(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g)) {
+    if (m[1] !== undefined) keys.push(m[1]);
+  }
+  return keys;
+}
+
+function allowedPlaceholdersFor(row: Pick<NotificationTemplateAdminRow, 'code' | 'subject' | 'body_template'>): string[] {
+  const known = KNOWN_TEMPLATE_PLACEHOLDERS[row.code];
+  if (known !== undefined) return [...known];
+  return Array.from(new Set([...extractValidPlaceholders(row.subject ?? ''), ...extractValidPlaceholders(row.body_template)]));
+}
+
+function validateTemplateTextPlaceholders(field: string, text: string, allowed: readonly string[]): void {
+  const found: string[] = [];
+  const stripped = text.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => {
+    found.push(key);
+    return '';
+  });
+  if (stripped.includes('{') || stripped.includes('}')) {
+    throw new AppError('VALIDATION_FAILED', {
+      status: 422,
+      detail: 'Malformed template placeholder syntax.',
+      errors: { [field]: ['Malformed placeholder syntax. Use {{placeholderName}}.'] },
+    });
+  }
+  const allowedSet = new Set(allowed);
+  const unknown = found.filter((key) => !allowedSet.has(key));
+  if (unknown.length > 0) {
+    throw new AppError('VALIDATION_FAILED', {
+      status: 422,
+      detail: `Unknown placeholder(s): ${unknown.join(', ')}.`,
+      errors: {
+        [field]: [`Unknown placeholder(s): ${unknown.join(', ')}. Allowed: ${allowed.join(', ') || 'none'}`],
+      },
+    });
+  }
+}
+
+export interface NotificationTemplateResponse {
+  id: string;
+  code: string;
+  channel: string;
+  locale: 'en' | 'ta';
+  subject: string | null;
+  bodyTemplate: string;
+  isActive: boolean;
+  allowedPlaceholders: string[];
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+function mapTemplateResponse(row: NotificationTemplateAdminRow): NotificationTemplateResponse {
+  return {
+    id: row.id,
+    code: row.code,
+    channel: row.channel,
+    locale: row.locale,
+    subject: row.subject,
+    bodyTemplate: row.body_template,
+    isActive: row.is_active,
+    allowedPlaceholders: allowedPlaceholdersFor(row),
+    updatedBy: row.updated_by,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at?.toISOString() ?? null,
+  };
+}
+
 import { enqueue } from '../../jobs/queue.js';
 
 export interface NotificationsService {
@@ -104,6 +204,13 @@ export interface NotificationsService {
     eventName: E,
     payload: DomainEvents[E],
   ): Promise<NotificationRow | null>;
+  listTemplates(scope: ResolvedScope, query: ListNotificationTemplatesQuery): Promise<{ items: NotificationTemplateResponse[] }>;
+  getTemplate(scope: ResolvedScope, id: string): Promise<NotificationTemplateResponse>;
+  updateTemplate(
+    scope: ResolvedScope,
+    id: string,
+    body: UpdateNotificationTemplateBody,
+  ): Promise<NotificationTemplateResponse>;
 }
 
 export function createNotificationsService(
@@ -206,6 +313,7 @@ export function createNotificationsService(
 
       // Construct deduplication key for idempotent delivery
       const dedupeEntityId =
+        rawData['intimationId'] ??
         rawData['applicationId'] ??
         rawData['orderId'] ??
         rawData['listingId'] ??
@@ -343,6 +451,65 @@ export function createNotificationsService(
       }
 
       return inAppRow;
+    },
+
+    async listTemplates(_scope, query) {
+      const rows = await repo.listTemplates(pool, {
+        code: query.code,
+        channel: query.channel,
+        locale: query.locale,
+        isActive: query.isActive,
+      });
+      return { items: rows.map(mapTemplateResponse) };
+    },
+
+    async getTemplate(_scope, id) {
+      const row = await repo.findTemplateById(pool, id);
+      if (row === null) {
+        throw new AppError('NOT_FOUND', { detail: 'Notification template not found.' });
+      }
+      return mapTemplateResponse(row);
+    },
+
+    async updateTemplate(scope, id, body) {
+      return withTransaction(async (tx) => {
+        const before = await repo.findTemplateById(tx, id, true);
+        if (before === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Notification template not found.' });
+        }
+
+        const allowed = allowedPlaceholdersFor(before);
+        if (body.subject !== undefined && body.subject !== null) {
+          validateTemplateTextPlaceholders('body.subject', body.subject, allowed);
+        }
+        if (body.bodyTemplate !== undefined) {
+          validateTemplateTextPlaceholders('body.bodyTemplate', body.bodyTemplate, allowed);
+        }
+
+        const afterRow = await repo.updateTemplate(tx, id, {
+          subject: body.subject,
+          bodyTemplate: body.bodyTemplate,
+          isActive: body.isActive,
+          updatedBy: scope.userId,
+        });
+        if (afterRow === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Notification template not found.' });
+        }
+
+        const beforeView = mapTemplateResponse(before);
+        const afterView = mapTemplateResponse(afterRow);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'notification.template.configure',
+          entityType: 'notification_template',
+          entityId: id,
+          before: beforeView,
+          after: afterView,
+          changedFields: changedFields({ ...beforeView }, { ...afterView }),
+        });
+        return afterView;
+      });
     },
   };
 }

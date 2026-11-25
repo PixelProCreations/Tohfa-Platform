@@ -11,10 +11,13 @@
  *     resource, proving the five 0023 tables round-trip through Postgres.
  *     Each runs inside a transaction that rolls back, so no residue is left.
  */
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
+import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { createApp } from '../../app.js';
+import { signAccessToken } from '../../auth/jwt.js';
+import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
-import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { addDays, bucketBySeason, createPestService } from './pest.service.js';
 import type {
@@ -301,6 +304,18 @@ function fakeRepo(options: FakeRepoOptions = {}): { repo: PestRepo; calls: RepoC
     async tallyTreatmentEffectiveness(_db, farmId) {
       calls.analyticsFarmIds.push(farmId);
       return options.tallies ?? [];
+    },
+    async adminListIncidents() {
+      return { items: [], summary: { total: 0, ongoing: 0, recurring: 0, resolved: 0 }, next: null };
+    },
+    async adminFindIncidentById() {
+      return null;
+    },
+    async adminListDetectionLogsAndReminders() {
+      return { treatmentLogs: [], reminders: [] };
+    },
+    async adminUpdateIncident() {
+      return null;
     },
   };
 
@@ -1071,5 +1086,208 @@ describeIfDatabase('pestService (integration against PostgreSQL)', () => {
       expect(summary.mostAffectedCrops).toEqual([{ crop: cropRow!.name, count: 1 }]);
       expect(summary.treatmentEffectiveness).toEqual([{ treatment: 'Neem oil', timesUsed: 2, timesEffective: 1 }]);
     });
+  });
+});
+
+describeIfDatabase('BR-229: Admin Pest Incidents (/v1/admin/pest-incidents)', () => {
+  const app = createApp();
+  let ready = false;
+  const cleanup = {
+    detectionIds: [] as string[],
+    logIds: [] as string[],
+    libraryIds: [] as string[],
+    plotIds: [] as string[],
+    farmIds: [] as string[],
+    farmerIds: [] as string[],
+    userIds: [] as string[],
+    zoneIds: [] as string[],
+  };
+  let zoneAId = '';
+  let zoneBId = '';
+  let farmerAId = '';
+  let farmerBId = '';
+  let detectionA1Id = '';
+  let detectionA2Id = '';
+  let detectionBId = '';
+  let libraryId = '';
+  let farmerAdminAToken = '';
+  let superAdminToken = '';
+  let farmerToken = '';
+  let subWhAdminToken = '';
+  let superAdminUserId = '';
+
+  it('setup + authorization + zone-scoped list + detail + PATCH review with audit log', async () => {
+    ready = (await databaseReady('pest_detections')) && (await databaseReady('pest_library')) && (await databaseReady('farmers'));
+    if (!ready) return;
+
+    const whRes = await pool.query<{ id: string }>(`SELECT id FROM warehouses WHERE is_active = true LIMIT 1`);
+    const warehouseId = whRes.rows[0]!.id;
+
+    zoneAId = newId();
+    zoneBId = newId();
+    cleanup.zoneIds.push(zoneAId, zoneBId);
+    await pool.query(
+      `INSERT INTO zones (id, code, name, warehouse_id, is_active) VALUES ($1, $2, 'Pest Zone A', $3, true), ($4, $5, 'Pest Zone B', $3, true)`,
+      [zoneAId, `PZA-${zoneAId.slice(0, 6)}`, warehouseId, zoneBId, `PZB-${zoneBId.slice(0, 6)}`],
+    );
+
+    const fUserA = newId();
+    const fUserB = newId();
+    const faUserA = newId();
+    superAdminUserId = newId();
+    const subUser = newId();
+    cleanup.userIds.push(fUserA, fUserB, faUserA, superAdminUserId, subUser);
+    const rnd = () => Math.floor(10000000 + Math.random() * 89999999);
+    await pool.query(
+      `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES
+       ($1, $2, 'Pest Farmer A', 'FARMER', 'ACTIVE'),
+       ($3, $4, 'Pest Farmer B', 'FARMER', 'ACTIVE'),
+       ($5, $6, 'Pest Farmer Admin A', 'ADMIN', 'ACTIVE'),
+       ($7, $8, 'Pest Super Admin', 'ADMIN', 'ACTIVE'),
+       ($9, $10, 'Pest Sub Admin', 'ADMIN', 'ACTIVE')`,
+      [fUserA, `+9192${rnd()}`, fUserB, `+9192${rnd()}`, faUserA, `+9192${rnd()}`, superAdminUserId, `+9192${rnd()}`, subUser, `+9192${rnd()}`],
+    );
+
+    farmerAId = newId();
+    farmerBId = newId();
+    cleanup.farmerIds.push(farmerAId, farmerBId);
+    await pool.query(
+      `INSERT INTO farmers (id, user_id, tohfa_farmer_id, district, zone_id, application_status)
+       VALUES ($1, $2, $3, 'The Nilgiris', $4, 'APPROVED'), ($5, $6, $7, 'The Nilgiris', $8, 'APPROVED')`,
+      [farmerAId, fUserA, `PFA-${farmerAId.slice(0, 6)}`, zoneAId, farmerBId, fUserB, `PFB-${farmerBId.slice(0, 6)}`, zoneBId],
+    );
+
+    const farmA = newId();
+    const farmB = newId();
+    const plotA = newId();
+    const plotB = newId();
+    cleanup.farmIds.push(farmA, farmB);
+    cleanup.plotIds.push(plotA, plotB);
+    await pool.query(`INSERT INTO farms (id, farmer_id, name, district, is_primary) VALUES ($1, $2, 'Pest Farm A', 'The Nilgiris', true), ($3, $4, 'Pest Farm B', 'The Nilgiris', true)`, [farmA, farmerAId, farmB, farmerBId]);
+    await pool.query(`INSERT INTO plots (id, farm_id, name, area_acres) VALUES ($1, $2, 'Pest Plot A', 1.2), ($3, $4, 'Pest Plot B', 1.8)`, [plotA, farmA, plotB, farmB]);
+
+    libraryId = newId();
+    cleanup.libraryIds.push(libraryId);
+    await pool.query(
+      `INSERT INTO pest_library (id, name, scientific_name, category, risk_level) VALUES ($1, 'Late Blight', 'Phytophthora infestans', 'Disease', 'High')`,
+      [libraryId],
+    );
+
+    detectionA1Id = newId();
+    detectionA2Id = newId();
+    detectionBId = newId();
+    cleanup.detectionIds.push(detectionA1Id, detectionA2Id, detectionBId);
+    await pool.query(
+      `INSERT INTO pest_detections (id, plot_id, pest_name, severity, status, detected_on, notes, created_at) VALUES
+       ($1, $2, 'Leaf Curl', 'Medium', 'Ongoing', '2026-09-10', 'Zone A older', '2026-09-10T08:00:00Z'),
+       ($3, $2, 'Aphids Cluster', 'High', 'Recurring', '2026-09-12', 'Zone A newer', '2026-09-12T08:00:00Z'),
+       ($4, $5, 'Root Rot', 'High', 'Ongoing', '2026-09-13', 'Zone B foreign', '2026-09-13T08:00:00Z')`,
+      [detectionA1Id, plotA, detectionA2Id, detectionBId, plotB],
+    );
+
+    const logId = newId();
+    cleanup.logIds.push(logId);
+    await pool.query(
+      `INSERT INTO pest_treatment_logs (id, plot_id, detection_id, pest_name, category, severity, treatment, applied_on)
+       VALUES ($1, $2, $3, 'Aphids Cluster', 'Pest', 'High', 'Neem Soap', '2026-09-12')`,
+      [logId, plotA, detectionA2Id],
+    );
+
+    farmerAdminAToken = signAccessToken({ sub: faUserA, roles: [{ code: RoleCode.FARMER_ADMIN, zoneId: zoneAId }], customerId: null, farmerId: null });
+    superAdminToken = signAccessToken({ sub: superAdminUserId, roles: [{ code: RoleCode.SUPER_ADMIN }], customerId: null, farmerId: null });
+    farmerToken = signAccessToken({ sub: fUserA, roles: [{ code: RoleCode.FARMER }], customerId: null, farmerId: farmerAId });
+    subWhAdminToken = signAccessToken({ sub: subUser, roles: [{ code: RoleCode.SUB_WH_ADMIN, warehouseId }], customerId: null, farmerId: null });
+
+    // RBAC refusals
+    expect((await request(app).get('/v1/admin/pest-incidents').set('Authorization', `Bearer ${farmerToken}`)).status).toBe(403);
+    expect((await request(app).get('/v1/admin/pest-incidents').set('Authorization', `Bearer ${subWhAdminToken}`)).status).toBe(403);
+
+    // Farmer Admin list is scoped to zone A + returns summary + cursor pagination
+    const listA = await request(app)
+      .get('/v1/admin/pest-incidents?limit=1')
+      .set('Authorization', `Bearer ${farmerAdminAToken}`);
+    expect(listA.status).toBe(200);
+    expect(listA.body.items).toHaveLength(1);
+    expect(listA.body.items[0].id).toBe(detectionA2Id);
+    expect(listA.body.summary).toMatchObject({ total: 2, ongoing: 1, recurring: 1, resolved: 0 });
+    expect(listA.body.page.hasMore).toBe(true);
+    expect(listA.body.items.some((x: any) => x.id === detectionBId)).toBe(false);
+
+    // Cross-zone GET / PATCH returns 404 (never 403)
+    expect((await request(app).get(`/v1/admin/pest-incidents/${detectionBId}`).set('Authorization', `Bearer ${farmerAdminAToken}`)).status).toBe(404);
+    expect(
+      (await request(app)
+        .patch(`/v1/admin/pest-incidents/${detectionBId}`)
+        .set('Authorization', `Bearer ${farmerAdminAToken}`)
+        .send({ adminReviewNote: 'Nope' })).status,
+    ).toBe(404);
+
+    // Detail returns detection + farmer/zone context + treatmentLogs
+    const detailA2 = await request(app)
+      .get(`/v1/admin/pest-incidents/${detectionA2Id}`)
+      .set('Authorization', `Bearer ${farmerAdminAToken}`);
+    expect(detailA2.status).toBe(200);
+    expect(detailA2.body).toMatchObject({
+      id: detectionA2Id,
+      farmerId: farmerAId,
+      zoneId: zoneAId,
+      farmerName: 'Pest Farmer A',
+    });
+    expect(detailA2.body.treatmentLogs).toHaveLength(1);
+
+    // Super Admin sees zone B too
+    const listSuperB = await request(app)
+      .get(`/v1/admin/pest-incidents?farmerId=${farmerBId}`)
+      .set('Authorization', `Bearer ${superAdminToken}`);
+    expect(listSuperB.status).toBe(200);
+    expect(listSuperB.body.items.map((x: any) => x.id)).toEqual([detectionBId]);
+
+    // Invalid pestLibraryId rejected 422
+    const badLib = await request(app)
+      .patch(`/v1/admin/pest-incidents/${detectionA2Id}`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ pestLibraryId: newId() });
+    expect(badLib.status).toBe(422);
+
+    // Valid PATCH links catalog, saves treatment/note, resolves status, stamps reviewer, and writes audit_log
+    const patched = await request(app)
+      .patch(`/v1/admin/pest-incidents/${detectionA2Id}`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        pestLibraryId: libraryId,
+        status: 'Resolved',
+        adminRecommendedTreatment: 'Apply Bordeaux mixture 1% twice in 10 days',
+        adminReviewNote: 'Verified photo & advised organic fungicide',
+      });
+    expect(patched.status).toBe(200);
+    expect(patched.body).toMatchObject({
+      id: detectionA2Id,
+      pestLibraryId: libraryId,
+      scientificName: 'Phytophthora infestans',
+      status: 'Resolved',
+      adminRecommendedTreatment: 'Apply Bordeaux mixture 1% twice in 10 days',
+      adminReviewNote: 'Verified photo & advised organic fungicide',
+      reviewedBy: superAdminUserId,
+    });
+    expect(patched.body.resolvedAt).toEqual(expect.any(String));
+    expect(patched.body.reviewedAt).toEqual(expect.any(String));
+
+    const audit = await pool.query<{ action_code: string; actor_id: string }>(
+      `SELECT action_code, actor_id FROM audit_log WHERE entity_type = 'pest_detection' AND entity_id = $1 AND action_code = 'farmer.pest.review'`,
+      [detectionA2Id],
+    );
+    expect(audit.rows).toEqual([{ action_code: 'farmer.pest.review', actor_id: superAdminUserId }]);
+  });
+
+  afterAll(async () => {
+    if (!ready) return;
+    if (cleanup.logIds.length > 0) await pool.query(`DELETE FROM pest_treatment_logs WHERE id = ANY($1::uuid[])`, [cleanup.logIds]).catch(() => undefined);
+    if (cleanup.detectionIds.length > 0) await pool.query(`DELETE FROM pest_detections WHERE id = ANY($1::uuid[])`, [cleanup.detectionIds]).catch(() => undefined);
+    if (cleanup.libraryIds.length > 0) await pool.query(`DELETE FROM pest_library WHERE id = ANY($1::uuid[])`, [cleanup.libraryIds]).catch(() => undefined);
+    if (cleanup.plotIds.length > 0) await pool.query(`DELETE FROM plots WHERE id = ANY($1::uuid[])`, [cleanup.plotIds]).catch(() => undefined);
+    if (cleanup.farmIds.length > 0) await pool.query(`DELETE FROM farms WHERE id = ANY($1::uuid[])`, [cleanup.farmIds]).catch(() => undefined);
+    if (cleanup.farmerIds.length > 0) await pool.query(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, [cleanup.farmerIds]).catch(() => undefined);
+    if (cleanup.userIds.length > 0) await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [cleanup.userIds]).catch(() => undefined);
+    if (cleanup.zoneIds.length > 0) await pool.query(`DELETE FROM zones WHERE id = ANY($1::uuid[])`, [cleanup.zoneIds]).catch(() => undefined);
   });
 });

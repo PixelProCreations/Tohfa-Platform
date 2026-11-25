@@ -40,3 +40,36 @@ export const revokeDeviceTokenParam = z.object({
 });
 export type RevokeDeviceTokenParam = z.infer<typeof revokeDeviceTokenParam>;
 
+export const NOTIFICATION_CHANNELS = ['PUSH', 'SMS', 'EMAIL', 'IN_APP'] as const;
+export const NOTIFICATION_LOCALES = ['en', 'ta'] as const;
+
+export const notificationTemplateIdParam = z
+  .object({
+    id: z.string().uuid('id must be a UUID'),
+  })
+  .strict();
+export type NotificationTemplateIdParam = z.infer<typeof notificationTemplateIdParam>;
+
+export const listNotificationTemplatesQuery = z
+  .object({
+    code: z.string().trim().min(1).max(80).optional(),
+    channel: z.enum(NOTIFICATION_CHANNELS).optional(),
+    locale: z.enum(NOTIFICATION_LOCALES).optional(),
+    isActive: z
+      .enum(['true', 'false'])
+      .transform((v) => v === 'true')
+      .optional(),
+  })
+  .strict();
+export type ListNotificationTemplatesQuery = z.infer<typeof listNotificationTemplatesQuery>;
+
+export const updateNotificationTemplateBody = z
+  .object({
+    subject: z.string().trim().max(200).nullable().optional(),
+    bodyTemplate: z.string().trim().min(1).max(2000).optional(),
+    isActive: z.boolean().optional(),
+  })
+  .strict()
+  .refine((b) => Object.keys(b).length > 0, { message: 'At least one field must be supplied' });
+export type UpdateNotificationTemplateBody = z.infer<typeof updateNotificationTemplateBody>;
+

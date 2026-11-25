@@ -4,7 +4,7 @@ import { t } from '../../../../../i18n/farmer';
 import { s1 } from './i18n';
 import { FieldError, OptionPickerModal, RequiredLabel, type SectionProps } from './parts';
 import { ADDRESS_MAX, PLACE_NAME_MAX } from './validate';
-import { fetchPublicZones, type PublicZoneItem } from '../../../api/registration';
+import { fetchPublicZones } from '../../../api/registration';
 
 /** The full Aadhaar number: 12 digits plus up to two cosmetic spaces. Never stored (BR-33b). */
 const AADHAAR_INPUT_MAX_LENGTH = 14;

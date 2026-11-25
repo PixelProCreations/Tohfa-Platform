@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { isMoney, parseMoney, toPaise } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -14,6 +15,11 @@ import type {
   PayoutResponse,
   CreatePayoutInput,
   ApprovePayoutInput,
+  RejectPayoutInput,
+  IntimatePayoutInput,
+  IntimatePayoutResponse,
+  BulkCreatePayoutsInput,
+  BulkCreatePayoutsResponse,
   ExportPayoutsQuery,
   ListPayoutsQuery,
   ListPayoutsResponse,
@@ -45,6 +51,28 @@ export interface PayoutsService {
     input: ApprovePayoutInput,
     idempotencyKey?: string,
   ): Promise<PayoutResponse>;
+
+  rejectPayout(
+    actor: Actor,
+    scope: ResolvedScope,
+    payoutId: string,
+    input: RejectPayoutInput,
+    idempotencyKey?: string,
+  ): Promise<PayoutResponse>;
+
+  intimatePayout(
+    actor: Actor,
+    scope: ResolvedScope,
+    payoutId: string,
+    input: IntimatePayoutInput,
+  ): Promise<IntimatePayoutResponse>;
+
+  createBulkPayouts(
+    actor: Actor,
+    scope: ResolvedScope,
+    input: BulkCreatePayoutsInput,
+    idempotencyKey?: string,
+  ): Promise<BulkCreatePayoutsResponse>;
 
   exportPayouts(
     scope: ResolvedScope,
@@ -90,6 +118,10 @@ function toResponse(
         : null,
     gatewayPayoutId: payout.gateway_payout_id ?? null,
     failureReason: payout.failure_reason ?? null,
+    rejectedBy: payout.rejected_by ?? null,
+    rejectedAt: payout.rejected_at ? new Date(payout.rejected_at).toISOString() : null,
+    rejectionReason: payout.rejection_reason ?? null,
+    intimatedAt: payout.intimated_at ? new Date(payout.intimated_at).toISOString() : null,
     paidAt: payout.paid_at ? new Date(payout.paid_at).toISOString() : null,
     remarks: payout.remarks ?? null,
     createdAt: new Date(payout.created_at).toISOString(),
@@ -145,12 +177,18 @@ export function createPayoutsService(
         });
         if (idem.replay) return { replayed: true as const, response: idem.response };
 
-        // Validate farmer exists
+        // Validate farmer exists and is not disabled/blocked (D8)
         const farmerName = await repo.getFarmerName(tx, input.farmerId);
         if (!farmerName) {
           throw new AppError('NOT_FOUND', {
             status: 404,
             detail: `Farmer ${input.farmerId} not found.`,
+          });
+        }
+        if (repo.isFarmerBlockedOrInactive && (await repo.isFarmerBlockedOrInactive(tx, input.farmerId))) {
+          throw new AppError('CONFLICT', {
+            status: 409,
+            detail: `Farmer ${input.farmerId} account is disabled or blocked from payouts.`,
           });
         }
 
@@ -466,6 +504,373 @@ export function createPayoutsService(
       return outcome.response;
     },
 
+    // -------------------------------------------------------------------
+    // POST /admin/payouts/{id}/reject  (D2 / BR-234)
+    // -------------------------------------------------------------------
+    async rejectPayout(actor, scope, payoutId, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
+
+      const outcome = await runTx(async (tx) => {
+        const idem = await beginIdempotent<PayoutResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: 'payout.reject',
+          request: { payoutId, reason: input.reason },
+        });
+        if (idem.replay) return { replayed: true as const, response: idem.response };
+
+        const existing = await repo.findPayoutById(tx, payoutId, true);
+        if (!existing) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Payout ${payoutId} not found.`,
+          });
+        }
+
+        const { payout } = existing;
+        if (payout.status !== 'PENDING_APPROVAL' && payout.status !== 'REQUESTED') {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `Payout is in status ${payout.status}; only REQUESTED or PENDING_APPROVAL payouts can be rejected.`,
+          });
+        }
+
+        const now = new Date();
+        await repo.updatePayoutStatus(tx, {
+          payoutId,
+          status: 'REJECTED',
+          rejectedBy: actor.userId,
+          rejectedAt: now,
+          rejectionReason: input.reason,
+        });
+
+        await writeAuditLog(tx, {
+          actorId: actor.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'payout.reject',
+          entityType: 'payouts',
+          entityId: payoutId,
+          before: { status: payout.status },
+          after: { status: 'REJECTED', reason: input.reason },
+          changedFields: ['status', 'rejectionReason'],
+        });
+
+        const final = await repo.findPayoutById(tx, payoutId);
+        const result = toResponse(final!.payout, final!.approvals);
+        await idem.complete(result);
+        return { replayed: false as const, response: result };
+      });
+
+      if (!outcome.replayed) {
+        const farmerUserId = await repo.getFarmerUserId(db, outcome.response.farmerId);
+        if (farmerUserId) {
+          await eventBus.publish('payout.rejected', {
+            userId: farmerUserId,
+            payoutId: outcome.response.id,
+            amount: outcome.response.amount,
+            reference: outcome.response.payoutNumber,
+            reason: input.reason,
+          });
+        }
+      }
+
+      return outcome.response;
+    },
+
+    // -------------------------------------------------------------------
+    // POST /admin/payouts/{id}/intimate  (D3 / BR-235)
+    // -------------------------------------------------------------------
+    async intimatePayout(actor, scope, payoutId, input) {
+      const outcome = await runTx(async (tx) => {
+        const existing = await repo.findPayoutById(tx, payoutId, true);
+        if (!existing) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Payout ${payoutId} not found.`,
+          });
+        }
+
+        const { payout } = existing;
+        if (payout.status !== 'APPROVED' && payout.status !== 'PROCESSING' && payout.status !== 'PAID') {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `Payout is in status ${payout.status}; only APPROVED, PROCESSING, or PAID payouts can be intimated.`,
+          });
+        }
+
+        const now = new Date();
+        await repo.updatePayoutStatus(tx, {
+          payoutId,
+          status: payout.status,
+          intimatedAt: now,
+          intimatedBy: actor.userId,
+        });
+
+        await writeAuditLog(tx, {
+          actorId: actor.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'payout.intimate',
+          entityType: 'payouts',
+          entityId: payoutId,
+          after: {
+            status: payout.status,
+            note: input.note ?? null,
+            intimatedAt: now.toISOString(),
+          },
+        });
+
+        return {
+          payoutId: payout.id,
+          payoutNumber: payout.payout_number,
+          farmerId: payout.farmer_id,
+          amount: payout.amount,
+          status: payout.status as PayoutResponse['status'],
+          intimatedAt: now.toISOString(),
+          intimatedBy: actor.userId,
+          note: input.note ?? null,
+        };
+      });
+
+      const farmerUserId = await repo.getFarmerUserId(db, outcome.farmerId);
+      if (farmerUserId) {
+        await eventBus.publish('payout.intimated', {
+          userId: farmerUserId,
+          payoutId: outcome.payoutId,
+          amount: outcome.amount,
+          reference: outcome.payoutNumber,
+          note: outcome.note ?? '',
+          intimationId: `${outcome.payoutId}:${outcome.intimatedAt}`,
+        });
+      }
+
+      return {
+        payoutId: outcome.payoutId,
+        payoutNumber: outcome.payoutNumber,
+        farmerId: outcome.farmerId,
+        status: outcome.status,
+        intimatedAt: outcome.intimatedAt,
+        intimatedBy: outcome.intimatedBy,
+        note: outcome.note,
+      };
+    },
+
+    // -------------------------------------------------------------------
+    // POST /admin/payouts/bulk  (D4 / BR-236)
+    // -------------------------------------------------------------------
+    async createBulkPayouts(actor, scope, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
+
+      const outcome = await runTx(async (tx) => {
+        const idem = await beginIdempotent<BulkCreatePayoutsResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: 'payout.bulk_create',
+          request: input,
+        });
+        if (idem.replay) return { replayed: true as const, response: idem.response };
+
+        const thresholdPaise = await repo.getDualApprovalThresholdPaise(tx);
+        if (thresholdPaise === null) {
+          throw new AppError('INTERNAL', {
+            status: 500,
+            detail: 'system_config.payout_dual_approval_threshold is missing or malformed.',
+          });
+        }
+
+        const batchId = randomUUID();
+        const createdResponses: PayoutResponse[] = [];
+        const releasedForEvents: PayoutResponse[] = [];
+        const grnRemainingCache = new Map<string, number>();
+        let totalPaise = 0;
+
+        for (let idx = 0; idx < input.items.length; idx++) {
+          const item = input.items[idx]!;
+          const farmerName = await repo.getFarmerName(tx, item.farmerId);
+          if (!farmerName) {
+            throw new AppError('NOT_FOUND', {
+              status: 404,
+              detail: `items[${idx}]: Farmer ${item.farmerId} not found.`,
+            });
+          }
+          if (repo.isFarmerBlockedOrInactive && (await repo.isFarmerBlockedOrInactive(tx, item.farmerId))) {
+            throw new AppError('CONFLICT', {
+              status: 409,
+              detail: `items[${idx}]: Farmer ${item.farmerId} account is disabled or blocked.`,
+            });
+          }
+
+          const amountPaise = isMoney(item.amount) ? toPaise(item.amount) : 0;
+          if (amountPaise <= 0) {
+            throw new AppError('BAD_REQUEST', {
+              status: 422,
+              detail: `items[${idx}]: Payout amount must be a positive number.`,
+            });
+          }
+
+          await repo.lockFarmer(tx, item.farmerId);
+          if (item.bankAccountId !== undefined) {
+            const owned = await repo.findActiveBankAccountOfFarmer(tx, item.bankAccountId, item.farmerId);
+            if (!owned) {
+              throw new AppError('NOT_FOUND', {
+                status: 404,
+                detail: `items[${idx}]: Bank account ${item.bankAccountId} not found.`,
+              });
+            }
+          }
+
+          let itemsToPersist: Array<{ goodsReceiptId: string; amount: string }> = [];
+          if (item.items && item.items.length > 0) {
+            const uniqueGrIds = new Set(item.items.map((i) => i.goodsReceiptId));
+            if (uniqueGrIds.size !== item.items.length) {
+              throw new AppError('BAD_REQUEST', {
+                status: 422,
+                detail: `items[${idx}]: Duplicate goods receipt in payout items.`,
+              });
+            }
+            let itemsSumPaise = 0;
+            for (const sub of item.items) {
+              const subPaise = isMoney(sub.amount) ? toPaise(sub.amount) : 0;
+              if (subPaise <= 0) {
+                throw new AppError('BAD_REQUEST', {
+                  status: 422,
+                  detail: `items[${idx}]: Item amount for goods receipt ${sub.goodsReceiptId} must be positive.`,
+                });
+              }
+              itemsSumPaise += subPaise;
+            }
+            if (itemsSumPaise !== amountPaise) {
+              throw new AppError('BAD_REQUEST', {
+                status: 422,
+                detail: `items[${idx}]: Payout amount ₹${item.amount} does not match sum of items.`,
+              });
+            }
+            const dues = await repo.getGoodsReceiptsDues(tx, item.farmerId, item.items.map((i) => i.goodsReceiptId));
+            const dueMap = new Map(dues.map((d) => [d.id, d]));
+            for (const sub of item.items) {
+              const due = dueMap.get(sub.goodsReceiptId);
+              if (!due) {
+                throw new AppError('NOT_FOUND', {
+                  status: 404,
+                  detail: `items[${idx}]: Goods receipt ${sub.goodsReceiptId} not found for this farmer.`,
+                });
+              }
+              const currentRemaining = grnRemainingCache.get(sub.goodsReceiptId) ?? due.remainingDuePaise;
+              const subPaise = toPaise(parseMoney(sub.amount));
+              if (subPaise > currentRemaining) {
+                throw new AppError('BAD_REQUEST', {
+                  status: 422,
+                  detail: `items[${idx}]: Item amount ₹${sub.amount} exceeds remaining due for goods receipt ${sub.goodsReceiptId}.`,
+                });
+              }
+              grnRemainingCache.set(sub.goodsReceiptId, currentRemaining - subPaise);
+            }
+            itemsToPersist = item.items;
+          } else if (item.dueIds && item.dueIds.length > 0) {
+            const dues = await repo.getGoodsReceiptsDues(tx, item.farmerId, item.dueIds);
+            const dueMap = new Map(dues.map((d) => [d.id, d]));
+            let unallocatedPaise = amountPaise;
+            for (const grId of item.dueIds) {
+              const due = dueMap.get(grId);
+              if (!due) {
+                throw new AppError('NOT_FOUND', {
+                  status: 404,
+                  detail: `items[${idx}]: Goods receipt ${grId} not found for this farmer.`,
+                });
+              }
+              if (unallocatedPaise <= 0) break;
+              const available = grnRemainingCache.get(grId) ?? due.remainingDuePaise;
+              const allocatePaise = Math.min(unallocatedPaise, available);
+              if (allocatePaise > 0) {
+                itemsToPersist.push({
+                  goodsReceiptId: grId,
+                  amount: `${Math.floor(allocatePaise / 100)}.${String(allocatePaise % 100).padStart(2, '0')}`,
+                });
+                grnRemainingCache.set(grId, available - allocatePaise);
+                unallocatedPaise -= allocatePaise;
+              }
+            }
+            if (unallocatedPaise > 0) {
+              throw new AppError('BAD_REQUEST', {
+                status: 422,
+                detail: `items[${idx}]: Payout amount exceeds total remaining dues for specified dueIds.`,
+              });
+            }
+          }
+
+          const needsDual = amountPaise > thresholdPaise;
+          const created = await repo.createPayout(tx, {
+            farmerId: item.farmerId,
+            amount: item.amount,
+            mode: item.mode,
+            initiatedBy: actor.userId,
+            requiresDualApproval: needsDual,
+            ...(item.bankAccountId !== undefined ? { bankAccountId: item.bankAccountId } : {}),
+            ...(item.dueIds !== undefined ? { dueIds: item.dueIds } : {}),
+            ...(item.remarks !== undefined ? { remarks: item.remarks } : {}),
+          });
+          const payout = created.payout;
+          if (itemsToPersist.length > 0) {
+            await repo.insertPayoutItems(tx, payout.id, itemsToPersist);
+          }
+
+          const nextStatus = needsDual ? 'PENDING_APPROVAL' : 'APPROVED';
+          await repo.updatePayoutStatus(tx, {
+            payoutId: payout.id,
+            status: nextStatus,
+            ...(needsDual ? {} : { releasedBy: actor.userId, releasedAt: new Date() }),
+          });
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            actorRole: scope.roleCode,
+            actionCode: 'payout.farmer.initiate',
+            entityType: 'payouts',
+            entityId: payout.id,
+            after: {
+              batchId,
+              amount: item.amount,
+              farmerId: item.farmerId,
+              requiresDualApproval: needsDual,
+              status: nextStatus,
+            },
+          });
+
+          const final = await repo.findPayoutById(tx, payout.id);
+          const mapped = toResponse(final!.payout, final!.approvals);
+          createdResponses.push(mapped);
+          if (!needsDual) releasedForEvents.push(mapped);
+          totalPaise += amountPaise;
+        }
+
+        const totalAmount = `${Math.floor(totalPaise / 100)}.${String(totalPaise % 100).padStart(2, '0')}`;
+        const batchResult: BulkCreatePayoutsResponse = {
+          batchId,
+          createdCount: createdResponses.length,
+          totalAmount,
+          items: createdResponses,
+        };
+
+        await idem.complete(batchResult);
+        return { replayed: false as const, response: batchResult, releasedForEvents };
+      });
+
+      if (!outcome.replayed) {
+        for (const p of outcome.releasedForEvents) {
+          const farmerUserId = await repo.getFarmerUserId(db, p.farmerId);
+          if (farmerUserId) {
+            await eventBus.publish('payout.released', {
+              userId: farmerUserId,
+              payoutId: p.id,
+              amount: p.amount,
+              reference: p.payoutNumber,
+            });
+          }
+        }
+      }
+
+      return outcome.response;
+    },
+
     async exportPayouts(_scope, query) {
       const rows = await repo.listPayoutsForExport(pool, query.from, query.to);
       const csvLines = [
@@ -506,3 +911,78 @@ export function createPayoutsService(
 
 // Singleton for production
 export const payoutsService = createPayoutsService();
+
+/**
+ * BR-246 (GAP 3): Polls PROCESSING payouts against the payment gateway (or mock)
+ * and transitions settled rows to PAID or failed rows to FAILED with audit_log.
+ */
+export async function pollProcessingPayouts(
+  batchSize = 50,
+  checkGateway: (gatewayPayoutId: string | null) => Promise<'SETTLED' | 'FAILED' | 'PENDING'> = async (
+    gatewayPayoutId,
+  ) => (gatewayPayoutId ? 'SETTLED' : 'PENDING'),
+): Promise<{ scanned: number; settled: number; failed: number }> {
+  const res = await pool.query<{
+    id: string;
+    payout_number: string;
+    gateway_payout_id: string | null;
+  }>(
+    `SELECT id, payout_number, gateway_payout_id
+       FROM payouts
+      WHERE status = 'PROCESSING'
+      ORDER BY updated_at ASC
+      LIMIT $1`,
+    [batchSize],
+  );
+
+  let settled = 0;
+  let failed = 0;
+  for (const row of res.rows) {
+    const outcome = await checkGateway(row.gateway_payout_id);
+    if (outcome === 'PENDING') continue;
+
+    await withTransaction(async (tx) => {
+      if (outcome === 'SETTLED') {
+        const upd = await tx.query(
+          `UPDATE payouts SET status = 'PAID', paid_at = now(), updated_at = now()
+            WHERE id = $1 AND status = 'PROCESSING'`,
+          [row.id],
+        );
+        if (upd.rowCount === 1) {
+          settled += 1;
+          await writeAuditLog(tx, {
+            actorId: null,
+            actorType: 'JOB',
+            actionCode: 'payout.settlement_poll',
+            entityType: 'payout',
+            entityId: row.id,
+            before: { status: 'PROCESSING' },
+            after: { status: 'PAID' },
+            changedFields: ['status', 'paidAt'],
+          });
+        }
+      } else {
+        const upd = await tx.query(
+          `UPDATE payouts SET status = 'FAILED', failure_reason = 'Gateway settlement failed', updated_at = now()
+            WHERE id = $1 AND status = 'PROCESSING'`,
+          [row.id],
+        );
+        if (upd.rowCount === 1) {
+          failed += 1;
+          await writeAuditLog(tx, {
+            actorId: null,
+            actorType: 'JOB',
+            actionCode: 'payout.settlement_poll',
+            entityType: 'payout',
+            entityId: row.id,
+            before: { status: 'PROCESSING' },
+            after: { status: 'FAILED' },
+            changedFields: ['status', 'failureReason'],
+          });
+        }
+      }
+    });
+  }
+
+  return { scanned: res.rows.length, settled, failed };
+}

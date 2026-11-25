@@ -12,8 +12,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
-import { pool } from '../../db/pool.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { counterOffersService } from './counter-offers.service.js';
 import {
   adminApproveListingBody,
@@ -24,7 +23,6 @@ import {
   listAdminQueueQuery,
   listingIdParams,
 } from './counter-offers.schema.js';
-import { counterOffersRepo } from './counter-offers.repo.js';
 
 export const adminListingsRouter: Router = Router();
 export const farmerCounterOffersRouter: Router = Router();
@@ -35,14 +33,30 @@ export const farmerCounterOffersRouter: Router = Router();
  * GET /v1/admin/listings — the admin approval queue.
  * Returns listings paged by (created_at, id) with the active counter-offer
  * embedded. BR-29: Farmer Admin rows with routedAway=true are read-only.
+ * D1: Farmer Admin is confined to their own zone.
  */
 adminListingsRouter.get(
   '/',
   requireAuth,
   requirePermission('listing.queue.view_pending'),
   asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
     const query = listAdminQueueQuery.parse(req.query);
-    const result = await counterOffersRepo.listAdminQueue(pool, query);
+    const result = await counterOffersService.listAdminQueue(scope, query);
+    res.set('Cache-Control', 'no-store');
+    res.json(result);
+  }),
+);
+
+/** GET /v1/admin/listings/:id — single listing detail, zone-scoped for FARMER_ADMIN (D1). */
+adminListingsRouter.get(
+  '/:id',
+  requireAuth,
+  requirePermission('listing.queue.view_pending'),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = listingIdParams.parse(req.params);
+    const result = await counterOffersService.getAdminListing(scope, id);
     res.set('Cache-Control', 'no-store');
     res.json(result);
   }),

@@ -15,7 +15,6 @@ import {
   Alert,
   Clipboard,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -26,13 +25,10 @@ import Svg, { Circle, Ellipse, Line, Path, Rect } from 'react-native-svg';
 
 import {
   adminColors,
-  adminRadius,
   adminShadow,
   adminSpacing,
-  adminType,
 } from '../../theme';
 import {
-  BackArrowWhiteIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   DownloadIcon,
@@ -148,20 +144,6 @@ function RefreshSyncIcon({ size = 18, color = adminColors.brand }: { size?: numb
         d="M21.5 2v6h-6M21.34 15.57a10 10 0 11-.57-8.38l.73.81"
         stroke={color}
         strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function HourglassWaitIcon({ size = 18, color = adminColors.danger.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 2h14v4l-4 4 4 4v4H5v-4l4-4-4-4V2z"
-        stroke={color}
-        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

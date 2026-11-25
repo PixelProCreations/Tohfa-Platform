@@ -12,11 +12,13 @@ import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope, resolveScope } from '../../rbac/requirePermission.js';
 import {
   createAdminFarmerBody,
+  extendSubscriptionBody,
   farmerDocumentParams,
   farmerIdParams,
   listAdminFarmersQuery,
   updateAdminFarmerBody,
   updateAdminFarmerStatusBody,
+  waiveSubscriptionBody,
 } from './admin-farmers.schema.js';
 import { adminFarmersService } from './admin-farmers.service.js';
 
@@ -154,5 +156,33 @@ adminFarmersRouter.get(
     const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', farmerIdParams);
     res.json(await adminFarmersService.getSubscription(scope, id));
+  }),
+);
+
+// POST /v1/admin/farmers/:id/subscription/extend — extend farmer subscription (BR-239 / D9)
+adminFarmersRouter.post(
+  '/:id/subscription/extend',
+  requireAuth,
+  requirePermission('farmer.subscription.extend_waive'),
+  validate({ params: farmerIdParams, body: extendSubscriptionBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', farmerIdParams);
+    const body = getValidated(req, 'body', extendSubscriptionBody);
+    res.json(await adminFarmersService.extendSubscription(scope, id, body));
+  }),
+);
+
+// POST /v1/admin/farmers/:id/subscription/waive — waive farmer subscription fee (BR-239 / D9)
+adminFarmersRouter.post(
+  '/:id/subscription/waive',
+  requireAuth,
+  requirePermission('farmer.subscription.extend_waive'),
+  validate({ params: farmerIdParams, body: waiveSubscriptionBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', farmerIdParams);
+    const body = getValidated(req, 'body', waiveSubscriptionBody);
+    res.json(await adminFarmersService.waiveSubscription(scope, id, body));
   }),
 );

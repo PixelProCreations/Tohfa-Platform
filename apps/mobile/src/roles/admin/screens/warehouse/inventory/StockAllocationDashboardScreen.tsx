@@ -14,7 +14,7 @@
 // owner-chosen effectiveFrom, and per-crop writes are not in docs/openapi.yaml).
 import React, { useMemo, useState } from 'react';
 import { Alert, View, Text, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Modal, TextInput } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -453,6 +453,7 @@ export function StockAllocationDashboardScreen({
   if (canEditSplit && subView === 'editSplit') {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           {subHeader(t('inventory.allocation.setSplitTitle'), 'dashboard')}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -520,6 +521,7 @@ export function StockAllocationDashboardScreen({
   if (canEditSplit && subView === 'adjustProduce') {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           {subHeader(t('inventory.allocation.adjustTitle'), 'editSplit')}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -579,6 +581,7 @@ export function StockAllocationDashboardScreen({
   if (canEditSplit && subView === 'overrideSplit') {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           {subHeader(t('inventory.allocation.overrideTitle'), 'adjustProduce')}
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -708,6 +711,7 @@ export function StockAllocationDashboardScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader 
           title={t('inventory.allocation.title')}

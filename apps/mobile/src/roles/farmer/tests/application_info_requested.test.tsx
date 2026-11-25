@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type * as AuthApi from '../api/auth';
+import type * as RegistrationApi from '../api/registration';
 import React from 'react';
 import renderer, { act, type ReactTestInstance, type ReactTestRendererJSON } from 'react-test-renderer';
 import { createAsyncStorageMock } from '../../../tests/mocks/asyncStorageMock';
@@ -28,7 +30,7 @@ const apiMocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../api/auth', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/auth')>();
+  const actual = await importOriginal<typeof AuthApi>();
   return {
     ...actual,
     fetchApplicationStatus: apiMocks.fetchApplicationStatus,
@@ -36,7 +38,7 @@ vi.mock('../api/auth', async (importOriginal) => {
 });
 
 vi.mock('../api/registration', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api/registration')>();
+  const actual = await importOriginal<typeof RegistrationApi>();
   return {
     ...actual,
     getFarmerApplicationDraft: apiMocks.getFarmerApplicationDraft,

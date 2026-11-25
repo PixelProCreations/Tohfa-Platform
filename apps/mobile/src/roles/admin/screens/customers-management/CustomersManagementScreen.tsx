@@ -17,8 +17,8 @@
  * decides, root CLAUDE.md 2.1).
  */
 import React, { useEffect, useState } from 'react';
-import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { OverviewCardsGrid, OverviewDashboardCard, type OverviewCardIcon } from '../../components';
 import type { OverviewCardTone } from '../../components/overviewDashboardCardStyle';

@@ -11,7 +11,7 @@ import type { Executor } from '../../db/pool.js';
 import { eventBus as defaultBus, type EventBus } from '../../events/bus.js';
 import { logger } from '../../logger.js';
 
-export type OrderEventName = 'order.confirmed' | 'order.dispatched' | 'order.delivered';
+export type OrderEventName = 'order.confirmed' | 'order.dispatched' | 'order.delivered' | 'order.cancelled';
 
 export interface OrderRecipient {
   userId: string;

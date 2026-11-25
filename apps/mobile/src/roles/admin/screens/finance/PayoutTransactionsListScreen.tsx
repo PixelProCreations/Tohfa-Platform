@@ -11,7 +11,6 @@
  */
 import React, { useMemo, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import {
   adminColors,
@@ -33,8 +31,6 @@ import {
   OverviewDashboardCard,
 } from '../../components/OverviewDashboardCard';
 import {
-  BackArrowWhiteIcon,
-  CheckmarkIcon,
   ChevronRightIcon,
   SearchIcon,
 } from '../../components/AdminIcons';

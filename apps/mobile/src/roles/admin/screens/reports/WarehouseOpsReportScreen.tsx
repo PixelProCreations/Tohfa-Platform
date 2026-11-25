@@ -1,7 +1,6 @@
-import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
+import { adminColors, adminOverlay } from '../../theme';
 import React, { useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -48,7 +47,6 @@ const PALETTE = {
   textSecondary: adminColors.muted,
   textPrimary:   adminColors.ink,
 };
-const COLORS = PALETTE;
 
 export interface WarehouseOpsReportScreenProps {
   onBack: () => void;

@@ -15,7 +15,8 @@
  * capacity (warehouse.own.view); a missing capacity is the dash.
  */
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import {
@@ -132,6 +133,7 @@ export function WarehouseOperationsOverviewScreen({ can, onBack, onNavigateSubSc
 
   return (
     <SafeAreaView style={styles.root}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity

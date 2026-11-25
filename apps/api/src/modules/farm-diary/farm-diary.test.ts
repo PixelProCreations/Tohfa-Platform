@@ -9,9 +9,12 @@
  *  3. ONE integration block against a real pool, soft-skipped when the diary
  *     tables are not migrated, proving the repo SQL parses against 0020/0021.
  */
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import type { Request, Response } from 'express';
+import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { createApp } from '../../app.js';
+import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { loadRbac } from '../../rbac/loadRbac.js';
@@ -181,6 +184,9 @@ function fakeFarmCrop(
     notes: null,
     createdAt: new Date(0).toISOString(),
     updatedAt: null,
+    createdByAdminId: null,
+    createdByAdminName: null,
+    addedOnBehalf: false,
   };
 }
 
@@ -319,6 +325,9 @@ function createFakeRepo() {
       totalLabourCostPaise: Math.round(ws.reduce((sum, w) => sum + w.hoursWorked * w.wageRatePaise, 0)),
       createdAt: new Date().toISOString(),
       updatedAt: e.updatedAt === null ? null : e.updatedAt.toISOString(),
+      createdByAdminId: e.data.createdByAdminId ?? null,
+      createdByAdminName: null,
+      addedOnBehalf: Boolean(e.data.createdByAdminId),
       activityFields: e.data.activityFields,
       voiceNoteKey: e.data.voiceNoteKey,
       voiceNoteDurationS: e.data.voiceNoteDurationS,
@@ -402,6 +411,9 @@ function createFakeRepo() {
             totalLabourCostPaise: r.totalLabourCostPaise,
             createdAt: r.createdAt,
             updatedAt: r.updatedAt,
+            createdByAdminId: r.createdByAdminId,
+            createdByAdminName: r.createdByAdminName,
+            addedOnBehalf: r.addedOnBehalf,
             workerCount: r.workers.length,
             photoCount: r.photos.length,
           };
@@ -519,6 +531,9 @@ function createFakeRepo() {
       if (patch.isActive !== undefined) next.isActive = patch.isActive;
       subs.set(key, next);
       return { ...next };
+    },
+    async findVisibleFarmerId(_db, _farmerScope, farmerId) {
+      return farmerId;
     },
   };
 
@@ -1121,5 +1136,186 @@ describeIfDatabase('farmDiaryRepo (integration)', () => {
     expect(await farmDiaryRepo.isPlotOwnedByFarmer(pool, newId(), nobody)).toBe(false);
     expect(await farmDiaryRepo.findGrowingCropOnPlot(pool, newId())).toBeNull();
     expect(await farmDiaryRepo.softDeleteEntry(pool, nobody, newId())).toBe(false);
+  });
+});
+
+describeIfDatabase('BR-228: GET /v1/admin/farmers/:farmerId/diary', () => {
+  const app = createApp();
+  let ready = false;
+  const createdIds = {
+    entryIds: [] as string[],
+    cropIds: [] as string[],
+    plotIds: [] as string[],
+    farmIds: [] as string[],
+    farmerIds: [] as string[],
+    userIds: [] as string[],
+    zoneIds: [] as string[],
+    warehouseId: '' as string,
+  };
+  let farmerAId = '';
+  let farmerBId = '';
+  let zoneAId = '';
+  let zoneBId = '';
+  let farmerAdminAToken = '';
+  let superAdminToken = '';
+  let farmerToken = '';
+
+  beforeAll(async () => {
+    ready = (await databaseReady('diary_entries')) && (await databaseReady('farmers')) && (await databaseReady('zones'));
+    if (!ready) return;
+
+    const { pool } = await import('../../db/pool.js');
+    const wh = await pool.query<{ id: string }>(`SELECT id FROM warehouses WHERE is_active = true LIMIT 1`);
+    createdIds.warehouseId = wh.rows[0]!.id;
+
+    zoneAId = newId();
+    zoneBId = newId();
+    createdIds.zoneIds.push(zoneAId, zoneBId);
+    await pool.query(
+      `INSERT INTO zones (id, code, name, warehouse_id, is_active) VALUES ($1, $2, 'Zone Diary A', $3, true), ($4, $5, 'Zone Diary B', $3, true)`,
+      [zoneAId, `ZDA-${zoneAId.slice(0, 6)}`, createdIds.warehouseId, zoneBId, `ZDB-${zoneBId.slice(0, 6)}`],
+    );
+
+    const farmerUserA = newId();
+    const farmerUserB = newId();
+    const adminAUser = newId();
+    const superAdminUser = newId();
+    createdIds.userIds.push(farmerUserA, farmerUserB, adminAUser, superAdminUser);
+
+    const rnd = () => Math.floor(10000000 + Math.random() * 89999999);
+    await pool.query(
+      `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES
+       ($1, $2, 'Diary Farmer A', 'FARMER', 'ACTIVE'),
+       ($3, $4, 'Diary Farmer B', 'FARMER', 'ACTIVE'),
+       ($5, $6, 'Diary Farmer Admin A', 'ADMIN', 'ACTIVE'),
+       ($7, $8, 'Diary Super Admin', 'ADMIN', 'ACTIVE')`,
+      [
+        farmerUserA, `+9193${rnd()}`,
+        farmerUserB, `+9193${rnd()}`,
+        adminAUser, `+9193${rnd()}`,
+        superAdminUser, `+9193${rnd()}`,
+      ],
+    );
+
+    farmerAId = newId();
+    farmerBId = newId();
+    createdIds.farmerIds.push(farmerAId, farmerBId);
+    await pool.query(
+      `INSERT INTO farmers (id, user_id, tohfa_farmer_id, district, zone_id, application_status)
+       VALUES ($1, $2, $3, 'The Nilgiris', $4, 'APPROVED'),
+              ($5, $6, $7, 'The Nilgiris', $8, 'APPROVED')`,
+      [farmerAId, farmerUserA, `TFA-${farmerAId.slice(0, 6)}`, zoneAId, farmerBId, farmerUserB, `TFB-${farmerBId.slice(0, 6)}`, zoneBId],
+    );
+
+    const farmA = newId();
+    const farmB = newId();
+    const plotA = newId();
+    const plotB = newId();
+    createdIds.farmIds.push(farmA, farmB);
+    createdIds.plotIds.push(plotA, plotB);
+    await pool.query(`INSERT INTO farms (id, farmer_id, name, district, is_primary) VALUES ($1, $2, 'Farm A', 'The Nilgiris', true), ($3, $4, 'Farm B', 'The Nilgiris', true)`, [farmA, farmerAId, farmB, farmerBId]);
+    await pool.query(`INSERT INTO plots (id, farm_id, name, area_acres) VALUES ($1, $2, 'Plot A', 1.5), ($3, $4, 'Plot B', 2.0)`, [plotA, farmA, plotB, farmB]);
+
+    const cmRes = await pool.query<{ id: string }>(`SELECT id FROM crop_master WHERE deleted_at IS NULL LIMIT 1`);
+    const cropMasterId = cmRes.rows[0]!.id;
+    const fcA = newId();
+    const fcB = newId();
+    createdIds.cropIds.push(fcA, fcB);
+    await pool.query(
+      `INSERT INTO farm_crops (id, plot_id, crop_id, status, planted_on) VALUES ($1, $2, $3, 'GROWING', '2026-08-01'), ($4, $5, $3, 'GROWING', '2026-08-01')`,
+      [fcA, plotA, cropMasterId, fcB, plotB],
+    );
+
+    const e1 = newId();
+    const e2 = newId();
+    const eB = newId();
+    createdIds.entryIds.push(e1, e2, eB);
+    await pool.query(
+      `INSERT INTO diary_entries (id, farmer_id, plot_id, farm_crop_id, category_key, sub_activity_key, minutes, notes, activity_on, logged_at) VALUES
+       ($1, $2, $3, $4, 'land_prep', 'land_prep.ploughing_tilling', 45, 'First entry', '2026-09-10', '2026-09-10T08:00:00Z'),
+       ($5, $2, $3, $4, 'land_prep', 'land_prep.ploughing_tilling', 60, 'Second entry', '2026-09-11', '2026-09-11T08:00:00Z'),
+       ($6, $7, $8, $9, 'land_prep', 'land_prep.ploughing_tilling', 30, 'Foreign zone entry', '2026-09-12', '2026-09-12T08:00:00Z')`,
+      [e1, farmerAId, plotA, fcA, e2, eB, farmerBId, plotB, fcB],
+    );
+
+    farmerAdminAToken = signAccessToken({
+      sub: adminAUser,
+      roles: [{ code: RoleCode.FARMER_ADMIN, zoneId: zoneAId }],
+      customerId: null,
+      farmerId: null,
+    });
+    superAdminToken = signAccessToken({
+      sub: superAdminUser,
+      roles: [{ code: RoleCode.SUPER_ADMIN }],
+      customerId: null,
+      farmerId: null,
+    });
+    farmerToken = signAccessToken({
+      sub: farmerUserA,
+      roles: [{ code: RoleCode.FARMER }],
+      customerId: null,
+      farmerId: farmerAId,
+    });
+  });
+
+  afterAll(async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    if (createdIds.entryIds.length > 0) await pool.query(`DELETE FROM diary_entries WHERE id = ANY($1::uuid[])`, [createdIds.entryIds]).catch(() => undefined);
+    if (createdIds.cropIds.length > 0) await pool.query(`DELETE FROM farm_crops WHERE id = ANY($1::uuid[])`, [createdIds.cropIds]).catch(() => undefined);
+    if (createdIds.plotIds.length > 0) await pool.query(`DELETE FROM plots WHERE id = ANY($1::uuid[])`, [createdIds.plotIds]).catch(() => undefined);
+    if (createdIds.farmIds.length > 0) await pool.query(`DELETE FROM farms WHERE id = ANY($1::uuid[])`, [createdIds.farmIds]).catch(() => undefined);
+    if (createdIds.farmerIds.length > 0) await pool.query(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, [createdIds.farmerIds]).catch(() => undefined);
+    if (createdIds.userIds.length > 0) await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [createdIds.userIds]).catch(() => undefined);
+    if (createdIds.zoneIds.length > 0) await pool.query(`DELETE FROM zones WHERE id = ANY($1::uuid[])`, [createdIds.zoneIds]).catch(() => undefined);
+  });
+
+  it('BR-228: rejects Farmer caller with 403 and hides out-of-zone / unknown farmers with 404', async () => {
+    const forbidden = await request(app)
+      .get(`/v1/admin/farmers/${farmerAId}/diary`)
+      .set('Authorization', `Bearer ${farmerToken}`);
+    expect(forbidden.status).toBe(403);
+
+    const outOfZone = await request(app)
+      .get(`/v1/admin/farmers/${farmerBId}/diary`)
+      .set('Authorization', `Bearer ${farmerAdminAToken}`);
+    expect(outOfZone.status).toBe(404);
+
+    const unknown = await request(app)
+      .get(`/v1/admin/farmers/${newId()}/diary`)
+      .set('Authorization', `Bearer ${superAdminToken}`);
+    expect(unknown.status).toBe(404);
+  });
+
+  it('BR-228: Farmer Admin reads in-zone diary with keyset pagination, Super Admin reads any farmer, and route is read-only', async () => {
+    const page1 = await request(app)
+      .get(`/v1/admin/farmers/${farmerAId}/diary?limit=1`)
+      .set('Authorization', `Bearer ${farmerAdminAToken}`);
+    expect(page1.status).toBe(200);
+    expect(page1.body.items).toHaveLength(1);
+    expect(page1.body.items[0].notes).toBe('Second entry');
+    expect(page1.body.page.hasMore).toBe(true);
+    expect(typeof page1.body.page.nextCursor).toBe('string');
+
+    const page2 = await request(app)
+      .get(`/v1/admin/farmers/${farmerAId}/diary?limit=1&cursor=${encodeURIComponent(page1.body.page.nextCursor)}`)
+      .set('Authorization', `Bearer ${farmerAdminAToken}`);
+    expect(page2.status).toBe(200);
+    expect(page2.body.items).toHaveLength(1);
+    expect(page2.body.items[0].notes).toBe('First entry');
+    expect(page2.body.page.hasMore).toBe(false);
+
+    const superB = await request(app)
+      .get(`/v1/admin/farmers/${farmerBId}/diary`)
+      .set('Authorization', `Bearer ${superAdminToken}`);
+    expect(superB.status).toBe(200);
+    expect(superB.body.items).toHaveLength(1);
+    expect(superB.body.items[0].notes).toBe('Foreign zone entry');
+
+    const writeAttempt = await request(app)
+      .post(`/v1/admin/farmers/${farmerAId}/diary`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({});
+    expect(writeAttempt.status).toBe(404);
   });
 });

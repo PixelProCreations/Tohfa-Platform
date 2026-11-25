@@ -82,8 +82,27 @@ export interface StateRow {
   updatedAt: Date;
 }
 
+export interface AlertThresholdConfig {
+  batchExpiryDays: number | null;
+  capacityUtilizationPercent: number | null;
+  lowStockThresholdKg: number | null;
+  snoozeMaxHours: number | null;
+}
+
 export interface TasksAlertsRepo {
   getAlertThresholds(db: Executor): Promise<AlertThresholds>;
+  /** Full threshold settings object for GET/PATCH /admin/alerts/thresholds (BR-230). */
+  getAlertThresholdConfig(db: Executor): Promise<AlertThresholdConfig>;
+  upsertAlertThresholds(
+    db: Executor,
+    actorId: string,
+    updates: {
+      batchExpiryDays?: number | undefined;
+      capacityUtilizationPercent?: number | undefined;
+      lowStockThresholdKg?: number | undefined;
+      snoozeMaxHours?: number | undefined;
+    },
+  ): Promise<AlertThresholdConfig>;
   /** `alert_snooze_max_hours`; null when missing or not a positive integer. */
   getSnoozeMaxHours(db: Executor): Promise<number | null>;
   warehouseExists(db: Executor, warehouseId: string): Promise<boolean>;
@@ -336,6 +355,51 @@ export const tasksAlertsRepo: TasksAlertsRepo = {
   async getSnoozeMaxHours(db) {
     const value = await readConfig(db, 'alert_snooze_max_hours');
     return isNonNegativeInteger(value) && value > 0 ? value : null;
+  },
+
+  async getAlertThresholdConfig(db) {
+    const [expiry, capacity, lowStock, snooze] = await Promise.all([
+      readConfig(db, 'alert_batch_expiry_days'),
+      readConfig(db, 'alert_capacity_utilization_percent'),
+      readConfig(db, 'low_stock_threshold_kg'),
+      readConfig(db, 'alert_snooze_max_hours'),
+    ]);
+    return {
+      batchExpiryDays: isNonNegativeInteger(expiry) ? expiry : null,
+      capacityUtilizationPercent:
+        typeof capacity === 'number' && Number.isFinite(capacity) && capacity >= 0 && capacity <= 100 ? capacity : null,
+      lowStockThresholdKg: typeof lowStock === 'number' && Number.isFinite(lowStock) && lowStock >= 0 ? lowStock : null,
+      snoozeMaxHours: isNonNegativeInteger(snooze) && snooze > 0 ? snooze : null,
+    };
+  },
+
+  async upsertAlertThresholds(db, actorId, updates) {
+    const pairs: Array<[string, number]> = [];
+    if (updates.batchExpiryDays !== undefined) pairs.push(['alert_batch_expiry_days', updates.batchExpiryDays]);
+    if (updates.capacityUtilizationPercent !== undefined) {
+      pairs.push(['alert_capacity_utilization_percent', updates.capacityUtilizationPercent]);
+    }
+    if (updates.lowStockThresholdKg !== undefined) pairs.push(['low_stock_threshold_kg', updates.lowStockThresholdKg]);
+    if (updates.snoozeMaxHours !== undefined) pairs.push(['alert_snooze_max_hours', updates.snoozeMaxHours]);
+
+    if (pairs.length > 0) {
+      await db.query(`SELECT key FROM system_config WHERE key = ANY($1::text[]) FOR UPDATE`, [
+        pairs.map(([key]) => key),
+      ]);
+      for (const [key, num] of pairs) {
+        await db.query(
+          `INSERT INTO system_config (key, value, data_type, updated_by, updated_at)
+           VALUES ($1, $2::jsonb, 'number', $3, now())
+           ON CONFLICT (key) DO UPDATE
+             SET value = EXCLUDED.value,
+                 data_type = 'number',
+                 updated_by = EXCLUDED.updated_by,
+                 updated_at = now()`,
+          [key, JSON.stringify(num), actorId],
+        );
+      }
+    }
+    return tasksAlertsRepo.getAlertThresholdConfig(db);
   },
 
   async warehouseExists(db, warehouseId) {

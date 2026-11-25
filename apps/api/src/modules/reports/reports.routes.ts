@@ -20,11 +20,14 @@ import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
   cashTopupsQuery,
+  complianceTiersQuery,
   customersQuery,
+  farmerPerformanceQuery,
   inventoryQuery,
   receivingQuery,
   returnsQuery,
   salesQuery,
+  timeSeriesQuery,
 } from './reports.schema.js';
 import { reportsService } from './reports.service.js';
 
@@ -93,5 +96,38 @@ reportsRouter.get(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     res.json(await reportsService.cashTopups(scope, getValidated(req, 'query', cashTopupsQuery)));
+  }),
+);
+
+reportsRouter.get(
+  '/time-series',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  validate({ query: timeSeriesQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await reportsService.timeSeries(scope, getValidated(req, 'query', timeSeriesQuery)));
+  }),
+);
+
+reportsRouter.get(
+  '/farmer-performance',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  validate({ query: farmerPerformanceQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await reportsService.farmerPerformance(scope, getValidated(req, 'query', farmerPerformanceQuery)));
+  }),
+);
+
+reportsRouter.get(
+  '/compliance-tiers',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  validate({ query: complianceTiersQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await reportsService.complianceTiers(scope, getValidated(req, 'query', complianceTiersQuery)));
   }),
 );

@@ -65,8 +65,24 @@ describe('applyPoppins', () => {
     expect(applyPoppins(undefined)).toEqual({ fontFamily: tokens.fontFamily.regular });
   });
 
-  it('never overrides an explicit fontFamily (icon fonts) and keeps its weight', () => {
+  it('never overrides an explicit non-Poppins fontFamily (icon fonts) and keeps its weight', () => {
     const style = { fontFamily: 'MaterialSymbolsOutlined', fontWeight: '700' };
     expect(applyPoppins(style)).toEqual(style);
+  });
+
+  it('normalizes an explicit Poppins fontFamily with an overriding fontWeight (adminType compatibility)', () => {
+    expect(
+      applyPoppins([{ fontSize: 12.5, fontWeight: '800', fontFamily: tokens.fontFamily.extrabold }, { fontWeight: '700' }]),
+    ).toEqual({
+      fontSize: 12.5,
+      fontFamily: tokens.fontFamily.bold,
+    });
+  });
+
+  it('strips fontWeight if already omitted on an explicit Poppins family', () => {
+    expect(applyPoppins({ fontSize: 14, fontFamily: tokens.fontFamily.semibold })).toEqual({
+      fontSize: 14,
+      fontFamily: tokens.fontFamily.semibold,
+    });
   });
 });

@@ -4,8 +4,8 @@
  * dropdown sheet and the dual action bar.
  */
 import React from 'react';
-import { Modal, SafeAreaView, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '../../../components/AdminStatusBar';
+import { Modal, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { adminColors } from '../../../theme';
 import { BackArrowIcon, CheckmarkIcon, ChevronDownIcon, CopyIcon, InfoCircleIcon } from './systemSettingsIcons';

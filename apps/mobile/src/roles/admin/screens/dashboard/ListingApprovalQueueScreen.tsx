@@ -280,14 +280,12 @@ const styles = StyleSheet.create({
     color: P.darkBrown,
     marginBottom: 6,
     letterSpacing: -0.3,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   subtitle: {
     fontSize: 13.5,
     color: '#1A1A1A',
     marginBottom: 20,
     lineHeight: 18,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   tabsScroll: {
     marginBottom: 20,
@@ -313,7 +311,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: P.body,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   tabTextActive: {
     color: '#FFFFFF',
@@ -358,7 +355,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A1A1A',
     flex: 1,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   priceColumn: {
     alignItems: 'flex-end',
@@ -367,14 +363,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1A1A1A',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   farmerInfo: {
     fontSize: 13,
     color: P.lightGray,
     marginTop: -4,
     marginBottom: 6,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   gradeBadgeRow: {
     flexDirection: 'row',
@@ -392,12 +386,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: P.yellowText,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   ceilingText: {
     fontSize: 11,
     color: P.ceilingGray,
-    fontFamily: 'Manrope, system-ui, sans-serif',
     marginTop: 2,
   },
   actionRow: {
@@ -418,7 +410,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: P.green,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   counterBtn: {
     flex: 1,
@@ -434,7 +425,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#1A1A1A',
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
   rejectBtn: {
     width: 44,
@@ -456,6 +446,5 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: P.warningText,
     lineHeight: 15,
-    fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

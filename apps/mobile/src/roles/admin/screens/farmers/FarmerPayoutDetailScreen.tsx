@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -20,8 +21,8 @@ import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import { resolveAdminRoleCategory } from './FarmerBankAccountDetailsScreen';
 import type { Money } from '@tohfa/shared-types';
 import { adminErrorKey } from '../../api/errors';
-import type { PayoutDto } from '../../api/payouts';
-import { useApprovePayout } from '../../api/payoutsHooks';
+import { REJECT_REASON_MAX, REJECT_REASON_MIN, type PayoutDto } from '../../api/payouts';
+import { useApprovePayout, useIntimatePayout, useRejectPayout } from '../../api/payoutsHooks';
 import { hasKey, t } from '../../i18n';
 import type { Can } from '../../permissions/can';
 import { moneyText } from '../dashboard/saOverviewFormat';
@@ -36,6 +37,13 @@ function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?:
 
 /** docs/rbac.json code of POST /admin/payouts/{id}/approve. */
 const APPROVE_PAYOUT_CODE = 'payout.approve_above_10k';
+/** docs/rbac.json code of POST /admin/payouts/{id}/reject (BR-228). */
+const REJECT_PAYOUT_CODE = 'payout.reject';
+/** docs/rbac.json code of POST /admin/payouts/{id}/intimate (BR-229). */
+const INTIMATE_PAYOUT_CODE = 'payout.farmer.initiate';
+
+/** Height the scroll content leaves for the floating bottom bar; the reject input sits just above it. */
+const BOTTOM_BAR_HEIGHT = 90;
 
 /** Both approvals are in: the payout has left for the gateway (api/payouts.ts). */
 const FULLY_APPROVED: readonly string[] = ['APPROVED', 'PROCESSING', 'PAID'];
@@ -109,10 +117,20 @@ export function FarmerPayoutDetailScreen({
   const payoutId = payout !== undefined && UUID_RE.test(payout.id) ? payout.id : undefined;
   const allowed = typeof can === 'function' && can(APPROVE_PAYOUT_CODE);
   const approvePayout = useApprovePayout({ enabled: allowed });
+  const rejectAllowed = typeof can === 'function' && can(REJECT_PAYOUT_CODE);
+  const rejectPayout = useRejectPayout({ enabled: rejectAllowed });
+  const intimateAllowed = typeof can === 'function' && can(INTIMATE_PAYOUT_CODE);
+  const intimatePayout = useIntimatePayout({ enabled: intimateAllowed });
 
   // What the server answered to our approval; until then the status the payout came with.
   const [result, setResult] = useState<PayoutDto | undefined>(undefined);
   const approvalStatus = payoutStatusText(result?.status ?? payout?.status);
+
+  // Reject needs a reason, so the screen asks for it inline (Alert.prompt is iOS-only).
+  const [showRejectInput, setShowRejectInput] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  // The API's own minimum (openapi PayoutRejectRequest); the server still validates.
+  const rejectReasonValid = rejectReason.trim().length >= REJECT_REASON_MIN;
 
   const handleApprove = () => {
     if (payoutId === undefined || !allowed || approvePayout.isPending || result !== undefined) return;
@@ -142,6 +160,56 @@ export function FarmerPayoutDetailScreen({
       ],
     );
   };
+
+  const handleReject = () => {
+    if (payoutId === undefined || !rejectAllowed || rejectPayout.isPending || result !== undefined) return;
+    if (!showRejectInput) {
+      setShowRejectInput(true);
+      return;
+    }
+    if (!rejectReasonValid) return;
+    // Success is reported only from the server's answer (onSuccess); a failure keeps the key.
+    rejectPayout.run(payoutId, { reason: rejectReason.trim() }, (answer) => {
+      setResult(answer);
+      setShowRejectInput(false);
+      setRejectReason('');
+      Alert.alert(
+        t('wiringPayouts.payoutDetail.rejected.title'),
+        t('wiringPayouts.payoutDetail.rejected.body', { code: answer.payoutNumber }),
+      );
+    });
+  };
+
+  const handleCancelReject = () => {
+    setShowRejectInput(false);
+    setRejectReason('');
+    rejectPayout.finish();
+  };
+
+  const handleIntimate = () => {
+    if (payoutId === undefined || !intimateAllowed || intimatePayout.isPending) return;
+    Alert.alert(
+      t('wiringPayouts.payoutDetail.intimateConfirm.title'),
+      t('wiringPayouts.payoutDetail.intimateConfirm.body', { code: payoutCode }),
+      [
+        { text: t('wiringPayouts.common.cancel'), style: 'cancel' },
+        {
+          text: t('wiringPayouts.payoutDetail.intimateConfirm.ok'),
+          onPress: () => {
+            intimatePayout.run(payoutId, {}, (answer) => {
+              Alert.alert(
+                t('wiringPayouts.payoutDetail.intimated.title'),
+                t('wiringPayouts.payoutDetail.intimated.body', { code: answer.payoutNumber }),
+              );
+            });
+          },
+        },
+      ],
+    );
+  };
+
+  const rejectDisabled = payoutId === undefined || !rejectAllowed || rejectPayout.isPending || result !== undefined;
+  const intimateDisabled = payoutId === undefined || !intimateAllowed || intimatePayout.isPending;
 
   const approveDisabled = payoutId === undefined || !allowed || approvePayout.isPending || result !== undefined;
 
@@ -259,8 +327,60 @@ export function FarmerPayoutDetailScreen({
           </Text>
         ) : null}
 
-        <View style={{ height: 90 }} />
+        {rejectPayout.error ? (
+          <Text style={styles.errorText} testID="payoutDetail.rejectError">
+            {t(adminErrorKey(rejectPayout.error))}
+          </Text>
+        ) : null}
+
+        {intimatePayout.error ? (
+          <Text style={styles.errorText} testID="payoutDetail.intimateError">
+            {t(adminErrorKey(intimatePayout.error))}
+          </Text>
+        ) : null}
+
+        <View style={{ height: BOTTOM_BAR_HEIGHT }} />
       </ScrollView>
+
+      {showRejectInput && (
+        <View style={styles.rejectInputBar}>
+          <TextInput
+            style={styles.rejectInput}
+            placeholder={t('wiringPayouts.payoutDetail.rejectReasonPlaceholder')}
+            value={rejectReason}
+            onChangeText={setRejectReason}
+            maxLength={REJECT_REASON_MAX}
+            multiline
+            numberOfLines={2}
+            autoFocus
+            testID="payoutDetail.rejectReason"
+          />
+          <View style={styles.rejectInputActions}>
+            <TouchableOpacity
+              style={styles.rejectInputCancel}
+              onPress={handleCancelReject}
+              accessibilityRole="button"
+              testID="payoutDetail.rejectCancel"
+            >
+              <Text style={styles.rejectInputCancelText}>{t('wiringPayouts.common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.rejectInputConfirm, (!rejectReasonValid || rejectDisabled) && styles.actionUnavailable]}
+              onPress={handleReject}
+              disabled={!rejectReasonValid || rejectDisabled}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !rejectReasonValid || rejectDisabled, busy: rejectPayout.isPending }}
+              testID="payoutDetail.rejectConfirm"
+            >
+              <Text style={styles.rejectInputConfirmText}>
+                {rejectPayout.isPending
+                  ? t('wiringPayouts.payoutDetail.rejecting')
+                  : t('wiringPayouts.payoutDetail.rejectConfirm.ok')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Floating Bottom Action Bars with RBAC */}
       {roleCategory === 'SUPER_ADMIN' && (
@@ -280,44 +400,53 @@ export function FarmerPayoutDetailScreen({
             </Text>
           </TouchableOpacity>
 
-          {/* Reject — no endpoint; disabled per R3 */}
+          {/* Reject — wired to POST /admin/payouts/{id}/reject */}
           <TouchableOpacity
-            style={[styles.superAdminRejectBtn, styles.actionUnavailable]}
-            activeOpacity={1}
-            disabled
+            style={[styles.superAdminRejectBtn, rejectDisabled && styles.actionUnavailable]}
+            onPress={handleReject}
+            activeOpacity={0.8}
+            disabled={rejectDisabled}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
+            accessibilityState={{ disabled: rejectDisabled, busy: rejectPayout.isPending }}
             testID="payoutDetail.reject"
           >
-            <Text style={styles.superAdminRejectText}>Reject</Text>
+            <Text style={styles.superAdminRejectText}>
+              {rejectPayout.isPending ? t('wiringPayouts.payoutDetail.rejecting') : 'Reject'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
       {roleCategory === 'TOHFA_ADMIN' && (
         <View style={styles.bottomBar}>
-          {/* Intimate — no endpoint; disabled per R3 */}
+          {/* Intimate — wired to POST /admin/payouts/{id}/intimate */}
           <TouchableOpacity
-            style={[styles.tripleBtn, styles.actionUnavailable]}
-            activeOpacity={1}
-            disabled
+            style={[styles.tripleBtn, intimateDisabled && styles.actionUnavailable]}
+            onPress={handleIntimate}
+            activeOpacity={0.7}
+            disabled={intimateDisabled}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
+            accessibilityState={{ disabled: intimateDisabled, busy: intimatePayout.isPending }}
             testID="payoutDetail.intimate"
           >
-            <Text style={styles.tripleBtnText}>Intimate</Text>
+            <Text style={styles.tripleBtnText}>
+              {intimatePayout.isPending ? t('wiringPayouts.payoutDetail.intimating') : 'Intimate'}
+            </Text>
           </TouchableOpacity>
 
-          {/* Reject — no endpoint; disabled per R3 */}
+          {/* Reject — wired to POST /admin/payouts/{id}/reject */}
           <TouchableOpacity
-            style={[styles.tripleBtn, styles.tripleBtnReject, styles.actionUnavailable]}
-            activeOpacity={1}
-            disabled
+            style={[styles.tripleBtn, styles.tripleBtnReject, rejectDisabled && styles.actionUnavailable]}
+            onPress={handleReject}
+            activeOpacity={0.7}
+            disabled={rejectDisabled}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
+            accessibilityState={{ disabled: rejectDisabled, busy: rejectPayout.isPending }}
             testID="payoutDetail.reject"
           >
-            <Text style={styles.tripleBtnRejectText}>Reject</Text>
+            <Text style={styles.tripleBtnRejectText}>
+              {rejectPayout.isPending ? t('wiringPayouts.payoutDetail.rejecting') : 'Reject'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -332,16 +461,19 @@ export function FarmerPayoutDetailScreen({
 
       {roleCategory === 'WAREHOUSE_ADMIN' && (
         <View style={styles.bottomBar}>
-          {/* Intimate — no endpoint; disabled per R3 */}
+          {/* Intimate — wired to POST /admin/payouts/{id}/intimate */}
           <TouchableOpacity
-            style={[styles.doubleBtn, styles.actionUnavailable]}
-            activeOpacity={1}
-            disabled
+            style={[styles.doubleBtn, intimateDisabled && styles.actionUnavailable]}
+            onPress={handleIntimate}
+            activeOpacity={0.7}
+            disabled={intimateDisabled}
             accessibilityRole="button"
-            accessibilityState={{ disabled: true }}
+            accessibilityState={{ disabled: intimateDisabled, busy: intimatePayout.isPending }}
             testID="payoutDetail.intimate"
           >
-            <Text style={styles.doubleBtnText}>Intimate</Text>
+            <Text style={styles.doubleBtnText}>
+              {intimatePayout.isPending ? t('wiringPayouts.payoutDetail.intimating') : 'Intimate'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -495,6 +627,53 @@ const styles = StyleSheet.create({
     color: adminColors.danger.text,
     textAlign: 'center',
     marginBottom: adminSpacing.md,
+  },
+  rejectInputBar: {
+    position: 'absolute',
+    bottom: BOTTOM_BAR_HEIGHT,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+  },
+  rejectInput: {
+    ...adminType.caption,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.sm,
+    padding: adminSpacing.sm,
+    color: adminColors.ink,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  rejectInputActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
+  },
+  rejectInputCancel: {
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+  },
+  rejectInputCancelText: {
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.muted,
+  },
+  rejectInputConfirm: {
+    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    backgroundColor: adminColors.danger.text,
+    borderRadius: adminRadius.sm,
+  },
+  rejectInputConfirmText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.onBrand,
   },
   /** The designed button, kept visible, drawn as unavailable. */
   actionUnavailable: {

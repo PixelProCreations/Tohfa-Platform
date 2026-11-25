@@ -79,6 +79,7 @@ function fakeRepo(current: Array<string | null> | null, zones: Array<{ id: strin
       return 1;
     },
     listAdminAccounts: unexpected,
+    getAdminAccountById: unexpected,
   };
   return { repo, calls };
 }

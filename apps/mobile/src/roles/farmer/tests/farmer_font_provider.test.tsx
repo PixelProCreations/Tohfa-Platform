@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import renderer from 'react-test-renderer';
 import { tokens } from '@tohfa/design-tokens';
-import { FarmerFontProvider, isFarmerFontScreen, patchForwardRef } from '../theme/FarmerFont';
+import { FarmerFontProvider, isFarmerFontScreen, patchForwardRef, patchTextComponent } from '../theme/FarmerFont';
 
 // Real react-native is Flow source and cannot load under vitest; the patch only needs forwardRef objects.
 vi.mock('react-native', () => ({}));
@@ -70,6 +70,47 @@ describe('FarmerFontProvider + Text.render patch', () => {
   it('ignores targets that are not forwardRef objects (mocked react-native)', () => {
     expect(patchForwardRef('Text')).toBe(false);
     expect(patchForwardRef(undefined)).toBe(false);
+  });
+
+  it('patches React 19 / RN 0.88 function components (non-forwardRef) and preserves static fields', () => {
+    function FakeFnText(props: { style?: unknown }) {
+      return React.createElement('Text', { style: props.style });
+    }
+    FakeFnText.State = { focusTextInput: 'ok' };
+    FakeFnText.displayName = 'TextInput';
+
+    const mod: Record<string, unknown> = {
+      get TextInput() {
+        return FakeFnText;
+      },
+    };
+    expect(patchTextComponent(mod, 'TextInput')).toBe(true);
+    // Idempotent on second call
+    expect(patchTextComponent(mod, 'TextInput')).toBe(false);
+
+    const Wrapped = mod['TextInput'] as React.ComponentType<{ style?: unknown }> & {
+      State?: unknown;
+      displayName?: string;
+    };
+    expect(Wrapped.State).toEqual({ focusTextInput: 'ok' });
+    expect(Wrapped.displayName).toBe('TextInput');
+
+    const offStyle = { fontWeight: '700' };
+    expect(
+      styleOf(
+        <FarmerFontProvider enabled={false}>
+          <Wrapped style={offStyle} />
+        </FarmerFontProvider>,
+      ),
+    ).toBe(offStyle);
+
+    expect(
+      styleOf(
+        <FarmerFontProvider enabled>
+          <Wrapped style={[{ fontSize: 15 }, { fontWeight: '600' }]} />
+        </FarmerFontProvider>,
+      ),
+    ).toEqual({ fontSize: 15, fontFamily: tokens.fontFamily.semibold });
   });
 });
 

@@ -59,6 +59,37 @@ export const pestLibraryIdParams = z
   .strict();
 export type PestLibraryIdParams = z.infer<typeof pestLibraryIdParams>;
 
+export const adminPestDetectionIdParams = z
+  .object({
+    detectionId: z.string().uuid('detection id must be a UUID'),
+  })
+  .strict();
+export type AdminPestDetectionIdParams = z.infer<typeof adminPestDetectionIdParams>;
+
+export const listAdminPestIncidentsQuery = z
+  .object({
+    status: detectionStatusSchema.optional(),
+    severity: severitySchema.optional(),
+    zoneId: z.string().uuid().optional(),
+    farmerId: z.string().uuid().optional(),
+    q: z.string().trim().min(1).max(120).optional(),
+    cursor: z.string().max(512).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type ListAdminPestIncidentsQuery = z.infer<typeof listAdminPestIncidentsQuery>;
+
+export const updateAdminPestIncidentBody = z
+  .object({
+    pestLibraryId: z.string().uuid().nullable().optional(),
+    status: detectionStatusSchema.optional(),
+    adminRecommendedTreatment: z.string().trim().max(2000).nullable().optional(),
+    adminReviewNote: z.string().trim().max(2000).nullable().optional(),
+  })
+  .strict()
+  .refine((b) => Object.keys(b).length > 0, { message: 'At least one field must be supplied' });
+export type UpdateAdminPestIncidentBody = z.infer<typeof updateAdminPestIncidentBody>;
+
 // ---------------------------------------------------------------------------
 // pest_library (global reference catalog)
 // ---------------------------------------------------------------------------

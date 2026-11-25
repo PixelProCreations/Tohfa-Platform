@@ -202,18 +202,26 @@ export type AdminTone = 'success' | 'warning' | 'danger' | 'info' | 'purple' | '
 
 type AdminFontWeight = '400' | '500' | '600' | '700' | '800';
 
+/** Maps a numeric PDF weight to the matching weight-specific Poppins TTF family name. */
+function adminPoppinsFamilyForWeight(weight: number): string {
+  const f = tokens.fontFamily;
+  if (weight <= 400) return f.regular;
+  if (weight < 600) return f.medium;
+  if (weight < 700) return f.semibold;
+  if (weight < 800) return f.bold;
+  return f.extrabold;
+}
+
 /**
- * React Native text style for a token type style. No `fontFamily` on purpose:
- * the PDF specifies the native system stack (-apple-system / Roboto) and "no
- * custom typeface is loaded", which is exactly what RN renders when
- * `fontFamily` is unset. Setting the CSS stack string here would not work —
- * RN takes a single family name, not a fallback list.
+ * React Native text style for a token type style, resolved to the bundled
+ * weight-specific Poppins TTF (`@tohfa/design-tokens` `fontFamily`).
  */
 function textStyle(style: TypeStyle) {
   return {
     fontSize: style.size,
     lineHeight: style.lineHeight,
     fontWeight: String(style.weight) as AdminFontWeight,
+    fontFamily: adminPoppinsFamilyForWeight(style.weight),
   };
 }
 

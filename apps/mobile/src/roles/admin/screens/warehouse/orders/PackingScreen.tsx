@@ -32,7 +32,7 @@
 // Design id: M5S07 (Packing), absorbs M5S08 (Confirm Packing)
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
@@ -222,6 +222,7 @@ function PackingStepView({ order, checklist, canMarkPacked, onBack, onConfirm }:
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <Header title={t('orders.packing.title')} onBack={onBack} />
 
@@ -317,6 +318,7 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
     const offerReady = canMarkReady && order.status === 'packed' && order.fulfilment === 'pickup';
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <Header title={t('orders.packing.packedTitle')} onBack={onBack} />
 
@@ -362,6 +364,7 @@ function ConfirmStepView({ order, checkedCount, canMarkPacked, canMarkReady, pac
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <Header title={t('orders.packing.confirm')} onBack={onBack} />
 
@@ -450,6 +453,7 @@ export function PackingScreen({
   if (view !== 'ready' || order === undefined || pack === undefined || markReady === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <Header title={t('orders.packing.title')} onBack={onBack} />
           {view === 'loading' ? (

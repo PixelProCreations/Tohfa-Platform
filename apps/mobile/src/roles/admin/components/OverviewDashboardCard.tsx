@@ -26,7 +26,6 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
-  adminRadius,
   adminShadow,
   adminSpacing,
   adminType,

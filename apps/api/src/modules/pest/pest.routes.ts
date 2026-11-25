@@ -30,15 +30,18 @@ import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { pestService } from './pest.service.js';
 import {
+  adminPestDetectionIdParams,
   createPestDetectionBody,
   createPestTreatmentLogBody,
   createPestTreatmentReminderBody,
   farmOnlyParams,
   farmPlotParams,
+  listAdminPestIncidentsQuery,
   listPestLibraryQuery,
   pestDetectionIdParams,
   pestLibraryIdParams,
   pestReminderIdParams,
+  updateAdminPestIncidentBody,
   updatePestDetectionBody,
   updatePestTreatmentReminderBody,
 } from './pest.schema.js';
@@ -236,5 +239,48 @@ pestRouter.patch(
     const body = getValidated(req, 'body', updatePestTreatmentReminderBody);
     const reminder = await pestService.updateReminder(scope, farmId, plotId, reminderId, body);
     res.json(reminder);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// /v1/admin/pest-incidents (BR-229)
+// ---------------------------------------------------------------------------
+
+export const adminPestIncidentsRouter: Router = Router();
+
+adminPestIncidentsRouter.get(
+  '/',
+  requireAuth,
+  requirePermission('farmer.pest.review'),
+  validate({ query: listAdminPestIncidentsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', listAdminPestIncidentsQuery);
+    res.json(await pestService.adminListIncidents(scope, query));
+  }),
+);
+
+adminPestIncidentsRouter.get(
+  '/:detectionId',
+  requireAuth,
+  requirePermission('farmer.pest.review'),
+  validate({ params: adminPestDetectionIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { detectionId } = getValidated(req, 'params', adminPestDetectionIdParams);
+    res.json(await pestService.adminGetIncident(scope, detectionId));
+  }),
+);
+
+adminPestIncidentsRouter.patch(
+  '/:detectionId',
+  requireAuth,
+  requirePermission('farmer.pest.review'),
+  validate({ params: adminPestDetectionIdParams, body: updateAdminPestIncidentBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { detectionId } = getValidated(req, 'params', adminPestDetectionIdParams);
+    const body = getValidated(req, 'body', updateAdminPestIncidentBody);
+    res.json(await pestService.adminReviewIncident(scope, detectionId, body));
   }),
 );

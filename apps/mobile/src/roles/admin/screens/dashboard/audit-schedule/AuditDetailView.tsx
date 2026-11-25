@@ -1,7 +1,7 @@
 /** "Audit <code>" full detail (design: currentView 'detail'). */
 import React from 'react';
-import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { adminColors } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { formatAdminDay } from '../../../utils/datetime';

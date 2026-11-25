@@ -84,6 +84,7 @@ export interface RevenueFilters {
   to?: string | undefined;
   channel?: SalesChannel | undefined;
   paymentMethod?: OrderPaymentMethod | undefined;
+  warehouseId?: string | undefined;
 }
 
 export interface RevenueCursor {
@@ -309,6 +310,7 @@ function revenueWhere(scope: ResolvedScope, filters: RevenueFilters): WhereBuild
   if (filters.paymentMethod !== undefined) {
     w.addParam((p) => `o.payment_method::text = ${p}`, filters.paymentMethod);
   }
+  if (filters.warehouseId !== undefined) w.addParam((p) => `o.warehouse_id = ${p}::uuid`, filters.warehouseId);
   return w;
 }
 
@@ -341,20 +343,22 @@ export interface FinanceRepo {
   ): Promise<Page<RevenueRecord, RevenueCursor>>;
   revenueByChannel(db: Executor, scope: ResolvedScope, filters: RevenueFilters): Promise<ChannelTotalRecord[]>;
   getReportMaxRangeDays(db: Executor): Promise<number>;
-  revenueReportByDay(db: Executor, scope: ResolvedScope, from: string, to: string): Promise<DayTotalRecord[]>;
+  revenueReportByDay(db: Executor, scope: ResolvedScope, from: string, to: string, warehouseId?: string): Promise<DayTotalRecord[]>;
   revenueReportByPaymentMethod(
     db: Executor,
     scope: ResolvedScope,
     from: string,
     to: string,
+    warehouseId?: string,
   ): Promise<OrderPaymentMethodTotalRecord[]>;
-  expenseReportByDay(db: Executor, scope: ResolvedScope, from: string, to: string): Promise<DayTotalRecord[]>;
-  expenseReportByCategory(db: Executor, scope: ResolvedScope, from: string, to: string): Promise<CategoryTotalRecord[]>;
+  expenseReportByDay(db: Executor, scope: ResolvedScope, from: string, to: string, warehouseId?: string): Promise<DayTotalRecord[]>;
+  expenseReportByCategory(db: Executor, scope: ResolvedScope, from: string, to: string, warehouseId?: string): Promise<CategoryTotalRecord[]>;
   expenseReportByPaymentMethod(
     db: Executor,
     scope: ResolvedScope,
     from: string,
     to: string,
+    warehouseId?: string,
   ): Promise<ExpensePaymentMethodTotalRecord[]>;
 }
 
@@ -545,8 +549,8 @@ export const financeRepo: FinanceRepo = {
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_REPORT_MAX_RANGE_DAYS;
   },
 
-  async revenueReportByDay(db, scope, from, to) {
-    const where = revenueWhere(scope, { from, to }).build();
+  async revenueReportByDay(db, scope, from, to, warehouseId) {
+    const where = revenueWhere(scope, { from, to, warehouseId }).build();
     const result = await db.query<{ date: string; count: number; total: string }>(
       `SELECT to_char(o.completed_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') AS date,
               count(*)::int AS count, ${SUM_TEXT('o.total_amount')} AS total
@@ -559,8 +563,8 @@ export const financeRepo: FinanceRepo = {
     return result.rows.map((row) => ({ date: row.date, count: row.count, total: parseMoney(row.total) }));
   },
 
-  async revenueReportByPaymentMethod(db, scope, from, to) {
-    const where = revenueWhere(scope, { from, to }).build();
+  async revenueReportByPaymentMethod(db, scope, from, to, warehouseId) {
+    const where = revenueWhere(scope, { from, to, warehouseId }).build();
     const result = await db.query<{ payment_method: string; count: number; total: string }>(
       `SELECT o.payment_method::text AS payment_method, count(*)::int AS count, ${SUM_TEXT('o.total_amount')} AS total
          FROM orders o
@@ -576,8 +580,8 @@ export const financeRepo: FinanceRepo = {
     }));
   },
 
-  async expenseReportByDay(db, scope, from, to) {
-    const where = expenseWhere(scope, { from, to }).build();
+  async expenseReportByDay(db, scope, from, to, warehouseId) {
+    const where = expenseWhere(scope, { from, to, warehouseId }).build();
     const result = await db.query<{ date: string; count: number; total: string }>(
       `SELECT e.expense_date::text AS date, count(*)::int AS count, ${SUM_TEXT('e.amount')} AS total
          FROM expenses e
@@ -589,8 +593,8 @@ export const financeRepo: FinanceRepo = {
     return result.rows.map((row) => ({ date: row.date, count: row.count, total: parseMoney(row.total) }));
   },
 
-  async expenseReportByCategory(db, scope, from, to) {
-    const where = expenseWhere(scope, { from, to }).build();
+  async expenseReportByCategory(db, scope, from, to, warehouseId) {
+    const where = expenseWhere(scope, { from, to, warehouseId }).build();
     const result = await db.query<{ category: string; count: number; total: string }>(
       `SELECT e.category, count(*)::int AS count, ${SUM_TEXT('e.amount')} AS total
          FROM expenses e
@@ -602,8 +606,8 @@ export const financeRepo: FinanceRepo = {
     return result.rows.map((row) => ({ category: row.category, count: row.count, total: parseMoney(row.total) }));
   },
 
-  async expenseReportByPaymentMethod(db, scope, from, to) {
-    const where = expenseWhere(scope, { from, to }).build();
+  async expenseReportByPaymentMethod(db, scope, from, to, warehouseId) {
+    const where = expenseWhere(scope, { from, to, warehouseId }).build();
     const result = await db.query<{ payment_method: string | null; count: number; total: string }>(
       `SELECT e.payment_method, count(*)::int AS count, ${SUM_TEXT('e.amount')} AS total
          FROM expenses e

@@ -5,24 +5,17 @@ import type { PoolClient } from 'pg';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import { withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { aScope, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { aScope, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import type { GroupRow } from '../learning-hub/learning-hub.repo.js';
 import {
   communitiesRepo,
   type CommunitiesRepo,
-  type CommunityMemberRow,
   type CommunityRow,
 } from './communities.repo.js';
-import {
-  CommunitiesService,
-  communitiesService,
-  mapCommunity,
-  mapCommunityGroup,
-  mapCommunityMember,
-} from './communities.service.js';
+import { CommunitiesService } from './communities.service.js';
 import type {
   CreateCommunityBody,
   ListCommunitiesQuery,
@@ -303,12 +296,6 @@ describe('admin communities HTTP routes & RBAC (BR-59s)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 describeIfDatabase('Communities Integration against PostgreSQL (BR-59s)', () => {
   let server: Server;
-  const adminToken = `Bearer ${signAccessToken({
-    sub: IDS.userSuperAdmin,
-    roles: [{ code: RoleCode.SUPER_ADMIN }],
-    farmerId: null,
-    customerId: null,
-  })}`;
 
   beforeAll(() => {
     server = createApp().listen(0);

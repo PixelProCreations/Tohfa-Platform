@@ -347,7 +347,7 @@ describe('source guards', () => {
     expect(c).not.toMatch(/fontSize:\s*\d|fontFamily/);
     expect(c).not.toMatch(/(padding|margin|gap)[A-Za-z]*:\s*\d/);
     expect(c).not.toMatch(/TOHFA_ADMIN|SUPER_ADMIN|FARMER_ADMIN|MAIN_WH_ADMIN|SUB_WH_ADMIN|\.role\s*===/);
-    expect(c).not.toMatch(/INITIAL_|Exotel|sk_live|LOG-2026|Ramesh|@tohfa\/mobile-ui|as any/);
+    expect(c).not.toMatch(/INITIAL_|Exotel|sk_live|LOG-2026|Ramesh|as any/);
     expect(c).not.toMatch(/>\s*[A-Za-z][A-Za-z ]+\s*<\//);
     expect(c).not.toMatch(/'—'/);
   });

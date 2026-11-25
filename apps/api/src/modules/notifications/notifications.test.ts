@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RoleCode } from '@tohfa/shared-types';
+import { signAccessToken } from '../../auth/jwt.js';
+import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
 
 // Replace only the queue's enqueue so the BR-52 tests can assert which
 // dispatch jobs were (not) queued. Every other test is indifferent to it —
@@ -201,6 +204,9 @@ function mockNotificationsRepo(): NotificationsRepo & {
         (d) => d.user_id === userId && !d.revoked && (!app || d.app === app),
       );
     },
+    listTemplates: async () => [],
+    findTemplateById: async () => null,
+    updateTemplate: async () => null,
   };
 }
 
@@ -277,12 +283,14 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(second).toBeNull(); // Deduplicated
     });
 
-    it('all 12 domain events have a defined template code mapping', () => {
-      expect(Object.keys(EVENT_TEMPLATE_MAP)).toHaveLength(12);
+    it('all 14 domain events have a defined template code mapping', () => {
+      expect(Object.keys(EVENT_TEMPLATE_MAP)).toHaveLength(14);
       expect(EVENT_TEMPLATE_MAP['wallet.debited']).toBe('WALLET_DEBITED'); // BR-150h sender
       expect(EVENT_TEMPLATE_MAP['farmer.application.approved']).toBe('FARMER_APP_APPROVED');
       expect(EVENT_TEMPLATE_MAP['goods.received']).toBe('GOODS_RECEIVED');
       expect(EVENT_TEMPLATE_MAP['wallet.credited']).toBe('WALLET_CREDITED');
+      expect(EVENT_TEMPLATE_MAP['payout.rejected']).toBe('PAYOUT_REJECTED');
+      expect(EVENT_TEMPLATE_MAP['payout.intimated']).toBe('PAYOUT_INTIMATED');
     });
   });
 
@@ -785,6 +793,148 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
     it('DELETE /v1/notifications/device-tokens/:token requires authentication', async () => {
       const res = await request(app).delete('/v1/notifications/device-tokens/test-token');
       expect(res.status).toBe(401);
+    });
+  });
+
+  describeIfDatabase('BR-231: Admin Notification Templates (/v1/admin/notification-templates)', () => {
+    const app = createApp();
+    let ready = false;
+    let superAdminId = '';
+    let superAdminToken = '';
+    let tohfaAdminToken = '';
+    let templateId = '';
+    let originalSubject: string | null = null;
+    let originalBody = '';
+    let originalActive = true;
+    let originalUpdatedBy: string | null = null;
+
+    beforeAll(async () => {
+      ready = await databaseReady('notification_templates');
+      if (!ready) return;
+      const { pool } = await import('../../db/pool.js');
+      superAdminId = newId();
+      await pool.query(
+        `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Template Super Admin', 'ADMIN', 'ACTIVE')`,
+        [superAdminId, `+9191${Math.floor(10000000 + Math.random() * 89999999)}`],
+      );
+      superAdminToken = signAccessToken({
+        sub: superAdminId,
+        roles: [{ code: RoleCode.SUPER_ADMIN }],
+        customerId: null,
+        farmerId: null,
+      });
+      tohfaAdminToken = signAccessToken({
+        sub: newId(),
+        roles: [{ code: RoleCode.TOHFA_ADMIN }],
+        customerId: null,
+        farmerId: null,
+      });
+      const tpl = await pool.query<{
+        id: string;
+        subject: string | null;
+        body_template: string;
+        is_active: boolean;
+        updated_by: string | null;
+      }>(
+        `SELECT id, subject, body_template, is_active, updated_by FROM notification_templates WHERE code = 'ORDER_CONFIRMED' AND channel = 'IN_APP' AND locale = 'en' LIMIT 1`,
+      );
+      if (tpl.rows[0]) {
+        templateId = tpl.rows[0].id;
+        originalSubject = tpl.rows[0].subject;
+        originalBody = tpl.rows[0].body_template;
+        originalActive = tpl.rows[0].is_active;
+        originalUpdatedBy = tpl.rows[0].updated_by;
+      }
+    });
+
+    afterAll(async () => {
+      if (!ready) return;
+      const { pool } = await import('../../db/pool.js');
+      if (templateId) {
+        await pool.query(
+          `UPDATE notification_templates SET subject = $2, body_template = $3, is_active = $4, updated_by = $5, updated_at = now() WHERE id = $1`,
+          [templateId, originalSubject, originalBody, originalActive, originalUpdatedBy],
+        );
+      }
+      if (superAdminId) {
+        await pool.query(`DELETE FROM audit_log WHERE actor_id = $1`, [superAdminId]).catch(() => undefined);
+        await pool.query(`DELETE FROM users WHERE id = $1`, [superAdminId]).catch(() => undefined);
+      }
+    });
+
+    it('BR-231: enforces notification.template.configure (SUPER_ADMIN only), validates placeholders, updates template and writes audit_log', async () => {
+      expect(templateId, 'ORDER_CONFIRMED en template must be seeded').not.toBe('');
+
+      // TOHFA_ADMIN and unauthenticated cannot access (SUPER_ADMIN only)
+      expect((await request(app).get('/v1/admin/notification-templates')).status).toBe(401);
+      expect(
+        (await request(app).get('/v1/admin/notification-templates').set('Authorization', `Bearer ${tohfaAdminToken}`)).status,
+      ).toBe(403);
+      expect(
+        (await request(app)
+          .patch(`/v1/admin/notification-templates/${templateId}`)
+          .set('Authorization', `Bearer ${tohfaAdminToken}`)
+          .send({ isActive: false })).status,
+      ).toBe(403);
+
+      // List and get detail work for SUPER_ADMIN
+      const listRes = await request(app)
+        .get('/v1/admin/notification-templates?code=ORDER_CONFIRMED')
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.items.length).toBeGreaterThanOrEqual(1);
+
+      const getRes = await request(app)
+        .get(`/v1/admin/notification-templates/${templateId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      expect(getRes.status).toBe(200);
+      expect(getRes.body).toMatchObject({
+        id: templateId,
+        code: 'ORDER_CONFIRMED',
+        channel: 'IN_APP',
+        locale: 'en',
+        allowedPlaceholders: expect.arrayContaining(['orderNumber', 'totalAmount']),
+      });
+
+      // Unknown or malformed placeholder rejected 422 VALIDATION_FAILED
+      const badPlaceholder = await request(app)
+        .patch(`/v1/admin/notification-templates/${templateId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ bodyTemplate: 'Order #{{orderNumber}} unknown {{notARealField}}!' });
+      expect(badPlaceholder.status).toBe(422);
+      expect(badPlaceholder.body.code).toBe('VALIDATION_FAILED');
+
+      const malformedBraces = await request(app)
+        .patch(`/v1/admin/notification-templates/${templateId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ bodyTemplate: 'Order #{{orderNumber} unclosed brace' });
+      expect(malformedBraces.status).toBe(422);
+
+      // Unknown template ID returns 404
+      expect(
+        (await request(app).get(`/v1/admin/notification-templates/${newId()}`).set('Authorization', `Bearer ${superAdminToken}`)).status,
+      ).toBe(404);
+
+      // Valid update persists and writes audit_log
+      const nextBody = 'Order #{{orderNumber}} confirmed for Rs. {{totalAmount}} (updated).';
+      const patchRes = await request(app)
+        .patch(`/v1/admin/notification-templates/${templateId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({ subject: 'Order Confirmed Updated', bodyTemplate: nextBody });
+      expect(patchRes.status).toBe(200);
+      expect(patchRes.body).toMatchObject({
+        id: templateId,
+        subject: 'Order Confirmed Updated',
+        bodyTemplate: nextBody,
+        updatedBy: superAdminId,
+      });
+
+      const { pool } = await import('../../db/pool.js');
+      const auditRes = await pool.query<{ action_code: string; actor_id: string }>(
+        `SELECT action_code, actor_id FROM audit_log WHERE entity_type = 'notification_template' AND entity_id = $1 AND action_code = 'notification.template.configure'`,
+        [templateId],
+      );
+      expect(auditRes.rows).toEqual([{ action_code: 'notification.template.configure', actor_id: superAdminId }]);
     });
   });
 });

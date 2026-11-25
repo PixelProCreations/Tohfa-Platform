@@ -1,7 +1,7 @@
 /** The full-page "Filters" view of the schedule list (design: currentView 'filters'). */
 import React, { useState } from 'react';
-import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { adminColors } from '../../../theme';
 import { ds } from './i18n';
 import { BackArrowIcon, FilterSlidersIcon } from './icons';

@@ -18,9 +18,18 @@
  * Sub warehouse admin stays confined on an `all` grant, is the service's job.
  */
 import type { Executor } from '../../db/pool.js';
-import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import type { ResolvedScope, ScopedWhere } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
-import type { GrnStatus, OrderChannel, OrderStatus } from './reports.schema.js';
+import type {
+  ComplianceTiersReportResponse,
+  FarmerPerformanceReportResponse,
+  GrnStatus,
+  OrderChannel,
+  OrderStatus,
+  TimeSeriesBucket,
+  TimeSeriesMetric,
+  TimeSeriesPeriod,
+} from './reports.schema.js';
 import type { ReturnStatus } from '../returnRequests/returnRequests.schema.js';
 
 /** Returned when `report_max_range_days` is missing or is not a non-negative integer. */
@@ -105,6 +114,18 @@ export interface ReportsRepo {
   returns(db: Executor, filter: RangeFilter): Promise<ReturnsRows>;
   customers(db: Executor, filter: RangeFilter): Promise<CustomersRows>;
   cashTopups(db: Executor, filter: RangeFilter): Promise<CashTopupsRows>;
+  timeSeries(
+    db: Executor,
+    filter: RangeFilter & { metric: TimeSeriesMetric; period: TimeSeriesPeriod },
+  ): Promise<{ total: string | number; buckets: TimeSeriesBucket[] }>;
+  farmerPerformance(
+    db: Executor,
+    filter: RangeFilter & { farmerScope: ScopedWhere; zoneId: string | null },
+  ): Promise<Omit<FarmerPerformanceReportResponse, 'from' | 'to' | 'warehouseId' | 'zoneId'>>;
+  complianceTiers(
+    db: Executor,
+    filter: { farmerScope: ScopedWhere; warehouseId: string | null; zoneId: string | null },
+  ): Promise<Omit<ComplianceTiersReportResponse, 'warehouseId' | 'zoneId'>>;
 }
 
 interface Where {
@@ -313,5 +334,308 @@ export const reportsRepo: ReportsRepo = {
       where.params,
     );
     return { count: totals.rows[0]!.count, total: totals.rows[0]!.total, byDay: byDay.rows };
+  },
+
+  async timeSeries(db, filter) {
+    type MetricKind = 'money' | 'kg' | 'count';
+    interface MetricDef {
+      fromSql: string;
+      timeCol: string;
+      whCol: string;
+      extra?: string[];
+      valueExpr: string;
+      kind: MetricKind;
+    }
+
+    const METRICS: Record<TimeSeriesMetric, MetricDef> = {
+      sales_revenue: {
+        fromSql: 'orders o',
+        timeCol: 'o.placed_at',
+        whCol: 'o.warehouse_id',
+        valueExpr: MONEY_SUM('o.total_amount'),
+        kind: 'money',
+      },
+      sales_orders: {
+        fromSql: 'orders o',
+        timeCol: 'o.placed_at',
+        whCol: 'o.warehouse_id',
+        valueExpr: 'COUNT(*)::int',
+        kind: 'count',
+      },
+      new_farmers: {
+        fromSql: 'farmers f JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL LEFT JOIN zones z ON z.id = f.zone_id',
+        timeCol: 'f.created_at',
+        whCol: 'z.warehouse_id',
+        valueExpr: 'COUNT(*)::int',
+        kind: 'count',
+      },
+      farmer_applications: {
+        fromSql: `farmer_applications fa
+          LEFT JOIN farmers f ON f.id = fa.farmer_id
+          LEFT JOIN zones z ON z.id = COALESCE(
+            f.zone_id,
+            CASE WHEN (fa.step3_location->>'zoneId') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                 THEN (fa.step3_location->>'zoneId')::uuid ELSE NULL END
+          )`,
+        timeCol: 'COALESCE(fa.submitted_at, fa.created_at)',
+        whCol: 'z.warehouse_id',
+        extra: ['fa.is_draft = false', 'fa.deleted_at IS NULL'],
+        valueExpr: 'COUNT(*)::int',
+        kind: 'count',
+      },
+      listings_approved: {
+        fromSql: 'produce_listings l JOIN farmers f ON f.id = l.farmer_id LEFT JOIN zones z ON z.id = f.zone_id',
+        timeCol: 'COALESCE(l.approved_at, l.updated_at, l.created_at)',
+        whCol: 'z.warehouse_id',
+        extra: [`l.status IN ('ACCEPTED', 'FULFILLED')`, 'l.deleted_at IS NULL'],
+        valueExpr: 'COUNT(*)::int',
+        kind: 'count',
+      },
+      intake_kg: {
+        fromSql: 'goods_receipts gr',
+        timeCol: 'gr.received_at',
+        whCol: 'gr.warehouse_id',
+        extra: ['gr.accepted_qty_kg > 0'],
+        valueExpr: 'COALESCE(SUM(gr.accepted_qty_kg), 0)::numeric(14,3)::text',
+        kind: 'kg',
+      },
+      spoilage_loss_kg: {
+        fromSql: 'stock_adjustments sa',
+        timeCol: 'COALESCE(sa.approved_at, sa.created_at)',
+        whCol: 'sa.warehouse_id',
+        extra: [`sa.status = 'APPROVED'`, `sa.adjustment_type IN ('DAMAGE', 'SHRINKAGE', 'EXPIRY')`],
+        valueExpr: 'COALESCE(SUM(ABS(sa.qty_delta)), 0)::numeric(14,3)::text',
+        kind: 'kg',
+      },
+      payouts_paid: {
+        fromSql: 'payouts p JOIN farmers f ON f.id = p.farmer_id LEFT JOIN zones z ON z.id = f.zone_id',
+        timeCol: 'COALESCE(p.paid_at, p.released_at, p.created_at)',
+        whCol: 'z.warehouse_id',
+        extra: [`p.status = 'PAID'`],
+        valueExpr: MONEY_SUM('p.amount'),
+        kind: 'money',
+      },
+      customer_count: {
+        fromSql: 'customers c',
+        timeCol: 'c.created_at',
+        whCol: 'c.preferred_warehouse_id',
+        valueExpr: 'COUNT(*)::int',
+        kind: 'count',
+      },
+    };
+
+    const def = METRICS[filter.metric];
+    const bucketExpr =
+      filter.period === 'month'
+        ? `to_char(date_trunc('month', (${def.timeCol} AT TIME ZONE 'Asia/Kolkata')::date)::date, 'YYYY-MM-DD')`
+        : filter.period === 'week'
+          ? `to_char(date_trunc('week', (${def.timeCol} AT TIME ZONE 'Asia/Kolkata')::date)::date, 'YYYY-MM-DD')`
+          : istDay(def.timeCol);
+
+    const where = windowAndWarehouse(filter, def.timeCol, def.whCol, def.extra ?? []);
+    const [totalRes, bucketRes] = await Promise.all([
+      db.query<{ value: string | number }>(
+        `SELECT ${def.valueExpr} AS value FROM ${def.fromSql} WHERE ${where.sql}`,
+        where.params,
+      ),
+      db.query<{ bucket: string; count: number; value: string | number }>(
+        `SELECT ${bucketExpr} AS bucket, COUNT(*)::int AS count, ${def.valueExpr} AS value
+           FROM ${def.fromSql}
+          WHERE ${where.sql}
+          GROUP BY 1
+          ORDER BY 1`,
+        where.params,
+      ),
+    ]);
+
+    const emptyTotal = def.kind === 'money' ? '0.00' : def.kind === 'kg' ? '0.000' : 0;
+    const rawTotal = totalRes.rows[0]?.value;
+    const total = rawTotal === undefined || rawTotal === null ? emptyTotal : def.kind === 'count' ? Number(rawTotal) : String(rawTotal);
+
+    return {
+      total,
+      buckets: bucketRes.rows.map((r) => ({
+        bucket: r.bucket,
+        count: Number(r.count),
+        value: def.kind === 'count' ? Number(r.value) : String(r.value),
+      })),
+    };
+  },
+
+  async farmerPerformance(db, filter) {
+    const conditions: string[] = [`(${filter.farmerScope.sql})`];
+    const params: unknown[] = [filter.from, filter.to, ...filter.farmerScope.params];
+    if (filter.warehouseId !== null) {
+      params.push(filter.warehouseId);
+      conditions.push(`z.warehouse_id = $${params.length}::uuid`);
+    }
+    if (filter.zoneId !== null) {
+      params.push(filter.zoneId);
+      conditions.push(`f.zone_id = $${params.length}::uuid`);
+    }
+    const whereSql = conditions.join(' AND ');
+
+    const activityCt = `
+      WITH scoped_farmers AS (
+        SELECT f.id, f.zone_id, f.is_market_blocked, f.overall_rating, u.status AS account_status,
+               z.code AS zone_code, z.name AS zone_name
+          FROM farmers f
+          JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+          LEFT JOIN zones z ON z.id = f.zone_id
+         WHERE ${whereSql}
+      ),
+      listing_agg AS (
+        SELECT l.farmer_id,
+               COUNT(*)::int AS total_listings,
+               COUNT(*) FILTER (WHERE l.status IN ('ACCEPTED', 'FULFILLED'))::int AS approved_listings
+          FROM produce_listings l
+         WHERE l.deleted_at IS NULL
+           AND l.created_at >= ($1::date)::timestamp AT TIME ZONE 'Asia/Kolkata'
+           AND l.created_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')
+         GROUP BY l.farmer_id
+      ),
+      grn_agg AS (
+        SELECT gr.farmer_id,
+               COALESCE(SUM(gr.accepted_qty_kg), 0)::numeric(14,3) AS accepted_kg
+          FROM goods_receipts gr
+         WHERE gr.received_at >= ($1::date)::timestamp AT TIME ZONE 'Asia/Kolkata'
+           AND gr.received_at < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')
+         GROUP BY gr.farmer_id
+      ),
+      payout_agg AS (
+        SELECT p.farmer_id,
+               COALESCE(SUM(p.amount), 0)::numeric(14,2) AS paid_amount
+          FROM payouts p
+         WHERE p.status = 'PAID'
+           AND COALESCE(p.paid_at, p.released_at, p.created_at) >= ($1::date)::timestamp AT TIME ZONE 'Asia/Kolkata'
+           AND COALESCE(p.paid_at, p.released_at, p.created_at) < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')
+         GROUP BY p.farmer_id
+      )
+    `;
+
+    const [totalsRes, byZoneRes] = await Promise.all([
+      db.query<{
+        totalFarmers: number;
+        activeFarmers: number;
+        marketBlockedFarmers: number;
+        avgRating: string | null;
+        totalListings: number;
+        approvedListings: number;
+        acceptedKg: string;
+        payoutsPaid: string;
+      }>(
+        `${activityCt}
+         SELECT COUNT(sf.id)::int AS "totalFarmers",
+                COUNT(sf.id) FILTER (WHERE sf.account_status = 'ACTIVE')::int AS "activeFarmers",
+                COUNT(sf.id) FILTER (WHERE sf.is_market_blocked)::int AS "marketBlockedFarmers",
+                ROUND(AVG(sf.overall_rating), 2)::numeric::text AS "avgRating",
+                COALESCE(SUM(la.total_listings), 0)::int AS "totalListings",
+                COALESCE(SUM(la.approved_listings), 0)::int AS "approvedListings",
+                COALESCE(SUM(ga.accepted_kg), 0)::numeric(14,3)::text AS "acceptedKg",
+                COALESCE(SUM(pa.paid_amount), 0)::numeric(14,2)::text AS "payoutsPaid"
+           FROM scoped_farmers sf
+           LEFT JOIN listing_agg la ON la.farmer_id = sf.id
+           LEFT JOIN grn_agg ga ON ga.farmer_id = sf.id
+           LEFT JOIN payout_agg pa ON pa.farmer_id = sf.id`,
+        params,
+      ),
+      db.query<{
+        zoneId: string | null;
+        zoneCode: string | null;
+        zoneName: string | null;
+        farmerCount: number;
+        avgRating: string | null;
+        acceptedKg: string;
+        payoutsPaid: string;
+      }>(
+        `${activityCt}
+         SELECT sf.zone_id AS "zoneId", sf.zone_code AS "zoneCode", sf.zone_name AS "zoneName",
+                COUNT(sf.id)::int AS "farmerCount",
+                ROUND(AVG(sf.overall_rating), 2)::numeric::text AS "avgRating",
+                COALESCE(SUM(ga.accepted_kg), 0)::numeric(14,3)::text AS "acceptedKg",
+                COALESCE(SUM(pa.paid_amount), 0)::numeric(14,2)::text AS "payoutsPaid"
+           FROM scoped_farmers sf
+           LEFT JOIN grn_agg ga ON ga.farmer_id = sf.id
+           LEFT JOIN payout_agg pa ON pa.farmer_id = sf.id
+          GROUP BY sf.zone_id, sf.zone_code, sf.zone_name
+          ORDER BY sf.zone_name NULLS LAST`,
+        params,
+      ),
+    ]);
+
+    const t = totalsRes.rows[0]!;
+    return {
+      totalFarmers: t.totalFarmers,
+      activeFarmers: t.activeFarmers,
+      marketBlockedFarmers: t.marketBlockedFarmers,
+      avgRating: t.avgRating,
+      totalListings: t.totalListings,
+      approvedListings: t.approvedListings,
+      acceptedKg: t.acceptedKg,
+      payoutsPaid: t.payoutsPaid,
+      byZone: byZoneRes.rows,
+    };
+  },
+
+  async complianceTiers(db, filter) {
+    const conditions: string[] = [`(${filter.farmerScope.sql})`];
+    const params: unknown[] = [...filter.farmerScope.params];
+    if (filter.warehouseId !== null) {
+      params.push(filter.warehouseId);
+      conditions.push(`z.warehouse_id = $${params.length}::uuid`);
+    }
+    if (filter.zoneId !== null) {
+      params.push(filter.zoneId);
+      conditions.push(`f.zone_id = $${params.length}::uuid`);
+    }
+    const whereSql = conditions.join(' AND ');
+
+    const effRes = await db.query<{ eff: string | null }>(
+      `SELECT MAX(effective_from)::text AS eff FROM rating_tier_config WHERE effective_from <= CURRENT_DATE`,
+    );
+    const effectiveFrom = effRes.rows[0]?.eff ?? null;
+
+    const [totalsRes, tiersRes] = await Promise.all([
+      db.query<{ totalFarmers: number; unratedCount: number }>(
+        `SELECT COUNT(*)::int AS "totalFarmers",
+                COUNT(*) FILTER (WHERE f.overall_rating IS NULL)::int AS "unratedCount"
+           FROM farmers f
+           JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+           LEFT JOIN zones z ON z.id = f.zone_id
+          WHERE ${whereSql}`,
+        params,
+      ),
+      effectiveFrom === null
+        ? Promise.resolve({ rows: [] as Array<{ tierCode: string; label: string; minScore: string; maxScore: string | null; farmerCount: number }> })
+        : db.query<{ tierCode: string; label: string; minScore: string; maxScore: string | null; farmerCount: number }>(
+            `SELECT t.tier_code AS "tierCode",
+                    t.label,
+                    t.min_score::text AS "minScore",
+                    t.max_score::text AS "maxScore",
+                    COUNT(sf.id)::int AS "farmerCount"
+               FROM rating_tier_config t
+               LEFT JOIN (
+                 SELECT f.id, f.overall_rating
+                   FROM farmers f
+                   JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+                   LEFT JOIN zones z ON z.id = f.zone_id
+                  WHERE ${whereSql}
+                    AND f.overall_rating IS NOT NULL
+               ) sf
+                 ON sf.overall_rating >= t.min_score
+                AND (t.max_score IS NULL OR sf.overall_rating < t.max_score)
+              WHERE t.effective_from = $${params.length + 1}::date
+              GROUP BY t.tier_code, t.label, t.min_score, t.max_score, t.sort_order
+              ORDER BY t.sort_order ASC`,
+            [...params, effectiveFrom],
+          ),
+    ]);
+
+    return {
+      effectiveFrom,
+      totalFarmers: totalsRes.rows[0]?.totalFarmers ?? 0,
+      unratedCount: totalsRes.rows[0]?.unratedCount ?? 0,
+      tiers: tiersRes.rows,
+    };
   },
 };

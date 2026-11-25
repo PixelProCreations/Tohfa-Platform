@@ -16,6 +16,7 @@ export const payoutStatuses = [
   'PAID',
   'FAILED',
   'REVERSED',
+  'REJECTED',
 ] as const;
 export type PayoutStatus = (typeof payoutStatuses)[number];
 
@@ -88,6 +89,38 @@ export const approvePayoutSchema = z.object({
 });
 export type ApprovePayoutInput = z.infer<typeof approvePayoutSchema>;
 
+export const rejectPayoutSchema = z.object({
+  reason: z.string().trim().min(5, 'Reason must be at least 5 characters.').max(500),
+});
+export type RejectPayoutInput = z.infer<typeof rejectPayoutSchema>;
+
+export const intimatePayoutSchema = z.object({
+  note: z.string().trim().max(500).optional(),
+});
+export type IntimatePayoutInput = z.infer<typeof intimatePayoutSchema>;
+
+export const bulkCreatePayoutsSchema = z.object({
+  items: z.array(createPayoutSchema).min(1).max(50),
+});
+export type BulkCreatePayoutsInput = z.infer<typeof bulkCreatePayoutsSchema>;
+
+export interface IntimatePayoutResponse {
+  payoutId: string;
+  payoutNumber: string;
+  farmerId: string;
+  status: PayoutStatus;
+  intimatedAt: string;
+  intimatedBy: string;
+  note: string | null;
+}
+
+export interface BulkCreatePayoutsResponse {
+  batchId: string;
+  createdCount: number;
+  totalAmount: string;
+  items: PayoutResponse[];
+}
+
 // ---------------------------------------------------------------------------
 // Response shape
 // ---------------------------------------------------------------------------
@@ -106,6 +139,10 @@ export interface PayoutResponse {
   approvedAt: string | null;
   gatewayPayoutId: string | null;
   failureReason: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  intimatedAt?: string | null;
   paidAt: string | null;
   remarks: string | null;
   createdAt: string;
@@ -141,8 +178,21 @@ export interface PayoutListItem {
   requestedBy: string;
 }
 
+export interface PayoutListSummary {
+  total: number;
+  requested: number;
+  pendingApproval: number;
+  approved: number;
+  processing: number;
+  paid: number;
+  failed: number;
+  reversed: number;
+  rejected: number;
+}
+
 export interface ListPayoutsResponse {
   items: PayoutListItem[];
+  summary: PayoutListSummary;
   page: {
     nextCursor: string | null;
     hasMore: boolean;

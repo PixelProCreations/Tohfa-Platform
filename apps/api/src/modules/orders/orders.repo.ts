@@ -147,6 +147,8 @@ export interface OrdersRepo {
     slot: DeliverySlot,
   ): Promise<void>;
 
+  isWarehouseMarketOpen?(db: Executor, warehouseId: string): Promise<boolean>;
+
   createOrder(
     db: Executor,
     params: {
@@ -447,6 +449,14 @@ export const ordersRepo: OrdersRepo = {
       : null;
 
     return { orders, nextCursor, hasMore };
+  },
+
+  async isWarehouseMarketOpen(db, warehouseId) {
+    const res = await db.query<{ is_market_open: boolean }>(
+      `SELECT is_market_open FROM warehouses WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [warehouseId],
+    );
+    return res.rows[0]?.is_market_open ?? false;
   },
 
   async checkAndBookDeliverySlot(db, warehouseId, slotDate, slot) {

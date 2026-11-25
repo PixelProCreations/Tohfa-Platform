@@ -3,8 +3,8 @@
  * card. Rows come from GET /admin/audits, newest first, within the chosen year.
  */
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { AuditSummaryDto } from '../../../api/audits';
 import { adminColors, adminSpacing } from '../../../theme';
 import { formatAdminDay } from '../../../utils/datetime';

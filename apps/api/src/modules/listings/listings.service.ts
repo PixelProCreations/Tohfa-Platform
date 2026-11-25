@@ -58,6 +58,12 @@ export class ListingsService {
       });
     }
 
+    if (farmer.userStatus === 'DISABLED') {
+      throw new AppError('FORBIDDEN', {
+        detail: 'Farmer account is disabled and cannot perform listing actions.',
+      });
+    }
+
     return farmer;
   }
 

@@ -25,7 +25,7 @@ export interface AdminWriteOptions {
   signal?: AbortSignal | undefined;
 }
 
-type WriteMethod = 'POST' | 'PATCH' | 'PUT';
+type WriteMethod = 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 function write<T>(method: WriteMethod, path: string, body: unknown, options: AdminWriteOptions): Promise<T> {
   return request<T>(path, {

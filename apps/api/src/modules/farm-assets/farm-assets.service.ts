@@ -25,9 +25,11 @@
  * placeholder (see db/seed/001_reference.sql), read fresh via the repo, never
  * a literal in this file (root CLAUDE.md §2.7).
  */
+import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { assertVisibleFarmer } from '../admin-farmers/admin-farmers.service.js';
 import {
   farmAssetsRepo,
   type FarmAssetCursor,
@@ -36,6 +38,7 @@ import {
   type UpdateFarmAssetPatch,
 } from './farm-assets.repo.js';
 import type {
+  CreateAdminFarmAssetBody,
   CreateFarmAssetBody,
   FarmAssetResponse,
   FarmAssetStatus,
@@ -167,6 +170,9 @@ function toResponse(record: FarmAssetRecord, dueSoonDays: number): FarmAssetResp
     notes: record.notes,
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
+    createdByAdminId: record.createdByAdminId,
+    createdByAdminName: record.createdByAdminName,
+    addedOnBehalf: record.addedOnBehalf,
   };
 }
 
@@ -182,6 +188,77 @@ export interface FarmAssetsService {
   deleteFarmAsset(scope: ResolvedScope, assetId: string): Promise<void>;
 }
 
+async function createAssetForFarmer(
+  repo: FarmAssetsRepo,
+  tx: Executor,
+  farmerId: string,
+  body: CreateFarmAssetBody,
+  createdByAdminId: string | null = null,
+): Promise<FarmAssetResponse> {
+  const owned = await repo.isFarmOwnedByFarmer(tx, body.farmId, farmerId);
+  if (!owned) throw farmNotFound(body.farmId);
+
+  const assetId = await repo.createFarmAsset(tx, { ...body, createdByAdminId });
+  const dueSoonDays = await repo.getAssetServiceDueSoonDays(tx);
+  const created = await repo.findFarmAsset(tx, farmerId, assetId);
+  if (created === null) throw farmAssetNotFound(assetId);
+  return toResponse(created, dueSoonDays);
+}
+
+async function updateAssetForFarmer(
+  repo: FarmAssetsRepo,
+  tx: Executor,
+  farmerId: string,
+  assetId: string,
+  body: UpdateFarmAssetBody,
+): Promise<{ before: FarmAssetResponse; after: FarmAssetResponse }> {
+  const existing = await repo.findFarmAsset(tx, farmerId, assetId);
+  if (existing === null) throw farmAssetNotFound(assetId);
+
+  const dueSoonDays = await repo.getAssetServiceDueSoonDays(tx);
+  const before = toResponse(existing, dueSoonDays);
+
+  const patch: UpdateFarmAssetPatch = {};
+  if (body.name !== undefined) patch.name = body.name;
+  if (body.makeModel !== undefined) patch.makeModel = body.makeModel;
+  if (body.fuelType !== undefined) patch.fuelType = body.fuelType;
+  if (body.coverageAreaAcres !== undefined) patch.coverageAreaAcres = body.coverageAreaAcres;
+  if (body.purchasedOn !== undefined) patch.purchasedOn = body.purchasedOn;
+  if (body.costPaise !== undefined) patch.costPaise = body.costPaise;
+  if (body.serviceIntervalDays !== undefined) patch.serviceIntervalDays = body.serviceIntervalDays;
+  if (body.lastServicedOn !== undefined) patch.lastServicedOn = body.lastServicedOn;
+  if (body.notes !== undefined) patch.notes = body.notes;
+
+  const updated = await repo.updateFarmAsset(tx, farmerId, assetId, patch);
+  if (!updated) throw farmAssetNotFound(assetId);
+
+  const afterRecord = await repo.findFarmAsset(tx, farmerId, assetId);
+  if (afterRecord === null) throw farmAssetNotFound(assetId);
+  return { before, after: toResponse(afterRecord, dueSoonDays) };
+}
+
+async function listAssetsForFarmer(
+  repo: FarmAssetsRepo,
+  db: Executor,
+  farmerId: string,
+  query: ListFarmAssetsQuery,
+): Promise<ListFarmAssetsResponse> {
+  const dueSoonDays = await repo.getAssetServiceDueSoonDays(db);
+  const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
+  const { items, next } = await repo.listFarmAssets(db, {
+    farmerId,
+    category: query.category,
+    dueWithinDays: query.dueOnly === true ? dueSoonDays : undefined,
+    addedOnBehalf: query.addedOnBehalf,
+    cursor,
+    limit: query.limit,
+  });
+  return {
+    items: items.map((item) => toResponse(item, dueSoonDays)),
+    page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
+  };
+}
+
 export function createFarmAssetsService(deps: Partial<FarmAssetsServiceDeps> = {}): FarmAssetsService {
   const repo = deps.repo ?? farmAssetsRepo;
   const db = deps.db ?? pool;
@@ -190,41 +267,11 @@ export function createFarmAssetsService(deps: Partial<FarmAssetsServiceDeps> = {
   return {
     async createFarmAsset(scope, body) {
       const farmerId = ownFarmerId(scope);
-
-      return runTx(async (tx) => {
-        // Ownership is re-derived from farms.farmer_id. A farm that is not
-        // the caller's is NOT_FOUND, not 403 (root CLAUDE.md §2.1).
-        const owned = await repo.isFarmOwnedByFarmer(tx, body.farmId, farmerId);
-        if (!owned) throw farmNotFound(body.farmId);
-
-        const assetId = await repo.createFarmAsset(tx, body);
-
-        const dueSoonDays = await repo.getAssetServiceDueSoonDays(tx);
-        const created = await repo.findFarmAsset(tx, farmerId, assetId);
-        if (created === null) throw farmAssetNotFound(assetId);
-        return toResponse(created, dueSoonDays);
-      });
+      return runTx((tx) => createAssetForFarmer(repo, tx, farmerId, body, null));
     },
 
     async listFarmAssets(scope, query) {
-      const farmerId = ownFarmerId(scope);
-      const dueSoonDays = await repo.getAssetServiceDueSoonDays(db);
-
-      const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
-      const { items, next } = await repo.listFarmAssets(db, {
-        farmerId,
-        category: query.category,
-        // dueOnly reuses the SAME threshold the response's `status` field is
-        // computed with, so a row marked DUE_SOON/OVERDUE in the payload is
-        // always included when the caller asked for dueOnly=true.
-        dueWithinDays: query.dueOnly === true ? dueSoonDays : undefined,
-        cursor,
-        limit: query.limit,
-      });
-      return {
-        items: items.map((item) => toResponse(item, dueSoonDays)),
-        page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
-      };
+      return listAssetsForFarmer(repo, db, ownFarmerId(scope), query);
     },
 
     async getFarmAsset(scope, assetId) {
@@ -239,32 +286,7 @@ export function createFarmAssetsService(deps: Partial<FarmAssetsServiceDeps> = {
 
     async updateFarmAsset(scope, assetId, body) {
       const farmerId = ownFarmerId(scope);
-
-      return runTx(async (tx) => {
-        // Existence/ownership first, so a foreign asset is NOT_FOUND before
-        // any other error could hint that it exists.
-        const existing = await repo.findFarmAsset(tx, farmerId, assetId);
-        if (existing === null) throw farmAssetNotFound(assetId);
-
-        const patch: UpdateFarmAssetPatch = {};
-        if (body.name !== undefined) patch.name = body.name;
-        if (body.makeModel !== undefined) patch.makeModel = body.makeModel;
-        if (body.fuelType !== undefined) patch.fuelType = body.fuelType;
-        if (body.coverageAreaAcres !== undefined) patch.coverageAreaAcres = body.coverageAreaAcres;
-        if (body.purchasedOn !== undefined) patch.purchasedOn = body.purchasedOn;
-        if (body.costPaise !== undefined) patch.costPaise = body.costPaise;
-        if (body.serviceIntervalDays !== undefined) patch.serviceIntervalDays = body.serviceIntervalDays;
-        if (body.lastServicedOn !== undefined) patch.lastServicedOn = body.lastServicedOn;
-        if (body.notes !== undefined) patch.notes = body.notes;
-
-        const updated = await repo.updateFarmAsset(tx, farmerId, assetId, patch);
-        if (!updated) throw farmAssetNotFound(assetId);
-
-        const dueSoonDays = await repo.getAssetServiceDueSoonDays(tx);
-        const after = await repo.findFarmAsset(tx, farmerId, assetId);
-        if (after === null) throw farmAssetNotFound(assetId);
-        return toResponse(after, dueSoonDays);
-      });
+      return runTx(async (tx) => (await updateAssetForFarmer(repo, tx, farmerId, assetId, body)).after);
     },
 
     async deleteFarmAsset(scope, assetId) {
@@ -277,39 +299,90 @@ export function createFarmAssetsService(deps: Partial<FarmAssetsServiceDeps> = {
 
 export const farmAssetsService: FarmAssetsService = createFarmAssetsService();
 
-// ---------------------------------------------------------------------------
-// Admin service — read-only, `/admin/farmers/{farmerId}/farm-assets`
-// (`admin.assets.view_all`, scope `all`). Reuses the SAME repo.listFarmAssets
-// as the farmer-facing service: the query is already "every farm_assets row
-// across this farmerId's farms", which is exactly what an admin viewing one
-// farmer's register needs — there is no separate SQL path to maintain.
-// ---------------------------------------------------------------------------
-
 export interface FarmAssetsAdminService {
   listForFarmer(scope: ResolvedScope, farmerId: string, query: ListFarmAssetsQuery): Promise<ListFarmAssetsResponse>;
+  createForFarmer(scope: ResolvedScope, farmerId: string, body: CreateAdminFarmAssetBody): Promise<FarmAssetResponse>;
+  updateForFarmer(
+    scope: ResolvedScope,
+    farmerId: string,
+    assetId: string,
+    body: UpdateFarmAssetBody,
+  ): Promise<FarmAssetResponse>;
+  deleteForFarmer(scope: ResolvedScope, farmerId: string, assetId: string): Promise<void>;
 }
 
 export function createFarmAssetsAdminService(
-  deps: Partial<Pick<FarmAssetsServiceDeps, 'repo' | 'db'>> = {},
+  deps: Partial<Pick<FarmAssetsServiceDeps, 'repo' | 'db' | 'runTx'>> = {},
 ): FarmAssetsAdminService {
   const repo = deps.repo ?? farmAssetsRepo;
   const db = deps.db ?? pool;
+  const runTx: TransactionRunner = deps.runTx ?? withTransaction;
 
   return {
     async listForFarmer(_scope, farmerId, query) {
-      const dueSoonDays = await repo.getAssetServiceDueSoonDays(db);
-      const cursor = query.cursor !== undefined && query.cursor.length > 0 ? decodeCursor(query.cursor) : undefined;
-      const { items, next } = await repo.listFarmAssets(db, {
-        farmerId,
-        category: query.category,
-        dueWithinDays: query.dueOnly === true ? dueSoonDays : undefined,
-        cursor,
-        limit: query.limit,
+      return listAssetsForFarmer(repo, db, farmerId, query);
+    },
+
+    async createForFarmer(scope, farmerId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        let farmId = body.farmId;
+        if (farmId === undefined) {
+          const primary = repo.findPrimaryFarmIdByFarmer
+            ? await repo.findPrimaryFarmIdByFarmer(tx, farmerId)
+            : null;
+          if (primary === null) {
+            throw new AppError('NOT_FOUND', { detail: `No farm registered for farmer ${farmerId}.` });
+          }
+          farmId = primary;
+        }
+        const created = await createAssetForFarmer(repo, tx, farmerId, { ...body, farmId }, scope.userId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.farm_assets.admin_create',
+          entityType: 'farm_asset',
+          entityId: created.id,
+          after: created,
+        });
+        return created;
       });
-      return {
-        items: items.map((item) => toResponse(item, dueSoonDays)),
-        page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
-      };
+    },
+
+    async updateForFarmer(scope, farmerId, assetId, body) {
+      return runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const { before, after } = await updateAssetForFarmer(repo, tx, farmerId, assetId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.farm_assets.admin_update',
+          entityType: 'farm_asset',
+          entityId: assetId,
+          before,
+          after,
+          changedFields: changedFields(before, after),
+        });
+        return after;
+      });
+    },
+
+    async deleteForFarmer(scope, farmerId, assetId) {
+      await runTx(async (tx) => {
+        await assertVisibleFarmer(tx, scope, farmerId);
+        const before = await repo.findFarmAsset(tx, farmerId, assetId);
+        if (before === null) throw farmAssetNotFound(assetId);
+        const deleted = await repo.softDeleteFarmAsset(tx, farmerId, assetId);
+        if (!deleted) throw farmAssetNotFound(assetId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.farm_assets.admin_delete',
+          entityType: 'farm_asset',
+          entityId: assetId,
+          before,
+        });
+      });
     },
   };
 }

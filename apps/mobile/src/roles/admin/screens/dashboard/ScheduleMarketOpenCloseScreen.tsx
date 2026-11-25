@@ -14,13 +14,13 @@
 import React, { useMemo, useState } from 'react';
 import {
   Modal,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import { adminColors } from '../../theme';
 import {
@@ -142,6 +142,7 @@ export function ScheduleMarketOpenCloseScreen({
 
   return (
     <SafeAreaView style={styles.root}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <TouchableOpacity
           onPress={onBack}

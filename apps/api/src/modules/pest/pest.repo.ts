@@ -17,6 +17,7 @@
  * Row mappers live here so snake_case never leaves the repo.
  */
 import type { Executor } from '../../db/pool.js';
+import type { ScopedWhere } from '../../rbac/requirePermission.js';
 
 /**
  * `date` columns come back as JS Dates from `pg`, constructed at LOCAL
@@ -437,6 +438,71 @@ export interface TreatmentTally {
 }
 
 // ---------------------------------------------------------------------------
+// admin pest incidents (BR-229)
+// ---------------------------------------------------------------------------
+
+export interface AdminPestIncident extends PestDetection {
+  farmId: string;
+  farmName: string;
+  plotName: string;
+  farmerId: string;
+  tohfaFarmerId: string;
+  farmerName: string;
+  zoneId: string | null;
+  zoneName: string | null;
+  adminRecommendedTreatment: string | null;
+  adminReviewNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+}
+
+export interface AdminPestIncidentDetail extends AdminPestIncident {
+  treatmentLogs: PestTreatmentLog[];
+  reminders: PestTreatmentReminder[];
+}
+
+export interface AdminPestIncidentSummary {
+  total: number;
+  ongoing: number;
+  recurring: number;
+  resolved: number;
+}
+
+export interface AdminPestIncidentCursor {
+  detectedOn: string;
+  createdAt: string;
+  id: string;
+}
+
+export interface AdminListPestIncidentsArgs {
+  farmerScope: ScopedWhere;
+  status?: string | undefined;
+  severity?: string | undefined;
+  zoneId?: string | undefined;
+  farmerId?: string | undefined;
+  q?: string | undefined;
+  cursor?: AdminPestIncidentCursor | undefined;
+  limit: number;
+}
+
+export interface AdminListPestIncidentsResult {
+  items: AdminPestIncident[];
+  summary: AdminPestIncidentSummary;
+  next: AdminPestIncidentCursor | null;
+}
+
+export interface AdminPestIncidentPatch {
+  pestLibraryId?: string | null;
+  scientificName?: string | null;
+  status?: string;
+  resolvedAt?: 'NOW' | null;
+  resolutionEffective?: null;
+  adminRecommendedTreatment?: string | null;
+  adminReviewNote?: string | null;
+  reviewedBy: string;
+}
+
+// ---------------------------------------------------------------------------
 // repo
 // ---------------------------------------------------------------------------
 
@@ -490,6 +556,19 @@ export interface PestRepo {
   countDetectionsByMonth(db: Executor, farmId: string): Promise<MonthCount[]>;
   countDetectionsByCrop(db: Executor, farmId: string): Promise<CropCount[]>;
   tallyTreatmentEffectiveness(db: Executor, farmId: string): Promise<TreatmentTally[]>;
+
+  adminListIncidents(db: Executor, args: AdminListPestIncidentsArgs): Promise<AdminListPestIncidentsResult>;
+  adminFindIncidentById(db: Executor, farmerScope: ScopedWhere, id: string, forUpdate?: boolean): Promise<AdminPestIncident | null>;
+  adminListDetectionLogsAndReminders(
+    db: Executor,
+    detectionId: string,
+  ): Promise<{ treatmentLogs: PestTreatmentLog[]; reminders: PestTreatmentReminder[] }>;
+  adminUpdateIncident(
+    db: Executor,
+    farmerScope: ScopedWhere,
+    id: string,
+    patch: AdminPestIncidentPatch,
+  ): Promise<AdminPestIncident | null>;
 }
 
 export const pestRepo: PestRepo = {
@@ -813,5 +892,228 @@ export const pestRepo: PestRepo = {
       timesUsed: Number(row.times_used),
       timesEffective: Number(row.times_effective),
     }));
+  },
+
+  async adminListIncidents(db, args) {
+    const conditions: string[] = [`(${args.farmerScope.sql})`];
+    const params: unknown[] = [...args.farmerScope.params];
+
+    if (args.status !== undefined) {
+      params.push(args.status);
+      conditions.push(`d.status = $${params.length}`);
+    }
+    if (args.severity !== undefined) {
+      params.push(args.severity);
+      conditions.push(`d.severity = $${params.length}`);
+    }
+    if (args.zoneId !== undefined) {
+      params.push(args.zoneId);
+      conditions.push(`f.zone_id = $${params.length}::uuid`);
+    }
+    if (args.farmerId !== undefined) {
+      params.push(args.farmerId);
+      conditions.push(`f.id = $${params.length}::uuid`);
+    }
+    if (args.q !== undefined) {
+      params.push(`%${escapeLike(args.q)}%`);
+      const p = `$${params.length}`;
+      conditions.push(
+        `(d.pest_name ILIKE ${p} OR COALESCE(d.scientific_name, '') ILIKE ${p} OR COALESCE(d.crop_label, '') ILIKE ${p} OR u.full_name ILIKE ${p} OR f.tohfa_farmer_id ILIKE ${p})`,
+      );
+    }
+
+    const filterWhere = conditions.join(' AND ');
+    const filterParams = [...params];
+
+    if (args.cursor !== undefined) {
+      params.push(args.cursor.detectedOn, args.cursor.createdAt, args.cursor.id);
+      const n = params.length;
+      conditions.push(`(d.detected_on, d.created_at, d.id) < ($${n - 2}::date, $${n - 1}::timestamptz, $${n}::uuid)`);
+    }
+
+    params.push(args.limit + 1);
+
+    const fromJoin = `
+      FROM pest_detections d
+      JOIN plots pl ON pl.id = d.plot_id
+      JOIN farms fm ON fm.id = pl.farm_id
+      JOIN farmers f ON f.id = fm.farmer_id
+      JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+      LEFT JOIN zones z ON z.id = f.zone_id
+    `;
+
+    interface AdminRow extends PestDetectionRow {
+      farm_id: string;
+      farm_name: string;
+      plot_name: string;
+      farmer_id: string;
+      tohfa_farmer_id: string;
+      farmer_name: string;
+      zone_id: string | null;
+      zone_name: string | null;
+      admin_recommended_treatment: string | null;
+      admin_review_note: string | null;
+      reviewed_by: string | null;
+      reviewed_at: Date | null;
+      detected_on_text: string;
+      created_at_cursor: string;
+    }
+
+    const rowsRes = await db.query<AdminRow>(
+      `SELECT d.id, d.plot_id, d.farm_crop_id, d.pest_library_id, d.pest_name, d.scientific_name,
+              d.crop_label, d.severity, d.status, d.detected_on, d.notes, d.photo_upload_id,
+              d.resolved_at, d.resolution_effective, d.created_at, d.updated_at,
+              d.admin_recommended_treatment, d.admin_review_note, d.reviewed_by, d.reviewed_at,
+              d.detected_on::text AS detected_on_text,
+              to_char(d.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
+              fm.id AS farm_id, fm.name AS farm_name, pl.name AS plot_name,
+              f.id AS farmer_id, f.tohfa_farmer_id, u.full_name AS farmer_name,
+              f.zone_id, z.name AS zone_name
+         ${fromJoin}
+        WHERE ${conditions.join(' AND ')}
+        ORDER BY d.detected_on DESC, d.created_at DESC, d.id DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+
+    const summaryRes = await db.query<AdminPestIncidentSummary>(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE d.status = 'Ongoing')::int AS ongoing,
+              COUNT(*) FILTER (WHERE d.status = 'Recurring')::int AS recurring,
+              COUNT(*) FILTER (WHERE d.status = 'Resolved')::int AS resolved
+         ${fromJoin}
+        WHERE ${filterWhere}`,
+      filterParams,
+    );
+
+    const hasMore = rowsRes.rows.length > args.limit;
+    const rows = hasMore ? rowsRes.rows.slice(0, args.limit) : rowsRes.rows;
+    const last = rows[rows.length - 1];
+    const items: AdminPestIncident[] = rows.map((row) => ({
+      ...toPestDetection(row),
+      farmId: row.farm_id,
+      farmName: row.farm_name,
+      plotName: row.plot_name,
+      farmerId: row.farmer_id,
+      tohfaFarmerId: row.tohfa_farmer_id,
+      farmerName: row.farmer_name,
+      zoneId: row.zone_id,
+      zoneName: row.zone_name,
+      adminRecommendedTreatment: row.admin_recommended_treatment,
+      adminReviewNote: row.admin_review_note,
+      reviewedBy: row.reviewed_by,
+      reviewedAt: toIsoOrNull(row.reviewed_at),
+    }));
+
+    return {
+      items,
+      summary: summaryRes.rows[0] ?? { total: 0, ongoing: 0, recurring: 0, resolved: 0 },
+      next:
+        hasMore && last !== undefined
+          ? { detectedOn: last.detected_on_text, createdAt: last.created_at_cursor, id: last.id }
+          : null,
+    };
+  },
+
+  async adminFindIncidentById(db, farmerScope, id, forUpdate = false) {
+    const res = await db.query<
+      PestDetectionRow & {
+        farm_id: string;
+        farm_name: string;
+        plot_name: string;
+        farmer_id: string;
+        tohfa_farmer_id: string;
+        farmer_name: string;
+        zone_id: string | null;
+        zone_name: string | null;
+        admin_recommended_treatment: string | null;
+        admin_review_note: string | null;
+        reviewed_by: string | null;
+        reviewed_at: Date | null;
+      }
+    >(
+      `SELECT d.id, d.plot_id, d.farm_crop_id, d.pest_library_id, d.pest_name, d.scientific_name,
+              d.crop_label, d.severity, d.status, d.detected_on, d.notes, d.photo_upload_id,
+              d.resolved_at, d.resolution_effective, d.created_at, d.updated_at,
+              d.admin_recommended_treatment, d.admin_review_note, d.reviewed_by, d.reviewed_at,
+              fm.id AS farm_id, fm.name AS farm_name, pl.name AS plot_name,
+              f.id AS farmer_id, f.tohfa_farmer_id, u.full_name AS farmer_name,
+              f.zone_id, z.name AS zone_name
+         FROM pest_detections d
+         JOIN plots pl ON pl.id = d.plot_id
+         JOIN farms fm ON fm.id = pl.farm_id
+         JOIN farmers f ON f.id = fm.farmer_id
+         JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+         LEFT JOIN zones z ON z.id = f.zone_id
+        WHERE (${farmerScope.sql}) AND d.id = $${farmerScope.nextIndex}::uuid
+        ${forUpdate ? 'FOR UPDATE OF d' : ''}
+        LIMIT 1`,
+      [...farmerScope.params, id],
+    );
+    const row = res.rows[0];
+    if (row === undefined) return null;
+    return {
+      ...toPestDetection(row),
+      farmId: row.farm_id,
+      farmName: row.farm_name,
+      plotName: row.plot_name,
+      farmerId: row.farmer_id,
+      tohfaFarmerId: row.tohfa_farmer_id,
+      farmerName: row.farmer_name,
+      zoneId: row.zone_id,
+      zoneName: row.zone_name,
+      adminRecommendedTreatment: row.admin_recommended_treatment,
+      adminReviewNote: row.admin_review_note,
+      reviewedBy: row.reviewed_by,
+      reviewedAt: toIsoOrNull(row.reviewed_at),
+    };
+  },
+
+  async adminListDetectionLogsAndReminders(db, detectionId) {
+    const [logsRes, remRes] = await Promise.all([
+      db.query<PestTreatmentLogRow>(
+        `SELECT ${PEST_TREATMENT_LOG_COLUMNS} FROM pest_treatment_logs
+          WHERE detection_id = $1 ORDER BY applied_on DESC, created_at DESC`,
+        [detectionId],
+      ),
+      db.query<PestTreatmentReminderRow>(
+        `SELECT ${PEST_TREATMENT_REMINDER_COLUMNS} FROM pest_treatment_reminders
+          WHERE detection_id = $1 ORDER BY due_date ASC, created_at DESC`,
+        [detectionId],
+      ),
+    ]);
+    return {
+      treatmentLogs: logsRes.rows.map(toPestTreatmentLog),
+      reminders: remRes.rows.map(toPestTreatmentReminder),
+    };
+  },
+
+  async adminUpdateIncident(db, farmerScope, id, patch) {
+    const setClauses: string[] = ['updated_at = now()', 'reviewed_at = now()'];
+    const values: unknown[] = [id];
+    const addField = (col: string, value: unknown) => {
+      values.push(value);
+      setClauses.push(`${col} = $${values.length}`);
+    };
+    addField('reviewed_by', patch.reviewedBy);
+    if (patch.pestLibraryId !== undefined) addField('pest_library_id', patch.pestLibraryId);
+    if (patch.scientificName !== undefined) addField('scientific_name', patch.scientificName);
+    if (patch.status !== undefined) addField('status', patch.status);
+    if (patch.resolvedAt === 'NOW') setClauses.push('resolved_at = now()');
+    if (patch.resolvedAt === null) setClauses.push('resolved_at = NULL');
+    if (patch.resolutionEffective === null) setClauses.push('resolution_effective = NULL');
+    if (patch.adminRecommendedTreatment !== undefined) {
+      addField('admin_recommended_treatment', patch.adminRecommendedTreatment);
+    }
+    if (patch.adminReviewNote !== undefined) {
+      addField('admin_review_note', patch.adminReviewNote);
+    }
+
+    const updated = await db.query<{ id: string }>(
+      `UPDATE pest_detections SET ${setClauses.join(', ')} WHERE id = $1 RETURNING id`,
+      values,
+    );
+    if (updated.rows.length === 0) return null;
+    return pestRepo.adminFindIncidentById(db, farmerScope, id);
   },
 };

@@ -925,7 +925,7 @@ export default function App(): React.JSX.Element {
   // CustomerMainApp mounts its own provider below; the nearest one wins.
   // (Children left at their old indentation to keep this diff reviewable.)
   return (
-    <FarmerFontProvider enabled={isFarmerFontScreen(screen)}>
+    <FarmerFontProvider enabled={isFarmerFontScreen(screen) || (!isCustomerScreen && screen !== 'Unsupported')}>
     <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
     <View

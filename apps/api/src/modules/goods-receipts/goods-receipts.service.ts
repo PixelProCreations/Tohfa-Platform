@@ -295,7 +295,8 @@ export function createGoodsReceiptsService(
 
       // One transaction for the claim, the receipt and its audit row (BR-35): a refused or failed
       // request leaves no claim and no row, and a replay returns before anything is written.
-      return runTx(async (tx) => {
+      let farmerIdToNotify: string | null = null;
+      const response = await runTx(async (tx) => {
         const idem = await beginIdempotent<GoodsReceiptResponse>(idempotency, tx, {
           actorUserId: actor.userId,
           key,
@@ -377,8 +378,29 @@ export function createGoodsReceiptsService(
           packageUnit: grnRow.package_unit ?? null,
         };
         await idem.complete(response);
+        farmerIdToNotify = po.farmerId;
         return response;
       });
+      if (farmerIdToNotify !== null) {
+        try {
+          const farmerUser = await pool.query<{ user_id: string }>(
+            `SELECT user_id FROM farmers WHERE id = $1 LIMIT 1`,
+            [farmerIdToNotify],
+          );
+          const userId = farmerUser.rows[0]?.user_id;
+          if (userId) {
+            await eventBus.publish('goods.received', {
+              userId,
+              grnNumber: response.grnNumber,
+              produceName: response.cropName ?? 'Produce',
+              quantityKg: Number(response.grossQtyKg),
+            });
+          }
+        } catch {
+          // Never fail GRN creation if notification/event lookup fails
+        }
+      }
+      return response;
     },
 
     async recordQualityCheck(
@@ -401,7 +423,7 @@ export function createGoodsReceiptsService(
           operation: OPERATION.qualityCheck,
           request: { goodsReceiptId, body: input },
         });
-        if (idem.replay) return idem.response;
+        if (idem.replay) return { replayed: true as const, response: idem.response };
 
         // 1. Fetch GRN with warehouse scoping (BR-30b: cross-warehouse is 404)
         const grn = await repo.findGoodsReceiptById(tx, goodsReceiptId, confineToAssignedWarehouses(scope));
@@ -879,7 +901,7 @@ export function createGoodsReceiptsService(
           operation: OPERATION.discrepancy,
           request: { goodsReceiptId, body: report },
         });
-        if (idem.replay) return idem.response;
+        if (idem.replay) return { replayed: true as const, response: idem.response };
 
         // BR-30b: another warehouse's receipt is the same 404 as an unknown one, before any write.
         const grn = await repo.findGoodsReceiptById(tx, goodsReceiptId, confineToAssignedWarehouses(scope));

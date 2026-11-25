@@ -721,6 +721,21 @@
       "source": "BR-36 (own-data ownership); new pest management tables (db/migrations/0023_pest_management.sql) introduced for requirements FR-F07"
     },
     {
+      "code": "farmer.pest.review",
+      "module": "Pest Management",
+      "description": "View and triage farmer-reported pest/disease incidents, attach a catalog match or recommended treatment, and update incident status (BR-223).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "own",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "BR-223 (Brief 08 item 5.2): admin pest incident review across assigned zones"
+    },
+    {
       "code": "pest_library.view",
       "module": "Pest Management",
       "description": "Read access to the pest/disease reference library and region-scoped weather risk notes.",
@@ -749,6 +764,21 @@
         "CUSTOMER": "none"
       },
       "source": "BR-36 (own-data ownership), BR-41 (workforce pay computed never stored); new workforce tables (db/migrations/0025_workforce.sql) introduced for the Farm Workforce feature (worker roster, daily attendance, payroll)"
+    },
+    {
+      "code": "farmer.farm_records.manage",
+      "module": "Farmers Management",
+      "description": "Create, update, or delete farmer farm records (diary, crops, livestock, farm assets) on behalf of a farmer.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "own",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-11-25 (D5/D6): SA, TA (all) and FARMER_ADMIN (own zone) can manage farmer farm records on behalf; separate from farmer.*_own"
     },
     {
       "code": "certification.view",
@@ -876,14 +906,14 @@
       "description": "Extend or waive a farmer subscription.",
       "grants": {
         "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "none",
+        "TOHFA_ADMIN": "all",
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "none",
         "SUB_WH_ADMIN": "none",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §2 — SA only"
+      "source": "matrix §2 — updated by owner decision 2026-11-25 (D9): Super Admin and TOHFA Admin"
     },
     {
       "code": "farmer.subscription.view_tier_limits",
@@ -1396,6 +1426,21 @@
       "source": "matrix §3"
     },
     {
+      "code": "inputs.catalog.view",
+      "module": "Inputs & Pest Management",
+      "description": "View the approved inputs catalogue (farmers see only APPROVED items; admins see all statuses).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "view",
+        "MAIN_WH_ADMIN": "view",
+        "SUB_WH_ADMIN": "view",
+        "FARMER": "view",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-11-25 (D11): admins manage via inputs.catalog.manage; farmers/admins read approved catalog"
+    },
+    {
       "code": "inputs.catalog.manage",
       "module": "Inputs & Pest Management",
       "description": "Add, edit, categorise or discontinue approved inputs.",
@@ -1563,17 +1608,17 @@
     {
       "code": "listing.queue.view_pending",
       "module": "Market & Pricing",
-      "description": "View the pending listings approval queue.",
+      "description": "View the listings approval queue and admin listing details.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
-        "FARMER_ADMIN": "all",
+        "FARMER_ADMIN": "own",
         "MAIN_WH_ADMIN": "view",
         "SUB_WH_ADMIN": "view",
         "FARMER": "none",
         "CUSTOMER": "none"
       },
-      "source": "matrix §5"
+      "source": "matrix §5 — updated by owner decision 2026-11-25 (D1): FARMER_ADMIN scoped to own zone only"
     },
     {
       "code": "listing.approve",
@@ -2464,6 +2509,21 @@
       "source": "reqs FR-C04"
     },
     {
+      "code": "order.cancel_own",
+      "module": "Customer Orders",
+      "description": "Cancel the caller's own CONFIRMED order before packing (BR-241).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "Brief 11 GAP 5 (2026-11-25): customer-initiated order cancellation"
+    },
+    {
       "code": "order.view_own",
       "module": "Sales Management",
       "description": "View own orders, tracking timeline and live order events.",
@@ -3109,6 +3169,21 @@
       "source": "matrix §11"
     },
     {
+      "code": "payout.reject",
+      "module": "Accounts & Finance",
+      "description": "Reject a pending farmer payout and release linked payout dues.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-11-25 (D2): implementer default SA-only aligned with payout.approve_above_10k — UNCONFIRMED"
+    },
+    {
       "code": "payment.method.configure",
       "module": "Accounts & Finance",
       "description": "Configure available payment methods.",
@@ -3455,6 +3530,21 @@
       },
       "predicate": "OWN_ZONE_ONLY",
       "source": "Batch 10 Zones Priority 1"
+    },
+    {
+      "code": "zone.manage",
+      "module": "Farmer Management",
+      "description": "Create, update, deactivate zones and bulk-transfer farmers between active zones.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-11-25 (D10): implementer default SA + TOHFA Admin aligned with BR-113 zone assignment — UNCONFIRMED"
     },
     {
       "code": "admin.main_wh_admin.create",

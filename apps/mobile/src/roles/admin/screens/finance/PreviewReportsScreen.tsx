@@ -1,15 +1,15 @@
 import React, { useState, useRef } from 'react';
 import {
   Alert,
-  GestureResponderEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  type GestureResponderEvent,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 

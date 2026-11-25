@@ -39,6 +39,7 @@ import type {
   AdminApproveListingBody,
   AdminRejectListingBody,
   CounterOfferCreateBody,
+  ListAdminQueueQuery,
 } from './counter-offers.schema.js';
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
@@ -919,6 +920,45 @@ export class CounterOffersService {
     let offersLapsed = 0;
     let listingsReverted = 0;
 
+    // BR-245 (GAP 2b): Notify farmers once when a PENDING admin counter-offer is within 4h of expiry.
+    try {
+      const expiringRes = await this.dbPool.query<{
+        offer_id: string;
+        listing_id: string;
+        owner_user_id: string;
+        expires_at: Date;
+      }>(
+        `SELECT co.id AS offer_id, co.listing_id, f.user_id AS owner_user_id, co.expires_at
+           FROM counter_offers co
+           JOIN produce_listings pl ON pl.id = co.listing_id
+           JOIN farmers f ON f.id = pl.farmer_id
+          WHERE co.status = 'PENDING'
+            AND co.offered_by = 'ADMIN'
+            AND co.expires_at > now()
+            AND co.expires_at <= now() + interval '4 hours'
+            AND NOT EXISTS (
+              SELECT 1 FROM notifications n
+               WHERE n.user_id = f.user_id
+                 AND n.dedupe_key = 'co-expiring-' || co.id::text
+            )
+          LIMIT $1`,
+        [SWEEP_BATCH],
+      );
+      for (const row of expiringRes.rows) {
+        const hoursRemaining = Math.max(
+          1,
+          Math.ceil((row.expires_at.getTime() - Date.now()) / (60 * 60 * 1000)),
+        );
+        await eventBus.publish('counter_offer.expiring', {
+          userId: row.owner_user_id,
+          listingId: row.listing_id,
+          hoursRemaining,
+        });
+      }
+    } catch {
+      // Never block expiry sweep if reminder query fails
+    }
+
     for (const offer of expired) {
       await this.runTx(async (tx) => {
         const lapsed = await this.repo.transitionOfferStatus(tx, offer.id, 'LAPSED', null);
@@ -952,6 +992,20 @@ export class CounterOffersService {
     }
 
     return { scanned: expired.length, offersLapsed, listingsReverted };
+  }
+
+  /** D1: Zone-scoped admin queue listing read. */
+  async listAdminQueue(scope: ResolvedScope, query: ListAdminQueueQuery) {
+    return this.repo.listAdminQueue(this.dbPool, query, scope);
+  }
+
+  /** D1: Zone-scoped admin single listing detail (returns 404 when out of zone or missing). */
+  async getAdminListing(scope: ResolvedScope, id: string) {
+    const item = await this.repo.findAdminQueueItemById(this.dbPool, id, scope);
+    if (!item) {
+      throw new AppError('NOT_FOUND', { detail: `Listing ${id} was not found.` });
+    }
+    return item;
   }
 }
 

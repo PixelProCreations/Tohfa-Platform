@@ -25,6 +25,7 @@ export interface LatestRatingRow {
   sourceAuditId: string | null;
   ratedBy?: string | null;
   ratedByName?: string | null;
+  editReason?: string | null;
 }
 
 export interface RatingScoreInput {
@@ -44,6 +45,19 @@ export interface CreateAuditRatingData {
   tierCode: string | null;
   ratedBy: string;
   sourceAuditId: string;
+}
+
+/** A manual rating cycle written by admin (D7 / 2026-11-25). */
+export interface CreateManualRatingData {
+  farmerId: string;
+  farmId: string | null;
+  zoneId: string | null;
+  periodLabel: string;
+  totalScore: number;
+  tierCode: string | null;
+  ratedBy: string;
+  editReason: string;
+  notes: string | null;
 }
 
 export interface FarmRatingsRepo {
@@ -77,6 +91,10 @@ export interface FarmRatingsRepo {
   insertAuditRating(tx: Executor, data: CreateAuditRatingData): Promise<string>;
 
   /** Plain INSERT of the cycle's category scores (one row per category). */
+  /** Inserts a new COMPLETE manual rating cycle with edit_reason (D7). */
+  insertManualRating?(tx: Executor, data: CreateManualRatingData): Promise<string>;
+
+  /** Inserts scores in farm_rating_scores for a newly created cycle. */
   insertScores(tx: Executor, ratingId: string, scores: RatingScoreInput[]): Promise<void>;
 
   /** Farmer-facing read cache (farmers.overall_rating / rating_tier_code),
@@ -164,9 +182,10 @@ export const farmRatingsRepo: FarmRatingsRepo = {
       source_audit_id: string | null;
       rated_by: string | null;
       rated_by_name: string | null;
+      edit_reason: string | null;
     }>(
       `SELECT fr.id, fr.period_label, fr.status, fr.total_score::text AS total_score, fr.tier_code, fr.rated_at, fr.source_audit_id,
-              fr.rated_by, u.full_name AS rated_by_name
+              fr.rated_by, u.full_name AS rated_by_name, fr.edit_reason
          FROM farm_ratings fr
     LEFT JOIN users u ON u.id = fr.rated_by
         WHERE fr.farmer_id = $1
@@ -186,6 +205,7 @@ export const farmRatingsRepo: FarmRatingsRepo = {
       sourceAuditId: row.source_audit_id,
       ratedBy: row.rated_by,
       ratedByName: row.rated_by_name,
+      editReason: row.edit_reason,
     };
   },
 
@@ -221,6 +241,28 @@ export const farmRatingsRepo: FarmRatingsRepo = {
         data.tierCode,
         data.ratedBy,
         data.sourceAuditId,
+      ],
+    );
+    return result.rows[0]!.id;
+  },
+
+  async insertManualRating(tx, data) {
+    const result = await tx.query<{ id: string }>(
+      `INSERT INTO farm_ratings
+         (farmer_id, farm_id, zone_id, period_label, status, total_score, tier_code,
+          rated_by, rated_at, source_audit_id, edit_reason, notes, created_at)
+       VALUES ($1, $2, $3, $4, 'COMPLETE', $5, $6, $7, now(), NULL, $8, $9, clock_timestamp())
+       RETURNING id`,
+      [
+        data.farmerId,
+        data.farmId,
+        data.zoneId,
+        data.periodLabel,
+        data.totalScore,
+        data.tierCode,
+        data.ratedBy,
+        data.editReason,
+        data.notes,
       ],
     );
     return result.rows[0]!.id;

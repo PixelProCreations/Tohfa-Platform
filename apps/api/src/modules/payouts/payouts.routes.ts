@@ -7,7 +7,10 @@ import { requirePermission } from '../../rbac/requirePermission.js';
 import {
   payoutDuesQuerySchema,
   createPayoutSchema,
+  bulkCreatePayoutsSchema,
   approvePayoutSchema,
+  rejectPayoutSchema,
+  intimatePayoutSchema,
   exportPayoutsQuerySchema,
   listPayoutsQuerySchema,
   payoutIdParamSchema,
@@ -121,6 +124,30 @@ payoutsRouter.post(
 );
 
 // ---------------------------------------------------------------------------
+// POST /admin/payouts/bulk  (D4 / BR-236)
+// ---------------------------------------------------------------------------
+
+payoutsRouter.post(
+  '/bulk',
+  requireAuth,
+  requirePermission('payout.farmer.initiate'),
+  validate({ body: bulkCreatePayoutsSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const body = getValidated(req, 'body', bulkCreatePayoutsSchema);
+    const idempotencyKey = req.header('idempotency-key');
+
+    const result = await payoutsService.createBulkPayouts(
+      actor,
+      req.scope!,
+      body,
+      idempotencyKey,
+    );
+    res.status(201).json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
 // POST /admin/payouts/{id}/approve
 // ---------------------------------------------------------------------------
 
@@ -141,6 +168,56 @@ payoutsRouter.post(
       params.id,
       body,
       idempotencyKey,
+    );
+    res.status(200).json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// POST /admin/payouts/{id}/reject  (D2 / BR-234)
+// ---------------------------------------------------------------------------
+
+payoutsRouter.post(
+  '/:id/reject',
+  requireAuth,
+  requirePermission('payout.reject'),
+  validate({ params: idParamSchema, body: rejectPayoutSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', idParamSchema);
+    const body = getValidated(req, 'body', rejectPayoutSchema);
+    const idempotencyKey = req.header('idempotency-key');
+
+    const result = await payoutsService.rejectPayout(
+      actor,
+      req.scope!,
+      params.id,
+      body,
+      idempotencyKey,
+    );
+    res.status(200).json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// POST /admin/payouts/{id}/intimate  (D3 / BR-235)
+// ---------------------------------------------------------------------------
+
+payoutsRouter.post(
+  '/:id/intimate',
+  requireAuth,
+  requirePermission('payout.farmer.initiate'),
+  validate({ params: payoutIdParamSchema, body: intimatePayoutSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', payoutIdParamSchema);
+    const body = getValidated(req, 'body', intimatePayoutSchema);
+
+    const result = await payoutsService.intimatePayout(
+      actor,
+      req.scope!,
+      params.id,
+      body,
     );
     res.status(200).json(result);
   }),

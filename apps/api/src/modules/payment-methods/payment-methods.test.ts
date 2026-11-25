@@ -3,7 +3,7 @@ import request from 'supertest';
 import { createApp } from '../../app.js';
 import { RoleCode } from '@tohfa/shared-types';
 import { signAccessToken } from '../../auth/jwt.js';
-import { IDS, newId } from '../../test/factories.js';
+import { IDS } from '../../test/factories.js';
 import { pool } from '../../db/pool.js';
 
 describe('BR-171: payment methods CRUD (admin)', () => {

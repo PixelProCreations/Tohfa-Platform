@@ -17,6 +17,7 @@ import {
   snoozeAlertBody,
   taskItemKeyParam,
   taskSummaryQuery,
+  updateAlertThresholdsBody,
 } from './tasks-alerts.schema.js';
 import { tasksAlertsService } from './tasks-alerts.service.js';
 
@@ -51,6 +52,27 @@ tasksAlertsRouter.post(
   asyncHandler(async (req, res) => {
     const { itemKey } = getValidated(req, 'params', taskItemKeyParam);
     res.json(await tasksAlertsService.markTaskDone(requireScope(req.scope), itemKey));
+  }),
+);
+
+tasksAlertsRouter.get(
+  '/alerts/thresholds',
+  requireAuth,
+  requirePermission('alert.threshold.configure'),
+  asyncHandler(async (req, res) => {
+    res.json(await tasksAlertsService.getAlertThresholdConfig(requireScope(req.scope)));
+  }),
+);
+
+tasksAlertsRouter.patch(
+  '/alerts/thresholds',
+  requireAuth,
+  requirePermission('alert.threshold.configure'),
+  validate({ body: updateAlertThresholdsBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const body = getValidated(req, 'body', updateAlertThresholdsBody);
+    res.json(await tasksAlertsService.updateAlertThresholds(scope, body));
   }),
 );
 

@@ -20,10 +20,20 @@ import { requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
-import { createCropMasterBody, cropMasterIdParams, updateCropMasterBody } from './crops.schema.js';
-import { cropTaxonomyAdminService } from './crops.service.js';
+import {
+  adminFarmerCropParams,
+  adminFarmerPlotCropsParams,
+  createCropMasterBody,
+  createFarmCropBody,
+  cropMasterIdParams,
+  listFarmCropsQuery,
+  updateCropMasterBody,
+  updateFarmCropBody,
+} from './crops.schema.js';
+import { adminFarmerCropsService, cropTaxonomyAdminService } from './crops.service.js';
 
 export const adminCropMasterRouter: Router = Router();
+export const adminFarmerCropsRouter: Router = Router();
 
 const MANAGE = 'admin.crop_taxonomy.manage';
 
@@ -62,5 +72,47 @@ adminCropMasterRouter.patch(
     const { id } = getValidated(req, 'params', cropMasterIdParams);
     const body = getValidated(req, 'body', updateCropMasterBody);
     res.json(await cropTaxonomyAdminService.update(scope, id, body));
+  }),
+);
+
+// GET /v1/admin/farmers/:farmerId/plots/:plotId/crops
+adminFarmerCropsRouter.get(
+  '/:farmerId/plots/:plotId/crops',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerPlotCropsParams, query: listFarmCropsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, plotId } = getValidated(req, 'params', adminFarmerPlotCropsParams);
+    const query = getValidated(req, 'query', listFarmCropsQuery);
+    res.json(await adminFarmerCropsService.listFarmCrops(scope, farmerId, plotId, query));
+  }),
+);
+
+// POST /v1/admin/farmers/:farmerId/plots/:plotId/crops
+adminFarmerCropsRouter.post(
+  '/:farmerId/plots/:plotId/crops',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerPlotCropsParams, body: createFarmCropBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, plotId } = getValidated(req, 'params', adminFarmerPlotCropsParams);
+    const body = getValidated(req, 'body', createFarmCropBody);
+    res.status(201).json(await adminFarmerCropsService.createFarmCrop(scope, farmerId, plotId, body));
+  }),
+);
+
+// PATCH /v1/admin/farmers/:farmerId/crops/:farmCropId
+adminFarmerCropsRouter.patch(
+  '/:farmerId/crops/:farmCropId',
+  requireAuth,
+  requirePermission('farmer.farm_records.manage'),
+  validate({ params: adminFarmerCropParams, body: updateFarmCropBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { farmerId, farmCropId } = getValidated(req, 'params', adminFarmerCropParams);
+    const body = getValidated(req, 'body', updateFarmCropBody);
+    res.json(await adminFarmerCropsService.updateFarmCrop(scope, farmerId, farmCropId, body));
   }),
 );

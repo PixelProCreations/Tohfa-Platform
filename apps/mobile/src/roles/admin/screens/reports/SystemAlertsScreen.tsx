@@ -13,7 +13,6 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { useAdminQuery } from '../../api/hooks';
 import { listAlerts, dismissAlert } from '../../api/alerts';
 import { t } from '../../i18n';
-import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 const PALETTE = {
@@ -54,8 +53,8 @@ export interface SystemAlertsScreenProps {
 export function SystemAlertsScreen({
   onBack,
   onNavigateToStock,
-  onNavigateToPayouts,
-  onNavigateToCert,
+  onNavigateToPayouts: _onNavigateToPayouts,
+  onNavigateToCert: _onNavigateToCert,
 }: SystemAlertsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [isConfiguring, setIsConfiguring] = useState(false);

@@ -17,7 +17,7 @@ import {
 } from '../../theme';
 import { t } from '../../i18n';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
-import { BackChevronIcon, SALES_PALETTE } from './SalesChannelOverviewScreen';
+import { BackChevronIcon } from './SalesChannelOverviewScreen';
 import { useAdminQuery } from '../../api/hooks';
 import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';

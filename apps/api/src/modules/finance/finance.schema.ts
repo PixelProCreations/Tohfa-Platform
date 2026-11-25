@@ -109,7 +109,11 @@ export type ListRevenueQuery = z.infer<typeof listRevenueQuery>;
 // GET /v1/admin/finance/reports/{revenue,expenses}
 // ---------------------------------------------------------------------------
 export const reportQuery = z
-  .object({ from: isoDate, to: isoDate })
+  .object({
+    from: isoDate,
+    to: isoDate,
+    warehouseId: z.string().uuid('warehouseId must be a UUID').optional(),
+  })
   .strict()
   // The span cap is system_config.finance_report_max_range_days, enforced by the service.
   .refine(dateRange, DATE_RANGE_MESSAGE);

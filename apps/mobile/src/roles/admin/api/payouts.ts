@@ -2,9 +2,16 @@
  * Farmer payouts (docs/openapi.yaml tag "Payouts & Invoices"):
  *   GET  /admin/payouts               payout.view                (BR-72; cursor paged)
  *   POST /admin/payouts/{id}/approve  payout.approve_above_10k   (BR-31, BR-72; Idempotency-Key)
+ *   POST /admin/payouts/{id}/reject   payout.reject              (BR-228; reason 5-500 chars; Idempotency-Key)
+ *   POST /admin/payouts/{id}/intimate payout.farmer.initiate     (BR-229; no key; APPROVED/PROCESSING/PAID only)
+ *   POST /admin/payouts/bulk          payout.farmer.initiate     (BR-230; Idempotency-Key; atomic, 1-50 items)
  *
- * There is NO reject / return endpoint for a payout in the spec, so this module
- * has no such function and no screen may claim a payout was rejected.
+ * Reject needs an Idempotency-Key (the server answers 422 without one, BR-228)
+ * and only accepts a REQUESTED or PENDING_APPROVAL payout (else 409
+ * INVALID_STATE_TRANSITION). Intimate answers a `PayoutIntimateResponse`, not a
+ * `Payout`. Bulk is all-or-nothing: one failing item fails the whole batch, so
+ * there is no per-item created/skipped/failed result. A screen may claim an
+ * outcome only from the server's answer.
  *
  * Approve: the initiator may never approve (403 SAME_ACTOR_APPROVAL), above
  * INR 10,000 the second approver must be a Super Admin (BR-31), a second
@@ -28,7 +35,7 @@ import { bodyFingerprint } from './hookHelpers';
 import { adminGet, adminPost } from './http';
 
 /** openapi `PayoutStatus`. */
-export type PayoutStatus = 'REQUESTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'REVERSED';
+export type PayoutStatus = 'REQUESTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'PROCESSING' | 'PAID' | 'FAILED' | 'REVERSED' | 'REJECTED';
 
 /** The statuses GET /admin/payouts accepts as a filter. */
 export type PayoutListStatus = 'REQUESTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'PAID' | 'FAILED';
@@ -106,4 +113,81 @@ export function listPayouts(params: ListPayoutsParams = {}, signal?: AbortSignal
 /** Records the caller's approval. 403 SAME_ACTOR_APPROVAL / FORBIDDEN, 404, 409 INVALID_STATE_TRANSITION / IDEMPOTENCY_KEY_REUSED, 422. */
 export function approvePayout(payoutId: string, body: ApprovePayoutBody, idempotencyKey: string, signal?: AbortSignal): Promise<PayoutDto> {
   return adminPost<PayoutDto>(`/admin/payouts/${encodeURIComponent(payoutId)}/approve`, body, { idempotencyKey, signal });
+}
+
+/** POST .../reject body: `reason` is required, 5-500 characters (openapi PayoutRejectRequest). */
+export interface RejectPayoutBody {
+  reason: string;
+}
+
+/** API validation limits of the rejection reason (openapi), not business thresholds. */
+export const REJECT_REASON_MIN = 5;
+export const REJECT_REASON_MAX = 500;
+
+/** Keys one rejection by (payout, reason), so a retry of the same press replays the same Idempotency-Key. */
+export function payoutRejectFingerprint(payoutId: string, body: RejectPayoutBody): string {
+  return bodyFingerprint({ payoutId, reject: true, body });
+}
+
+/** Rejects a REQUESTED / PENDING_APPROVAL payout (BR-228). Idempotency-Key required. 404, 409 INVALID_STATE_TRANSITION, 422. */
+export function rejectPayout(payoutId: string, body: RejectPayoutBody, idempotencyKey: string, signal?: AbortSignal): Promise<PayoutDto> {
+  return adminPost<PayoutDto>(`/admin/payouts/${encodeURIComponent(payoutId)}/reject`, body, { idempotencyKey, signal });
+}
+
+/** POST .../intimate body (optional note, max 500). */
+export interface IntimatePayoutBody {
+  note?: string | undefined;
+}
+
+/** openapi `PayoutIntimateResponse`. */
+export interface PayoutIntimateResult {
+  payoutId: string;
+  payoutNumber: string;
+  farmerId: string;
+  status: PayoutStatus;
+  intimatedAt: string;
+  intimatedBy: string;
+  note: string | null;
+}
+
+/** Notifies the farmer about an APPROVED / PROCESSING / PAID payout (BR-229). No money moves, so no Idempotency-Key. 404, 409. */
+export function intimatePayout(payoutId: string, body: IntimatePayoutBody, signal?: AbortSignal): Promise<PayoutIntimateResult> {
+  return adminPost<PayoutIntimateResult>(`/admin/payouts/${encodeURIComponent(payoutId)}/intimate`, body, { signal });
+}
+
+export type PayoutMode = 'UPI' | 'IMPS' | 'NEFT';
+
+/** openapi `PayoutCreate`, one item of a bulk request. */
+export interface BulkPayoutItemInput {
+  farmerId: string;
+  /** API decimal string. */
+  amount: Money;
+  mode: PayoutMode;
+  bankAccountId?: string | undefined;
+  /** The payout dues this payout pays (GET /admin/payout-dues ids). */
+  dueIds?: string[] | undefined;
+  remarks?: string | undefined;
+}
+
+/** openapi `BulkPayoutCreateRequest`: 1-50 items, validated and created atomically. */
+export interface BulkPayoutsBody {
+  items: BulkPayoutItemInput[];
+}
+
+/** openapi `BulkPayoutCreateResponse`. */
+export interface BulkPayoutsResult {
+  batchId: string;
+  createdCount: number;
+  totalAmount: Money;
+  items: PayoutDto[];
+}
+
+/** Keys one bulk run by its items, so a retry replays the same Idempotency-Key. */
+export function bulkPayoutFingerprint(body: BulkPayoutsBody): string {
+  return bodyFingerprint({ bulk: true, body });
+}
+
+/** Creates up to 50 payouts atomically (BR-230). Money-moving: Idempotency-Key required. */
+export function createBulkPayouts(body: BulkPayoutsBody, idempotencyKey: string, signal?: AbortSignal): Promise<BulkPayoutsResult> {
+  return adminPost<BulkPayoutsResult>('/admin/payouts/bulk', body, { idempotencyKey, signal });
 }

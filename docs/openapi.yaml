@@ -117,11 +117,11 @@ tags:
     description: Farmer self-service profile and PGS/NPOP certification lifecycle.
   - name: Farm Rating
     description: |
-      The 10-category, 0-100 farm rating (BR-06), READ-ONLY over HTTP. Since the
-      2026-10-01 product decision a rating is created only by completing an INTERNAL
-      audit (`POST /admin/audits/{id}/complete`); there is no manual rating write.
-      Admin review and the farmer's own view both read the newest rating; older
-      ratings are kept as history.
+      The 10-category, 0-100 farm rating (BR-06). A rating is created by completing an
+      INTERNAL audit (`POST /admin/audits/{id}/complete`) or via an audited manual
+      adjustment (`PUT /admin/farmers/{id}/rating`, BR-06e, restricted to SUPER_ADMIN
+      and TOHFA_ADMIN with mandatory reason). Admin review and the farmer's own view
+      both read the newest rating; older ratings are kept as history.
   - name: Audits
     description: |
       Quarterly farm audits (BR-03: four per farmer per April-March fiscal year, one
@@ -4645,6 +4645,91 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/pest-incidents:
+    get:
+      tags: [Pest Management]
+      operationId: listAdminPestIncidents
+      summary: List farmer-reported pest incidents (zone-scoped)
+      description: |
+        Lists pest/disease detections across farmers, filtered and keyset-paginated (BR-223).
+        A Farmer Admin sees incidents for farmers in their assigned zones only;
+        SUPER_ADMIN and TOHFA_ADMIN see all incidents.
+      x-permission: farmer.pest.review
+      x-business-rules: [BR-36, BR-223]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [Ongoing, Resolved, Recurring] } }
+        - { name: severity, in: query, schema: { type: string, enum: [High, Medium, Low] } }
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+        - { name: farmerId, in: query, schema: { type: string, format: uuid } }
+        - { name: q, in: query, schema: { type: string, minLength: 1, maxLength: 120 } }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged admin pest incident queue with summary counts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, summary, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdminPestIncident' }
+                  summary: { $ref: '#/components/schemas/AdminPestIncidentSummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/pest-incidents/{detectionId}:
+    get:
+      tags: [Pest Management]
+      operationId: getAdminPestIncident
+      summary: Get an admin pest incident detail
+      description: Returns detection detail with farmer/zone context and linked treatment logs and reminders (BR-223). Out-of-zone or unknown detections return 404.
+      x-permission: farmer.pest.review
+      x-business-rules: [BR-36, BR-223]
+      parameters:
+        - { name: detectionId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Pest incident detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPestIncidentDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Pest Management]
+      operationId: reviewAdminPestIncident
+      summary: Triage and review a farmer pest incident
+      description: Links a catalog pestLibraryId, records adminRecommendedTreatment and adminReviewNote, or updates incident status (BR-35, BR-223). Writes an audit_log entry in the same transaction.
+      x-permission: farmer.pest.review
+      x-business-rules: [BR-35, BR-36, BR-223]
+      parameters:
+        - { name: detectionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminPestIncidentUpdate' }
+      responses:
+        '200':
+          description: Updated pest incident.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPestIncident' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farms/{farmId}/plots/{plotId}/pest-treatment-logs:
     get:
       tags: [Pest Management]
@@ -6098,6 +6183,258 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/farmers/{id}/subscription/extend:
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: extendAdminFarmerSubscription
+      summary: Extend a farmer's subscription period (admin)
+      description: |
+        Extends the active (or latest) subscription period by `months` or to an explicit
+        `periodEnd` date (`YYYY-MM-DD`). Requires a mandatory `reason` (min 3 chars) and writes
+        an `audit_log` row (`farmer.subscription.extend`) in the same transaction (BR-233).
+      x-permission: farmer.subscription.extend_waive
+      x-business-rules: [BR-233]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExtendSubscriptionRequest' }
+      responses:
+        '200':
+          description: Updated subscription summary.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerSubscription' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{id}/subscription/waive:
+    post:
+      tags: [Farmer Profile & Certifications]
+      operationId: waiveAdminFarmerSubscription
+      summary: Waive a farmer's subscription fee (admin)
+      description: |
+        Creates or updates the farmer's subscription row with status `WAIVED` for the requested
+        `tier`, `months` / `periodEnd`, and mandatory `reason`. Writes an `audit_log` row
+        (`farmer.subscription.waive`) in the same transaction (BR-233).
+      x-permission: farmer.subscription.extend_waive
+      x-business-rules: [BR-233]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WaiveSubscriptionRequest' }
+      responses:
+        '200':
+          description: Updated subscription summary with status WAIVED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminFarmerSubscription' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/diary:
+    get:
+      tags: [Farm Diary]
+      operationId: listFarmerDiaryEntriesAdmin
+      summary: Read a farmer's diary entries (zone-scoped)
+      description: |
+        Returns paginated diary entries for the requested farmer (BR-40, BR-222, BR-231).
+        A Farmer Admin is confined to farmers in their own zone(s); any unknown or
+        out-of-scope farmer returns 404 (never 403). Supports `?addedOnBehalf=true|false`.
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-40, BR-222, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+        - name: month
+          in: query
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        - name: plotId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: categoryKey
+          in: query
+          schema: { type: string }
+        - name: addedOnBehalf
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged diary entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiaryEntrySummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/diary/entries:
+    get:
+      tags: [Farm Diary]
+      operationId: listFarmerDiaryEntriesAdminAlias
+      summary: List a farmer's diary entries (zone-scoped)
+      description: |
+        Alias of `GET /admin/farmers/{farmerId}/diary` supporting `?addedOnBehalf=true|false`
+        for filtering entries logged on behalf of the farmer (BR-40, BR-222, BR-231).
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-40, BR-222, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: date
+          in: query
+          schema: { type: string, format: date }
+        - name: month
+          in: query
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        - name: plotId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: categoryKey
+          in: query
+          schema: { type: string }
+        - name: addedOnBehalf
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged diary entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/DiaryEntrySummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Diary]
+      operationId: createFarmerDiaryEntryAdmin
+      summary: Create a farm diary entry on behalf of a farmer
+      description: |
+        Logs a diary entry for the given farmer (zone-scoped for FARMER_ADMIN; out-of-scope returns 404).
+        Sets `created_by_admin_id` / `addedOnBehalf: true` and writes an `audit_log` row inside the
+        same transaction (BR-231).
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-40, BR-42, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryEntryCreateRequest' }
+      responses:
+        '201':
+          description: Diary entry created on behalf of farmer.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/diary/entries/{entryId}:
+    get:
+      tags: [Farm Diary]
+      operationId: getFarmerDiaryEntryAdmin
+      summary: Read a single diary entry for a farmer (zone-scoped)
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-40, BR-222]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Diary entry detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Farm Diary]
+      operationId: updateFarmerDiaryEntryAdmin
+      summary: Update a farmer's diary entry on behalf (zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-43, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: entryId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiaryEntryUpdateRequest' }
+      responses:
+        '200':
+          description: Updated diary entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DiaryEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/farmers/{id}/rating:
     get:
       tags: [Farm Rating]
@@ -6106,11 +6443,9 @@ paths:
       description: |
         Returns the farmer's current (newest) rating: all 10 categories, in sort order,
         with `source` (`AUDIT` when derived from a completed INTERNAL audit, `MANUAL` for
-        a legacy row) and `sourceAuditId`. There is no write on this path: the manual
-        PUT was removed on 2026-10-01 (BR-06). A farmer never rated gets all-null
-        scores, `status: DRAFT` and `source: null` — never a 404 for that reason alone. 404 means the
-        farmer does not exist, or exists outside the caller's scope (root CLAUDE.md
-        §2.1 — a cross-scope read must not be distinguishable from a nonexistent row).
+        an admin-adjusted rating) and `sourceAuditId`. A farmer never rated gets all-null
+        scores, `status: DRAFT` and `source: null` — never a 404 for that reason alone. 404
+        means the farmer does not exist or exists outside the caller's scope.
       x-permission: farmer.rating.view
       x-business-rules: [BR-06]
       parameters:
@@ -6123,6 +6458,35 @@ paths:
               schema: { $ref: '#/components/schemas/FarmRating' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    put:
+      tags: [Farm Rating]
+      operationId: setFarmerRating
+      summary: Manually set or adjust a farmer's 10-category farm rating (BR-06e)
+      description: |
+        Requires all 10 active rating categories (integers 0-10, 422 `SCORE_OUT_OF_RANGE` otherwise)
+        and a mandatory `reason` (min 3 chars). Writes a `COMPLETE` rating row with
+        `source: MANUAL`, updates `farmers.overall_rating` / `rating_tier_code`, and writes
+        an `audit_log` entry (`farmer.rating.manual_update`) in the same transaction (BR-06e).
+      x-permission: farmer.rating.edit
+      x-business-rules: [BR-06]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmRatingSetRequest' }
+      responses:
+        '200':
+          description: Saved manual rating.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmRating' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/audits:
@@ -10636,10 +11000,10 @@ paths:
       operationId: listFarmAssetsForFarmer
       summary: A farmer's tools/equipment/machinery (admin)
       description: |
-        Lists one farmer's `farm_assets` rows across every one of their
-        `farms`. Read-only: there is no admin-manageable asset taxonomy,
-        unlike crops' crop_master.
+        Lists one farmer's `farm_assets` rows across every one of their `farms` (BR-231).
+        Supports `?addedOnBehalf=true|false` filter.
       x-permission: admin.assets.view_all
+      x-business-rules: [BR-231]
       parameters:
         - name: farmerId
           in: path
@@ -10651,6 +11015,9 @@ paths:
         - name: dueOnly
           in: query
           schema: { type: boolean, default: false }
+        - name: addedOnBehalf
+          in: query
+          schema: { type: boolean }
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
       responses:
@@ -10667,6 +11034,198 @@ paths:
                     items: { $ref: '#/components/schemas/FarmAsset' }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Farm Assets]
+      operationId: createFarmAssetForFarmer
+      summary: Create a farm asset on behalf of a farmer (admin, zone-scoped)
+      description: |
+        Creates a farm asset under the specified `farmId` (or the farmer's primary farm when omitted).
+        Writes `created_by_admin_id` and an `audit_log` row in the same transaction (BR-231).
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminFarmAssetCreateRequest' }
+      responses:
+        '201':
+          description: Created farm asset.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmAsset' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/farm-assets/{assetId}:
+    patch:
+      tags: [Farm Assets]
+      operationId: updateFarmAssetForFarmer
+      summary: Edit a farmer's farm asset on behalf (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmAssetUpdateRequest' }
+      responses:
+        '200':
+          description: Updated farm asset.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmAsset' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Farm Assets]
+      operationId: deleteFarmAssetForFarmer
+      summary: Soft-delete a farmer's farm asset on behalf (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: assetId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Asset soft-deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/plots/{plotId}/crops:
+    get:
+      tags: [Crops]
+      operationId: listPlotCropsAdmin
+      summary: List crop cycles on a farmer's plot on behalf (zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-46, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/FarmCropStatus' }
+        - name: addedOnBehalf
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged crop cycles.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/FarmCrop' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Crops]
+      operationId: createPlotCropAdmin
+      summary: Plant/create a crop cycle on a farmer's plot on behalf (zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-46, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: plotId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmCropCreateRequest' }
+      responses:
+        '201':
+          description: Created crop cycle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmCrop' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/crops/{farmCropId}:
+    patch:
+      tags: [Crops]
+      operationId: updatePlotCropAdmin
+      summary: Update a farmer's crop cycle status/harvest details on behalf (zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-46, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: farmCropId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FarmCropUpdateRequest' }
+      responses:
+        '200':
+          description: Updated crop cycle.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmCrop' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me/livestock/animals:
@@ -11324,11 +11883,9 @@ paths:
       operationId: listFarmerLivestockAnimals
       summary: A specific farmer's herd (admin/audit view)
       description: |
-        Read-only: every live `livestock_animals` row for the given farmer,
-        active and inactive, for organic-certification audit purposes. There
-        is no admin-manageable livestock taxonomy (species is a fixed small
-        enum, unlike `crop_master`), so there is no corresponding write route.
+        Every live `livestock_animals` row for the given farmer (zone-scoped where applicable).
       x-permission: admin.livestock.view_all
+      x-business-rules: [BR-47, BR-231]
       parameters:
         - name: farmerId
           in: path
@@ -11347,6 +11904,173 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Animal' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createFarmerLivestockAnimalAdmin
+      summary: Register a livestock animal on behalf of a farmer (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-47, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnimalCreateRequest' }
+      responses:
+        '201':
+          description: Registered animal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/livestock/animals/{animalId}:
+    patch:
+      tags: [Livestock]
+      operationId: updateFarmerLivestockAnimalAdmin
+      summary: Edit a farmer's animal on behalf (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-47, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AnimalUpdateRequest' }
+      responses:
+        '200':
+          description: Updated animal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/livestock/animals/{animalId}/lifecycle-events:
+    post:
+      tags: [Livestock]
+      operationId: recordFarmerAnimalLifecycleEventAdmin
+      summary: Record a terminal herd exit event on behalf of a farmer (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-47, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LifecycleEventCreateRequest' }
+      responses:
+        '201':
+          description: Updated animal after lifecycle transition.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Animal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmers/{farmerId}/livestock/production-logs:
+    get:
+      tags: [Livestock]
+      operationId: listFarmerProductionLogsAdmin
+      summary: List livestock production logs for a farmer (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-47, BR-139, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: animalId
+          in: query
+          schema: { type: string, format: uuid }
+        - name: productType
+          in: query
+          schema: { $ref: '#/components/schemas/DairyProductType' }
+        - name: fromDate
+          in: query
+          schema: { type: string, format: date }
+        - name: toDate
+          in: query
+          schema: { type: string, format: date }
+        - name: addedOnBehalf
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged livestock production logs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ProductionLog' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createFarmerProductionLogAdmin
+      summary: Log dairy/livestock produce on behalf of a farmer (admin, zone-scoped)
+      x-permission: farmer.farm_records.manage
+      x-business-rules: [BR-47, BR-139, BR-231]
+      parameters:
+        - name: farmerId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductionLogCreateRequest' }
+      responses:
+        '201':
+          description: Production log created on behalf of farmer.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductionLog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /fair-prices:
@@ -11798,10 +12522,11 @@ paths:
       operationId: listPendingListings
       summary: Admin approval queue
       description: |
-        A Farmer Admin sees the queue with their own listings flagged
-        `routedAway: true` — those rows are read-only for them (BR-29).
+        Zone-scoped for `FARMER_ADMIN` (`listing.queue.view_pending`: `own`, BR-227).
+        A Farmer Admin sees listings in their assigned zone(s) with their own
+        listings flagged `routedAway: true` — those rows are read-only for them (BR-29).
       x-permission: listing.queue.view_pending
-      x-business-rules: [BR-29]
+      x-business-rules: [BR-29, BR-227]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -11821,14 +12546,38 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items, page]
+                required: [items, summary, page]
                 properties:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/AdminListing' }
+                  summary: { $ref: '#/components/schemas/AdminListingQueueSummary' }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/listings/{id}:
+    get:
+      tags: [Marketing]
+      operationId: getAdminListing
+      summary: Read single listing detail (zone-scoped for FARMER_ADMIN)
+      description: |
+        Returns full listing and counter-offer context for review. A Farmer Admin is
+        confined to their own zone(s) (out-of-zone returns 404, BR-227).
+      x-permission: listing.queue.view_pending
+      x-business-rules: [BR-29, BR-227]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Admin listing detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminListing' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/listings/{id}/approve:
@@ -16061,11 +16810,12 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [items, page]
+                required: [items, summary, page]
                 properties:
                   items:
                     type: array
                     items: { $ref: '#/components/schemas/PayoutSummary' }
+                  summary: { $ref: '#/components/schemas/PayoutListSummary' }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -16113,6 +16863,36 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Payout' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/payouts/bulk:
+    post:
+      tags: [Payouts & Invoices]
+      operationId: createBulkPayouts
+      summary: Initiate up to 50 farmer payouts atomically (BR-230)
+      description: |
+        Validates every payout item first inside one database transaction (all-or-nothing)
+        and requires `Idempotency-Key`. Applies BR-31 single- vs dual-approval thresholds
+        per payout item based on `system_config.payout_dual_approval_threshold_paise`.
+      x-permission: payout.farmer.initiate
+      x-business-rules: [BR-31, BR-70, BR-72, BR-230]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BulkPayoutCreateRequest' }
+      responses:
+        '201':
+          description: All payouts in the batch were created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BulkPayoutCreateResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -16179,6 +16959,69 @@ paths:
                 detail: You initiated payout PO-2026-000871; a different approver is required.
                 code: SAME_ACTOR_APPROVAL
                 traceId: 01J9F1B2C3D4E5F6G7H8J9KA
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/payouts/{id}/reject:
+    post:
+      tags: [Payouts & Invoices]
+      operationId: rejectPayout
+      summary: Reject a pending payout (BR-228)
+      description: |
+        Transitions a `REQUESTED` or `PENDING_APPROVAL` payout to `FAILED` with a mandatory
+        `reason` (min 5 chars), releases any linked `goods_receipt_id` dues, notifies the
+        farmer and initiator, and writes an `audit_log` entry (`payout.reject`).
+      x-permission: payout.reject
+      x-business-rules: [BR-228]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutRejectRequest' }
+      responses:
+        '200':
+          description: Rejected payout.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payout' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/payouts/{id}/intimate:
+    post:
+      tags: [Payouts & Invoices]
+      operationId: intimatePayout
+      summary: Send payout intimation notice to a farmer (BR-229)
+      description: |
+        Records `intimated_at` and dispatches an in-app/push intimation notification
+        with the farmer payout deep link (`tohfa://farmer/payouts/{id}`). Writes `payout.intimate`
+        to `audit_log`.
+      x-permission: payout.farmer.initiate
+      x-business-rules: [BR-229]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutIntimateRequest' }
+      responses:
+        '200':
+          description: Intimation sent.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutIntimateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -16530,6 +17373,82 @@ paths:
                 properties:
                   success: { type: boolean }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/notification-templates:
+    get:
+      tags: [Platform]
+      operationId: listNotificationTemplates
+      summary: List notification templates
+      description: Returns app-wide notification templates with allowed placeholders (SUPER_ADMIN only, BR-225).
+      x-permission: notification.template.configure
+      x-business-rules: [BR-225]
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: channel, in: query, schema: { type: string, enum: [PUSH, SMS, EMAIL, IN_APP] } }
+        - { name: locale, in: query, schema: { type: string, enum: [en, ta] } }
+        - { name: isActive, in: query, schema: { type: string, enum: ['true', 'false'] } }
+      responses:
+        '200':
+          description: Notification templates list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/NotificationTemplate' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/notification-templates/{id}:
+    get:
+      tags: [Platform]
+      operationId: getNotificationTemplate
+      summary: Get a notification template detail
+      description: Returns a notification template by id (SUPER_ADMIN only, BR-225).
+      x-permission: notification.template.configure
+      x-business-rules: [BR-225]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Notification template detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationTemplate' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Platform]
+      operationId: updateNotificationTemplate
+      summary: Update a notification template
+      description: Updates subject, bodyTemplate, or isActive on a notification template after validating placeholder syntax and vocabulary, writing an audit_log entry in the same transaction (SUPER_ADMIN only, BR-35, BR-225).
+      x-permission: notification.template.configure
+      x-business-rules: [BR-35, BR-225]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NotificationTemplateUpdate' }
+      responses:
+        '200':
+          description: Updated notification template.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationTemplate' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /system-messages:
@@ -17161,6 +18080,97 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/reports/time-series:
+    get:
+      tags: [Reports]
+      operationId: getTimeSeriesReport
+      summary: Time-series aggregates for dashboard metrics
+      description: |
+        Returns IST-bucketed (`day`, `week`, or `month`) sums and counts for a whitelisted
+        metric (`sales_revenue`, `sales_orders`, `new_farmers`, `farmer_applications`,
+        `listings_approved`, `intake_kg`, `spoilage_loss_kg`, `payouts_paid`, `customer_count`).
+        Absent buckets are omitted (no zero-filling), money/weight sums are computed in Postgres,
+        and `to - from` is capped by `system_config.report_max_range_days` (BR-64, BR-226).
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-64, BR-226]
+      parameters:
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [sales_revenue, sales_orders, new_farmers, farmer_applications, listings_approved, intake_kg, spoilage_loss_kg, payouts_paid, customer_count]
+        - name: period
+          in: query
+          required: false
+          schema: { type: string, enum: [day, week, month], default: day }
+        - { $ref: '#/components/parameters/ReportFromParam' }
+        - { $ref: '#/components/parameters/ReportToParam' }
+        - { $ref: '#/components/parameters/ReportWarehouseIdParam' }
+      responses:
+        '200':
+          description: Time-series buckets and total.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TimeSeriesReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/reports/farmer-performance:
+    get:
+      tags: [Reports]
+      operationId: getFarmerPerformanceReport
+      summary: Farmer performance summary and zone breakdown
+      description: |
+        Aggregates farmer counts, active/blocked counts, live ratings, listings, accepted GRN weight,
+        and paid payouts over `[from, to]` IST with zone breakdown (BR-64, BR-226).
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-64, BR-226]
+      parameters:
+        - { $ref: '#/components/parameters/ReportFromParam' }
+        - { $ref: '#/components/parameters/ReportToParam' }
+        - { $ref: '#/components/parameters/ReportWarehouseIdParam' }
+        - { name: zoneId, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Farmer performance summary and zone distribution.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerPerformanceReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/reports/compliance-tiers:
+    get:
+      tags: [Reports]
+      operationId: getComplianceTiersReport
+      summary: Compliance rating tier distribution
+      description: |
+        Counts farmers per active `rating_tier_config` band (resolved dynamically from `overall_rating`,
+        BR-04) plus `unratedCount` (BR-64, BR-226).
+      x-permission: farmer.profile.view_all
+      x-business-rules: [BR-04, BR-64, BR-226]
+      parameters:
+        - { $ref: '#/components/parameters/ReportWarehouseIdParam' }
+        - { name: zoneId, in: query, required: false, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Rating tier distribution.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComplianceTiersReport' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   # Report exports (BR-76): one literal path per report, as report-exports.routes.ts registers them,
   # because each takes its own query and needs its own data permission. The file format, CSV injection
   # guard, row cap, audit row and the UNCONFIRMED defaults are described once, on the shared
@@ -17591,6 +18601,39 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/accounts:
+    get:
+      tags: [Platform]
+      operationId: listAdminAccounts
+      summary: List admin staff accounts
+      description: Cursor-paged directory of live ADMIN accounts with role assignments, zone bindings, and summary total (BR-28).
+      x-permission-any-of: [admin.staff.list_view, role.definition.view]
+      x-business-rules: [BR-28]
+      parameters:
+        - { name: role, in: query, required: false, schema: { type: string } }
+        - { name: status, in: query, required: false, schema: { type: string, enum: [PENDING, ACTIVE, DISABLED] } }
+        - { name: q, in: query, required: false, schema: { type: string, minLength: 1, maxLength: 100 } }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged admin accounts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, summary, page, nextCursor, hasMore]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdminAccountListItem' }
+                  summary: { $ref: '#/components/schemas/AdminAccountSummary' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+                  nextCursor: { type: [string, 'null'] }
+                  hasMore: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Platform]
       operationId: createAdminAccount
@@ -17641,6 +18684,28 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/accounts/{id}:
+    get:
+      tags: [Platform]
+      operationId: getAdminAccount
+      summary: Get an admin account detail
+      description: Returns an admin account's roles, zones, status, and admin code without credentials or mobile number (BR-28, BR-221).
+      x-permission-any-of: [admin.staff.list_view, role.definition.view]
+      x-business-rules: [BR-28, BR-221]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Admin account detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminAccountDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -17989,6 +19054,32 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Platform]
+      operationId: createAdminZone
+      summary: Create an agricultural zone (BR-234)
+      description: |
+        Creates a new agricultural zone with taluk/code uniqueness enforcement (409 on conflict)
+        and active `warehouseId` validation (422 if inactive or missing). Writes `zone.create`
+        to `audit_log`.
+      x-permission: zone.manage
+      x-business-rules: [BR-161, BR-234]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminZoneCreateRequest' }
+      responses:
+        '201':
+          description: Zone created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminZoneDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/zones/{id}:
     get:
@@ -18012,6 +19103,61 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Platform]
+      operationId: updateAdminZone
+      summary: Edit or deactivate an agricultural zone (BR-234)
+      description: |
+        Updates zone metadata, mapped warehouse, or taluks. Setting `isActive: false` is
+        refused with 409 (`CONFLICT` with `meta.farmerCount`) while active farmers remain assigned.
+      x-permission: zone.manage
+      x-business-rules: [BR-161, BR-234]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdminZoneUpdateRequest' }
+      responses:
+        '200':
+          description: Updated zone detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminZoneDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/zones/{id}/transfer-farmers:
+    post:
+      tags: [Platform]
+      operationId: transferZoneFarmers
+      summary: Bulk transfer farmers to another active zone (BR-234)
+      x-permission: zone.manage
+      x-business-rules: [BR-234]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ZoneTransferFarmersRequest' }
+      responses:
+        '200':
+          description: Farmers transferred.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZoneTransferFarmersResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/promotions:
@@ -18892,6 +20038,46 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/alerts/thresholds:
+    get:
+      tags: [Platform]
+      operationId: getAlertThresholds
+      summary: Read alert and snooze thresholds
+      description: Reads the four configured alert thresholds from system_config (`alert_batch_expiry_days`, `alert_capacity_utilization_percent`, `low_stock_threshold_kg`, `alert_snooze_max_hours`) (BR-77, BR-224).
+      x-permission: alert.threshold.configure
+      x-business-rules: [BR-77, BR-78, BR-224]
+      responses:
+        '200':
+          description: Current threshold configuration.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertThresholdsConfig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Platform]
+      operationId: updateAlertThresholds
+      summary: Update alert and snooze thresholds
+      description: Updates one or more alert threshold keys in system_config inside a transaction with audit_log recording old and new values (BR-35, BR-77, BR-224).
+      x-permission: alert.threshold.configure
+      x-business-rules: [BR-35, BR-77, BR-78, BR-224]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlertThresholdsUpdate' }
+      responses:
+        '200':
+          description: Updated threshold configuration.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertThresholdsConfig' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/alerts:
     get:
       tags: [Platform]
@@ -19102,6 +20288,7 @@ paths:
       parameters:
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
         - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { $ref: '#/components/parameters/ReportWarehouseIdParam' }
       responses:
         '200':
           description: Revenue aggregates.
@@ -19110,6 +20297,7 @@ paths:
               schema: { $ref: '#/components/schemas/FinanceRevenueReport' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -19122,12 +20310,14 @@ paths:
         Raw aggregates over non-deleted expenses in the caller's warehouse scope, in every status.
         Days are the expense date. `to` may be at most `finance_report_max_range_days` (system_config,
         default 366) after `from`, else 422. Rows recorded before migration 0047 have no payment
-        method and are grouped under a null `paymentMethod`.
+        method and are grouped under a null `paymentMethod`. Optional `warehouseId` narrows to a single
+        visible active warehouse (404 if out of scope or unknown).
       x-permission: finance.expense.log
       x-business-rules: [BR-62, BR-63]
       parameters:
         - { name: from, in: query, required: true, schema: { type: string, format: date } }
         - { name: to, in: query, required: true, schema: { type: string, format: date } }
+        - { $ref: '#/components/parameters/ReportWarehouseIdParam' }
       responses:
         '200':
           description: Expense aggregates.
@@ -19136,6 +20326,7 @@ paths:
               schema: { $ref: '#/components/schemas/FinanceExpenseReport' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -21207,6 +22398,427 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/inputs:
+    get:
+      tags: [Platform]
+      operationId: listAdminInputs
+      summary: List approved-inputs catalog entries (admin, BR-235)
+      description: Paginated catalog of farming inputs across `APPROVED`, `PENDING`, and `INACTIVE` statuses.
+      x-permission: inputs.catalog.view
+      x-business-rules: [BR-235]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/InputStatus' } }
+        - { name: category, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: Paged admin inputs list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/InputCatalogAdmin' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Platform]
+      operationId: createAdminInput
+      summary: Create an approved-inputs catalog entry (admin, BR-235)
+      x-permission: inputs.catalog.manage
+      x-business-rules: [BR-235]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InputCatalogCreateRequest' }
+      responses:
+        '201':
+          description: Created input entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InputCatalogAdmin' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/inputs/{id}:
+    get:
+      tags: [Platform]
+      operationId: getAdminInput
+      summary: Get an approved-inputs catalog entry (admin, BR-235)
+      x-permission: inputs.catalog.view
+      x-business-rules: [BR-235]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Input detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InputCatalogAdmin' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Platform]
+      operationId: updateAdminInput
+      summary: Update or approve/deactivate an approved-inputs catalog entry (BR-235)
+      x-permission: inputs.catalog.manage
+      x-business-rules: [BR-235]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InputCatalogUpdateRequest' }
+      responses:
+        '200':
+          description: Updated input entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InputCatalogAdmin' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Platform]
+      operationId: deleteAdminInput
+      summary: Soft-delete an approved-inputs catalog entry (BR-235)
+      x-permission: inputs.catalog.manage
+      x-business-rules: [BR-235]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '204':
+          description: Deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /inputs:
+    get:
+      tags: [Platform]
+      operationId: listApprovedInputs
+      summary: List APPROVED agricultural inputs for farmers (BR-235)
+      description: |
+        Returns only `APPROVED` catalog entries and strips internal admin review metadata
+        (`referenceNote`, `statusReason`, `approvedBy`, `approvedAt`) per BR-16 / BR-235.
+      x-permission: inputs.catalog.view
+      x-business-rules: [BR-16, BR-235]
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: search, in: query, schema: { type: string } }
+        - { $ref: '#/components/parameters/CursorParam' }
+        - { $ref: '#/components/parameters/LimitParam' }
+      responses:
+        '200':
+          description: Paged approved inputs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/InputCatalogPublic' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /inputs/{id}:
+    get:
+      tags: [Platform]
+      operationId: getApprovedInput
+      summary: Read one APPROVED agricultural input for farmers (BR-235)
+      x-permission: inputs.catalog.view
+      x-business-rules: [BR-16, BR-235]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Approved input detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InputCatalogPublic' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/system-config:
+    get:
+      tags: [Platform]
+      operationId: listSystemConfig
+      summary: List configurable platform settings (Super Admin only, BR-236)
+      description: |
+        Returns whitelisted operational parameters with `isEditable` flags and secret
+        values masked (`***`) if marked `is_secret`. Writes nothing.
+      x-permission: system.config.manage
+      x-business-rules: [BR-236]
+      responses:
+        '200':
+          description: Whitelisted config entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SystemConfigItem' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/system-config/{key}:
+    patch:
+      tags: [Platform]
+      operationId: updateSystemConfigKey
+      summary: Update an editable system_config key (Super Admin only, BR-236)
+      description: |
+        Validates data type and domain constraints (422), rejects locked/internal keys (403),
+        returns 404 for unknown keys, updates `system_config`, and writes `system.config.update`
+        to `audit_log` inside the same transaction.
+      x-permission: system.config.manage
+      x-business-rules: [BR-236]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SystemConfigUpdateRequest' }
+      responses:
+        '200':
+          description: Updated config key.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemConfigItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /warehouses/{id}/market-status:
+    get:
+      tags: [Catalog]
+      operationId: getWarehousePublicMarketStatus
+      summary: Public market open/close status for a warehouse (BR-237)
+      description: |
+        Customer-safe status showing whether retail ordering / checkout is currently open
+        for this warehouse (`isMarketOpen`). Strips internal actor metadata.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Public warehouse market status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarketStatus' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/warehouses/{id}/market-status:
+    get:
+      tags: [Sales]
+      operationId: getAdminWarehouseMarketStatus
+      summary: Read warehouse retail market open/close status (admin, BR-237)
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Admin warehouse market status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMarketStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Sales]
+      operationId: setAdminWarehouseMarketStatus
+      summary: Open or close a warehouse retail market immediately (admin, BR-237)
+      description: |
+        Sets `is_market_open` (mandatory `reason` >= 3 chars when closing) and optional
+        open/close window times (`HH:MM`). While closed, customer cart additions (`POST /cart/items`)
+        and checkout (`POST /orders`) return 409 `CONFLICT` with `meta.reason = MARKET_CLOSED`.
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarketStatusUpdateRequest' }
+      responses:
+        '200':
+          description: Updated market status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminMarketStatus' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/warehouses/{id}/market-schedules:
+    get:
+      tags: [Sales]
+      operationId: listAdminWarehouseMarketSchedules
+      summary: List warehouse market open/close schedules (BR-237)
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: List of schedules.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/MarketSchedule' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Sales]
+      operationId: createAdminWarehouseMarketSchedule
+      summary: Create a warehouse market open/close schedule (BR-237)
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarketScheduleCreateRequest' }
+      responses:
+        '201':
+          description: Created schedule.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarketSchedule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/warehouses/{id}/market-schedules/{scheduleId}:
+    patch:
+      tags: [Sales]
+      operationId: updateAdminWarehouseMarketSchedule
+      summary: Update a warehouse market open/close schedule (BR-237)
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - name: scheduleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MarketScheduleUpdateRequest' }
+      responses:
+        '200':
+          description: Updated schedule.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MarketSchedule' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Sales]
+      operationId: deleteAdminWarehouseMarketSchedule
+      summary: Delete a warehouse market open/close schedule (BR-237)
+      x-permission: market.schedule.manage
+      x-business-rules: [BR-237]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - name: scheduleId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204':
+          description: Deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /orders/{id}/cancel:
+    post:
+      tags: [Cart & Orders]
+      operationId: cancelOwnOrder
+      summary: Cancel caller's own CONFIRMED order (BR-241)
+      description: Allows a customer to cancel their own order while status is `CONFIRMED` (before packing), refunding wallet-paid amounts and recording `order_status_history` + `audit_log`.
+      x-permission: order.cancel_own
+      x-business-rules: [BR-241]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Order cancelled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, orderNumber, status]
+                properties:
+                  id: { type: string, format: uuid }
+                  orderNumber: { type: string }
+                  status: { type: string, enum: [CANCELLED] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -22241,6 +23853,81 @@ components:
           minItems: 1
           uniqueItems: true
           items: { type: string, format: uuid }
+
+    AdminListingQueueSummary:
+      type: object
+      required: [total, pending, counterOffered, approved, rejected, expired]
+      properties:
+        total: { type: integer }
+        pending: { type: integer }
+        counterOffered: { type: integer }
+        approved: { type: integer }
+        rejected: { type: integer }
+        expired: { type: integer }
+
+    PayoutListSummary:
+      type: object
+      required: [total, requested, pendingApproval, approved, processing, paid, failed, reversed]
+      properties:
+        total: { type: integer }
+        requested: { type: integer }
+        pendingApproval: { type: integer }
+        approved: { type: integer }
+        processing: { type: integer }
+        paid: { type: integer }
+        failed: { type: integer }
+        reversed: { type: integer }
+
+    AdminAccountSummary:
+      type: object
+      required: [total]
+      properties:
+        total: { type: integer }
+
+    AdminAccountZone:
+      type: object
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    AdminAccountListItem:
+      type: object
+      required: [id, fullName, email, roleCode, roles, status, zones]
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+        email: { type: [string, 'null'] }
+        roleCode: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [PENDING, ACTIVE, DISABLED] }
+        zones:
+          type: array
+          items: { $ref: '#/components/schemas/AdminAccountZone' }
+
+    AdminAccountDetail:
+      type: object
+      required: [id, fullName, email, adminCode, roleCode, roles, status, zones, createdAt, disabledAt, disabledBy, disabledReason]
+      properties:
+        id: { type: string, format: uuid }
+        fullName: { type: string }
+        email: { type: [string, 'null'] }
+        adminCode: { type: [string, 'null'] }
+        roleCode: { type: string }
+        roles:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [PENDING, ACTIVE, DISABLED] }
+        zones:
+          type: array
+          items: { $ref: '#/components/schemas/AdminAccountZone' }
+        createdAt: { type: string, format: date-time }
+        disabledAt: { type: [string, 'null'], format: date-time }
+        disabledBy: { type: [string, 'null'], format: uuid }
+        disabledReason: { type: [string, 'null'] }
 
     ApprovePromotionRequest:
       type: object
@@ -24373,8 +26060,11 @@ components:
           readOnly: true
           description: |
             `AUDIT` = derived from a completed INTERNAL audit (see `sourceAuditId`);
-            `MANUAL` = legacy rating entered through the removed manual PUT, kept as
-            history; null = the farmer has never been rated.
+            `MANUAL` = admin-entered rating via `PUT /admin/farmers/{id}/rating` (BR-06e);
+            null = the farmer has never been rated.
+        editReason:
+          type: [string, 'null']
+          description: Mandatory reason recorded for MANUAL ratings (BR-06e).
         sourceAuditId:
           type: [string, 'null']
           format: uuid
@@ -25648,6 +27338,56 @@ components:
         createdBy: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
+
+    AdminPestIncidentSummary:
+      type: object
+      required: [total, ongoing, recurring, resolved]
+      properties:
+        total: { type: integer }
+        ongoing: { type: integer }
+        recurring: { type: integer }
+        resolved: { type: integer }
+
+    AdminPestIncident:
+      allOf:
+        - $ref: '#/components/schemas/PestDetection'
+        - type: object
+          required: [farmId, farmName, plotName, farmerId, tohfaFarmerId, farmerName]
+          properties:
+            farmId: { type: string, format: uuid }
+            farmName: { type: string }
+            plotName: { type: string }
+            farmerId: { type: string, format: uuid }
+            tohfaFarmerId: { type: string }
+            farmerName: { type: string }
+            zoneId: { type: [string, 'null'], format: uuid }
+            zoneName: { type: [string, 'null'] }
+            adminRecommendedTreatment: { type: [string, 'null'] }
+            adminReviewNote: { type: [string, 'null'] }
+            reviewedBy: { type: [string, 'null'], format: uuid }
+            reviewedAt: { type: [string, 'null'], format: date-time }
+
+    AdminPestIncidentDetail:
+      allOf:
+        - $ref: '#/components/schemas/AdminPestIncident'
+        - type: object
+          required: [treatmentLogs, reminders]
+          properties:
+            treatmentLogs:
+              type: array
+              items: { $ref: '#/components/schemas/PestTreatmentLog' }
+            reminders:
+              type: array
+              items: { $ref: '#/components/schemas/PestTreatmentReminder' }
+
+    AdminPestIncidentUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        pestLibraryId: { type: [string, 'null'], format: uuid }
+        status: { type: string, enum: [Ongoing, Resolved, Recurring] }
+        adminRecommendedTreatment: { type: [string, 'null'], maxLength: 2000 }
+        adminReviewNote: { type: [string, 'null'], maxLength: 2000 }
 
     PestDetection:
       type: object
@@ -32632,3 +34372,443 @@ components:
         isActive: { type: boolean }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    AlertThresholdsConfig:
+      type: object
+      required: [batchExpiryDays, capacityUtilizationPercent, lowStockThresholdKg, snoozeMaxHours]
+      properties:
+        batchExpiryDays: { type: [integer, 'null'], minimum: 0 }
+        capacityUtilizationPercent: { type: [number, 'null'], minimum: 0, maximum: 100 }
+        lowStockThresholdKg: { type: [number, 'null'], minimum: 0 }
+        snoozeMaxHours: { type: [integer, 'null'], minimum: 1 }
+
+    AlertThresholdsUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        batchExpiryDays: { type: integer, minimum: 0, maximum: 3650 }
+        capacityUtilizationPercent: { type: number, minimum: 0, maximum: 100 }
+        lowStockThresholdKg: { type: number, minimum: 0, maximum: 1000000 }
+        snoozeMaxHours: { type: integer, minimum: 1, maximum: 8760 }
+
+    NotificationTemplate:
+      type: object
+      required: [id, code, channel, locale, subject, bodyTemplate, isActive, allowedPlaceholders, updatedBy, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        channel: { type: string, enum: [PUSH, SMS, EMAIL, IN_APP] }
+        locale: { type: string, enum: [en, ta] }
+        subject: { type: [string, 'null'] }
+        bodyTemplate: { type: string }
+        isActive: { type: boolean }
+        allowedPlaceholders:
+          type: array
+          items: { type: string }
+        updatedBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    NotificationTemplateUpdate:
+      type: object
+      additionalProperties: false
+      properties:
+        subject: { type: [string, 'null'], maxLength: 200 }
+        bodyTemplate: { type: string, minLength: 1, maxLength: 2000 }
+        isActive: { type: boolean }
+
+    TimeSeriesReport:
+      type: object
+      required: [metric, period, from, to, warehouseId, total, buckets]
+      properties:
+        metric: { type: string }
+        period: { type: string, enum: [day, week, month] }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        total:
+          oneOf:
+            - { type: string }
+            - { type: integer }
+        buckets:
+          type: array
+          items:
+            type: object
+            required: [bucket, count, value]
+            properties:
+              bucket: { type: string, format: date }
+              count: { type: integer }
+              value:
+                oneOf:
+                  - { type: string }
+                  - { type: integer }
+
+    FarmerPerformanceReport:
+      type: object
+      required: [from, to, warehouseId, zoneId, totalFarmers, activeFarmers, marketBlockedFarmers, avgRating, totalListings, approvedListings, acceptedKg, payoutsPaid, byZone]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        zoneId: { type: [string, 'null'], format: uuid }
+        totalFarmers: { type: integer }
+        activeFarmers: { type: integer }
+        marketBlockedFarmers: { type: integer }
+        avgRating: { type: [string, 'null'] }
+        totalListings: { type: integer }
+        approvedListings: { type: integer }
+        acceptedKg: { type: string }
+        payoutsPaid: { $ref: '#/components/schemas/Money' }
+        byZone:
+          type: array
+          items:
+            type: object
+            required: [zoneId, zoneCode, zoneName, farmerCount, avgRating, acceptedKg, payoutsPaid]
+            properties:
+              zoneId: { type: [string, 'null'], format: uuid }
+              zoneCode: { type: [string, 'null'] }
+              zoneName: { type: [string, 'null'] }
+              farmerCount: { type: integer }
+              avgRating: { type: [string, 'null'] }
+              acceptedKg: { type: string }
+              payoutsPaid: { $ref: '#/components/schemas/Money' }
+
+    ComplianceTiersReport:
+      type: object
+      required: [effectiveFrom, warehouseId, zoneId, totalFarmers, unratedCount, tiers]
+      properties:
+        effectiveFrom: { type: [string, 'null'], format: date }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        zoneId: { type: [string, 'null'], format: uuid }
+        totalFarmers: { type: integer }
+        unratedCount: { type: integer }
+        tiers:
+          type: array
+          items:
+            type: object
+            required: [tierCode, label, minScore, maxScore, farmerCount]
+            properties:
+              tierCode: { type: string }
+              label: { type: string }
+              minScore: { type: string }
+              maxScore: { type: [string, 'null'] }
+              farmerCount: { type: integer }
+
+    ExtendSubscriptionRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        months: { type: integer, minimum: 1, maximum: 36 }
+        periodEnd: { type: string, format: date }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    WaiveSubscriptionRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        tier: { type: string, enum: [FREE, PAID], default: PAID }
+        months: { type: integer, minimum: 1, maximum: 36, default: 12 }
+        periodEnd: { type: string, format: date }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    FarmRatingSetRequest:
+      type: object
+      additionalProperties: false
+      required: [reason, scores]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+        periodLabel: { type: string, minLength: 1, maxLength: 60 }
+        notes: { type: string, maxLength: 2000 }
+        scores:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [categoryCode, score]
+            properties:
+              categoryCode: { type: string, minLength: 1 }
+              score: { type: number, minimum: 0, maximum: 10 }
+              remarks: { type: string, maxLength: 1000 }
+
+    AdminFarmAssetCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [category, name, serviceIntervalDays]
+      properties:
+        farmId: { type: string, format: uuid }
+        category: { $ref: '#/components/schemas/FarmAssetCategory' }
+        name: { type: string, maxLength: 160 }
+        makeModel: { type: string, maxLength: 160 }
+        fuelType: { type: string, maxLength: 80 }
+        coverageAreaAcres: { type: number, minimum: 0 }
+        purchasedOn: { type: string, format: date }
+        costPaise: { type: integer, minimum: 0 }
+        serviceIntervalDays: { type: integer, exclusiveMinimum: 0 }
+        lastServicedOn: { type: string, format: date }
+        notes: { type: string, maxLength: 2000 }
+
+    BulkPayoutCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { $ref: '#/components/schemas/PayoutCreate' }
+
+    BulkPayoutCreateResponse:
+      type: object
+      required: [batchId, createdCount, totalAmount, items]
+      properties:
+        batchId: { type: string, format: uuid }
+        createdCount: { type: integer }
+        totalAmount: { $ref: '#/components/schemas/Money' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Payout' }
+
+    PayoutRejectRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 5, maxLength: 500 }
+
+    PayoutIntimateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        note: { type: string, maxLength: 500 }
+
+    PayoutIntimateResponse:
+      type: object
+      required: [payoutId, payoutNumber, farmerId, status, intimatedAt, intimatedBy, note]
+      properties:
+        payoutId: { type: string, format: uuid }
+        payoutNumber: { type: string }
+        farmerId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/PayoutStatus' }
+        intimatedAt: { type: string, format: date-time }
+        intimatedBy: { type: string, format: uuid }
+        note: { type: [string, 'null'] }
+
+    AdminZoneCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name]
+      properties:
+        code: { type: string, minLength: 2, maxLength: 40 }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        warehouseId: { type: string, format: uuid }
+        description: { type: string, maxLength: 1000 }
+        taluks: { type: array, maxItems: 50, items: { type: string, minLength: 1, maxLength: 100 } }
+        isActive: { type: boolean, default: true }
+
+    AdminZoneUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        warehouseId: { type: [string, 'null'], format: uuid }
+        description: { type: [string, 'null'], maxLength: 1000 }
+        taluks: { type: array, maxItems: 50, items: { type: string, minLength: 1, maxLength: 100 } }
+        isActive: { type: boolean }
+
+    ZoneTransferFarmersRequest:
+      type: object
+      additionalProperties: false
+      required: [targetZoneId, reason]
+      properties:
+        targetZoneId: { type: string, format: uuid }
+        farmerIds: { type: array, minItems: 1, maxItems: 500, items: { type: string, format: uuid } }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    ZoneTransferFarmersResponse:
+      type: object
+      required: [fromZoneId, targetZoneId, transferredCount, farmerIds]
+      properties:
+        fromZoneId: { type: string, format: uuid }
+        targetZoneId: { type: string, format: uuid }
+        transferredCount: { type: integer }
+        farmerIds: { type: array, items: { type: string, format: uuid } }
+
+    InputStatus:
+      type: string
+      enum: [APPROVED, PENDING, INACTIVE]
+
+    SupportingDoc:
+      type: object
+      additionalProperties: false
+      required: [storageKey, fileName, mimeType, sizeBytes]
+      properties:
+        uploadId: { type: string, format: uuid }
+        storageKey: { type: string, minLength: 1, maxLength: 512 }
+        fileName: { type: string, minLength: 1, maxLength: 255 }
+        mimeType: { type: string, minLength: 1, maxLength: 120 }
+        sizeBytes: { type: integer, minimum: 1 }
+
+    InputCatalogPublic:
+      type: object
+      required: [id, code, name, category, subcategory, farmingType, manufacturer, registrationId, composition, applicableCrops, dosage, applicationMethod, status, supportingDocs, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
+        subcategory: { type: [string, 'null'] }
+        farmingType: { type: [string, 'null'] }
+        manufacturer: { type: string }
+        registrationId: { type: [string, 'null'] }
+        composition: { type: [string, 'null'] }
+        applicableCrops: { type: array, items: { type: string } }
+        dosage: { type: [string, 'null'] }
+        applicationMethod: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/InputStatus' }
+        supportingDocs: { type: array, items: { $ref: '#/components/schemas/SupportingDoc' } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    InputCatalogAdmin:
+      allOf:
+        - $ref: '#/components/schemas/InputCatalogPublic'
+        - type: object
+          required: [referenceNote, statusReason, approvedBy, approvedAt]
+          properties:
+            referenceNote: { type: [string, 'null'] }
+            statusReason: { type: [string, 'null'] }
+            approvedBy: { type: [string, 'null'], format: uuid }
+            approvedAt: { type: [string, 'null'], format: date-time }
+
+    InputCatalogCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name, category, manufacturer]
+      properties:
+        code: { type: string, minLength: 2, maxLength: 60 }
+        name: { type: string, minLength: 2, maxLength: 200 }
+        category: { type: string, minLength: 2, maxLength: 120 }
+        subcategory: { type: string, minLength: 1, maxLength: 120 }
+        farmingType: { type: string, minLength: 1, maxLength: 80 }
+        manufacturer: { type: string, minLength: 1, maxLength: 200 }
+        registrationId: { type: string, minLength: 1, maxLength: 120 }
+        composition: { type: string, maxLength: 2000 }
+        applicableCrops: { type: array, maxItems: 100, items: { type: string } }
+        dosage: { type: string, maxLength: 500 }
+        applicationMethod: { type: string, maxLength: 500 }
+        status: { $ref: '#/components/schemas/InputStatus', default: PENDING }
+        referenceNote: { type: string, maxLength: 2000 }
+        statusReason: { type: string, maxLength: 500 }
+        supportingDocs: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/SupportingDoc' } }
+
+    InputCatalogUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        code: { type: string, minLength: 2, maxLength: 60 }
+        name: { type: string, minLength: 2, maxLength: 200 }
+        category: { type: string, minLength: 2, maxLength: 120 }
+        subcategory: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        farmingType: { type: [string, 'null'], minLength: 1, maxLength: 80 }
+        manufacturer: { type: string, minLength: 1, maxLength: 200 }
+        registrationId: { type: [string, 'null'], minLength: 1, maxLength: 120 }
+        composition: { type: [string, 'null'], maxLength: 2000 }
+        applicableCrops: { type: array, maxItems: 100, items: { type: string } }
+        dosage: { type: [string, 'null'], maxLength: 500 }
+        applicationMethod: { type: [string, 'null'], maxLength: 500 }
+        status: { $ref: '#/components/schemas/InputStatus' }
+        referenceNote: { type: [string, 'null'], maxLength: 2000 }
+        statusReason: { type: [string, 'null'], maxLength: 500 }
+        supportingDocs: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/SupportingDoc' } }
+
+    SystemConfigItem:
+      type: object
+      required: [id, key, value, dataType, description, isEditable, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        key: { type: string }
+        value: { description: 'Typed JSON scalar or object; secret values are masked.' }
+        dataType: { type: string, enum: [string, number, boolean, json] }
+        description: { type: [string, 'null'] }
+        isEditable: { type: boolean }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    SystemConfigUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [value]
+      properties:
+        value: { description: 'Updated value matching key dataType and constraints.' }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    MarketStatus:
+      type: object
+      required: [warehouseId, isMarketOpen, marketOpenTime, marketCloseTime, reason, updatedAt]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        isMarketOpen: { type: boolean }
+        marketOpenTime: { type: [string, 'null'], example: '08:00' }
+        marketCloseTime: { type: [string, 'null'], example: '20:00' }
+        reason: { type: [string, 'null'] }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    AdminMarketStatus:
+      allOf:
+        - $ref: '#/components/schemas/MarketStatus'
+        - type: object
+          required: [updatedBy]
+          properties:
+            updatedBy: { type: [string, 'null'], format: uuid }
+
+    MarketStatusUpdateRequest:
+      type: object
+      additionalProperties: false
+      required: [isMarketOpen]
+      properties:
+        isMarketOpen: { type: boolean }
+        marketOpenTime: { type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        marketCloseTime: { type: [string, 'null'], pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+
+    MarketSchedule:
+      type: object
+      required: [id, warehouseId, mode, scheduleDate, scheduleTime, repeatRule, isActive, notes, createdBy, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        mode: { type: string, enum: [OPEN, CLOSE] }
+        scheduleDate: { type: string, format: date }
+        scheduleTime: { type: string, example: '08:00' }
+        repeatRule: { type: string, enum: [ONE_TIME, DAILY, WEEKLY, MONTHLY, CUSTOM] }
+        isActive: { type: boolean }
+        notes: { type: [string, 'null'] }
+        createdBy: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    MarketScheduleCreateRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, scheduleDate, scheduleTime]
+      properties:
+        mode: { type: string, enum: [OPEN, CLOSE] }
+        scheduleDate: { type: string, format: date }
+        scheduleTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        repeatRule: { type: string, enum: [ONE_TIME, DAILY, WEEKLY, MONTHLY, CUSTOM], default: ONE_TIME }
+        isActive: { type: boolean, default: true }
+        notes: { type: string, maxLength: 500 }
+
+    MarketScheduleUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        mode: { type: string, enum: [OPEN, CLOSE] }
+        scheduleDate: { type: string, format: date }
+        scheduleTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        repeatRule: { type: string, enum: [ONE_TIME, DAILY, WEEKLY, MONTHLY, CUSTOM] }
+        isActive: { type: boolean }
+        notes: { type: [string, 'null'], maxLength: 500 }

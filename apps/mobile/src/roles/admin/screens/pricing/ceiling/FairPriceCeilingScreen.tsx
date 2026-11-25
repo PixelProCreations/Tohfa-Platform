@@ -14,23 +14,12 @@
  * Unbacked figures render em-dash '—' per root CLAUDE.md instructions.
  */
 import React, { useState } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import type { Can } from '../../../permissions/can';
-import { adminColors } from '../../../theme';
 import { AdminEmptyState } from '../../warehouse/shared/AsyncStates';
 import { LiveCeilingList } from './LiveCeilingList';
 import { PricingFrame } from './PricingFrame';
-import {
-  BackArrowIcon,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  HorizontalSlidersIcon,
-  SearchIcon,
-} from './PricingIcons';
 import { INITIAL_CEILING_FILTERS, pricingAccess, type CeilingFilterState, type PricingCropSelection } from './pricingLogic';
-import { styles } from './pricingStyles';
 
 /** The price item shape the hosts' callbacks are typed with. */
 export interface LegacyPriceItem {

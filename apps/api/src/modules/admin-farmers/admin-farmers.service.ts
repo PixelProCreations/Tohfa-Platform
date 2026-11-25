@@ -53,10 +53,12 @@ import {
   type AdminFarmerListResponse,
   type AdminFarmerPayoutDestinationListResponse,
   type AdminFarmerSubscription,
+  type CreateAdminFarmerBody,
+  type ExtendSubscriptionBody,
   type ListAdminFarmersQuery,
   type UpdateAdminFarmerBody,
   type UpdateAdminFarmerStatusBody,
-  type CreateAdminFarmerBody,
+  type WaiveSubscriptionBody,
 } from './admin-farmers.schema.js';
 
 /** BR-54c: a signed read URL lives for this long (same lifetime as the farmer's own documents). */
@@ -88,6 +90,8 @@ export interface AdminFarmersService {
   verifyDocument(scope: ResolvedScope, farmerId: string, documentId: string): Promise<AdminFarmerDocument>;
   listBankAccounts(scope: ResolvedScope, farmerId: string): Promise<AdminFarmerPayoutDestinationListResponse>;
   getSubscription(scope: ResolvedScope, farmerId: string): Promise<AdminFarmerSubscription>;
+  extendSubscription(scope: ResolvedScope, farmerId: string, body: ExtendSubscriptionBody): Promise<AdminFarmerSubscription>;
+  waiveSubscription(scope: ResolvedScope, farmerId: string, body: WaiveSubscriptionBody): Promise<AdminFarmerSubscription>;
   updateStatus(
     scope: ResolvedScope,
     disableScope: ResolvedScope | null,
@@ -168,6 +172,23 @@ function requestedValues(body: UpdateAdminFarmerBody): Record<string, unknown> {
     values['aadhaarLast4'] = parsed.data;
   }
   return values;
+}
+
+async function loadSubscriptionSummary(
+  repo: AdminFarmersRepo,
+  exec: Executor,
+  farmerId: string,
+): Promise<AdminFarmerSubscription> {
+  const current = await repo.findCurrentSubscription(exec, farmerId);
+  const gate = await repo.getConfig(exec, 'free_tier_limits_enabled');
+  const enforced = gate === true || gate === 'true';
+  let listingLimit: number | null = null;
+  if (enforced) {
+    const raw = await repo.getConfig(exec, 'free_tier_listing_limit');
+    const value = typeof raw === 'string' ? Number(raw) : raw;
+    listingLimit = typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+  }
+  return { farmerId, current, freeTierLimits: { enforced, listingLimit } };
 }
 
 export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps> = {}): AdminFarmersService {
@@ -367,18 +388,62 @@ export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps>
 
     async getSubscription(scope, farmerId) {
       await requireVisible(db, scope, farmerId);
-      const current = await repo.findCurrentSubscription(db, farmerId);
-      // BR-14b: the gate ships off; only `true` turns it on (the listing gate reads it the same way).
-      const gate = await repo.getConfig(db, 'free_tier_limits_enabled');
-      const enforced = gate === true || gate === 'true';
-      let listingLimit: number | null = null;
-      if (enforced) {
-        const raw = await repo.getConfig(db, 'free_tier_listing_limit');
-        const value = typeof raw === 'string' ? Number(raw) : raw;
-        // A missing or malformed value is "not configured", never a default invented here.
-        listingLimit = typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
-      }
-      return { farmerId, current, freeTierLimits: { enforced, listingLimit } };
+      return loadSubscriptionSummary(repo, db, farmerId);
+    },
+
+    async extendSubscription(scope, farmerId, body) {
+      return transaction(async (tx) => {
+        if (!(await repo.lockFarmer(tx, farmerId, farmerScopeFilter(scope)))) throw notFound(farmerId);
+        const before = await repo.findCurrentSubscription(tx, farmerId);
+        if (!repo.extendSubscription) {
+          throw new AppError('INTERNAL', { detail: 'extendSubscription not configured.' });
+        }
+        const subId = await repo.extendSubscription(tx, farmerId, {
+          months: body.months,
+          periodEnd: body.periodEnd,
+          actorId: scope.userId ?? '00000000-0000-4000-8000-000000000001',
+          reason: body.reason,
+        });
+        const summary = await loadSubscriptionSummary(repo, tx, farmerId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId ?? null,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.subscription.extend',
+          entityType: 'farmer_subscription',
+          entityId: subId,
+          before,
+          after: { ...summary.current, reason: body.reason },
+        });
+        return summary;
+      });
+    },
+
+    async waiveSubscription(scope, farmerId, body) {
+      return transaction(async (tx) => {
+        if (!(await repo.lockFarmer(tx, farmerId, farmerScopeFilter(scope)))) throw notFound(farmerId);
+        const before = await repo.findCurrentSubscription(tx, farmerId);
+        if (!repo.waiveSubscription) {
+          throw new AppError('INTERNAL', { detail: 'waiveSubscription not configured.' });
+        }
+        const subId = await repo.waiveSubscription(tx, farmerId, {
+          tier: body.tier,
+          months: body.months,
+          periodEnd: body.periodEnd,
+          actorId: scope.userId ?? '00000000-0000-4000-8000-000000000001',
+          reason: body.reason,
+        });
+        const summary = await loadSubscriptionSummary(repo, tx, farmerId);
+        await writeAuditLog(tx, {
+          actorId: scope.userId ?? null,
+          actorRole: scope.roleCode,
+          actionCode: 'farmer.subscription.waive',
+          entityType: 'farmer_subscription',
+          entityId: subId,
+          before,
+          after: { ...summary.current, reason: body.reason },
+        });
+        return summary;
+      });
     },
 
     async updateStatus(scope, disableScope, reactivateScope, farmerId, body) {
@@ -465,6 +530,17 @@ export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps>
       });
     },
   };
+}
+
+export async function assertVisibleFarmer(
+  db: Executor,
+  scope: ResolvedScope,
+  farmerId: string,
+  repo: Pick<AdminFarmersRepo, 'isVisible'> = adminFarmersRepo,
+): Promise<void> {
+  if (!(await repo.isVisible(db, farmerId, farmerScopeFilter(scope)))) {
+    throw notFound(farmerId);
+  }
 }
 
 export const adminFarmersService: AdminFarmersService = createAdminFarmersService();

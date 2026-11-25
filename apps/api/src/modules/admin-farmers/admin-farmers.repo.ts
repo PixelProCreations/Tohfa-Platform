@@ -188,6 +188,16 @@ export interface AdminFarmersRepo {
   markDocumentVerified(db: Executor, documentId: string, verifiedBy: string): Promise<FarmerDocumentRow>;
   listPayoutDestinations(db: Executor, farmerId: string): Promise<AdminFarmerPayoutDestination[]>;
   findCurrentSubscription(db: Executor, farmerId: string): Promise<AdminFarmerSubscription['current']>;
+  extendSubscription?(
+    db: Executor,
+    farmerId: string,
+    params: { months?: number | undefined; periodEnd?: string | undefined; actorId: string; reason: string },
+  ): Promise<string>;
+  waiveSubscription?(
+    db: Executor,
+    farmerId: string,
+    params: { tier: 'FREE' | 'PAID'; months: number; periodEnd?: string | undefined; actorId: string; reason: string },
+  ): Promise<string>;
   /** `system_config.value` (parsed JSON) for `key`, or undefined when no row exists. */
   getConfig(db: Executor, key: string): Promise<unknown>;
   updateFarmerStatus(
@@ -659,7 +669,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
       `SELECT tier, status, period_start::text AS period_start, period_end::text AS period_end
          FROM farmer_subscriptions
         WHERE farmer_id = $1
-        ORDER BY (status = 'ACTIVE') DESC, period_end DESC, created_at DESC
+        ORDER BY (status IN ('ACTIVE', 'WAIVED')) DESC, period_end DESC, created_at DESC
         LIMIT 1`,
       [farmerId],
     );
@@ -671,6 +681,66 @@ export const adminFarmersRepo: AdminFarmersRepo = {
       periodStart: row.period_start,
       periodEnd: row.period_end,
     };
+  },
+
+  async extendSubscription(db, farmerId, params) {
+    const existing = await db.query<{ id: string; period_end: string }>(
+      `SELECT id, period_end::text AS period_end
+         FROM farmer_subscriptions
+        WHERE farmer_id = $1 AND status IN ('ACTIVE', 'WAIVED')
+        ORDER BY period_end DESC, created_at DESC
+        LIMIT 1`,
+      [farmerId],
+    );
+
+    const row = existing.rows[0];
+    if (row !== undefined) {
+      const updated = await db.query<{ id: string }>(
+        `UPDATE farmer_subscriptions
+            SET period_end = COALESCE($2::date, (GREATEST(period_end, CURRENT_DATE) + ($3 || ' months')::interval)::date),
+                updated_at = now()
+          WHERE id = $1
+          RETURNING id`,
+        [row.id, params.periodEnd ?? null, params.months ?? 1],
+      );
+      return updated.rows[0]!.id;
+    }
+
+    await db.query(
+      `UPDATE farmer_subscriptions SET status = 'EXPIRED', updated_at = now() WHERE farmer_id = $1 AND status = 'ACTIVE'`,
+      [farmerId],
+    );
+    const inserted = await db.query<{ id: string }>(
+      `INSERT INTO farmer_subscriptions (farmer_id, tier, amount, period_start, period_end, status)
+       VALUES (
+         $1, 'PAID', 0, CURRENT_DATE,
+         COALESCE($2::date, (CURRENT_DATE + ($3 || ' months')::interval)::date),
+         'ACTIVE'
+       )
+       RETURNING id`,
+      [farmerId, params.periodEnd ?? null, params.months ?? 1],
+    );
+    return inserted.rows[0]!.id;
+  },
+
+  async waiveSubscription(db, farmerId, params) {
+    await db.query(
+      `UPDATE farmer_subscriptions
+          SET status = 'EXPIRED', updated_at = now()
+        WHERE farmer_id = $1 AND status = 'ACTIVE'`,
+      [farmerId],
+    );
+    const inserted = await db.query<{ id: string }>(
+      `INSERT INTO farmer_subscriptions (farmer_id, tier, amount, period_start, period_end, status, waived_by, waived_reason)
+       VALUES (
+         $1, $2, 0, CURRENT_DATE,
+         COALESCE($3::date, (CURRENT_DATE + ($4 || ' months')::interval)::date),
+         'WAIVED', $5, $6
+       )
+       RETURNING id`,
+      [farmerId, params.tier, params.periodEnd ?? null, params.months, params.actorId, params.reason],
+    );
+    return inserted.rows[0]!.id;
   },
 
   async getConfig(db, key) {
@@ -806,13 +876,52 @@ export const adminFarmersRepo: AdminFarmersRepo = {
 
     await db.query(
       `UPDATE farmers
-          SET is_active = $2,
-              is_market_blocked = $3,
-              market_block_reason = $4,
+          SET is_market_blocked = $2,
+              market_block_reason = $3,
               updated_at = now()
         WHERE id = $1`,
-      [farmerId, params.isActive, params.isMarketBlocked, params.marketBlockReason],
+      [farmerId, params.isMarketBlocked, params.marketBlockReason],
     );
+
+    // BR-238 (D8): disabling/deactivating cascades to pending listings,
+    // counter-offers on those listings, and pending payouts in the same tx.
+    if (!params.isReactivation) {
+      const rejectReason = `Account disabled: ${params.reason}`;
+      await db.query(
+        `UPDATE produce_listings
+            SET status = 'REJECTED',
+                rejected_by = $2,
+                rejected_at = now(),
+                rejection_reason = $3,
+                updated_at = now()
+          WHERE farmer_id = $1
+            AND status IN ('DRAFT', 'PENDING_APPROVAL', 'COUNTER_OFFERED')`,
+        [farmerId, params.actorId, rejectReason],
+      );
+
+      await db.query(
+        `UPDATE counter_offers
+            SET status = 'REJECTED',
+                responded_by = $2,
+                responded_at = now(),
+                updated_at = now()
+          WHERE status = 'PENDING'
+            AND listing_id IN (SELECT id FROM produce_listings WHERE farmer_id = $1)`,
+        [farmerId, params.actorId],
+      );
+
+      await db.query(
+        `UPDATE payouts
+            SET status = 'REJECTED',
+                rejected_by = $2,
+                rejected_at = now(),
+                rejection_reason = $3,
+                updated_at = now()
+          WHERE farmer_id = $1
+            AND status IN ('REQUESTED', 'PENDING_APPROVAL')`,
+        [farmerId, params.actorId, rejectReason],
+      );
+    }
   },
 
   async createFarmer(db, params) {
@@ -835,9 +944,9 @@ export const adminFarmersRepo: AdminFarmersRepo = {
       `INSERT INTO farmers (
          user_id, tohfa_farmer_id, zone_id, village, taluk, district,
          pincode, aadhaar_last4, farming_experience_years, address_line1,
-         application_status, kyc_status, is_market_blocked, is_active
+         application_status, kyc_status, is_market_blocked
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'APPROVED', 'VERIFIED', false, true)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'APPROVED', 'VERIFIED', false)
        RETURNING id`,
       [
         userId,

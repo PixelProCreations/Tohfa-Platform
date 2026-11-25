@@ -33,6 +33,7 @@ import type {
 
 export interface CreateFarmCropData extends CreateFarmCropBody {
   plotId: string;
+  createdByAdminId?: string | null | undefined;
 }
 
 /** Only the keys present are written; `null` clears a nullable column. */
@@ -55,6 +56,7 @@ export interface UpdateFarmCropPatch {
 export interface ListFarmCropsArgs {
   plotId: string;
   status?: FarmCropStatus | undefined;
+  addedOnBehalf?: boolean | undefined;
   cursor?: FarmCropCursor | undefined;
   limit: number;
 }
@@ -190,6 +192,8 @@ interface FarmCropRow {
   created_at: Date;
   created_at_cursor: string;
   updated_at: Date | null;
+  created_by_admin_id: string | null;
+  created_by_admin_name: string | null;
 }
 
 interface RotationRow {
@@ -250,6 +254,9 @@ function toFarmCrop(row: FarmCropRow): FarmCropResponse {
     notes: row.notes,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
+    createdByAdminId: row.created_by_admin_id,
+    createdByAdminName: row.created_by_admin_name,
+    addedOnBehalf: row.created_by_admin_id !== null,
   };
 }
 
@@ -284,7 +291,9 @@ const FARM_CROP_SELECT = `
          fc.seed_variety, fc.seed_company, fc.seed_quantity, fc.seed_quantity_unit, fc.seed_cost_paise,
          fc.expected_grade, fc.notes, fc.created_at,
          to_char(fc.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
-         fc.updated_at
+         fc.updated_at,
+         fc.created_by_admin_id,
+         (SELECT u.full_name FROM users u WHERE u.id = fc.created_by_admin_id) AS created_by_admin_name
     FROM farm_crops fc
     JOIN crop_master cm ON cm.id = fc.crop_id
 `;
@@ -373,9 +382,9 @@ export const cropsRepo: CropsRepo = {
       `INSERT INTO farm_crops (
          plot_id, crop_id, planted_on, expected_harvest_on, expected_yield_kg,
          seed_variety, seed_company, seed_quantity, seed_quantity_unit, seed_cost_paise,
-         expected_grade, notes
+         expected_grade, notes, created_by_admin_id
        )
-       VALUES ($1, $2, $3::date, $4::date, $5, $6, $7, $8, $9, $10, $11, $12)
+       VALUES ($1, $2, $3::date, $4::date, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING id`,
       [
         data.plotId,
@@ -390,6 +399,7 @@ export const cropsRepo: CropsRepo = {
         data.seedCostPaise ?? null,
         data.expectedGrade ?? null,
         data.notes ?? null,
+        data.createdByAdminId ?? null,
       ],
     );
     return result.rows[0]!.id;
@@ -416,6 +426,9 @@ export const cropsRepo: CropsRepo = {
     if (args.status !== undefined) {
       params.push(args.status);
       conditions.push(`fc.status = $${params.length}`);
+    }
+    if (args.addedOnBehalf !== undefined) {
+      conditions.push(args.addedOnBehalf ? 'fc.created_by_admin_id IS NOT NULL' : 'fc.created_by_admin_id IS NULL');
     }
     if (args.cursor !== undefined) {
       params.push(args.cursor.createdAt, args.cursor.id);

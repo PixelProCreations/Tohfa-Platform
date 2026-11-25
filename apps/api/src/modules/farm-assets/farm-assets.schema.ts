@@ -47,6 +47,13 @@ export type FarmAssetIdParams = z.infer<typeof farmAssetIdParams>;
 export const farmerIdParams = z.object({ farmerId: z.string().uuid('farmerId must be a UUID') }).strict();
 export type FarmerIdParams = z.infer<typeof farmerIdParams>;
 
+export const adminFarmerAssetParams = z
+  .object({
+    farmerId: z.string().uuid('farmerId must be a UUID'),
+    assetId: z.string().uuid('assetId must be a UUID'),
+  })
+  .strict();
+
 // ---------------------------------------------------------------------------
 // farm_assets — create / update
 // ---------------------------------------------------------------------------
@@ -83,6 +90,9 @@ export const createFarmAssetBody = z
   })
   .strict();
 export type CreateFarmAssetBody = z.infer<typeof createFarmAssetBody>;
+
+export const createAdminFarmAssetBody = createFarmAssetBody.partial({ farmId: true });
+export type CreateAdminFarmAssetBody = z.infer<typeof createAdminFarmAssetBody>;
 
 /**
  * PATCH /v1/farmers/me/farm-assets/{assetId}
@@ -124,6 +134,10 @@ export const listFarmAssetsQuery = z
       .enum(['true', 'false'])
       .transform((value) => value === 'true')
       .optional(),
+    addedOnBehalf: z
+      .enum(['true', 'false'])
+      .transform((value) => value === 'true')
+      .optional(),
     cursor: z.string().max(512).optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
   })
@@ -154,6 +168,9 @@ export const farmAssetResponse = z.object({
   notes: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+  createdByAdminId: z.string().uuid().nullable(),
+  createdByAdminName: z.string().nullable(),
+  addedOnBehalf: z.boolean(),
 });
 export type FarmAssetResponse = z.infer<typeof farmAssetResponse>;
 

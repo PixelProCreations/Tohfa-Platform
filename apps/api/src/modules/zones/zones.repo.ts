@@ -36,6 +36,29 @@ export interface ZonesRepo {
   list(db: Executor, filter: ZonesListFilter): Promise<ZoneListRow[]>;
   findById(db: Executor, id: string): Promise<ZoneDetailRow | null>;
   listPublic(db: Executor): Promise<PublicZoneRow[]>;
+  isActiveWarehouse(db: Executor, warehouseId: string): Promise<boolean>;
+  countActiveFarmersInZone(db: Executor, zoneId: string): Promise<number>;
+  createZone(
+    db: Executor,
+    data: { code: string; name: string; warehouseId: string | null; description: string | null; isActive: boolean },
+  ): Promise<string>;
+  updateZone(
+    db: Executor,
+    id: string,
+    patch: {
+      name?: string | undefined;
+      warehouseId?: string | null | undefined;
+      description?: string | null | undefined;
+      isActive?: boolean | undefined;
+    },
+  ): Promise<boolean>;
+  replaceZoneTaluks(db: Executor, zoneId: string, taluks: string[]): Promise<void>;
+  transferFarmers(
+    db: Executor,
+    sourceZoneId: string,
+    targetZoneId: string,
+    farmerIds?: string[] | undefined,
+  ): Promise<string[]>;
 }
 
 export const zonesRepo: ZonesRepo = {
@@ -142,5 +165,88 @@ export const zonesRepo: ZonesRepo = {
     `;
     const result = await db.query<PublicZoneRow>(query);
     return result.rows;
+  },
+
+  async isActiveWarehouse(db, warehouseId) {
+    const res = await db.query<{ ok: boolean }>(
+      `SELECT true AS ok FROM warehouses WHERE id = $1 AND is_active = true AND deleted_at IS NULL LIMIT 1`,
+      [warehouseId],
+    );
+    return res.rows.length > 0;
+  },
+
+  async countActiveFarmersInZone(db, zoneId) {
+    const res = await db.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM farmers WHERE zone_id = $1 AND deleted_at IS NULL`,
+      [zoneId],
+    );
+    return Number(res.rows[0]?.count ?? 0);
+  },
+
+  async createZone(db, data) {
+    const res = await db.query<{ id: string }>(
+      `INSERT INTO zones (code, name, warehouse_id, description, is_active)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id`,
+      [data.code, data.name, data.warehouseId, data.description, data.isActive],
+    );
+    return res.rows[0]!.id;
+  },
+
+  async updateZone(db, id, patch) {
+    const sets: string[] = [];
+    const params: unknown[] = [id];
+    if (patch.name !== undefined) {
+      params.push(patch.name);
+      sets.push(`name = $${params.length}`);
+    }
+    if ('warehouseId' in patch && patch.warehouseId !== undefined) {
+      params.push(patch.warehouseId);
+      sets.push(`warehouse_id = $${params.length}`);
+    }
+    if ('description' in patch && patch.description !== undefined) {
+      params.push(patch.description);
+      sets.push(`description = $${params.length}`);
+    }
+    if (patch.isActive !== undefined) {
+      params.push(patch.isActive);
+      sets.push(`is_active = $${params.length}`);
+    }
+    if (sets.length === 0) return true;
+    sets.push('updated_at = now()');
+    const res = await db.query(
+      `UPDATE zones SET ${sets.join(', ')} WHERE id = $1 AND deleted_at IS NULL`,
+      params,
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  async replaceZoneTaluks(db, zoneId, taluks) {
+    await db.query(`DELETE FROM zone_taluks WHERE zone_id = $1`, [zoneId]);
+    for (const taluk of taluks) {
+      await db.query(
+        `INSERT INTO zone_taluks (zone_id, taluk) VALUES ($1, $2)`,
+        [zoneId, taluk],
+      );
+    }
+  },
+
+  async transferFarmers(db, sourceZoneId, targetZoneId, farmerIds) {
+    const params: unknown[] = [targetZoneId, sourceZoneId];
+    let filterSql = '';
+    if (farmerIds !== undefined && farmerIds.length > 0) {
+      params.push(farmerIds);
+      filterSql = ` AND id = ANY($3::uuid[])`;
+    }
+    const res = await db.query<{ id: string }>(
+      `UPDATE farmers
+          SET zone_id = $1,
+              updated_at = now()
+        WHERE zone_id = $2
+          AND deleted_at IS NULL${filterSql}
+        RETURNING id`,
+      params,
+    );
+    return res.rows.map((r) => r.id);
   },
 };

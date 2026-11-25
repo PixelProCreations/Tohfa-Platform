@@ -17,8 +17,18 @@ import {
   listPayouts,
   PAYOUT_AWAITING_STATUS,
   payoutApproveFingerprint,
+  payoutRejectFingerprint,
+  rejectPayout,
+  intimatePayout,
+  createBulkPayouts,
+  bulkPayoutFingerprint,
   type ApprovePayoutBody,
+  type RejectPayoutBody,
+  type IntimatePayoutBody,
+  type BulkPayoutsBody,
+  type BulkPayoutsResult,
   type PayoutDto,
+  type PayoutIntimateResult,
   type PayoutListPage,
 } from './payouts';
 import { useAdminMutation, useAdminQuery, useIdempotencyKey } from './hooks';
@@ -81,6 +91,137 @@ export function useApprovePayout(options: PayoutsHookOptions = {}): PayoutApprov
             onSuccess: (payout) => {
               keys.reset();
               onDone?.(payout);
+            },
+          },
+        );
+      },
+      isPending,
+      error,
+      finish: () => {
+        keys.reset();
+        reset();
+      },
+    }),
+    [mutate, isPending, error, reset, keys],
+  );
+}
+
+export interface PayoutRejection {
+  run: (payoutId: string, body: RejectPayoutBody, onDone?: (payout: PayoutDto) => void) => void;
+  isPending: boolean;
+  error: unknown;
+  /** Call when the action is done or abandoned, so the next one gets a fresh Idempotency-Key. */
+  finish: () => void;
+}
+
+/** payout.reject: POST /admin/payouts/{id}/reject. Idempotency-Key required by the server (BR-228); a failure keeps the key. */
+export function useRejectPayout(options: PayoutsHookOptions = {}): PayoutRejection {
+  const enabled = options.enabled ?? true;
+  const keys = useIdempotencyKey();
+  const mutation = useAdminMutation<{ payoutId: string; body: RejectPayoutBody }, PayoutDto>({
+    mutationFn: ({ payoutId, body }) =>
+      enabled
+        ? rejectPayout(payoutId, body, keys.keyFor(payoutRejectFingerprint(payoutId, body)))
+        : Promise.reject(new Error('Payout rejection is not enabled for this caller.')),
+    invalidates: [adminKeys.module(PAYOUTS_MODULE), adminKeys.module(SA_FINANCE_MODULE)],
+  });
+  const { mutate, isPending, error, reset } = mutation;
+  return useMemo(
+    () => ({
+      run: (payoutId: string, body: RejectPayoutBody, onDone?: (payout: PayoutDto) => void) => {
+        if (isPending) return;
+        mutate(
+          { payoutId, body },
+          {
+            onSuccess: (payout) => {
+              keys.reset();
+              reset();
+              onDone?.(payout);
+            },
+          },
+        );
+      },
+      isPending,
+      error,
+      finish: () => {
+        keys.reset();
+        reset();
+      },
+    }),
+    [mutate, isPending, error, reset, keys],
+  );
+}
+
+export interface PayoutIntimation {
+  run: (payoutId: string, body: IntimatePayoutBody, onDone?: (result: PayoutIntimateResult) => void) => void;
+  isPending: boolean;
+  error: unknown;
+  finish: () => void;
+}
+
+/** payout.farmer.initiate: POST /admin/payouts/{id}/intimate. Notification only, so no Idempotency-Key. */
+export function useIntimatePayout(options: PayoutsHookOptions = {}): PayoutIntimation {
+  const enabled = options.enabled ?? true;
+  const mutation = useAdminMutation<{ payoutId: string; body: IntimatePayoutBody }, PayoutIntimateResult>({
+    mutationFn: ({ payoutId, body }) =>
+      enabled
+        ? intimatePayout(payoutId, body)
+        : Promise.reject(new Error('Payout intimation is not enabled for this caller.')),
+    invalidates: [adminKeys.module(PAYOUTS_MODULE), adminKeys.module(SA_FINANCE_MODULE)],
+  });
+  const { mutate, isPending, error, reset } = mutation;
+  return useMemo(
+    () => ({
+      run: (payoutId: string, body: IntimatePayoutBody, onDone?: (result: PayoutIntimateResult) => void) => {
+        if (isPending) return;
+        mutate(
+          { payoutId, body },
+          {
+            onSuccess: (result) => {
+              reset();
+              onDone?.(result);
+            },
+          },
+        );
+      },
+      isPending,
+      error,
+      finish: reset,
+    }),
+    [mutate, isPending, error, reset],
+  );
+}
+
+export interface BulkPayoutAction {
+  run: (body: BulkPayoutsBody, onDone?: (result: BulkPayoutsResult) => void) => void;
+  isPending: boolean;
+  error: unknown;
+  finish: () => void;
+}
+
+/** payout.farmer.initiate: POST /admin/payouts/bulk. Money-moving: one Idempotency-Key per batch until finish(). */
+export function useBulkCreatePayouts(options: PayoutsHookOptions = {}): BulkPayoutAction {
+  const enabled = options.enabled ?? true;
+  const keys = useIdempotencyKey();
+  const mutation = useAdminMutation<{ body: BulkPayoutsBody }, BulkPayoutsResult>({
+    mutationFn: ({ body }) =>
+      enabled
+        ? createBulkPayouts(body, keys.keyFor(bulkPayoutFingerprint(body)))
+        : Promise.reject(new Error('Bulk payout is not enabled for this caller.')),
+    invalidates: [adminKeys.module(PAYOUTS_MODULE), adminKeys.module(SA_FINANCE_MODULE)],
+  });
+  const { mutate, isPending, error, reset } = mutation;
+  return useMemo(
+    () => ({
+      run: (body: BulkPayoutsBody, onDone?: (result: BulkPayoutsResult) => void) => {
+        if (isPending) return;
+        mutate(
+          { body },
+          {
+            onSuccess: (result) => {
+              keys.reset();
+              reset();
+              onDone?.(result);
             },
           },
         );

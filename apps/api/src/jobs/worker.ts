@@ -23,6 +23,8 @@ import { certificationsRepo } from '../modules/certifications/certifications.rep
 import { counterOffersService } from '../modules/listings/counter-offers.service.js';
 import { topupRepo } from '../modules/topup/topup.repo.js';
 import { cartRepo } from '../modules/cart/cart.repo.js';
+import { executeDueMarketSchedules } from '../modules/warehouses/market-control.js';
+import { pollProcessingPayouts } from '../modules/payouts/payouts.service.js';
 
 type Handler<N extends JobName> = (payload: JobPayloads[N], job: Job) => Promise<void>;
 
@@ -462,6 +464,63 @@ export const notificationDeadLetter: Handler<'notification-dead-letter'> = async
   });
 };
 
+export const marketScheduleExecutor: Handler<'market-schedule-executor'> = async (payload) => {
+  const asOf = payload.asOf ? new Date(payload.asOf) : new Date();
+  const runResult = await pool.query<{ id: string }>(
+    `INSERT INTO job_runs (job_name, status, started_at)
+     VALUES ('market-schedule-executor', 'RUNNING', now())
+     RETURNING id`,
+  );
+  const runId = runResult.rows[0]?.id;
+  try {
+    const res = await executeDueMarketSchedules(asOf);
+    if (runId !== undefined) {
+      await pool.query(
+        `UPDATE job_runs
+            SET status = 'SUCCEEDED', finished_at = now(), items_scanned = $2, items_processed = $3, updated_at = now()
+          WHERE id = $1`,
+        [runId, res.scanned, res.executed],
+      );
+    }
+  } catch (error) {
+    if (runId !== undefined) {
+      await pool.query(
+        `UPDATE job_runs SET status = 'FAILED', finished_at = now(), error = $2, updated_at = now() WHERE id = $1`,
+        [runId, (error as Error).message],
+      );
+    }
+    throw error;
+  }
+};
+
+export const payoutSettlementPoll: Handler<'payout-settlement-poll'> = async (payload) => {
+  const runResult = await pool.query<{ id: string }>(
+    `INSERT INTO job_runs (job_name, status, started_at)
+     VALUES ('payout-settlement-poll', 'RUNNING', now())
+     RETURNING id`,
+  );
+  const runId = runResult.rows[0]?.id;
+  try {
+    const res = await pollProcessingPayouts(payload.batchSize ?? 50);
+    if (runId !== undefined) {
+      await pool.query(
+        `UPDATE job_runs
+            SET status = 'SUCCEEDED', finished_at = now(), items_scanned = $2, items_processed = $3, updated_at = now()
+          WHERE id = $1`,
+        [runId, res.scanned, res.settled + res.failed],
+      );
+    }
+  } catch (error) {
+    if (runId !== undefined) {
+      await pool.query(
+        `UPDATE job_runs SET status = 'FAILED', finished_at = now(), error = $2, updated_at = now() WHERE id = $1`,
+        [runId, (error as Error).message],
+      );
+    }
+    throw error;
+  }
+};
+
 const HANDLERS: { [N in JobName]: Handler<N> } = {
   'certificate-expiry-sweep': certificateExpirySweep,
   'counter-offer-expiry-sweep': counterOfferExpirySweep,
@@ -469,6 +528,8 @@ const HANDLERS: { [N in JobName]: Handler<N> } = {
   'cart-lock-reaper': cartLockReaper,
   'notification-dispatch': notificationDispatch,
   'notification-dead-letter': notificationDeadLetter,
+  'market-schedule-executor': marketScheduleExecutor,
+  'payout-settlement-poll': payoutSettlementPoll,
 };
 
 // Start Sentry before any job can fail so worker errors are reportable.

@@ -26,7 +26,7 @@
  */
 import React, { useState } from 'react';
 import { Alert, Linking, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { ModalSafeArea } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
@@ -258,8 +258,8 @@ export function WarehouseInfoScreen({
         </ScrollView>
       )}
 
-      <Modal visible={showMap && profile !== undefined} animationType="slide" onRequestClose={() => setShowMap(false)}>
-        <SafeAreaView style={styles.mapRoot}>
+      <Modal visible={showMap && profile !== undefined} animationType="slide" statusBarTranslucent onRequestClose={() => setShowMap(false)}>
+        <ModalSafeArea edges={['top']} style={styles.mapRoot}>
           <View style={styles.mapHeader}>
             <View style={styles.mapTitleRow}>
               <View style={styles.mapIconChip}>
@@ -279,7 +279,7 @@ export function WarehouseInfoScreen({
             </View>
             <WalletButton label="Start GPS Navigation" onPress={openDirections} />
           </View>
-        </SafeAreaView>
+        </ModalSafeArea>
       </Modal>
     </WalletScreen>
   );

@@ -100,6 +100,7 @@ function fakeRepo(target: AdminAccount | null, otherActiveSupers = 1): { repo: A
     findZones: unexpected,
     endZoneAssignments: unexpected,
     listAdminAccounts: unexpected,
+    getAdminAccountById: unexpected,
   };
   return { repo, calls };
 }
@@ -367,7 +368,7 @@ describe('admin accounts router (BR-110f)', () => {
         const route = layer.route as unknown as { path: string; methods: Record<string, boolean> };
         return Object.keys(route.methods).map((m) => `${m} ${route.path}`);
       });
-    expect(new Set(routes)).toEqual(new Set(['get /', 'post /', 'post /:id/disable', 'put /:id/zones']));
+    expect(new Set(routes)).toEqual(new Set(['get /', 'get /:id', 'post /', 'post /:id/disable', 'put /:id/zones']));
   });
 
   it('BR-110f: 401 without a token; 403 for MAIN_WH_ADMIN, SUB_WH_ADMIN, FARMER and CUSTOMER (admin.account.disable = none)', async () => {
@@ -604,9 +605,93 @@ describeIfDatabase('admin account disable (PostgreSQL, rolled back)', () => {
           fullName: 'Super Admin Test List',
           email,
           roleCode: 'SUPER_ADMIN',
+          roles: ['SUPER_ADMIN'],
           status: 'ACTIVE',
           zones: expect.any(Array),
         });
+        expect(res.body.summary).toMatchObject({ total: expect.any(Number) });
+        expect(res.body.summary.total).toBeGreaterThanOrEqual(1);
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    });
+
+    it('BR-227: GET /admin/accounts/:id returns account detail without secrets/mobile, 404 for unknown/non-admin, and 403 for unauthorized', async () => {
+      const server = createApp().listen(0);
+      try {
+        const adminId = newId();
+        const customerId = newId();
+        const email = `admin-detail-${adminId}@example.com`;
+        const mobile = `+9195${Math.floor(10000000 + Math.random() * 89999999)}`;
+        await pool.query(
+          `INSERT INTO users (id, mobile, full_name, user_type, status, email)
+           VALUES ($1, $2, 'Detail Admin Test', 'ADMIN', 'ACTIVE', $3)`,
+          [adminId, mobile, email],
+        );
+        await pool.query(
+          `INSERT INTO admin_profiles (user_id, admin_code) VALUES ($1, $2)`,
+          [adminId, `ADM-${adminId.slice(0, 8)}`],
+        );
+        await pool.query(
+          `INSERT INTO user_roles (user_id, role_id, role_code, valid_from)
+           SELECT $1, id, code, now() FROM roles WHERE code = 'SUPER_ADMIN'`,
+          [adminId],
+        );
+        await pool.query(
+          `INSERT INTO users (id, mobile, full_name, user_type, status)
+           VALUES ($1, $2, 'Non Admin User', 'CUSTOMER', 'ACTIVE')`,
+          [customerId, `+9194${Math.floor(10000000 + Math.random() * 89999999)}`],
+        );
+
+        const adminToken = `Bearer ${signAccessToken({
+          sub: adminId,
+          roles: [{ code: RoleCode.SUPER_ADMIN }],
+          customerId: null,
+          farmerId: null,
+        })}`;
+        const farmerToken = `Bearer ${signAccessToken({
+          sub: newId(),
+          roles: [{ code: RoleCode.FARMER }],
+          customerId: null,
+          farmerId: newId(),
+        })}`;
+
+        const forbidden = await request(server)
+          .get(`/v1/admin/accounts/${adminId}`)
+          .set('Authorization', farmerToken);
+        expect(forbidden.status).toBe(403);
+
+        const missing = await request(server)
+          .get(`/v1/admin/accounts/${newId()}`)
+          .set('Authorization', adminToken);
+        expect(missing.status).toBe(404);
+
+        const nonAdmin = await request(server)
+          .get(`/v1/admin/accounts/${customerId}`)
+          .set('Authorization', adminToken);
+        expect(nonAdmin.status).toBe(404);
+
+        const detail = await request(server)
+          .get(`/v1/admin/accounts/${adminId}`)
+          .set('Authorization', adminToken);
+        expect(detail.status).toBe(200);
+        expect(detail.body).toMatchObject({
+          id: adminId,
+          fullName: 'Detail Admin Test',
+          email,
+          adminCode: `ADM-${adminId.slice(0, 8)}`,
+          roleCode: 'SUPER_ADMIN',
+          roles: ['SUPER_ADMIN'],
+          status: 'ACTIVE',
+          zones: [],
+          createdAt: expect.any(String),
+          disabledAt: null,
+          disabledBy: null,
+          disabledReason: null,
+        });
+        expect(detail.body).not.toHaveProperty('mobile');
+        expect(detail.body).not.toHaveProperty('passwordHash');
+        expect(detail.body).not.toHaveProperty('password_hash');
       } finally {
         await new Promise<void>((resolve) => server.close(() => resolve()));
       }
