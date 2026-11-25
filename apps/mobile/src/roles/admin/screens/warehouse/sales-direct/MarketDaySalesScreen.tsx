@@ -254,7 +254,7 @@ function MarketDayBody({
       <Text style={styles.sectionHeading}>{t('sales.marketDay.section.allocation')}</Text>
       <View style={styles.card}>
         {marketDay.allocation.length === 0 ? (
-          <Text style={styles.summaryLabel}>{t('sales.marketDay.alloc.empty')}</Text>
+          <AdminEmptyState variant="compact" title={t('sales.marketDay.alloc.empty')} />
         ) : (
           <>
             <View style={styles.allocRow}>
@@ -284,7 +284,7 @@ function MarketDayBody({
       {/* ─── The day's MARKET sales ─── */}
       <Text style={styles.sectionHeading}>{t('sales.marketDay.section.sales')}</Text>
       {marketDay.items.length === 0 ? (
-        <Text style={styles.summaryLabel}>{t('sales.marketDay.sales.empty')}</Text>
+        <AdminEmptyState variant="compact" title={t('sales.marketDay.sales.empty')} />
       ) : (
         marketDay.items.map((row) => {
           const tone = statusTone(row.status);

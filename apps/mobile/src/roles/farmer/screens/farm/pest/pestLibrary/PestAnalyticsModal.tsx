@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { Skeleton, ModalSafeArea } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton, ModalSafeArea } from '@tohfa/mobile-ui';
 import { authPalette as P } from '../../../../theme';
 import type { PestAnalyticsSummary } from '../../../../api/pest';
 import { CloseIcon } from '../pestManagement/icons';
@@ -63,7 +63,11 @@ export function PestAnalyticsModal({ visible, summary, loading, error, onClose }
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyCardText}>{pl('farmer.pestLibrary.analytics.noDetections')}</Text>
+                  <EmptyState
+                    variant="compact"
+                    iconName={null}
+                    title={pl('farmer.pestLibrary.analytics.noDetections')}
+                  />
                 )}
               </View>
 
@@ -79,7 +83,11 @@ export function PestAnalyticsModal({ visible, summary, loading, error, onClose }
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyCardText}>{pl('farmer.pestLibrary.analytics.noDetections')}</Text>
+                  <EmptyState
+                    variant="compact"
+                    iconName={null}
+                    title={pl('farmer.pestLibrary.analytics.noDetections')}
+                  />
                 )}
               </View>
 
@@ -98,7 +106,11 @@ export function PestAnalyticsModal({ visible, summary, loading, error, onClose }
                     </View>
                   ))
                 ) : (
-                  <Text style={styles.emptyCardText}>{pl('farmer.pestLibrary.analytics.noResolved')}</Text>
+                  <EmptyState
+                    variant="compact"
+                    iconName={null}
+                    title={pl('farmer.pestLibrary.analytics.noResolved')}
+                  />
                 )}
               </View>
             </>

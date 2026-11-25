@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { t } from '../../../../../i18n/farmer';
 import { s1 } from './i18n';
-import { FieldError, RequiredLabel, type SectionProps } from './parts';
+import { FieldError, OptionPickerModal, RequiredLabel, type SectionProps } from './parts';
 import { ADDRESS_MAX, PLACE_NAME_MAX } from './validate';
 import { fetchPublicZones, type PublicZoneItem } from '../../../api/registration';
 
@@ -68,6 +68,8 @@ export function suggestZoneIdByTaluk(
   return null;
 }
 
+const DISTRICT_PICKER_OPTIONS = DISTRICT_OPTIONS.map((d) => ({ value: d, label: d }));
+
 export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors }) => {
   const { state, set, setField } = form;
   const errors = state.fieldErrors;
@@ -105,6 +107,10 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
   };
 
   const selectedZone = state.availableZones.find((z) => z.id === state.zoneId);
+  const zonePickerOptions = state.availableZones.map((z) => ({
+    value: z.id,
+    label: formatZoneCollectionPoint(z),
+  }));
 
   return (
     <>
@@ -123,7 +129,6 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
           maxLength={AADHAAR_INPUT_MAX_LENGTH}
           placeholder={t('farmer.registration.step1.aadhaarPlaceholder')}
           placeholderTextColor={colors.placeholder}
-          onFocus={() => set({ showDistrictMenu: false, showZoneMenu: false })}
         />
         {errors.aadhaarNumber ? (
           <FieldError styles={styles} message={errors.aadhaarNumber} />
@@ -149,7 +154,6 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
           textAlignVertical="top"
           placeholder={s1('addressPlaceholder')}
           placeholderTextColor={colors.placeholder}
-          onFocus={() => set({ showDistrictMenu: false, showZoneMenu: false })}
         />
         <FieldError styles={styles} message={errors.addressLine1} />
       </View>
@@ -165,7 +169,6 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
             maxLength={PLACE_NAME_MAX}
             placeholder={s1('villagePlaceholder')}
             placeholderTextColor={colors.placeholder}
-            onFocus={() => set({ showDistrictMenu: false, showZoneMenu: false })}
           />
           <FieldError styles={styles} message={errors.village} />
         </View>
@@ -178,7 +181,6 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
             maxLength={PLACE_NAME_MAX}
             placeholder={s1('talukPlaceholder')}
             placeholderTextColor={colors.placeholder}
-            onFocus={() => set({ showDistrictMenu: false, showZoneMenu: false })}
           />
           <FieldError styles={styles} message={errors.taluk} />
         </View>
@@ -201,37 +203,17 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
           <Text style={styles.helperText}>{s1('zoneHelper')}</Text>
           {errors.zoneId ? <FieldError styles={styles} message={errors.zoneId} /> : null}
 
-          {state.showZoneMenu ? (
-            <View style={styles.dropdownMenu}>
-              <ScrollView style={styles.districtList} keyboardShouldPersistTaps="handled">
-                {state.availableZones.map((z) => {
-                  const label = formatZoneCollectionPoint(z);
-                  const isSelected = z.id === state.zoneId;
-                  return (
-                    <TouchableOpacity
-                      key={z.id}
-                      style={styles.dropdownOption}
-                      onPress={() =>
-                        setField(
-                          { zoneId: z.id, zoneUserOverridden: true, showZoneMenu: false },
-                          'zoneId',
-                        )
-                      }
-                    >
-                      <Text
-                        style={[
-                          styles.dropdownOptionText,
-                          isSelected && styles.dropdownOptionTextSelected,
-                        ]}
-                      >
-                        {label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          ) : null}
+          <OptionPickerModal
+            styles={styles}
+            visible={state.showZoneMenu}
+            title={s1('zoneLabel')}
+            options={zonePickerOptions}
+            selected={state.zoneId}
+            onSelect={(value) =>
+              setField({ zoneId: value, zoneUserOverridden: true, showZoneMenu: false }, 'zoneId')
+            }
+            onClose={() => set({ showZoneMenu: false })}
+          />
         </View>
       ) : null}
 
@@ -251,28 +233,15 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
           </TouchableOpacity>
           <FieldError styles={styles} message={errors.district} />
 
-          {state.showDistrictMenu ? (
-            <View style={styles.dropdownMenu}>
-              <ScrollView style={styles.districtList} keyboardShouldPersistTaps="handled">
-                {DISTRICT_OPTIONS.map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    style={styles.dropdownOption}
-                    onPress={() => setField({ district: opt, showDistrictMenu: false }, 'district')}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownOptionText,
-                        opt === state.district && styles.dropdownOptionTextSelected,
-                      ]}
-                    >
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
+          <OptionPickerModal
+            styles={styles}
+            visible={state.showDistrictMenu}
+            title={s1('districtLabel')}
+            options={DISTRICT_PICKER_OPTIONS}
+            selected={state.district}
+            onSelect={(value) => setField({ district: value, showDistrictMenu: false }, 'district')}
+            onClose={() => set({ showDistrictMenu: false })}
+          />
         </View>
         <View style={styles.gridCol}>
           <RequiredLabel styles={styles} text={s1('pincodeLabel')} />
@@ -282,6 +251,12 @@ export const AddressSection: React.FC<SectionProps> = ({ form, styles, colors })
             onChangeText={(text) =>
               setField({ pincode: text.replace(/[^0-9]/g, '').slice(0, 6) }, 'pincode')
             }
+            // Pincode sits directly beside the District dropdown in the same row.
+            // If a farmer opened District and then tapped here without picking an
+            // option, the dropdown would stay open while the keyboard comes up and
+            // cover it -- the keyboard is a native overlay no JS zIndex can sit
+            // above. Closing it the moment this field gains focus removes the
+            // overlap instead of trying to out-stack the keyboard.
             onFocus={() => set({ showDistrictMenu: false, showZoneMenu: false })}
             keyboardType="number-pad"
             maxLength={6}

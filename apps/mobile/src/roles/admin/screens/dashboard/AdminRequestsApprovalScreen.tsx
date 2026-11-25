@@ -13,6 +13,8 @@ import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
 } from './CreateAdminAccountScreen';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function CheckIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) {
@@ -207,12 +209,7 @@ export function AdminRequestsApprovalScreen({
           </View>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>All Requests Processed</Text>
-            <Text style={styles.emptySubtitle}>
-              There are no pending admin account requests at this moment.
-            </Text>
-          </View>
+          <AdminEmptyState variant="screen" iconName="inbox" title={t('adminRequests.empty.title')} subtitle={t('adminRequests.empty.message')} />
         }
       />
     </SafeAreaView>
@@ -379,21 +376,5 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 50,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: ADMIN_PALETTE.textPrimary,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: ADMIN_PALETTE.textSecondary,
-    textAlign: 'center',
   },
 });

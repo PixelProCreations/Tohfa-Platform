@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -10,8 +10,8 @@ import {
   Image,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { t, getLocale, setLocale } from '../../../../i18n/farmer';
-import { Button, ErrorState, Icon } from '@tohfa/mobile-ui';
+import { t, getLocale, setLocale, type TranslationKey } from '../../../../i18n/farmer';
+import { Button, FormAlert, Icon, type FormAlertTone } from '@tohfa/mobile-ui';
 import {
   loginWithPassword,
   loginWithOAuth,
@@ -20,10 +20,14 @@ import {
   resolveRouteAfterLogin,
   fetchMe,
   isRoleSelectionRequired,
+  logout,
   type OAuthProviderCode,
+  type TokenResponse,
 } from '../../api/auth';
 import { preferredRoleForSelection } from '../../utils/adminShell';
-import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
+import { rememberEntryRole, rolesForEntry } from '../../../../shell/auth/entryRole';
+import { ApiError } from '../../../../shell/api/client';
+import { describeError } from '../../../../shell/errors/describeError';
 import {
   signInWithGoogle,
   signInWithFacebook,
@@ -100,6 +104,19 @@ const MOBILE_PREFIX = '+91';
 
 type AuthMode = 'password' | 'otp';
 
+/**
+ * A failure of the whole action (server, network), shown as a FormAlert banner.
+ * Field validation problems never go here: they render inline under the field.
+ */
+interface BannerError {
+  title: string;
+  message: string;
+  tone: FormAlertTone;
+  icon?: string | undefined;
+  /** Present only when trying the same action again can actually help. */
+  retry?: (() => void) | undefined;
+}
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
   // Password stays the default so existing password users see no change; the
   // "OTP Sign-In" switch restores the S-42 OTP login entry (see handleOtpLogin).
@@ -110,8 +127,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<OAuthProviderCode | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [banner, setBanner] = useState<BannerError | null>(null);
+  // Set by a submit that the mobile number blocked (OTP send, social link). Shown
+  // inline under the field and cleared the moment the farmer edits the number.
+  const [mobileSubmitError, setMobileSubmitError] = useState<string | null>(null);
+  // True while the farmer is typing after an error: the inline error steps aside
+  // (it is re-checked on blur / the next submit) instead of nagging mid-edit.
+  const [mobileEditedSinceError, setMobileEditedSinceError] = useState(false);
   const [locale, setLocaleState] = useState(getLocale());
+  // Set when a provider sign-in succeeded but the identity is not linked yet and
+  // no mobile was entered (BR-39): drives the info message + neutral highlight.
+  const [pendingLinkToken, setPendingLinkToken] = useState<string | null>(null);
+  const mobileInputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [isMobileFocused, setIsMobileFocused] = useState(false);
   const [isPasswordFocused, setIsPasswordFocused] = useState(false);
 
@@ -125,8 +152,43 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     rules: loginRules,
     order: LOGIN_FIELD_ORDER,
   });
-  const mobileError = validation.messageFor('mobile');
+  const mobileError = mobileEditedSinceError
+    ? null
+    : (mobileSubmitError ?? validation.messageFor('mobile') ?? null);
   const passwordError = validation.messageFor('password');
+
+  function onMobileChange(value: string) {
+    setMobile(value);
+    setMobileSubmitError(null);
+    setMobileEditedSinceError(true);
+  }
+
+  function showMobileError(message: string) {
+    setMobileSubmitError(message);
+    setMobileEditedSinceError(false);
+  }
+
+  /**
+   * Server / network failure -> banner. Wording comes from the shared `error.*`
+   * catalogue via describeError (translated, never raw server text); Retry is
+   * offered only when describeError says the same request may succeed again.
+   */
+  function showActionError(err: unknown, title: string, retry: () => void) {
+    const d = describeError(err);
+    if (d.silent) return;
+    const offline = d.code === 'NETWORK_OFFLINE' || d.code === 'NETWORK_TIMEOUT';
+    setBanner({
+      title,
+      message: t(d.messageKey as TranslationKey, d.params),
+      tone: d.action === 'wait' ? 'warning' : 'danger',
+      icon: offline ? 'wifi_off' : d.action === 'wait' ? 'schedule' : undefined,
+      retry: d.action === 'retry' ? retry : undefined,
+    });
+  }
+
+  function showSignInError(message: string) {
+    setBanner({ title: t('farmer.auth.login.errorSignInTitle'), message, tone: 'danger' });
+  }
 
   // E.164 from whatever the farmer typed (spaces / +91 / 0 prefix tolerated); the
   // fallback keeps the old behaviour for the social-link path, which only checks non-blank.
@@ -158,7 +220,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
    */
   async function onSocialLogin(provider: OAuthProviderCode) {
     setSocialLoading(provider);
-    setErrorMsg(null);
+    setBanner(null);
 
     try {
       const providerToken =
@@ -167,19 +229,28 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       let outcome = await loginWithOAuth(provider, providerToken);
 
       if (isRoleSelectionRequired(outcome)) {
-        const firstRole = outcome.availableRoles[0]?.code;
-        if (!firstRole) {
-          setErrorMsg(t('error.generic'));
+        // BR-135: this is the farmer/staff entry, so a FARMER + CUSTOMER account
+        // completes as FARMER (an admin role still wins, as for password login).
+        const entry = rolesForEntry('FARMER', outcome.availableRoles);
+        const chosenRole = entry.ok ? preferredRoleForSelection(entry.roles) : null;
+        if (!chosenRole) {
+          showSignInError(t('farmer.auth.login.notFarmerAccount'));
           return;
         }
-        outcome = await loginWithOAuth(provider, providerToken, { roleCode: firstRole });
+        outcome = await loginWithOAuth(provider, providerToken, { roleCode: chosenRole });
       }
 
       if (isOAuthNotLinked(outcome)) {
         if (!mobile.trim()) {
-          setErrorMsg(t('farmer.auth.login.socialLinkMobileRequired'));
+          // The provider sign-in DID succeed; say so and ask for the number
+          // as guidance, not as a validation error. The token is kept so the
+          // pending state is explicit; the next tap re-runs this flow.
+          setPendingLinkToken(outcome.linkToken);
+          setMobileEditedSinceError(true);
+          mobileInputRef.current?.focus();
           return;
         }
+        setPendingLinkToken(null);
         const targetMobile = cleanMobile();
         const otpRes = await requestOtp({ mobile: targetMobile, purpose: 'LOGIN' });
         onNavigate('Otp', {
@@ -195,46 +266,65 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       }
 
       if (isRoleSelectionRequired(outcome)) {
-        setErrorMsg(t('error.generic'));
+        showSignInError(t('error.generic'));
         return;
       }
 
-      const me = await fetchMe();
-      const route = resolveRouteAfterLogin(outcome, me);
-      onNavigate(route.name, route.params);
+      await continueAsFarmerEntry(outcome);
     } catch (err: unknown) {
       if (err instanceof SocialSignInCancelledError) {
         // The farmer closed the native sheet — not an error worth surfacing.
         return;
       }
-      setErrorMsg(formatErrorMessage(err, t('error.generic')));
+      showActionError(err, t('farmer.auth.login.errorSignInTitle'), () => void onSocialLogin(provider));
     } finally {
       setSocialLoading(null);
     }
   }
 
+  /**
+   * Routes a completed sign-in from this farmer/staff entry (BR-135). The shell
+   * comes from the roles the server issued this session for, narrowed to this
+   * entry: an account holding no farmer/staff role (customer only) is refused
+   * and the session just minted is ended, never opened as a customer. An
+   * unrecognised role opens no admin shell ('Unsupported').
+   */
+  async function continueAsFarmerEntry(signedIn: TokenResponse) {
+    const entry = rolesForEntry('FARMER', signedIn.user.roles);
+    if (!entry.ok) {
+      await logout().catch(() => undefined);
+      showSignInError(t('farmer.auth.login.notFarmerAccount'));
+      return;
+    }
+    await rememberEntryRole('FARMER');
+    const outcome: TokenResponse = { ...signedIn, user: { ...signedIn.user, roles: entry.roles } };
+    const me = await fetchMe();
+    const route = resolveRouteAfterLogin(outcome, me);
+    onNavigate(route.name, route.params);
+  }
 
   function switchMode(mode: AuthMode) {
     setAuthMode(mode);
-    setErrorMsg(null);
+    setBanner(null);
+    setMobileSubmitError(null);
   }
 
   async function handleOtpLogin() {
     const rawMobile = mobile.replace(/\s+/g, '').trim();
     if (rawMobile.length < 10) {
-      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
+      showMobileError(t('farmer.auth.login.mobileInvalid'));
       return;
     }
     // Only the mobile number is needed for an OTP login.
     if (validation.allErrors.mobile !== undefined) {
       validation.validateAll();
-      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
+      showMobileError(t('farmer.auth.login.mobileInvalid'));
       return;
     }
     setLoading(true);
-    setErrorMsg(null);
+    setBanner(null);
 
-    const cMobile = cleanMobile();
+    const cMobile = rawMobile.startsWith('+') ? rawMobile : `${MOBILE_PREFIX}${rawMobile}`;
 
     try {
       const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
@@ -247,16 +337,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         purpose: 'LOGIN',
       });
     } catch (err: unknown) {
-      setErrorMsg(formatErrorMessage(err, t('error.generic')));
+      showActionError(err, t('farmer.auth.login.errorOtpSendTitle'), () => void handleOtpLogin());
     } finally {
       setLoading(false);
     }
   }
 
   async function handlePasswordLogin() {
-    if (!validation.validateAll().valid) return;
+    if (!validation.validateAll().valid) {
+      // Re-show the field errors the farmer may have typed past.
+      setMobileEditedSinceError(false);
+      return;
+    }
     setLoading(true);
-    setErrorMsg(null);
+    setBanner(null);
 
     const cMobile = cleanMobile();
 
@@ -264,27 +358,26 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       let outcome = await loginWithPassword({ mobile: cMobile, password });
 
       // An account with more than one role and no pinned roleCode: complete the
-      // login with its admin role if it has one, otherwise its first role (no
-      // role picker exists; see preferredRoleForSelection).
+      // login with its admin role if it has one, otherwise FARMER. This Login is
+      // the farmer/staff entry (BR-135): a FARMER + CUSTOMER account must open
+      // the farmer side here, whichever role the server listed first. No role
+      // picker exists; see preferredRoleForSelection.
       if (isRoleSelectionRequired(outcome)) {
-        const chosenRole = preferredRoleForSelection(outcome.availableRoles);
+        const entry = rolesForEntry('FARMER', outcome.availableRoles);
+        const chosenRole = entry.ok ? preferredRoleForSelection(entry.roles) : null;
         if (!chosenRole) {
-          setErrorMsg(t('error.generic'));
+          showSignInError(t('farmer.auth.login.notFarmerAccount'));
           return;
         }
         outcome = await loginWithPassword({ mobile: cMobile, password, roleCode: chosenRole });
       }
 
       if (isRoleSelectionRequired(outcome)) {
-        setErrorMsg(t('error.generic'));
+        showSignInError(t('error.generic'));
         return;
       }
 
-      // The shell comes from the role the server issued this session for. An
-      // unrecognised role opens no admin shell ('Unsupported').
-      const me = await fetchMe();
-      const route = resolveRouteAfterLogin(outcome, me);
-      onNavigate(route.name, route.params);
+      await continueAsFarmerEntry(outcome);
     } catch (err: unknown) {
       console.error('[LoginScreen] Catch block hit:', err);
       if (err instanceof ApiError && err.is('UNAUTHENTICATED')) {
@@ -292,9 +385,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         // password and an account with no password yet (so it never reveals
         // which). Every such refusal points to OTP sign-in, which is how a
         // first-time user gets in and then creates a password.
-        setErrorMsg(t('farmer.auth.login.invalidCredentials'));
+        // Retrying the same credentials cannot help, so no Retry here.
+        showSignInError(t('farmer.auth.login.invalidCredentials'));
       } else {
-        setErrorMsg(formatErrorMessage(err, t('error.generic')));
+        showActionError(err, t('farmer.auth.login.errorSignInTitle'), () => void handlePasswordLogin());
       }
     } finally {
       setLoading(false);
@@ -337,11 +431,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         ))}
       </View>
 
-      {errorMsg ? <ErrorState message={errorMsg} onRetry={() => setErrorMsg(null)} /> : null}
-
       <View style={styles.fieldGroup}>
         <Text style={styles.fieldLabel}>{t('farmer.auth.login.mobile')}</Text>
-        <View style={[styles.fieldRow, isMobileFocused && styles.fieldRowFocused]}>
+        <View
+          style={[
+            styles.fieldRow,
+            (isMobileFocused || pendingLinkToken) && styles.fieldRowFocused,
+            mobileError ? styles.fieldRowError : null,
+          ]}
+        >
           <View style={styles.fieldIconWrap}>
             <CallIcon size={18} color={isMobileFocused ? P.primary : P.greyMid2} />
           </View>
@@ -349,10 +447,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           <View style={styles.prefixDivider} />
           <TextInput
             value={mobile}
-            onChangeText={setMobile}
+            onChangeText={onMobileChange}
             onFocus={() => setIsMobileFocused(true)}
             onBlur={() => {
               setIsMobileFocused(false);
+              setMobileEditedSinceError(false);
               validation.onBlur('mobile');
             }}
             keyboardType="phone-pad"
@@ -360,11 +459,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             placeholder="98765 43210"
             placeholderTextColor={P.twGray400}
             style={styles.fieldInput}
+            ref={mobileInputRef}
             accessibilityLabel={t('farmer.auth.login.mobile')}
           />
         </View>
-        {mobileError ? <Text accessibilityRole="alert" style={styles.fieldError}>{mobileError}</Text> : null}
+        {mobileError ? <FormAlert message={mobileError} testID="login-mobile-error" /> : null}
+        {pendingLinkToken && !mobileError ? (
+          <Text style={styles.linkInfo} testID="login-social-link-info">
+            {t('farmer.auth.login.socialLinkMobilePrompt')}
+          </Text>
+        ) : null}
       </View>
+
+      {banner ? (
+        <FormAlert
+          variant="banner"
+          tone={banner.tone}
+          icon={banner.icon}
+          title={banner.title}
+          message={banner.message}
+          onRetry={banner.retry}
+          retryLabel={t('farmer.common.retry')}
+          onDismiss={() => setBanner(null)}
+          dismissLabel={t('farmer.common.close')}
+          testID="login-error-banner"
+        />
+      ) : null}
 
       {authMode === 'password' ? (
         <>
@@ -406,7 +526,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
               )}
             </TouchableOpacity>
           </View>
-          {passwordError ? <Text accessibilityRole="alert" style={styles.fieldError}>{passwordError}</Text> : null}
+          {passwordError ? <FormAlert message={passwordError} testID="login-password-error" /> : null}
       </View>
 
         <View style={styles.optionRow}>
@@ -664,6 +784,16 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+  },
+  linkInfo: {
+    marginTop: 8,
+    fontSize: typography.caption,
+    fontWeight: weights.medium,
+    lineHeight: 18,
+    color: P.primary,
+  },
+  fieldRowError: {
+    borderColor: colors.danger,
   },
   fieldIconWrap: {
     width: 22,

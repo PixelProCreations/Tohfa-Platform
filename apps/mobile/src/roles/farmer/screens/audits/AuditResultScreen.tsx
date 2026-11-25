@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import {
@@ -395,8 +395,13 @@ export function AuditResultScreen({ onBack, auditId }: AuditResultScreenProps): 
         <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         {header}
         <View style={styles.centerFill}>
-          <Text style={styles.emptyTitle}>{t('farmer.auditResult.notFound.title')}</Text>
-          <Text style={styles.emptyBody}>{t('farmer.auditResult.notFound.body')}</Text>
+          <EmptyState
+            iconName="search"
+            message={t('farmer.auditResult.notFound.body')}
+            testID="auditResult.notFound"
+            title={t('farmer.auditResult.notFound.title')}
+            variant="screen"
+          />
         </View>
       </SafeAreaView>
     );
@@ -995,17 +1000,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  emptyTitle: {
-    fontSize: typography.title,
-    fontWeight: '700',
-    color: P.twGray900,
-    textAlign: 'center',
-  },
-  emptyBody: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    marginTop: 8,
   },
 });

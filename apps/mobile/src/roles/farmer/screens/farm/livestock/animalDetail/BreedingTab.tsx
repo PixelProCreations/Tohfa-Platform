@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { authPalette as P, colors } from '../../../../theme';
 import { t } from '../../../../../../i18n/farmer';
 import { type AnimalGender } from '../../../../api/livestock';
@@ -108,9 +109,11 @@ export function BreedingTab({
               </Text>
             ) : null}
             {currentCycle === null ? (
-              <Text style={styles.itemSubtitle}>
-                {t('farmer.livestock.detail.breeding.noCycle')}
-              </Text>
+              <EmptyState
+                variant="compact"
+                iconName={null}
+                title={t('farmer.livestock.detail.breeding.noCycle')}
+              />
             ) : (
               <>
                 <View style={styles.cycleTopRow}>
@@ -177,9 +180,12 @@ export function BreedingTab({
           </View>
           {calvings.length === 0 ? (
             <View style={styles.whiteCardContainer}>
-              <Text style={styles.itemSubtitle} testID="animalDetail.breeding.noCalving">
-                {t('farmer.livestock.detail.breeding.noCalving')}
-              </Text>
+              <EmptyState
+                variant="compact"
+                iconName={null}
+                title={t('farmer.livestock.detail.breeding.noCalving')}
+                testID="animalDetail.breeding.noCalving"
+              />
             </View>
           ) : (
             calvings.map((calving) => (

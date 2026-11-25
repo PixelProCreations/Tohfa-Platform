@@ -6,6 +6,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n/customer';
 import { gradeLabel, productKey, SELLABLE_GRADES, useProducts, type Product, type ProductSort, type SellableGrade } from '../api/catalog';
 import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
@@ -118,9 +119,7 @@ export function ProductGridScreen({ categoryId, sort: initialSort, title, onNavi
           </TouchableOpacity>
         </View>
       ) : items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.message}>{t('catalog.grid.empty')}</Text>
-        </View>
+        <EmptyState title={t('catalog.grid.empty')} />
       ) : (
         <FlatList
           data={items}

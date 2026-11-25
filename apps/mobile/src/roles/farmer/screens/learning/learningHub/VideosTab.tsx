@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { colors, authPalette as P } from '../../../theme';
 import { ICON } from './constants';
 import { FEATURED_VIDEO, type VideoItem } from './data';
@@ -78,10 +79,12 @@ export function VideosTab({ videos, isFeaturedMatch, onOpenVideo }: Props): Reac
       ))}
 
       {videos.length === 0 && !isFeaturedMatch && (
-        <View style={styles.emptyStateContainer}>
-          <Text style={styles.emptyStateTitle}>{lh('video.emptyTitle')}</Text>
-          <Text style={styles.emptyStateSubtitle}>{lh('video.emptyHint')}</Text>
-        </View>
+        <EmptyState
+          variant="screen"
+          iconName="search"
+          title={lh('video.emptyTitle')}
+          message={lh('video.emptyHint')}
+        />
       )}
     </View>
   );

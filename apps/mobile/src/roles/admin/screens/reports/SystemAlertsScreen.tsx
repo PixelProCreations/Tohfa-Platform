@@ -346,7 +346,7 @@ export function SystemAlertsScreen({
         ) : alertsQuery.error ? (
           <AdminErrorState error={alertsQuery.error} onRetry={alertsQuery.refetch} />
         ) : displayedAlerts.length === 0 ? (
-          <AdminEmptyState />
+          <AdminEmptyState title={t('reports.systemAlerts.empty.title')} subtitle={t('reports.systemAlerts.empty.message')} />
         ) : (
         <View style={styles.alertsList}>
           {displayedAlerts.map((item) => (
@@ -531,26 +531,6 @@ const styles = StyleSheet.create({
   dismissBtn: {
     padding: 4,
     marginTop: 1,
-  },
-  emptyCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    borderWidth: 1.2,
-    borderColor: '#F0ECE6',
-    padding: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.textPrimary,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: PALETTE.textSecondary,
-    textAlign: 'center',
   },
   configureBtn: {
     backgroundColor: PALETTE.cardBg,

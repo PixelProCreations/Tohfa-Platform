@@ -231,7 +231,7 @@ import { PricingService, type RetailPrice, type RetailPriceCreate } from './pric
               placeholder="e.g. 50.00"
             />
             <small style="color: var(--tohfa-neutral-700);">
-              Must be at or below the governing fair price ceiling (BR-09a).
+              Must be at or below the governing fair price ceiling.
             </small>
           </div>
 

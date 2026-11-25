@@ -9,7 +9,7 @@ import {
   } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatSafeDate } from '../../../polyfills';
@@ -368,9 +368,15 @@ export function EquipmentListScreen({
             })}
 
             {filteredItems.length === 0 && (
-              <Text style={styles.emptyText}>
-                {equipmentList.length === 0 ? t('farmer.farmAssets.emptyEquipment') : 'No equipment in this view'}
-              </Text>
+              <EmptyState
+                iconName={equipmentList.length === 0 ? 'settings' : 'search'}
+                title={
+                  equipmentList.length === 0
+                    ? t('farmer.farmAssets.emptyEquipment')
+                    : t('farmer.farmAssets.noMatchEquipment')
+                }
+                variant="screen"
+              />
             )}
           </View>
         </ScrollView>
@@ -655,13 +661,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: '700',
     color: colors.brandGreen,
-  },
-
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
 
   // Floating Action Button

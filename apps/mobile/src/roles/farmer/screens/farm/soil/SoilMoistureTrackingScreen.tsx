@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';
@@ -224,7 +225,7 @@ export function SoilMoistureTrackingScreen({
         showsVerticalScrollIndicator={false}
       >
         {zones.length === 0 ? (
-          <Text style={styles.emptyText}>No zones yet. Add a zone before logging moisture.</Text>
+          <EmptyState variant="screen" iconName="water_drop" title={t('farmer.soil.moisture.noZones')} />
         ) : (
         zones.map((zone) => (
           <View key={zone.id} style={styles.zoneCard}>
@@ -275,12 +276,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: '600',
     marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

@@ -10,6 +10,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
@@ -244,9 +245,11 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
             </TouchableOpacity>
           </View>
         ) : filtered.length === 0 ? (
-          <Text style={[styles.answerText, { textAlign: 'center', marginTop: 32 }]}>
-            {searching ? t('customer.account.help.noMatch') : t('customer.account.help.noArticles')}
-          </Text>
+          searching ? (
+            <EmptyState variant="compact" iconName="search" title={t('customer.account.help.noMatch')} />
+          ) : (
+            <EmptyState variant="compact" iconName="help" title={t('customer.account.help.noArticles')} />
+          )
         ) : (
           /* ── FAQ CATEGORIES ACCORDION ──────────────────────────────────────── */
           <View style={styles.accordionContainer}>

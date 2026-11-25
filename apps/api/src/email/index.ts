@@ -1,11 +1,11 @@
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import type { EmailSender } from './email.types.js';
-import { createDisabledSender, createLogSender, createSmtpSender } from './transports.js';
+import { createDisabledSender, createLogSender, createSendGridSender, createSmtpSender } from './transports.js';
 
 export * from './email.types.js';
 export * from './templates.js';
-export { createDisabledSender, createLogSender, createSmtpSender } from './transports.js';
+export { createDisabledSender, createLogSender, createSendGridSender, createSmtpSender } from './transports.js';
 
 export function buildEmailSender(): EmailSender {
   switch (config.EMAIL_TRANSPORT) {
@@ -18,6 +18,12 @@ export function buildEmailSender(): EmailSender {
         pass: config.SMTP_PASS,
         from: config.EMAIL_FROM as string,
         fromName: config.EMAIL_FROM_NAME,
+      });
+    case 'sendgrid':
+      return createSendGridSender({
+        apiKey: config.SENDGRID_API_KEY as string,
+        from: (config.SENDGRID_FROM_EMAIL ?? config.EMAIL_FROM) as string,
+        fromName: config.SENDGRID_FROM_NAME ?? config.EMAIL_FROM_NAME,
       });
     case 'log':
       return createLogSender((line) => logger.info(line), { keepRaw: config.isTest });

@@ -69,7 +69,7 @@ export type PricingTab = 'fair-prices' | 'bulk-update' | 'retail-prices' | 'hist
   template: `
     <div class="page-header">
       <h1>Pricing & Market Ceilings</h1>
-      <p>Manage fair price ceilings (BR-08) and customer retail prices (BR-09).</p>
+      <p>Manage fair price ceilings and customer retail prices.</p>
     </div>
 
     <div class="tabs">

@@ -413,11 +413,6 @@ export const styles = StyleSheet.create({
   certSkeleton: {
     borderRadius: 14,
   },
-  certNoticeText: {
-    fontSize: typography.body,
-    color: P.slate500,
-    lineHeight: 19,
-  },
   warningNoticeBox: {
     backgroundColor: P.amber50,
     borderColor: P.amber200,

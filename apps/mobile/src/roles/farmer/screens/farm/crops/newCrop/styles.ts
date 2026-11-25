@@ -411,11 +411,6 @@ export const styles = StyleSheet.create({
     padding: sp.s24,
     justifyContent: 'center',
   },
-  noPlotsText: {
-    fontSize: typography.body,
-    color: P.twGray600,
-    textAlign: 'center',
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: SCRIM_COLOR,

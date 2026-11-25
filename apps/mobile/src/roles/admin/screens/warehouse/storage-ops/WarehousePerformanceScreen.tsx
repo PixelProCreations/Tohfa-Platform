@@ -132,7 +132,7 @@ export function WarehousePerformanceScreen({
 
               <SectionTitle>{t('storageOps.performance.movements')}</SectionTitle>
               {data.movements.length === 0 ? (
-                <Text style={styles.muted}>{t('storageOps.performance.noMovements')}</Text>
+                <AdminEmptyState variant="compact" title={t('storageOps.performance.noMovements')} />
               ) : (
                 <View style={styles.card}>
                   {data.movements.map((m) => (

@@ -351,9 +351,10 @@ export function CustomerSearchScreen({
               </TouchableOpacity>
             ))
           ) : (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>No matching customers found</Text>
-            </View>
+            <AdminEmptyState
+              variant="compact"
+              title={t(trimmed ? 'customers.search.noMatch' : 'customers.search.noRecent')}
+            />
           )}
         </View>
 
@@ -512,10 +513,6 @@ const styles = StyleSheet.create({
   custBalanceText: {
     ...adminType.rowTitle,
     color: adminColors.success.text,
-  },
-  emptyWrap: {
-    padding: adminSpacing.xl,
-    alignItems: 'center',
   },
   emptyText: {
     ...adminType.body,

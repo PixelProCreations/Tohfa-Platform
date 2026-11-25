@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P } from '../../../../theme';
 import { t } from '../../../../../../i18n/farmer';
 import type { PestDetection, PestTreatmentLog } from '../../../../api/pest';
@@ -78,7 +78,11 @@ export function DetectionDetailView({
               </View>
             ))
           ) : (
-            <Text style={styles.treatmentHistoryEmpty}>{t('farmer.pestManagement.detail.noLibraryMatch')}</Text>
+            <EmptyState
+              variant="compact"
+              iconName={null}
+              title={t('farmer.pestManagement.detail.noLibraryMatch')}
+            />
           )}
 
           <View style={styles.detailCalloutBox}>
@@ -100,7 +104,11 @@ export function DetectionDetailView({
               </View>
             ))
           ) : (
-            <Text style={styles.treatmentHistoryEmpty}>{t('farmer.pestManagement.detail.noHistory')}</Text>
+            <EmptyState
+              variant="compact"
+              iconName={null}
+              title={t('farmer.pestManagement.detail.noHistory')}
+            />
           )}
         </View>
 

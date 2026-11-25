@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors } from '../../../../theme';
 import type { PestTreatmentReminder } from '../../../../api/pest';
 import { CalendarScheduleIcon } from '../pestManagement/icons';
@@ -120,9 +120,11 @@ export function ReminderList({ loading, error, items, activeTab, onToggle }: Rem
           );
         })
       ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{ts(`farmer.treatmentSchedule.empty.${activeTab}`)}</Text>
-        </View>
+        <EmptyState
+          variant="screen"
+          iconName="notifications"
+          title={ts(`farmer.treatmentSchedule.empty.${activeTab}`)}
+        />
       )}
     </View>
   );

@@ -1,10 +1,12 @@
 import React, { createContext, useContext } from 'react';
-import { tokens, neutral, semantic, hex, roleHex } from '@tohfa/design-tokens';
+import { tokens, neutral, semantic, hex, roleHex, roleTintHex } from '@tohfa/design-tokens';
 import type { RoleCode } from '@tohfa/shared-types';
 
 export interface MobileThemeColors {
   primary: string;
   primaryPressed: string;
+  /** Soft wash of `primary` (role-aware): the fill behind a primary-coloured icon badge. */
+  primaryTint?: string;
   secondary: string;
   danger: string;
   success: string;
@@ -23,6 +25,11 @@ export interface MobileThemeColors {
   grey300?: string;
   grey500?: string;
   grey700?: string;
+  /** Soft tint behind danger alerts and field errors (FormAlert). */
+  dangerSurface?: string;
+  warning?: string;
+  /** Soft tint behind warning alerts (FormAlert). */
+  warningSurface?: string;
 }
 
 export interface MobileTheme {
@@ -74,6 +81,7 @@ export const defaultMobileTheme: MobileTheme = {
   colors: {
     primary: semantic('primary'),
     primaryPressed: semantic('primaryPressed'),
+    primaryTint: semantic('primaryLight'),
     secondary: semantic('secondary'),
     danger: semantic('danger'),
     success: semantic('success'),
@@ -94,6 +102,9 @@ export const defaultMobileTheme: MobileTheme = {
     grey300: neutral('neutral400'),
     grey500: neutral('neutral500'),
     grey700: neutral('neutral700'),
+    dangerSurface: semantic('errorLight'),
+    warning: semantic('warning'),
+    warningSurface: semantic('warningLight'),
   },
   // The theme keeps the names screens already use; the tokens behind them now
   // follow the design system's own type vocabulary (h1/h2/small/…).
@@ -139,6 +150,7 @@ export function buildThemeForRole(role: RoleCode): MobileTheme {
     colors: {
       ...defaultMobileTheme.colors,
       primary: roleHex(role),
+      primaryTint: roleTintHex(role),
       brand: hex('primary'),
       farmerBrand: hex('primary'),
     },

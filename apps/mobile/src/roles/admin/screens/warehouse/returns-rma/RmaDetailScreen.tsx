@@ -26,6 +26,7 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
@@ -231,7 +232,7 @@ export function RmaDetailScreen({
             <ReturnItemsList items={d.items} />
 
             <SectionTitle>{t('returns.detail.timeline')}</SectionTitle>
-            {timeline.length === 0 ? <Text style={styles.muted}>{t('returns.detail.timelineEmpty')}</Text> : <ReturnsTimeline items={timeline} />}
+            {timeline.length === 0 ? <AdminEmptyState variant="compact" iconName={null} title={t('returns.detail.timelineEmpty')} /> : <ReturnsTimeline items={timeline} />}
           </ScrollView>
         )}
       </ReturnDetailGate>

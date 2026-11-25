@@ -3,17 +3,30 @@ import { ActivityIndicator, Text, TextInput, TouchableOpacity, View } from 'reac
 import { t } from '../../../../../i18n/farmer';
 import { s1 } from './i18n';
 import { FieldError, RequiredLabel, type SectionProps } from './parts';
+import {
+  OTP_CODE_LENGTH,
+  otpTextInputProps,
+  sanitizeOtpInput,
+  useOtpSmsAutofill,
+} from '../../../../../shell/otp';
 
 /** 10 digits plus room for the spaces a farmer types ("98765 43210"). */
 const MOBILE_INPUT_MAX_LENGTH = 12;
-/** docs/openapi.yaml OTP code: ^[0-9]{6}$. */
-const OTP_LENGTH = 6;
 
 export const MobileSection: React.FC<SectionProps> = ({ form, styles, colors }) => {
   const { state, setField, isMobileVerified, otpState, handleSendOtp } = form;
   const errors = state.fieldErrors;
   const otpLocked = state.challengeId === null;
   const sendDisabled = state.sendingOtp || (state.challengeId !== null && !otpState.canResend);
+
+  // Android: fill the OTP field from the registration SMS once the farmer
+  // allows it on the system sheet. Fill only: Continue still submits, as
+  // before. Armed per challenge; off once the number is verified.
+  useOtpSmsAutofill({
+    enabled: state.challengeId !== null && !isMobileVerified,
+    armKey: state.challengeId,
+    onCode: (code) => setField({ otp: code }, 'otp'),
+  });
 
   const sendLabel = otpLocked
     ? s1('sendOtp')
@@ -69,10 +82,9 @@ export const MobileSection: React.FC<SectionProps> = ({ form, styles, colors }) 
                 errors.otp ? styles.inputError : null,
               ]}
               value={state.otp}
-              onChangeText={(text) => setField({ otp: text }, 'otp')}
+              onChangeText={(text) => setField({ otp: sanitizeOtpInput(text, OTP_CODE_LENGTH) }, 'otp')}
               editable={!otpLocked}
-              keyboardType="number-pad"
-              maxLength={OTP_LENGTH}
+              {...otpTextInputProps}
               placeholder={otpLocked ? s1('otpPlaceholderLocked') : s1('otpPlaceholder')}
               placeholderTextColor={colors.placeholder}
             />

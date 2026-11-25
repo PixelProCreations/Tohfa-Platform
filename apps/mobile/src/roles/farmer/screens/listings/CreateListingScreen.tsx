@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import { getLocale, t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { listCropMaster, type CropMasterResponse } from '../../api/crops';
@@ -170,7 +170,7 @@ export function CreateListingScreen({
             onRetry={() => void load()}
           />
         ) : state.crops.length === 0 ? (
-          <Text style={styles.emptyText}>{t('farmer.listings.create.step1.empty')}</Text>
+          <EmptyState variant="compact" iconName="eco" title={t('farmer.listings.create.step1.empty')} />
         ) : (
           state.crops.map((crop) => {
             const isSelected = crop.id === selectedId;
@@ -389,11 +389,5 @@ const styles = StyleSheet.create({
   },
   skeletonGap: {
     height: 12,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.grey600,
-    textAlign: 'center',
-    paddingVertical: 16,
   },
 });

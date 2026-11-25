@@ -129,7 +129,9 @@ const AUTH_SCREENS: readonly string[] = [
   'CustomerWelcome',
 ];
 
-const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', 'RoleSelection', ...ADMIN_DASHBOARDS];
+// CreatePassword is a root (BR-142): with an empty stack Android back leaves the
+// app instead of falling through to MainTabs, which would skip the screen.
+const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', 'RoleSelection', 'CreatePassword', ...ADMIN_DASHBOARDS];
 
 /**
  * Where back goes when the history stack is empty, or null to stay put. A

@@ -24,6 +24,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { ATTENTION_ISSUES, warehouseNameOf } from './fixtures';
 import type { AttentionCategory, AttentionIssue, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
@@ -32,7 +33,6 @@ import {
   EmptyState,
   PermissionNote,
   StatusBadge,
-  SuccessCircleIcon,
   WalletButton,
   WalletScreen,
   inScope,
@@ -148,10 +148,7 @@ export function WalletAttentionScreen({
       </View>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <SuccessCircleIcon />
-            <EmptyState title="All Caught Up!" subtitle="No pending issues requiring your attention in this category." />
-          </View>
+          <EmptyState iconName="check_circle" title={t('wallet.attention.empty.title')} subtitle={t('wallet.attention.empty.message')} />
         ) : (
           filtered.map((item) => {
             const showPrimary = primaryAllowed(item);
@@ -209,7 +206,6 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.sm,
     paddingHorizontal: adminSpacing.lg,
   },
-  empty: { alignItems: 'center', paddingTop: adminSpacing.xxl },
   issueCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

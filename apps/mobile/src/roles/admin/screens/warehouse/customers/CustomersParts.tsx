@@ -23,6 +23,7 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
+import { AdminEmptyState, type AdminEmptyStateProps } from '../shared/AsyncStates';
 import type { WarehouseScope } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -456,13 +457,8 @@ export function RecentCard({
 }
 
 /** Empty list message. */
-export function EmptyState({ title, subtitle }: { title: string; subtitle?: string | undefined }) {
-  return (
-    <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>{title}</Text>
-      {subtitle ? <Text style={styles.emptySubtitle}>{subtitle}</Text> : null}
-    </View>
-  );
+export function EmptyState(props: { title: string; subtitle?: string | undefined } & Omit<AdminEmptyStateProps, 'title' | 'subtitle'>) {
+  return <AdminEmptyState {...props} />;
 }
 
 /** Shared card surface for list rows. */
@@ -628,7 +624,4 @@ const styles = StyleSheet.create({
   primaryButtonText: { ...adminType.rowTitle, color: adminColors.onBrand },
   linkButton: { paddingVertical: adminSpacing.xs },
   linkText: { ...adminType.rowTitle, color: adminColors.brand },
-  empty: { alignItems: 'center', padding: adminSpacing.xxl },
-  emptyTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  emptySubtitle: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs, textAlign: 'center' },
 });

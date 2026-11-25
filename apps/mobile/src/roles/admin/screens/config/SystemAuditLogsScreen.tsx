@@ -14,6 +14,7 @@ import {
 import { useAdminQuery } from '../../api/hooks';
 import { listAuditLog } from '../../api/auditLog';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { t } from '../../i18n';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 export interface AuditLogItem {
@@ -139,8 +140,8 @@ export function SystemAuditLogsScreen({ onBack }: SystemAuditLogsScreenProps) {
           <AdminErrorState error={auditQuery.error} onRetry={() => void auditQuery.refetch()} />
         ) : filteredLogs.length === 0 ? (
           <AdminEmptyState
-            title="No audit logs found"
-            subtitle="No activity logs match the selected filter."
+            title={t('systemAuditLogs.empty.title')}
+            subtitle={t('systemAuditLogs.empty.message')}
           />
         ) : (
           <FlatList

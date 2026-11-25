@@ -10,6 +10,7 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -485,12 +486,13 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
             })}
 
             {items.length === 0 && !cartQuery.isError && (
-              <View style={styles.emptyCartWrap} testID="cart-empty">
-                <Text style={styles.emptyCartText}>{t('customer.cart.screen.empty')}</Text>
-                <TouchableOpacity onPress={() => onNavigate?.('Home')}>
-                  <Text style={styles.readPolicyLink}>{t('customer.cart.screen.startShopping')}</Text>
-                </TouchableOpacity>
-              </View>
+              <EmptyState
+                variant="compact"
+                iconName="shopping_cart"
+                title={t('customer.cart.screen.empty')}
+                action={{ label: t('customer.cart.screen.startShopping'), onPress: () => onNavigate?.('Home') }}
+                testID="cart-empty"
+              />
             )}
           </View>
         </View>

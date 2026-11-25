@@ -14,6 +14,7 @@
  */
 import { setAccessToken } from '../../../shell/api/client';
 import { needsCustomerOnboarding } from '../../../shell/auth/customerOnboarding';
+import { forgetEntryRole, rememberEntryRole } from '../../../shell/auth/entryRole';
 import { unregisterPushForSession } from '../../../shell/notifications/push';
 import {
   sendCustomerOtp as apiSendCustomerOtp,
@@ -211,6 +212,7 @@ export async function logout(): Promise<void> {
   } catch {
     // Ignore network error on logout
   } finally {
+    await forgetEntryRole();
     await clearTokens();
     setAccessToken(null);
   }
@@ -294,5 +296,9 @@ export async function verifyCustomerLoginOtp(input: VerifyCustomerLoginInput): P
   });
   await saveTokens(response.accessToken, response.refreshToken);
   setAccessToken(response.accessToken);
+  // BR-135: this is the customer entry. A FARMER + CUSTOMER account signed in
+  // here (the server issues it a CUSTOMER-only session) must reopen the
+  // customer side on a cold start, not the farmer side /auth/me also lists.
+  await rememberEntryRole('CUSTOMER');
   return { response, route: resolveCustomerRouteAfterLogin(response) };
 }

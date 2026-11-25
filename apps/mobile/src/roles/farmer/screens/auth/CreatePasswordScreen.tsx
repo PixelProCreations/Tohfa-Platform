@@ -5,6 +5,7 @@ import { ErrorState } from '@tohfa/mobile-ui';
 import { LockIcon } from '../../assets/icons/AssetIcons';
 import { fetchMe, resolveRouteAfterAuth, setInitialPassword } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
+import { readEntryRole, rolesForSession } from '../../../../shell/auth/entryRole';
 import { authPalette as P, typography } from '../../theme';
 import { NewPasswordForm } from './NewPasswordForm';
 
@@ -32,7 +33,9 @@ export const CreatePasswordScreen: React.FC<CreatePasswordScreenProps> = ({ onNa
   /** Continue exactly like any other sign-in: the role route from a fresh /auth/me. */
   async function continueToRoleRoute() {
     const me = await fetchMe();
-    const route = resolveRouteAfterAuth(me);
+    // BR-135: continue on the side the sign-in was made through (see entryRole.ts).
+    const entry = await readEntryRole();
+    const route = resolveRouteAfterAuth({ ...me, roles: rolesForSession(entry, me.roles) });
     onNavigate(route.name, route.params);
   }
 

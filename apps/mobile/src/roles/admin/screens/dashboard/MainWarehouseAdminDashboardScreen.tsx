@@ -399,14 +399,6 @@ function InboxReceiveIcon({ size = 20, color = PALETTE.primary }: { size?: numbe
   );
 }
 
-function InfoCircleIcon({ size = 16, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8h.01M12 12v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function TransferArrowsIcon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
   // Heroicons arrows-right-left (exact match to design)
@@ -1292,6 +1284,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             </View>
           </View>
           <EmptyState
+            iconName="lock"
             title={t('mainDashboard.overview.notAvailable.title')}
             subtitle={t('mainDashboard.overview.notAvailable.subtitle')}
           />
@@ -1314,7 +1307,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           {/* Receipts are today's (IST) exact per-warehouse count from the performance read (BR-80). */}
           <SectionGate sources={[stockSrc, perfTodayFigSrc, ...(access.issues ? [issuesFigSrc] : [])]}>
-          {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+          {warehouses.length === 0 ? <AdminEmptyState variant="compact" title={t('mainDashboard.noWarehouses')} /> : null}
           {stockFig.warehouses.map((row) => {
             const tone = CAPACITY_PILL[capacityTone(row, nearFull)];
             const capLabel = row.utilizationBp === null ? FIGURE_PLACEHOLDER : formatUtilization(row.utilizationBp);
@@ -1419,7 +1412,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.subHeaderTitle}>Warehouse Comparison</Text>
             </View>
           </View>
-          <EmptyState title="Not available" subtitle="Comparison requires warehouse.all.view." />
+          <EmptyState iconName="lock" title={t('mainDashboard.comparison.notAvailable.title')} subtitle={t('mainDashboard.comparison.notAvailable.message')} />
         </View>
       );
     }
@@ -1439,7 +1432,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <Text style={styles.overviewSectionHeading}>Warehouse Comparison</Text>
 
           <SectionGate sources={[stockSrc]}>
-          {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+          {stockFig.warehouses.length === 0 ? <AdminEmptyState variant="compact" title={t('mainDashboard.noWarehouses')} /> : null}
           <View style={styles.comparisonCard}>
             {stockFig.warehouses.map((row, idx) => {
               const whName = row.name;
@@ -1485,7 +1478,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.subHeaderTitle}>Warehouse Performance</Text>
             </View>
           </View>
-          <EmptyState title="Not available" subtitle="Performance requires warehouse.all.view." />
+          <EmptyState iconName="lock" title={t('mainDashboard.performance.notAvailable.title')} subtitle={t('mainDashboard.performance.notAvailable.message')} />
         </View>
       );
     }
@@ -1605,7 +1598,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.subHeaderTitle}>{t('mainDashboard.capacity.title')}</Text>
             </View>
           </View>
-          <EmptyState title={t('mainDashboard.capacity.notAvailable.title')} subtitle={t('mainDashboard.capacity.notAvailable.subtitle')} />
+          <EmptyState iconName="lock" title={t('mainDashboard.capacity.notAvailable.title')} subtitle={t('mainDashboard.capacity.notAvailable.subtitle')} />
         </View>
       );
     }
@@ -1692,7 +1685,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           <Text style={styles.overviewSectionHeading}>{t('mainDashboard.manage.section')}</Text>
 
           <SectionGate sources={[warehousesSrc]}>
-          {warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+          {warehouses.length === 0 ? <AdminEmptyState variant="compact" title={t('mainDashboard.noWarehouses')} /> : null}
           {warehouses.map((wh) => {
             const displayName = wh.name.endsWith('Warehouse') ? wh.name : `${wh.name} Warehouse`;
             // The pill is the warehouse's real status: an inactive one is not drawn green.
@@ -1883,9 +1876,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
           {visibleAlerts.length === 0 &&
             (alertState === 'snoozed' ? (
-              <EmptyState title={t('alerts.empty.snoozed')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+              <EmptyState variant="compact" title={t('alerts.empty.snoozed')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
             ) : (
-              <EmptyState title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
+              <EmptyState variant="compact" title={t('mainDashboard.alerts.empty.title')} subtitle={t('mainDashboard.alerts.empty.subtitle')} />
             ))}
           </SectionGate>
 
@@ -2070,7 +2063,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.subHeaderTitle}>Alert Detail</Text>
             </View>
           </View>
-          <EmptyState title="No alert selected" subtitle="Please select an alert from the Alerts & Action Center." />
+          <EmptyState title={t('mainDashboard.alertDetail.empty.title')} subtitle={t('mainDashboard.alertDetail.empty.message')} />
         </View>
       );
     }
@@ -2322,7 +2315,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           ))}
 
           {filteredProducts.length === 0 && (
-            <EmptyState title="No matching stock" subtitle="No products match your search keyword." />
+            <EmptyState variant="compact" title={t('mainDashboard.stock.search.empty.title')} subtitle={t('mainDashboard.stock.search.empty.message')} />
           )}
           </SectionGate>
 
@@ -2377,7 +2370,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
           ))}
 
           {lowStockItems.length === 0 && (
-            <EmptyState title="No Low Stock" subtitle="All warehouses are stocked within target levels." />
+            <EmptyState variant="compact" iconName="check_circle" title={t('mainDashboard.lowStock.empty.title')} subtitle={t('mainDashboard.lowStock.empty.message')} />
           )}
           </SectionGate>
 
@@ -2404,7 +2397,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollWithFooter} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Transfer Tracking</Text>
 
-          {!access.transfers ? <AdminEmptyState title={t('mainDashboard.notAvailable')} /> : null}
+          {!access.transfers ? <AdminEmptyState variant="compact" iconName="lock" title={t('mainDashboard.notAvailable')} /> : null}
           {access.transfers ? (
           <SectionGate sources={[transfersSrc]}>
           <View style={styles.trackingCard}>
@@ -2449,7 +2442,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
             })}
 
             {transferFig.rows.length === 0 && (
-              <EmptyState title={t('mainDashboard.transfer.empty.title')} subtitle={t('mainDashboard.transfer.empty.subtitle')} />
+              <EmptyState variant="compact" title={t('mainDashboard.transfer.empty.title')} subtitle={t('mainDashboard.transfer.empty.subtitle')} />
             )}
           </View>
           </SectionGate>
@@ -2474,8 +2467,9 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         {activeTab === 'Home' && whSubView === 'overview' && !canAllView && (
           <View style={styles.scroll}>
             <EmptyState
-              title="Multi-warehouse view not available"
-              subtitle="The Main Warehouse dashboard needs warehouse.all.view."
+              iconName="lock"
+              title={t('mainDashboard.overview.notAvailable.title')}
+              subtitle={t('mainDashboard.home.notAvailable.message')}
             />
           </View>
         )}
@@ -2628,7 +2622,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
               {/* Warehouse Progress Cards */}
               <SectionGate sources={[stockSrc]}>
-              {stockFig.warehouses.length === 0 ? <AdminEmptyState title={t('mainDashboard.noWarehouses')} /> : null}
+              {stockFig.warehouses.length === 0 ? <AdminEmptyState variant="compact" title={t('mainDashboard.noWarehouses')} /> : null}
               {stockFig.warehouses.map((row) => {
                 const whName = row.name;
                 const fillWidth = `${barWidthPercent(row.utilizationBp)}%` as const;
@@ -2780,16 +2774,12 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   </View>
                 </TouchableOpacity>
               ) : (
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertAccentBar, { backgroundColor: PALETTE.green }]} />
-                  <View style={styles.alertContentRow}>
-                    <InfoCircleIcon size={24} color={PALETTE.green} />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.alertTitle}>All Warehouses Normal</Text>
-                      <Text style={styles.alertSub}>No active alerts or stock exceptions reported</Text>
-                    </View>
-                  </View>
-                </View>
+                <AdminEmptyState
+                  variant="compact"
+                  iconName="check_circle"
+                  title={t('mainDashboard.alerts.allNormal.title')}
+                  subtitle={t('mainDashboard.alerts.allNormal.message')}
+                />
               )}
               </SectionGate>
 
@@ -2857,9 +2847,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
                   );
                 })}
                 {activityFeed.length === 0 && activityRows.length === 0 && (
-                  <View style={{ padding: 16 }}>
-                    <Text style={[styles.activitySub, { textAlign: 'center' }]}>{t('mainDashboard.activity.none')}</Text>
-                  </View>
+                  <AdminEmptyState variant="compact" iconName={null} title={t('mainDashboard.activity.none')} />
                 )}
               </View>
               </SectionGate>
@@ -2950,7 +2938,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
         {/* Like Home, the all-warehouses view needs warehouse.all.view; without it a note renders. */}
         {activeTab === 'Inventory' && whSubView === 'overview' && !canAllView && (
           <View style={styles.scroll}>
-            <AdminEmptyState title={t('mainDashboard.notAvailable')} />
+            <AdminEmptyState iconName="lock" title={t('mainDashboard.notAvailable')} />
           </View>
         )}
         {activeTab === 'Inventory' && whSubView === 'overview' && canAllView && (

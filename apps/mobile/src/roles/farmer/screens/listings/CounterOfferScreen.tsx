@@ -36,7 +36,7 @@ import {
   type Listing,
 } from '../../api/listings';
 import { formatMoneyAmount } from '../../api/wallet';
-import { ErrorState, Icon, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, SafeAreaView, appAlert, EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { gradeLabel, kgLabel, moneyOrDash, pricePerKgLabel, timeLeftLabel, tk } from './listingFormat';
@@ -257,7 +257,7 @@ export function CounterOfferScreen({
             </View>
           ) : (
             <View style={styles.centerFill}>
-              <Text style={styles.emptyText}>{t('farmer.listings.offer.notOpen')}</Text>
+              <EmptyState variant="screen" iconName="info" title={t('farmer.listings.offer.notOpen')} />
             </View>
           )}
         </View>
@@ -666,10 +666,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.grey500,
-    textAlign: 'center',
   },
 });

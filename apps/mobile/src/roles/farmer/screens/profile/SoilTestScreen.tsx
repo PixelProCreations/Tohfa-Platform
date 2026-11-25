@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Polyline, Circle, Path } from 'react-native-svg';
-import { Icon, SafeAreaView } from '@tohfa/mobile-ui';
+import { Icon, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { getFarms, getPlots } from '../../api/farms';
@@ -489,7 +489,7 @@ export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest
                   </View>
                 ))
               ) : (
-                <Text style={styles.emptyText}>{t('farmer.profile.soil.noHistory')}</Text>
+                <EmptyState variant="compact" iconName="science" title={t('farmer.profile.soil.noHistory')} />
               )}
             </View>
           </>

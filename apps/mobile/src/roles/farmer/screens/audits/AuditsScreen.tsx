@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../theme';
 import {
   AUDIT_STATUS_LABEL_KEY,
@@ -309,8 +309,12 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
         <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         {header}
         <View style={styles.centerFill}>
-          <Text style={styles.emptyTitle}>{t('farmer.audits.empty.title')}</Text>
-          <Text style={styles.emptyBody}>{t('farmer.audits.empty.body')}</Text>
+          <EmptyState
+            iconName="inbox"
+            message={t('farmer.audits.empty.body')}
+            title={t('farmer.audits.empty.title')}
+            variant="screen"
+          />
         </View>
       </SafeAreaView>
     );
@@ -446,9 +450,13 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
         {/* ── Past Audits List ── */}
         <View style={styles.pastAuditsContainer}>
           {group === null || group.past.length === 0 ? (
-            <Text style={styles.emptyInline}>
-              {activeTab === 'external' ? t('farmer.audits.emptyPastExternal') : t('farmer.audits.emptyPastInternal')}
-            </Text>
+            <EmptyState
+              iconName={null}
+              title={
+                activeTab === 'external' ? t('farmer.audits.emptyPastExternal') : t('farmer.audits.emptyPastInternal')
+              }
+              variant="compact"
+            />
           ) : (
             group.past.map((item) => <AuditRow key={item.id} item={item} onPress={() => openResult(item.id)} />)
           )}
@@ -761,21 +769,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  emptyTitle: {
-    fontSize: typography.title,
-    fontWeight: '700',
-    color: P.twGray900,
-    textAlign: 'center',
-  },
-  emptyBody: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  emptyInline: {
-    fontSize: typography.body,
-    color: P.twGray500,
   },
 });

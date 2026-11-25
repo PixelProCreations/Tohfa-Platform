@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';
@@ -210,7 +211,7 @@ export function SoilAmendmentsLogScreen({
 
         {/* ── Amendments List ── */}
         {items.length === 0 ? (
-          <Text style={styles.emptyText}>No amendments logged yet.</Text>
+          <EmptyState variant="compact" iconName="science" title={t('farmer.soil.amendments.empty')} />
         ) : (
         <View style={styles.amendmentsList}>
           {items.map((item) => (
@@ -262,12 +263,6 @@ const styles = StyleSheet.create({
     color: P.red600,
     fontSize: typography.body,
     fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
   header: {
     paddingHorizontal: 16,

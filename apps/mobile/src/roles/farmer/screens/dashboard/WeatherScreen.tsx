@@ -22,9 +22,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { ErrorState, Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
-import { authPalette as P, colors, typography } from '../../theme';
+import { authPalette as P, colors, spacing, typography } from '../../theme';
 import {
   getFarmWeather,
   type FarmWeather,
@@ -389,12 +389,13 @@ export function WeatherScreen({ onNavigateBack }: WeatherScreenProps): React.JSX
                 })}
               </View>
             ) : (
-              <View style={styles.noAlertsCard}>
-                <Icon name="check_circle" size={20} color={colors.brandGreen} />
-                <Text style={styles.noAlertsText}>
-                  No severe weather alerts active for your farm location.
-                </Text>
-              </View>
+              <EmptyState
+                variant="compact"
+                iconName="check_circle"
+                title={t('farmer.weather.noAlerts')}
+                testID="weather.alerts.empty"
+                style={styles.noAlertsState}
+              />
             )}
 
             {/* Next 24 Hours Real-time Hourly Steps */}
@@ -612,22 +613,8 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     lineHeight: 20,
   },
-  noAlertsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: P.white,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-    marginBottom: 24,
-  },
-  noAlertsText: {
-    flex: 1,
-    fontSize: typography.body,
-    color: colors.textBody,
-    lineHeight: 18,
+  noAlertsState: {
+    marginBottom: spacing.xl,
   },
 
   hourlyScroll: {

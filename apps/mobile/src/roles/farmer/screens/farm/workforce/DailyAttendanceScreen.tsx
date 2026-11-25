@@ -26,7 +26,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, Icon, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { ATTENDANCE_HOURS_MAX_CHARS, hoursErrorMessage } from './attendanceHours';
@@ -336,7 +336,7 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
             ) : dataError ? (
               <Text style={styles.errorText}>{dataError}</Text>
             ) : workers.length === 0 ? (
-              <Text style={styles.emptyText}>No workers added yet.</Text>
+              <EmptyState variant="screen" iconName="groups" title={t('farmer.workforce.attendance.noWorkers')} />
             ) : (
               workers.map((worker, idx) => {
                 const form = forms[worker.id];
@@ -549,10 +549,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.body,
     color: P.twRed600,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
   },
   sectionHeader: {
     flexDirection: 'row',

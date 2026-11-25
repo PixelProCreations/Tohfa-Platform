@@ -5,6 +5,7 @@
  */
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { authPalette as P, colors } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import type { AnimalResponse } from '../../../api/livestock';
@@ -154,9 +155,12 @@ export function AnimalHealthSection({
           <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.health.vaccinations')}</Text>
           <View style={styles.whiteCardContainer}>
             {sections.vaccinations.length === 0 ? (
-              <Text style={styles.itemSubtitle} testID="animalDetail.health.empty.vaccinations">
-                {t('farmer.livestock.detail.health.emptyVaccinations')}
-              </Text>
+              <EmptyState
+                variant="compact"
+                iconName={null}
+                title={t('farmer.livestock.detail.health.emptyVaccinations')}
+                testID="animalDetail.health.empty.vaccinations"
+              />
             ) : (
               <DueRows rows={sections.vaccinations} kind="vaccination" styles={styles} />
             )}
@@ -166,9 +170,12 @@ export function AnimalHealthSection({
           <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.health.deworming')}</Text>
           <View style={styles.whiteCardContainer}>
             {sections.dewormings.length === 0 ? (
-              <Text style={styles.itemSubtitle} testID="animalDetail.health.empty.deworming">
-                {t('farmer.livestock.detail.health.emptyDeworming')}
-              </Text>
+              <EmptyState
+                variant="compact"
+                iconName={null}
+                title={t('farmer.livestock.detail.health.emptyDeworming')}
+                testID="animalDetail.health.empty.deworming"
+              />
             ) : (
               <DueRows rows={sections.dewormings} kind="deworming" styles={styles} />
             )}
@@ -178,9 +185,12 @@ export function AnimalHealthSection({
           <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.health.checkupTreatment')}</Text>
           <View style={styles.whiteCardContainer}>
             {sections.checkups.length === 0 ? (
-              <Text style={styles.itemSubtitle} testID="animalDetail.health.empty.checkups">
-                {t('farmer.livestock.detail.health.emptyCheckups')}
-              </Text>
+              <EmptyState
+                variant="compact"
+                iconName={null}
+                title={t('farmer.livestock.detail.health.emptyCheckups')}
+                testID="animalDetail.health.empty.checkups"
+              />
             ) : (
               sections.checkups.map((chk, idx) => (
                 <React.Fragment key={chk.id}>

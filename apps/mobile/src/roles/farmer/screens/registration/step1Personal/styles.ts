@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colors as staticColors, typography, type useTheme } from '../../../theme';
+import { authPalette, colors as staticColors, typography, type useTheme } from '../../../theme';
 
 type ThemeColors = ReturnType<typeof useTheme>['colors'];
 
@@ -54,6 +54,25 @@ export function makeStyles(colors: ThemeColors) {
     },
     dropdownText: { fontSize: typography.bodyLarge, color: colors.onSurface },
     dropdownArrow: { fontSize: typography.body, color: colors.textSubtle },
+    // Options render in a Modal (see OptionPickerModal) so they are never clipped by the
+    // ScrollView bounds, the fixed footer, or the half-width grid column.
+    pickerOverlay: { flex: 1, justifyContent: 'center', padding: 24 },
+    pickerBackdrop: { ...StyleSheet.absoluteFill as object, backgroundColor: authPalette.black, opacity: 0.45 },
+    pickerCard: {
+      width: '100%',
+      maxHeight: '70%',
+      borderRadius: 16,
+      paddingVertical: 8,
+      backgroundColor: colors.white,
+      elevation: 6,
+    },
+    pickerTitle: {
+      fontSize: typography.bodyLarge,
+      fontWeight: '700',
+      color: colors.onSurface,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+    },
     dropdownMenu: {
       position: 'absolute',
       top: 72,

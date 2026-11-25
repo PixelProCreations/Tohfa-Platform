@@ -29,6 +29,7 @@ import {
   verifyOtp as apiVerifyOtp,
 } from '../../../shell/auth/api';
 import { needsCustomerOnboarding } from '../../../shell/auth/customerOnboarding';
+import { forgetEntryRole } from '../../../shell/auth/entryRole';
 import { unregisterPushForSession } from '../../../shell/notifications/push';
 import { saveTokens, clearTokens, getAccessToken as getStoredAccessToken } from '../storage/tokenStorage';
 import { ADMIN_SHELL_ROLES, adminShellForRoles, type AdminShellRole } from '../utils/adminShell';
@@ -582,6 +583,8 @@ export async function logout(): Promise<void> {
     setAccessToken(null);
     // The next account on this device must not see this farmer's certificates.
     clearCertificationsCache();
+    // BR-135: the next sign-in on this device chooses its own entry.
+    await forgetEntryRole();
     await clearTokens();
   }
 }

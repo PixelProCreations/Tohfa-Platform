@@ -11,6 +11,8 @@ import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
 } from './CreateAdminAccountScreen';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 export interface AdminActivityEntry {
   id: string;
@@ -165,6 +167,7 @@ export function AdminActivityLogsScreen({ onBack }: AdminActivityLogsScreenProps
       {/* Logs Feed */}
       <FlatList
         data={filteredLogs}
+        ListEmptyComponent={<AdminEmptyState variant="screen" title={t('adminActivityLogs.empty.title')} subtitle={t('adminActivityLogs.empty.message')} />}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.logListContent}
         showsVerticalScrollIndicator={false}

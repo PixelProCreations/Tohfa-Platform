@@ -9,7 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { format, fromPaise } from '@tohfa/shared-types';
 import { t } from '../../../../../i18n/farmer';
@@ -398,21 +398,25 @@ export function FarmDiaryScreen({
             </TouchableOpacity>
           </View>
         ) : filteredEntries.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>{t('farmer.farmDiary.list.emptyTitle')}</Text>
-            <Text style={styles.emptySubtitle}>
-              {hasActiveFilter
+          <EmptyState
+            variant="screen"
+            iconName={hasActiveFilter ? 'search' : 'menu_book'}
+            title={t('farmer.farmDiary.list.emptyTitle')}
+            message={
+              hasActiveFilter
                 ? t('farmer.farmDiary.list.emptyFilteredSubtitle')
-                : t('farmer.farmDiary.list.emptySubtitle')}
-            </Text>
-            <TouchableOpacity
-              style={styles.emptyActionButton}
-              onPress={onNavigateToNewEntry}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.emptyActionText}>{t('farmer.farmDiary.list.emptyAddEntry')}</Text>
-            </TouchableOpacity>
-          </View>
+                : t('farmer.farmDiary.list.emptySubtitle')
+            }
+            action={
+              onNavigateToNewEntry
+                ? {
+                    label: t('farmer.farmDiary.list.emptyAddEntry'),
+                    onPress: onNavigateToNewEntry,
+                    testID: 'farmDiary.empty.add',
+                  }
+                : undefined
+            }
+          />
         ) : (
           <View style={styles.entriesList}>
             {filteredEntries.map((r) => {
@@ -1057,41 +1061,6 @@ const styles = StyleSheet.create({
     color: P.twRed700,
   },
 
-  emptyCard: {
-    backgroundColor: P.white,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: P.twGray100,
-  },
-  emptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.nearBlack,
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  emptyActionButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    backgroundColor: P.twGreen50,
-    borderWidth: 1,
-    borderColor: P.twGreen100,
-  },
-  emptyActionText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.deepGreen,
-  },
   fab: {
     position: 'absolute',
     bottom: 32,

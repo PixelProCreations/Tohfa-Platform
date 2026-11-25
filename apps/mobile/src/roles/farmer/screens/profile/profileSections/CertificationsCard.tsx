@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, EmptyState } from '@tohfa/mobile-ui';
 import type { Certification } from '../../../api/farmer';
 import { t } from '../../../../../i18n/farmer';
 import { colors, authPalette as P } from '../../../theme';
@@ -57,7 +57,7 @@ export function CertificationsCard({
           onRetry={onRetry}
         />
       ) : certSummary.length === 0 ? (
-        <Text style={styles.certNoticeText}>{t('farmer.certifications.empty')}</Text>
+        <EmptyState variant="compact" iconName="verified" title={t('farmer.certifications.empty')} />
       ) : (
         <View style={styles.certCardsRow}>
           {certSummary.slice(0, 2).map(({ cert, status }) => {

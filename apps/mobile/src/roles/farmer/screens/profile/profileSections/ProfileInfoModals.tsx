@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, EmptyState } from '@tohfa/mobile-ui';
 import type { deriveFarmRatingView } from '../../../api/farmer';
 import type { FarmerAuditSummary } from '../../../api/audits';
 import type { SoilTestRecord } from '../../../api/soil';
@@ -273,7 +273,7 @@ export function AuditsModal({
           onRetry={onRetry}
         />
       ) : pastAudits.length === 0 ? (
-        <Text style={styles.certNoticeText}>{t('farmer.profile.audits.noPastYet')}</Text>
+        <EmptyState variant="compact" iconName={null} title={t('farmer.profile.audits.noPastYet')} />
       ) : (
         pastAudits.map((audit, idx, arr) => (
           <AuditHistoryRow key={audit.id} audit={audit} isLast={idx === arr.length - 1} />
@@ -302,7 +302,12 @@ export function RatingModal({
       <Text style={styles.ratingIntro}>{t('farmer.profile.rating.intro')}</Text>
 
       {!ratingView.isRated ? (
-        <Text style={styles.certNoticeText}>{t('farmer.profile.rating.notRatedBody')}</Text>
+        <EmptyState
+          variant="compact"
+          iconName="info"
+          title={t('farmer.profile.rating.notRatedTitle')}
+          message={t('farmer.profile.rating.notRatedBody')}
+        />
       ) : null}
 
       {ratingView.modules.map((mod) => (

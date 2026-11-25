@@ -33,6 +33,15 @@ import {
 } from '../api/auth';
 import { mapProblem } from '../api/problem';
 import { getLocale, t } from '../../../i18n/customer';
+import { otpTextInputProps, useOtpSmsAutofill } from '../../../shell/otp';
+
+/** Boxes 1-5: same keyboard, but no autofill target, so the OS fills box 0. */
+const NON_AUTOFILL_PIN_PROPS = {
+  keyboardType: 'number-pad',
+  textContentType: 'none',
+  autoComplete: 'off',
+  importantForAutofill: 'no',
+} as const;
 
 const GreenFloatingLeaf = () => (
   <View style={styles.floatingLeafBottomRight} pointerEvents="none">
@@ -140,7 +149,10 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
     } catch (err) {
       const problem = mapProblem(err);
       if (problem.silent) return;
-      setError(problem.message);
+      // BR-153c: 403 means this number's account holds no customer role (a
+      // farmer-only or staff number). The server keeps the reason generic; say
+      // which sign-in to use instead of the bare "no access" text (BR-135).
+      setError(problem.code === 'FORBIDDEN' ? t('customer.auth.otp.notCustomerAccount') : problem.message);
       if (problem.action === 'retry') {
         // Offline/timeout/5xx: keep the digits so "Try again" resubmits them.
         setCanRetry(true);
@@ -179,6 +191,16 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
       inputRefs.current[index + 1]?.focus();
     }
   };
+
+  // Android: the SMS the user allows on the system sheet fills all six boxes
+  // and, exactly like a typed/pasted full code, submits once (verify() is
+  // guarded by inFlight/locked). Re-armed for each new challenge.
+  useOtpSmsAutofill({
+    enabled: !locked && verifiedRoute === null,
+    armKey: challenge.challengeId,
+    length: CUSTOMER_OTP_LENGTH,
+    onCode: (smsCode) => handlePinChange(smsCode, 0),
+  });
 
   const handleKeyPress = (e: { nativeEvent: { key: string } }, index: number) => {
     if (e.nativeEvent.key === 'Backspace' && !pin[index] && index > 0) {
@@ -234,6 +256,10 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
 
   const pinComplete = isValidCustomerOtp(pin.join(''));
   const canSubmit = pinComplete && !verifying && !locked;
+  // Faded = nothing to submit. While verifying (e.g. the autofilled code just
+  // auto-submitted) the button is busy, not unavailable: it keeps its solid
+  // fill and shows the spinner, and is still not pressable (canSubmit).
+  const looksUnavailable = !pinComplete || locked;
 
   return (
     <View style={styles.container}>
@@ -281,15 +307,17 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
                       inputRefs.current[index] = ref;
                     }}
                     style={styles.pinInput}
-                    keyboardType="number-pad"
-                    maxLength={index === 0 ? CUSTOMER_OTP_LENGTH : 1}
+                    // Box 0 carries the iOS/Android autofill hints. Every box
+                    // accepts a full-length paste so handlePinChange can
+                    // spread it, whichever box had focus.
+                    {...(index === 0 ? otpTextInputProps : NON_AUTOFILL_PIN_PROPS)}
+                    maxLength={CUSTOMER_OTP_LENGTH}
                     value={pin[index]}
                     onChangeText={text => handlePinChange(text, index)}
                     onKeyPress={e => handleKeyPress(e, index)}
                     textAlign="center"
                     autoFocus={index === 0}
                     editable={!locked && !verifying}
-                    textContentType={index === 0 ? 'oneTimeCode' : 'none'}
                     accessibilityLabel={t('customer.auth.otp.digitA11y', { number: index + 1 })}
                   />
                   <View
@@ -348,7 +376,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
               styles.circularButton,
               styles.circularButtonActive,
               customerShadow.raised,
-              !canSubmit && styles.circularButtonDisabled,
+              looksUnavailable && styles.circularButtonDisabled,
             ]}
             accessibilityRole="button"
             accessibilityLabel={t('customer.auth.otp.verifyA11y')}

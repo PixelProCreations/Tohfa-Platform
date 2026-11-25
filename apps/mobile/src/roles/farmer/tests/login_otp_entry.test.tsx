@@ -31,6 +31,7 @@ vi.mock('react-native-svg', () => ({ default: 'Svg', Circle: 'Circle', Path: 'Pa
 vi.mock('@tohfa/mobile-ui', () => ({
   Button: 'Button',
   ErrorState: 'ErrorState',
+  FormAlert: 'FormAlert',
   Icon: 'Icon',
 }));
 
@@ -65,6 +66,41 @@ vi.mock('../api/auth', () => ({
 
 import { LoginScreen } from '../screens/auth/LoginScreen';
 import { t } from '../../../i18n/farmer';
+import { ApiError, NetworkError } from '../../../shell/api/client';
+import type { Problem } from '@tohfa/shared-types';
+
+function apiError(code: string, status: number, retryAfterSeconds: number | null = null): ApiError {
+  return new ApiError(
+    { type: 'about:blank', title: code, status, code: code as Problem['code'] },
+    { retryAfterSeconds },
+  );
+}
+
+function alerts(tree: renderer.ReactTestRenderer): ReactTestInstance[] {
+  return tree.root.findAll((n) => (n.type as unknown) === 'FormAlert');
+}
+
+function banner(tree: renderer.ReactTestRenderer): ReactTestInstance | undefined {
+  return alerts(tree).find((n) => n.props.variant === 'banner');
+}
+
+function mobileInput(tree: renderer.ReactTestRenderer): ReactTestInstance {
+  return tree.root.find(
+    (n) =>
+      (n.type as unknown) === 'TextInput' &&
+      n.props.accessibilityLabel === t('farmer.auth.login.mobile'),
+  );
+}
+
+/** The bordered row that wraps the +91 prefix and the mobile TextInput. */
+function mobileRow(tree: renderer.ReactTestRenderer): ReactTestInstance {
+  return mobileInput(tree).parent!;
+}
+
+function flatStyle(style: unknown): Record<string, unknown> {
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flatStyle));
+  return (style as Record<string, unknown> | null | undefined) ?? {};
+}
 
 function textOf(node: ReactTestInstance | string): string {
   if (typeof node === 'string') return node;
@@ -93,12 +129,17 @@ function buttonTitled(tree: renderer.ReactTestRenderer, title: string): ReactTes
 }
 
 async function typeMobile(tree: renderer.ReactTestRenderer, value: string): Promise<void> {
-  const input = tree.root.find(
-    (n) =>
-      (n.type as unknown) === 'TextInput' &&
-      n.props.accessibilityLabel === t('farmer.auth.login.mobile'),
-  );
-  await act(async () => input.props.onChangeText(value));
+  await act(async () => mobileInput(tree).props.onChangeText(value));
+}
+
+async function pressSend(tree: renderer.ReactTestRenderer): Promise<void> {
+  const [send] = buttonTitled(tree, t('farmer.auth.login.requestOtp'));
+  await act(async () => send!.props.onPress());
+}
+
+async function openOtpWith(tree: renderer.ReactTestRenderer, mobile: string): Promise<void> {
+  await act(async () => otpTab(tree).props.onPress());
+  await typeMobile(tree, mobile);
 }
 
 afterEach(() => {
@@ -159,15 +200,12 @@ describe('LoginScreen: OTP login entry', () => {
   it('OTP login: a number shorter than 10 digits sends no OTP and shows a translated error', async () => {
     const onNavigate = vi.fn();
     const tree = await mount(onNavigate);
-    await act(async () => otpTab(tree).props.onPress());
-    await typeMobile(tree, '98765');
-
-    const [send] = buttonTitled(tree, t('farmer.auth.login.requestOtp'));
-    await act(async () => send!.props.onPress());
+    await openOtpWith(tree, '98765');
+    await pressSend(tree);
 
     expect(authApi.requestOtp).not.toHaveBeenCalled();
     expect(onNavigate).not.toHaveBeenCalled();
-    const errors = tree.root.findAll((n) => (n.type as unknown) === 'ErrorState');
+    const errors = alerts(tree);
     expect(errors).toHaveLength(1);
     expect(errors[0]!.props.message).toBe(t('farmer.auth.login.mobileInvalid'));
   });
@@ -176,13 +214,130 @@ describe('LoginScreen: OTP login entry', () => {
     authApi.requestOtp.mockRejectedValue(new Error('network down'));
     const onNavigate = vi.fn();
     const tree = await mount(onNavigate);
-    await act(async () => otpTab(tree).props.onPress());
-    await typeMobile(tree, '9876543210');
-
-    const [send] = buttonTitled(tree, t('farmer.auth.login.requestOtp'));
-    await act(async () => send!.props.onPress());
+    await openOtpWith(tree, '9876543210');
+    await pressSend(tree);
 
     expect(onNavigate).not.toHaveBeenCalled();
-    expect(tree.root.findAll((n) => (n.type as unknown) === 'ErrorState')).toHaveLength(1);
+    expect(banner(tree)).toBeDefined();
+  });
+});
+
+describe('LoginScreen: how errors are displayed', () => {
+  it('a 9-digit number shows an inline field error directly below the mobile field, not a banner', async () => {
+    const tree = await mount();
+    await openOtpWith(tree, '98765 4321');
+    await pressSend(tree);
+
+    const [inline] = alerts(tree);
+    expect(inline, 'an inline field error').toBeDefined();
+    expect(inline!.props.variant ?? 'inline').toBe('inline');
+    expect(inline!.props.message).toBe(t('farmer.auth.login.mobileInvalid'));
+    expect(banner(tree)).toBeUndefined();
+
+    // Same field group as the input row, and rendered after it (i.e. below).
+    const group = mobileRow(tree).parent!;
+    expect(inline!.parent).toBe(group);
+    const order = group.children.filter((c): c is ReactTestInstance => typeof c !== 'string');
+    expect(order.indexOf(inline!)).toBeGreaterThan(order.indexOf(mobileRow(tree)));
+  });
+
+  it('validation errors offer no Retry', async () => {
+    const tree = await mount();
+    await openOtpWith(tree, '98765');
+    await pressSend(tree);
+
+    const [inline] = alerts(tree);
+    expect(inline!.props.onRetry).toBeUndefined();
+    expect(tree.root.findAll((n) => (n.type as unknown) === 'Button' && n.props.title === t('farmer.common.retry'))).toHaveLength(0);
+  });
+
+  it('the invalid field gets the danger-token border, and both clear as soon as the number is edited', async () => {
+    const tree = await mount();
+    await openOtpWith(tree, '98765');
+    const borderBefore = flatStyle(mobileRow(tree).props.style).borderColor;
+    await pressSend(tree);
+
+    expect(flatStyle(mobileRow(tree).props.style).borderColor).not.toBe(borderBefore);
+    expect(alerts(tree)).toHaveLength(1);
+
+    await typeMobile(tree, '987654');
+    expect(alerts(tree)).toHaveLength(0);
+    expect(flatStyle(mobileRow(tree).props.style).borderColor).toBe(borderBefore);
+  });
+
+  it('a retryable server error (OTP_SMS_DELIVERY_FAILED) shows a banner with Retry that re-sends', async () => {
+    authApi.requestOtp.mockRejectedValueOnce(apiError('OTP_SMS_DELIVERY_FAILED', 502));
+    const tree = await mount();
+    await openOtpWith(tree, '9876543210');
+    await pressSend(tree);
+
+    const b = banner(tree)!;
+    expect(b.props.title).toBe(t('farmer.auth.login.errorOtpSendTitle'));
+    expect(b.props.message).toBe(t('error.OTP_SMS_DELIVERY_FAILED'));
+    expect(b.props.tone).toBe('danger');
+    expect(typeof b.props.onRetry).toBe('function');
+    expect(b.props.retryLabel).toBe(t('farmer.common.retry'));
+    // The mobile field itself is fine: no inline error.
+    expect(alerts(tree).filter((n) => n.props.variant !== 'banner')).toHaveLength(0);
+
+    authApi.requestOtp.mockResolvedValueOnce({
+      challengeId: 'c-1',
+      resendAvailableAt: '2026-11-10T10:01:00Z',
+      attemptsRemaining: 3,
+    });
+    await act(async () => b.props.onRetry());
+    expect(authApi.requestOtp).toHaveBeenCalledTimes(2);
+  });
+
+  it('offline shows a retryable banner with the offline icon', async () => {
+    authApi.requestOtp.mockRejectedValueOnce(new NetworkError(new Error('down'), 'offline'));
+    const tree = await mount();
+    await openOtpWith(tree, '9876543210');
+    await pressSend(tree);
+
+    const b = banner(tree)!;
+    expect(b.props.message).toBe(t('error.NETWORK_OFFLINE'));
+    expect(b.props.icon).toBe('wifi_off');
+    expect(typeof b.props.onRetry).toBe('function');
+  });
+
+  it('a rate-limited send is a warning banner with no Retry (waiting is the fix)', async () => {
+    authApi.requestOtp.mockRejectedValueOnce(apiError('RATE_LIMITED', 429, 30));
+    const tree = await mount();
+    await openOtpWith(tree, '9876543210');
+    await pressSend(tree);
+
+    const b = banner(tree)!;
+    expect(b.props.tone).toBe('warning');
+    expect(b.props.message).toBe(t('error.RATE_LIMITED.seconds', { seconds: 30 }));
+    expect(b.props.onRetry).toBeUndefined();
+  });
+
+  it('wrong password is a sign-in banner with no Retry', async () => {
+    authApi.loginWithPassword.mockRejectedValueOnce(apiError('UNAUTHENTICATED', 401));
+    const tree = await mount();
+    await typeMobile(tree, '9876543210');
+    const password = tree.root.find(
+      (n) => (n.type as unknown) === 'TextInput' && n.props.accessibilityLabel === t('farmer.auth.login.password'),
+    );
+    await act(async () => password.props.onChangeText('secret-pass'));
+    const [submit] = buttonTitled(tree, t('farmer.auth.login.submit'));
+    await act(async () => submit!.props.onPress());
+
+    const b = banner(tree)!;
+    expect(b.props.message).toBe(t('farmer.auth.login.invalidCredentials'));
+    expect(b.props.onRetry).toBeUndefined();
+  });
+
+  it('the banner is dismissible', async () => {
+    authApi.requestOtp.mockRejectedValueOnce(apiError('OTP_SMS_DELIVERY_FAILED', 502));
+    const tree = await mount();
+    await openOtpWith(tree, '9876543210');
+    await pressSend(tree);
+
+    const b = banner(tree)!;
+    expect(b.props.dismissLabel).toBe(t('farmer.common.close'));
+    await act(async () => b.props.onDismiss());
+    expect(banner(tree)).toBeUndefined();
   });
 });

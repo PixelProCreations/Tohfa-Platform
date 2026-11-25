@@ -342,7 +342,7 @@ import {
       <div class="header">
         <div>
           <h1 class="title">Channel Allocation Dashboard</h1>
-          <p class="subtitle">Real-time breakdown of stock across the 70/10/10/10 distribution channels (BR-12)</p>
+          <p class="subtitle">Real-time breakdown of stock across the 70/10/10/10 distribution channels</p>
         </div>
       </div>
 
@@ -428,7 +428,7 @@ import {
           </div>
           <div class="bucket-metric-main">
             <span class="metric-main-value">{{ reserveMetrics().available }} kg</span>
-            <span class="metric-main-label">Held in Reserve (BR-13)</span>
+            <span class="metric-main-label">Held in Reserve</span>
           </div>
           <div class="bucket-metrics-sub">
             <div class="sub-metric">
@@ -457,7 +457,7 @@ import {
           </div>
           <div class="bucket-metric-main">
             <span class="metric-main-value">{{ bufferMetrics().available }} kg</span>
-            <span class="metric-main-label">Remainder Buffer (BR-12a)</span>
+            <span class="metric-main-label">Remainder Buffer</span>
           </div>
           <div class="bucket-metrics-sub">
             <div class="sub-metric">

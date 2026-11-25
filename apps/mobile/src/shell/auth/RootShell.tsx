@@ -39,6 +39,7 @@ import { OtpPurpose, type RoleAssignment, type RoleCode } from '@tohfa/shared-ty
 import { ApiError, NetworkError } from '../api/client';
 import { FLAVOR_CONFIG, type Flavor } from '../config/flavor';
 import { t, type ShellStringKey } from '../i18n';
+import { OTP_CODE_LENGTH, otpTextInputProps, sanitizeOtpInput, useOtpSmsAutofill } from '../otp';
 import { sendOtp } from './api';
 import {
   NoAccountForOtpError,
@@ -135,6 +136,14 @@ function Login({ pinnedRoleCode }: { pinnedRoleCode: RoleCode | undefined }): Re
     void run(() => signInWithOtp({ challengeId: pendingChallengeId, code }));
   };
 
+  // Android: fill the code from the SMS the user allows on the system sheet.
+  // Fill only; Verify is still a tap, as before.
+  useOtpSmsAutofill({
+    enabled: mode === 'otp' && challengeId !== null,
+    armKey: challengeId,
+    onCode: setCode,
+  });
+
   const toggleMode = (): void => {
     setMode(mode === 'password' ? 'otp' : 'password');
     setErrorKey(null);
@@ -186,9 +195,9 @@ function Login({ pinnedRoleCode }: { pinnedRoleCode: RoleCode | undefined }): Re
             <>
               <Input
                 autoCapitalize="none"
-                keyboardType="number-pad"
+                {...otpTextInputProps}
                 label={t('shell.otp.codeLabel')}
-                onChangeText={setCode}
+                onChangeText={(text) => setCode(sanitizeOtpInput(text, OTP_CODE_LENGTH))}
                 value={code}
               />
               <Button loading={busy} onPress={onVerify} title={t('shell.otp.verify')} />

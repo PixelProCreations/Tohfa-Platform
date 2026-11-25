@@ -316,7 +316,7 @@ export function ChannelOrderDetailScreen({
             <Text style={styles.sectionHeading}>{t('sales.channelOrder.itemsSection')}</Text>
             <View style={styles.card}>
               {detail.items.length === 0 ? (
-                <Text style={styles.summaryLabel}>{t('sales.channelOrder.noItems')}</Text>
+                <AdminEmptyState variant="compact" iconName={null} title={t('sales.channelOrder.noItems')} />
               ) : (
                 detail.items.map((line, index) => {
                   const grade = gradeLabel(line.grade);

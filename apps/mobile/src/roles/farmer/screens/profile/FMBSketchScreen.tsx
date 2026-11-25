@@ -16,7 +16,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   BackHandler,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -33,6 +32,8 @@ import {
   type FarmBoundaryMapOverlay,
   ScreenStatusBar,
   appAlert,
+  EmptyState,
+  SafeAreaView,
 } from '@tohfa/mobile-ui';
 import { colors, useTheme, typography, spacing, radius } from '../../theme';
 import { authPalette as P } from '../../theme';

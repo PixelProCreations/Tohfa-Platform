@@ -11,6 +11,7 @@
  */
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { authPalette as P, colors } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { BarnOutlineIcon, BroomCleaningIcon, ShieldCheckBadgeIcon } from './animalDetailIcons';
@@ -73,9 +74,12 @@ export function AnimalHousingSection({
         <SectionState list={housingList} testID="animalDetail.housing" styles={styles} />
       ) : current === undefined ? (
         <View style={styles.whiteCardContainer}>
-          <Text style={styles.itemSubtitle} testID="animalDetail.housing.noRecord">
-            {t('farmer.livestock.detail.housing.noRecord')}
-          </Text>
+          <EmptyState
+            variant="compact"
+            iconName={null}
+            title={t('farmer.livestock.detail.housing.noRecord')}
+            testID="animalDetail.housing.noRecord"
+          />
         </View>
       ) : (
         <>
@@ -153,9 +157,12 @@ export function AnimalHousingSection({
       ) : (
         <View style={styles.whiteCardContainer}>
           {hygieneList.items.length === 0 ? (
-            <Text style={styles.itemSubtitle} testID="animalDetail.housing.noHygiene">
-              {t('farmer.livestock.detail.housing.noHygiene')}
-            </Text>
+            <EmptyState
+              variant="compact"
+              iconName={null}
+              title={t('farmer.livestock.detail.housing.noHygiene')}
+              testID="animalDetail.housing.noHygiene"
+            />
           ) : (
             hygieneList.items.map((log, idx) => (
               <React.Fragment key={log.id}>

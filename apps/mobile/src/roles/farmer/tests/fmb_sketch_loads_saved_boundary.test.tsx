@@ -22,6 +22,7 @@ vi.mock('react-native', () => ({
   StyleSheet: { create: (s: Record<string, unknown>) => s },
   Text: 'Text',
   TextInput: 'TextInput',
+  Pressable: 'Pressable',
   TouchableOpacity: 'TouchableOpacity',
   View: 'View',
 }));

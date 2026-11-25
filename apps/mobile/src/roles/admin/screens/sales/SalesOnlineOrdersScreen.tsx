@@ -191,7 +191,7 @@ export function SalesOnlineOrdersScreen({
         ) : query.error && displayOrders.length === 0 ? (
           <AdminErrorState error={query.error} onRetry={() => void query.refetch()} />
         ) : filteredOrders.length === 0 ? (
-          <AdminEmptyState title="No Online Orders" subtitle="No orders found for the selected filter." />
+          <AdminEmptyState title={t('salesOnlineOrders.empty.title')} subtitle={t('salesOnlineOrders.empty.message')} />
         ) : (
           <FlatList
             data={filteredOrders}

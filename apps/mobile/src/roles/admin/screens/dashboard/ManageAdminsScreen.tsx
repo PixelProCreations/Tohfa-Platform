@@ -16,6 +16,8 @@ import {
   AdminBackChevronIcon,
   type AdminRoleType,
 } from './CreateAdminAccountScreen';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function SearchIcon({ color = ADMIN_PALETTE.textSecondary, size = 16 }: { color?: string; size?: number }) {
@@ -413,12 +415,7 @@ export function ManageAdminsScreen({
           );
         }}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>No Administrators Found</Text>
-            <Text style={styles.emptySubtitle}>
-              Try adjusting your search query or role filter.
-            </Text>
-          </View>
+          <AdminEmptyState variant="screen" title={t('manageAdmins.empty.title')} subtitle={t('manageAdmins.empty.message')} />
         }
       />
     </SafeAreaView>
@@ -727,20 +724,4 @@ const styles = StyleSheet.create({
   },
 
   // Empty
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: ADMIN_PALETTE.textPrimary,
-    marginBottom: 4,
-  },
-  emptySubtitle: {
-    fontSize: 12.5,
-    color: ADMIN_PALETTE.textSecondary,
-    textAlign: 'center',
-  },
 });

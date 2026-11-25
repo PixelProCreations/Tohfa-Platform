@@ -335,7 +335,7 @@ import { PayoutsService, type AgeBucket, type PayoutDue } from './payouts.servic
   template: `
     <div class="page-header">
       <h1>Farmer Payouts & Dues</h1>
-      <p>Manage aged farmer dues and execute dual-approval settlements (BR-31)</p>
+      <p>Manage aged farmer dues and execute dual-approval settlements</p>
     </div>
 
     <!-- KPI Summary -->
@@ -467,7 +467,7 @@ import { PayoutsService, type AgeBucket, type PayoutDue } from './payouts.servic
 
         <div class="dual-approval-notice" *ngIf="isDualApprovalRequired()">
           <span>⚠️</span>
-          <span><strong>Dual Approval Required (BR-31):</strong> Amounts exceeding ₹10,000 are created in <code>PENDING_APPROVAL</code> and require a second approval from a Super Admin before release.</span>
+          <span><strong>Dual Approval Required:</strong> Amounts exceeding ₹10,000 are created in <code>PENDING_APPROVAL</code> and require a second approval from a Super Admin before release.</span>
         </div>
 
         <div class="modal-actions">

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Image } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { formatMoneyAmount } from '../../api/wallet';
@@ -241,7 +241,20 @@ export function ListingsScreen({
 
             {/* List items */}
             {overview.isEmpty ? (
-              <Text style={styles.emptyText}>{t('farmer.listings.market.empty')}</Text>
+              <EmptyState
+                variant="compact"
+                iconName="storefront"
+                title={t('farmer.listings.market.empty')}
+                {...(onNavigateToCreateListing
+                  ? {
+                      action: {
+                        label: t('farmer.listings.market.createListing'),
+                        onPress: onNavigateToCreateListing,
+                        testID: 'listings.empty.create',
+                      },
+                    }
+                  : {})}
+              />
             ) : (
               overview.recent.map((item) => {
                 const tone = BADGE_TONE[listingStatusTone(item.status)];
@@ -548,11 +561,5 @@ const styles = StyleSheet.create({
   },
   skeletonGap: {
     height: 12,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.grey500,
-    textAlign: 'center',
-    paddingVertical: 16,
   },
 });

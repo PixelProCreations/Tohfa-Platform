@@ -16,6 +16,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { EmptyState, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { ViewTile, ViewTileGrid } from '../warehouse-admin/WarehouseAdminParts';
@@ -137,7 +138,7 @@ export function QuickActionsOverviewScreen({
   if (!can(HOME_CODES.allView)) {
     return (
       <WalletScreen title="Quick Actions" onBack={onBack}>
-        <EmptyState title="Not available" subtitle="Quick Actions are part of the multi-warehouse view (warehouse.all.view)." />
+        <EmptyState iconName="lock" title={t('dashboardHome.notAvailable')} subtitle={t('dashboardHome.quickActions.notAvailable.subtitle')} />
       </WalletScreen>
     );
   }

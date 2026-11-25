@@ -33,6 +33,37 @@ const exclusionListPath = require.resolve('metro-config/private/defaults/exclusi
 });
 const exclusionList = require(exclusionListPath).default;
 
+/**
+ * Native libraries the customer screens import but that are not installed in
+ * this checkout (adding them needs a native rebuild of the APK -- an owner
+ * decision). While a package is absent from node_modules, Metro resolves it to
+ * a fail-closed stand-in under src/shell/native/unavailable/ (see index.ts
+ * there). Once the package is installed, the real library wins automatically.
+ */
+const UNAVAILABLE_NATIVE_STUBS = {
+  'react-native-razorpay': 'razorpay.ts',
+  '@react-native-firebase/app': 'firebaseApp.ts',
+  '@react-native-firebase/messaging': 'firebaseMessaging.ts',
+  'react-native-image-picker': 'imagePicker.ts',
+  '@react-native-community/geolocation': 'geolocation.ts',
+  'react-native-qrcode-svg': 'qrcodeSvg.tsx',
+};
+
+function isInstalled(packageName) {
+  try {
+    require.resolve(`${packageName}/package.json`, { paths: [__dirname] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const stubbedNativeModules = Object.fromEntries(
+  Object.entries(UNAVAILABLE_NATIVE_STUBS)
+    .filter(([name]) => !isInstalled(name))
+    .map(([name, file]) => [name, path.resolve(__dirname, 'src/shell/native/unavailable', file)]),
+);
+
 const config = {
   watchFolders: [packagesDir, monorepoNodeModules],
   // .svg files are compiled to React components by react-native-svg-transformer
@@ -65,16 +96,10 @@ const config = {
     ],
     // Follow pnpm symlinks into the .pnpm virtual store
     unstable_enableSymlinks: true,
-    // Watchman cannot watch this checkout: macOS TCC protects ~/Downloads (and
-    // ~/Desktop, ~/Documents) from the watchman daemon, so every crawl fails
-    // with "open: ...: Operation not permitted" and Metro falls back to the
-    // node crawler anyway -- after printing the failure each start. Asking for
-    // the node crawler up front gets the same behaviour without the noise and
-    // without the failed attempt.
-    //
-    // This is a property of WHERE the repo lives, not of the project. Move the
-    // checkout outside those folders and watchman works; delete this line then,
-    // because the native watcher is faster at this repo's size.
+    // Watchman crashes here whenever macOS revokes its Full Disk Access grant
+    // (happens on every reinstall since it lives under ~/Downloads, a
+    // TCC-protected folder) -- fall back to Metro's built-in Node crawler
+    // instead of depending on that grant staying in place.
     useWatchman: false,
   },
 };

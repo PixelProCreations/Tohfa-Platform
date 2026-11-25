@@ -14,7 +14,7 @@ import { authProfileRepo, authRepo, type AuthRepo, type OAuthIdentityRow } from 
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
 import { onboardingFieldsByUserId } from './customerOtp.repo.js';
 import { profileCompleteness } from '../customer-profile/customer-profile.completeness.js';
-import { smsTransport } from '../notifications/sms/index.js';
+import { otpProvider, type OtpProvider } from './otp/index.js';
 import type {
   ChangePasswordBody,
   ForgotPasswordBody,
@@ -178,6 +178,7 @@ async function buildMe(repo: AuthRepo, db: Executor, userId: string, actor?: Act
 export function createAuthService(
   repo: AuthRepo = authRepo,
   oauthClient: OAuthProviderClient = oauthProviderClient,
+  otp: OtpProvider = otpProvider,
 ): AuthService {
   return {
     async registerCustomer(input) {
@@ -252,9 +253,9 @@ export function createAuthService(
         }
       }
 
-      // Generate 6-digit code
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const codeHash = hashValue(code);
+      // BR-225: the configured provider makes the code (local) or owns it
+      // (Twilio Verify). Either way only a hash reaches the challenge row.
+      const issued = otp.issue(input.mobile);
 
       const expiresAt = new Date(now + config.OTP_TTL_SECONDS * 1000);
       const resendAvailableAt = new Date(now + config.OTP_RESEND_SECONDS * 1000);
@@ -265,39 +266,24 @@ export function createAuthService(
         userId: user?.id,
         mobile: input.mobile,
         purpose: input.purpose,
-        codeHash,
+        codeHash: issued.codeHash,
         maxAttempts: config.OTP_MAX_ATTEMPTS, // 3 per BR-32
         expiresAt,
       });
 
-      // The challenge is already persisted at this point, so a failed SMS
-      // dispatch doesn't lose the code -- a client that has it some other
-      // way (or a resend once the provider recovers) can still verify. But
-      // the caller must be told delivery failed rather than being left
-      // thinking a text is on its way when none was ever sent.
-      const ttlMinutes = Math.round(config.OTP_TTL_SECONDS / 60);
-      const smsResult = await smsTransport.sendSms({
-        to: input.mobile,
-        // Used as-is by free-text transports (mock); msg91's Flow
-        // API ignores this and fills its own DLT-approved template instead
-        // (templateId + templateVars below) -- see SendSmsParams.
-        message: `Your TOHFA verification code is ${code}. It expires in ${ttlMinutes} minutes. Do not share this code with anyone.`,
-        templateId: config.MSG91_OTP_TEMPLATE_ID || undefined,
-        templateVars: { OTP: code },
-      });
-      if (smsResult.status === 'FAILED') {
-        throw new AppError('OTP_SMS_DELIVERY_FAILED', {
-          status: 502,
-          detail: 'Could not send the OTP SMS. Please try again in a moment.',
-        });
-      }
+      // The challenge is already persisted at this point, so the BR-32 resend
+      // cooldown applies even when delivery fails. But the caller must be told
+      // delivery failed (the provider throws an AppError) rather than being
+      // left thinking a text is on its way when none was ever sent.
+      await issued.deliver();
 
       return {
         challengeId: challenge.id,
         expiresAt: expiresAt.toISOString(),
         resendAvailableAt: resendAvailableAt.toISOString(),
         attemptsRemaining: challenge.max_attempts,
-        ...(config.isTest || config.SMS_PROVIDER === 'mock' ? { _mockCode: code } : {}),
+        // Only the local provider over the mock SMS transport (or tests) sets this.
+        ...(issued.mockCode !== undefined ? { _mockCode: issued.mockCode } : {}),
       };
     },
 
@@ -323,8 +309,9 @@ export function createAuthService(
         throw new AppError('OTP_EXPIRED', { status: 400, detail: 'OTP challenge has expired.' });
       }
 
-      const incomingHash = hashValue(input.code);
-      if (incomingHash !== challenge.code_hash) {
+      // BR-225: the provider decides correctness; BR-32 counting stays here.
+      const codeOk = await otp.check({ mobile: challenge.mobile, code: input.code, codeHash: challenge.code_hash });
+      if (!codeOk) {
         const newAttempts = challenge.attempts + 1;
         const shouldLock = newAttempts >= challenge.max_attempts;
         await repo.incrementOtpAttempts(pool, challenge.id, shouldLock);
@@ -837,8 +824,9 @@ export function createAuthService(
         throw new AppError('OTP_INVALID', { status: 400, detail: 'OTP challenge already consumed.' });
       }
 
-      const incomingHash = hashValue(input.code);
-      if (incomingHash !== challenge.code_hash) {
+      // BR-225: same provider check as /auth/otp/verify.
+      const codeOk = await otp.check({ mobile: challenge.mobile, code: input.code, codeHash: challenge.code_hash });
+      if (!codeOk) {
         const newAttempts = challenge.attempts + 1;
         const shouldLock = newAttempts >= challenge.max_attempts;
         await repo.incrementOtpAttempts(pool, challenge.id, shouldLock);

@@ -11,6 +11,7 @@ import renderer, { act, type ReactTestRendererJSON } from 'react-test-renderer';
 
 const alert = vi.hoisted(() => vi.fn());
 vi.mock('react-native', () => ({
+  Alert: { alert },
   BackHandler: { addEventListener: () => ({ remove: () => undefined }) },
   Modal: 'Modal',
   Platform: { OS: 'ios', select: (obj: Record<string, unknown>) => obj['ios'] ?? obj['default'] },

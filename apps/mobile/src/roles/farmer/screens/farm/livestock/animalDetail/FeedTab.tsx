@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { authPalette as P } from '../../../../theme';
 import { t } from '../../../../../../i18n/farmer';
 import { feedLogAmount, feedReferenceView, feedTypeLabel } from '../animalRecordView';
@@ -71,9 +72,12 @@ export function FeedTab({
         <SectionState list={feedPlanList} testID="animalDetail.feed.plan" />
       ) : feedReference === null ? (
         <View style={styles.whiteCardContainer}>
-          <Text style={styles.itemSubtitle} testID="animalDetail.feed.noPlan">
-            {t('farmer.livestock.detail.feed.noPlan')}
-          </Text>
+          <EmptyState
+            variant="compact"
+            iconName={null}
+            title={t('farmer.livestock.detail.feed.noPlan')}
+            testID="animalDetail.feed.noPlan"
+          />
         </View>
       ) : (
         <View style={styles.whiteCardContainer} testID="animalDetail.feed.reference">
@@ -125,9 +129,12 @@ export function FeedTab({
       ) : (
         <View style={styles.whiteCardContainer}>
           {feedLogList.items.length === 0 ? (
-            <Text style={styles.itemSubtitle} testID="animalDetail.feed.noLogs">
-              {t('farmer.livestock.detail.feed.noLogs')}
-            </Text>
+            <EmptyState
+              variant="compact"
+              iconName={null}
+              title={t('farmer.livestock.detail.feed.noLogs')}
+              testID="animalDetail.feed.noLogs"
+            />
           ) : (
             feedLogList.items.map((log, idx) => (
               <React.Fragment key={log.id}>

@@ -128,13 +128,6 @@ export const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.card,
-  },
-  emptyStateText: {
-    fontSize: typography.body,
-    textAlign: 'center',
   },
   searchContainer: {
     position: 'absolute',

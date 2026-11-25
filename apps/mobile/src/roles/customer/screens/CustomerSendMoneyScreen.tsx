@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { ApiError } from '../../../shell/api/client';
@@ -446,7 +447,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             <Text style={{ color: customerColors.primary, fontWeight: '700' }}>{t('customer.wallet.send.loadError')}</Text>
           </TouchableOpacity>
         ) : transfers.length === 0 ? (
-          <Text style={{ color: customerColors.neutral.neutral600, fontSize: 13 }}>{t('customer.wallet.send.empty')}</Text>
+          <EmptyState variant="compact" iconName="swap_horiz" title={t('customer.wallet.send.empty')} />
         ) : (
           <>
             {transfers.map((tr) => (
