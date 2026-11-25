@@ -1182,7 +1182,7 @@ See also BR-66.
 5. **Read-only endpoint:** `GET /farmers/me/documents` has no mutating verb, so a "mutations are rejected" clause is not applicable and has no test; uploading or replacing documents is outside this endpoint (BR-33).
 6. **Status is evidence-based:** A document is `VERIFIED` only when a verified record exists for that file; an application or KYC status alone never makes a document verified. File names are real stored values or null, never invented (`BR-54f`).
 
-**Known limitations (not defects of this rule).** The soil-card slot is not yet uploadable, so it is always `ACTION_NEEDED`. Aadhaar and patta stay `UPLOADED` because approval does not copy the step-4 uploads into `farmer_documents` (open item in farmer-applications).
+**Known limitations (not defects of this rule).** The soil-card slot is not yet uploadable, so it is always `ACTION_NEEDED`. Since 2026-11-25 approval copies the step-4 uploads into `farmer_documents` with their review state (BR-219), so a farmer approved after that date sees Aadhaar and patta as `VERIFIED`; a farmer approved earlier still has no such rows and keeps seeing `UPLOADED` (no backfill was run).
 
 **Failure mode if unenforced.** Leaking full Aadhaar numbers violates Indian privacy regulations; long-lived public file URLs allow unauthorized access to sensitive KYC land and identity documents.
 
@@ -3675,7 +3675,7 @@ Every other place that adds a role creates a brand-new account in the same trans
 | **Scope** | Track 1 |
 
 **Rule.**
-1. **P0-27 (State guards):** Draft applications (`is_draft=true`) cannot be approved, rejected, or requested info; attempts return 409 `INVALID_STATE_TRANSITION`. Terminal applications cannot be re-decided: approving an `APPROVED` application returns 409 `CONFLICT`; approving a `REJECTED` application returns 409 `INVALID_STATE_TRANSITION`; rejecting a `REJECTED` application returns 409 `CONFLICT`; rejecting an `APPROVED` application returns 409 `INVALID_STATE_TRANSITION`; requesting info on an `APPROVED` or `REJECTED` application returns 409 `INVALID_STATE_TRANSITION`.
+1. **P0-27 (State guards):** Draft applications (`is_draft=true`) cannot be approved, rejected, or requested info; attempts return 409 `INVALID_STATE_TRANSITION`. Since 2026-11-25 the stage rules of BR-214 and BR-217 apply on top of these guards (approval only from `FARM_VERIFICATION`; request-info only from `DOCS_REVIEW`/`FARM_VERIFICATION`, moving to the stored status `INFO_REQUESTED`). Terminal applications cannot be re-decided: approving an `APPROVED` application returns 409 `CONFLICT`; approving a `REJECTED` application returns 409 `INVALID_STATE_TRANSITION`; rejecting a `REJECTED` application returns 409 `CONFLICT`; rejecting an `APPROVED` application returns 409 `INVALID_STATE_TRANSITION`; requesting info on an `APPROVED` or `REJECTED` application returns 409 `INVALID_STATE_TRANSITION`.
 2. **P0-19 (Concurrency-safe approval):** Approval acquires a row lock (`FOR UPDATE`) on the application row, checks state and existing farmer links inside the transaction, reuses any existing `tohfa_farmer_id` without reallocating, and updates with a status predicate. Concurrent approval attempts result in exactly 1 approved farmer, 1 TOHFA farmer ID, and 1 audit log entry; losing attempts receive 409 `CONFLICT`.
 3. **P0-28 (Keyset cursor pagination):** Admin application listing uses opaque composite `(created_at, id)` keyset cursors (`tag: 'fa'`) matching `ORDER BY created_at DESC, id DESC`. Next-page navigation is deterministic across multiple pages sharing timestamps without skipped or repeated records.
 4. **P0-29 (List filters):** `GET /v1/admin/farmer-applications` supports `zoneId` filtering, `q` text search across `full_name` and `mobile`, `pendingOnly` filter for active review applications, and accepts the full `ApplicationStatus` enum (including `DRAFT` and `INFO_REQUESTED`). By default, drafts are excluded.
@@ -4803,6 +4803,143 @@ RMA return requests and detail responses:
 - `BR-213e` Retire sets `retiredAt`, is idempotent (a replay writes no second audit row and keeps the first `retiredAt`), removes the announcement from the BR-65 system-message view, and a retired row cannot be edited (409).
 - `BR-213f` `status` is derived: `RETIRED` beats the window; `SCHEDULED`, `EXPIRED` and `ACTIVE` follow the stored timestamps.
 - `BR-213g` 401 without a token on every route; a caller holding neither create code is 403 before any SQL; `target: ZONE` is 422.
+
+### BR-214 — A farmer application moves DOCS_REVIEW → FARM_VERIFICATION → APPROVED, and each step is gated by verified evidence
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (admin application review flow, items 1, 2, 8, 9) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/farmer-applications/`; `application_status` (`db/migrations/0001`, `0200`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Stages.** A draft (`is_draft = true`, stored status `SUBMITTED`) becomes `DOCS_REVIEW` on submit (BR-69). From `DOCS_REVIEW` an admin advances it to `FARM_VERIFICATION` (`POST /admin/farmer-applications/{id}/advance`, `toStatus: FARM_VERIFICATION`). Approval is allowed **only from `FARM_VERIFICATION`**. `REJECTED` is reachable from every non-draft, non-terminal stage except the legacy `AUDIT` value. `INFO_REQUESTED` is BR-217.
+2. **`AUDIT` is out of this flow.** The enum value stays in the database, but no transition enters or leaves it. A legacy row already in `AUDIT` can only be read and annotated (BR-218) until the audit work defines its exits.
+3. **Docs gate.** `DOCS_REVIEW → FARM_VERIFICATION` requires: at least one `ID_PROOF` and one `FARM_DOC` document (the two submit already requires), every one of those required documents `VERIFIED` under BR-215, and no document of any type `REJECTED`. Otherwise 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED` with `meta.blockers` naming each missing type and each pending or rejected document, and nothing is written.
+4. **Approval gate.** Approval additionally requires every step-3 location's FMB review `VERIFIED` under BR-216; the docs gate is re-checked first (a document can be re-uploaded or re-reviewed after advancing). A failed docs gate is 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED`; a failed FMB gate is 409 `APPLICATION_FMB_NOT_VERIFIED`; `meta.blockers` always lists every blocker of both gates.
+5. **Wrong stage.** Advancing from anything but `DOCS_REVIEW`, approving from anything but `FARM_VERIFICATION`, or rejecting a draft or `AUDIT` row is 409 `INVALID_STATE_TRANSITION` (approving an `APPROVED` row and rejecting a `REJECTED` row stay 409 `CONFLICT`, BR-146).
+6. **Who.** Every mutation needs its own code from `docs/rbac.json`: SUPER_ADMIN and TOHFA_ADMIN hold them at `all`; FARMER_ADMIN reads the queue and the detail (`view`) and holds no mutation code; every other role holds none. Every admin read and write is narrowed by the resolved scope: an application outside it is 404, never 403.
+7. **Idempotency and audit.** Approve, reject, request-info, advance, document review, FMB review and note all require an `Idempotency-Key` (422 `VALIDATION_FAILED` without one). A replay with the same key and body returns the first response and writes nothing; the same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED`. Each successful mutation writes one `audit_log` row in the same transaction.
+
+**Failure mode if unenforced.** An applicant becomes a VERIFIED farmer whose Aadhaar was never looked at or whose land boundary is a guess; `FARM_VERIFICATION` is a label nobody can reach; a double-tap approves twice.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`, plus the grant rows in `apps/api/src/rbac/rbac.test.ts`)
+- `BR-214a` Advance moves `DOCS_REVIEW → FARM_VERIFICATION` only when ID_PROOF and FARM_DOC are VERIFIED and nothing is REJECTED; otherwise 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED` naming the blockers, and nothing is written.
+- `BR-214b` Approval from `DOCS_REVIEW` (or any stage other than `FARM_VERIFICATION`) is 409 `INVALID_STATE_TRANSITION`.
+- `BR-214c` Approval from `FARM_VERIFICATION` with a pending or rejected FMB is 409 `APPLICATION_FMB_NOT_VERIFIED`; with a rejected document it is 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED`.
+- `BR-214d` No transition enters or leaves `AUDIT`.
+- `BR-214e` A missing `Idempotency-Key` is 422; a replay returns the first response and writes no second history or audit row.
+- `BR-214f` An admin whose scope does not cover the application's zone gets 404 on read and on every mutation.
+
+### BR-215 — Each application document is verified or rejected with a reason, and a replaced file is pending again
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 3) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `farmer-applications`; `farmer_application_reviews` (`db/migrations/0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Identity.** A step-4 document is identified by `documentKey`: the first 32 hex characters of SHA-256 over `docType + "|" + fileUrl`. The key is computed, never stored in the applicant's JSON, so the applicant's own step-4 payload is unchanged.
+2. **Decision.** `POST /admin/farmer-applications/{id}/documents/{documentKey}/review` takes `decision: VERIFIED | REJECTED`; `REJECTED` requires a `reason` (5–500 characters) and `VERIFIED` takes none (422 otherwise). Allowed while the application is in `DOCS_REVIEW` or `FARM_VERIFICATION`; any other stage is 409 `INVALID_STATE_TRANSITION`. An unknown key is 404.
+3. **Append-only.** Every decision is a new row (actor, time, reason); the current state of a document is its latest decision. A later decision may overturn an earlier one; the earlier one is never edited.
+4. **Re-upload resets.** Because the key is derived from the file, a document the applicant replaces (new file, or the same file re-classified to another type) has no decision and is `PENDING` again. No code path has to remember to reset it.
+5. **Read.** `GET /admin/farmer-applications/{id}` lists every document with `documentKey`, `required`, and `review { status: PENDING | VERIFIED | REJECTED, reason, reviewedBy, reviewedAt }`.
+
+**Failure mode if unenforced.** An admin's "verified" silently carries over to a different file the farmer uploaded afterwards; a rejection has no reason the farmer can act on.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-215a` VERIFIED and REJECTED decisions are stored with actor and time; REJECTED without a reason, or VERIFIED with one, is 422.
+- `BR-215b` Replacing a document's file makes it PENDING again; the old decision stays in the table.
+- `BR-215c` Review outside `DOCS_REVIEW`/`FARM_VERIFICATION` is 409; an unknown documentKey is 404.
+- `BR-215d` Decision rows cannot be updated or deleted (database trigger).
+
+### BR-216 — Each land location's FMB boundary is verified or rejected with a reason before approval
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 4) |
+| **Status** | DERIVED. One default is UNCONFIRMED: a location with no drawn boundary (GPS point only, which BR-69 submit accepts) may still be VERIFIED on the reviewer's judgment — the owner has not said whether a drawn FMB boundary is mandatory for approval |
+| **Layer** | Server-side, `farmer-applications`; `farmer_application_reviews` (`db/migrations/0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Identity.** A location is identified by its step-3 `id`. A decision is bound to a fingerprint of the location's `fmbPolygon` and `areaAcres`; if the applicant redraws the boundary or changes the acreage, the location's FMB review is `PENDING` again.
+2. **Decision.** `POST /admin/farmer-applications/{id}/locations/{locationId}/fmb-review` takes `decision: VERIFIED | REJECTED` with the same reason rule as BR-215. Allowed in `DOCS_REVIEW` or `FARM_VERIFICATION`; otherwise 409 `INVALID_STATE_TRANSITION`. Unknown location is 404. A location without an `fmbPolygon` is reported with `hasBoundary: false` so the reviewer can reject it and ask for the sketch (BR-217); whether it may be VERIFIED without one is left to the reviewer (see Status).
+3. **Read.** The admin detail returns every location with its `fmbPolygon`, `areaAcres`, `calculatedAreaAcres`, `calculatedAreaHectares`, GPS fields and `fmbReview { status, reason, reviewedBy, reviewedAt }`.
+
+**Failure mode if unenforced.** A farmer is approved on a boundary nobody checked against the FMB sketch, and every listing's land claim inherits the error.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-216a` VERIFIED / REJECTED FMB decisions are stored and returned per location; REJECTED needs a reason.
+- `BR-216b` Review outside `DOCS_REVIEW`/`FARM_VERIFICATION` is 409; an unknown locationId is 404.
+- `BR-216c` Redrawing a boundary makes the location PENDING again.
+
+### BR-217 — "Request more information" is a stored INFO_REQUESTED stage with a checklist, and the applicant resubmits
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 5) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `farmer-applications`; `application_status` value `INFO_REQUESTED` (`db/migrations/0200`); `farmer_application_status_history.requested_items` (`0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Request.** `POST /admin/farmer-applications/{id}/request-info` is allowed from `DOCS_REVIEW` or `FARM_VERIFICATION` and moves the application to the stored status `INFO_REQUESTED`. Body: `items` (at least one of `FMB_SKETCH`, `AADHAAR`, `PATTA_CHITTA`, `BANK_DETAILS`, `CERTIFICATE`, `OTHER`) and `message` (5–1000 characters). The items are stored as a structured column on the history row, not only inside note text. The application's zone is never changed by a request.
+2. **Applicant view.** `GET /farmers/applications/{id}/status` returns `status: INFO_REQUESTED` and `infoRequest { items, message, requestedAt }` while the request is open.
+3. **Resubmit.** `POST /farmers/applications/{id}/resubmit` (same possession-of-id model as the other public application routes) re-runs the submit completeness checks (BR-69) and moves `INFO_REQUESTED → DOCS_REVIEW`, keeping the zone. A repeat call after success returns the current state and writes nothing; a draft is 409 `INVALID_STATE_TRANSITION`.
+4. **Notification.** The existing `farmer.application.info_requested` event is published when the application has an account; when it has none the request still succeeds and the applicant sees it on the status endpoint.
+
+**Failure mode if unenforced.** "Info requested" is a guess derived from note text; the zone is wiped by the request; the farmer has no way back into review.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-217a` Request-info stores INFO_REQUESTED with items and message, keeps `zone_id`, and is refused (409) outside `DOCS_REVIEW`/`FARM_VERIFICATION`; an empty item list is 422.
+- `BR-217b` The public status endpoint returns INFO_REQUESTED with the requested items and message.
+- `BR-217c` Resubmit moves INFO_REQUESTED → DOCS_REVIEW, keeps the zone, and is a harmless no-op on repeat.
+- `BR-217d` An application with no account (`user_id` null) is requested without error and publishes no notification.
+
+### BR-218 — Review notes and every transition record actor, time and note in an append-only history
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 6) |
+| **Status** | DERIVED |
+| **Layer** | `farmer_application_status_history` (`db/migrations/0009`, `0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Notes.** `POST /admin/farmer-applications/{id}/notes` stores a review note (1–1000 characters) at any non-draft, non-terminal stage, without changing the status: a history row with `event_type = NOTE` and `from_status = to_status`.
+2. **Every transition** (submit, advance, request-info, resubmit, approve, reject) writes one history row with actor (null only for an anonymous applicant), time and note. Reject stores its `reasonCode` in the `reason_code` column as well as in the note text.
+3. **Append-only.** `farmer_application_status_history` rejects UPDATE, DELETE and TRUNCATE at the database level (`app_make_append_only`). Its foreign key to `farmer_applications` is `ON DELETE RESTRICT`: applications are soft-deleted (`deleted_at`), and a hard delete that would erase a review trail is refused.
+4. **Read.** `reviewHistory[]` in the admin detail carries `eventType`, `reasonCode` and `requestedItems` next to the existing fields.
+
+**Failure mode if unenforced.** A reviewer's reasoning is lost or rewritten after the fact; a rejected applicant cannot be told why, in a form a report can count.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-218a` A note writes one NOTE history row with actor and text and leaves the status unchanged; a draft or terminal application is 409.
+- `BR-218b` Reject stores `reason_code` structured.
+- `BR-218c` UPDATE and DELETE on `farmer_application_status_history` are refused by the database.
+
+### BR-219 — Approval carries the application's documents into farmer_documents with their verification
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 7); closes the BR-54 known limitation |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `farmer-applications` approval; `farmer_documents` (`db/migrations/0003`, `0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. In the approval transaction, every step-4 document whose `fileUrl` is the public URL of an upload recorded against this application (`uploads.entity_type = 'farmer_application'`) becomes one `farmer_documents` row: same `doc_type` (`OTHER` allowed, `db/migrations/0201`), the upload's `storage_key`, `mime_type` and `size_bytes`, `is_mandatory` for `ID_PROOF`/`FARM_DOC`, and the document's BR-215 state — `verification_status` (`VERIFIED`, or `UNVERIFIED` for a never-reviewed optional document), `verified_by`, `verified_at`, `reject_reason`. Because BR-214 refuses approval while any document is REJECTED, a REJECTED document never reaches this copy; the column mapping is kept so the copy stays faithful if that gate is ever relaxed.
+2. A document whose URL matches no recorded upload is not copied (the same proof rule as BR-54g) and is listed in the approval audit row's `after.uncopiedDocuments`.
+
+**Failure mode if unenforced.** The farmer's profile shows Aadhaar and patta as merely "uploaded" forever, and the verification an admin performed during onboarding is lost.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-219a` Approval inserts one `farmer_documents` row per recognised application document with its verification status, verifier and time; a REJECTED document blocks approval and is never copied.
+- `BR-219b` A document with no matching upload is not copied and is named in the audit row.
 
 ## Open contradictions — DO NOT GUESS
 

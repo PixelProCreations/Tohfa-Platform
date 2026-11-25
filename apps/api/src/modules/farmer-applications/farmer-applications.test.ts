@@ -1,19 +1,86 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { PoolClient } from 'pg';
 import { createApp } from '../../app.js';
 import type * as PoolModule from '../../db/pool.js';
 import { RoleCode } from '@tohfa/shared-types';
+import type { IdempotencyStore } from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
 import type { SignUploadResponse } from '../uploads/uploads.schema.js';
-import { anActor, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { aScope, anActor, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
+import { markApplicationReviewedForApproval } from '../../test/applicationReview.js';
+import { purgeFarmerApplicationsByIds } from '../../test/committedFixtureCleanup.js';
+import {
+  applicationDocuments,
+  fmbFingerprintOf,
+  locationIdOf,
+  type ApplicationReviewRow,
+} from './farmer-applications.review.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
 import {
   createFarmerApplicationsService,
   isValidTransition,
 } from './farmer-applications.service.js';
+
+/** An Idempotency-Key store that never touches the (recording) transaction. */
+function inMemoryIdempotency(): IdempotencyStore {
+  return { claim: async () => ({ claimed: true }), complete: async () => undefined };
+}
+
+/** Admin scope for the service-level approval tests: SA/TA hold `all` (docs/rbac.json). */
+const ALL_SCOPE = aScope({ permission: 'farmer.application.approve' });
+
+/**
+ * BR-214: approval requires FARM_VERIFICATION, ID_PROOF + FARM_DOC present and VERIFIED, and
+ * every location's FMB VERIFIED. The approval tests in this file are about what approval WRITES,
+ * not about those gates (application-review.test.ts is), so their applications carry the two
+ * required documents and the mocked repo reports every current document and boundary VERIFIED.
+ */
+const REVIEW_READY_DOCUMENTS = {
+  documents: [
+    { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+    { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+  ],
+};
+
+function verifiedReviewsFor(app: FarmerApplicationRow | null): ApplicationReviewRow[] {
+  if (app === null) return [];
+  const at = new Date('2026-11-25T00:00:00Z');
+  const base = { application_id: app.id, decision: 'VERIFIED' as const, reason: null, reviewed_by: IDS.userSuperAdmin, created_at: at };
+  const rows: ApplicationReviewRow[] = applicationDocuments(app.step4_documents, []).map((d, i) => ({
+    ...base,
+    id: `doc-review-${i}`,
+    subject_type: 'DOCUMENT' as const,
+    subject_key: d.documentKey,
+    content_fingerprint: d.documentKey,
+  }));
+  const listed = (app.step3_location as Record<string, unknown> | null)?.['locations'];
+  (Array.isArray(listed) ? listed : []).forEach((entry, index) => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return;
+    const location = entry as Record<string, unknown>;
+    rows.push({
+      ...base,
+      id: `fmb-review-${index}`,
+      subject_type: 'FMB',
+      subject_key: locationIdOf(location, index),
+      content_fingerprint: fmbFingerprintOf(location),
+    });
+  });
+  return rows;
+}
+
+/**
+ * Integration counterpart: records the reviews the review endpoints would and moves the
+ * application to FARM_VERIFICATION, so an approval test reaches the code it is about.
+ */
+async function readyForApproval(appId: string): Promise<void> {
+  const { pool } = await import('../../db/pool.js');
+  await ensureStandardUsers(pool, 'userSuperAdmin');
+  await markApplicationReviewedForApproval(pool, appId, IDS.userSuperAdmin);
+}
 import type {
   FarmerApplicationRow,
   FarmerApplicationsRepo,
@@ -225,11 +292,36 @@ function mockFarmerApplicationsRepo(
           actor_id: null,
           note: null,
           created_at: new Date(),
+          event_type: 'TRANSITION',
+          reason_code: null,
+          requested_items: null,
         });
         return appState;
       }
       throw new Error('Application not found');
     },
+    insertNote: async (_db, row) => {
+      const entry: StatusHistoryRow = {
+        id: '22222222-2222-2222-2222-222222222223',
+        application_id: row.applicationId,
+        from_status: row.status,
+        to_status: row.status,
+        actor_id: row.actorId,
+        note: row.note,
+        created_at: new Date(),
+        event_type: 'NOTE',
+        reason_code: null,
+        requested_items: null,
+      };
+      history.push(entry);
+      return entry;
+    },
+    listReviews: async () => verifiedReviewsFor(appState),
+    insertReview: async () => {
+      throw new Error('the legacy suite does not record reviews; see application-review.test.ts');
+    },
+    findApplicationUploads: async () => [],
+    insertFarmerDocument: async () => ({ id: '30000000-0000-4000-8000-0000000000dd' }),
     getStatusHistory: async () => history,
     listAdminApplications: async () => ({
       items: appState ? [appState] : [],
@@ -253,21 +345,28 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
   });
 
   describe('State Machine Transitions', () => {
+    // BR-214 (owner decisions 2026-11-25): AUDIT is out of the flow; approval is from
+    // FARM_VERIFICATION; INFO_REQUESTED is a stored side trip (BR-217).
     it('allows legal forward transitions and rejects illegal skips', () => {
       expect(isValidTransition('SUBMITTED', 'DOCS_REVIEW')).toBe(true);
       expect(isValidTransition('DOCS_REVIEW', 'FARM_VERIFICATION')).toBe(true);
-      expect(isValidTransition('FARM_VERIFICATION', 'AUDIT')).toBe(true);
-      expect(isValidTransition('AUDIT', 'APPROVED')).toBe(true);
+      expect(isValidTransition('FARM_VERIFICATION', 'APPROVED')).toBe(true);
+      expect(isValidTransition('DOCS_REVIEW', 'INFO_REQUESTED')).toBe(true);
+      expect(isValidTransition('FARM_VERIFICATION', 'INFO_REQUESTED')).toBe(true);
+      expect(isValidTransition('INFO_REQUESTED', 'DOCS_REVIEW')).toBe(true);
 
-      // Rejection is possible from any non-terminal state
+      // Rejection is possible from any live stage of the flow
       expect(isValidTransition('SUBMITTED', 'REJECTED')).toBe(true);
       expect(isValidTransition('DOCS_REVIEW', 'REJECTED')).toBe(true);
       expect(isValidTransition('FARM_VERIFICATION', 'REJECTED')).toBe(true);
-      expect(isValidTransition('AUDIT', 'REJECTED')).toBe(true);
+      expect(isValidTransition('INFO_REQUESTED', 'REJECTED')).toBe(true);
 
-      // Illegal skips and rollbacks
+      // Illegal skips and rollbacks, and nothing in or out of AUDIT
       expect(isValidTransition('SUBMITTED', 'APPROVED')).toBe(false);
-      expect(isValidTransition('DOCS_REVIEW', 'AUDIT')).toBe(false);
+      expect(isValidTransition('DOCS_REVIEW', 'APPROVED')).toBe(false);
+      expect(isValidTransition('FARM_VERIFICATION', 'AUDIT')).toBe(false);
+      expect(isValidTransition('AUDIT', 'APPROVED')).toBe(false);
+      expect(isValidTransition('AUDIT', 'REJECTED')).toBe(false);
       expect(isValidTransition('APPROVED', 'SUBMITTED')).toBe(false);
       expect(isValidTransition('REJECTED', 'APPROVED')).toBe(false);
     });
@@ -280,8 +379,10 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const service = createFarmerApplicationsService(repo);
       const actor = anActor({ userId: IDS.userSuperAdmin });
 
+      // A draft (SUBMITTED, is_draft) cannot be approved: only FARM_VERIFICATION can.
+      capture.tx = recordingTx();
       await expect(
-        service.transitionStatus(actor, '11111111-1111-1111-1111-111111111111', 'APPROVED'),
+        service.approveApplication(actor, ALL_SCOPE, '11111111-1111-1111-1111-111111111111', {}, newId()),
       ).rejects.toThrow(expect.objectContaining({ code: 'INVALID_STATE_TRANSITION' }));
     });
   });
@@ -944,7 +1045,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step1_personal: { village: 'Ithalar', district: 'The Nilgiris' },
         step2_farm_details: {
           // The name of the operation as a whole. The two parcels below have their own
@@ -988,7 +1090,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await service.approveApplication(actor, APP_ID, {});
+      await service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId());
 
       expect(farmInserts(tx)).toHaveLength(2);
 
@@ -1049,16 +1151,20 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step2_farm_details: { typeOfFarming: 'Mixed vegetables' },
         step3_location: {},
       });
-      const service = createFarmerApplicationsService(repo);
+      // The Idempotency-Key claim is an INSERT in the same transaction and rolls back with the
+      // refusal in production; the recording tx never rolls back, so it is kept in memory here and
+      // "not one statement ran" keeps meaning exactly what it did.
+      const service = createFarmerApplicationsService(repo, undefined, { idempotency: inMemoryIdempotency() });
       const actor = anActor({ userId: IDS.userSuperAdmin });
 
       const tx = recordingTx();
       capture.tx = tx;
-      await expect(service.approveApplication(actor, APP_ID, {})).rejects.toMatchObject({
+      await expect(service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId())).rejects.toMatchObject({
         code: 'VALIDATION_FAILED',
         status: 422,
       });
@@ -1072,15 +1178,19 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         const repo = mockFarmerApplicationsRepo({
           id: APP_ID,
           user_id: FARMER_USER_ID,
-          status: 'AUDIT',
+          status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
           step3_location: step3,
         });
-        const service = createFarmerApplicationsService(repo);
+        // The Idempotency-Key claim is an INSERT in the same transaction and rolls back with the
+      // refusal in production; the recording tx never rolls back, so it is kept in memory here and
+      // "not one statement ran" keeps meaning exactly what it did.
+      const service = createFarmerApplicationsService(repo, undefined, { idempotency: inMemoryIdempotency() });
         const actor = anActor({ userId: IDS.userSuperAdmin });
 
         const tx = recordingTx();
         capture.tx = tx;
-        await expect(service.approveApplication(actor, APP_ID, {})).rejects.toMatchObject({
+        await expect(service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId())).rejects.toMatchObject({
           code: 'VALIDATION_FAILED',
           status: 422,
         });
@@ -1093,7 +1203,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step3_location: {
           locations: [
             { id: 'loc-a', label: 'Unsurveyed Patch', areaAcres: 0.5 },
@@ -1114,7 +1225,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await service.approveApplication(actor, APP_ID, {});
+      await service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId());
 
       expect(farmInserts(tx)).toHaveLength(2);
 
@@ -1135,7 +1246,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step3_location: {
           // fmbPolygon is present (so the boundary itself is written) but only
           // latitude was captured — farmLocationItemSchema allows this even
@@ -1159,7 +1271,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await expect(service.approveApplication(actor, APP_ID, {})).resolves.toBeDefined();
+      await expect(service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId())).resolves.toBeDefined();
 
       const insert = farmInsertNamed(tx, 'Half-Surveyed Plot');
       // The boundary polygon itself is still written...
@@ -1190,7 +1302,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step1_personal: step1Personal,
         step2_farm_details: step2FarmDetails,
         step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
@@ -1200,7 +1313,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await service.approveApplication(actor, APP_ID, {});
+      await service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId());
 
       return farmerInsert(tx).params[FARMER_EXPERIENCE_PARAM_INDEX];
     }
@@ -1254,7 +1367,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step2_farm_details: { experienceYears: 5, totalAreaAcres: 7.5 },
         step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
       });
@@ -1263,7 +1377,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await service.approveApplication(actor, APP_ID, {});
+      await service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId());
 
       const insert = farmerInsert(tx);
       // The stated total stays a claim in the step-2 JSONB. Promoting it to a column
@@ -1297,7 +1411,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step1_personal: step1Personal,
         step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
       });
@@ -1306,7 +1421,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const tx = recordingTx();
       capture.tx = tx;
-      await service.approveApplication(actor, APP_ID, {});
+      await service.approveApplication(actor, ALL_SCOPE, APP_ID, {}, newId());
 
       return farmerInsert(tx).params;
     }
@@ -1388,14 +1503,15 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const repo = mockFarmerApplicationsRepo({
         id: APP_ID,
         user_id: FARMER_USER_ID,
-        status: 'AUDIT',
+        status: 'FARM_VERIFICATION',
+        step4_documents: REVIEW_READY_DOCUMENTS,
         step1_personal: { dob: '08 / 10 / 2003', gender: 'Male', pincode: '643217' },
         step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, latitude: 11.41, longitude: 76.69 }] },
       });
       const service = createFarmerApplicationsService(repo);
       const tx = recordingTx();
       capture.tx = tx;
-      await service.approveApplication(anActor({ userId: IDS.userSuperAdmin }), APP_ID, {});
+      await service.approveApplication(anActor({ userId: IDS.userSuperAdmin }), ALL_SCOPE, APP_ID, {}, newId());
 
       const sql = farmerInsert(tx).sql.replace(/\s+/g, ' ');
       const conflictClause = sql.slice(sql.indexOf('ON CONFLICT (user_id) DO UPDATE SET'));
@@ -1931,9 +2047,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         customerId: null,
       });
 
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(approveRes.status).toBe(200);
       // The approval response is fed from the same step1_personal JSONB -- must
@@ -2030,9 +2148,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         farmerId: null,
         customerId: null,
       });
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(approveRes.status).toBe(200);
 
@@ -2299,9 +2419,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const appId = await createAndFillApplication('Kotagiri');
       await request(server).post(`/v1/farmers/applications/${appId}/submit`);
 
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
 
       expect(approveRes.status).toBe(200);
@@ -2319,9 +2441,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const appId = await createAndFillApplication('Kotagiri');
       await request(server).post(`/v1/farmers/applications/${appId}/submit`);
 
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ zoneId: zones['ZONE-COON'] });
 
       expect(approveRes.status).toBe(200);
@@ -2339,9 +2463,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const appId = await createAndFillApplication('Kotagiri');
       await request(server).post(`/v1/farmers/applications/${appId}/submit`);
 
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ zoneId: '00000000-0000-0000-0000-000000000000' });
 
       expect(approveRes.status).toBe(422);
@@ -2352,9 +2478,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
       expect(submitRes.status).toBe(200);
 
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
 
       expect(approveRes.status).toBe(422);
@@ -2367,9 +2495,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(submitRes.status).toBe(200);
       expect(submitRes.body.zoneId).toBeNull();
 
+      await readyForApproval(appId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
 
       expect(approveRes.status).toBe(422);
@@ -2451,12 +2581,9 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     afterAll(async () => {
       await new Promise<void>((resolve) => server.close(() => resolve()));
       if (testAppIds.length > 0) {
+        // History and review rows are append-only (BR-218): cleaned under replica mode.
         const { pool } = await import('../../db/pool.js');
-        await pool.query(
-          `DELETE FROM farmer_application_status_history WHERE application_id = ANY($1::uuid[])`,
-          [testAppIds],
-        );
-        await pool.query(`DELETE FROM farmer_applications WHERE id = ANY($1::uuid[])`, [testAppIds]);
+        await purgeFarmerApplicationsByIds(pool, testAppIds);
       }
     });
 
@@ -2524,6 +2651,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(approveRes.status).toBe(409);
       expect(approveRes.body.code).toBe('INVALID_STATE_TRANSITION');
@@ -2532,6 +2660,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const rejectRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'OTHER', reason: 'Rejecting draft application' });
       expect(rejectRes.status).toBe(409);
       expect(rejectRes.body.code).toBe('INVALID_STATE_TRANSITION');
@@ -2540,7 +2669,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const infoRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/request-info`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ message: 'Need more information on draft' });
+        .set('Idempotency-Key', randomUUID())
+        .send({ items: ['OTHER'], message: 'Need more information on draft' });
       expect(infoRes.status).toBe(409);
       expect(infoRes.body.code).toBe('INVALID_STATE_TRANSITION');
     });
@@ -2551,6 +2681,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const rejectRes = await request(server)
         .post(`/v1/admin/farmer-applications/${rejAppId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Documents are unreadable.' });
       expect(rejectRes.status).toBe(200);
 
@@ -2558,6 +2689,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const rejApproveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${rejAppId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(rejApproveRes.status).toBe(409);
       expect(rejApproveRes.body.code).toBe('INVALID_STATE_TRANSITION');
@@ -2566,6 +2698,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const rejAgainRes = await request(server)
         .post(`/v1/admin/farmer-applications/${rejAppId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Documents are unreadable again.' });
       expect(rejAgainRes.status).toBe(409);
       expect(rejAgainRes.body.code).toBe('CONFLICT');
@@ -2574,15 +2707,18 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const rejInfoRes = await request(server)
         .post(`/v1/admin/farmer-applications/${rejAppId}/request-info`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ message: 'Please clarify rejection' });
+        .set('Idempotency-Key', randomUUID())
+        .send({ items: ['OTHER'], message: 'Please clarify rejection' });
       expect(rejInfoRes.status).toBe(409);
       expect(rejInfoRes.body.code).toBe('INVALID_STATE_TRANSITION');
 
       // Test APPROVED terminal application
       const { appId: appAppId } = await createAndSubmitApp('Approval Test Farmer');
+      await readyForApproval(appAppId);
       const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appAppId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(approveRes.status).toBe(200);
 
@@ -2590,6 +2726,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const appAgainRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appAppId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(appAgainRes.status).toBe(409);
       expect(appAgainRes.body.code).toBe('CONFLICT');
@@ -2598,6 +2735,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const appRejectRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appAppId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'OTHER', reason: 'Cannot reject approved farmer' });
       expect(appRejectRes.status).toBe(409);
       expect(appRejectRes.body.code).toBe('INVALID_STATE_TRANSITION');
@@ -2606,7 +2744,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const appInfoRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appAppId}/request-info`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ message: 'Cannot request info on approved farmer' });
+        .set('Idempotency-Key', randomUUID())
+        .send({ items: ['OTHER'], message: 'Cannot request info on approved farmer' });
       expect(appInfoRes.status).toBe(409);
       expect(appInfoRes.body.code).toBe('INVALID_STATE_TRANSITION');
     });
@@ -2614,14 +2753,17 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     it('BR-146c: Concurrency-safe approval: two simultaneous approves yield 1 farmer, 1 TOHFA ID, 1 audit row', async () => {
       const { appId, mobile } = await createAndSubmitApp('Concurrent Farmer');
 
+      await readyForApproval(appId);
       const [res1, res2] = await Promise.all([
         request(server)
           .post(`/v1/admin/farmer-applications/${appId}/approve`)
           .set('Authorization', `Bearer ${adminToken}`)
+          .set('Idempotency-Key', randomUUID())
           .send({}),
         request(server)
           .post(`/v1/admin/farmer-applications/${appId}/approve`)
           .set('Authorization', `Bearer ${adminToken}`)
+          .set('Idempotency-Key', randomUUID())
           .send({}),
       ]);
 
@@ -2705,7 +2847,8 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const reqInfoRes = await request(server)
         .post(`/v1/admin/farmer-applications/${infoId}/request-info`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .send({ message: 'Need updated land documents' });
+        .set('Idempotency-Key', randomUUID())
+        .send({ items: ['OTHER'], message: 'Need updated land documents' });
       expect(reqInfoRes.status).toBe(200);
 
       // 1. By default, drafts are excluded
@@ -2767,6 +2910,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const noCodeRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reason: 'Some valid reason here' });
       expect(noCodeRes.status).toBe(422);
 
@@ -2774,6 +2918,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const badCodeRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'NOT_A_VALID_CODE', reason: 'Some valid reason here' });
       expect(badCodeRes.status).toBe(422);
 
@@ -2781,6 +2926,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const noReasonRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'DOCUMENTS_INVALID' });
       expect(noReasonRes.status).toBe(422);
 
@@ -2788,6 +2934,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const shortReasonRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Bad' });
       expect(shortReasonRes.status).toBe(422);
 
@@ -2795,6 +2942,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const validRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/reject`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Survey number mismatch on patta.' });
       expect(validRes.status).toBe(200);
       expect(validRes.body.status).toBe('REJECTED');
@@ -2910,9 +3058,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         farmerId: null,
         customerId: null,
       });
+      await readyForApproval(appId);
       const approveRes = await request(app)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(approveRes.status).toBe(200);
 

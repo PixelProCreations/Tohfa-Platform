@@ -114,6 +114,8 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   WALLET_TRANSFER_DISABLED: 403,
   WALLET_TRANSFER_LIMIT_EXCEEDED: 422,
   WALLET_TRANSFER_SELF: 422,
+  APPLICATION_DOCUMENTS_NOT_VERIFIED: 409,
+  APPLICATION_FMB_NOT_VERIFIED: 409,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -191,6 +193,8 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   WALLET_TRANSFER_DISABLED: 'Wallet transfers are not available',
   WALLET_TRANSFER_LIMIT_EXCEEDED: 'Wallet transfer limit exceeded',
   WALLET_TRANSFER_SELF: 'Cannot send money to your own wallet',
+  APPLICATION_DOCUMENTS_NOT_VERIFIED: 'Application documents are not all verified',
+  APPLICATION_FMB_NOT_VERIFIED: 'Application land boundaries are not all verified',
 };
 
 /**

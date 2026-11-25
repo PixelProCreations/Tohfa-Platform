@@ -138,6 +138,10 @@ export const ErrorCode = {
   WALLET_TRANSFER_LIMIT_EXCEEDED: 'WALLET_TRANSFER_LIMIT_EXCEEDED',
   /** A customer tried to send wallet money to themselves (BR-150). HTTP 422. */
   WALLET_TRANSFER_SELF: 'WALLET_TRANSFER_SELF',
+  /** A farmer application cannot advance or be approved: a required document (ID_PROOF, FARM_DOC) is missing or not VERIFIED, or a document is REJECTED (BR-214). HTTP 409; `meta.blockers` names each one. */
+  APPLICATION_DOCUMENTS_NOT_VERIFIED: 'APPLICATION_DOCUMENTS_NOT_VERIFIED',
+  /** A farmer application cannot be approved: a land location's FMB review is not VERIFIED (BR-214, BR-216). HTTP 409; `meta.blockers` names each one. */
+  APPLICATION_FMB_NOT_VERIFIED: 'APPLICATION_FMB_NOT_VERIFIED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

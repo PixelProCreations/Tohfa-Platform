@@ -1,9 +1,16 @@
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
-import { pool, withTransaction } from '../../db/pool.js';
+import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
+import {
+  beginIdempotent,
+  idempotencyStore as defaultIdempotencyStore,
+  requireIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { defaultBlobStorage, type BlobStorage } from '../../storage/blobStorage.js';
 import { assertMayGrantRole, farmerRoleCode } from '../../rbac/roleExclusivity.js';
 import { uploadsService, type UploadsService } from '../uploads/uploads.service.js';
 import type { SignUploadBody, SignUploadResponse } from '../uploads/uploads.schema.js';
@@ -13,16 +20,32 @@ import {
   type ApplicationStatus,
   type FarmerApplicationRow,
   type FarmerApplicationsRepo,
+  type StatusHistoryRow,
 } from './farmer-applications.repo.js';
 import { locationHasPosition, step3LocationSchema } from './farmer-applications.schema.js';
 import type {
+  AddApplicationNoteBody,
+  AdvanceApplicationBody,
   ApproveApplicationBody,
   CreateFarmerApplicationBody,
   ListAdminApplicationsQuery,
   RejectApplicationBody,
   RequestInfoApplicationBody,
+  ReviewDecisionBody,
   UpdateFarmerProfileBody,
 } from './farmer-applications.schema.js';
+import {
+  applicationDocuments,
+  applicationLocations,
+  documentGateBlockers,
+  fmbFingerprintOf,
+  fmbGateBlockers,
+  locationIdOf,
+  REQUIRED_DOCUMENT_TYPES,
+  type ApplicationDocumentView,
+  type ApplicationLocationView,
+  type ReviewBlocker,
+} from './farmer-applications.review.js';
 
 const VALID_GENDERS = new Set(['MALE', 'FEMALE', 'OTHER', 'UNDISCLOSED']);
 
@@ -90,14 +113,27 @@ function parseDobForInsert(raw: unknown): string | null {
   return `${year}-${pad(month)}-${pad(day)}`;
 }
 
+/**
+ * BR-214 / BR-217 (owner decisions 2026-11-25). The admin flow is
+ * draft(SUBMITTED) -> DOCS_REVIEW -> FARM_VERIFICATION -> APPROVED, with INFO_REQUESTED as a
+ * side trip back to the applicant and REJECTED from any live stage. AUDIT stays in the database
+ * enum but is OUT of this flow: nothing enters it and nothing leaves it (a legacy row in AUDIT
+ * can only be read and annotated until the audit work defines its exits). The edges are the
+ * shape of the flow; the evidence each forward edge needs is the gate in
+ * farmer-applications.review.ts.
+ */
 const VALID_TRANSITIONS: Record<ApplicationStatus, ApplicationStatus[]> = {
   SUBMITTED: ['DOCS_REVIEW', 'REJECTED'],
-  DOCS_REVIEW: ['FARM_VERIFICATION', 'REJECTED'],
-  FARM_VERIFICATION: ['AUDIT', 'REJECTED'],
-  AUDIT: ['APPROVED', 'REJECTED'],
+  DOCS_REVIEW: ['FARM_VERIFICATION', 'INFO_REQUESTED', 'REJECTED'],
+  FARM_VERIFICATION: ['APPROVED', 'INFO_REQUESTED', 'REJECTED'],
+  INFO_REQUESTED: ['DOCS_REVIEW', 'REJECTED'],
+  AUDIT: [],
   APPROVED: [],
   REJECTED: [],
 };
+
+/** Stages in which an admin reviews documents and FMB boundaries (BR-215, BR-216). */
+const REVIEWABLE_STATUSES: readonly ApplicationStatus[] = ['DOCS_REVIEW', 'FARM_VERIFICATION'];
 
 export function isValidTransition(from: ApplicationStatus, to: ApplicationStatus): boolean {
   return VALID_TRANSITIONS[from]?.includes(to) ?? false;
@@ -110,7 +146,28 @@ export interface ReviewHistoryItem {
   actorId: string | null;
   note: string | null;
   createdAt: string;
+  /** BR-218: TRANSITION or NOTE. */
+  eventType: 'TRANSITION' | 'NOTE';
+  reasonCode: string | null;
+  requestedItems: string[] | null;
 }
+
+function toReviewHistoryItem(h: StatusHistoryRow): ReviewHistoryItem {
+  return {
+    id: h.id,
+    fromStatus: h.from_status,
+    toStatus: h.to_status,
+    actorId: h.actor_id,
+    note: h.note,
+    createdAt: h.created_at.toISOString(),
+    eventType: h.event_type ?? 'TRANSITION',
+    reasonCode: h.reason_code ?? null,
+    requestedItems: h.requested_items ?? null,
+  };
+}
+
+/** Kept verbatim from the pre-0200 note text so a client showing `infoRequest` reads the same. */
+const INFO_REQUEST_PREFIX = 'More info requested: ';
 
 function mapApplicationResponse(row: FarmerApplicationRow, reviewHistory?: ReviewHistoryItem[]) {
   // Village from personal details
@@ -145,11 +202,19 @@ function mapApplicationResponse(row: FarmerApplicationRow, reviewHistory?: Revie
   const docTypes = docList.map((d) => d.docType);
   const documentsComplete = docTypes.includes('ID_PROOF') && docTypes.includes('FARM_DOC');
 
-  // Derived status matching OpenAPI ApplicationStatus enum
-  let status: string = row.status;
-  if (row.is_info_requested) {
-    status = 'INFO_REQUESTED';
-  }
+  // INFO_REQUESTED is stored since migration 0200 (BR-217); nothing is derived from note text any more.
+  const status: string = row.status;
+  const infoRequestDetail =
+    row.info_requested_at !== null && row.info_requested_at !== undefined
+      ? {
+          items: row.info_request_items ?? [],
+          message: row.info_request_message ?? null,
+          requestedAt: row.info_requested_at.toISOString(),
+          requestedBy: row.info_requested_by ?? null,
+          /** True while the application is still waiting on the applicant for this request. */
+          open: row.status === 'INFO_REQUESTED',
+        }
+      : null;
 
   return {
     id: row.id,
@@ -181,7 +246,14 @@ function mapApplicationResponse(row: FarmerApplicationRow, reviewHistory?: Revie
     decidedAt: row.decided_at?.toISOString() ?? null,
     decidedBy: row.decided_by ?? null,
     rejectionReason: row.rejection_reason ?? null,
-    infoRequest: row.info_request ?? null,
+    rejectionReasonCode: row.rejection_reason_code ?? null,
+    // The newest request ever made (kept after resubmission, as before); `infoRequestDetail.open`
+    // says whether it is still outstanding.
+    infoRequest:
+      infoRequestDetail !== null && infoRequestDetail.message !== null
+        ? `${INFO_REQUEST_PREFIX}${infoRequestDetail.message}`
+        : null,
+    infoRequestDetail,
     createdAt:
       row.created_at instanceof Date
         ? row.created_at.toISOString()
@@ -199,19 +271,156 @@ export interface FarmerApplicationsService {
   submitApplication(actor: Actor | undefined, id: string): Promise<unknown>;
   getStatusTimeline(actor: Actor | undefined, id: string): Promise<unknown>;
   getFullDraft(actor: Actor | undefined, id: string): Promise<unknown>;
-  transitionStatus(
-    actor: Actor,
-    id: string,
-    toStatus: ApplicationStatus,
-    note?: string | undefined,
-  ): Promise<unknown>;
+  /** BR-217: the applicant answers a request for information (INFO_REQUESTED -> DOCS_REVIEW). */
+  resubmitApplication(actor: Actor | undefined, id: string): Promise<unknown>;
   getMyProfile(actor: Actor): Promise<unknown>;
   updateMyProfile(actor: Actor, body: UpdateFarmerProfileBody): Promise<unknown>;
   listAdminApplications(actor: Actor, scope: ResolvedScope, query: ListAdminApplicationsQuery): Promise<unknown>;
   getAdminApplication(actor: Actor, scope: ResolvedScope, id: string): Promise<unknown>;
-  approveApplication(actor: Actor, id: string, body: ApproveApplicationBody): Promise<unknown>;
-  rejectApplication(actor: Actor, id: string, body: RejectApplicationBody): Promise<unknown>;
-  requestInfoApplication(actor: Actor, id: string, body: RequestInfoApplicationBody): Promise<unknown>;
+  // Every admin mutation below takes the resolved scope (an application outside it is 404) and
+  // the raw Idempotency-Key header value (required: 422 when missing), BR-214.
+  approveApplication(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    body: ApproveApplicationBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+  rejectApplication(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    body: RejectApplicationBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+  requestInfoApplication(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    body: RequestInfoApplicationBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+  advanceApplication(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    body: AdvanceApplicationBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+  reviewApplicationDocument(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    documentKey: string,
+    body: ReviewDecisionBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+  reviewApplicationFmb(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    locationId: string,
+    body: ReviewDecisionBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+  addApplicationNote(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    body: AddApplicationNoteBody,
+    idempotencyKey: string | undefined,
+  ): Promise<unknown>;
+}
+
+export interface FarmerApplicationsServiceDeps {
+  idempotency?: IdempotencyStore;
+  /** Only `getPublicUrl` is used: it proves a step-4 URL is one of this application's uploads (BR-219). */
+  storage?: Pick<BlobStorage, 'getPublicUrl'>;
+}
+
+/** Cross-scope reads and writes are 404, never 403: a 403 would confirm the application exists. */
+function isInScope(scope: ResolvedScope, app: FarmerApplicationRow): boolean {
+  if (scope.level === 'all') return true;
+  return app.zone_id !== null && scope.zoneIds.includes(app.zone_id);
+}
+
+function notFound(): AppError {
+  return new AppError('NOT_FOUND', { detail: 'Application not found.' });
+}
+
+function withoutQueryOrFragment(url: string): string {
+  return url.split(/[?#]/)[0] ?? url;
+}
+
+function documentsGateError(blockers: ReviewBlocker[]): AppError {
+  return new AppError('APPLICATION_DOCUMENTS_NOT_VERIFIED', {
+    status: 409,
+    detail:
+      'The application documents are not all verified: ID_PROOF and FARM_DOC must be present and VERIFIED, and no document may be REJECTED.',
+    meta: { blockers },
+  });
+}
+
+function fmbGateError(blockers: ReviewBlocker[]): AppError {
+  return new AppError('APPLICATION_FMB_NOT_VERIFIED', {
+    status: 409,
+    detail: 'Every land location must have its FMB boundary VERIFIED before the application can be approved.',
+    meta: { blockers },
+  });
+}
+
+/**
+ * BR-69 cross-step completeness, shared by submit and resubmit (BR-217): every problem is
+ * collected and reported together, each naming its step.
+ */
+function assertSubmittable(app: FarmerApplicationRow): void {
+  const problems: Array<{ step: number; message: string }> = [];
+
+  // Step 3: at least one land location that says where the land is. Re-validated against the
+  // STORED data with the same strict schema the route applies on save, so a row written
+  // before BR-69 (or by any other path) cannot reach review with nothing to verify.
+  const storedLocations = step3LocationSchema.safeParse(app.step3_location);
+  const hasLocatedLand =
+    storedLocations.success && storedLocations.data.locations.some(locationHasPosition);
+  if (!hasLocatedLand) {
+    problems.push({
+      step: 3,
+      message:
+        'Step 3 (Location) is incomplete: at least one farm location with a boundary or GPS position is required.',
+    });
+  }
+
+  const docs = (app.step4_documents as { documents?: Array<{ docType: string }> })?.documents ?? [];
+  const docTypes = docs.map((d) => d.docType);
+
+  const hasIdProof = docTypes.includes('ID_PROOF');
+  const hasFarmDoc = docTypes.includes('FARM_DOC');
+
+  if (!hasIdProof || !hasFarmDoc) {
+    problems.push({
+      step: 4,
+      message: 'Mandatory documents missing: ID_PROOF and FARM_DOC are required for submission.',
+    });
+  }
+
+  if (problems.length > 0) {
+    throw new AppError('VALIDATION_FAILED', {
+      status: 422,
+      detail: problems.map((p) => p.message).join(' '),
+      errors: Object.fromEntries(problems.map((p) => [`step${p.step}`, [p.message]])),
+      meta: {
+        missingSteps: problems.map((p) => p.step),
+        ...(!hasIdProof || !hasFarmDoc
+          ? {
+              missingDocuments: [
+                ...(!hasIdProof ? ['ID_PROOF'] : []),
+                ...(!hasFarmDoc ? ['FARM_DOC'] : []),
+              ],
+            }
+          : {}),
+      },
+    });
+  }
 }
 
 export function createFarmerApplicationsService(
@@ -220,7 +429,74 @@ export function createFarmerApplicationsService(
   // real blob storage + `uploads` table (see orders.service.ts's `walletSvc` for the same
   // cross-module DI pattern). Only the one method this service actually calls is required.
   uploadsSvc: Pick<UploadsService, 'signUploadForOwner'> = uploadsService,
+  deps: FarmerApplicationsServiceDeps = {},
 ): FarmerApplicationsService {
+  const idempotency = deps.idempotency ?? defaultIdempotencyStore;
+  const storage = deps.storage ?? defaultBlobStorage;
+
+  async function lockApplication(tx: Executor, id: string): Promise<FarmerApplicationRow | null> {
+    return (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
+  }
+
+  /** The admin detail: the application, its history, and its documents/locations with review state. */
+  async function buildAdminDetail(db: Executor, app: FarmerApplicationRow) {
+    const history = await repo.getStatusHistory(db, app.id);
+    const reviews = await repo.listReviews(db, app.id);
+    const documents: ApplicationDocumentView[] = applicationDocuments(app.step4_documents, reviews);
+    const locations: ApplicationLocationView[] = applicationLocations(app.step3_location, reviews);
+    const documentBlockers = documentGateBlockers(documents);
+    const fmbBlockers = fmbGateBlockers(locations);
+    return {
+      ...mapApplicationResponse(app, history.map(toReviewHistoryItem)),
+      documents,
+      locations,
+      // The same functions the service enforces with, so the screen can never disagree with the API.
+      reviewGates: {
+        farmVerification: { met: documentBlockers.length === 0, blockers: documentBlockers },
+        approval: {
+          met: documentBlockers.length === 0 && fmbBlockers.length === 0,
+          blockers: [...documentBlockers, ...fmbBlockers],
+        },
+      },
+    };
+  }
+
+  /**
+   * The frame every admin review mutation shares: required Idempotency-Key, one transaction,
+   * the application row locked, scope applied (404 outside it), the key claimed BEFORE any
+   * state check so a retry of a request that already succeeded replays its response instead of
+   * failing on the state it produced. `run` does the work and returns the response to store.
+   */
+  async function adminMutation<T>(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+    rawKey: string | undefined,
+    operation: string,
+    request: unknown,
+    run: (tx: Executor, app: FarmerApplicationRow) => Promise<T>,
+  ): Promise<{ result: T; replayed: boolean }> {
+    const key = requireIdempotencyKey(rawKey);
+    return withTransaction(async (tx) => {
+      const app = await lockApplication(tx, id);
+      if (app === null || !isInScope(scope, app)) throw notFound();
+      const idem = await beginIdempotent<T>(idempotency, tx, {
+        actorUserId: actor.userId,
+        key,
+        operation,
+        request: { id, request },
+      });
+      if (idem.replay) return { result: idem.response, replayed: true };
+      const result = await run(tx, app);
+      await idem.complete(result);
+      return { result, replayed: false };
+    });
+  }
+
+  function auditActorRole(actor: Actor): { actorRole?: string } {
+    return actor.roles[0]?.code ? { actorRole: actor.roles[0].code } : {};
+  }
+
   return {
     async createDraft(input, actor) {
       const existing = await repo.findLiveByMobile(pool, input.mobile);
@@ -433,53 +709,7 @@ export function createFarmerApplicationsService(
 
       // Cross-step validation (BR-69). Every problem is collected and reported together, each
       // naming its step, so the applicant can fix the whole application in one round trip.
-      const problems: Array<{ step: number; message: string }> = [];
-
-      // Step 3: at least one land location that says where the land is. Re-validated against the
-      // STORED data with the same strict schema the route applies on save, so a row written
-      // before BR-69 (or by any other path) cannot reach review with nothing to verify.
-      const storedLocations = step3LocationSchema.safeParse(app.step3_location);
-      const hasLocatedLand =
-        storedLocations.success && storedLocations.data.locations.some(locationHasPosition);
-      if (!hasLocatedLand) {
-        problems.push({
-          step: 3,
-          message:
-            'Step 3 (Location) is incomplete: at least one farm location with a boundary or GPS position is required.',
-        });
-      }
-
-      const docs = (app.step4_documents as { documents?: Array<{ docType: string }> })?.documents ?? [];
-      const docTypes = docs.map((d) => d.docType);
-
-      const hasIdProof = docTypes.includes('ID_PROOF');
-      const hasFarmDoc = docTypes.includes('FARM_DOC');
-
-      if (!hasIdProof || !hasFarmDoc) {
-        problems.push({
-          step: 4,
-          message: 'Mandatory documents missing: ID_PROOF and FARM_DOC are required for submission.',
-        });
-      }
-
-      if (problems.length > 0) {
-        throw new AppError('VALIDATION_FAILED', {
-          status: 422,
-          detail: problems.map((p) => p.message).join(' '),
-          errors: Object.fromEntries(problems.map((p) => [`step${p.step}`, [p.message]])),
-          meta: {
-            missingSteps: problems.map((p) => p.step),
-            ...(!hasIdProof || !hasFarmDoc
-              ? {
-                  missingDocuments: [
-                    ...(!hasIdProof ? ['ID_PROOF'] : []),
-                    ...(!hasFarmDoc ? ['FARM_DOC'] : []),
-                  ],
-                }
-              : {}),
-          },
-        });
-      }
+      assertSubmittable(app);
 
       if (!isValidTransition(app.status, 'DOCS_REVIEW')) {
         throw new AppError('INVALID_STATE_TRANSITION', {
@@ -548,11 +778,25 @@ export function createFarmerApplicationsService(
         status: app.status,
         submittedAt: app.submitted_at?.toISOString() ?? null,
         expectedDecisionBy,
-        steps: history.map((h) => ({
-          status: h.to_status,
-          reachedAt: h.created_at.toISOString(),
-          note: h.note,
-        })),
+        // BR-217: while the application waits on the applicant, the checklist and message are
+        // here -- the only channel an applicant without an account (no push) has.
+        infoRequest:
+          app.status === 'INFO_REQUESTED' && app.info_requested_at !== null && app.info_requested_at !== undefined
+            ? {
+                items: app.info_request_items ?? [],
+                message: app.info_request_message ?? null,
+                requestedAt: app.info_requested_at.toISOString(),
+              }
+            : null,
+        // BR-218: review NOTES are the reviewers' working notes, not part of the applicant's
+        // timeline; only status moves are shown.
+        steps: history
+          .filter((h) => (h.event_type ?? 'TRANSITION') === 'TRANSITION')
+          .map((h) => ({
+            status: h.to_status,
+            reachedAt: h.created_at.toISOString(),
+            note: h.note,
+          })),
       };
     },
 
@@ -577,21 +821,48 @@ export function createFarmerApplicationsService(
       return mapApplicationResponse(app);
     },
 
-    async transitionStatus(actor, id, toStatus, note) {
-      const app = await repo.findById(pool, id);
-      if (app === null) {
-        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-      }
+    async resubmitApplication(actor, id) {
+      const result = await withTransaction(async (tx) => {
+        const app = await lockApplication(tx, id);
+        if (app === null) throw notFound();
 
-      if (!isValidTransition(app.status, toStatus)) {
-        throw new AppError('INVALID_STATE_TRANSITION', {
-          status: 422,
-          detail: `Illegal transition from ${app.status} to ${toStatus}.`,
-        });
-      }
+        // BR-36: identical to submit/status -- same possession-of-id model, same NOT_FOUND.
+        if (
+          actor !== undefined &&
+          app.user_id !== null &&
+          app.user_id !== actor.userId &&
+          !actor.roles.some((r) => r.code === 'SUPER_ADMIN' || r.code === 'TOHFA_ADMIN')
+        ) {
+          throw notFound();
+        }
 
-      const updated = await repo.transitionStatus(pool, id, app.status, toStatus, actor.userId, note);
-      return mapApplicationResponse(updated);
+        if (app.is_draft) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: 'A draft is submitted, not resubmitted. Use POST /farmers/applications/{id}/submit.',
+          });
+        }
+
+        // Idempotent by design, like submit: a public caller has no account to scope an
+        // Idempotency-Key to, so a retry after a lost response must succeed harmlessly with the
+        // current state rather than fail on the state the first call produced.
+        if (app.status !== 'INFO_REQUESTED') return { app, moved: false };
+
+        assertSubmittable(app);
+
+        // The zone is kept (transitionStatus only resets it on the draft submit): the applicant
+        // answering a request does not re-derive where the farm is.
+        const updated = await repo.transitionStatus(
+          tx,
+          id,
+          'INFO_REQUESTED',
+          'DOCS_REVIEW',
+          actor?.userId,
+          'Resubmitted by applicant',
+        );
+        return { app: (await repo.findById(tx, id)) ?? updated, moved: true };
+      });
+      return mapApplicationResponse(result.app);
     },
 
     async getMyProfile(actor) {
@@ -705,33 +976,23 @@ export function createFarmerApplicationsService(
 
     async getAdminApplication(_actor, scope, id) {
       const app = await repo.findById(pool, id);
-      if (app === null) {
-        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-      }
-      if (scope.level !== 'all') {
-        if (app.zone_id === null || !scope.zoneIds.includes(app.zone_id)) {
-          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-        }
-      }
-      const history = await repo.getStatusHistory(pool, id);
-      const reviewHistory: ReviewHistoryItem[] = history.map((h) => ({
-        id: h.id,
-        fromStatus: h.from_status,
-        toStatus: h.to_status,
-        actorId: h.actor_id,
-        note: h.note,
-        createdAt: h.created_at.toISOString(),
-      }));
-      return mapApplicationResponse(app, reviewHistory);
+      if (app === null || !isInScope(scope, app)) throw notFound();
+      return buildAdminDetail(pool, app);
     },
 
-    async approveApplication(actor, id, body) {
-      const result = await withTransaction(async (tx) => {
-        const app = (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
-        if (app === null) {
-          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-        }
-
+    async approveApplication(actor, scope, id, body, idempotencyKey) {
+      type ApproveOutcome = {
+        response: ReturnType<typeof mapApplicationResponse>;
+        event: { userId: string; tohfaFarmerId: string };
+      };
+      const { result, replayed } = await adminMutation<ApproveOutcome>(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.approve',
+        body,
+        async (tx, app) => {
         if (app.is_draft) {
           throw new AppError('INVALID_STATE_TRANSITION', {
             status: 409,
@@ -752,6 +1013,23 @@ export function createFarmerApplicationsService(
             detail: 'Cannot approve a rejected application.',
           });
         }
+
+        // BR-214: approval only from FARM_VERIFICATION (AUDIT is out of this flow).
+        if (!isValidTransition(app.status, 'APPROVED')) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `An application is approved from FARM_VERIFICATION only (current status: ${app.status}).`,
+          });
+        }
+
+        // BR-214 gates, re-evaluated inside the locked transaction: a document can have been
+        // replaced or re-reviewed since the application advanced. Both gates' blockers are listed.
+        const reviews = await repo.listReviews(tx, id);
+        const documents = applicationDocuments(app.step4_documents, reviews);
+        const documentBlockers = documentGateBlockers(documents);
+        const fmbBlockers = fmbGateBlockers(applicationLocations(app.step3_location, reviews));
+        if (documentBlockers.length > 0) throw documentsGateError([...documentBlockers, ...fmbBlockers]);
+        if (fmbBlockers.length > 0) throw fmbGateError(fmbBlockers);
 
         // BR-143: resolve zone
         let resolvedZoneId: string | null = null;
@@ -986,6 +1264,36 @@ export function createFarmerApplicationsService(
           );
         }
 
+        // BR-219: carry the application's documents into farmer_documents with their review
+        // state. Only a document whose URL is the public URL of an upload recorded against THIS
+        // application is copied (the BR-54g proof rule): the storage key, type and size come
+        // from that uploads row, never from the client's JSON.
+        const uploads = await repo.findApplicationUploads(tx, id);
+        const uploadByUrl = new Map(uploads.map((u) => [storage.getPublicUrl(u.storage_key), u]));
+        const copiedDocuments: string[] = [];
+        const uncopiedDocuments: string[] = [];
+        for (const doc of documents) {
+          const upload = uploadByUrl.get(withoutQueryOrFragment(doc.fileUrl));
+          if (upload === undefined) {
+            uncopiedDocuments.push(doc.documentKey);
+            continue;
+          }
+          const reviewed = doc.review.status !== 'PENDING';
+          await repo.insertFarmerDocument(tx, {
+            farmerId,
+            docType: doc.docType,
+            storageKey: upload.storage_key,
+            mimeType: upload.mime_type,
+            sizeBytes: Number(upload.size_bytes),
+            isMandatory: (REQUIRED_DOCUMENT_TYPES as readonly string[]).includes(doc.docType),
+            verificationStatus: reviewed ? doc.review.status as 'VERIFIED' | 'REJECTED' : 'UNVERIFIED',
+            verifiedBy: reviewed ? doc.review.reviewedBy : null,
+            verifiedAt: reviewed && doc.review.reviewedAt !== null ? new Date(doc.review.reviewedAt) : null,
+            rejectReason: doc.review.status === 'REJECTED' ? doc.review.reason : null,
+          });
+          copiedDocuments.push(doc.documentKey);
+        }
+
         const updated = await repo.transitionStatus(
           tx,
           id,
@@ -1003,153 +1311,364 @@ export function createFarmerApplicationsService(
 
         await writeAuditLog(tx, {
           actorId: actor.userId,
-          ...(actor.roles[0]?.code ? { actorRole: actor.roles[0].code } : {}),
+          ...auditActorRole(actor),
           actionCode: 'farmer.application.approve',
           entityType: 'farmer_application',
           entityId: id,
           before: { status: app.status },
-          after: { status: 'APPROVED', tohfaFarmerId, farmerId },
+          after: { status: 'APPROVED', tohfaFarmerId, farmerId, copiedDocuments, uncopiedDocuments },
           changedFields: ['status', 'farmer_id', 'zone_id'],
         });
 
-        return { updated: { ...updated, zone_id: resolvedZoneId, tohfa_farmer_id: tohfaFarmerId }, tohfaFarmerId, userId };
-      });
+        const reread = (await repo.findById(tx, id)) ?? updated;
+        return {
+          response: mapApplicationResponse({ ...reread, zone_id: resolvedZoneId, tohfa_farmer_id: tohfaFarmerId }),
+          event: { userId, tohfaFarmerId },
+        };
+        },
+      );
 
-      await eventBus.publish('farmer.application.approved', {
-        userId: result.userId,
-        applicationId: id,
-        tohfaFarmerId: result.tohfaFarmerId,
-      });
+      // A replay approved nothing, so it announces nothing.
+      if (!replayed) {
+        await eventBus.publish('farmer.application.approved', {
+          userId: result.event.userId,
+          applicationId: id,
+          tohfaFarmerId: result.event.tohfaFarmerId,
+        });
+      }
 
-      return mapApplicationResponse(result.updated);
+      return result.response;
     },
 
-    async rejectApplication(actor, id, body) {
-      const updated = await withTransaction(async (tx) => {
-        const app = (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
-        if (app === null) {
-          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-        }
+    async rejectApplication(actor, scope, id, body, idempotencyKey) {
+      type RejectOutcome = { response: ReturnType<typeof mapApplicationResponse>; userId: string | null };
+      const { result, replayed } = await adminMutation<RejectOutcome>(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.reject',
+        body,
+        async (tx, app) => {
+          if (app.is_draft) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: 'Cannot reject a draft application.',
+            });
+          }
 
-        if (app.is_draft) {
-          throw new AppError('INVALID_STATE_TRANSITION', {
-            status: 409,
-            detail: 'Cannot reject a draft application.',
+          if (app.status === 'REJECTED') {
+            throw new AppError('CONFLICT', {
+              status: 409,
+              detail: 'Application is already rejected.',
+            });
+          }
+
+          if (!isValidTransition(app.status, 'REJECTED')) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Illegal transition from ${app.status} to REJECTED.`,
+            });
+          }
+
+          // BR-218: the code is stored in its own column; the note text keeps the old
+          // "[CODE] reason" form so `rejectionReason` reads as it always has.
+          const res = await repo.transitionStatus(
+            tx,
+            id,
+            app.status,
+            'REJECTED',
+            actor.userId,
+            `[${body.reasonCode}] ${body.reason}`,
+            undefined,
+            { reasonCode: body.reasonCode },
+          );
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            ...auditActorRole(actor),
+            actionCode: 'farmer.application.reject',
+            entityType: 'farmer_application',
+            entityId: id,
+            before: { status: app.status },
+            after: { status: 'REJECTED', reasonCode: body.reasonCode, reason: body.reason },
+            changedFields: ['status'],
           });
-        }
 
-        if (app.status === 'REJECTED') {
-          throw new AppError('CONFLICT', {
-            status: 409,
-            detail: 'Application is already rejected.',
-          });
-        }
+          return { response: mapApplicationResponse((await repo.findById(tx, id)) ?? res), userId: app.user_id };
+        },
+      );
 
-        if (!isValidTransition(app.status, 'REJECTED')) {
-          throw new AppError('INVALID_STATE_TRANSITION', {
-            status: 409,
-            detail: `Illegal transition from ${app.status} to REJECTED.`,
-          });
-        }
-
-        const res = await repo.transitionStatus(
-          tx,
-          id,
-          app.status,
-          'REJECTED',
-          actor.userId,
-          `[${body.reasonCode}] ${body.reason}`,
-        );
-
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          ...(actor.roles[0]?.code ? { actorRole: actor.roles[0].code } : {}),
-          actionCode: 'farmer.application.reject',
-          entityType: 'farmer_application',
-          entityId: id,
-          before: { status: app.status },
-          after: { status: 'REJECTED', reasonCode: body.reasonCode, reason: body.reason },
-          changedFields: ['status'],
-        });
-
-        return { res, userId: app.user_id };
-      });
-
-      if (updated.userId) {
+      if (!replayed && result.userId) {
         await eventBus.publish('farmer.application.rejected', {
-          userId: updated.userId,
+          userId: result.userId,
           applicationId: id,
           reason: body.reason,
         });
       }
 
-      return mapApplicationResponse(updated.res);
+      return result.response;
     },
 
-    async requestInfoApplication(actor, id, body) {
-      const updated = await withTransaction(async (tx) => {
-        const app = (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
-        if (app === null) {
-          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-        }
+    async requestInfoApplication(actor, scope, id, body, idempotencyKey) {
+      const items = [...new Set(body.items)];
+      type InfoOutcome = { response: ReturnType<typeof mapApplicationResponse>; userId: string | null };
+      const { result, replayed } = await adminMutation<InfoOutcome>(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.request_info',
+        body,
+        async (tx, app) => {
+          if (app.is_draft) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: 'Cannot request info on a draft application.',
+            });
+          }
 
-        if (app.is_draft) {
-          throw new AppError('INVALID_STATE_TRANSITION', {
-            status: 409,
-            detail: 'Cannot request info on a draft application.',
-          });
-        }
+          // BR-217: only from the two review stages.
+          if (!isValidTransition(app.status, 'INFO_REQUESTED')) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Cannot request info on an application in ${app.status} status.`,
+            });
+          }
 
-        if (app.status === 'APPROVED' || app.status === 'REJECTED') {
-          throw new AppError('INVALID_STATE_TRANSITION', {
-            status: 409,
-            detail: `Cannot request info on an application in ${app.status} status.`,
-          });
-        }
-
-        const res = await repo.transitionStatus(
-          tx,
-          id,
-          app.status,
-          'DOCS_REVIEW',
-          actor.userId,
-          `More info requested: ${body.message}`,
-        );
-
-        if (body.requiredSteps && body.requiredSteps.length > 0) {
-          const remainingSteps = app.completed_steps.filter(
-            (s) => !body.requiredSteps!.includes(s),
+          // No zone is passed: a request never moves the farm (the old code nulled zone_id here).
+          const res = await repo.transitionStatus(
+            tx,
+            id,
+            app.status,
+            'INFO_REQUESTED',
+            actor.userId,
+            body.message,
+            undefined,
+            { requestedItems: items },
           );
-          await tx.query(
-            `UPDATE farmer_applications SET completed_steps = $1 WHERE id = $2`,
-            [remainingSteps, id],
-          );
-        }
 
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          ...(actor.roles[0]?.code ? { actorRole: actor.roles[0].code } : {}),
-          actionCode: 'farmer.application.request_info',
-          entityType: 'farmer_application',
-          entityId: id,
-          before: { status: app.status },
-          after: { status: 'DOCS_REVIEW', message: body.message, requiredSteps: body.requiredSteps },
-          changedFields: ['status'],
-        });
+          // The older body field: re-open the named steps so the app walks the applicant through them.
+          if (body.requiredSteps && body.requiredSteps.length > 0) {
+            const remainingSteps = app.completed_steps.filter((s) => !body.requiredSteps!.includes(s));
+            await tx.query(`UPDATE farmer_applications SET completed_steps = $1 WHERE id = $2`, [remainingSteps, id]);
+          }
 
-        return { res, userId: app.user_id };
-      });
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            ...auditActorRole(actor),
+            actionCode: 'farmer.application.request_info',
+            entityType: 'farmer_application',
+            entityId: id,
+            before: { status: app.status },
+            after: { status: 'INFO_REQUESTED', items, message: body.message, requiredSteps: body.requiredSteps },
+            changedFields: ['status'],
+          });
 
-      if (updated.userId) {
+          return { response: mapApplicationResponse((await repo.findById(tx, id)) ?? res), userId: app.user_id };
+        },
+      );
+
+      // BR-217: an applicant with no account yet cannot be notified; the request still stands and
+      // is shown on the public status endpoint.
+      if (!replayed && result.userId) {
         await eventBus.publish('farmer.application.info_requested', {
-          userId: updated.userId,
+          userId: result.userId,
           applicationId: id,
           steps: body.requiredSteps ?? [4],
+          items,
           message: body.message,
         });
       }
 
-      return mapApplicationResponse(updated.res);
+      return result.response;
+    },
+
+    async advanceApplication(actor, scope, id, body, idempotencyKey) {
+      const { result } = await adminMutation(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.advance',
+        body,
+        async (tx, app) => {
+          if (app.is_draft || app.status !== 'DOCS_REVIEW' || !isValidTransition(app.status, body.toStatus)) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `An application advances to ${body.toStatus} from DOCS_REVIEW only (current status: ${app.is_draft ? 'DRAFT' : app.status}).`,
+            });
+          }
+
+          // BR-214 docs gate.
+          const reviews = await repo.listReviews(tx, id);
+          const blockers = documentGateBlockers(applicationDocuments(app.step4_documents, reviews));
+          if (blockers.length > 0) throw documentsGateError(blockers);
+
+          await repo.transitionStatus(tx, id, app.status, body.toStatus, actor.userId, body.note ?? 'Documents verified');
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            ...auditActorRole(actor),
+            actionCode: 'farmer.application.advance',
+            entityType: 'farmer_application',
+            entityId: id,
+            before: { status: app.status },
+            after: { status: body.toStatus, note: body.note ?? null },
+            changedFields: ['status'],
+          });
+
+          const reread = (await repo.findById(tx, id)) ?? app;
+          return buildAdminDetail(tx, reread);
+        },
+      );
+      return result;
+    },
+
+    async reviewApplicationDocument(actor, scope, id, documentKey, body, idempotencyKey) {
+      const { result } = await adminMutation(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.verify_document',
+        { documentKey, body },
+        async (tx, app) => {
+          const reviews = await repo.listReviews(tx, id);
+          const document = applicationDocuments(app.step4_documents, reviews).find((d) => d.documentKey === documentKey);
+          if (document === undefined) {
+            throw new AppError('NOT_FOUND', { detail: 'No document with that documentKey on this application.' });
+          }
+          if (app.is_draft || !REVIEWABLE_STATUSES.includes(app.status)) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Documents are reviewed in DOCS_REVIEW or FARM_VERIFICATION (current status: ${app.is_draft ? 'DRAFT' : app.status}).`,
+            });
+          }
+
+          await repo.insertReview(tx, {
+            applicationId: id,
+            subjectType: 'DOCUMENT',
+            subjectKey: documentKey,
+            // The key is derived from the file, so it is also the fingerprint (BR-215).
+            contentFingerprint: documentKey,
+            decision: body.decision,
+            reason: body.reason ?? null,
+            reviewedBy: actor.userId,
+          });
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            ...auditActorRole(actor),
+            actionCode: 'farmer.application.verify_document',
+            entityType: 'farmer_application',
+            entityId: id,
+            before: { documentKey, docType: document.docType, status: document.review.status },
+            after: { documentKey, docType: document.docType, status: body.decision, reason: body.reason ?? null },
+            changedFields: ['documents'],
+          });
+
+          return buildAdminDetail(tx, app);
+        },
+      );
+      return result;
+    },
+
+    async reviewApplicationFmb(actor, scope, id, locationId, body, idempotencyKey) {
+      const { result } = await adminMutation(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.verify_fmb',
+        { locationId, body },
+        async (tx, app) => {
+          const rawLocations = (app.step3_location as Record<string, unknown> | null)?.['locations'];
+          const list: unknown[] = Array.isArray(rawLocations) ? rawLocations : [];
+          let target: Record<string, unknown> | undefined;
+          list.forEach((entry, index) => {
+            if (target !== undefined || entry === null || typeof entry !== 'object' || Array.isArray(entry)) return;
+            if (locationIdOf(entry as Record<string, unknown>, index) === locationId) target = entry as Record<string, unknown>;
+          });
+          if (target === undefined) {
+            throw new AppError('NOT_FOUND', { detail: 'No land location with that id on this application.' });
+          }
+          if (app.is_draft || !REVIEWABLE_STATUSES.includes(app.status)) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `FMB boundaries are reviewed in DOCS_REVIEW or FARM_VERIFICATION (current status: ${app.is_draft ? 'DRAFT' : app.status}).`,
+            });
+          }
+
+          const before = applicationLocations(app.step3_location, await repo.listReviews(tx, id)).find(
+            (l) => l.locationId === locationId,
+          );
+          await repo.insertReview(tx, {
+            applicationId: id,
+            subjectType: 'FMB',
+            subjectKey: locationId,
+            contentFingerprint: fmbFingerprintOf(target),
+            decision: body.decision,
+            reason: body.reason ?? null,
+            reviewedBy: actor.userId,
+          });
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            ...auditActorRole(actor),
+            actionCode: 'farmer.application.verify_fmb',
+            entityType: 'farmer_application',
+            entityId: id,
+            before: { locationId, status: before?.fmbReview.status ?? 'PENDING' },
+            after: { locationId, status: body.decision, reason: body.reason ?? null },
+            changedFields: ['locations'],
+          });
+
+          return buildAdminDetail(tx, app);
+        },
+      );
+      return result;
+    },
+
+    async addApplicationNote(actor, scope, id, body, idempotencyKey) {
+      const { result } = await adminMutation(
+        actor,
+        scope,
+        id,
+        idempotencyKey,
+        'farmer.application.add_note',
+        body,
+        async (tx, app) => {
+          // BR-218: any live, submitted stage -- including a legacy AUDIT row, which can be
+          // annotated though it cannot move.
+          if (app.is_draft || app.status === 'APPROVED' || app.status === 'REJECTED') {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Review notes are added to submitted, undecided applications (current status: ${app.is_draft ? 'DRAFT' : app.status}).`,
+            });
+          }
+
+          const note = await repo.insertNote(tx, {
+            applicationId: id,
+            status: app.status,
+            actorId: actor.userId,
+            note: body.note,
+          });
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            ...auditActorRole(actor),
+            actionCode: 'farmer.application.add_note',
+            entityType: 'farmer_application',
+            entityId: id,
+            after: { historyId: note.id, status: app.status, note: body.note },
+            changedFields: ['reviewHistory'],
+          });
+
+          return buildAdminDetail(tx, app);
+        },
+      );
+      return result;
     },
   };
 }

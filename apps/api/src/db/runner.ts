@@ -54,6 +54,8 @@ export const SEED_KINDS: Readonly<Record<string, 'reference' | 'dev'>> = {
   '006_pest_library_seed.sql': 'dev',
   // Customer-app catalogue fixtures (products, prices, stock); needs the 003 users.
   '007_customer_products.js': 'dev',
+  // Dev demo application states (Task 6); owner runs manually on tohfa dev DB.
+  'dev_demo_applications.sql': 'dev',
 };
 
 export interface SeedPlan {

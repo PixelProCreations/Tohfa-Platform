@@ -406,6 +406,66 @@
       "source": "reqs 6.1"
     },
     {
+      "code": "farmer.application.verify_document",
+      "module": "Farmers Management",
+      "description": "Verify or reject one uploaded document on a farmer application, with a reason for a rejection (BR-215).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
+      "code": "farmer.application.verify_fmb",
+      "module": "Farmers Management",
+      "description": "Verify or reject the FMB boundary of one land location on a farmer application, with a reason for a rejection (BR-216).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
+      "code": "farmer.application.advance",
+      "module": "Farmers Management",
+      "description": "Advance a farmer application from DOCS_REVIEW to FARM_VERIFICATION once its documents are verified (BR-214).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
+      "code": "farmer.application.add_note",
+      "module": "Farmers Management",
+      "description": "Add a review note to a farmer application at any non-terminal stage, without changing its status (BR-218).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
       "code": "farmer.profile.view_all",
       "module": "Farmers Management",
       "description": "View any farmer profile.",

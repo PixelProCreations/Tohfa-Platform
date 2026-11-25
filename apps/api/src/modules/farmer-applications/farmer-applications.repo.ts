@@ -1,12 +1,15 @@
 import type { Executor } from '../../db/pool.js';
 import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import type { ApplicationReviewRow, ReviewDecision, ReviewSubjectType } from './farmer-applications.review.js';
 
+/** The database enum `application_status` (0001, plus INFO_REQUESTED from 0200). */
 export type ApplicationStatus =
   | 'SUBMITTED'
   | 'DOCS_REVIEW'
   | 'FARM_VERIFICATION'
   | 'AUDIT'
+  | 'INFO_REQUESTED'
   | 'APPROVED'
   | 'REJECTED';
 
@@ -33,7 +36,13 @@ export interface FarmerApplicationRow {
   decided_at?: Date | null;
   decided_by?: string | null;
   rejection_reason?: string | null;
-  info_request?: string | null;
+  /** BR-218: the reject reason code, from its own history column. */
+  rejection_reason_code?: string | null;
+  /** BR-217: the newest request-info transition (null when there has never been one). */
+  info_request_items?: string[] | null;
+  info_request_message?: string | null;
+  info_requested_at?: Date | null;
+  info_requested_by?: string | null;
   is_info_requested?: boolean;
 }
 
@@ -45,6 +54,38 @@ export interface StatusHistoryRow {
   actor_id: string | null;
   note: string | null;
   created_at: Date;
+  /** BR-218: TRANSITION (status moved) or NOTE (review note, from_status = to_status). */
+  event_type: 'TRANSITION' | 'NOTE';
+  reason_code: string | null;
+  requested_items: string[] | null;
+}
+
+/** Extra structured fields a transition may record on its history row. */
+export interface TransitionDetails {
+  /** BR-218: reject reason code. */
+  reasonCode?: string | undefined;
+  /** BR-217: request-info checklist. */
+  requestedItems?: readonly string[] | undefined;
+}
+
+export interface ApplicationUploadRow {
+  storage_key: string;
+  mime_type: string;
+  /** bigint arrives from pg as a string. */
+  size_bytes: string;
+}
+
+export interface NewFarmerDocument {
+  farmerId: string;
+  docType: string;
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+  isMandatory: boolean;
+  verificationStatus: 'UNVERIFIED' | 'VERIFIED' | 'REJECTED';
+  verifiedBy: string | null;
+  verifiedAt: Date | null;
+  rejectReason: string | null;
 }
 
 export interface FarmerProfileRow {
@@ -130,7 +171,31 @@ export interface FarmerApplicationsRepo {
     actorId?: string | undefined,
     note?: string | undefined,
     zoneId?: string | null | undefined,
+    details?: TransitionDetails | undefined,
   ): Promise<FarmerApplicationRow>;
+  /** BR-218: a review note; a history row that does not move the status. */
+  insertNote(
+    db: Executor,
+    row: { applicationId: string; status: ApplicationStatus; actorId: string; note: string },
+  ): Promise<StatusHistoryRow>;
+  /** BR-215/BR-216: every review decision on an application, oldest first. */
+  listReviews(db: Executor, applicationId: string): Promise<ApplicationReviewRow[]>;
+  insertReview(
+    db: Executor,
+    row: {
+      applicationId: string;
+      subjectType: ReviewSubjectType;
+      subjectKey: string;
+      contentFingerprint: string;
+      decision: ReviewDecision;
+      reason: string | null;
+      reviewedBy: string;
+    },
+  ): Promise<ApplicationReviewRow>;
+  /** BR-219: the uploads recorded against this application (the proof a step-4 URL is its own file). */
+  findApplicationUploads(db: Executor, applicationId: string): Promise<ApplicationUploadRow[]>;
+  /** BR-219: one carried-over document. */
+  insertFarmerDocument(db: Executor, row: NewFarmerDocument): Promise<{ id: string }>;
   listAdminApplications(
     db: Executor,
     options: ListAdminApplicationsOptions,
@@ -166,30 +231,30 @@ const APPLICATION_SELECT = `
   dec.created_at AS decided_at,
   dec.actor_id AS decided_by,
   CASE WHEN fa.status = 'REJECTED' THEN dec.note ELSE NULL END AS rejection_reason,
-  info.note AS info_request,
-  CASE WHEN fa.status NOT IN ('APPROVED', 'REJECTED') AND NOT fa.is_draft AND last_hist.note LIKE 'More info requested:%' THEN true ELSE false END AS is_info_requested
+  CASE WHEN fa.status = 'REJECTED' THEN dec.reason_code ELSE NULL END AS rejection_reason_code,
+  info.requested_items AS info_request_items,
+  info.note AS info_request_message,
+  info.created_at AS info_requested_at,
+  info.actor_id AS info_requested_by,
+  (fa.status = 'INFO_REQUESTED') AS is_info_requested
 `;
 
 const APPLICATION_JOINS = `
   LEFT JOIN farmers f ON f.id = fa.farmer_id
   LEFT JOIN LATERAL (
-    SELECT created_at, actor_id, note
+    SELECT created_at, actor_id, note, reason_code
       FROM farmer_application_status_history
-     WHERE application_id = fa.id AND to_status IN ('APPROVED', 'REJECTED')
+     WHERE application_id = fa.id AND to_status IN ('APPROVED', 'REJECTED') AND event_type = 'TRANSITION'
      ORDER BY created_at DESC LIMIT 1
   ) dec ON true
+  -- BR-217: the request-info move is a stored transition with a structured checklist; the old
+  -- "newest note LIKE 'More info requested:%'" derivation is gone (migration 0201 backfilled it).
   LEFT JOIN LATERAL (
-    SELECT note
+    SELECT note, requested_items, created_at, actor_id
       FROM farmer_application_status_history
-     WHERE application_id = fa.id AND note LIKE 'More info requested:%'
+     WHERE application_id = fa.id AND to_status = 'INFO_REQUESTED' AND event_type = 'TRANSITION'
      ORDER BY created_at DESC LIMIT 1
   ) info ON true
-  LEFT JOIN LATERAL (
-    SELECT note
-      FROM farmer_application_status_history
-     WHERE application_id = fa.id
-     ORDER BY created_at DESC LIMIT 1
-  ) last_hist ON true
 `;
 
 export const farmerApplicationsRepo: FarmerApplicationsRepo = {
@@ -309,8 +374,13 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
     return result.rows[0] ?? null;
   },
 
-  async transitionStatus(db, id, fromStatus, toStatus, actorId, note, zoneId) {
-    const isSubmitted = toStatus === 'SUBMITTED' || toStatus === 'DOCS_REVIEW';
+  async transitionStatus(db, id, fromStatus, toStatus, actorId, note, zoneId, details) {
+    // Only the applicant's FIRST submit (draft SUBMITTED -> DOCS_REVIEW) stamps submitted_at and
+    // sets the zone outright (BR-143: it may legitimately clear it when the taluk maps to none).
+    // Every other move -- including INFO_REQUESTED -> DOCS_REVIEW on resubmit -- keeps the stored
+    // zone unless a value is passed. The old test (`toStatus === 'DOCS_REVIEW'`) also matched
+    // request-info, which wiped the zone of every application sent back to the applicant.
+    const isSubmitted = fromStatus === 'SUBMITTED' && (toStatus === 'SUBMITTED' || toStatus === 'DOCS_REVIEW');
     const result = await db.query<FarmerApplicationRow>(
       `UPDATE farmer_applications
           SET status = $2,
@@ -330,13 +400,92 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
       throw new Error(`CONCURRENT_MODIFICATION: Application ${id} was modified concurrently.`);
     }
 
-    // Record in history log
+    // Record in history log (append-only, BR-218)
     await db.query(
-      `INSERT INTO farmer_application_status_history (application_id, from_status, to_status, actor_id, note)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, fromStatus ?? null, toStatus, actorId ?? null, note ?? null],
+      `INSERT INTO farmer_application_status_history
+         (application_id, from_status, to_status, actor_id, note, event_type, reason_code, requested_items)
+       VALUES ($1, $2, $3, $4, $5, 'TRANSITION', $6, $7::text[])`,
+      [
+        id,
+        fromStatus ?? null,
+        toStatus,
+        actorId ?? null,
+        note ?? null,
+        details?.reasonCode ?? null,
+        details?.requestedItems !== undefined ? [...details.requestedItems] : null,
+      ],
     );
 
+    return result.rows[0]!;
+  },
+
+  async insertNote(db, row) {
+    const result = await db.query<StatusHistoryRow>(
+      `INSERT INTO farmer_application_status_history
+         (application_id, from_status, to_status, actor_id, note, event_type)
+       VALUES ($1, $2, $2, $3, $4, 'NOTE')
+       RETURNING id, application_id, from_status, to_status, actor_id, note, created_at,
+                 event_type, reason_code, requested_items`,
+      [row.applicationId, row.status, row.actorId, row.note],
+    );
+    return result.rows[0]!;
+  },
+
+  async listReviews(db, applicationId) {
+    const result = await db.query<ApplicationReviewRow>(
+      `SELECT id, application_id, subject_type, subject_key, content_fingerprint, decision, reason,
+              reviewed_by, created_at
+         FROM farmer_application_reviews
+        WHERE application_id = $1
+        ORDER BY created_at ASC, id ASC`,
+      [applicationId],
+    );
+    return result.rows;
+  },
+
+  async insertReview(db, row) {
+    const result = await db.query<ApplicationReviewRow>(
+      `INSERT INTO farmer_application_reviews
+         (application_id, subject_type, subject_key, content_fingerprint, decision, reason, reviewed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, application_id, subject_type, subject_key, content_fingerprint, decision, reason,
+                 reviewed_by, created_at`,
+      [row.applicationId, row.subjectType, row.subjectKey, row.contentFingerprint, row.decision, row.reason, row.reviewedBy],
+    );
+    return result.rows[0]!;
+  },
+
+  async findApplicationUploads(db, applicationId) {
+    const result = await db.query<ApplicationUploadRow>(
+      `SELECT storage_key, mime_type, size_bytes::text AS size_bytes
+         FROM uploads
+        WHERE entity_type = 'farmer_application' AND entity_id = $1 AND deleted_at IS NULL
+        ORDER BY created_at ASC, id ASC`,
+      [applicationId],
+    );
+    return result.rows;
+  },
+
+  async insertFarmerDocument(db, row) {
+    const result = await db.query<{ id: string }>(
+      `INSERT INTO farmer_documents
+         (farmer_id, doc_type, storage_key, mime_type, size_bytes, is_mandatory,
+          verification_status, verified_by, verified_at, reject_reason)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::verification_status, $8, $9, $10)
+       RETURNING id`,
+      [
+        row.farmerId,
+        row.docType,
+        row.storageKey,
+        row.mimeType,
+        row.sizeBytes,
+        row.isMandatory,
+        row.verificationStatus,
+        row.verifiedBy,
+        row.verifiedAt,
+        row.rejectReason,
+      ],
+    );
     return result.rows[0]!;
   },
 
@@ -346,12 +495,9 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
     let paramIndex = 1;
 
     // Draft and status filtering
+    // INFO_REQUESTED is a stored status since migration 0200 (BR-217), so it is filtered like any other.
     if (options.status === 'DRAFT') {
       conditions.push('fa.is_draft = true');
-    } else if (options.status === 'INFO_REQUESTED') {
-      conditions.push(
-        `fa.is_draft = false AND fa.status NOT IN ('APPROVED', 'REJECTED') AND (SELECT fash.note FROM farmer_application_status_history fash WHERE fash.application_id = fa.id ORDER BY fash.created_at DESC LIMIT 1) LIKE 'More info requested:%'`,
-      );
     } else if (options.status !== undefined) {
       conditions.push(`fa.status = $${paramIndex++}`);
       values.push(options.status);
@@ -425,10 +571,11 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
   async getStatusHistory(db, applicationId) {
     const result = await db.query<StatusHistoryRow>(
-      `SELECT id, application_id, from_status, to_status, actor_id, note, created_at
+      `SELECT id, application_id, from_status, to_status, actor_id, note, created_at,
+              event_type, reason_code, requested_items
          FROM farmer_application_status_history
         WHERE application_id = $1
-        ORDER BY created_at ASC`,
+        ORDER BY created_at ASC, id ASC`,
       [applicationId],
     );
     return result.rows;

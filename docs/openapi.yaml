@@ -2268,14 +2268,52 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/applications/{id}/resubmit:
+    post:
+      tags: [Farmer Onboarding]
+      operationId: resubmitFarmerApplication
+      summary: Answer a request for more information
+      description: |
+        Moves an `INFO_REQUESTED` application back to `DOCS_REVIEW` after the applicant has updated
+        the requested steps (BR-217). The BR-69 submit completeness checks are re-run (422
+        `VALIDATION_FAILED` naming the steps); the zone is kept. Documents the applicant replaced
+        are PENDING review again; untouched ones keep their decision (BR-215).
+
+        Same auth posture as `/submit` and `/status`: optional bearer token, and possession of the
+        application's unguessable id is the credential (an applicant usually has no account yet).
+        An id owned by a different authenticated account is 404. No `Idempotency-Key`: there is no
+        account to scope one to, so the call is idempotent by state -- a repeat call, or a call on
+        an application that is not `INFO_REQUESTED`, returns the current application and writes
+        nothing. A draft is 409 `INVALID_STATE_TRANSITION` (use `/submit`).
+      x-permission: farmer.application.submit_own
+      x-business-rules: [BR-69, BR-217]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+      responses:
+        '200':
+          description: Resubmitted (or the current state, when there was nothing to resubmit).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplication' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/applications/{id}/status:
     get:
       tags: [Farmer Onboarding]
       operationId: getFarmerApplicationStatus
       summary: Application status timeline
-      description: Returns the fixed timeline Submitted -> Docs Review -> Farm Verification -> Audit -> Approved.
+      description: |
+        Returns the timeline Submitted -> Docs Review -> Farm Verification -> Approved (BR-214; AUDIT
+        is out of this flow). While the application is `INFO_REQUESTED`, `infoRequest` carries the
+        requested checklist and message (BR-217) -- for an applicant with no account yet this is the
+        only place the request reaches them. Reviewers' notes (BR-218) are not part of `steps`.
+        Same auth posture as `GET /farmers/applications/{id}`: possession of the application id.
       x-permission: farmer.application.view_own
-      x-business-rules: []
+      x-business-rules: [BR-217, BR-218]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
@@ -2359,18 +2397,22 @@ paths:
       operationId: getFarmerApplication
       summary: Full application detail for review
       description: |
-        Returns all five steps of one application with its uploaded documents and review
-        history, for an admin deciding on it.
+        Returns all five steps of one application with its review state, for an admin deciding on
+        it: every step-4 document with its `documentKey` and review (BR-215), every step-3 location
+        with its `fmbPolygon`, areas and FMB review (BR-216), the open or last `infoRequestDetail`
+        (BR-217), the structured `reviewHistory` (BR-218) and `reviewGates` -- the same blockers the
+        advance and approve endpoints enforce (BR-214). An application outside the caller's scope is
+        404, never 403. A Farmer Admin reads this (`view`) but holds no review mutation.
       x-permission: farmer.application.view
-      x-business-rules: []
+      x-business-rules: [BR-214, BR-215, BR-216, BR-217, BR-218]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
         '200':
-          description: Application detail including documents and FMB geometry.
+          description: Application detail including documents, FMB geometry and review state.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/FarmerApplication' }
+              schema: { $ref: '#/components/schemas/FarmerApplicationReviewDetail' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -2383,6 +2425,12 @@ paths:
       summary: Approve an application
       description: |
         Issues the TOHFA farmer ID (`TOHFA-F-YYYY-XXXX`) and activates the farmer account. Super Admin / TOHFA Admin only.
+        Approval is from `FARM_VERIFICATION` only; any other stage is 409 `INVALID_STATE_TRANSITION` (BR-214).
+        Both required documents (ID_PROOF, FARM_DOC) must be VERIFIED and no document REJECTED, else 409
+        `APPLICATION_DOCUMENTS_NOT_VERIFIED`; every location's FMB must be VERIFIED, else 409
+        `APPLICATION_FMB_NOT_VERIFIED`. `meta.blockers` lists every blocker of both gates.
+        The application's documents are copied into `farmer_documents` with their review state (BR-219).
+        `Idempotency-Key` is required (422 without it); a replay returns the first response and approves nothing twice.
         An application with zero step-3 farm locations is refused with 422 `VALIDATION_FAILED` and nothing is written:
         a farmer is never approved with zero farms (BR-69).
         If the applicant's account (the application's user, or the live user holding its mobile) is a
@@ -2392,7 +2440,7 @@ paths:
         Every Nilgiris farmer belongs to exactly one zone derived from their taluk (BR-143). If unmapped and no valid
         zoneId override is provided, approval is refused with 422 `ZONE_NOT_FOUND` / `ZONE_NOT_RESOLVED`.
       x-permission: farmer.application.approve
-      x-business-rules: [BR-33, BR-69, BR-135, BR-143]
+      x-business-rules: [BR-33, BR-69, BR-135, BR-143, BR-214, BR-219]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -2425,9 +2473,11 @@ paths:
       summary: Reject an application
       description: |
         Rejects the application with a reason shown to the applicant. Rejection is terminal: the
-        applicant starts a new application rather than editing this one.
+        applicant starts a new application rather than editing this one. Allowed from any submitted,
+        undecided stage except the legacy `AUDIT` (BR-214); `reasonCode` is stored in its own history
+        column as well as in the note text (BR-218). `Idempotency-Key` is required.
       x-permission: farmer.application.reject
-      x-business-rules: []
+      x-business-rules: [BR-146, BR-214, BR-218]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -2454,6 +2504,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/farmer-applications/{id}/request-info:
@@ -2461,9 +2512,16 @@ paths:
       tags: [Farmer Onboarding]
       operationId: requestFarmerApplicationInfo
       summary: Ask the applicant for more information
-      description: Moves the application back to the applicant and pauses the 3-5 working day SLA clock.
+      description: |
+        Moves the application to the stored status `INFO_REQUESTED` (BR-217) and pauses the 3-5
+        working day SLA clock. Allowed from `DOCS_REVIEW` or `FARM_VERIFICATION` only (409
+        `INVALID_STATE_TRANSITION` otherwise). `items` is the checklist the applicant sees on
+        `GET /farmers/applications/{id}/status` (duplicates are collapsed). The zone is never
+        changed. `requiredSteps` (older field) additionally re-opens those steps. The
+        `farmer.application.info_requested` notification is sent when the application has an
+        account; without one the request still succeeds. `Idempotency-Key` is required.
       x-permission: farmer.application.request_info
-      x-business-rules: []
+      x-business-rules: [BR-146, BR-217]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -2473,13 +2531,18 @@ paths:
           application/json:
             schema:
               type: object
-              required: [message]
+              required: [items, message]
               properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 12
+                  items: { $ref: '#/components/schemas/InfoRequestItem' }
                 message: { type: string, minLength: 5, maxLength: 1000 }
                 requiredSteps:
                   type: array
                   items: { type: integer, minimum: 1, maximum: 5 }
-            example: { message: Please re-upload the ID proof, the scan is unreadable., requiredSteps: [4] }
+            example: { items: [AADHAAR], message: Please re-upload the ID proof, the scan is unreadable., requiredSteps: [4] }
       responses:
         '200':
           description: Information requested.
@@ -2490,6 +2553,166 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmer-applications/{id}/advance:
+    post:
+      tags: [Farmer Onboarding]
+      operationId: advanceFarmerApplication
+      summary: Move an application from DOCS_REVIEW to FARM_VERIFICATION
+      description: |
+        The documents gate (BR-214): ID_PROOF and FARM_DOC present and VERIFIED, and no document
+        REJECTED; otherwise 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED` with `meta.blockers`, and
+        nothing is written. From any stage but `DOCS_REVIEW` it is 409 `INVALID_STATE_TRANSITION`.
+        Writes one history row and one audit row. `Idempotency-Key` is required.
+      x-permission: farmer.application.advance
+      x-business-rules: [BR-214]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [toStatus]
+              properties:
+                toStatus: { type: string, enum: [FARM_VERIFICATION] }
+                note: { type: string, minLength: 1, maxLength: 500 }
+            example: { toStatus: FARM_VERIFICATION, note: Aadhaar and patta verified. }
+      responses:
+        '200':
+          description: Advanced; the full review detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplicationReviewDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmer-applications/{id}/documents/{documentKey}/review:
+    post:
+      tags: [Farmer Onboarding]
+      operationId: reviewFarmerApplicationDocument
+      summary: Verify or reject one application document
+      description: |
+        Records a decision on one step-4 document (BR-215). `documentKey` comes from the admin
+        detail (`documents[].documentKey`, derived from the document's type and file URL, so a
+        replaced file has a new key and is PENDING again). `REJECTED` requires a `reason`;
+        `VERIFIED` takes none (422). Allowed in `DOCS_REVIEW` or `FARM_VERIFICATION` (409
+        otherwise); an unknown key is 404. Decisions are append-only; the latest is the state.
+        `Idempotency-Key` is required.
+      x-permission: farmer.application.verify_document
+      x-business-rules: [BR-215]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: documentKey
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[0-9a-f]{32}$' }
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewDecisionRequest' }
+            example: { decision: REJECTED, reason: The Aadhaar scan is unreadable. }
+      responses:
+        '200':
+          description: Recorded; the full review detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplicationReviewDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmer-applications/{id}/locations/{locationId}/fmb-review:
+    post:
+      tags: [Farmer Onboarding]
+      operationId: reviewFarmerApplicationFmb
+      summary: Verify or reject one land location's FMB boundary
+      description: |
+        Records a decision on one step-3 location's FMB boundary (BR-216). `locationId` is the
+        location's own step-3 `id`. The decision is bound to the boundary and acreage it judged: a
+        redrawn boundary is PENDING again. `REJECTED` requires a `reason`. Allowed in `DOCS_REVIEW`
+        or `FARM_VERIFICATION` (409 otherwise); an unknown location is 404. A location without a
+        drawn boundary (`hasBoundary: false`) may be decided on the reviewer's judgment.
+        `Idempotency-Key` is required.
+      x-permission: farmer.application.verify_fmb
+      x-business-rules: [BR-216]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - name: locationId
+          in: path
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewDecisionRequest' }
+            example: { decision: VERIFIED }
+      responses:
+        '200':
+          description: Recorded; the full review detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplicationReviewDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/farmer-applications/{id}/notes:
+    post:
+      tags: [Farmer Onboarding]
+      operationId: addFarmerApplicationNote
+      summary: Add a review note
+      description: |
+        Stores a reviewer's note in the application history without changing its status (BR-218):
+        a `NOTE` row with actor and time. Allowed on any submitted, undecided application (the
+        legacy `AUDIT` included); a draft or a decided application is 409. Notes are not shown on
+        the applicant's timeline. `Idempotency-Key` is required.
+      x-permission: farmer.application.add_note
+      x-business-rules: [BR-218]
+      parameters:
+        - $ref: '#/components/parameters/IdParam'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [note]
+              properties:
+                note: { type: string, minLength: 1, maxLength: 1000 }
+            example: { note: Called the farmer; field visit booked for Monday. }
+      responses:
+        '200':
+          description: Note stored; the full review detail.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FarmerApplicationReviewDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me:
@@ -22177,6 +22400,8 @@ components:
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
         * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
         * `ROLE_NOT_FOUND` — the requested role code is not defined in `docs/rbac.json`, so it cannot be assigned (BR-28). HTTP 422.
+        * `APPLICATION_DOCUMENTS_NOT_VERIFIED` — a farmer application cannot advance to FARM_VERIFICATION or be approved: a required document (ID_PROOF, FARM_DOC) is missing or not VERIFIED, or a document is REJECTED; `meta.blockers` names each one (BR-214). HTTP 409.
+        * `APPLICATION_FMB_NOT_VERIFIED` — a farmer application cannot be approved: a land location's FMB review is not VERIFIED; `meta.blockers` names each one (BR-214, BR-216). HTTP 409.
         * `COMMUNITY_PLANTING_NOT_CONFIGURED` — `system_config.community_planting_min_farmers` (the community planting summary's minimum group size) is missing or not a JSON integer of at least 2; there is no fallback (BR-136). HTTP 503.
       required: [type, title, status, code]
       properties:
@@ -22359,7 +22584,104 @@ components:
     ApplicationStatus:
       type: string
       enum: [DRAFT, SUBMITTED, DOCS_REVIEW, FARM_VERIFICATION, AUDIT, INFO_REQUESTED, APPROVED, REJECTED]
-      description: The fixed farmer application timeline.
+      description: |
+        The farmer application timeline (BR-214): draft -> DOCS_REVIEW -> FARM_VERIFICATION ->
+        APPROVED, INFO_REQUESTED as a stored side trip back to the applicant (BR-217), REJECTED
+        from any live stage. AUDIT exists in the database but nothing enters or leaves it. DRAFT is
+        a list filter derived from `isDraft`; a draft's stored status is SUBMITTED.
+
+    InfoRequestItem:
+      type: string
+      enum: [FMB_SKETCH, AADHAAR, PATTA_CHITTA, BANK_DETAILS, CERTIFICATE, OTHER]
+      description: One item of a request-info checklist (BR-217).
+
+    ReviewDecisionRequest:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      description: A document (BR-215) or FMB (BR-216) review decision. REJECTED requires `reason`; VERIFIED takes none.
+      properties:
+        decision: { type: string, enum: [VERIFIED, REJECTED] }
+        reason: { type: string, minLength: 5, maxLength: 500 }
+
+    ApplicationReviewState:
+      type: object
+      required: [status, reason, reviewedBy, reviewedAt]
+      properties:
+        status: { type: string, enum: [PENDING, VERIFIED, REJECTED] }
+        reason: { type: [string, 'null'] }
+        reviewedBy: { type: [string, 'null'], format: uuid }
+        reviewedAt: { type: [string, 'null'], format: date-time }
+
+    ApplicationReviewBlocker:
+      type: object
+      required: [kind]
+      description: One unmet condition of a BR-214 gate.
+      properties:
+        kind: { type: string, enum: [MISSING_DOCUMENT_TYPE, DOCUMENT_PENDING, DOCUMENT_REJECTED, FMB_PENDING, FMB_REJECTED] }
+        docType: { type: string }
+        documentKey: { type: string }
+        locationId: { type: string }
+        label: { type: [string, 'null'] }
+        reason: { type: [string, 'null'] }
+
+    ApplicationReviewGate:
+      type: object
+      required: [met, blockers]
+      properties:
+        met: { type: boolean }
+        blockers:
+          type: array
+          items: { $ref: '#/components/schemas/ApplicationReviewBlocker' }
+
+    FarmerApplicationReviewDetail:
+      description: The admin review view of one application (BR-214..BR-218).
+      allOf:
+        - $ref: '#/components/schemas/FarmerApplication'
+        - type: object
+          required: [documents, locations, reviewGates]
+          properties:
+            documents:
+              type: array
+              items:
+                type: object
+                required: [documentKey, docType, fileUrl, required, review]
+                properties:
+                  documentKey: { type: string, pattern: '^[0-9a-f]{32}$' }
+                  docType: { type: string, enum: [ID_PROOF, FARM_DOC, CERTIFICATE, OTHER] }
+                  docSubType: { type: [string, 'null'] }
+                  fileName: { type: [string, 'null'] }
+                  fileUrl: { type: string }
+                  required: { type: boolean, description: ID_PROOF and FARM_DOC must be VERIFIED to advance. }
+                  review: { $ref: '#/components/schemas/ApplicationReviewState' }
+            locations:
+              type: array
+              items:
+                type: object
+                required: [locationId, hasBoundary, fmbPolygon, fmbReview]
+                properties:
+                  locationId: { type: string }
+                  label: { type: [string, 'null'] }
+                  areaAcres: { type: [number, 'null'] }
+                  calculatedAreaAcres: { type: [number, 'null'] }
+                  calculatedAreaHectares: { type: [number, 'null'] }
+                  gpsCaptured: { type: [boolean, 'null'] }
+                  latitude: { type: [number, 'null'] }
+                  longitude: { type: [number, 'null'] }
+                  village: { type: [string, 'null'] }
+                  taluk: { type: [string, 'null'] }
+                  district: { type: [string, 'null'] }
+                  hasBoundary: { type: boolean }
+                  fmbPolygon:
+                    type: [object, 'null']
+                    description: GeoJSON Polygon, `[longitude, latitude]` positions, as the applicant drew it.
+                  fmbReview: { $ref: '#/components/schemas/ApplicationReviewState' }
+            reviewGates:
+              type: object
+              required: [farmVerification, approval]
+              properties:
+                farmVerification: { $ref: '#/components/schemas/ApplicationReviewGate' }
+                approval: { $ref: '#/components/schemas/ApplicationReviewGate' }
 
     ListingStatus:
       type: string
@@ -22901,10 +23223,28 @@ components:
         decidedAt: { type: [string, 'null'], format: date-time }
         decidedBy: { type: [string, 'null'], format: uuid }
         rejectionReason: { type: [string, 'null'] }
-        infoRequest: { type: [string, 'null'] }
+        rejectionReasonCode:
+          type: [string, 'null']
+          enum: [DOCUMENTS_INVALID, LAND_NOT_VERIFIED, DUPLICATE_APPLICANT, OUTSIDE_SERVICE_AREA, OTHER, null]
+          description: The reject reason code, stored structured (BR-218).
+        infoRequest:
+          type: [string, 'null']
+          description: 'The newest request for information as text ("More info requested: <message>"); kept after resubmission.'
+        infoRequestDetail:
+          type: [object, 'null']
+          description: The newest request for information, structured (BR-217). `open` is true while the application is INFO_REQUESTED.
+          required: [items, message, requestedAt, requestedBy, open]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/InfoRequestItem' }
+            message: { type: [string, 'null'] }
+            requestedAt: { type: string, format: date-time }
+            requestedBy: { type: [string, 'null'], format: uuid }
+            open: { type: boolean }
         reviewHistory:
           type: array
-          description: Review and status transition history log for this application.
+          description: Review and status transition history log for this application (append-only, BR-218).
           items:
             type: object
             required: [toStatus, createdAt]
@@ -22915,6 +23255,11 @@ components:
               actorId: { type: [string, 'null'], format: uuid }
               note: { type: [string, 'null'] }
               createdAt: { type: string, format: date-time }
+              eventType: { type: string, enum: [TRANSITION, NOTE] }
+              reasonCode: { type: [string, 'null'] }
+              requestedItems:
+                type: [array, 'null']
+                items: { $ref: '#/components/schemas/InfoRequestItem' }
         createdAt: { type: string, format: date-time }
 
     FarmerApplicationSummary:
@@ -22939,6 +23284,16 @@ components:
         status: { $ref: '#/components/schemas/ApplicationStatus' }
         submittedAt: { type: [string, 'null'], format: date-time }
         expectedDecisionBy: { type: [string, 'null'], format: date-time }
+        infoRequest:
+          type: [object, 'null']
+          description: While the status is INFO_REQUESTED, what the applicant was asked for (BR-217); otherwise null.
+          required: [items, message, requestedAt]
+          properties:
+            items:
+              type: array
+              items: { $ref: '#/components/schemas/InfoRequestItem' }
+            message: { type: [string, 'null'] }
+            requestedAt: { type: string, format: date-time }
         steps:
           type: array
           items:

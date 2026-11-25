@@ -13,6 +13,7 @@
  * is listed explicitly, so no orphan is left. Only rows reachable from the ids handed in are
  * touched: fixture warehouses, crops, customers, users and farmers that the calling file created.
  */
+import type { Pool } from 'pg';
 import type { Executor } from '../db/pool.js';
 
 export interface CommittedFixtures {
@@ -375,6 +376,8 @@ export async function purgeNonSeedUsers(client: Executor): Promise<number> {
         await client.query('DELETE FROM farms WHERE id = ANY($1::uuid[])', [farmIds]);
       }
       await client.query('DELETE FROM farm_ratings WHERE farmer_id = ANY($1::uuid[])', [fIds]);
+      // Replica mode skips the ON DELETE CASCADE from farmers, so these would be orphaned (BR-219 copies).
+      await client.query('DELETE FROM farmer_documents WHERE farmer_id = ANY($1::uuid[])', [fIds]);
       await client.query('DELETE FROM farmers WHERE id = ANY($1::uuid[])', [fIds]);
     }
 
@@ -402,6 +405,7 @@ export async function purgeNonSeedUsers(client: Executor): Promise<number> {
     );
     const nonSeedAppIds = nonSeedAppRes.rows.map((r) => r.id);
     if (nonSeedAppIds.length > 0) {
+      await client.query('DELETE FROM farmer_application_reviews WHERE application_id = ANY($1::uuid[])', [nonSeedAppIds]);
       await client.query('DELETE FROM farmer_application_status_history WHERE application_id = ANY($1::uuid[])', [nonSeedAppIds]);
       await client.query('DELETE FROM farmer_applications WHERE id = ANY($1::uuid[])', [nonSeedAppIds]);
     }
@@ -452,22 +456,25 @@ export async function purgeNonSeedFarmerApplications(client: Executor): Promise<
     [CANONICAL_SEED_APPLICATION_IDS],
   );
   const appIds = appRes.rows.map((r) => r.id);
-  if (appIds.length === 0) {
-    // Clean any orphan history left without an application row
-    await client.query(
-      'DELETE FROM farmer_application_status_history WHERE application_id NOT IN (SELECT id FROM farmer_applications)',
-    );
-    return 0;
-  }
-
+  // farmer_application_status_history and farmer_application_reviews are append-only (migration
+  // 0201, BR-218): their statement-level triggers refuse even a DELETE that matches no row, so
+  // every delete here -- the orphan sweep included -- runs under session_replication_role = replica.
   await client.query('BEGIN');
   try {
     await client.query('SET LOCAL session_replication_role = replica');
 
+    await client.query('DELETE FROM farmer_application_reviews WHERE application_id = ANY($1::uuid[])', [appIds]);
+    await client.query(
+      'DELETE FROM farmer_application_reviews WHERE application_id NOT IN (SELECT id FROM farmer_applications)',
+    );
     await client.query('DELETE FROM farmer_application_status_history WHERE application_id = ANY($1::uuid[])', [appIds]);
     await client.query(
       'DELETE FROM farmer_application_status_history WHERE application_id NOT IN (SELECT id FROM farmer_applications)',
     );
+    if (appIds.length === 0) {
+      await client.query('COMMIT');
+      return 0;
+    }
     await client.query(
       "DELETE FROM uploads WHERE entity_type = 'farmer_application' AND entity_id = ANY($1::uuid[])",
       [appIds],
@@ -648,3 +655,76 @@ export async function purgeNonSeedAdminReports(client: Executor): Promise<number
   return res.rowCount ?? 0;
 }
 
+
+/**
+ * Removes exactly the given farmer applications and everything a test made hang off them: review
+ * decisions, history, uploads, audit rows, and -- for an approved application -- the farmer,
+ * its farms and carried-over documents, and an applicant account the approval created (one with
+ * no other role than FARMER). Runs under session_replication_role = replica because the history
+ * and review tables are append-only (migration 0201). Refuses any database not ending in `_test`.
+ */
+export async function purgeFarmerApplicationsByIds(
+  pgPool: Pool,
+  appIds: readonly string[],
+  options: { uploadKeys?: readonly string[] } = {},
+): Promise<void> {
+  // One connection: SET LOCAL and the transaction must live on the same session.
+  const conn = await pgPool.connect();
+  const db: Executor = conn;
+  try {
+    const dbCheck = await db.query<{ name: string }>('SELECT current_database() AS name');
+    const dbName = dbCheck.rows[0]?.name ?? '';
+    if (!dbName.endsWith('_test')) {
+      throw new Error(`SAFETY VIOLATION: refusing to purge fixtures from database "${dbName}".`);
+    }
+    if (appIds.length === 0) return;
+    await db.query('BEGIN');
+    try {
+      await db.query('SET LOCAL session_replication_role = replica');
+      const ids = [...appIds];
+      const linked = await db.query<{ farmer_id: string | null; user_id: string | null }>(
+        'SELECT farmer_id, user_id FROM farmer_applications WHERE id = ANY($1::uuid[])',
+        [ids],
+      );
+      const farmerIds = linked.rows.map((r) => r.farmer_id).filter((v): v is string => v !== null);
+      const userIds = linked.rows.map((r) => r.user_id).filter((v): v is string => v !== null);
+      await db.query('DELETE FROM farmer_application_reviews WHERE application_id = ANY($1::uuid[])', [ids]);
+      await db.query('DELETE FROM farmer_application_status_history WHERE application_id = ANY($1::uuid[])', [ids]);
+      await db.query("DELETE FROM uploads WHERE entity_type = 'farmer_application' AND entity_id = ANY($1::uuid[])", [ids]);
+      if (options.uploadKeys !== undefined && options.uploadKeys.length > 0) {
+        await db.query('DELETE FROM uploads WHERE storage_key = ANY($1::text[])', [[...options.uploadKeys]]);
+      }
+      await db.query("DELETE FROM audit_log WHERE entity_type = 'farmer_application' AND entity_id = ANY($1::uuid[])", [ids]);
+      await db.query('DELETE FROM farmer_applications WHERE id = ANY($1::uuid[])', [ids]);
+      if (farmerIds.length > 0) {
+        await db.query('DELETE FROM farmer_documents WHERE farmer_id = ANY($1::uuid[])', [farmerIds]);
+        await db.query('DELETE FROM farms WHERE farmer_id = ANY($1::uuid[])', [farmerIds]);
+        await db.query('DELETE FROM wallets WHERE farmer_id = ANY($1::uuid[])', [farmerIds]);
+        await db.query('DELETE FROM farmers WHERE id = ANY($1::uuid[])', [farmerIds]);
+      }
+      if (userIds.length > 0) {
+        // Only accounts that are nothing but a farmer made by this approval; a seeded user that
+        // merely owns the application keeps its account.
+        const owned = await db.query<{ id: string }>(
+          `SELECT u.id FROM users u
+            WHERE u.id = ANY($1::uuid[])
+              AND u.id <> ALL($2::uuid[])
+              AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id
+                               WHERE ur.user_id = u.id AND r.code <> 'FARMER')`,
+          [userIds, [...CANONICAL_SEED_USER_IDS]],
+        );
+        const ownedIds = owned.rows.map((r) => r.id);
+        if (ownedIds.length > 0) {
+          await db.query('DELETE FROM user_roles WHERE user_id = ANY($1::uuid[])', [ownedIds]);
+          await db.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [ownedIds]);
+        }
+      }
+      await db.query('COMMIT');
+    } catch (err) {
+      await db.query('ROLLBACK');
+      throw err;
+    }
+  } finally {
+    conn.release();
+  }
+}
