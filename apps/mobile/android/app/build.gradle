@@ -14,6 +14,9 @@ react {
     // resolve it the same way Node would from react-native's location instead
     // of relying on the plugin's default ../../node_modules/@react-native/codegen.
     codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
+    // pnpm keeps hermes-compiler outside react-native's folder, so the plugin can't find
+    // hermesc on its own and release bundling fails. Resolve it the same way as codegenDir.
+    hermesCommand = new File(["node", "--print", "require.resolve('hermes-compiler/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsolutePath() + "/hermesc/%OS-BIN%/hermesc"
 
     /* Autolinking */
     autolinkLibrariesWithApp()
