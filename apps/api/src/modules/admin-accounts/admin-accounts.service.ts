@@ -31,7 +31,7 @@ import { RoleCode } from '@tohfa/shared-types';
 import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { markTokensInvalidBefore } from '../../auth/tokenInvalidation.js';
 import type { Executor } from '../../db/pool.js';
-import { withTransaction } from '../../db/pool.js';
+import { pool, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { loadRbac } from '../../rbac/loadRbac.js';
 import { assertPredicate, type ResolvedScope } from '../../rbac/requirePermission.js';
@@ -43,6 +43,8 @@ import {
   type CreateAdminAccountBody,
   type DisableAdminAccountBody,
   type FarmerAdminZones,
+  type ListAdminAccountsQuery,
+  type ListAdminAccountsResponse,
   type SetFarmerAdminZonesBody,
 } from './admin-accounts.schema.js';
 
@@ -53,9 +55,11 @@ export interface AdminAccountsServiceDeps {
   transaction: TransactionRunner;
   /** Reject access tokens issued before now for this user. Called only after commit. */
   invalidateAccessTokens: (userId: string) => Promise<void>;
+  db?: Executor;
 }
 
 export interface AdminAccountsService {
+  list(scope: ResolvedScope, query: ListAdminAccountsQuery): Promise<ListAdminAccountsResponse>;
   disable(scope: ResolvedScope, userId: string, body: DisableAdminAccountBody): Promise<AdminAccountStatus>;
   /**
    * BR-28 / BR-112. `gateScope` is what the route's any-of gate attached (who is acting); `createScope`
@@ -72,6 +76,15 @@ function isMobileTaken(error: unknown): boolean {
     error !== null &&
     (error as { code?: unknown }).code === '23505' &&
     (error as { constraint?: unknown }).constraint === 'uq_users_mobile_live'
+  );
+}
+
+function isAdminCodeTaken(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === '23505' &&
+    (error as { constraint?: unknown }).constraint === 'admin_profiles_admin_code_key'
   );
 }
 
@@ -109,8 +122,13 @@ export function createAdminAccountsService(deps: Partial<AdminAccountsServiceDep
   const repo = deps.repo ?? adminAccountsRepo;
   const transaction: TransactionRunner = deps.transaction ?? ((fn) => withTransaction(fn));
   const invalidateAccessTokens = deps.invalidateAccessTokens ?? ((userId: string) => markTokensInvalidBefore(userId));
+  const db = deps.db ?? pool;
 
   return {
+    async list(_scope, query) {
+      return repo.listAdminAccounts(db, query);
+    },
+
     async disable(scope, userId, body) {
       if (userId === scope.userId) {
         throw new AppError('FORBIDDEN', { detail: 'You cannot disable your own account.' });
@@ -240,7 +258,15 @@ export function createAdminAccountsService(deps: Partial<AdminAccountsServiceDep
           }
           throw error;
         }
-        const adminCode = await repo.insertAdminProfile(tx, { userId, createdBy: createScope.userId });
+        let adminCode: string;
+        try {
+          adminCode = await repo.insertAdminProfile(tx, { userId, createdBy: createScope.userId });
+        } catch (error) {
+          if (isAdminCodeTaken(error)) {
+            throw new AppError('CONFLICT', { detail: 'An admin profile with that admin code already exists.' });
+          }
+          throw error;
+        }
         const assignedAt = await repo.insertRoleAssignment(tx, { userId, roleCode: role, zoneId, assignedBy: createScope.userId });
         const zoneIds = zoneId === null ? [] : [zoneId];
 

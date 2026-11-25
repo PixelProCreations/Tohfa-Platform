@@ -23,7 +23,8 @@
  * Nothing is filtered by warehouse here (the ledger is the customer's whole
  * wallet, and the balance is its sum, BR-93e). The read is GET-only (BR-93):
  * no route under /admin/customers moves money. Total Credited / Total Used are
- * the summary's totalCredited / totalUsed (BR-129), each drawn only when sent.
+ * the summary's totalCredited / totalUsed (BR-129); both rows are always
+ * drawn in live mode, as an em-dash when the API sends neither figure.
  *
  * Without `live` (only customers/CustomerSearchScreen's sample search still
  * does this; the wallet flow never does), the caller passes the customer and
@@ -157,19 +158,16 @@ export function CustomerWalletScreen({
           <AdminErrorState error={live?.error} onRetry={live?.onRetry} />
         ) : live ? (
           <Card>
-            <AmountRow label={t('customers.wallet.statusLabel')} value={live.wallet?.statusLabel ?? noValue} />
+            {/* BR-129: the figures the summary carries; the row stays, as the dash, when it carries none. */}
+            <AmountRow label={t('wallet.customer.totalCredited')} value={live.wallet?.totalCreditedLabel ?? noValue} />
+            <AmountRow divider label={t('wallet.customer.totalUsed')} value={live.wallet?.totalUsedLabel ?? noValue} />
+            <AmountRow divider label={t('customers.wallet.statusLabel')} value={live.wallet?.statusLabel ?? noValue} />
             <AmountRow
               divider
               label={t('customers.wallet.transactions')}
               value={String(live.wallet?.transactionCount ?? noValue)}
             />
             <AmountRow divider label={t('customers.wallet.lastTransaction')} value={live.wallet?.lastTransactionLabel ?? noValue} />
-            {live.wallet?.totalCreditedLabel !== undefined ? (
-              <AmountRow divider label={t('wallet.customer.totalCredited')} value={live.wallet.totalCreditedLabel} />
-            ) : null}
-            {live.wallet?.totalUsedLabel !== undefined ? (
-              <AmountRow divider label={t('wallet.customer.totalUsed')} value={live.wallet.totalUsedLabel} />
-            ) : null}
             <AmountRow divider label={t('wallet.customer.currentBalance')} value={active.balance} emphasis="total" />
           </Card>
         ) : (

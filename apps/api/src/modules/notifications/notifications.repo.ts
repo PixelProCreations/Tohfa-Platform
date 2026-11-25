@@ -81,7 +81,7 @@ export interface NotificationsRepo {
   updateNotificationDelivery(
     db: Executor,
     id: string,
-    outcome: { status: 'SENT' | 'DELIVERED' | 'FAILED'; providerMessageId?: string | undefined; error?: string | undefined },
+    outcome: { status: 'SENT' | 'DELIVERED' | 'FAILED' | 'SKIPPED'; providerMessageId?: string | undefined; error?: string | undefined },
   ): Promise<NotificationRow | null>;
   findTemplate(db: Executor, code: string, channel: string, locale: 'en' | 'ta'): Promise<NotificationTemplateRow | null>;
   getUserPreferredLocale(db: Executor, userId: string): Promise<'en' | 'ta'>;

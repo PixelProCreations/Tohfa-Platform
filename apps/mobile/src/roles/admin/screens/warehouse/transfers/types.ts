@@ -74,7 +74,18 @@ export interface TransferLineView {
 
 /** A step of the detail timeline. */
 export interface TransferTimelineStep {
-  key: 'requested' | 'approved' | 'dispatched' | 'received' | 'cancelled';
+  key:
+    | 'requested'
+    | 'approved'
+    | 'dispatched'
+    | 'inTransit'
+    | 'arrived'
+    | 'receiving'
+    | 'qtyVerification'
+    | 'qualityCheck'
+    | 'outcome'
+    | 'completed'
+    | 'cancelled';
   label: string;
   done: boolean;
   /** ISO time the step happened, when it did. */

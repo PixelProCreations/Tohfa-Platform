@@ -90,15 +90,22 @@ export const WalletTxnType = {
 } as const;
 export type WalletTxnType = (typeof WalletTxnType)[keyof typeof WalletTxnType];
 
-/** Farmer onboarding application status. */
+/**
+ * Farmer onboarding application status, exactly as the API returns it (docs/openapi.yaml
+ * `ApplicationStatus`). Every value except DRAFT is the database enum `application_status`;
+ * DRAFT is derived on read from `farmer_applications.is_draft`. AUDIT exists in the database
+ * but no transition enters or leaves it (BR-214); INFO_REQUESTED is stored since migration 0200
+ * (BR-217).
+ */
 export const ApplicationStatus = {
   DRAFT: 'DRAFT',
   SUBMITTED: 'SUBMITTED',
-  UNDER_REVIEW: 'UNDER_REVIEW',
-  FIELD_VERIFICATION: 'FIELD_VERIFICATION',
+  DOCS_REVIEW: 'DOCS_REVIEW',
+  FARM_VERIFICATION: 'FARM_VERIFICATION',
+  AUDIT: 'AUDIT',
+  INFO_REQUESTED: 'INFO_REQUESTED',
   APPROVED: 'APPROVED',
   REJECTED: 'REJECTED',
-  WITHDRAWN: 'WITHDRAWN',
 } as const;
 export type ApplicationStatus = (typeof ApplicationStatus)[keyof typeof ApplicationStatus];
 

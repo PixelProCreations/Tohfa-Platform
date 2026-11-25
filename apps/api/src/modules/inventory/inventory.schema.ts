@@ -70,6 +70,7 @@ export const batchSchema = z.object({
   cropName: z.string().optional(),
   grade: z.enum(produceGrades),
   goodsReceiptId: z.string().uuid().nullable(),
+  goodsReceiptNumber: z.string().nullable().optional(),
   sourceFarmerId: z.string().uuid().nullable(),
   qtyReceivedKg: z.string(),
   qtyAvailableKg: z.string(),

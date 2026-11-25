@@ -7,14 +7,15 @@
  * are drawn once here, on the admin theme.
  */
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminErrorKey } from '../../../api/errors';
 import { t, type TranslationKey } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
 import { formatKg } from '../../../money/quantity';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { conditionLabel, returnWriteErrorKey } from './mappers';
 import type { ReturnDetailView, ReturnItemView, ReturnsLiveStateProps, ReturnTimelineEntry, WarehouseScope } from './types';
@@ -285,7 +286,7 @@ export function ActionError({ error, messageKey }: { error?: unknown; messageKey
  * only (no product), so items are numbered in the server's order.
  */
 export function ReturnItemsList({ items }: { items: readonly ReturnItemView[] }) {
-  const noValue = t('returns.noValue');
+  const noValue = ADMIN_NO_VALUE;
   return (
     <>
       {items.map((item, index) => {
@@ -339,12 +340,109 @@ export function ReturnsCard({ children }: { children: React.ReactNode }) {
   return <View style={styles.card}>{children}</View>;
 }
 
+
+// ─── Design elements the API cannot back yet (drawn with a dash) ─────────────
+
+function SearchGlyph() {
+  return (
+    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="8" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m21 21-4.35-4.35" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FilterSlidersGlyph() {
+  return (
+    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+        stroke={adminColors.muted}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * The search row of the queue and the history. GET /admin/returns has no `q`
+ * yet, so the field is drawn but not editable, and the filter button beside it
+ * is drawn but inert, until the server can search.
+ */
+export function ReturnsSearchBar({ placeholder }: { placeholder: string }) {
+  return (
+    <View style={styles.searchBar}>
+      <SearchGlyph />
+      <TextInput
+        style={styles.searchInput}
+        placeholder={placeholder}
+        placeholderTextColor={adminColors.placeholder}
+        editable={false}
+        value=""
+        accessibilityLabel={placeholder}
+      />
+      <View accessibilityRole="button" accessibilityLabel={t('returns.filter.open')} accessibilityState={{ disabled: true }}>
+        <FilterSlidersGlyph />
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The Main all-warehouses selector's place in the header. GET /admin/returns
+ * has no warehouse filter, so it is drawn with a dash and does nothing.
+ */
+export function WarehouseSelectorPlaceholder() {
+  return (
+    <View style={styles.selectorPill} accessibilityState={{ disabled: true }}>
+      <Svg width={SELECTOR_ICON} height={SELECTOR_ICON} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
+          stroke={adminColors.onBrand}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+      <Text style={styles.selectorPillText}>{ADMIN_NO_VALUE}</Text>
+    </View>
+  );
+}
+
+/** The customer-evidence thumbnails. The return carries no photos, so each slot shows a dash. */
+export function EvidenceThumbnails() {
+  return (
+    <View style={styles.evidenceRow}>
+      {[1, 2].map((n) => (
+        <View key={n} style={styles.evidenceBox} accessibilityLabel={t('returns.detail.evidencePhoto', { n })}>
+          <Text style={styles.evidenceDash}>{ADMIN_NO_VALUE}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** A tinted note box (brand tint), for the standing notes of a screen. */
+export function NoticeBox({ children }: { children: React.ReactNode }) {
+  return (
+    <View style={styles.noticeBox}>
+      <Text style={styles.noticeText}>{children}</Text>
+    </View>
+  );
+}
+
 // Timeline geometry: fixed icon sizes, not spacing (no size token exists for them).
 const TIMELINE_RING = 20;
 const TIMELINE_DOT = 8;
 const TIMELINE_LINE_HEIGHT = 28;
 const BACK_BUTTON = 36;
 const HERO_CIRCLE = 80;
+const ICON_SIZE = 18;
+const SELECTOR_ICON = 14;
+const EVIDENCE_SIZE = 72;
+const SEARCH_HEIGHT = 48;
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: adminColors.brand },
@@ -481,6 +579,50 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   actionErrorText: { ...adminType.body, color: adminColors.danger.text },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: SEARCH_HEIGHT,
+    gap: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  searchInput: { ...adminType.body, flex: 1, color: adminColors.ink, paddingVertical: 0 },
+  selectorPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xsSm,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandDeep,
+  },
+  selectorPillText: { ...adminType.rowTitle, color: adminColors.onBrand },
+  evidenceRow: { flexDirection: 'row', gap: adminSpacing.md },
+  evidenceBox: {
+    width: EVIDENCE_SIZE,
+    height: EVIDENCE_SIZE,
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.brandTint,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  evidenceDash: { ...adminType.sectionHead, color: adminColors.muted },
+  noticeBox: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
+  },
+  noticeText: { ...adminType.rowMeta, color: adminColors.brandDeep },
   itemBlock: { marginBottom: adminSpacing.md },
   itemTitle: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xs },
   itemHint: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },

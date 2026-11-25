@@ -109,7 +109,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 **Test contract.**
 - `BR-04a` Tier thresholds are read from `rating_tier_config`, not literals — changing config changes the tier a given score maps to.
-- `BR-04b` A specific tier IS now asserted for a specific score: 0-49 -> `POOR`, 50-69 -> `MODERATE`, 70-84 -> `GOOD`, 85-100 -> `EXCELLENT` — for audits and for audit-derived farm ratings. (The manual scoring endpoint `PUT /admin/farmers/{id}/rating` that this bullet used to reference was removed on 2026-10-01; see BR-06.)
+- `BR-04b` A specific tier IS now asserted for a specific score: 0-49 -> `POOR`, 50-69 -> `MODERATE`, 70-84 -> `GOOD`, 85-100 -> `EXCELLENT` — for audits and for audit-derived farm ratings. (The manual scoring endpoint `PUT /admin/farmers/{id}/rating` that this bullet used to reference was removed on 2026-10-01; a manual edit was reinstated as a permission only on 2026-11-09, see BR-06.)
 
 ---
 
@@ -143,6 +143,8 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 **Source of the rating (product decision, 2026-10-01 — supersedes the manual scoring endpoint).** The farm rating is derived from completed INTERNAL audits ONLY. There is no manual rating entry: `PUT /admin/farmers/{id}/rating` and the `farmer.rating.edit` permission were removed (this departs from reqs 6.1's Farmer-Admin own-zone edit; recorded in `docs/rbac.json` `conflicts`). When an INTERNAL audit is completed, the same transaction creates a new `COMPLETE` farm rating: the audit's 10 category scores (and remarks) copied to `farm_rating_scores`, `total_score` = direct sum, tier from `rating_tier_config` (BR-04), `rated_by`/`scored_by` = the completing admin, `period_label` = `<fiscalYear> Q<quarter>`, linked by `source_audit_id` (unique: one audit, at most one rating). If the rating cannot be written the audit is not completed. EXTERNAL audits create no rating; red-flag, cancel and reschedule never touch ratings. The newest rating is the current one (and the `farmers.overall_rating` cache); every earlier rating — including legacy manual `CYCLE-n` rows, which read back as `source: MANUAL` — is kept unchanged as history.
 
+**Manual rating edit reinstated (owner decision 2026-11-09; status: reinstated by owner decision, details open).** The 2026-10-01 removal above is superseded in part: the permission `farmer.rating.edit` exists again in `docs/rbac.json`, granted to SUPER_ADMIN and TOHFA_ADMIN (`all`) and to no other role (FARMER_ADMIN stays `none`). Owner words: "Edit Rating: super admin and tohfa admin can edit." Which values can be edited, whether a reason is mandatory, audit logging (BR-35) and the interaction with the audit-derived rating are NOT decided; see *Open contradictions* #36. Until they are decided, no behaviour is specified beyond the grant. No endpoint exists yet; the mobile Save is not wired.
+
 **Failure mode if unenforced.** Ratings become incomparable between farms and the tier assignment derived from them is meaningless.
 
 **Test contract.**
@@ -172,6 +174,7 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 - `BR-07a` Ceiling Rs 100/kg, listing at Rs 100.01 → `POST /listings` returns 422, `code: PRICE_ABOVE_CEILING`.
 - `BR-07b` Listing at exactly the ceiling is accepted; the accepted listing stores the `fair_price_id` it was validated against.
 - `BR-07c` A ceiling lowered after acceptance does not retroactively invalidate an accepted listing.
+- `BR-07d` An admin counter-offer or farmer counter-back priced above the fair price ceiling is refused with 422, `code: PRICE_ABOVE_CEILING`.
 
 ---
 
@@ -190,23 +193,24 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 **Test contract.**
 - `BR-08a` TOHFA_ADMIN calls the ceiling-write endpoint → 403, `code: FORBIDDEN`.
 - `BR-08b` Ceiling rows are append-only with non-overlapping effective ranges per `(crop, grade)`; an overlapping insert is rejected by the DB constraint, not only by the service.
+- `BR-08c` Database append-only guard: triggers reject DELETE and any UPDATE except closing `effective_to`/`updated_at` on `fair_prices` and `retail_prices`.
 
 ---
 
 ### BR-09 — Retail price must be at or below the ceiling
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §6.1, FR-A02 ("based on fair price ceiling set by SA") |
+| **Source** | Requirements v1.0 §6.1, FR-A02 ("based on fair price ceiling set by SA"); owner decision 2026-11-10 (only Super Admin sets the price) |
 | **Status** | DERIVED |
 | **Layer** | Server-side, retail-price write path |
 | **Scope** | Track 1 |
 
-**Rule.** SUPER_ADMIN and TOHFA_ADMIN set the customer-facing retail price. It MUST NOT exceed the fair price ceiling for that crop and grade in effect on the price's start date.
+**Rule.** Only SUPER_ADMIN sets the customer-facing retail price (owner decision 2026-11-10; TOHFA_ADMIN may read retail prices but not set them). It MUST NOT exceed the fair price ceiling for that crop and grade in effect on the price's start date.
 
 **Failure mode if unenforced.** TOHFA resells above the ceiling it imposes on farmers — an indefensible position for a farmers' association.
 
 **Test contract.**
-- `BR-09a` Ceiling Rs 100, retail price Rs 120 → 422, `code: RETAIL_ABOVE_CEILING`.
+- `BR-09a` Ceiling Rs 100, retail price Rs 120 → 422, `code: PRICE_ABOVE_CEILING`.
 - `BR-09b` Lowering a ceiling below an active retail price surfaces the affected retail rows in the response; it does not silently leave them live.
 
 ---
@@ -425,21 +429,21 @@ Sources: Requirements v1.0 (Chapters 2, 5, 6, and the FR-* lists) and Role & Fea
 
 ---
 
-### BR-21 — Every order supports warehouse pickup
+### BR-21 — Dual fulfilment: warehouse pickup and home delivery
 | | |
 |---|---|
-| **Source** | Requirements v1.0 §2.3 ("dual fulfilment"); Matrix P9 (pickup only) |
-| **Status** | CONTESTED |
-| **Layer** | Server-side, order-create path |
-| **Scope** | Track 1 (pickup path only) |
+| **Source** | Requirements v1.0 §2.3 ("dual fulfilment"); Matrix P9 (pickup only); owner decision 2026-11-16 (Dual Fulfilment) |
+| **Status** | RESOLVED: owner decision 2026-11-16 (Dual Fulfilment) |
+| **Layer** | Server-side, order-create and fulfilment paths |
+| **Scope** | Track 1 (dual fulfilment) |
 
-**Rule.** Every order MUST offer warehouse pickup as a fulfilment option. Requirements additionally describe home delivery with slots and out-for-delivery tracking; the matrix says all orders are pickup-only and contains no driver or fleet feature. Track 1 implements pickup only; delivery slots exist in the data model but no delivery routing is built.
+**Rule.** Every order MUST offer warehouse pickup or home delivery as a fulfilment option (Dual Fulfilment, resolved 2026-11-16). Warehouse pickup orders transition from `PACKED` to `READY_FOR_PICKUP` via empty dispatch payload, while delivery orders require a delivery partner assignment and transition from `PACKED` to `OUT_FOR_DELIVERY`.
 
-**Failure mode if unenforced.** Either the whole delivery fleet capability is built against a client who wanted pickup only, or customers are promised a delivery slot no one can serve.
+**Failure mode if unenforced.** Either the whole delivery fleet capability is built against a client who wanted pickup only, or customers are promised a delivery slot no one can serve, or pickup orders are dispatched to drivers.
 
 **Test contract.**
-- `BR-21a` Every order created in Track 1 has `fulfilment_type = pickup` and a `warehouse_id`.
-- `BR-21b` No endpoint assigns a driver or transitions an order to `out_for_delivery` in Track 1.
+- `BR-21a` Every order created in Track 1 has `fulfilment_type = PICKUP` or `DELIVERY` with a `warehouse_id`.
+- `BR-21b` Dual fulfilment: `POST /admin/orders/{id}/dispatch` accepts `{ deliveryPartnerId, slot }` and transitions a `PACKED` delivery order to `OUT_FOR_DELIVERY`, persisting partner assignment, history, and audit log. Any attempt to dispatch an order whose fulfilment type is `PICKUP` with delivery parameters or to `OUT_FOR_DELIVERY` is refused with 409 `INVALID_STATE_TRANSITION` and writes nothing.
 
 **Change (2026-11-16, owner decision).** Pickup AND home delivery are both offered at checkout; `BR-21a` is superseded by BR-161 (a delivery order is `fulfilment_type = DELIVERY` with the customer's own address, a date and a slot; every order still names a `warehouse_id`). `BR-21b` is unchanged: no driver assignment and no `OUT_FOR_DELIVERY` transition is built. Payment stays wallet-only (BR-17).
 
@@ -591,6 +595,7 @@ See also BR-66.
 - `BR-29a` FARMER_ADMIN approves own listing → 403, `code: SELF_APPROVAL_FORBIDDEN`; listing state unchanged.
 - `BR-29b` The same listing appears in another eligible admin's queue with `routed_reason: self_approval` set.
 - `BR-29c` Counter-offer and reject paths return the same denial, not just approve.
+- `BR-29d` rejectListing persists reasonCode directly on `produce_listings.rejection_reason_code` and returns rejectionReasonCode on listing views.
 
 ---
 
@@ -1013,6 +1018,7 @@ See also BR-66.
 - `BR-52a` `notification-preferences.test.ts` — `BR-52: disabling a category is persisted for the caller and reported by the dispatcher lookup`: after `updateMine` the lookup reports the category off for that user only, and `listMine` returns all five with that one disabled.
 - `BR-52b` `notifications.test.ts` — `BR-52: a disabled MARKETING category skips only the PUSH row and dispatch for counter_offer.received; IN_APP and SMS are still created` and the `PAYROLL` / `payout.released` equivalent: the created rows are exactly IN_APP + SMS, and the only dispatch job enqueued is SMS.
 - `BR-52c` `notifications.test.ts` — with the category enabled the same event creates IN_APP + PUSH + SMS and enqueues PUSH + SMS; a disabled category affects only its own user; an unmapped event is delivered even with all five categories disabled.
+- `BR-52d` `notifications.test.ts` — Worker marks push notification SKIPPED when user has no device tokens registered instead of marking it DELIVERED.
 
 ---
 
@@ -1176,7 +1182,7 @@ See also BR-66.
 5. **Read-only endpoint:** `GET /farmers/me/documents` has no mutating verb, so a "mutations are rejected" clause is not applicable and has no test; uploading or replacing documents is outside this endpoint (BR-33).
 6. **Status is evidence-based:** A document is `VERIFIED` only when a verified record exists for that file; an application or KYC status alone never makes a document verified. File names are real stored values or null, never invented (`BR-54f`).
 
-**Known limitations (not defects of this rule).** The soil-card slot is not yet uploadable, so it is always `ACTION_NEEDED`. Aadhaar and patta stay `UPLOADED` because approval does not copy the step-4 uploads into `farmer_documents` (open item in farmer-applications).
+**Known limitations (not defects of this rule).** The soil-card slot is not yet uploadable, so it is always `ACTION_NEEDED`. Since 2026-11-25 approval copies the step-4 uploads into `farmer_documents` with their review state (BR-219), so a farmer approved after that date sees Aadhaar and patta as `VERIFIED`; a farmer approved earlier still has no such rows and keeps seeing `UPLOADED` (no backfill was run).
 
 **Failure mode if unenforced.** Leaking full Aadhaar numbers violates Indian privacy regulations; long-lived public file URLs allow unauthorized access to sensitive KYC land and identity documents.
 
@@ -1336,8 +1342,18 @@ See also BR-66.
 4. **Admin Content Management:** Only authorized administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`, via `learning.admin.manage`) can create, update, or remove articles, videos, trainings, and community groups, with full audit logging (BR-35) (`BR-59d`). Authorization of the admin routes is covered by `apps/api/src/rbac/rbac.test.ts`.
 5. **Participation is farmer-only:** A non-farmer actor cannot enrol in a training or join a group (403) (`BR-59e`).
 6. **Request validation:** `videoUrl` must be `https`, `trainingDate` a real calendar date, and free-text fields are length-bounded; violations are 422 (`BR-59j`).
-7. **Admin Content Reads:** Administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`, via `learning.admin.manage`) can list and inspect all articles, videos, trainings, and community groups, including unpublished content (`BR-59l`). Unknown IDs return 404 `NOT_FOUND` (`BR-59m`). List endpoints support optional `language`, `isPublished` (`true`/`false`/absent=both), `q` (case-insensitive substring with escaped wildcards), and group sorting (`members`/`name`) (`BR-59n`).
+7. **Admin Content Reads:** Administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`, via `learning.admin.manage`) can list and inspect all articles, videos, trainings, and community groups, including unpublished content (`BR-59l`). Unknown IDs return 404 `NOT_FOUND` (`BR-59m`). The admin article, video and training lists support optional `language`, `isPublished` (`true`/`false`/absent=both) and `q` (case-insensitive title substring with escaped wildcards); the admin group list supports `category`, `q` (case-insensitive name substring with escaped wildcards) and sorting (`members`/`name`), and has no `language` or `isPublished` filter (`BR-59n`).
 8. **Farmer Group Detail & Search:** Authenticated farmers can read single group details with `isJoined` status without leaking other farmers' identities (`BR-59o`). The farmer group list supports optional `q` substring search by name (`BR-59p`).
+9. **Crop tagging of content (`BR-59r`):** An article and a video may each be associated with zero or more crops from the crop taxonomy (`crop_master`), stored in the join tables `learning_article_crops` / `learning_video_crops` (`0190_learning_content_crops.sql`). The admin create and update bodies accept `cropIds` (an array of `crop_master` uuids, at most 100); every article and video read returns `crops`, an array of `{ id, name, nameTa }` ordered by crop name. **Replace-in-full contract:** on update, omitting `cropIds` leaves the existing tags unchanged and sending `[]` clears them — the same `!== undefined` contract every other optional field in this module's PATCH bodies follows. Duplicate ids in one request collapse to one tag. A `cropIds` entry that is not a live `crop_master` row (unknown id, or `deleted_at IS NOT NULL`) rejects the whole request with 422 `VALIDATION_FAILED` naming the offending ids; it is never silently dropped. `is_active = false` is NOT a rejection reason: a deactivated crop is still a real taxonomy row. A crop soft-deleted *after* it was tagged disappears from the `crops` read while its join row survives, so un-deleting the crop restores the chip. Tagging requires only `learning.admin.manage` — it is a write to learning content, not to the taxonomy — although the admin UI's crop picker is fed by `GET /admin/crop-master`, which is gated by `admin.crop_taxonomy.manage`; both are granted to `SUPER_ADMIN` and `TOHFA_ADMIN` today, so no role can currently tag without being able to browse.
+10. **Communities as group containers (`BR-59s`):** Communities organize related learning groups in a WhatsApp-style container hierarchy (`0191_communities.sql`, `apps/api/src/modules/communities/`). A group belongs to at most one community or may stand alone (`learning_groups.community_id IS NULL`). Community members are derived dynamically through membership in constituent learning groups (`learning_group_memberships`). Managing and moderating communities is gated by `community.group.moderate` (SUPER_ADMIN, TOHFA_ADMIN, FARMER_ADMIN: `all`). Mutating operations (`POST`, `PATCH`, `POST /archive`) write audit logs with actor identity and diff. Deleting a community sets `learning_groups.community_id` to NULL (`ON DELETE SET NULL`), preserving groups and their memberships intact. Existing admin group endpoints accept an optional `communityId` filter and parameter on create/update.
+11. **Content review workflow (`BR-59t`):** Review state and published state are two independent axes (`0192_content_review.sql`). An admin creating content can submit it to the Super Admin for review via `POST /admin/learning/{type}/{id}/submit-review` (`learning.admin.manage`), transitioning `review_status` to `PENDING_REVIEW` and recording `submitted_for_review_at`. The Super Admin records a review decision via `POST /admin/learning/{type}/{id}/review` gated by `learning.content.review` (SUPER_ADMIN only), recording status (`APPROVED` or `REJECTED`), optional `note`, `reviewed_by` actor UUID, and `reviewed_at`. Review state applies across learning content types (articles, videos, trainings, groups). Crucially, **review state and published state are independent**: content can be published immediately without waiting for review; content can be published and pending review at the same time; publishing is never blocked by review state; and rejecting content does NOT unpublish it (`is_published` remains untouched). Resubmitting after rejection is allowed and moves status back to `PENDING_REVIEW`. All mutating review actions write `audit_log` rows within the transaction. All admin reads return review metadata (`reviewStatus`, `submittedForReviewAt`, `reviewedBy`, `reviewedAt`, `reviewNote`), and admin list endpoints accept an optional `reviewStatus` filter (`NOT_SUBMITTED`, `PENDING_REVIEW`, `APPROVED`, `REJECTED`).
+12. **Questions & Answers (Q&A Chat) (`BR-59u`):** Discussions attached to knowledge content (articles, videos, trainings, groups) and/or communities (`0193_qa_chat.sql`, `apps/api/src/modules/qa-chat/`).
+    - **Anyone can answer (Owner decision 2026-11-24):** Farmers and administrators can participate in discussions. Gated by `farmer.learning.qa_participate` (FARMER: own, FARMER_ADMIN: own, SUPER_ADMIN: all, TOHFA_ADMIN: all).
+    - **Authorship and Ownership:** When a user creates a question or answer, `author_user_id` is derived from the authenticated session. Users may only edit or delete their own questions and answers (enforced server-side via resolved scope). Editing another user's post returns 403 `FORBIDDEN`.
+    - **Anonymity (BR-16):** Q&A posts returned to farmers or administrators expose only `id`, `displayName` (user's `full_name`), and `role` (`FARMER` or `ADMIN`). Farm names, plot locations, GPS coordinates, village, and financial data are never included in Q&A responses. Customers have no access (`CUSTOMER: none`).
+    - **Moderation:** Gated by `community.group.moderate` (SUPER_ADMIN, TOHFA_ADMIN: `all`, FARMER_ADMIN: `all`). Moderators can block or unblock any question or answer (`is_blocked: true/false`, recording `blocked_by`, `blocked_at`, and `block_reason`), and can soft-delete any question or answer (`deleted_at = now()`).
+    - **Reader Visibility of Moderated Content:** When a question or answer is blocked (`is_blocked = true`), regular farmers receive a masked placeholder content (`"[This message has been blocked by a moderator]"`) while maintaining thread continuity, whereas moderators can view the original text, block reason, and moderator identity. Soft-deleted posts (`deleted_at IS NOT NULL`) are omitted from all normal reader lists.
+    - **Audit Logging:** All admin moderation actions (blocking, unblocking, deleting posts) write an `audit_log` row inside the transaction with actor identity, action type, and diff.
 
 **Open owner items.** Admin deletes are hard deletes; enrolment in a training whose date has passed is not refused.
 
@@ -1360,6 +1376,11 @@ See also BR-66.
 - `BR-59n` Admin search parameter q matches case-insensitively and treats % and _ literally; a q of 81 characters is 422; groups sort=members orders by memberCount desc; sort=name orders alphabetically.
 - `BR-59o` A farmer reads one group with isJoined true after joining and false after leaving; unknown id is 404 NOT_FOUND; response contains no farmer id or member identity.
 - `BR-59p` Farmer group list filter q searches case-insensitively by name with wildcards escaped; without q list is unchanged.
+- `BR-59q` Group archival & safe deletion: `POST /admin/learning/groups/{id}/archive` sets archivedAt; `DELETE` is allowed only for groups with 0 members, returning 409 CONFLICT if members exist.
+- `BR-59r` Crop tagging (`apps/api/src/modules/learning-hub/learning-hub.test.ts` for the mocked-repo contract, `learning-hub.crops.sql.test.ts` for the real SQL): an article or video created with `cropIds` returns the matching `crops` chips (id, name, nameTa) ordered by name, on every read path (detail, farmer list, admin list); omitting `cropIds` on update leaves the tags untouched, a new array replaces them in full, `[]` clears them; an unknown or soft-deleted crop id is 422 `VALIDATION_FAILED` naming it and the whole request rolls back (title unchanged, tags unchanged); the same crop twice is stored once; a crop soft-deleted after tagging drops out of `crops` while its join row survives; deleting the content cascades its tags away and leaves the crop; hard-deleting a crop that content still points at is refused by the FK.
+- `BR-59s` Communities backend container (`apps/api/src/modules/communities/communities.test.ts`): WhatsApp-style container hierarchy (`0191_communities.sql`); groups belong to at most one community with nullable `learning_groups.community_id`; `ON DELETE SET NULL` preserves groups on community deletion; members are derived via `learning_group_memberships`; admin management is gated by `community.group.moderate`; mutating operations write audit logs; `GET /admin/learning/groups` supports `communityId` filter; group create/update accepts `communityId`.
+- `BR-59t` Content review workflow (`apps/api/src/modules/learning-hub/learning-hub.test.ts`): Review state and published state are independent; content can be published and pending review simultaneously; submit-review transitions to PENDING_REVIEW; review decision approves or rejects with optional note and records reviewer; rejecting published content does not change isPublished; content can be resubmitted after rejection; submitting requires learning.admin.manage; reviewing requires learning.content.review (Super Admin); admin lists filter by reviewStatus; audit logs are written on submit and review.
+- `BR-59u` Questions & Answers Q&A chat (`apps/api/src/modules/qa-chat/qa-chat.test.ts`): Anyone can answer; farmers can ask questions and reply; author derives from scope; farmers can edit/delete own posts; farmers cannot edit/delete other users' posts (403); moderation requires community.group.moderate; blocking masks content for regular readers; soft-deleted posts are hidden; moderation writes audit logs; author details protect farm anonymity per BR-16.
 
 ---
 
@@ -1559,7 +1580,7 @@ See also BR-66.
 
 **Rule.** A user sees only their own live sessions and no secrets.
 1. **Live only:** `GET /auth/me/sessions` returns only the caller's sessions that are neither revoked nor expired, newest first, capped at 50.
-2. **Allow-list:** the response holds exactly `id`, `platform`, `userAgent`, `issuedAt`, `lastSeenAt`, `lastSeenIp`, `expiresAt`, and never refresh-token hashes, token ids, device ids or push tokens. `isCurrent` is not returned because the access token carries no session id.
+2. **Allow-list:** the response holds exactly `id`, `platform`, `userAgent`, `issuedAt`, `lastSeenAt`, `lastSeenIp`, `expiresAt`, `isCurrent` (boolean indicating if the session matches the caller's access token session id, BR-82), and never refresh-token hashes, token ids, device ids or push tokens.
 3. **`/auth/me`:** additionally returns `status`, `createdAt` and `lastLoginAt` (nullable); additive, existing fields unchanged.
 
 **Failure mode if unenforced.** One user sees another's devices and IPs; a leaked refresh-token hash or device id lets an attacker replay or fingerprint a session.
@@ -1567,7 +1588,8 @@ See also BR-66.
 **Test contract.** (`apps/api/src/modules/auth/auth.sessions.test.ts`)
 - `BR-67a` Only live sessions are listed (revoked and expired are excluded); 401 without a token or with a malformed one.
 - `BR-67b` Another user's sessions are never listed.
-- `BR-67c` Exactly the allow-listed keys, no secrets, and no `isCurrent`.
+- `BR-67c` Exactly the allow-listed keys (including `isCurrent`), and no secrets.
+- `BR-67c / BR-82` `GET /auth/me/sessions` includes `isCurrent` marker matching caller access token.
 - `BR-67d` Newest first, capped at 50.
 - `BR-67e` A user with no live sessions gets an empty array, not 404.
 - `BR-67f` Every role can list its own sessions.
@@ -2359,7 +2381,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | **Layer** | Server-side, `orders/fulfilment` module: `GET /admin/orders/{orderId}`, permission `order.list.view_all` (existing code); scope predicate in SQL (`warehouseScopeFilter`); allow-list serializer plus a strict response schema |
 | **Scope** | Track 1 |
 
-**Rule.** `GET /admin/orders/{orderId}` returns one order of any channel (`ONLINE`, `DIRECT`, `MARKET`, `HORECA`, `B2B`). The warehouse scope is an explicit SQL predicate: scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse; an order at another warehouse returns the same 404 `problem+json` as an unknown id, never 403 (BR-30). A scope that carries a customer or farmer id fails closed (404) on this admin route, so a CUSTOMER, whose `order.list.view_all` grant is `own`, gets 404 here and keeps using `/orders/{id}`. The response is built by an allow-list (`AdminOrderDetail`): order identity, channel, status, fulfilment type, payment method and status, warehouse `{id, name}`, buyer (customer id, code, name, or the walk-in name) with the mobile masked to its last four digits for every scope (BR-92; like `Sale`, this response never carries a full mobile), lines (crop name, grade, kg to 3 decimals, unit price, GST rate and amount, line total), totals as `Money` strings read from the stored order (never recomputed), the latest invoice reference `{id, invoiceNumber, status}` or null, delivery date and slot, `otpRequired` and `otpVerifiedAt`, a timeline of status changes and times, and `placedAt`, `packedAt`, `completedAt`, `cancelledAt`. Never returned, at any depth: `farmerId`, `sourceFarmerId`, farm, village, GPS, FMB, batch or allocation ids or codes (implementer's choice, consistent with `GET /admin/sales/{saleId}`: no batch identifiers at all), the delivery OTP, its hash or the attempt count (BR-20), the delivery address (customer PII, BR-92), and the history note or actor (free text can name a farmer). The read writes no audit row (BR-35 covers mutations).
+**Rule.** `GET /admin/orders/{orderId}` returns one order of any channel (`ONLINE`, `DIRECT`, `MARKET`, `HORECA`, `B2B`). The warehouse scope is an explicit SQL predicate: scope `all` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN) sees every warehouse; `own` for a Sub Warehouse Admin sees only its warehouse; an order at another warehouse returns the same 404 `problem+json` as an unknown id, never 403 (BR-30). A scope that carries a customer or farmer id fails closed (404) on this admin route, so a CUSTOMER, whose `order.list.view_all` grant is `own`, gets 404 here and keeps using `/orders/{id}`. The response is built by an allow-list (`AdminOrderDetail`): order identity, channel, status, fulfilment type, payment method and status, warehouse `{id, name}`, buyer (customer id, code, name, or the walk-in name) with the mobile masked to its last four digits for every scope (BR-92; like `Sale`, this response never carries a full mobile), lines (crop name, grade, kg to 3 decimals, unit price, GST rate and amount, line total), totals as `Money` strings read from the stored order (never recomputed), the latest invoice reference `{id, invoiceNumber, status}` or null, delivery date and slot, `otpRequired` and `otpVerifiedAt`, a timeline of status changes and times, and `placedAt`, `packedAt`, `completedAt`, `cancelledAt`. Never returned, at any depth: `farmerId`, `sourceFarmerId`, farm, village, GPS, FMB, batch or allocation ids or codes (implementer's choice, consistent with `GET /admin/sales/{saleId}`: no batch identifiers at all), the delivery OTP, its hash or the attempt count (BR-20), the delivery address (customer PII, BR-92, except for the narrow dual fulfilment exception below), and the history note or actor (free text can name a farmer). Narrow exception (owner decision 2026-11-16 Dual Fulfilment, P0-70): `deliveryAddress` is returned on `AdminOrderDetail` ONLY when `fulfilment_type = 'DELIVERY'`, and ONLY to a caller within warehouse scope. Pickup orders continue returning null/no address. List endpoints never return addresses. Masked customer mobile rules under BR-92 remain strictly enforced. The read writes no audit row (BR-35 covers mutations).
 
 **Failure mode if unenforced.** A Sub admin reads another warehouse's orders, or learns by a 403 which order ids exist; a counter screen or support agent sees the farmer behind a lot, or the handover OTP that proves delivery.
 
@@ -2373,6 +2395,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-99g` Each of ONLINE, DIRECT, MARKET, HORECA and B2B is returned, schema-valid, with no farm-identity, batch or OTP key at any depth (recursive scan), and neither the farmer's name nor the batch code from the history notes or batch appears in the JSON.
 - `BR-99h` `otpRequired` is true for an unverified OTP order and the plaintext OTP never appears; the invoice reference is present when an invoice exists and null otherwise.
 - `BR-99i` (derived, review of 2026-10-13) A DIRECT/MARKET sale cancelled after its UPI payment was captured carries `payment_status = REFUND_DUE` (migration 0068, BR-94i); its detail is 200 with `paymentStatus = REFUND_DUE`, never a 500 from the response schema.
+- `BR-99j` (owner decision 2026-11-16, P0-70) For `fulfilment_type = 'DELIVERY'`, `deliveryAddress` (`{ line1, line2, city, district, state, pincode, lat, lng }`) is returned to callers within warehouse scope. For `fulfilment_type = 'PICKUP'`, `deliveryAddress` is null. Customer mobile remains masked (BR-92).
 
 ---
 
@@ -3289,7 +3312,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | **Layer** | Database: `announcements.type` (`db/migrations/0081_announcement_type.sql`), `NOT NULL DEFAULT 'GENERAL'` with `announcements_type_chk`; server-side: `systemMessagesRepo` (selected with the other columns), `systemMessagesService` mapping |
 | **Scope** | Track 1 |
 
-**Rule.** Every announcement has a `type`, one of `GENERAL`, `MAINTENANCE`, `ALERT`, `PROMOTION`, enforced by a CHECK constraint; any other value is rejected by the database. The column defaults to `GENERAL`, so every announcement that existed before migration 0081 reads as `GENERAL`, and every existing insert path that does not name a type keeps working unchanged. The system-message reads (`GET /system-messages`, `GET /system-messages/{id}`, and the `POST /system-messages/{id}/read` response, which reuses the same item) carry `type`, always present. It is informational only: it changes no visibility (BR-65 is unchanged), there is no `type` filter on the list (an unknown query parameter is still 422), and no endpoint creates or edits announcements.
+**Rule.** Every announcement has a `type`, one of `GENERAL`, `MAINTENANCE`, `ALERT`, `PROMOTION`, enforced by a CHECK constraint; any other value is rejected by the database. The column defaults to `GENERAL`, so every announcement that existed before migration 0081 reads as `GENERAL`, and every existing insert path that does not name a type keeps working unchanged. The system-message reads (`GET /system-messages`, `GET /system-messages/{id}`, and the `POST /system-messages/{id}/read` response, which reuses the same item) carry `type`, always present. It is informational only: it changes no visibility (BR-65 is unchanged), and there is no `type` filter on the reader-facing list (an unknown query parameter is still 422). Announcements are created and edited only through the admin endpoints added by BR-213 on 2026-11-23, which set `type` from the same value set; until then no endpoint wrote one.
 
 **Failure mode if unenforced.** The admin app guesses a kind from the title, or a free-text kind lets an unknown value reach a client switch with no case for it.
 
@@ -3517,6 +3540,609 @@ Every other place that adds a role creates a brand-new account in the same trans
 - `BR-141a` Against an 11 sq.ft standard: 11 SQ_FT meets, 10.99 SQ_FT does not; 1.02 SQ_M (10.979 sq.ft) does not, 1.03 SQ_M (11.087 sq.ft) meets; 1 SQ_M meets 10.76 and fails 10.77; 0.01 ACRES (435.6 sq.ft) meets 435.6 and fails 435.61.
 - `BR-141b` The list carries `spaceStandard.minIndoorSqFtPerAnimal` from `system_config` and changing it changes the verdicts; the response schema requires `spaceStandard` (object or null) and `meetsIndoorSpaceStandard` (boolean or null) on every item; an empty or foreign page still carries `spaceStandard`.
 - `BR-141c` A missing or unusable value (absent, `null`, `"11"`, `true`, `{}`, `[11]`, 0, 0.00, -1, 11.005) gives 200 with the records, `spaceStandard: null` and a null verdict on every item (no number invented), also for a foreign animal; the value is read on every list and never on create; against PostgreSQL the key is absent after migration (so no verdict), a configured JSON number is honoured, and a deleted key or a string value returns to no verdict.
+
+### BR-142 — Produce Control Calendar read-only views, scope, allow-list, and recorded-events tracking
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-10): mobile `TohfaAdminDashboardScreen.tsx` (T:1143-2778) and `FarmerAdminDashboardScreen.tsx` (FA:2061-2160) Produce Control Calendar screens; `docs/rbac.json` `produce.calendar.view_consolidated`; aligns with BR-108a (farmer directory scope) and BR-57 (milestone tracking) |
+| **Status** | DERIVED (scope confirmed by the owner 2026-11-10, P1 / BR-108a pattern; see open contradiction 37) |
+| **Layer** | Server-side: `apps/api/src/modules/admin-produce/` (`adminProduceRepo`, `adminProduceService`, `adminProduceRouter`); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /v1/admin/produce/records`, `GET /v1/admin/produce/records/{id}`, `GET /v1/admin/produce/calendar`, `GET /v1/admin/produce/calendar/events`, and `GET /v1/admin/produce/filter-options` provide scoped, read-only produce and crop planting data for the admin Produce Control Calendar.
+1. **Permission and grants.** Gated by `produce.calendar.view_consolidated`: SUPER_ADMIN `all`, TOHFA_ADMIN `all`, FARMER_ADMIN `view`, MAIN_WH_ADMIN `view`, SUB_WH_ADMIN `view`. FARMER and CUSTOMER roles have no grant (403). Unauthenticated requests are 401.
+2. **Scope (BR-108a pattern).** A crop record is visible to the caller exactly when its farmer is visible to the caller in `GET /admin/farmers`:
+   - SUPER_ADMIN, TOHFA_ADMIN, and MAIN_WH_ADMIN see all active, undeleted records.
+   - FARMER_ADMIN sees only records belonging to farmers whose current `farmers.zone_id` matches one of the caller's assigned zones (`scope.zoneIds`).
+   - SUB_WH_ADMIN sees only records belonging to farmers whose current `farmers.zone_id` belongs to zones associated with the caller's warehouse (`zones.warehouse_id = scope.warehouseId`).
+   - Reuses `farmerScopeFilter` (shared with `admin-farmers`) so scoping logic is identical across admin modules. The zone is joined exactly as the farmer directory joins it (no `zones.deleted_at` condition), so a farmer whose zone was soft-deleted is visible here in exactly the cases it is visible in `GET /admin/farmers`.
+3. **Row visibility.** A crop record is visible only when `farm_crops`, its `plots`, its `farms`, the associated `farmers` (and their login `users`) and its `crop_master` row all have `deleted_at IS NULL`, and the farmer is within the caller's scope.
+4. **Absent, not forbidden.** An `id` outside the caller's scope, soft-deleted, or nonexistent returns 404 `NOT_FOUND` on detail reads (`GET /admin/produce/records/{id}`). In list queries, filter parameters (`farmerId`, `zoneId`) specifying an entity outside the caller's scope return an empty result (`items: []`, `total: 0`), never 403.
+5. **Read-only and no auto-initialisation.** All endpoints are strictly read-only. No row is written to `farm_crop_milestones`, `audit_log`, or any other table. In particular, `GET /admin/produce/records/{id}` does not auto-initialize milestone templates (unlike farmer-facing crop detail, BR-57 rule 2); if no milestone rows exist, it returns `stages: []`.
+6. **Field allow-list.** Response objects are explicitly mapped and parsed through strict Zod schemas. Sensitive farmer PII (mobile, email, Aadhaar, address), GPS coordinates (centroid_lat/lng, farm boundary, plot boundary), storage keys, and diary photos are never returned.
+7. **Recorded events only.** Calendar month markers (`GET /admin/produce/calendar`) and calendar day events (`GET /admin/produce/calendar/events`) count and list only recorded historical events:
+   - `planting`: `farm_crops.planted_on = date`
+   - `growthStage`: `farm_crop_milestones.status = 'COMPLETED' AND completed_on = date` (only COMPLETED milestones count towards progress, BR-57 rule 3; PENDING and SKIPPED milestones are never counted even if they carry a date)
+   - `harvest`: `farm_crops.actual_harvest_on = date`
+   - `expected_harvest_on` is a forecast and is NEVER counted as a harvest or shown as an event marker (binding design footnote T:1391).
+   - Day events are ordered by `eventType`, then record id, then the milestone id (several growth stages of one record can complete on the same date, so the milestone id is part of the keyset; the cursor is opaque).
+8. **Filter options.** `GET /admin/produce/filter-options` returns active, undeleted `zones` within the caller's visibility scope (all for SA/TA/Main; assigned zones for Farmer Admin; warehouse zones for Sub WH Admin; none for a scoped caller with no assigned zone or warehouse), decided by the same scope fragment as the records, and active, undeleted `crop_master` rows.
+9. **Validation.** `month` must be a real `YYYY-MM` month and `date` a real calendar date (`2026-02-30` is 422, never a database error); `includeTotal` accepts only `true` or `false`; `status` is one or more of `PLANNED`, `GROWING`, `HARVESTED`, `FAILED`, comma-separated or repeated; a cursor not issued by the endpoint and any unknown query parameter are 422 `VALIDATION_FAILED`.
+
+**Failure mode if unenforced.** A Farmer Admin could inspect crop plantings and harvest schedules of farmers outside their assigned zones; forecasts could be presented as confirmed harvests; or sensitive farmer PII and GPS boundary data could leak through admin produce endpoints.
+
+**Test contract.** (`apps/api/src/modules/admin-produce/admin-produce.test.ts`, PostgreSQL cases in `admin-produce.sql.test.ts`)
+- `BR-142a` Farmer Admin sees only records of farmers in its assigned zones in records list, record detail, calendar month summary, day events, and filter-options; another zone's record id in detail read returns 404; filtering by another zone or out-of-scope farmerId returns empty list / zero total, not 403.
+- `BR-142b` Sub WH Admin sees only records in its warehouse's zones; Super Admin, Tohfa Admin, and Main WH Admin see all; FARMER and CUSTOMER roles receive 403; unauthenticated requests receive 401 (problem+json); a farmer whose zone was soft-deleted is visible exactly as in the farmer directory.
+- `BR-142c` `page.total` (when `includeTotal=true`) equals the exact count of records visible to the caller's scope and filters; out-of-scope records are never counted.
+- `BR-142d` Soft-deleted `farm_crops`, `plots`, `farms`, `farmers`, and milestone rows are excluded from all lists, calendar markers, day events, and detail lookups.
+- `BR-142e` Detail read on a record without milestones returns `stages: []` and writes 0 rows to `farm_crop_milestones` and `audit_log`.
+- `BR-142f` Calendar month grid and day events count only recorded events (planting via `planted_on`, completed milestone via `completed_on`, harvest via `actual_harvest_on`); expected harvests produce no marker and no event; PENDING or SKIPPED milestones are excluded; paging the day events never drops or repeats an event when several stages of one record complete on the same date.
+- `BR-142g` Allow-list enforcement: extra columns injected into the repository rows (mobile, email, centroid, boundaries, storage keys) do not appear in serialized responses and key sets match documented specification.
+- `BR-142h` Input validation: invalid month format, invalid or impossible date, invalid UUIDs, invalid statuses, `includeTotal` other than true/false, limit < 1 or > 100, a forged cursor and unknown query parameters return 422 `VALIDATION_FAILED`.
+
+### BR-143 — Zone derivation from taluk and application zone scoping
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-11 (P0-06, P0-04, FR-FA02) |
+| **Status** | ENFORCED (migration 0086_zone_taluks.sql, seed 005_zones.sql) |
+| **Layer** | Server-side: `apps/api/src/modules/farmer-applications/` |
+| **Scope** | Track 1 |
+
+**Rule.** Every Nilgiris farmer belongs to exactly one zone derived from their taluk.
+1. **Canonical mapping.** Table `zone_taluks` defines the canonical mapping from Nilgiris taluks to warehouse zones (`district = 'The Nilgiris'`, case-insensitive `lower(taluk)`).
+   - Ooty zone (WH-OOTY): `Udhagamandalam`, `Ooty` (alias), `Kundah`
+   - Coonoor zone (WH-COON): `Coonoor`
+   - Kotagiri zone (WH-KOTA): `Kotagiri`
+   - Gudalur zone (WH-GUDA): `Gudalur`, `Pandalur`
+2. **Application submit.** On application submit (`POST /farmer-applications/{id}/submit`), the applicant's explicit choice (`personal.zoneId` from step 1) takes precedence. If omitted, the taluk from personal details is trimmed and resolved case-insensitively against `zone_taluks` for district 'The Nilgiris'. If resolved, `zone_id` is saved on `farmer_applications`. If neither resolves, `zone_id` remains null and is surfaced to admins.
+3. **Application approval.** On approval (`POST /admin/farmer-applications/{id}/approve`):
+   a. If `body.zoneId` is provided, validate it exists and is active (422 `VALIDATION_FAILED` if not).
+   b. Else if `farmer_applications.zone_id` is set, use it.
+   c. Else attempt to resolve from `farmer_applications.taluk` via `zone_taluks`.
+   d. If STILL no zone is resolved, reject approval with 422 `ZONE_NOT_RESOLVED` and detail "Farmer address taluk '{taluk}' cannot be mapped to a zone. Please provide zoneId in the approval request." Do NOT create the `farmers` row with `zone_id = NULL`.
+   e. The resolved `zone_id` is written onto `farmers.zone_id`.
+4. **Scope confinement.** Admin application list and detail (`GET /admin/farmer-applications`, `GET /admin/farmer-applications/{id}`) are scoped by `zone_id`:
+   - A Farmer Admin sees only applications whose `zone_id` matches their assigned zone;
+   - Applications with no resolved `zone_id` are visible only to callers with `all` scope (Super Admin, TOHFA Admin).
+
+**Failure mode if unenforced.** Farmers are approved with `zone_id = NULL`, becoming invisible to zone-scoped queries and Farmer Admin dashboards, breaking the 4-zone Nilgiris operating model.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/farmer-applications.test.ts`)
+- `BR-143a` All 5 Nilgiris taluks (+ alias) derive zone on submit; unmapped taluk leaves `zone_id` null.
+- `BR-143b` Approval with no body `zoneId` uses derived zone and writes onto `farmers.zone_id`.
+- `BR-143c` Explicit body `zoneId` overrides derived zone on approval.
+- `BR-143d` Explicit unknown or inactive `zoneId` on approval returns 422.
+- `BR-143e` Unmapped taluk on submit leaves `zone_id` null; approval without override returns 422 `ZONE_NOT_RESOLVED` with no farmer row created.
+- `BR-143f` Scoped list and detail: Farmer Admin in Ooty cannot see Coonoor application; unmapped visible only to `all` scope (Super/TOHFA Admin).
+
+---
+
+### BR-144 — Payout dues settlement, item linkage, and dual-approval configuration
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-11 (P0-10, P0-11, BR-31c, BR-72) |
+| **Status** | ENFORCED (migration 0087_payouts_money_fixes.sql) |
+| **Layer** | Server-side: `apps/api/src/modules/payouts/` |
+| **Scope** | Track 1 |
+
+**Rule.** Payouts link to one or more goods receipts via `payout_items`. The remaining due on any goods receipt is its accepted value (`price_per_kg * accepted_qty_kg`) minus the sum of linked items from non-failed payouts (status NOT IN (`FAILED`, `REVERSED`)).
+1. **Dues calculation:** `GET /admin/payout-dues` returns goods receipts where `status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')`, `accepted_qty_kg > 0`, and remaining due > 0. Once a goods receipt's remaining due reaches 0.00, it is fully settled and excluded from dues lists and totals.
+2. **Item linkage and validation:** When items or dueIds are provided on payout creation:
+   a. The payout `amount` must strictly equal the sum of item amounts. If not, reject with 422 `BAD_REQUEST`.
+   b. Each item must reference a valid goods receipt belonging to the farmer.
+   c. Each item's amount must be positive and must not exceed the remaining due for its goods receipt. If exceeded, reject with 422 `BAD_REQUEST`.
+   d. Inside the same transaction, insert records into `payout_items (payout_id, goods_receipt_id, amount)`.
+3. **Restoration on failure:** If a payout transitions to `FAILED` or `REVERSED`, its linked items are released and the remaining due on those goods receipts is restored.
+4. **Configurable dual-approval threshold:** The `requires_dual_approval` flag is determined at insert time by comparing the payout amount against `system_config.payout_dual_approval_threshold`, stored directly in `payouts.requires_dual_approval` rather than hardcoded in the database schema.
+
+**Failure mode if unenforced.** One approved payout permanently hides all past and future dues of a farmer regardless of amounts; payouts can settle more than the goods receipt value; and dual-approval thresholds cannot be modified via `system_config`.
+
+**Test contract.** (`apps/api/src/modules/payouts/payouts.test.ts`)
+- `BR-144a` Payout with items persists `payout_items` and reduces remaining due.
+- `BR-144b` Payout creation fails with 422 if amount != sum of items.
+- `BR-144c` Payout creation fails with 422 if item amount > remaining due.
+- `BR-144d` Settling remaining due completely removes goods receipt from payout dues.
+- `BR-144e` Failed payout restores remaining due for its goods receipt.
+- `BR-31c` Changing `system_config.payout_dual_approval_threshold` changes `requires_dual_approval` on new payouts in DB.
+
+---
+
+### BR-145 — Batch 3: Zone derivation, audit-log transaction hardening, and payout export
+| | |
+|---|---|
+| **Source** | Code review 2026-11-11 (P0-01, P0-02, P0-03, P0-04, P0-05, P0-06) |
+| **Status** | ENFORCED (migration 0088_geographic_zones.sql) |
+| **Layer** | Server-side: `apps/api/src/modules/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **P0-01 (BR-19):** Farmer profile zone is derived from `geographic_zones` view (joining `zone_taluks` and `zones`) based on the farmer's explicit choice in registration or taluk (and district when provided). Kundah taluk maps to Ooty Zone via `zone_taluks`. If unmapped, approval without override throws 422 `ZONE_NOT_FOUND`.
+2. **P0-02 (BR-auth):** `GET /v1/auth/me` includes a flat array `permissions: string[]` of permission codes granted to the user's role(s) by `docs/rbac.json`.
+3. **P0-03 (BR-35b):** `createGoodsReceipt` calls `writeAuditLog(tx)` inside the database transaction; failure rolls back the goods receipt.
+4. **P0-04 (BR-35c):** `createReturnRequest` calls `writeAuditLog(tx)` inside the database transaction; failure rolls back the return request.
+5. **P0-05 (BR-learn-admin):** Admin learning hub routes (`GET /v1/admin/learning-hub` and `GET /v1/admin/learning-hub/:id`) require permission code `farmer.learning.manage`.
+6. **P0-06 (BR-31d):** `GET /v1/admin/payouts/export` streams a CSV of payouts with columns `payout_number,farmer_name,amount,status,created_at` (amount formatted as ₹X.XX), gated by `report.export.file`.
+
+---
+
+### BR-146 — Farmer application lifecycle integrity, concurrency guards, keyset pagination, and response parity
+| | |
+|---|---|
+| **Source** | Code review 2026-11-11 (P0-19, P0-27, P0-28, P0-29, P0-30, P0-31) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/farmer-applications/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **P0-27 (State guards):** Draft applications (`is_draft=true`) cannot be approved, rejected, or requested info; attempts return 409 `INVALID_STATE_TRANSITION`. Since 2026-11-25 the stage rules of BR-214 and BR-217 apply on top of these guards (approval only from `FARM_VERIFICATION`; request-info only from `DOCS_REVIEW`/`FARM_VERIFICATION`, moving to the stored status `INFO_REQUESTED`). Terminal applications cannot be re-decided: approving an `APPROVED` application returns 409 `CONFLICT`; approving a `REJECTED` application returns 409 `INVALID_STATE_TRANSITION`; rejecting a `REJECTED` application returns 409 `CONFLICT`; rejecting an `APPROVED` application returns 409 `INVALID_STATE_TRANSITION`; requesting info on an `APPROVED` or `REJECTED` application returns 409 `INVALID_STATE_TRANSITION`.
+2. **P0-19 (Concurrency-safe approval):** Approval acquires a row lock (`FOR UPDATE`) on the application row, checks state and existing farmer links inside the transaction, reuses any existing `tohfa_farmer_id` without reallocating, and updates with a status predicate. Concurrent approval attempts result in exactly 1 approved farmer, 1 TOHFA farmer ID, and 1 audit log entry; losing attempts receive 409 `CONFLICT`.
+3. **P0-28 (Keyset cursor pagination):** Admin application listing uses opaque composite `(created_at, id)` keyset cursors (`tag: 'fa'`) matching `ORDER BY created_at DESC, id DESC`. Next-page navigation is deterministic across multiple pages sharing timestamps without skipped or repeated records.
+4. **P0-29 (List filters):** `GET /v1/admin/farmer-applications` supports `zoneId` filtering, `q` text search across `full_name` and `mobile`, `pendingOnly` filter for active review applications, and accepts the full `ApplicationStatus` enum (including `DRAFT` and `INFO_REQUESTED`). By default, drafts are excluded.
+5. **P0-30 (Reject reason validation):** `POST /v1/admin/farmer-applications/:id/reject` requires `reasonCode` (enum) and `reason` (string, 5–500 chars). Missing or short reasons fail with 422 `VALIDATION_FAILED`.
+6. **P0-31 (Response mapping parity):** Admin application responses match OpenAPI schemas (`FarmerApplication` / `FarmerApplicationSummary`), returning `zoneId`, `village`, `areaAcres`, `slaDueAt`, `documentsComplete`, `tohfaFarmerId`, `decidedAt`, `decidedBy`, `rejectionReason`, `infoRequest`, and `reviewHistory`.
+
+**Test contract.**
+- `BR-146a`: Draft applications return 409 `INVALID_STATE_TRANSITION` on approve, reject, or request-info.
+- `BR-146b`: Terminal applications cannot be transitioned or re-decided: 409 on invalid status transitions.
+- `BR-146c`: Concurrent approvals of the same application yield 1 farmer row, 1 TOHFA ID, 1 audit entry, and 409 on the competing request.
+- `BR-146d`: Keyset cursor pagination correctly pages through >= 3 pages of applications with identical timestamps.
+- `BR-146e`: Filters by zoneId, q (name and mobile), pendingOnly, and status work as specified, with drafts excluded by default.
+- `BR-146f`: Rejection requires reasonCode and reason (5-500 chars); returns 422 if invalid or missing.
+- `BR-146g`: Application detail and summary responses include all OpenAPI parity fields and review history.
+
+---
+
+### BR-147 — Admin rating tier and audit compliance tier configuration read
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (P0-50) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/tier-config/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/rating-tiers` and `GET /admin/audit-tier-thresholds` return the current active generation of `rating_tier_config` (the latest generation with `effective_from <= CURRENT_DATE`). Both endpoints require authentication and SUPER_ADMIN authorization (`farmer.rating.configure_tiers` and `audit.tier.configure_thresholds` respectively); unauthorized roles receive 403 `FORBIDDEN`.
+
+**Test contract.**
+- `BR-147a`: GET returns the current tier generation with 4 contiguous bands covering 0-100.
+- `BR-147b`: Unauthorized callers receive 403 `FORBIDDEN`.
+
+---
+
+### BR-148 — Channel allocation configuration read
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (P0-50) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/allocations/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/allocation-config` returns the current channel percentages for all 4 channels (`ONLINE`, `LIVE_MARKET`, `RESERVE`, `BUFFER`) totaling 100%. An optional `cropId` query parameter returns crop-specific percentages when configured, falling back to the default channel allocation when not configured. Gated by `allocation.channel_percentage.set`.
+
+**Test contract.**
+- `BR-148a`: GET returns 4 channels totaling 100% and effective date.
+- `BR-148b`: Unauthorized callers receive 403 `FORBIDDEN`.
+
+---
+
+### BR-149 — Admin code generation safety, concurrency lock, and uniqueness conflict handling
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 6) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/warehouse-ops/`, `apps/api/src/modules/admin-accounts/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+Admin profile creation generates unique `admin_code` identifiers (`SWA-` for Sub Warehouse Admins, `ADM-` for general admin accounts) using `pg_advisory_xact_lock` over `admin_profiles.admin_code` and derives the next code using `MAX(existing suffix, sequence.nextval)`. Code numbers are padded to at least 3 digits without truncation when exceeding 999 (`padStart(3, '0')`). Any `admin_profiles_admin_code_key` uniqueness constraint conflict is caught and translated to a 409 `CONFLICT` response, never surfacing as a 500 `INTERNAL` error.
+
+**Test contract.**
+- `BR-149a`: Parallel admin creation produces distinct admin codes without collision.
+- `BR-149b`: An admin code unique violation translates to 409 `CONFLICT`.
+
+---
+
+### BR-150 — Crop taxonomy screen parity fields and unique code generation
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 6 / P0-51) |
+| **Status** | ENFORCED |
+| **Layer** | Database (`0090_crop_taxonomy_fields.sql`), Server-side: `apps/api/src/modules/crops/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+Crop master entities maintain screen parity with the admin Crop Data management interface:
+1. `code`: A human-readable crop code (e.g. `CRP-001`), server-generated, sequential and strictly unique. Generation uses `pg_advisory_xact_lock` over `crop_master.code` with suffix derivation combining existing max code and `crop_code_seq`, padded to at least 3 digits. A database trigger acts as safety fallback for raw inserts.
+2. Metadata fields: `grade_system` (preset label metadata, strictly descriptive and never altering operational grades `GRADE_1`..`REJECT`), `duration_days` (text range, e.g. "90 - 120 days"), `storage_temp` (text e.g. "10°C - 12°C, 85-90% RH"), `description` (text).
+3. `deactivation_reason`: Persisted when `isActive: false` (retiring a crop type).
+4. `created_by`: UUID FK to `users(id)`, capturing the admin user who created the crop type.
+5. **Response fields (`BR-150n`, added 2026-11-24 — owner to sign off).** Every `CropMaster` response carries `createdAt` (ISO-8601, always present) and `updatedAt` (ISO-8601, `null` until the first edit; stamped by the generic `app_touch_updated_at` trigger), so the admin screen can show "Updated" and compute "Recently added (7d)". It carries `createdByName`, the creator's `users.full_name`, beside — never instead of — the `createdBy` uuid; it is `null` when `created_by` is `NULL` (seeded or legacy crops) or the user row is gone. `createdByName` is an admin-staff identity and is returned only by the admin endpoints (`GET/POST/PATCH /admin/crop-master`), never by the farmer-facing `GET /farmers/me/crop-master`. The create body accepts `gradeSystem`, `durationDays`, `storageTemp` and `description`, and the update body those four plus `deactivationReason`, `comingTomorrow` and `isUnsalable`, exactly as the implementation does. `hsn_code` remains outside the response allow-list. No migration: every column already exists.
+
+**Test contract.**
+- `BR-150a`: Creating a crop accepts metadata fields, generates unique sequential code, records creator, and returns in response.
+- `BR-150b`: Patching a crop updates metadata and records `deactivationReason` when retiring (`isActive: false`).
+- `BR-150n` (`apps/api/src/modules/crops/crops.test.ts`): the create body accepts the four taxonomy fields and still rejects `hsnCode`; the response schema requires `createdAt` and carries `updatedAt` and `createdByName`; the repo selects `created_at`/`updated_at` and joins `users` for the name on list, find, INSERT ... RETURNING and UPDATE ... RETURNING; a NULL creator maps to `createdByName: null` and a never-edited row to `updatedAt: null`; the farmer-facing list omits `createdByName`; against Postgres the name equals `users.full_name` and `updated_at` is stamped by the first edit.
+
+---
+
+### BR-151 — Admin Order Cancellation lifecycle, status history, audit log, idempotency, and RBAC
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-60) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+An authorized administrator can cancel an order via `POST /admin/orders/{id}/cancel` prior to completion:
+1. Permission `order.cancel` (SUPER_ADMIN: all, TOHFA_ADMIN: all, MAIN_WH_ADMIN: all, SUB_WH_ADMIN: own). Outside scope is 404 (BR-30).
+2. Requires `{ reason: string }` (1-500 chars).
+3. An order in `DELIVERED` or `PICKED_UP` status cannot be cancelled (409 `INVALID_STATE_TRANSITION`).
+4. Updates `orders.status` to `CANCELLED`, persists `cancellation_reason`, and sets `cancelled_at = now()`.
+5. Inside the same database transaction, appends to `order_status_history` (`from_status`, `to_status = 'CANCELLED'`, `changed_by = actor.userId`, `note = reason`) and writes an `audit_log` row with action `order.cancel`.
+6. Honours `Idempotency-Key`: Replaying the request with the identical key returns the stored response without duplicate history or audit entries.
+
+**Test contract.**
+- `BR-151a`: Cancelling an order updates status to `CANCELLED`, records `cancellation_reason`, status history, and audit log.
+- `BR-151b`: Sub Warehouse Admin is confined to own warehouse (other warehouse is 404).
+- `BR-151c`: Replaying with `Idempotency-Key` returns stored response without duplicate side effects.
+- `BR-151d`: Cancelling a completed order returns 409 `INVALID_STATE_TRANSITION`.
+
+---
+
+### BR-152 — Admin Order Issue reporting and linkage to warehouse operational issues
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-60) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/`, `apps/api/src/modules/warehouse-ops/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+Reporting an issue against an order via `POST /admin/orders/{id}/issues`:
+1. Requires `warehouse.issue.manage` permission within caller's warehouse scope.
+2. Accepts `{ lineItemIds?: string[], issueType: string, description: string }`.
+3. Records an issue directly in `warehouse_issues` linked to the order (`order_id`, `order_line_ids`), auto-generates a sequential `issue_number` (`ISS-xxxx`), and sets category (`QUALITY` or `OTHER`).
+4. Writes an audit log row and returns `{ id, issueNumber, status }` so the admin screen can navigate directly to `M4S09`.
+5. Honours `Idempotency-Key`: Replaying returns the stored response without creating a second issue.
+
+**Test contract.**
+- `BR-152a`: Submitting an order issue records into `warehouse_issues` with order reference and returns `{ id, issueNumber, status }`.
+- `BR-152b`: Warehouse scope is strictly enforced (Sub WH Admin cannot report an issue against another warehouse's order).
+- `BR-152c`: Replay with `Idempotency-Key` is idempotent and creates exactly one issue.
+
+---
+
+### BR-153 — Admin Order Detail response parity and item identification
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-61) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+The `AdminOrderDetail` response on `GET /admin/orders/{orderId}`:
+1. Exposes `pickupType` (`'WAREHOUSE_PICKUP'` or `'HOME_DELIVERY'`) and `notes` (`cancellation_reason` or notes text).
+2. Each item in `items[]` exposes `id` (`order_items.id`), enabling client-side reconciliation with RMA return items without array-position matching.
+3. Each event in `timeline[]` exposes `actor` (`users.full_name`) and `note` (`order_status_history.note`).
+4. `GET /admin/orders` list items expose both `buyerName` and `customerName`, and `packedAt`.
+
+**Test contract.**
+- `BR-153a`: Order detail response includes `pickupType`, `notes`, item `id`, and timeline `actor` + `note`.
+- `BR-153b`: Order list items expose `buyerName`, `customerName`, and `packedAt`.
+
+---
+
+### BR-154 — Admin Returns queue search, warehouse scoping, and KPI status summary
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-62) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/returnRequests/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/returns`:
+1. Accepts `q` (1-100 characters, literal substring search over order number, customer name, and return reference/reason).
+2. Accepts `warehouseId` filter, narrowing returns to those originating from orders of that warehouse.
+3. Returns a `summary` object containing counts for the 4 KPI tiles: `pending`, `underReview`, `approved`, `refundPending`.
+4. Returns each row with `customerName` and `orderNumber`.
+
+**Test contract.**
+- `BR-154a`: `GET /admin/returns` filters by `q` and `warehouseId`.
+- `BR-154b`: Returns queue response includes KPI summary counts and list item `customerName` / `orderNumber`.
+
+---
+
+### BR-155 — Admin Returns extended fields, computed return window eligibility, and projected refund calculation
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-63) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/returnRequests/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+RMA return requests and detail responses:
+1. Support `issueCategory`, `issueTicket`, `requestedResolution`, `customerEvidence` array, `inspectionNotes`, and `inspectionPhotos` array.
+2. Computes `returnWindowEligible` boolean indicating whether the return was requested within the valid return window (7 days from order placement/completion).
+3. Computes `projectedRefundAmount` and `projectedRefundMethod` prior to refund execution.
+
+**Test contract.**
+- `BR-155a`: Creating and inspecting a return accepts extended fields and customer evidence.
+- `BR-155b`: Return detail response calculates `returnWindowEligible`, `projectedRefundAmount`, and `projectedRefundMethod`.
+
+---
+
+### BR-156 — Admin Order Stock Check per-line availability and warehouse shortage evaluation
+| | |
+|---|---|
+| **Source** | Code review 2026-11-16 (Batch 7 / P0-64) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+`GET /admin/orders/{id}/stock-check`:
+1. Requires `order.list.view_all` within caller's warehouse scope.
+2. Computes per order line in the fulfilling warehouse:
+   - `orderedKg`: quantity ordered.
+   - `availableStockKg`: physical stock on warehouse shelves (`qty_available` across active batches).
+   - `reservedKg`: stock held by other pending reservations in that warehouse.
+   - `availableKg`: effective pickable stock = $\max(0, \text{availableStockKg} - \text{reservedKg})$.
+   - `shortageKg`: $\max(0, \text{orderedKg} - \text{availableKg})$.
+   - `status`: `'IN_STOCK'` if `shortageKg == 0`, else `'SHORTAGE'`.
+3. Returns overall status: `'AVAILABLE'` if all lines are in stock; `'INSUFFICIENT'` if any line has a shortage.
+
+**Test contract.**
+- `BR-156a`: Stock check calculates ordered, available, reserved, and shortage per line.
+- `BR-156b`: Stock check returns `AVAILABLE` when sufficient stock exists and `INSUFFICIENT` when a shortage exists.
+
+---
+
+### BR-157 — Delivery Partners CRUD, active status, and soft-delete protection
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 8 / P0-71) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/delivery-partners/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. Delivery partners are managed under permission `delivery.partner.manage` (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN holding `all`, as delivery partners are a shared pool without `warehouse_id`).
+2. `name` and `phone` are mandatory non-empty strings; `vehicleRef` is optional string.
+3. Listing `GET /admin/delivery-partners` returns active partners (`is_active = true` and `deleted_at IS NULL`).
+4. Creating `POST /admin/delivery-partners` returns 201 with the created partner.
+5. Updating `PATCH /admin/delivery-partners/{id}` modifies fields (`name`, `phone`, `vehicleRef`, `isActive`).
+6. Deletion is soft delete only (`is_active = false`, `deleted_at = now()`). A partner referenced by an order must never be hard-deleted.
+7. Mutations write an audit log entry under actionCode `delivery.partner.manage`.
+
+**Test contract.**
+- `BR-157a`: `GET /admin/delivery-partners` lists active delivery partners only; inactive and soft-deleted are excluded.
+- `BR-157b`: `POST /admin/delivery-partners` validates required name and phone; creates partner and logs audit row.
+- `BR-157c`: `PATCH /admin/delivery-partners/{id}` updates fields and supports soft-delete; 404 for unknown id.
+- `BR-157d`: Hard deletion of a partner referenced by an order is prevented.
+- `BR-157e`: RBAC enforcement: caller requires `delivery.partner.manage`.
+
+---
+
+### BR-158 — Delivery Slots reference list and per-warehouse capacity tracking
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 8 / P0-72) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `GET /admin/delivery-slots` returns the fixed 3 reference windows (`MORNING_8_12`, `AFTERNOON_12_4`, `EVENING_4_8`).
+2. When optional query parameters `warehouseId` (UUID) and `date` (`YYYY-MM-DD`) are provided, slots are enriched with per-warehouse capacity from the `delivery_slots` table:
+   - `capacityOrders`: configured maximum orders for that slot on that date (default 0 if no row configured).
+   - `bookedOrders`: number of orders currently booked.
+   - `availableOrders`: $\max(0, \text{capacityOrders} - \text{bookedOrders})$.
+   - `isActive`: boolean status of the slot.
+3. Accessible by roles with order read access (`order.list.view_all` or `order.dispatch`).
+
+**Test contract.**
+- `BR-158a`: `GET /admin/delivery-slots` without query parameters returns the 3 fixed slot reference windows.
+- `BR-158b`: `GET /admin/delivery-slots?warehouseId=...&date=...` returns slot availability and capacity metrics from `delivery_slots`.
+
+---
+
+### BR-159 — Order Delivery Dispatch lifecycle, partner assignment, and state machine enforcement
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 8 / P0-73, P0-74) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/fulfilment` |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. `POST /admin/orders/{id}/dispatch` supports dual fulfilment:
+   - For `fulfilment_type = 'PICKUP'`: Transitions `PACKED` -> `READY_FOR_PICKUP`. Order MUST be in `PACKED` status; attempting to dispatch a non-PACKED order (e.g. `CONFIRMED`) returns 409 `INVALID_STATE_TRANSITION`. Body must not supply a delivery partner; supplying a delivery partner or attempting delivery dispatch returns 409 `INVALID_STATE_TRANSITION`.
+   - For `fulfilment_type = 'DELIVERY'`: Accepts `{ deliveryPartnerId, vehicleNumber?, slot? }`. Validates that the partner exists and is active. Order MUST be in `PACKED` status. Transitions `PACKED` -> `OUT_FOR_DELIVERY`. Persists `delivery_partner_id` on the order (and `delivery_slot` if specified).
+2. Slot locking and capacity semantics:
+   - Dispatch cannot change the customer-booked delivery slot: if `input.slot` differs from `order.deliverySlot`, the call is rejected with 409 `INVALID_STATE_TRANSITION`.
+   - If the order has no slot previously booked (e.g. legacy delivery order), dispatch verifies capacity against `delivery_slots` for that warehouse, date, and slot, increments `booked_orders`, and books it. If the slot is full (`booked_orders >= capacity_orders`), it is rejected with 409 `CONFLICT`.
+3. Status transition records an `order_status_history` row with actor and transition note, and writes an `audit_log` row with `actionCode: 'order.dispatch'` inside the same database transaction. On 409 refusal, no status history or audit log rows are written.
+4. Emits tracking event `OUT_FOR_DELIVERY` to order events emitter.
+5. Requires header `Idempotency-Key` (BR-118).
+6. `GET /admin/orders/{id}` returns:
+   - When `fulfilment_type = 'DELIVERY'`: `fulfilmentType: 'DELIVERY'`, `deliveryAddress` (`{ line1, line2, city, district, state, pincode, lat, lng }`), `deliveryPartner` (`{ id, name, phone, vehicleRef }` or null), and `deliverySlot`.
+   - When `fulfilment_type = 'PICKUP'`: `fulfilmentType: 'PICKUP'`, `deliveryAddress: null`, and `deliveryPartner: null`.
+
+**Test contract.**
+- `BR-159a`: Dispatching a `DELIVERY` order transitions `PACKED` -> `OUT_FOR_DELIVERY`, assigns partner and slot, writes history and audit log.
+- `BR-159b`: Attempting to dispatch a `PICKUP` order with delivery partner or to delivery status returns 409 `INVALID_STATE_TRANSITION`. Attempting to dispatch a non-PACKED pickup order (e.g. `CONFIRMED`) returns 409 `INVALID_STATE_TRANSITION`. On refusal, 0 new rows are written to `order_status_history` and `audit_log`.
+- `BR-159c`: Delivery dispatch honours `Idempotency-Key` and returns identical response on replay.
+- `BR-159d`: `AdminOrderDetail` exposes `deliveryAddress` and `deliveryPartner` for delivery orders, and nulls them for pickup orders.
+- `BR-159e`: Dispatch cannot change the customer-booked delivery slot (409 `INVALID_STATE_TRANSITION`); an unbooked delivery order with no `delivery_date` returns 409 `INVALID_STATE_TRANSITION` and writes nothing; unbooked delivery orders with a delivery date check capacity and book the slot, refusing with 409 `CONFLICT` if full.
+
+---
+
+### BR-160 — Customer Creation, Profile Management, Role Merging, and GSTIN Governance
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-16 (Batch 9 / Add Customer form & GSTIN enablement) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/customers/` |
+
+1. **Customer Record Creation (`POST /admin/customers`):**
+   - Authorized by `customer.record.create` permission (`SUPER_ADMIN` and `TOHFA_ADMIN`).
+   - Generates sequential customer code in format `CUST-XXXX` under advisory transaction lock (`customer_code_seq`).
+   - Customer is created in `ACTIVE` status with no password hash (logs in via standard mobile OTP challenge).
+   - Automatically initializes customer wallet with zero ledger balance and creates default customer address if provided.
+   - Requires non-empty `businessName` for `B2B` and `HORECA` customer types; `RETAIL` does not require `businessName`.
+   - Validates optional `businessType` (free text), `preferredWarehouseId` (must exist and be active), and GSTIN format/uniqueness.
+
+2. **Mobile Collision and Role Merging:**
+   - If mobile already belongs to an active customer, rejects with 409 `CONFLICT`.
+   - If mobile belongs to an administrative account (`SUPER_ADMIN`, `TOHFA_ADMIN`, `MAIN_WH_ADMIN`, `SUB_WH_ADMIN`), rejects with 409 `CONFLICT` under BR-135 role exclusivity.
+   - If mobile belongs to a live farmer or farmer admin account, reuses the existing user record, attaches the `CUSTOMER` role, records `customer.role_attached` audit log, and returns 201 with `linkedToExistingUser: true`.
+   - If mobile belongs to a soft-deleted user, creates a fresh user row (preserving BR-34: reactivation is Super Admin only) and returns 201 with `linkedToExistingUser: false`.
+
+3. **Customer Profile Edit (`PATCH /admin/customers/:id`):**
+   - Authorized by `customer.profile.edit` permission (`SUPER_ADMIN` and `TOHFA_ADMIN`).
+   - Allows updating `name`, `email`, `businessType`, `customerType`, `businessName`, `preferredWarehouseId`, and `address`.
+   - Enforces business name requirement when switching to or maintaining `B2B`/`HORECA` (422 `VALIDATION_FAILED` on missing/empty business name).
+   - `mobile` is locked and cannot be edited per BR-33 (rejected with 422 if sent).
+   - Updating `gstin` is strictly gated by the resolved scope of `customer.gst_details.manage` (403 `FORBIDDEN` if actor lacks mutating scope).
+   - Changing `gstin` resets `gst_verified = false`.
+   - Records `customer.profile.edit` audit log.
+
+4. **Read Payloads & Privacy:**
+   - Detail (`GET /admin/customers/:id`): exposes `customerType`, `businessName`, `businessType`, `gstin`, and `gstVerified`. Masks mobile for warehouse-scoped actors (BR-92).
+   - List (`GET /admin/customers`): row exposes `customerType` and `businessName`.
+
+**Test contract.**
+- `BR-160a`: POST /admin/customers creates user, customer, wallet, address, generates `CUST-XXXX`, records audit log, returns 201 with `linkedToExistingUser: false`. Rejects actors without `customer.record.create` with 403.
+- `BR-160b`: Mobile collisions on POST: live customer -> 409 `CONFLICT`; live farmer -> merges user, attaches `CUSTOMER` role, records `customer.role_attached`, returns 201 with `linkedToExistingUser: true`; live admin -> 409 `CONFLICT` under BR-135; soft-deleted user -> inserts fresh user row, returns `linkedToExistingUser: false`.
+- `BR-160c`: Business name requirement: B2B/HORECA without `businessName` returns 422 `VALIDATION_FAILED`. RETAIL does not require businessName.
+- `BR-160d`: GSTIN format and uniqueness: invalid format returns 422; duplicate GSTIN returns 409 `CONFLICT`.
+- `BR-160e`: PATCH /admin/customers/:id: updates name, email, businessType, address; rejects mobile with 422; editing GSTIN without `customer.gst_details.manage` returns 403 `FORBIDDEN`; editing GSTIN with permission resets `gst_verified = false`.
+- `BR-160f`: Detail and list read payloads include `customerType`, `businessName`, `businessType`, `gstin`, `gstVerified` (detail) and `customerType`, `businessName` (list), with BR-92 mobile masking.
+
+---
+
+### BR-161 — Zone Reference Surface and Farmer Admin Geographic Scoping
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 10 / Zones Priority 1) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/zones/` |
+
+1. **Zone Reference List (`GET /admin/zones`):**
+   - Authorized by `zone.view` permission (`SUPER_ADMIN`, `TOHFA_ADMIN`, `MAIN_WH_ADMIN`, `SUB_WH_ADMIN` held at `all`; `FARMER_ADMIN` held at `own`).
+   - Rejects unauthenticated callers with 401; rejects `FARMER` and `CUSTOMER` with 403 `FORBIDDEN`.
+   - Filtering: defaults to live active zones (`is_active = true` and `deleted_at IS NULL`); supports `status=ACTIVE|INACTIVE|ALL` and `warehouseId=<uuid>`.
+   - Derives `shortCode` in code from zone `code` (e.g. `ZONE-OOTY` -> `OOT`, `ZONE-COON` -> `COO`, `ZONE-KOTA` -> `KOT`, `ZONE-GUDA` -> `GUD`).
+   - Aggregates mapped taluks from `zone_taluks` ordered alphabetically (`taluks: string[]`).
+   - Strict allow-list response: `id`, `code`, `shortCode`, `name`, `warehouseId`, `warehouseName`, `description`, `taluks`, `isActive`, `createdAt`. Does not expose internal or manager fields on the list item.
+   - Farmer Admin Scoping: `FARMER_ADMIN` holding `own` scope sees only zones assigned to their account (`user_roles.zone_id`).
+
+2. **Zone Detail & Personnel Resolution (`GET /admin/zones/:id`):**
+   - Authorized by `zone.view` permission.
+   - Non-existent or soft-deleted (`deleted_at IS NOT NULL`) zones return 404 `NOT_FOUND`.
+   - Farmer Admin Scoping: an authenticated `FARMER_ADMIN` requesting a zone outside their assigned zone set receives 404 `NOT_FOUND`, never 403 (CLAUDE.md: out-of-scope resources do not exist in the caller's view).
+   - Resolves active zone manager (`manager: { userId, fullName, mobile } | null`) by joining `user_roles` (`role_code = 'FARMER_ADMIN'`, `valid_to IS NULL`) and `users` (`status = 'ACTIVE'`, `deleted_at IS NULL`).
+   - Mobile Privacy (BR-92): manager `mobile` is masked (`*********XXXX`), never leaking the raw phone number.
+   - Strict allow-list response: `id`, `code`, `shortCode`, `name`, `warehouseId`, `warehouseName`, `description`, `taluks`, `manager`, `isActive`, `createdAt`.
+
+**Test contract.**
+- `BR-161a`: `GET /admin/zones` returns 401 unauthenticated, 403 for FARMER and CUSTOMER, 200 with all 4 canonical seed zones for administrative roles, derives `shortCode`, aggregates ordered taluks, supports `warehouseId` and `status` filters, filters to assigned zone for `FARMER_ADMIN`, and conforms strictly to the allow-list shape.
+- `BR-161b`: `GET /admin/zones/:id` returns 401 unauthenticated, 403 for FARMER and CUSTOMER, 404 for unknown or soft-deleted zone, 404 for FARMER_ADMIN reading outside assigned zone, resolves active manager with BR-92 masked mobile (or null), and conforms strictly to the allow-list shape.
+
+---
+
+### BR-162 — Market Day Schedule Management
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gap 8) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/market-days/` |
+
+1. **Market Days Schedule (`GET /admin/market-days`):**
+   - Authorized by `market.schedule.manage` permission.
+   - Filterable by `warehouseId`, `from`, `to`. Excludes soft-deleted records.
+2. **Market Day Creation & Mutation (`POST /admin/market-days`, `PATCH /admin/market-days/:id`):**
+   - Validates time window (`startTime < endTime`) and valid warehouse.
+   - Authorized by `market.schedule.manage`.
+
+**Test contract.**
+- `BR-162a`: Creates, lists, and patches market days schedule with proper validation and role authorization.
+
+---
+
+### BR-163 — Order Queue Summary Breakdown
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gap 7) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/orders/fulfilment.routes.ts` |
+
+1. **Order Summary (`GET /admin/orders/summary`):**
+   - Authorized by `order.list.view_all` permission.
+   - Returns order counts aggregated by `status` and `warehouseId`.
+   - Strictly confined by the caller's warehouse scope (Sub Warehouse Admin sees only its own warehouse).
+
+**Test contract.**
+- `BR-163a`: Returns accurate counts grouped by status and warehouse with scope isolation.
+
+---
+
+### BR-164 — Stock Adjustment Evidence Photos and Stable Reference Code
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gaps 9 & 15) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/stock-adjustments/` |
+
+1. **Stable Adjustment Code:**
+   - Every stock adjustment receives a readable, sequential identifier (e.g. `ADJ-000128`) generated via database sequence `stock_adjustment_code_seq`.
+2. **Evidence Photos (`POST /admin/stock-adjustments/:id/evidence`):**
+   - Attaches photo evidence to a stock adjustment.
+   - Strips EXIF and GPS metadata prior to blob storage (BR-16).
+   - Authorized by `inventory.stock_adjustment.create`.
+
+**Test contract.**
+- `BR-164a`: Attaches evidence with EXIF stripping and returns sequential adjustment codes.
+
+---
+
+### BR-165 — Critical Stock Threshold and Health Metrics
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gap 10) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/inventory-overview/` |
+
+1. **Critical Stock Count:**
+   - `GET /admin/inventory/overview` reports `criticalStockCount` representing warehouse + crop + grade groups whose active stock is below `system_config.critical_stock_threshold_kg`.
+   - Reports `thresholds.criticalStockThresholdKg` alongside low stock threshold.
+
+**Test contract.**
+- `BR-165a`: Accurately counts inventory groups below critical threshold within caller's warehouse scope.
+
+---
+
+### BR-166 — Per-Warehouse and Per-Produce Allocation Configuration
+| | |
+|---|---|
+| **Source** | Owner decision 2026-11-17 (Batch 11 / Antigravity Gaps 11 & 12) |
+| **Status** | ENFORCED |
+| **Layer** | Server-side: `apps/api/src/modules/allocations/` |
+
+1. **Multidimensional Allocation Splits:**
+   - Supports allocation percentage configuration partitioned by `(effective_from, warehouse_id, crop_id, grade)`.
+   - Super Admin only (`allocation.channel_percentage.set`).
+   - Querying `GET /admin/allocation-config` with `warehouseId`, `cropId`, `grade` resolves from most specific override to global default.
+   - Sum guard enforces all 4 channel percentages sum to exactly 100%.
+
+**Test contract.**
+- `BR-166a`: Sets and queries per-warehouse and per-produce allocation configuration with exact 100% sum guard.
 
 ---
 
@@ -4144,13 +4770,183 @@ Every other place that adds a role creates a brand-new account in the same trans
 
 **Test contract.** `apps/api/src/modules/customer-support/customer-support.test.ts` (`BR-212: the same Idempotency-Key and body replays the same ticket; a different body is 409`).
 
+---
+
+### BR-213 — An announcement's target decides which permission publishes it, and a warehouse admin is confined to its own warehouse
+
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-23). Wires the two previously route-less permissions `announcement.system_wide.create` and `announcement.warehouse.create` in `docs/rbac.json` (`source: reqs 6.4`); authoring half of BR-65 / BR-134, whose reader-facing visibility is unchanged |
+| **Status** | DERIVED. Three defaults are UNCONFIRMED and need the owner: (a) "retire" is a soft delete (`announcements.deleted_at`), because the table has no `retired_at` column; (b) `ZONE` and `ROLE` announcements cannot be authored at all, because `docs/rbac.json` defines no create code for them; (c) the admin list is confined to what the caller could have published, since there is no announcement read/manage code |
+| **Layer** | Server-side, `apps/api/src/modules/admin-announcements/`; `announcements` (`db/migrations/0008_platform.sql`, `0081_announcement_type.sql`); no migration added |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/announcements`, `POST /admin/announcements`, `PATCH /admin/announcements/{id}` and `POST /admin/announcements/{id}/retire` are gated by *either* `announcement.system_wide.create` or `announcement.warehouse.create`; a caller holding neither is 403 before the body is read. Which of the two actually applies is decided by the announcement's target — the body's on create, the stored row's on edit and retire — never by a role name:
+
+1. **Target → permission.** `target: SYSTEM_WIDE` requires `announcement.system_wide.create` (SUPER_ADMIN, TOHFA_ADMIN); `target: WAREHOUSE` requires `announcement.warehouse.create` (also MAIN_WH_ADMIN `all`, SUB_WH_ADMIN `own`). A caller that passes the route gate but lacks the code for the requested target is 403 `FORBIDDEN`, and the refused attempt is recorded as one `DENIED` audit row (BR-35b).
+2. **Own-warehouse confinement.** With an `own` grant (SUB_WH_ADMIN), `warehouseId` must be one of the caller's assigned warehouses: anything else is 403 `WAREHOUSE_SCOPE_VIOLATION` and nothing is written. `warehouseId` must name a live warehouse (422 otherwise). It is required for `WAREHOUSE` and refused for `SYSTEM_WIDE`.
+3. **`ZONE` and `ROLE` cannot be authored.** `docs/rbac.json` defines no `announcement.zone.create` or `announcement.role.create`, so `target: ZONE` / `ROLE` is 422 `VALIDATION_FAILED` on `body.target`. Existing rows with those scopes are still listed, edited and retired, under the system-wide code.
+4. **Reads are confined, not refused.** The list and every by-id load are filtered by the same clause: non-`WAREHOUSE` rows for a holder of the system-wide code, `WAREHOUSE` rows within the warehouse grant's scope. A row outside it is absent from the page and 404 on a write — never 403, which would confirm it exists (`docs/rbac.json` `scopeFilters`).
+5. **Retire is a soft delete and is idempotent.** Retiring sets `announcements.deleted_at = now()`, which is exactly the clause BR-65 reads, so the announcement stops reaching readers while the row and its read markers survive. A replay returns the row unchanged, writes nothing and does not move `retiredAt`. A retired announcement cannot be edited (409 `INVALID_STATE_TRANSITION`); publish a new one.
+6. **Retargeting is not editable.** `PATCH` changes `type`, `title`, `body`, `locale`, `startsAt` and `endsAt` only. Moving a row between targets would be a create under a code the caller may not hold.
+7. **Window.** `endsAt` must be after `startsAt` (`announcements_window_chk`); when `startsAt` is omitted it is `now()`. A violation is 422 `VALIDATION_FAILED` on `body.endsAt`, not the database's 500.
+8. **Status is derived, never stored:** `RETIRED` (deleted), else `SCHEDULED` (`startsAt` in the future), else `EXPIRED` (`endsAt` passed), else `ACTIVE` — the `ACTIVE` set is exactly what BR-65 shows readers.
+9. **Audit (BR-35).** Every mutation writes exactly one `audit_log` row in the same transaction as the change, entity type `announcement`: the target's create permission code on create, `announcement.update` on edit, `announcement.retire` on retire, with before/after images of the editable fields and the warehouse id for warehouse-targeted rows.
+
+**Failure mode if unenforced.** A Sub Warehouse Admin addresses the entire platform, or another warehouse's staff; a hidden row's existence leaks through a 403; a retired notice keeps reaching readers; a retry retires twice and the audit trail claims two actions.
+
+**Test contract.** (`apps/api/src/modules/admin-announcements/admin-announcements.test.ts`, plus the grant rows in `apps/api/src/rbac/rbac.test.ts`)
+- `BR-213a` The target picks the permission: a Super Admin publishes both kinds; a Main Warehouse Admin's system-wide attempt is 403 with exactly one `DENIED` audit row and no announcement, while its warehouse announcement succeeds.
+- `BR-213b` A Sub Warehouse Admin publishes to its own warehouse and is 403 `WAREHOUSE_SCOPE_VIOLATION` for another; an unknown warehouse is 422; neither writes anything.
+- `BR-213c` A row outside the caller's authority is absent from the list and 404 (not 403) on a write.
+- `BR-213d` An edit writes one `announcement.update` audit row with before/after images in the same transaction.
+- `BR-213e` Retire sets `retiredAt`, is idempotent (a replay writes no second audit row and keeps the first `retiredAt`), removes the announcement from the BR-65 system-message view, and a retired row cannot be edited (409).
+- `BR-213f` `status` is derived: `RETIRED` beats the window; `SCHEDULED`, `EXPIRED` and `ACTIVE` follow the stored timestamps.
+- `BR-213g` 401 without a token on every route; a caller holding neither create code is 403 before any SQL; `target: ZONE` is 422.
+
+### BR-214 — A farmer application moves DOCS_REVIEW → FARM_VERIFICATION → APPROVED, and each step is gated by verified evidence
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (admin application review flow, items 1, 2, 8, 9) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `apps/api/src/modules/farmer-applications/`; `application_status` (`db/migrations/0001`, `0200`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Stages.** A draft (`is_draft = true`, stored status `SUBMITTED`) becomes `DOCS_REVIEW` on submit (BR-69). From `DOCS_REVIEW` an admin advances it to `FARM_VERIFICATION` (`POST /admin/farmer-applications/{id}/advance`, `toStatus: FARM_VERIFICATION`). Approval is allowed **only from `FARM_VERIFICATION`**. `REJECTED` is reachable from every non-draft, non-terminal stage except the legacy `AUDIT` value. `INFO_REQUESTED` is BR-217.
+2. **`AUDIT` is out of this flow.** The enum value stays in the database, but no transition enters or leaves it. A legacy row already in `AUDIT` can only be read and annotated (BR-218) until the audit work defines its exits.
+3. **Docs gate.** `DOCS_REVIEW → FARM_VERIFICATION` requires: at least one `ID_PROOF` and one `FARM_DOC` document (the two submit already requires), every one of those required documents `VERIFIED` under BR-215, and no document of any type `REJECTED`. Otherwise 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED` with `meta.blockers` naming each missing type and each pending or rejected document, and nothing is written.
+4. **Approval gate.** Approval additionally requires every step-3 location's FMB review `VERIFIED` under BR-216; the docs gate is re-checked first (a document can be re-uploaded or re-reviewed after advancing). A failed docs gate is 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED`; a failed FMB gate is 409 `APPLICATION_FMB_NOT_VERIFIED`; `meta.blockers` always lists every blocker of both gates.
+5. **Wrong stage.** Advancing from anything but `DOCS_REVIEW`, approving from anything but `FARM_VERIFICATION`, or rejecting a draft or `AUDIT` row is 409 `INVALID_STATE_TRANSITION` (approving an `APPROVED` row and rejecting a `REJECTED` row stay 409 `CONFLICT`, BR-146).
+6. **Who.** Every mutation needs its own code from `docs/rbac.json`: SUPER_ADMIN and TOHFA_ADMIN hold them at `all`; FARMER_ADMIN reads the queue and the detail (`view`) and holds no mutation code; every other role holds none. Every admin read and write is narrowed by the resolved scope: an application outside it is 404, never 403.
+7. **Idempotency and audit.** Approve, reject, request-info, advance, document review, FMB review and note all require an `Idempotency-Key` (422 `VALIDATION_FAILED` without one). A replay with the same key and body returns the first response and writes nothing; the same key with a different body is 409 `IDEMPOTENCY_KEY_REUSED`. Each successful mutation writes one `audit_log` row in the same transaction.
+
+**Failure mode if unenforced.** An applicant becomes a VERIFIED farmer whose Aadhaar was never looked at or whose land boundary is a guess; `FARM_VERIFICATION` is a label nobody can reach; a double-tap approves twice.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`, plus the grant rows in `apps/api/src/rbac/rbac.test.ts`)
+- `BR-214a` Advance moves `DOCS_REVIEW → FARM_VERIFICATION` only when ID_PROOF and FARM_DOC are VERIFIED and nothing is REJECTED; otherwise 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED` naming the blockers, and nothing is written.
+- `BR-214b` Approval from `DOCS_REVIEW` (or any stage other than `FARM_VERIFICATION`) is 409 `INVALID_STATE_TRANSITION`.
+- `BR-214c` Approval from `FARM_VERIFICATION` with a pending or rejected FMB is 409 `APPLICATION_FMB_NOT_VERIFIED`; with a rejected document it is 409 `APPLICATION_DOCUMENTS_NOT_VERIFIED`.
+- `BR-214d` No transition enters or leaves `AUDIT`.
+- `BR-214e` A missing `Idempotency-Key` is 422; a replay returns the first response and writes no second history or audit row.
+- `BR-214f` An admin whose scope does not cover the application's zone gets 404 on read and on every mutation.
+
+### BR-215 — Each application document is verified or rejected with a reason, and a replaced file is pending again
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 3) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `farmer-applications`; `farmer_application_reviews` (`db/migrations/0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Identity.** A step-4 document is identified by `documentKey`: the first 32 hex characters of SHA-256 over `docType + "|" + fileUrl`. The key is computed, never stored in the applicant's JSON, so the applicant's own step-4 payload is unchanged.
+2. **Decision.** `POST /admin/farmer-applications/{id}/documents/{documentKey}/review` takes `decision: VERIFIED | REJECTED`; `REJECTED` requires a `reason` (5–500 characters) and `VERIFIED` takes none (422 otherwise). Allowed while the application is in `DOCS_REVIEW` or `FARM_VERIFICATION`; any other stage is 409 `INVALID_STATE_TRANSITION`. An unknown key is 404.
+3. **Append-only.** Every decision is a new row (actor, time, reason); the current state of a document is its latest decision. A later decision may overturn an earlier one; the earlier one is never edited.
+4. **Re-upload resets.** Because the key is derived from the file, a document the applicant replaces (new file, or the same file re-classified to another type) has no decision and is `PENDING` again. No code path has to remember to reset it.
+5. **Read.** `GET /admin/farmer-applications/{id}` lists every document with `documentKey`, `required`, and `review { status: PENDING | VERIFIED | REJECTED, reason, reviewedBy, reviewedAt }`.
+
+**Failure mode if unenforced.** An admin's "verified" silently carries over to a different file the farmer uploaded afterwards; a rejection has no reason the farmer can act on.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-215a` VERIFIED and REJECTED decisions are stored with actor and time; REJECTED without a reason, or VERIFIED with one, is 422.
+- `BR-215b` Replacing a document's file makes it PENDING again; the old decision stays in the table.
+- `BR-215c` Review outside `DOCS_REVIEW`/`FARM_VERIFICATION` is 409; an unknown documentKey is 404.
+- `BR-215d` Decision rows cannot be updated or deleted (database trigger).
+
+### BR-216 — Each land location's FMB boundary is verified or rejected with a reason before approval
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 4) |
+| **Status** | DERIVED. One default is UNCONFIRMED: a location with no drawn boundary (GPS point only, which BR-69 submit accepts) may still be VERIFIED on the reviewer's judgment — the owner has not said whether a drawn FMB boundary is mandatory for approval |
+| **Layer** | Server-side, `farmer-applications`; `farmer_application_reviews` (`db/migrations/0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Identity.** A location is identified by its step-3 `id`. A decision is bound to a fingerprint of the location's `fmbPolygon` and `areaAcres`; if the applicant redraws the boundary or changes the acreage, the location's FMB review is `PENDING` again.
+2. **Decision.** `POST /admin/farmer-applications/{id}/locations/{locationId}/fmb-review` takes `decision: VERIFIED | REJECTED` with the same reason rule as BR-215. Allowed in `DOCS_REVIEW` or `FARM_VERIFICATION`; otherwise 409 `INVALID_STATE_TRANSITION`. Unknown location is 404. A location without an `fmbPolygon` is reported with `hasBoundary: false` so the reviewer can reject it and ask for the sketch (BR-217); whether it may be VERIFIED without one is left to the reviewer (see Status).
+3. **Read.** The admin detail returns every location with its `fmbPolygon`, `areaAcres`, `calculatedAreaAcres`, `calculatedAreaHectares`, GPS fields and `fmbReview { status, reason, reviewedBy, reviewedAt }`.
+
+**Failure mode if unenforced.** A farmer is approved on a boundary nobody checked against the FMB sketch, and every listing's land claim inherits the error.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-216a` VERIFIED / REJECTED FMB decisions are stored and returned per location; REJECTED needs a reason.
+- `BR-216b` Review outside `DOCS_REVIEW`/`FARM_VERIFICATION` is 409; an unknown locationId is 404.
+- `BR-216c` Redrawing a boundary makes the location PENDING again.
+
+### BR-217 — "Request more information" is a stored INFO_REQUESTED stage with a checklist, and the applicant resubmits
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 5) |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `farmer-applications`; `application_status` value `INFO_REQUESTED` (`db/migrations/0200`); `farmer_application_status_history.requested_items` (`0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Request.** `POST /admin/farmer-applications/{id}/request-info` is allowed from `DOCS_REVIEW` or `FARM_VERIFICATION` and moves the application to the stored status `INFO_REQUESTED`. Body: `items` (at least one of `FMB_SKETCH`, `AADHAAR`, `PATTA_CHITTA`, `BANK_DETAILS`, `CERTIFICATE`, `OTHER`) and `message` (5–1000 characters). The items are stored as a structured column on the history row, not only inside note text. The application's zone is never changed by a request.
+2. **Applicant view.** `GET /farmers/applications/{id}/status` returns `status: INFO_REQUESTED` and `infoRequest { items, message, requestedAt }` while the request is open.
+3. **Resubmit.** `POST /farmers/applications/{id}/resubmit` (same possession-of-id model as the other public application routes) re-runs the submit completeness checks (BR-69) and moves `INFO_REQUESTED → DOCS_REVIEW`, keeping the zone. A repeat call after success returns the current state and writes nothing; a draft is 409 `INVALID_STATE_TRANSITION`.
+4. **Notification.** The existing `farmer.application.info_requested` event is published when the application has an account; when it has none the request still succeeds and the applicant sees it on the status endpoint.
+
+**Failure mode if unenforced.** "Info requested" is a guess derived from note text; the zone is wiped by the request; the farmer has no way back into review.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-217a` Request-info stores INFO_REQUESTED with items and message, keeps `zone_id`, and is refused (409) outside `DOCS_REVIEW`/`FARM_VERIFICATION`; an empty item list is 422.
+- `BR-217b` The public status endpoint returns INFO_REQUESTED with the requested items and message.
+- `BR-217c` Resubmit moves INFO_REQUESTED → DOCS_REVIEW, keeps the zone, and is a harmless no-op on repeat.
+- `BR-217d` An application with no account (`user_id` null) is requested without error and publishes no notification.
+
+### BR-218 — Review notes and every transition record actor, time and note in an append-only history
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 6) |
+| **Status** | DERIVED |
+| **Layer** | `farmer_application_status_history` (`db/migrations/0009`, `0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Notes.** `POST /admin/farmer-applications/{id}/notes` stores a review note (1–1000 characters) at any non-draft, non-terminal stage, without changing the status: a history row with `event_type = NOTE` and `from_status = to_status`.
+2. **Every transition** (submit, advance, request-info, resubmit, approve, reject) writes one history row with actor (null only for an anonymous applicant), time and note. Reject stores its `reasonCode` in the `reason_code` column as well as in the note text.
+3. **Append-only.** `farmer_application_status_history` rejects UPDATE, DELETE and TRUNCATE at the database level (`app_make_append_only`). Its foreign key to `farmer_applications` is `ON DELETE RESTRICT`: applications are soft-deleted (`deleted_at`), and a hard delete that would erase a review trail is refused.
+4. **Read.** `reviewHistory[]` in the admin detail carries `eventType`, `reasonCode` and `requestedItems` next to the existing fields.
+
+**Failure mode if unenforced.** A reviewer's reasoning is lost or rewritten after the fact; a rejected applicant cannot be told why, in a form a report can count.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-218a` A note writes one NOTE history row with actor and text and leaves the status unchanged; a draft or terminal application is 409.
+- `BR-218b` Reject stores `reason_code` structured.
+- `BR-218c` UPDATE and DELETE on `farmer_application_status_history` are refused by the database.
+
+### BR-219 — Approval carries the application's documents into farmer_documents with their verification
+
+| | |
+|---|---|
+| **Source** | Owner decisions 2026-11-25 (item 7); closes the BR-54 known limitation |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `farmer-applications` approval; `farmer_documents` (`db/migrations/0003`, `0201`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. In the approval transaction, every step-4 document whose `fileUrl` is the public URL of an upload recorded against this application (`uploads.entity_type = 'farmer_application'`) becomes one `farmer_documents` row: same `doc_type` (`OTHER` allowed, `db/migrations/0201`), the upload's `storage_key`, `mime_type` and `size_bytes`, `is_mandatory` for `ID_PROOF`/`FARM_DOC`, and the document's BR-215 state — `verification_status` (`VERIFIED`, or `UNVERIFIED` for a never-reviewed optional document), `verified_by`, `verified_at`, `reject_reason`. Because BR-214 refuses approval while any document is REJECTED, a REJECTED document never reaches this copy; the column mapping is kept so the copy stays faithful if that gate is ever relaxed.
+2. A document whose URL matches no recorded upload is not copied (the same proof rule as BR-54g) and is listed in the approval audit row's `after.uncopiedDocuments`.
+
+**Failure mode if unenforced.** The farmer's profile shows Aadhaar and patta as merely "uploaded" forever, and the verification an admin performed during onboarding is lost.
+
+**Test contract.** (`apps/api/src/modules/farmer-applications/application-review.test.ts`)
+- `BR-219a` Approval inserts one `farmer_documents` row per recognised application document with its verification status, verifier and time; a REJECTED document blocks approval and is never copied.
+- `BR-219b` A document with no matching upload is not copied and is named in the audit row.
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
 |---|---|---|---|---|---|
 | 1 | Audit scoring scale (BR-04) | §2.1: "max 100 points" and tiers `<650 / 650-700 / 700-749 / 750+` in the same bullet | §9 repeats both verbatim | `rating_tier_config` now carries a second, later-`effective_from` generation with the client-confirmed 0-100 bands (`POOR`<50, `MODERATE` 50-69, `GOOD` 70-84, `EXCELLENT`>=85); the 2025-01-01 placeholder rows are kept as history, not read by `resolveTierForScore` any more | resolved for Farm Rating (BR-06), recorded for completeness |
 | 2 | Automation (BR-38) | FR-F06/FR-F07: auto-reminders, system-suggested treatments, weather risk indicators; §2.2 automatic B2B/Horeca allocation | Principle 5: "All data is entered manually... No automated processes" | No advisory automation; only the three rule-enforcement jobs | requires client confirmation |
-| 3 | Fulfilment model (BR-21) | §2.3 doorstep OTP at delivery hub, FR-C04 delivery slots + out-for-delivery, FR-A04 driver performance, module 14 drivers | Principle 9: "All orders fulfilled via warehouse pickup"; no driver or fleet feature anywhere | Pickup + 4-digit OTP only; delivery slot fields modelled but unused; no driver entity | **Partly resolved 2026-11-16** (owner): pickup AND home delivery with address + slot are offered (BR-161); drivers / out-for-delivery remain unbuilt (BR-21b) |
 | 3 | Fulfilment model (BR-21) | §2.3 doorstep OTP at delivery hub, FR-C04 delivery slots + out-for-delivery, FR-A04 driver performance, module 14 drivers | Principle 9: "All orders fulfilled via warehouse pickup"; no driver or fleet feature anywhere | Pickup + 4-digit OTP only; delivery slot fields modelled but unused; no driver entity | **Partly resolved 2026-11-16** (owner): pickup AND home delivery with address + slot are offered (BR-161); drivers / out-for-delivery remain unbuilt (BR-21b) |
 | 4 | Audit log scope for Main Warehouse Admin | §6.4: `View audit logs` MW = `Own` | §15: `View system audit logs` MW = `View` (all) | MAIN_WH_ADMIN = `own` (Ch.6 precedence), meaning ONLY its assigned warehouse: a Main admin with no assigned warehouse sees an empty list, and an entry with no warehouse never matches `own` (`apps/api/src/modules/audit-log/`, BR-30, BR-35) | **Resolved 2026-10-23** (owner decision: the assigned warehouse only, not all four) |
 | 5 | Set warehouse capacity | §6.2: SA = Y, TA = Y, MW = Y | §7: SUPER_ADMIN only; TA = N, MW = N | SA/TA/MW may set (Ch.6 precedence); matrix is stricter. MW = all; the new capacity is not checked against current stock (BR-66) | requires client confirmation |
@@ -4181,8 +4977,9 @@ Every other place that adds a role creates a brand-new account in the same trans
 | 33 | Two admin roles on one account (BR-135) | Not stated | Not stated | The owner rule of 2026-11-02 said only FARMER_ADMIN may hold two roles and left open whether an admin role may be combined with another (the dev user `multirole@tohfa.test` held TOHFA_ADMIN + FARMER_ADMIN), whether FARMER_ADMIN may be combined with CUSTOMER and whether FARMER may be combined with CUSTOMER. Implemented now: one role per account except any combination of FARMER, FARMER_ADMIN and CUSTOMER (`docs/rbac.json` `allowedRoleCombinations`); admin + admin and the four staff admins with any other role are refused (migration 0083); `multirole@` is removed from the dev seed | **Resolved 2026-11-03** (owner decision: only FARMER + FARMER_ADMIN, FARMER + CUSTOMER and FARMER_ADMIN + CUSTOMER may be held together, hence all three; nothing else, so TOHFA_ADMIN + FARMER_ADMIN is not allowed) |
 | 34 | Community planting aggregate for farmers (BR-136 vs BR-36) | Not available in this repository (no Ch.6 row for a cross-farmer view) | P8 / BR-36: "no cross-user visibility in either app, in any direction"; no community-view row | Built as an anonymised k-anonymous aggregate only (BR-136) but NOT enabled: the new code `farmer.community.view_planting_summary` is granted to no role (every role is 403), and `system_config.community_planting_min_farmers` (k) is not shipped, so the endpoints answer 503 `COMMUNITY_PLANTING_NOT_CONFIGURED` if granted without it. The TOHFA Calendar screen calls the endpoints and shows a "not available yet" state instead of the former hard-coded figures. UNCONFIRMED implementer defaults inside the aggregate: active = `PLANNED`/`GROWING`; quantity = expected yield; month = month of `planted_on` (not growing-season overlap); approved farmers only; region = normalised farm taluk. Residual risk: differencing across overlapping slices (e.g. all regions minus one region) is not prevented. The screen's "Customer wishlist demand" list is NOT built: no wishlist table exists, and the section is hidden rather than showing invented figures | requires owner decision (whether the view is allowed under BR-36, which roles get the permission, the value of k, the defaults listed, and a wishlist data source) |
 | 35 | Crop nutrient requirement targets and status bands (BR-56f, NPK Contribution screen) | Not stated | Not stated | `GET /farmers/me/crops/:farmCropId/npk-contribution` returns only the cumulative N, P and K applied (kg); no table, `system_config` key or endpoint holds a per-crop nutrient requirement (kg per area), nor the bands that would colour a nutrient as low / medium / met or raise a "running low" alert. The design shows "REQUIREMENT MET" percentages ("16 of 40 kg/ha"), coloured bars and an "N of 5 nutrients running low" alert (also Magnesium and Sulphur, which the API does not total); the rejected PR #160 hard-coded per-crop targets (carrot 40/30/50, tomato 65/45/70, cabbage 55/35/60 kg) and 50% / 80% bands in the screen. Implemented now: no targets are invented; the screen shows the real N/P/K totals and contributing inputs, and the requirement section is a neutral "targets are not set" note with no percentage, band, alert, Magnesium or Sulphur. It is also unconfirmed whether the phosphorus and potassium totals are P₂O₅ / K₂O (as the screen labels them) or elemental P / K | requires owner to supply per-crop targets (unit, per-area basis, which nutrients) and the band thresholds, to be stored in `system_config` or a reference table |
-| 36 | First-password creation scope (BR-142 vs BR-81a, BR-112c) | Not stated | Not stated | The owner's rule (2026-11-10) speaks of first-time users. Implemented for every account whose `/auth/me` says `hasPassword: false`, whatever its role and however it signed in: OTP, session restore, or a social login of an OAuth-only account. BR-81a and BR-112c say an admin created with no password "signs in only after the forgot-password flow"; `POST /auth/otp/verify` (unchanged, pre-existing) already issues tokens to any existing account for an OTP challenge, so such an admin can now sign in by OTP and is sent to Create Password. Setting the first password reuses `auth.password.change_own` (granted to every role) instead of a new permission code, and revokes no session. The password policy is the existing one (10 to 128 characters, no complexity rule) | requires owner confirmation (whether admins and OAuth-only accounts should be routed to Create Password, whether OTP sign-in should be allowed for admin roles at all, and the password policy) |
-| 37 | Produce calendar permission scope (BR-142 vs rbac.json description) | produce.calendar.view_consolidated description says "across all farmers" | Docs / BR-108a scope confinement | The permission description in docs/rbac.json says "across all farmers" (matrix §3), but the admin screens show farmer names and the endpoint scope follows BR-108a (owner decision: Farmer Admin sees only farmers in its own assigned zones; Sub WH Admin only its warehouse's zones; Main WH, Tohfa Admin and Super Admin see all). Farmer and Customer roles have no grant (403) | Resolved (owner decision: scope follows BR-108a pattern) |
+| 36 | Manual farmer rating edit (BR-06, BR-04, BR-35) | Reqs 6.1 (via rbac.json `conflicts`): SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone | Not separately stated | `farmer.rating.edit` reinstated 2026-11-09 by owner decision ("Edit Rating: super admin and tohfa admin can edit"): SUPER_ADMIN and TOHFA_ADMIN `all`, every other role `none` (reqs 6.1's FARMER_ADMIN own-zone grant is NOT restored). Status: reinstated by owner decision, details open. No endpoint exists yet; the mobile Save is not wired. UNDECIDED, none of it implemented or assumed: (a) which values are editable (the 10 category scores, the overall score, or something else); (b) whether a reason is mandatory; (c) whether each edit is audit-logged (BR-35); (d) how an edit interacts with the rating computed from completed INTERNAL audits (BR-04/BR-06): whether it overrides the computed rating, and for how long | requires owner decision (a to d) |
+| 37 | Produce calendar permission scope (BR-142 vs rbac.json description) | produce.calendar.view_consolidated description says "across all farmers" | Docs / BR-108a scope confinement | The permission description in docs/rbac.json says "across all farmers" (matrix §3), but the admin screens show farmer names and the endpoint scope follows BR-108a (owner decision: Farmer Admin sees only farmers in its own assigned zones; Sub WH Admin only its warehouse's zones; Main WH, Tohfa Admin and Super Admin see all). Farmer and Customer roles have no grant (403). The rbac.json description text is left unchanged | **Resolved 2026-11-10** (owner decision, P1 of the Produce Calendar API prompt: scope follows the BR-108a pattern) |
+| 38 | First-password creation scope (BR-142 vs BR-81a, BR-112c) | Not stated | Not stated | The owner's rule (2026-11-10) speaks of first-time users. Implemented for every account whose `/auth/me` says `hasPassword: false`, whatever its role and however it signed in: OTP, session restore, or a social login of an OAuth-only account. BR-81a and BR-112c say an admin created with no password "signs in only after the forgot-password flow"; `POST /auth/otp/verify` (unchanged, pre-existing) already issues tokens to any existing account for an OTP challenge, so such an admin can now sign in by OTP and is sent to Create Password. Setting the first password reuses `auth.password.change_own` (granted to every role) instead of a new permission code, and revokes no session. The password policy is the existing one (10 to 128 characters, no complexity rule) | requires owner confirmation (whether admins and OAuth-only accounts should be routed to Create Password, whether OTP sign-in should be allowed for admin roles at all, and the password policy) |
 
 ---
 
@@ -4199,7 +4996,6 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 5 | Four sales channels | §2.2 | BR-15 | Amended 2026-10-11 (owner decision D1): Market, and the new Direct channel, are now enforced for the Sub Warehouse Admin through BR-85 and BR-95 (row kept for history). Horeca and B2B creation are still not enforced (501); each needs its own order, pricing and invoicing path |
 | 6 | Farmer subscription Rs 500/year and free-tier limits | §2.2 | BR-14 | Billing module is Phase 2; free-tier limits are undefined in both documents |
 | 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Since 2026-11-16 delivery checkout with address + slot is enforced (BR-161); driver routing / out-for-delivery still not built |
-| 7 | Dual fulfilment / home delivery with slots | §2.3 | BR-21 | Since 2026-11-16 delivery checkout with address + slot is enforced (BR-161); driver routing / out-for-delivery still not built |
 | 8 | Live order tracking beyond packed/picked-up | FR-C04 | — | Dispatch and out-for-delivery states belong to the delivery model that is not in scope |
 | 9 | Rate & review, tags, one-tap reorder | FR-C05 | — | Customer app Phase 5 screens; no backend dependency in the golden thread |
 | 10 | RMA issue category taxonomy, customer support-ticket lifecycle | FR-C05, matrix §6 | — | The return/inspect/approve/refund workflow itself is now enforced (BR-61, `apps/api/src/modules/returnRequests/`); a free-text `reason` stands in for a structured issue-category list, and the bank refund is a status + manual hand-off, not a tracked ticket. Issue categories and a support-ticket lifecycle around that are still Phase 2-3 |
@@ -4213,6 +5009,6 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 18 | GDPR data export and account deletion requests | matrix §15 | — | Absent from the Requirements document entirely; needs a retention policy first, which no document states |
 | 19 | Advisory automation (reminders, treatments, weather risk) | FR-F06/F07 | BR-38 | Blocked on contradiction 2 — do not build either way until the client answers |
 
-Farm rating, 10 categories x 10 points (BR-06), its Farmer-Admin-own-zone edit predicate, and the Farm Rating tier scale (BR-04) moved OUT of this table and into Track 1 on 2026-09-17 — see BR-04 and BR-06 above and `apps/api/src/modules/farm-ratings/`. The Farmer-Admin edit predicate went away on 2026-10-01 with the manual rating edit itself (ratings now come from completed INTERNAL audits only).
+Farm rating, 10 categories x 10 points (BR-06), its Farmer-Admin-own-zone edit predicate, and the Farm Rating tier scale (BR-04) moved OUT of this table and into Track 1 on 2026-09-17 — see BR-04 and BR-06 above and `apps/api/src/modules/farm-ratings/`. The Farmer-Admin edit predicate went away on 2026-10-01 with the manual rating edit itself (ratings now come from completed INTERNAL audits only). The manual rating edit was reinstated as a permission for SUPER_ADMIN and TOHFA_ADMIN only on 2026-11-09 (see BR-06 and *Open contradictions* #36); the Farmer-Admin predicate stays removed.
 
 The RMA return/inspect/approve/refund workflow (BR-61) moved OUT of this table and into Track 1 on 2026-10-07 — see BR-61 above and `apps/api/src/modules/returnRequests/`. Row 10 above is narrowed accordingly: issue-category taxonomy and the support-ticket lifecycle remain deferred, the refund workflow does not.

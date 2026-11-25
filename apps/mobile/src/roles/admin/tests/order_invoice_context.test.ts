@@ -110,13 +110,20 @@ describe('wiring: the order invoice passes its order into the invoice view', () 
     expect(functionBody(FLOW, 'LiveInvoiceDetail')).toMatch(/order=\{order\}/);
   });
 
-  it('the detail draws Order No. and Customer only through invoiceOrderContext', () => {
-    expect(DETAIL).toMatch(/invoiceOrderContext\(record, order\)/);
-    expect(DETAIL).toMatch(/t\('billing\.detail\.orderNumber'\)/);
-    expect(DETAIL).toMatch(/t\('billing\.detail\.customer'\)/);
+  it('the detail draws Order Number and the Bill To customer name only through invoiceOrderContext', () => {
+    expect(DETAIL).toMatch(/const orderContext = invoiceOrderContext\(record, order\);/);
+    expect(DETAIL).toMatch(/t\('billing\.detail\.orderNumberFull'\), value: orderContext\?\.orderNumber \?\? dash/);
+    expect(DETAIL).toMatch(/record\.buyerName \?\? orderContext\?\.customerName \?\? dash/);
   });
 
-  it('BR-92: the detail never reads a mobile', () => {
-    expect(DETAIL).not.toMatch(/mobile|phone/i);
+  it('BR-92: the detail never reads a mobile or phone VALUE; the design Mobile slot is an em-dash placeholder only', () => {
+    // The one permitted mention is the translation parameter of the Bill To line, and both of its values are the dash.
+    const PLACEHOLDER = /t\('billing\.detail\.billToDetails', \{ id: dash, mobile: dash \}\)/;
+    expect(DETAIL).toMatch(PLACEHOLDER);
+    const rest = DETAIL.replace(PLACEHOLDER, '');
+    // Nothing else in the code may name a mobile or a phone: no property access, destructure, key or string.
+    expect(rest).not.toMatch(/mobile|phone/i);
+    // Belt and braces: no property read of the invoice or order DTO that could carry a number.
+    expect(DETAIL).not.toMatch(/(?:record|invoice|order|buyer|customer)\??\.\w*(?:mobile|phone|msisdn|contact)\w*/i);
   });
 });

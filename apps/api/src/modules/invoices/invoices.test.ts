@@ -198,9 +198,10 @@ describeIfDatabase('Invoices: gap-free counter and per-invoice GST (BR-87h, BR-9
   let ready = false;
   const usedYears: string[] = [];
 
+  let yearCounter = 1900 + Math.floor(Math.random() * 50);
   function freshFiscalYear(): string {
-    const start = 1900 + Math.floor(Math.random() * 90);
-    const fy = `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+    yearCounter += 1;
+    const fy = `${yearCounter}-${String((yearCounter + 1) % 100).padStart(2, '0')}`;
     usedYears.push(fy);
     return fy;
   }

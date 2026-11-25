@@ -406,6 +406,66 @@
       "source": "reqs 6.1"
     },
     {
+      "code": "farmer.application.verify_document",
+      "module": "Farmers Management",
+      "description": "Verify or reject one uploaded document on a farmer application, with a reason for a rejection (BR-215).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
+      "code": "farmer.application.verify_fmb",
+      "module": "Farmers Management",
+      "description": "Verify or reject the FMB boundary of one land location on a farmer application, with a reason for a rejection (BR-216).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
+      "code": "farmer.application.advance",
+      "module": "Farmers Management",
+      "description": "Advance a farmer application from DOCS_REVIEW to FARM_VERIFICATION once its documents are verified (BR-214).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
+      "code": "farmer.application.add_note",
+      "module": "Farmers Management",
+      "description": "Add a review note to a farmer application at any non-terminal stage, without changing its status (BR-218).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-25: owner decisions for the admin application review flow (BR-214..BR-218) - SA/TA act, Farmer Admin reads only through farmer.application.view"
+    },
+    {
       "code": "farmer.profile.view_all",
       "module": "Farmers Management",
       "description": "View any farmer profile.",
@@ -796,6 +856,21 @@
       "source": "reqs 6.1 — SA only"
     },
     {
+      "code": "farmer.rating.edit",
+      "module": "Farmers Management",
+      "description": "Manually edit a farmer rating (reinstated; what can be edited is not yet decided).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-11-09: Super Admin and Tohfa Admin can edit a farmer rating; what can be edited, reason and audit are NOT yet decided"
+    },
+    {
       "code": "farmer.subscription.extend_waive",
       "module": "Farmers Management",
       "description": "Extend or waive a farmer subscription.",
@@ -1081,6 +1156,36 @@
       "source": "specification gap — added for M7 Learning Hub (BR-59)"
     },
     {
+      "code": "farmer.learning.qa_participate",
+      "module": "Farmers Management",
+      "description": "Participate in Learning Hub and Community Q&A discussions: ask questions, post answers, and edit or delete own posts (BR-59u).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "own",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "own",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap — added for Antigravity Brief 03 Q&A Chat (BR-59u)"
+    },
+    {
+      "code": "farmer.learning.manage",
+      "module": "Farmers Management",
+      "description": "Create, edit, view and manage learning hub content (articles, videos, trainings, groups).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "P0-05 BR-learn-admin"
+    },
+    {
       "code": "learning.admin.manage",
       "module": "Farmers Management",
       "description": "Create, edit, view and manage learning hub content (articles, videos, trainings, groups).",
@@ -1094,6 +1199,21 @@
         "CUSTOMER": "none"
       },
       "source": "specification gap — added for M7 Learning Hub (BR-59)"
+    },
+    {
+      "code": "learning.content.review",
+      "module": "Farmers Management",
+      "description": "Review and make approval/rejection decisions on learning hub content submitted for review (BR-59t).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "Antigravity Brief 02 (BR-59t)"
     },
     {
       "code": "farmer.support_ticket.manage_own",
@@ -1341,7 +1461,7 @@
       "description": "Set customer-facing retail price (must be at or below the ceiling).",
       "grants": {
         "SUPER_ADMIN": "all",
-        "TOHFA_ADMIN": "all",
+        "TOHFA_ADMIN": "none",
         "FARMER_ADMIN": "none",
         "MAIN_WH_ADMIN": "none",
         "SUB_WH_ADMIN": "none",
@@ -1364,6 +1484,21 @@
         "CUSTOMER": "view"
       },
       "source": "inferred — the customer catalog cannot render without it"
+    },
+    {
+      "code": "market.schedule.manage",
+      "module": "Market & Pricing",
+      "description": "Configure and manage scheduled automated market open and close windows (SA-M2-S02 / SA-M2-S03).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "SA-M2-S02 / SA-M2-S03 Market Control"
     },
     {
       "code": "listing.create_own",
@@ -2569,6 +2704,36 @@
       "source": "matrix §6 + reqs FR-C05"
     },
     {
+      "code": "order.cancel",
+      "module": "Sales Management",
+      "description": "Cancel an order and release allocated stock.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "matrix \u00a76"
+    },
+    {
+      "code": "delivery.partner.manage",
+      "module": "Sales Management",
+      "description": "Manage delivery partners (list, create, update, delete).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "reqs FR-A04"
+    },
+    {
       "code": "order.delivery_status.view",
       "module": "Sales Management",
       "description": "View order/delivery status.",
@@ -2882,6 +3047,21 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 6.3"
+    },
+    {
+      "code": "payout.view",
+      "module": "Accounts & Finance",
+      "description": "View farmer payouts list and details.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "P0-40"
     },
     {
       "code": "payout.dues.view",
@@ -3259,6 +3439,22 @@
         "CUSTOMER": "none"
       },
       "source": "spec gap added 2026-10-23 by owner decision of 2026-10-23: a new Farmer Admin is bound to exactly one zone at creation, and more zones are added later only by Super Admin or TOHFA Admin (BR-113)"
+    },
+    {
+      "code": "zone.view",
+      "module": "Farmer Management",
+      "description": "View zones reference list and details.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "own",
+        "MAIN_WH_ADMIN": "all",
+        "SUB_WH_ADMIN": "all",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "predicate": "OWN_ZONE_ONLY",
+      "source": "Batch 10 Zones Priority 1"
     },
     {
       "code": "admin.main_wh_admin.create",
@@ -3972,7 +4168,7 @@
       "reqsCh6": "SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone only (reqs 6.1)",
       "roleMatrix": "not separately stated",
       "precedence": "product owner decision 2026-10-01 (explicit, supersedes reqs 6.1 for this row)",
-      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1."
+      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1. SUPERSEDED IN PART 2026-11-09: owner decision reinstates `farmer.rating.edit` for SUPER_ADMIN and TOHFA_ADMIN only (FARMER_ADMIN stays none); see BR-06 and Open contradictions #36 in docs/rules.md."
     },
     {
       "topic": "Material handling (inventory.material_handling.manage)",

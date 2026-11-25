@@ -29,7 +29,10 @@ import { isAreaAvailable } from '../availability';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { t } from '../../../i18n';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import { isMoreItemPermitted, MORE_OPTION_GROUPS } from './moreMenu';
+import { isMoreItemPermitted, MORE_OPTION_GROUPS, withFarmersRow } from './moreMenu';
+import { FarmersFlow } from '../../farmers/FarmersFlow';
+import { FarmersPeopleIcon } from '../../farmers/flow/FarmersEntryIcons';
+import { canOpenFarmers } from '../../farmers/flow/farmersFlowNav';
 import type { MoreOptionItem, OptionGroup } from './types';
 
 // â”€â”€â”€ SVG Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -488,6 +491,8 @@ export function MoreScreen({
   const [showFinanceScreen, setShowFinanceScreen] = useState(false);
   const [showVouchersScreen, setShowVouchersScreen] = useState(false);
   const [showCustomersScreen, setShowCustomersScreen] = useState(false);
+  // Farmers Management (Module 1): the shared FarmersFlow, opened in place like CustomersFlow.
+  const [showFarmersFlow, setShowFarmersFlow] = useState(false);
 
   const handleBackToDashboard = () => {
     if (onNavigateToDashboard) {
@@ -588,6 +593,9 @@ export function MoreScreen({
       case 'warehouse_management':
         onNavigateToWarehouseManagement?.();
         break;
+      case 'farm_management':
+        if (canOpenFarmers(can)) setShowFarmersFlow(true);
+        break;
       case 'warehouse_operations':
         if (onNavigateToWarehouseOperations) {
           onNavigateToWarehouseOperations();
@@ -651,6 +659,8 @@ export function MoreScreen({
         return <HelpSupportIcon color={adminColors.muted} size={20} />;
       case 'warehouse_operations':
         return <WarehouseOperationsIcon color={adminColors.muted} />;
+      case 'farm_management':
+        return <FarmersPeopleIcon color={adminColors.muted} size={20} />;
       default:
         return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
     }
@@ -763,6 +773,10 @@ export function MoreScreen({
     );
   }
 
+  if (showFarmersFlow && canOpenFarmers(can)) {
+    return <FarmersFlow can={can} warehouseId={scope.warehouseId} onBack={() => setShowFarmersFlow(false)} />;
+  }
+
   if (showCustomersScreen) {
     return (
       <CustomersFlow
@@ -838,7 +852,7 @@ export function MoreScreen({
         })()}
 
         {/* â”€â”€â”€ Grouped Section Cards â”€â”€â”€ */}
-        {visibleGroups.map((group) => {
+        {withFarmersRow(visibleGroups, canOpenFarmers(can)).map((group) => {
           return (
             <View key={group.id} style={styles.groupContainer}>
               <Text style={styles.groupTitle}>{t(group.titleKey)}</Text>

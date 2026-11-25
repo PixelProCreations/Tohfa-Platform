@@ -23,6 +23,8 @@ export interface LatestRatingRow {
   ratedAt: Date | null;
   /** NULL = legacy manual rating (removed PUT); set = derived from that audit. */
   sourceAuditId: string | null;
+  ratedBy?: string | null;
+  ratedByName?: string | null;
 }
 
 export interface RatingScoreInput {
@@ -160,11 +162,15 @@ export const farmRatingsRepo: FarmRatingsRepo = {
       tier_code: string | null;
       rated_at: Date | null;
       source_audit_id: string | null;
+      rated_by: string | null;
+      rated_by_name: string | null;
     }>(
-      `SELECT id, period_label, status, total_score::text AS total_score, tier_code, rated_at, source_audit_id
-         FROM farm_ratings
-        WHERE farmer_id = $1
-        ORDER BY created_at DESC, id DESC
+      `SELECT fr.id, fr.period_label, fr.status, fr.total_score::text AS total_score, fr.tier_code, fr.rated_at, fr.source_audit_id,
+              fr.rated_by, u.full_name AS rated_by_name
+         FROM farm_ratings fr
+    LEFT JOIN users u ON u.id = fr.rated_by
+        WHERE fr.farmer_id = $1
+        ORDER BY fr.created_at DESC, fr.id DESC
         LIMIT 1`,
       [farmerId],
     );
@@ -178,6 +184,8 @@ export const farmRatingsRepo: FarmRatingsRepo = {
       tierCode: row.tier_code,
       ratedAt: row.rated_at,
       sourceAuditId: row.source_audit_id,
+      ratedBy: row.rated_by,
+      ratedByName: row.rated_by_name,
     };
   },
 

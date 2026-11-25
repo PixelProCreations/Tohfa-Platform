@@ -25,6 +25,7 @@ export const inventoryOverviewResponse = z
     ),
     nearExpiryBatchCount: count.nullable(),
     lowStockCount: count.nullable(),
+    criticalStockCount: count.nullable(),
     pendingAdjustmentCount: count,
     unreconciledVerificationCount: count,
     varianceUnreconciledVerificationCount: count,
@@ -32,6 +33,7 @@ export const inventoryOverviewResponse = z
       .object({
         nearExpiryDays: count.nullable(),
         lowStockThresholdKg: z.string().nullable(),
+        criticalStockThresholdKg: z.string().nullable(),
       })
       .strict(),
   })

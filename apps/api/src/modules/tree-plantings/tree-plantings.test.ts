@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { afterAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
@@ -456,10 +456,6 @@ describe('Tree Plantings (BR-55)', () => {
 });
 
 describeIfDatabase('Tree Plantings integration (PostgreSQL)', () => {
-  afterAll(async () => {
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   interface Seeded {
     userId: string;

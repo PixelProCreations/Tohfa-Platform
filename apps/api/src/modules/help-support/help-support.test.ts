@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { closePool, pool } from '../../db/pool.js';
+import { pool } from '../../db/pool.js';
 import { describeIfDatabase } from '../../test/factories.js';
 import { insertUser, requireDatabaseTables } from '../../test/dbFixtures.js';
 
@@ -30,6 +30,7 @@ const READERS = [
 const WRITERS = [RoleCode.SUPER_ADMIN, RoleCode.TOHFA_ADMIN] as const;
 
 const app = createApp();
+const server = app.listen(0);
 
 function tokenFor(userId: string, role: RoleCode): string {
   return signAccessToken({ sub: userId, roles: [{ code: role }], farmerId: null, customerId: null });
@@ -52,13 +53,13 @@ interface ReaderResponse {
 
 describe('BR-82i: Help & Support requires authentication', () => {
   it('BR-82i: no token is 401 on every route', async () => {
-    expect((await request(app).get('/v1/admin/help')).status).toBe(401);
-    expect((await request(app).get('/v1/admin/help/articles')).status).toBe(401);
-    expect((await request(app).post('/v1/admin/help/articles').send({})).status).toBe(401);
-    expect((await request(app).patch(`/v1/admin/help/articles/${randomUUID()}`).send({})).status).toBe(401);
-    expect((await request(app).post(`/v1/admin/help/articles/${randomUUID()}/publish`)).status).toBe(401);
-    expect((await request(app).post(`/v1/admin/help/articles/${randomUUID()}/unpublish`)).status).toBe(401);
-    expect((await request(app).patch('/v1/admin/help/contact').send({})).status).toBe(401);
+    expect((await request(server).get('/v1/admin/help')).status).toBe(401);
+    expect((await request(server).get('/v1/admin/help/articles')).status).toBe(401);
+    expect((await request(server).post('/v1/admin/help/articles').send({})).status).toBe(401);
+    expect((await request(server).patch(`/v1/admin/help/articles/${randomUUID()}`).send({})).status).toBe(401);
+    expect((await request(server).post(`/v1/admin/help/articles/${randomUUID()}/publish`)).status).toBe(401);
+    expect((await request(server).post(`/v1/admin/help/articles/${randomUUID()}/unpublish`)).status).toBe(401);
+    expect((await request(server).patch('/v1/admin/help/contact').send({})).status).toBe(401);
   });
 });
 
@@ -82,18 +83,18 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
   });
 
   async function createArticle(token: string, over: Record<string, unknown> = {}): Promise<Article> {
-    const res = await request(app).post('/v1/admin/help/articles').set('Authorization', `Bearer ${token}`).send(valid(over));
+    const res = await request(server).post('/v1/admin/help/articles').set('Authorization', `Bearer ${token}`).send(valid(over));
     expect(res.status).toBe(201);
     return res.body as Article;
   }
 
   async function publish(token: string, id: string): Promise<void> {
-    const res = await request(app).post(`/v1/admin/help/articles/${id}/publish`).set('Authorization', `Bearer ${token}`);
+    const res = await request(server).post(`/v1/admin/help/articles/${id}/publish`).set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
   }
 
   async function read(token: string, query = ''): Promise<ReaderResponse> {
-    const res = await request(app).get(`/v1/admin/help${query}`).set('Authorization', `Bearer ${token}`);
+    const res = await request(server).get(`/v1/admin/help${query}`).set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     return res.body as ReaderResponse;
   }
@@ -133,7 +134,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
   afterAll(async () => {
     await pool.query("DELETE FROM help_articles WHERE title LIKE 'BR-82 %'");
     await pool.query("UPDATE system_config SET value = 'null'::jsonb WHERE key LIKE 'help.contact.%'");
-    await closePool();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   describe('BR-82i: nothing is seeded and nothing is invented', () => {
@@ -170,7 +171,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
   describe('BR-82j: who may read and who may write (role matrix through the real router)', () => {
     it.each(READERS)('BR-82j: %s may read the published help', async (role) => {
       const { token } = await actor(role);
-      const res = await request(app).get('/v1/admin/help').set('Authorization', `Bearer ${token}`);
+      const res = await request(server).get('/v1/admin/help').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(200);
     });
 
@@ -179,19 +180,19 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       [RoleCode.CUSTOMER, 'CUSTOMER'],
     ] as const)('BR-82j: %s cannot read the admin help (403)', async (role, userType) => {
       const { token } = await actor(role, userType);
-      expect((await request(app).get('/v1/admin/help').set('Authorization', `Bearer ${token}`)).status).toBe(403);
+      expect((await request(server).get('/v1/admin/help').set('Authorization', `Bearer ${token}`)).status).toBe(403);
     });
 
     it.each(WRITERS)('BR-82j: %s may create, edit, publish and unpublish', async (role) => {
       const { token } = await actor(role);
       const created = await createArticle(token, { title: `BR-82 ${role} article` });
-      const patched = await request(app)
+      const patched = await request(server)
         .patch(`/v1/admin/help/articles/${created.id}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ title: `BR-82 ${role} edited` });
       expect(patched.status).toBe(200);
       await publish(token, created.id);
-      const unpublished = await request(app)
+      const unpublished = await request(server)
         .post(`/v1/admin/help/articles/${created.id}/unpublish`)
         .set('Authorization', `Bearer ${token}`);
       expect(unpublished.status).toBe(200);
@@ -211,13 +212,13 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       const auth = { Authorization: `Bearer ${token}` };
 
       const sneaky = `BR-82 sneaky ${randomUUID()}`;
-      const created = await request(app).post('/v1/admin/help/articles').set(auth).send(valid({ title: sneaky }));
+      const created = await request(server).post('/v1/admin/help/articles').set(auth).send(valid({ title: sneaky }));
       expect(created.status).toBe(403);
-      expect((await request(app).get('/v1/admin/help/articles').set(auth)).status).toBe(403);
-      expect((await request(app).patch(`/v1/admin/help/articles/${target.id}`).set(auth).send({ title: `${sneaky} hacked` })).status).toBe(403);
-      expect((await request(app).post(`/v1/admin/help/articles/${target.id}/publish`).set(auth)).status).toBe(403);
-      expect((await request(app).post(`/v1/admin/help/articles/${target.id}/unpublish`).set(auth)).status).toBe(403);
-      expect((await request(app).patch('/v1/admin/help/contact').set(auth).send({ email: 'x@example.test' })).status).toBe(403);
+      expect((await request(server).get('/v1/admin/help/articles').set(auth)).status).toBe(403);
+      expect((await request(server).patch(`/v1/admin/help/articles/${target.id}`).set(auth).send({ title: `${sneaky} hacked` })).status).toBe(403);
+      expect((await request(server).post(`/v1/admin/help/articles/${target.id}/publish`).set(auth)).status).toBe(403);
+      expect((await request(server).post(`/v1/admin/help/articles/${target.id}/unpublish`).set(auth)).status).toBe(403);
+      expect((await request(server).patch('/v1/admin/help/contact').set(auth).send({ email: 'x@example.test' })).status).toBe(403);
 
       const rows = await pool.query<{ title: string; is_published: boolean }>(
         'SELECT title, is_published FROM help_articles WHERE title LIKE $1 OR title = $2',
@@ -247,7 +248,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
         sortOrder: 0,
       });
 
-      await request(app).post(`/v1/admin/help/articles/${created.id}/unpublish`).set('Authorization', `Bearer ${sa.token}`);
+      await request(server).post(`/v1/admin/help/articles/${created.id}/unpublish`).set('Authorization', `Bearer ${sa.token}`);
       expect((await read(token, '?category=BR-82%20Draft%20Cat')).items).toEqual([]);
     });
 
@@ -270,7 +271,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
     });
 
     it('BR-82k: rejects an unsupported locale (422)', async () => {
-      const res = await request(app).get('/v1/admin/help?locale=fr').set('Authorization', `Bearer ${sa.token}`);
+      const res = await request(server).get('/v1/admin/help?locale=fr').set('Authorization', `Bearer ${sa.token}`);
       expect(res.status).toBe(422);
     });
 
@@ -282,7 +283,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       const enc = encodeURIComponent(category);
       const auth = { Authorization: `Bearer ${ta.token}` };
 
-      const all = await request(app).get(`/v1/admin/help/articles?category=${enc}`).set(auth);
+      const all = await request(server).get(`/v1/admin/help/articles?category=${enc}`).set(auth);
       expect(all.status).toBe(200);
       const items = (all.body as { items: Article[] }).items;
       expect(items.map((i) => [i.id, i.isPublished])).toEqual(
@@ -291,26 +292,26 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
           [live.id, true],
         ]),
       );
-      const drafts = await request(app).get(`/v1/admin/help/articles?category=${enc}&isPublished=false`).set(auth);
+      const drafts = await request(server).get(`/v1/admin/help/articles?category=${enc}&isPublished=false`).set(auth);
       expect((drafts.body as { items: Article[] }).items.map((i) => i.id)).toEqual([draft.id]);
     });
   });
 
   describe('BR-82l: content writes', () => {
     it('BR-82l: accepts ">" in text (navigation paths) but rejects HTML-looking markup (plain text only)', async () => {
-      const ok = await request(app)
+      const ok = await request(server)
         .post('/v1/admin/help/articles')
         .set('Authorization', `Bearer ${sa.token}`)
         .send(valid({ title: 'BR-82 arrows', body: 'Go to More > Finance > Add Expense, qty < 5 is fine.' }));
       expect(ok.status).toBe(201);
 
       for (const bad of ['<script>alert(1)</script>', 'hi <b>bold</b>', '<img src=x onerror=alert(1)>', '</p>', '<!-- x -->']) {
-        const res = await request(app)
+        const res = await request(server)
           .post('/v1/admin/help/articles')
           .set('Authorization', `Bearer ${sa.token}`)
           .send(valid({ title: 'BR-82 markup', body: bad }));
         expect(res.status).toBe(422);
-        const inTitle = await request(app)
+        const inTitle = await request(server)
           .post('/v1/admin/help/articles')
           .set('Authorization', `Bearer ${sa.token}`)
           .send(valid({ title: `BR-82 ${bad}` }));
@@ -332,7 +333,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       ['a fractional sortOrder', { sortOrder: 1.5 }],
       ['an unknown key', { isPublished: true }],
     ])('BR-82l: create rejects %s (422)', async (_label, over) => {
-      const res = await request(app)
+      const res = await request(server)
         .post('/v1/admin/help/articles')
         .set('Authorization', `Bearer ${sa.token}`)
         .send(valid(over));
@@ -343,16 +344,16 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       const created = await createArticle(sa.token, { title: 'BR-82 patch me', sortOrder: 3 });
       const auth = { Authorization: `Bearer ${sa.token}` };
 
-      const res = await request(app).patch(`/v1/admin/help/articles/${created.id}`).set(auth).send({ sortOrder: 9, locale: 'ta' });
+      const res = await request(server).patch(`/v1/admin/help/articles/${created.id}`).set(auth).send({ sortOrder: 9, locale: 'ta' });
       expect(res.status).toBe(200);
       expect(res.body).toMatchObject({ id: created.id, title: 'BR-82 patch me', body: created.body, sortOrder: 9, locale: 'ta' });
 
-      expect((await request(app).patch(`/v1/admin/help/articles/${created.id}`).set(auth).send({})).status).toBe(422);
-      expect((await request(app).patch(`/v1/admin/help/articles/${created.id}`).set(auth).send({ isPublished: true })).status).toBe(422);
-      expect((await request(app).patch('/v1/admin/help/articles/not-a-uuid').set(auth).send({ title: 'BR-82 x' })).status).toBe(422);
-      expect((await request(app).patch(`/v1/admin/help/articles/${randomUUID()}`).set(auth).send({ title: 'BR-82 x' })).status).toBe(404);
-      expect((await request(app).post(`/v1/admin/help/articles/${randomUUID()}/publish`).set(auth)).status).toBe(404);
-      expect((await request(app).post(`/v1/admin/help/articles/${randomUUID()}/unpublish`).set(auth)).status).toBe(404);
+      expect((await request(server).patch(`/v1/admin/help/articles/${created.id}`).set(auth).send({})).status).toBe(422);
+      expect((await request(server).patch(`/v1/admin/help/articles/${created.id}`).set(auth).send({ isPublished: true })).status).toBe(422);
+      expect((await request(server).patch('/v1/admin/help/articles/not-a-uuid').set(auth).send({ title: 'BR-82 x' })).status).toBe(422);
+      expect((await request(server).patch(`/v1/admin/help/articles/${randomUUID()}`).set(auth).send({ title: 'BR-82 x' })).status).toBe(404);
+      expect((await request(server).post(`/v1/admin/help/articles/${randomUUID()}/publish`).set(auth)).status).toBe(404);
+      expect((await request(server).post(`/v1/admin/help/articles/${randomUUID()}/unpublish`).set(auth)).status).toBe(404);
     });
 
     it('BR-82l: publishing an already published article is a 200 no-op without a second audit row', async () => {
@@ -370,12 +371,12 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
         body: 'SECRETBODY text',
         category: 'BR-82 Audit',
       });
-      await request(app)
+      await request(server)
         .patch(`/v1/admin/help/articles/${created.id}`)
         .set('Authorization', `Bearer ${ta.token}`)
         .send({ title: 'BR-82 SECRETTITLE two', body: 'SECRETBODY changed' });
       await publish(ta.token, created.id);
-      await request(app).post(`/v1/admin/help/articles/${created.id}/unpublish`).set('Authorization', `Bearer ${ta.token}`);
+      await request(server).post(`/v1/admin/help/articles/${created.id}/unpublish`).set('Authorization', `Bearer ${ta.token}`);
 
       const create = await audit(created.id, 'help.article.create');
       const update = await audit(created.id, 'help.article.update');
@@ -392,7 +393,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
 
     it('BR-82m: an update that changes nothing is a 200 no-op without an audit row', async () => {
       const created = await createArticle(sa.token, { title: 'BR-82 nothing changes' });
-      const res = await request(app)
+      const res = await request(server)
         .patch(`/v1/admin/help/articles/${created.id}`)
         .set('Authorization', `Bearer ${sa.token}`)
         .send({ title: 'BR-82 nothing changes' });
@@ -413,7 +414,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
            FOR EACH ROW WHEN (NEW.actor_id = '${writer.id}') EXECUTE FUNCTION br82_help_fail_audit()`,
       );
       try {
-        const res = await request(app)
+        const res = await request(server)
           .post('/v1/admin/help/articles')
           .set('Authorization', `Bearer ${writer.token}`)
           .send(valid({ title: 'BR-82 must roll back' }));
@@ -427,7 +428,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
     });
 
     it('BR-82m: SA/TA set the contact channels, every admin reader then sees them, the audit row holds names only', async () => {
-      const res = await request(app)
+      const res = await request(server)
         .patch('/v1/admin/help/contact')
         .set('Authorization', `Bearer ${sa.token}`)
         .send({ phone: '+91 1800 000 0000', email: 'br82-help@example.test' });
@@ -448,8 +449,8 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
 
     it('BR-82m: sending null clears a channel, and one channel can change alone', async () => {
       const auth = { Authorization: `Bearer ${ta.token}` };
-      await request(app).patch('/v1/admin/help/contact').set(auth).send({ phone: '+91 1800 111 1111', email: 'br82-keep@example.test' });
-      const cleared = await request(app).patch('/v1/admin/help/contact').set(auth).send({ phone: null });
+      await request(server).patch('/v1/admin/help/contact').set(auth).send({ phone: '+91 1800 111 1111', email: 'br82-keep@example.test' });
+      const cleared = await request(server).patch('/v1/admin/help/contact').set(auth).send({ phone: null });
       expect(cleared.status).toBe(200);
       expect(cleared.body).toEqual({ phone: null, email: 'br82-keep@example.test' });
     });
@@ -461,7 +462,7 @@ describeIfDatabase('BR-82i-m: admin Help & Support (real database, real router)'
       ['an unknown key', { fax: '1' }],
       ['markup in the phone', { phone: '<b>1</b>' }],
     ])('BR-82m: contact rejects %s (422)', async (_label, body) => {
-      const res = await request(app).patch('/v1/admin/help/contact').set('Authorization', `Bearer ${sa.token}`).send(body);
+      const res = await request(server).patch('/v1/admin/help/contact').set('Authorization', `Bearer ${sa.token}`).send(body);
       expect(res.status).toBe(422);
     });
   });

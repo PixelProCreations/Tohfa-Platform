@@ -16,7 +16,7 @@
  *     farm_assets migration has not run, proving the repo SQL (and the
  *     generated column) parses against 0025.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { Request, Response } from 'express';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
@@ -531,12 +531,6 @@ describeIfDatabase('farmAssetsRepo (integration)', () => {
   beforeAll(async () => {
     ready = await databaseReady('farm_assets');
     if (!ready) console.warn('[skip] farm_assets not migrated — run `pnpm db:migrate`');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   it('runs the ownership, list and lookup queries against Postgres, and the generated column computes correctly', async () => {

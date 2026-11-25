@@ -1,4 +1,4 @@
-import { RoleCode, isMoney, toPaise } from '@tohfa/shared-types';
+import { isMoney, parseMoney, toPaise } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
@@ -14,6 +14,10 @@ import type {
   PayoutResponse,
   CreatePayoutInput,
   ApprovePayoutInput,
+  ExportPayoutsQuery,
+  ListPayoutsQuery,
+  ListPayoutsResponse,
+  PayoutDetailResponse,
 } from './payouts.schema.js';
 
 // ---------------------------------------------------------------------------
@@ -41,6 +45,23 @@ export interface PayoutsService {
     input: ApprovePayoutInput,
     idempotencyKey?: string,
   ): Promise<PayoutResponse>;
+
+  exportPayouts(
+    scope: ResolvedScope,
+    query: ExportPayoutsQuery,
+  ): Promise<{ filename: string; csv: string }>;
+
+  listPayouts(
+    actor: Actor,
+    scope: ResolvedScope,
+    query: ListPayoutsQuery,
+  ): Promise<ListPayoutsResponse>;
+
+  getPayoutById(
+    actor: Actor,
+    scope: ResolvedScope,
+    payoutId: string,
+  ): Promise<PayoutDetailResponse>;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,16 +194,106 @@ export function createPayoutsService(
           }
         }
 
+        // BR-144: validate and settle items/dues
+        let itemsToPersist: Array<{ goodsReceiptId: string; amount: string }> = [];
+
+        if (input.items && input.items.length > 0) {
+          const uniqueGrIds = new Set(input.items.map((i) => i.goodsReceiptId));
+          if (uniqueGrIds.size !== input.items.length) {
+            throw new AppError('BAD_REQUEST', {
+              status: 422,
+              detail: 'Duplicate goods receipt in payout items.',
+            });
+          }
+
+          let itemsSumPaise = 0;
+          for (const item of input.items) {
+            const itemPaise = isMoney(item.amount) ? toPaise(item.amount) : 0;
+            if (itemPaise <= 0) {
+              throw new AppError('BAD_REQUEST', {
+                status: 422,
+                detail: `Item amount for goods receipt ${item.goodsReceiptId} must be positive.`,
+              });
+            }
+            itemsSumPaise += itemPaise;
+          }
+
+          if (itemsSumPaise !== amountPaise) {
+            throw new AppError('BAD_REQUEST', {
+              status: 422,
+              detail: `Payout amount ₹${input.amount} does not match sum of items.`,
+            });
+          }
+
+          const grIds = input.items.map((i) => i.goodsReceiptId);
+          const dues = await repo.getGoodsReceiptsDues(tx, input.farmerId, grIds);
+          const dueMap = new Map(dues.map((d) => [d.id, d]));
+
+          for (const item of input.items) {
+            const due = dueMap.get(item.goodsReceiptId);
+            if (!due) {
+              throw new AppError('NOT_FOUND', {
+                status: 404,
+                detail: `Goods receipt ${item.goodsReceiptId} not found or has no accepted goods for this farmer.`,
+              });
+            }
+            const itemPaise = toPaise(parseMoney(item.amount));
+            if (itemPaise > due.remainingDuePaise) {
+              throw new AppError('BAD_REQUEST', {
+                status: 422,
+                detail: `Item amount ₹${item.amount} exceeds remaining due of ₹${(due.remainingDuePaise / 100).toFixed(2)} for goods receipt ${item.goodsReceiptId}.`,
+              });
+            }
+          }
+
+          itemsToPersist = input.items;
+        } else if (input.dueIds && input.dueIds.length > 0) {
+          const dues = await repo.getGoodsReceiptsDues(tx, input.farmerId, input.dueIds);
+          const dueMap = new Map(dues.map((d) => [d.id, d]));
+          let unallocatedPaise = amountPaise;
+
+          for (const grId of input.dueIds) {
+            const due = dueMap.get(grId);
+            if (!due) {
+              throw new AppError('NOT_FOUND', {
+                status: 404,
+                detail: `Goods receipt ${grId} not found or has no accepted goods for this farmer.`,
+              });
+            }
+            if (unallocatedPaise <= 0) break;
+            const allocatePaise = Math.min(unallocatedPaise, due.remainingDuePaise);
+            if (allocatePaise > 0) {
+              itemsToPersist.push({
+                goodsReceiptId: grId,
+                amount: (allocatePaise / 100).toFixed(2),
+              });
+              unallocatedPaise -= allocatePaise;
+            }
+          }
+
+          if (unallocatedPaise > 0) {
+            throw new AppError('BAD_REQUEST', {
+              status: 422,
+              detail: `Payout amount exceeds total remaining dues for the specified dueIds.`,
+            });
+          }
+        }
+
         const created = await repo.createPayout(tx, {
           farmerId: input.farmerId,
           amount: input.amount,
           mode: input.mode,
           initiatedBy: actor.userId,
+          requiresDualApproval,
           ...(input.bankAccountId !== undefined ? { bankAccountId: input.bankAccountId } : {}),
           ...(input.dueIds !== undefined ? { dueIds: input.dueIds } : {}),
           ...(input.remarks !== undefined ? { remarks: input.remarks } : {}),
         });
         const payout = created.payout;
+
+        if (itemsToPersist.length > 0) {
+          await repo.insertPayoutItems(tx, payout.id, itemsToPersist);
+        }
 
         // At or below the threshold: approve immediately (single-approval path)
         if (!requiresDualApproval) {
@@ -249,7 +360,7 @@ export function createPayoutsService(
     // -------------------------------------------------------------------
     // POST /admin/payouts/{id}/approve  (BR-31, BR-72)
     // -------------------------------------------------------------------
-    async approvePayout(actor, _scope, payoutId, input, idempotencyKey) {
+    async approvePayout(actor, scope, payoutId, input, idempotencyKey) {
       const key = requireIdempotencyKey(idempotencyKey);
 
       const outcome = await runTx(async (tx) => {
@@ -299,19 +410,18 @@ export function createPayoutsService(
           });
         }
 
-        // For dual-approval payouts, second approver must be SUPER_ADMIN
-        const isSuperAdmin = actor.roles.some((r) => r.code === RoleCode.SUPER_ADMIN);
-        if (!isSuperAdmin) {
+        // For dual-approval payouts, approver must have payout.approve_above_10k permission (BR-31)
+        if (scope.permission !== 'payout.approve_above_10k') {
           throw new AppError('FORBIDDEN', {
             status: 403,
-            detail: 'Approvals for payouts above the dual-approval threshold require Super Admin role (BR-31).',
+            detail: 'Approvals for payouts above the dual-approval threshold require payout.approve_above_10k permission (BR-31).',
           });
         }
 
         const updatedApprovals = await repo.addApproval(tx, {
           payoutId,
           approverId: actor.userId,
-          approverRoleCode: actor.roles[0]?.code ?? 'SUPER_ADMIN',
+          approverRoleCode: scope.roleCode,
           ...(input.note !== undefined ? { note: input.note } : {}),
         });
 
@@ -354,6 +464,42 @@ export function createPayoutsService(
       }
 
       return outcome.response;
+    },
+
+    async exportPayouts(_scope, query) {
+      const rows = await repo.listPayoutsForExport(pool, query.from, query.to);
+      const csvLines = [
+        'payout_number,farmer_name,amount,status,created_at',
+        ...rows.map((r) => {
+          const paise = toPaise(parseMoney(r.amount));
+          const formattedAmount = `₹${(paise / 100).toFixed(2)}`;
+          const escapedName = r.farmer_name.includes(',') || r.farmer_name.includes('"')
+            ? `"${r.farmer_name.replace(/"/g, '""')}"`
+            : r.farmer_name;
+          return `${r.payout_number},${escapedName},${formattedAmount},${r.status},${r.created_at.toISOString()}`;
+        }),
+      ];
+
+      const fromLabel = query.from ? query.from.slice(0, 10) : 'all';
+      const toLabel = query.to ? query.to.slice(0, 10) : 'all';
+      const filename = `payouts_${fromLabel}_${toLabel}.csv`;
+
+      return {
+        filename,
+        csv: csvLines.join('\n') + '\n',
+      };
+    },
+
+    async listPayouts(_actor: Actor, _scope: ResolvedScope, query: ListPayoutsQuery): Promise<ListPayoutsResponse> {
+      return repo.listPayouts(db, query);
+    },
+
+    async getPayoutById(_actor: Actor, _scope: ResolvedScope, payoutId: string): Promise<PayoutDetailResponse> {
+      const detail = await repo.getPayoutDetail(db, payoutId);
+      if (!detail) {
+        throw new AppError('NOT_FOUND', { detail: `Payout ${payoutId} not found.` });
+      }
+      return detail;
     },
   };
 }

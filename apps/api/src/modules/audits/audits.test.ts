@@ -1575,6 +1575,23 @@ describe('Audits routes (real authorization wiring)', () => {
     expect(spy.mock.calls[0]![1].access.scope.sql).toBe('FALSE');
   });
 
+  it('BR-03 / P0-42: GET /admin/audits accepts q, minScore, maxScore, and auditorUserId query parameters', async () => {
+    const spy = vi.spyOn(auditsRepo, 'listAudits').mockResolvedValue({ rows: [], next: null });
+    const res = await request(app)
+      .get(`/v1/admin/audits?q=Murugan&minScore=50&maxScore=90&auditorUserId=${IDS.userSuperAdmin}`)
+      .set('Authorization', `Bearer ${superAdmin}`);
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        q: 'Murugan',
+        minScore: 50,
+        maxScore: 90,
+        auditorUserId: IDS.userSuperAdmin,
+      }),
+    );
+  });
+
   it('signed report link: a token request skips the session but a bad token is 403; no token and no session is 401', async () => {
     const signed = await request(app).get(`/v1/farmers/me/audits/${someId}/report?token=${'0'.repeat(64)}&expires=1`);
     expect(signed.status).toBe(403);

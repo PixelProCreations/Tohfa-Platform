@@ -205,9 +205,13 @@ describe('Orders: cancel, issues, stock check and delivery (no API, phase 5); th
     'PackingScreen',
     'PickupOtpScreen',
   ].map((name) => ({ name, source: read(`${ORDERS}/${name}.tsx`) }));
-  // M5S05 stock check, M5S13/M5S14 delivery, M5S16 issues, M5S17 cancel. M5S18
-  // (order invoice) is live and gated; see the next-but-one test.
-  const HIDDEN_ROUTE = /'M5S(05|13|14|16|17)'/;
+  // M5S13/M5S14 delivery: the only order area availability.ts takes out of the
+  // app (AREAS_WITHOUT_API = orderDelivery). Stock check (M5S05), issues
+  // (M5S16) and cancel (M5S17) are offered under the owner's 2026-10-14 policy
+  // ("nothing is hidden for having no server API"); OrdersFlow still decides
+  // whether each route opens (the test above). M5S18 (order invoice) is live
+  // and gated; see the next test.
+  const HIDDEN_ROUTE = /'M5S(13|14)'/;
 
   it('OrdersFlow refuses a hidden route (navigate and initial screen) and opens the dashboard', () => {
     expect(FLOW).toMatch(/const area = ordersRouteArea\(screen\);\s*return area === undefined \|\| isAreaAvailable\(area, can\);/);

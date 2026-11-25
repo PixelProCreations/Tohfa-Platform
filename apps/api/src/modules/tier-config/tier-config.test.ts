@@ -245,19 +245,27 @@ describe('tier config router (BR-111d)', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
-  it('BR-111d: the router registers exactly the two PATCH routes', () => {
+  it('BR-111d: the router registers exactly the GET and PATCH routes', () => {
     const routes = tierConfigRouter.stack
       .filter((layer) => layer.route !== undefined)
       .flatMap((layer) => {
         const route = layer.route as unknown as { path: string; methods: Record<string, boolean> };
         return Object.keys(route.methods).map((m) => `${m} ${route.path}`);
       });
-    expect(new Set(routes)).toEqual(new Set(['patch /rating-tiers', 'patch /audit-tier-thresholds']));
+    expect(new Set(routes)).toEqual(
+      new Set([
+        'get /rating-tiers',
+        'get /audit-tier-thresholds',
+        'patch /rating-tiers',
+        'patch /audit-tier-thresholds',
+      ]),
+    );
   });
 
-  it('BR-111d: both routes are 401 without a token and 403 for every role but SUPER_ADMIN', async () => {
+  it('BR-111d / BR-147: both routes are 401 without a token and 403 for every role but SUPER_ADMIN on GET and PATCH', async () => {
     for (const path of ['/v1/admin/rating-tiers', '/v1/admin/audit-tier-thresholds']) {
       expect((await request(server).patch(path).send(bands(50, 70, 85))).status).toBe(401);
+      expect((await request(server).get(path)).status).toBe(401);
       for (const auth of [
         token([{ code: RoleCode.TOHFA_ADMIN }]),
         token([{ code: RoleCode.FARMER_ADMIN, zoneId: IDS.zoneNorth }]),
@@ -266,8 +274,10 @@ describe('tier config router (BR-111d)', () => {
         token([{ code: RoleCode.FARMER }], { farmerId: IDS.farmer }),
         token([{ code: RoleCode.CUSTOMER }], { customerId: IDS.customer }),
       ]) {
-        const res = await request(server).patch(path).set('Authorization', auth).send(bands(50, 70, 85));
-        expect(res.status, path).toBe(403);
+        const resPatch = await request(server).patch(path).set('Authorization', auth).send(bands(50, 70, 85));
+        expect(resPatch.status, path).toBe(403);
+        const resGet = await request(server).get(path).set('Authorization', auth);
+        expect(resGet.status, path).toBe(403);
       }
     }
   });
@@ -279,6 +289,17 @@ describe('tier config router (BR-111d)', () => {
       .send({ tiers: [] });
     expect(res.status).toBe(422);
     expect(res.body.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('BR-147: GET /admin/rating-tiers and /admin/audit-tier-thresholds return the current tier configuration', async () => {
+    for (const path of ['/v1/admin/rating-tiers', '/v1/admin/audit-tier-thresholds']) {
+      const res = await request(server)
+        .get(path)
+        .set('Authorization', token([{ code: RoleCode.SUPER_ADMIN }]));
+      expect(res.status).toBe(200);
+      expect(tierBandsGeneration.safeParse(res.body).success).toBe(true);
+      expect(res.body.tiers).toHaveLength(4);
+    }
   });
 });
 

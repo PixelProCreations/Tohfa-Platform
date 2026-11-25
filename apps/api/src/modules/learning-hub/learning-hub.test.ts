@@ -10,6 +10,7 @@ import { aScope, databaseReady, describeIfDatabase, IDS, newId } from '../../tes
 import type {
   ArticleRow,
   ArticleSummaryRow,
+  CropRefRow,
   EnrollmentRow,
   GroupRow,
   LearningHubRepo,
@@ -55,14 +56,44 @@ interface FakeDbState {
   enrollments: Map<string, EnrollmentRow>;
   groups: Map<string, GroupRow>;
   memberships: Map<string, MembershipRow>;
+  /** BR-59r: the crop taxonomy. `deleted` stands in for `crop_master.deleted_at`. */
+  crops: Map<string, { ref: CropRefRow; deleted: boolean }>;
+  articleCrops: Map<string, string[]>;
+  videoCrops: Map<string, string[]>;
   auditLogs: unknown[][];
 }
 
 function createFakeRepo(state: FakeDbState): LearningHubRepo {
+  /** Mirrors the real `ORDER BY cm.name` and the "a deleted crop is not a chip" read rule. */
+  const chipsFor = (ids: string[]): CropRefRow[] =>
+    ids
+      .map((id) => state.crops.get(id))
+      .filter((c): c is { ref: CropRefRow; deleted: boolean } => c !== undefined && !c.deleted)
+      .map((c) => c.ref)
+      .sort((a, b) => a.name.localeCompare(b.name));
+
   return {
-    async findArticles(_db, { page, limit, language, tag, publishedOnly = true }) {
+    async findLiveCropIds(_db, cropIds) {
+      return cropIds.filter((id) => {
+        const crop = state.crops.get(id);
+        return crop !== undefined && !crop.deleted;
+      });
+    },
+
+    async replaceArticleCrops(_db, articleId, cropIds) {
+      state.articleCrops.set(articleId, [...cropIds]);
+      return chipsFor(cropIds);
+    },
+
+    async replaceVideoCrops(_db, videoId, cropIds) {
+      state.videoCrops.set(videoId, [...cropIds]);
+      return chipsFor(cropIds);
+    },
+
+    async findArticles(_db, { page, limit, language, tag, publishedOnly = true, reviewStatus }) {
       let list = Array.from(state.articles.values());
       if (publishedOnly) list = list.filter((a) => a.is_published);
+      if (reviewStatus) list = list.filter((a) => (a.review_status ?? 'NOT_SUBMITTED') === reviewStatus);
       if (language) list = list.filter((a) => a.language === language);
       if (tag) list = list.filter((a) => a.tag === tag);
       const total = list.length;
@@ -75,7 +106,7 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       const art = state.articles.get(id);
       if (!art) return null;
       if (publishedOnly && !art.is_published) return null;
-      return { ...art };
+      return { ...art, crops: chipsFor(state.articleCrops.get(id) ?? []) };
     },
 
     async createArticle(_db, body) {
@@ -90,6 +121,11 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
         tag: body.tag,
         language: body.language ?? 'en',
         is_published: body.isPublished ?? true,
+        review_status: 'NOT_SUBMITTED',
+        submitted_for_review_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        review_note: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -109,16 +145,19 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       if (patch.language !== undefined) art.language = patch.language;
       if (patch.isPublished !== undefined) art.is_published = patch.isPublished;
       art.updated_at = new Date().toISOString();
-      return { ...art };
+      // The real UPDATE ... RETURNING carries the crop chips as a column, so the
+      // fake must too, or "omitted cropIds leaves the tags alone" cannot be seen.
+      return { ...art, crops: chipsFor(state.articleCrops.get(id) ?? []) };
     },
 
     async deleteArticle(_db, id) {
       return state.articles.delete(id);
     },
 
-    async findVideos(_db, { page, limit, language, publishedOnly = true }) {
+    async findVideos(_db, { page, limit, language, publishedOnly = true, reviewStatus }) {
       let list = Array.from(state.videos.values());
       if (publishedOnly) list = list.filter((v) => v.is_published);
+      if (reviewStatus) list = list.filter((v) => (v.review_status ?? 'NOT_SUBMITTED') === reviewStatus);
       if (language) list = list.filter((v) => v.language === language);
       const total = list.length;
       const offset = (page - 1) * limit;
@@ -127,7 +166,7 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
 
     async findVideoById(_db, id) {
       const v = state.videos.get(id);
-      return v ? { ...v } : null;
+      return v ? { ...v, crops: chipsFor(state.videoCrops.get(id) ?? []) } : null;
     },
 
     async createVideo(_db, body) {
@@ -142,6 +181,11 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
         language: body.language ?? 'en',
         is_featured: body.isFeatured ?? false,
         is_published: body.isPublished ?? true,
+        review_status: 'NOT_SUBMITTED',
+        submitted_for_review_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        review_note: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -161,16 +205,17 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       if (patch.isFeatured !== undefined) v.is_featured = patch.isFeatured;
       if (patch.isPublished !== undefined) v.is_published = patch.isPublished;
       v.updated_at = new Date().toISOString();
-      return { ...v };
+      return { ...v, crops: chipsFor(state.videoCrops.get(id) ?? []) };
     },
 
     async deleteVideo(_db, id) {
       return state.videos.delete(id);
     },
 
-    async findTrainings(_db, { page, limit, language, publishedOnly = true, farmerId }) {
+    async findTrainings(_db, { page, limit, language, publishedOnly = true, farmerId, reviewStatus }) {
       let list = Array.from(state.trainings.values());
       if (publishedOnly) list = list.filter((t) => t.is_published);
+      if (reviewStatus) list = list.filter((t) => (t.review_status ?? 'NOT_SUBMITTED') === reviewStatus);
       if (language) list = list.filter((t) => t.language === language);
       const total = list.length;
       const offset = (page - 1) * limit;
@@ -213,6 +258,11 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
         capacity: body.capacity ?? null,
         language: body.language ?? 'en',
         is_published: body.isPublished ?? true,
+        review_status: 'NOT_SUBMITTED',
+        submitted_for_review_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        review_note: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         enrolled_count: 0,
@@ -274,9 +324,10 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       return state.enrollments.delete(key);
     },
 
-    async findGroups(_db, { page, limit, category, farmerId }) {
+    async findGroups(_db, { page, limit, category, farmerId, reviewStatus }) {
       let list = Array.from(state.groups.values());
       if (category) list = list.filter((g) => g.category === category);
+      if (reviewStatus) list = list.filter((g) => (g.review_status ?? 'NOT_SUBMITTED') === reviewStatus);
       const total = list.length;
       const offset = (page - 1) * limit;
       const rows = list.slice(offset, offset + limit).map((g) => {
@@ -310,6 +361,11 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
         name: body.name,
         description: body.description ?? null,
         category: body.category,
+        review_status: 'NOT_SUBMITTED',
+        submitted_for_review_at: null,
+        reviewed_by: null,
+        reviewed_at: null,
+        review_note: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         member_count: 0,
@@ -333,6 +389,22 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       return state.groups.delete(id);
     },
 
+    async archiveGroup(_db, id) {
+      const g = state.groups.get(id);
+      if (!g) return null;
+      const updated = { ...g, archived_at: new Date().toISOString() };
+      state.groups.set(id, updated);
+      return updated;
+    },
+
+    async countGroupMembers(_db, groupId) {
+      let count = 0;
+      for (const m of state.memberships.values()) {
+        if (m.group_id === groupId) count += 1;
+      }
+      return count;
+    },
+
     async joinGroup(_db, groupId, farmerId) {
       const key = `${groupId}:${farmerId}`;
       const existing = state.memberships.get(key);
@@ -351,6 +423,86 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       const key = `${groupId}:${farmerId}`;
       return state.memberships.delete(key);
     },
+
+    async submitReview(_db, type, id, note) {
+      const now = new Date().toISOString();
+      if (type === 'articles') {
+        const item = state.articles.get(id);
+        if (!item) return null;
+        item.review_status = 'PENDING_REVIEW';
+        item.submitted_for_review_at = now;
+        if (note !== undefined) item.review_note = note;
+        item.updated_at = now;
+        return { ...item, crops: chipsFor(state.articleCrops.get(id) ?? []) };
+      }
+      if (type === 'videos') {
+        const item = state.videos.get(id);
+        if (!item) return null;
+        item.review_status = 'PENDING_REVIEW';
+        item.submitted_for_review_at = now;
+        if (note !== undefined) item.review_note = note;
+        item.updated_at = now;
+        return { ...item, crops: chipsFor(state.videoCrops.get(id) ?? []) };
+      }
+      if (type === 'trainings') {
+        const item = state.trainings.get(id);
+        if (!item) return null;
+        item.review_status = 'PENDING_REVIEW';
+        item.submitted_for_review_at = now;
+        if (note !== undefined) item.review_note = note;
+        item.updated_at = now;
+        return { ...item };
+      }
+      const item = state.groups.get(id);
+      if (!item) return null;
+      item.review_status = 'PENDING_REVIEW';
+      item.submitted_for_review_at = now;
+      if (note !== undefined) item.review_note = note;
+      item.updated_at = now;
+      return { ...item };
+    },
+
+    async reviewContent(_db, type, id, status, reviewerId, note) {
+      const now = new Date().toISOString();
+      if (type === 'articles') {
+        const item = state.articles.get(id);
+        if (!item) return null;
+        item.review_status = status;
+        item.reviewed_by = reviewerId;
+        item.reviewed_at = now;
+        item.review_note = note ?? null;
+        item.updated_at = now;
+        return { ...item, crops: chipsFor(state.articleCrops.get(id) ?? []) };
+      }
+      if (type === 'videos') {
+        const item = state.videos.get(id);
+        if (!item) return null;
+        item.review_status = status;
+        item.reviewed_by = reviewerId;
+        item.reviewed_at = now;
+        item.review_note = note ?? null;
+        item.updated_at = now;
+        return { ...item, crops: chipsFor(state.videoCrops.get(id) ?? []) };
+      }
+      if (type === 'trainings') {
+        const item = state.trainings.get(id);
+        if (!item) return null;
+        item.review_status = status;
+        item.reviewed_by = reviewerId;
+        item.reviewed_at = now;
+        item.review_note = note ?? null;
+        item.updated_at = now;
+        return { ...item };
+      }
+      const item = state.groups.get(id);
+      if (!item) return null;
+      item.review_status = status;
+      item.reviewed_by = reviewerId;
+      item.reviewed_at = now;
+      item.review_note = note ?? null;
+      item.updated_at = now;
+      return { ...item };
+    },
   };
 }
 
@@ -362,6 +514,9 @@ function createTestContext() {
     enrollments: new Map(),
     groups: new Map(),
     memberships: new Map(),
+    crops: new Map(),
+    articleCrops: new Map(),
+    videoCrops: new Map(),
     auditLogs: [],
   };
   const repo = createFakeRepo(state);
@@ -760,8 +915,6 @@ describeIfDatabase('Learning Hub (integration, real SQL)', () => {
     await pool.query(`DELETE FROM learning_groups WHERE id = ANY($1::uuid[])`, [groupIds]);
     await pool.query(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, [farmerIds]);
     farmers = [];
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   const makeTraining = async (overrides: Partial<typeof baseTraining> = {}) => {
@@ -868,5 +1021,355 @@ describeIfDatabase('Learning Hub (integration, real SQL)', () => {
       [group.id],
     );
     expect(audits.rows[0]!.n).toBe(1);
+  });
+
+  it('BR-59q: POST /admin/learning/groups/:id/archive archives group; DELETE refuses group with members (409 CONFLICT) and permits group with 0 members', async () => {
+    if (!ready) return;
+    const group = await service.createGroup(admin, { name: `LH group arch ${ts}`, category: 'Tea' });
+    groupIds.push(group.id);
+    const farmer = farmers[0]!;
+    await service.joinGroup(farmer, group.id);
+
+    // 1. Deleting a group with members throws 409 CONFLICT
+    await expect(service.deleteGroup(admin, group.id)).rejects.toMatchObject({
+      status: 409,
+    });
+
+    // 2. Archiving the group succeeds
+    const archived = await (service as any).archiveGroup(admin, group.id);
+    expect(archived).toHaveProperty('isArchived', true);
+
+    // 3. Leaving the group allows delete to succeed
+    await service.leaveGroup(farmer, group.id);
+    await expect(service.deleteGroup(admin, group.id)).resolves.not.toThrow();
+  });
+});
+
+// ── Crop tagging (BR-59r) ────────────────────────────────────────────────────
+describe('Learning Hub crop tagging (BR-59r)', () => {
+  const CARROT = '40000000-0000-4000-8000-00000000000a';
+  const CABBAGE = '40000000-0000-4000-8000-00000000000b';
+  const RETIRED = '40000000-0000-4000-8000-00000000000c';
+
+  /** A context whose taxonomy holds two live crops and one soft-deleted one. */
+  function cropContext() {
+    const ctx = createTestContext();
+    ctx.state.crops.set(CARROT, { ref: { id: CARROT, name: 'Carrot', nameTa: 'கேரட்' }, deleted: false });
+    ctx.state.crops.set(CABBAGE, { ref: { id: CABBAGE, name: 'Cabbage', nameTa: null }, deleted: false });
+    ctx.state.crops.set(RETIRED, { ref: { id: RETIRED, name: 'Retired Crop', nameTa: null }, deleted: true });
+    return ctx;
+  }
+
+  const article = {
+    title: 'Carrot Sowing Depth',
+    content: 'How deep to sow in Nilgiris loam',
+    readTime: '4 min read',
+    author: 'Dr. Anand',
+    tag: 'Agronomy',
+    language: 'en' as const,
+    isPublished: true,
+  };
+
+  const video = {
+    title: 'Carrot Thinning',
+    videoUrl: 'https://videos.tohfa.test/carrot-thinning',
+    duration: '6:10',
+    author: 'Field Team',
+    language: 'en' as const,
+    isFeatured: false,
+    isPublished: true,
+  };
+
+  it('BR-59r: an article created with cropIds comes back with the matching chips, Tamil name included', async () => {
+    const { service, state } = cropContext();
+
+    const created = await service.createArticle(adminScope(), { ...article, cropIds: [CARROT, CABBAGE] });
+
+    // Ordered by name, so the chip row is stable between requests.
+    expect(created.crops).toEqual([
+      { id: CABBAGE, name: 'Cabbage', nameTa: null },
+      { id: CARROT, name: 'Carrot', nameTa: 'கேரட்' },
+    ]);
+    expect(state.articleCrops.get(created.id)).toEqual([CARROT, CABBAGE]);
+  });
+
+  it('BR-59r: an article created without cropIds has no tags and reports an empty chip list', async () => {
+    const { service, state } = cropContext();
+
+    const created = await service.createArticle(adminScope(), article);
+
+    expect(created.crops).toEqual([]);
+    expect(state.articleCrops.has(created.id)).toBe(false);
+  });
+
+  it('BR-59r: on update, omitted cropIds leaves the tags unchanged and [] clears them', async () => {
+    const { service, state } = cropContext();
+    const created = await service.createArticle(adminScope(), { ...article, cropIds: [CARROT] });
+
+    // Omitted: the tags survive a patch that touches only the title.
+    const renamed = await service.updateArticle(adminScope(), created.id, { title: 'Carrot Sowing Depth v2' });
+    expect(renamed.crops).toEqual([{ id: CARROT, name: 'Carrot', nameTa: 'கேரட்' }]);
+    expect(state.articleCrops.get(created.id)).toEqual([CARROT]);
+
+    // Sent in full: the set is replaced, not merged.
+    const retagged = await service.updateArticle(adminScope(), created.id, { cropIds: [CABBAGE] });
+    expect(retagged.crops).toEqual([{ id: CABBAGE, name: 'Cabbage', nameTa: null }]);
+    expect(state.articleCrops.get(created.id)).toEqual([CABBAGE]);
+
+    // Empty: cleared.
+    const cleared = await service.updateArticle(adminScope(), created.id, { cropIds: [] });
+    expect(cleared.crops).toEqual([]);
+    expect(state.articleCrops.get(created.id)).toEqual([]);
+  });
+
+  it('BR-59r: an unknown crop id is rejected with 422 naming it, and nothing is tagged', async () => {
+    const { service, state } = cropContext();
+    const ghost = newId();
+
+    await expect(
+      service.createArticle(adminScope(), { ...article, cropIds: [CARROT, ghost] }),
+    ).rejects.toMatchObject({ status: 422, code: 'VALIDATION_FAILED' });
+
+    await expect(
+      service.createArticle(adminScope(), { ...article, cropIds: [ghost] }),
+    ).rejects.toThrow(new RegExp(ghost));
+
+    expect(state.articleCrops.size).toBe(0);
+  });
+
+  it('BR-59r: a soft-deleted crop id is rejected, never silently dropped', async () => {
+    const { service } = cropContext();
+
+    await expect(
+      service.createArticle(adminScope(), { ...article, cropIds: [CARROT, RETIRED] }),
+    ).rejects.toMatchObject({ status: 422, code: 'VALIDATION_FAILED' });
+
+    const created = await service.createArticle(adminScope(), { ...article, cropIds: [CARROT] });
+    await expect(
+      service.updateArticle(adminScope(), created.id, { cropIds: [RETIRED] }),
+    ).rejects.toMatchObject({ status: 422, code: 'VALIDATION_FAILED' });
+  });
+
+  it('BR-59r: an unknown crop id on update leaves the existing tags alone', async () => {
+    const { service, state } = cropContext();
+    const created = await service.createArticle(adminScope(), { ...article, cropIds: [CARROT] });
+
+    await expect(
+      service.updateArticle(adminScope(), created.id, { title: 'Ignored', cropIds: [newId()] }),
+    ).rejects.toMatchObject({ status: 422 });
+
+    expect(state.articleCrops.get(created.id)).toEqual([CARROT]);
+  });
+
+  it('BR-59r: the same crop picked twice is stored once', async () => {
+    const { service, state } = cropContext();
+
+    const created = await service.createArticle(adminScope(), { ...article, cropIds: [CARROT, CARROT] });
+
+    expect(created.crops).toEqual([{ id: CARROT, name: 'Carrot', nameTa: 'கேரட்' }]);
+    expect(state.articleCrops.get(created.id)).toEqual([CARROT]);
+  });
+
+  it('BR-59r: videos carry the same contract as articles', async () => {
+    const { service, state } = cropContext();
+
+    const created = await service.createVideo(adminScope(), { ...video, cropIds: [CARROT] });
+    expect(created.crops).toEqual([{ id: CARROT, name: 'Carrot', nameTa: 'கேரட்' }]);
+
+    const untouched = await service.updateVideo(adminScope(), created.id, { title: 'Carrot Thinning v2' });
+    expect(untouched.crops).toEqual([{ id: CARROT, name: 'Carrot', nameTa: 'கேரட்' }]);
+
+    const cleared = await service.updateVideo(adminScope(), created.id, { cropIds: [] });
+    expect(cleared.crops).toEqual([]);
+    expect(state.videoCrops.get(created.id)).toEqual([]);
+
+    await expect(
+      service.updateVideo(adminScope(), created.id, { cropIds: [RETIRED] }),
+    ).rejects.toMatchObject({ status: 422, code: 'VALIDATION_FAILED' });
+  });
+
+  it('BR-59r: the crop set lands in the audit row, so a retag is attributable', async () => {
+    const { service, audits } = cropContext();
+
+    const created = await service.createArticle(adminScope(), { ...article, cropIds: [CARROT] });
+    await service.updateArticle(adminScope(), created.id, { cropIds: [CABBAGE] });
+
+    const updateAudit = audits.find((a) => a.includes('learning.article.update'));
+    expect(JSON.stringify(updateAudit)).toContain(CABBAGE);
+  });
+});
+
+describe('Learning Hub Content Review Workflow (BR-59t)', () => {
+  const superAdmin = aScope({
+    level: ScopeLevel.ALL,
+    userId: newId(),
+    roleCode: RoleCode.SUPER_ADMIN,
+    permission: 'learning.content.review',
+  });
+
+  const baseArticle = {
+    title: 'Reviewable Article',
+    content: 'Reviewable Content',
+    readTime: '3 min',
+    author: 'Admin Team',
+    tag: 'Agronomy',
+    language: 'en' as const,
+    isPublished: true,
+  };
+
+  it('initial state is NOT_SUBMITTED and isPublished can be true immediately', async () => {
+    const { service } = createTestContext();
+    const created = await service.createArticle(adminScope(), baseArticle);
+    expect(created.reviewStatus).toBe('NOT_SUBMITTED');
+    expect(created.submittedForReviewAt).toBeNull();
+    expect(created.reviewedBy).toBeNull();
+    expect(created.reviewedAt).toBeNull();
+    expect(created.reviewNote).toBeNull();
+    expect(created.isPublished).toBe(true);
+  });
+
+  it('submitting for review moves status to PENDING_REVIEW and leaves isPublished unchanged', async () => {
+    const { service, audits } = createTestContext();
+    const created = await service.createArticle(adminScope(), baseArticle);
+
+    const submitted = await service.submitReview(adminScope(), 'articles', created.id, {
+      note: 'Please review agronomy details',
+    });
+    expect(submitted.reviewStatus).toBe('PENDING_REVIEW');
+    expect(submitted.submittedForReviewAt).toBeTruthy();
+    expect(submitted.reviewNote).toBe('Please review agronomy details');
+    if ('isPublished' in submitted) {
+      expect(submitted.isPublished).toBe(true);
+    }
+
+    const submitAudit = audits.find((a) => a.includes('learning.article.submit_review'));
+    expect(submitAudit).toBeDefined();
+  });
+
+  it('super admin can approve content and audit log is recorded', async () => {
+    const { service, audits } = createTestContext();
+    const created = await service.createArticle(adminScope(), baseArticle);
+    await service.submitReview(adminScope(), 'articles', created.id, {});
+
+    const reviewed = await service.reviewContent(superAdmin, 'articles', created.id, {
+      status: 'APPROVED',
+      note: 'Verified and approved',
+    });
+    expect(reviewed.reviewStatus).toBe('APPROVED');
+    expect(reviewed.reviewedBy).toBe(superAdmin.userId);
+    expect(reviewed.reviewedAt).toBeTruthy();
+    expect(reviewed.reviewNote).toBe('Verified and approved');
+    if ('isPublished' in reviewed) {
+      expect(reviewed.isPublished).toBe(true);
+    }
+
+    const reviewAudit = audits.find((a) => a.includes('learning.article.review'));
+    expect(reviewAudit).toBeDefined();
+  });
+
+  it('super admin rejection does NOT unpublish content (two independent axes)', async () => {
+    const { service } = createTestContext();
+    const created = await service.createArticle(adminScope(), baseArticle);
+    await service.submitReview(adminScope(), 'articles', created.id, {});
+
+    const rejected = await service.reviewContent(superAdmin, 'articles', created.id, {
+      status: 'REJECTED',
+      note: 'Factual corrections needed in section 2',
+    });
+    expect(rejected.reviewStatus).toBe('REJECTED');
+    expect(rejected.reviewedBy).toBe(superAdmin.userId);
+    expect(rejected.reviewNote).toBe('Factual corrections needed in section 2');
+    // Independent axis: isPublished remains true!
+    if ('isPublished' in rejected) {
+      expect(rejected.isPublished).toBe(true);
+    }
+  });
+
+  it('rejected content can be resubmitted for review', async () => {
+    const { service } = createTestContext();
+    const created = await service.createArticle(adminScope(), baseArticle);
+    await service.submitReview(adminScope(), 'articles', created.id, {});
+    await service.reviewContent(superAdmin, 'articles', created.id, { status: 'REJECTED' });
+
+    const resubmitted = await service.submitReview(adminScope(), 'articles', created.id, {
+      note: 'Corrections made as requested',
+    });
+    expect(resubmitted.reviewStatus).toBe('PENDING_REVIEW');
+    expect(resubmitted.reviewNote).toBe('Corrections made as requested');
+  });
+
+  it('works symmetrically across videos, trainings, and groups', async () => {
+    const { service } = createTestContext();
+
+    // Video
+    const vid = await service.createVideo(adminScope(), {
+      title: 'Video 1',
+      videoUrl: 'https://v.example/1',
+      duration: '3:00',
+      author: 'A',
+      language: 'en',
+      isFeatured: false,
+      isPublished: true,
+    });
+    expect(vid.reviewStatus).toBe('NOT_SUBMITTED');
+    const vidSub = await service.submitReview(adminScope(), 'videos', vid.id, {});
+    expect(vidSub.reviewStatus).toBe('PENDING_REVIEW');
+    const vidRev = await service.reviewContent(superAdmin, 'videos', vid.id, { status: 'APPROVED' });
+    expect(vidRev.reviewStatus).toBe('APPROVED');
+
+    // Training
+    const trn = await service.createTraining(adminScope(), baseTraining);
+    expect(trn.reviewStatus).toBe('NOT_SUBMITTED');
+    const trnSub = await service.submitReview(adminScope(), 'trainings', trn.id, {});
+    expect(trnSub.reviewStatus).toBe('PENDING_REVIEW');
+    const trnRev = await service.reviewContent(superAdmin, 'trainings', trn.id, { status: 'APPROVED' });
+    expect(trnRev.reviewStatus).toBe('APPROVED');
+
+    // Group
+    const grp = await service.createGroup(adminScope(), { name: 'Pest Group', category: 'General' });
+    expect(grp.reviewStatus).toBe('NOT_SUBMITTED');
+    const grpSub = await service.submitReview(adminScope(), 'groups', grp.id, {});
+    expect(grpSub.reviewStatus).toBe('PENDING_REVIEW');
+    const grpRev = await service.reviewContent(superAdmin, 'groups', grp.id, { status: 'APPROVED' });
+    expect(grpRev.reviewStatus).toBe('APPROVED');
+  });
+
+  it('throws 404 for non-existent content on submitReview and reviewContent', async () => {
+    const { service } = createTestContext();
+    const missingId = newId();
+
+    await expect(service.submitReview(adminScope(), 'articles', missingId, {})).rejects.toMatchObject({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+    await expect(
+      service.reviewContent(superAdmin, 'articles', missingId, { status: 'APPROVED' }),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'NOT_FOUND',
+    });
+  });
+
+  it('admin listing filters by reviewStatus query param', async () => {
+    const { service } = createTestContext();
+    const art1 = await service.createArticle(adminScope(), { ...baseArticle, title: 'Art 1' });
+    const art2 = await service.createArticle(adminScope(), { ...baseArticle, title: 'Art 2' });
+    await service.submitReview(adminScope(), 'articles', art2.id, {});
+
+    const pendingOnly = await service.listAdminArticles({
+      page: 1,
+      limit: 10,
+      reviewStatus: 'PENDING_REVIEW',
+    });
+    expect(pendingOnly.items).toHaveLength(1);
+    expect(pendingOnly.items[0]!.id).toBe(art2.id);
+
+    const notSubmittedOnly = await service.listAdminArticles({
+      page: 1,
+      limit: 10,
+      reviewStatus: 'NOT_SUBMITTED',
+    });
+    expect(notSubmittedOnly.items).toHaveLength(1);
+    expect(notSubmittedOnly.items[0]!.id).toBe(art1.id);
   });
 });

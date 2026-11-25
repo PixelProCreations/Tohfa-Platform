@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { useFarmerSummary } from '../../api/farmerHooks';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 const P = {
   bg: '#FAF8F5',
@@ -27,42 +29,45 @@ const P = {
   redBadgeText: '#D32F2F',
 };
 
-const TIERS = [
-  {
-    title: 'Excellent — 750+',
-    sub: 'Full compliance, no restrictions',
-    count: '612',
-    pct: '48%',
-    dotColor: P.tierGreenDot,
-  },
-  {
-    title: 'Good — 700-749',
-    sub: 'Standard standing',
-    count: '401',
-    pct: '31%',
-    dotColor: P.tierBlueDot,
-  },
-  {
-    title: 'Moderate — 650-700',
-    sub: 'Improvement recommended',
-    count: '198',
-    pct: '15%',
-    dotColor: P.tierAmberDot,
-  },
-  {
-    title: 'Poor — Below 650',
-    sub: 'Compliance action required',
-    count: '73',
-    pct: '6%',
-    dotColor: P.tierRedDot,
-  },
-];
-
 interface Props {
   onBack: () => void;
 }
 
 export const AdminComplianceTiersScreen: React.FC<Props> = ({ onBack }) => {
+  const { summary } = useFarmerSummary(undefined);
+
+  // BR-63 / R6: FarmerSummaryDto provides no per-tier counts or splits; keep tiers dashed.
+  const tiers = [
+    {
+      title: 'Excellent — 750+',
+      sub: 'Full compliance, no restrictions',
+      count: ADMIN_NO_VALUE,
+      pct: ADMIN_NO_VALUE,
+      dotColor: P.tierGreenDot,
+    },
+    {
+      title: 'Good — 700-749',
+      sub: 'Standard standing',
+      count: ADMIN_NO_VALUE,
+      pct: ADMIN_NO_VALUE,
+      dotColor: P.tierBlueDot,
+    },
+    {
+      title: 'Moderate — 650-700',
+      sub: 'Improvement recommended',
+      count: ADMIN_NO_VALUE,
+      pct: ADMIN_NO_VALUE,
+      dotColor: P.tierAmberDot,
+    },
+    {
+      title: 'Poor — Below 650',
+      sub: 'Compliance action required',
+      count: ADMIN_NO_VALUE,
+      pct: ADMIN_NO_VALUE,
+      dotColor: P.tierRedDot,
+    },
+  ];
+
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
@@ -95,11 +100,13 @@ export const AdminComplianceTiersScreen: React.FC<Props> = ({ onBack }) => {
       >
         {/* Title & Subtitle */}
         <Text style={styles.title}>Compliance Tiers</Text>
-        <Text style={styles.subtitle}>1,284 farms classified by audit score</Text>
+        <Text style={styles.subtitle}>
+          {summary ? `${summary.totalFarmers} farms classified by audit score` : 'Farms classified by audit score'}
+        </Text>
 
         {/* 4 Compliance Tier Cards */}
         <View style={styles.tiersList}>
-          {TIERS.map((tier, idx) => (
+          {tiers.map((tier, idx) => (
             <View key={idx} style={styles.tierCard}>
               <View style={[styles.tierDotSquare, { backgroundColor: tier.dotColor }]} />
               <View style={styles.tierInfo}>
@@ -119,21 +126,21 @@ export const AdminComplianceTiersScreen: React.FC<Props> = ({ onBack }) => {
 
         {/* 2 Metric Cards */}
         <View style={styles.metricsRow}>
-          {/* Card 1: 94% Audited This Quarter */}
+          {/* Card 1: Audited This Quarter */}
           <View style={styles.metricCard}>
             <View style={[styles.metricIconBox, { backgroundColor: P.greenBadgeBg }]}>
               <Icon name="check" size={18} color={P.greenBadgeText} />
             </View>
-            <Text style={styles.metricValue}>94%</Text>
+            <Text style={styles.metricValue}>{ADMIN_NO_VALUE}</Text>
             <Text style={styles.metricLabel}>Audited This Quarter</Text>
           </View>
 
-          {/* Card 2: 7 Overdue Audits */}
+          {/* Card 2: Overdue Audits */}
           <View style={styles.metricCard}>
             <View style={[styles.metricIconBox, { backgroundColor: P.redBadgeBg }]}>
               <Icon name="shield" size={18} color={P.redBadgeText} />
             </View>
-            <Text style={styles.metricValue}>7</Text>
+            <Text style={styles.metricValue}>{ADMIN_NO_VALUE}</Text>
             <Text style={styles.metricLabel}>Overdue Audits</Text>
           </View>
         </View>

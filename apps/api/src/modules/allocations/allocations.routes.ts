@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
@@ -12,6 +13,14 @@ import { allocationsService } from './allocations.service.js';
 export const adminAllocationsRouter: Router = Router();
 export const adminAllocationConfigRouter: Router = Router();
 
+const getAllocationConfigQuery = z
+  .object({
+    warehouseId: z.string().uuid('warehouseId must be a UUID').optional(),
+    cropId: z.string().uuid('cropId must be a UUID').optional(),
+    grade: z.string().optional(),
+  })
+  .strict();
+
 adminAllocationsRouter.get(
   '/',
   requireAuth,
@@ -21,6 +30,18 @@ adminAllocationsRouter.get(
     const scope = requireScope(req.scope);
     const filters = getValidated(req, 'query', listAllocationsQuery);
     res.json(await allocationsService.listAllocations(scope, filters));
+  }),
+);
+
+adminAllocationConfigRouter.get(
+  '/',
+  requireAuth,
+  requirePermission('allocation.channel_percentage.set'),
+  validate({ query: getAllocationConfigQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', getAllocationConfigQuery);
+    res.json(await allocationsService.getAllocationConfig(scope, query));
   }),
 );
 

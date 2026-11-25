@@ -169,6 +169,12 @@ export interface StockMovementRow {
   createdByName?: string | undefined;
   /** Who approved the stock adjustment that inserted the row (StockLedgerEntry.approvedByName, BR-130). */
   approvedByName?: string | undefined;
+  /** From the batch, only when it is among the loaded batches: crop, grade and storage location. */
+  cropId?: string | undefined;
+  grade?: string | undefined;
+  productName?: string | undefined;
+  gradeLabel?: string | undefined;
+  storageLocation?: string | undefined;
 }
 
 export type AllocationChannelKey = 'online' | 'liveMarket' | 'reserve' | 'buffer' | 'unknown';
@@ -190,6 +196,30 @@ export interface AllocationDashboard {
   /** online, liveMarket, reserve, buffer always; 'unknown' appended only when present. */
   channels: AllocationChannelSummary[];
   totalAllocatedGrams: number;
+}
+
+/**
+ * The six channels the allocation design draws. HORECA and B2B are sales
+ * channels, not BR-12 buckets (docs/openapi.yaml AllocationChannel), so the
+ * API never gives them a figure and they always show ADMIN_NO_VALUE.
+ */
+export type AllocationSplitChannel = 'online' | 'liveMarket' | 'horeca' | 'b2b' | 'reserve' | 'buffer';
+
+/** Display percentage per design channel ('70%'), ADMIN_NO_VALUE where the API gave none. */
+export type AllocationSplitFigures = Record<AllocationSplitChannel, string>;
+
+/** The configured split (GET /admin/allocation-config) as the screen draws it. */
+export interface AllocationSplitView {
+  figures: AllocationSplitFigures;
+  /** Sum of the configured percentages, or ADMIN_NO_VALUE when any bucket is missing. */
+  total: string;
+}
+
+/** One row of the 'Warehouse allocation' table: each channel's share of that warehouse's allocated stock. */
+export interface WarehouseAllocationRow {
+  warehouseId: string;
+  name: string;
+  figures: AllocationSplitFigures;
 }
 
 /** One LOW_STOCK alert as a low-stock row. */

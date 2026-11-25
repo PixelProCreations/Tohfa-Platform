@@ -9,6 +9,7 @@ import {
   type EnrollmentRow,
   type GroupRow,
   type LearningHubRepo,
+  type ReviewStatus,
   type TrainingRow,
   type VideoRow,
 } from './learning-hub.repo.js';
@@ -19,6 +20,7 @@ import type {
   CreateVideoBody,
   LearningArticleResponse,
   LearningArticleSummaryResponse,
+  LearningContentType,
   LearningGroupResponse,
   LearningTrainingResponse,
   LearningVideoResponse,
@@ -30,6 +32,8 @@ import type {
   ListGroupsQuery,
   ListTrainingsQuery,
   ListVideosQuery,
+  ReviewContentBody,
+  SubmitReviewBody,
   UpdateArticleBody,
   UpdateGroupBody,
   UpdateTrainingBody,
@@ -44,6 +48,22 @@ export interface LearningHubServiceDeps {
   runTx: TransactionRunner;
 }
 
+function mapReviewFields(row: {
+  review_status?: ReviewStatus | undefined;
+  submitted_for_review_at?: string | null | undefined;
+  reviewed_by?: string | null | undefined;
+  reviewed_at?: string | null | undefined;
+  review_note?: string | null | undefined;
+}) {
+  return {
+    reviewStatus: row.review_status ?? 'NOT_SUBMITTED',
+    submittedForReviewAt: row.submitted_for_review_at ?? null,
+    reviewedBy: row.reviewed_by ?? null,
+    reviewedAt: row.reviewed_at ?? null,
+    reviewNote: row.review_note ?? null,
+  };
+}
+
 function mapArticle(row: ArticleRow): LearningArticleResponse {
   return {
     id: row.id,
@@ -55,6 +75,8 @@ function mapArticle(row: ArticleRow): LearningArticleResponse {
     tag: row.tag,
     language: row.language,
     isPublished: row.is_published,
+    crops: row.crops ?? [],
+    ...mapReviewFields(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -70,6 +92,8 @@ function mapArticleSummary(row: ArticleSummaryRow): LearningArticleSummaryRespon
     tag: row.tag,
     language: row.language,
     isPublished: row.is_published,
+    crops: row.crops ?? [],
+    ...mapReviewFields(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -86,13 +110,15 @@ function mapVideo(row: VideoRow): LearningVideoResponse {
     language: row.language,
     isFeatured: row.is_featured,
     isPublished: row.is_published,
+    crops: row.crops ?? [],
+    ...mapReviewFields(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
 function mapTraining(row: TrainingRow): LearningTrainingResponse {
-  return {
+  const result: LearningTrainingResponse = {
     id: row.id,
     title: row.title,
     description: row.description,
@@ -110,6 +136,10 @@ function mapTraining(row: TrainingRow): LearningTrainingResponse {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+  if (row.review_status !== undefined) {
+    Object.assign(result, mapReviewFields(row));
+  }
+  return result;
 }
 
 function mapAdminTraining(row: TrainingRow): LearningTrainingResponse {
@@ -127,6 +157,7 @@ function mapAdminTraining(row: TrainingRow): LearningTrainingResponse {
     enrolledCount: Number(row.enrolled_count ?? 0),
     language: row.language,
     isPublished: row.is_published,
+    ...mapReviewFields(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -137,7 +168,7 @@ function toEnrollmentResponse(row: EnrollmentRow) {
 }
 
 function mapGroup(row: GroupRow): LearningGroupResponse {
-  return {
+  const result: LearningGroupResponse = {
     id: row.id,
     name: row.name,
     description: row.description,
@@ -147,22 +178,68 @@ function mapGroup(row: GroupRow): LearningGroupResponse {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+  if (row.community_id !== undefined) {
+    result.communityId = row.community_id;
+  }
+  if (row.archived_at !== undefined) {
+    result.archivedAt = row.archived_at;
+    result.isArchived = Boolean(row.archived_at);
+  }
+  if (row.review_status !== undefined) {
+    Object.assign(result, mapReviewFields(row));
+  }
+  return result;
 }
 
 function mapAdminGroup(row: GroupRow): LearningGroupResponse {
-  return {
+  const result: LearningGroupResponse = {
     id: row.id,
     name: row.name,
     description: row.description,
     category: row.category,
     memberCount: Number(row.member_count ?? 0),
+    isArchived: Boolean(row.archived_at),
+    archivedAt: row.archived_at ?? null,
+    ...mapReviewFields(row),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+  if (row.community_id !== undefined) {
+    result.communityId = row.community_id;
+  }
+  return result;
 }
 
 export class LearningHubService {
   constructor(private readonly deps: LearningHubServiceDeps) {}
+
+  /**
+   * BR-59r: turns the request's `cropIds` into the set to store.
+   *
+   * Returns `undefined` when the caller omitted the field — the signal to leave
+   * the existing tags untouched, the same contract every other optional field
+   * in this module's PATCH bodies follows. `[]` means clear.
+   *
+   * Duplicates inside one request are collapsed (the join table's primary key
+   * would reject them, and an admin picking the same chip twice means one tag,
+   * not an error). An id that is not a live `crop_master` row is a 422 naming
+   * the offenders: dropping it silently would show the admin a saved form with
+   * fewer chips than they picked and no explanation.
+   */
+  private async resolveCropIds(db: Executor, cropIds: string[] | undefined): Promise<string[] | undefined> {
+    if (cropIds === undefined) return undefined;
+    const unique = [...new Set(cropIds)];
+    if (unique.length === 0) return [];
+
+    const live = new Set(await this.deps.repo.findLiveCropIds(db, unique));
+    const unknown = unique.filter((id) => !live.has(id));
+    if (unknown.length > 0) {
+      throw new AppError('VALIDATION_FAILED', {
+        detail: `Unknown or deleted crop id(s): ${unknown.join(', ')}`,
+      });
+    }
+    return unique;
+  }
 
   // ── Articles ───────────────────────────────────────────────────────────────
   async listArticles(query: ListArticlesQuery) {
@@ -188,16 +265,22 @@ export class LearningHubService {
 
   async createArticle(scope: ResolvedScope, body: CreateArticleBody) {
     return this.deps.runTx(async (tx) => {
+      // Validated before the INSERT so a bad crop id costs one SELECT, not a
+      // write that has to be rolled back.
+      const cropIds = await this.resolveCropIds(tx, body.cropIds);
       const created = await this.deps.repo.createArticle(tx, body);
+      const row = cropIds === undefined
+        ? created
+        : { ...created, crops: await this.deps.repo.replaceArticleCrops(tx, created.id, cropIds) };
       await writeAuditLog(tx, {
         actorId: scope.userId,
         actorRole: scope.roleCode,
         actionCode: 'learning.article.create',
         entityType: 'learning_article',
-        entityId: created.id,
-        after: created,
+        entityId: row.id,
+        after: row,
       });
-      return mapArticle(created);
+      return mapArticle(row);
     });
   }
 
@@ -207,21 +290,26 @@ export class LearningHubService {
       if (!before) {
         throw new AppError('NOT_FOUND', { detail: 'Learning article not found' });
       }
+      const cropIds = await this.resolveCropIds(tx, patch.cropIds);
       const updated = await this.deps.repo.updateArticle(tx, id, patch);
       if (!updated) {
         throw new AppError('NOT_FOUND', { detail: 'Learning article not found' });
       }
+      // Omitted cropIds leaves the tags alone; `[]` clears them (BR-59r).
+      const after = cropIds === undefined
+        ? updated
+        : { ...updated, crops: await this.deps.repo.replaceArticleCrops(tx, id, cropIds) };
       await writeAuditLog(tx, {
         actorId: scope.userId,
         actorRole: scope.roleCode,
         actionCode: 'learning.article.update',
         entityType: 'learning_article',
-        entityId: updated.id,
+        entityId: after.id,
         before,
-        after: updated,
-        changedFields: changedFields(before as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+        after,
+        changedFields: changedFields(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>),
       });
-      return mapArticle(updated);
+      return mapArticle(after);
     });
   }
 
@@ -259,16 +347,20 @@ export class LearningHubService {
 
   async createVideo(scope: ResolvedScope, body: CreateVideoBody) {
     return this.deps.runTx(async (tx) => {
+      const cropIds = await this.resolveCropIds(tx, body.cropIds);
       const created = await this.deps.repo.createVideo(tx, body);
+      const row = cropIds === undefined
+        ? created
+        : { ...created, crops: await this.deps.repo.replaceVideoCrops(tx, created.id, cropIds) };
       await writeAuditLog(tx, {
         actorId: scope.userId,
         actorRole: scope.roleCode,
         actionCode: 'learning.video.create',
         entityType: 'learning_video',
-        entityId: created.id,
-        after: created,
+        entityId: row.id,
+        after: row,
       });
-      return mapVideo(created);
+      return mapVideo(row);
     });
   }
 
@@ -278,21 +370,26 @@ export class LearningHubService {
       if (!before) {
         throw new AppError('NOT_FOUND', { detail: 'Learning video not found' });
       }
+      const cropIds = await this.resolveCropIds(tx, patch.cropIds);
       const updated = await this.deps.repo.updateVideo(tx, id, patch);
       if (!updated) {
         throw new AppError('NOT_FOUND', { detail: 'Learning video not found' });
       }
+      // Omitted cropIds leaves the tags alone; `[]` clears them (BR-59r).
+      const after = cropIds === undefined
+        ? updated
+        : { ...updated, crops: await this.deps.repo.replaceVideoCrops(tx, id, cropIds) };
       await writeAuditLog(tx, {
         actorId: scope.userId,
         actorRole: scope.roleCode,
         actionCode: 'learning.video.update',
         entityType: 'learning_video',
-        entityId: updated.id,
+        entityId: after.id,
         before,
-        after: updated,
-        changedFields: changedFields(before as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+        after,
+        changedFields: changedFields(before as unknown as Record<string, unknown>, after as unknown as Record<string, unknown>),
       });
-      return mapVideo(updated);
+      return mapVideo(after);
     });
   }
 
@@ -523,6 +620,12 @@ export class LearningHubService {
       if (!before) {
         throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
       }
+      const memberCount = await this.deps.repo.countGroupMembers(tx, id);
+      if (memberCount > 0) {
+        throw new AppError('CONFLICT', {
+          detail: 'Cannot delete group with active members. Archive it instead.',
+        });
+      }
       await this.deps.repo.deleteGroup(tx, id);
       await writeAuditLog(tx, {
         actorId: scope.userId,
@@ -532,6 +635,26 @@ export class LearningHubService {
         entityId: id,
         before,
       });
+    });
+  }
+
+  async archiveGroup(scope: ResolvedScope, id: string) {
+    return this.deps.runTx(async (tx) => {
+      const before = await this.deps.repo.findGroupById(tx, id);
+      if (!before) {
+        throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
+      }
+      const updated = await this.deps.repo.archiveGroup(tx, id);
+      await writeAuditLog(tx, {
+        actorId: scope.userId,
+        actorRole: scope.roleCode,
+        actionCode: 'learning.group.archive',
+        entityType: 'learning_group',
+        entityId: id,
+        before,
+        after: updated,
+      });
+      return mapAdminGroup(updated!);
     });
   }
 
@@ -683,6 +806,89 @@ export class LearningHubService {
       throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
     }
     return mapGroup(row);
+  }
+
+  // ── Content Review Workflow (BR-59t) ──────────────────────────────────────
+  async submitReview(
+    scope: ResolvedScope,
+    type: LearningContentType,
+    id: string,
+    body?: SubmitReviewBody,
+  ): Promise<LearningArticleResponse | LearningVideoResponse | LearningTrainingResponse | LearningGroupResponse> {
+    return this.deps.runTx(async (tx) => {
+      let before: ArticleRow | VideoRow | TrainingRow | GroupRow | null = null;
+      if (type === 'articles') before = await this.deps.repo.findArticleById(tx, id, false);
+      else if (type === 'videos') before = await this.deps.repo.findVideoById(tx, id);
+      else if (type === 'trainings') before = await this.deps.repo.findTrainingById(tx, id);
+      else if (type === 'groups') before = await this.deps.repo.findGroupById(tx, id);
+
+      if (!before) {
+        throw new AppError('NOT_FOUND', { detail: `${type.slice(0, -1)} not found` });
+      }
+
+      const updated = await this.deps.repo.submitReview(tx, type, id, body?.note);
+      if (!updated) {
+        throw new AppError('NOT_FOUND', { detail: `${type.slice(0, -1)} not found` });
+      }
+
+      const singular = type === 'articles' ? 'article' : type === 'videos' ? 'video' : type === 'trainings' ? 'training' : 'group';
+      await writeAuditLog(tx, {
+        actorId: scope.userId,
+        actorRole: scope.roleCode,
+        actionCode: `learning.${singular}.submit_review`,
+        entityType: `learning_${singular}`,
+        entityId: id,
+        before,
+        after: updated,
+        changedFields: changedFields(before as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+      });
+
+      if (type === 'articles') return mapArticle(updated as ArticleRow);
+      if (type === 'videos') return mapVideo(updated as VideoRow);
+      if (type === 'trainings') return mapAdminTraining(updated as TrainingRow);
+      return mapAdminGroup(updated as GroupRow);
+    });
+  }
+
+  async reviewContent(
+    scope: ResolvedScope,
+    type: LearningContentType,
+    id: string,
+    body: ReviewContentBody,
+  ): Promise<LearningArticleResponse | LearningVideoResponse | LearningTrainingResponse | LearningGroupResponse> {
+    return this.deps.runTx(async (tx) => {
+      let before: ArticleRow | VideoRow | TrainingRow | GroupRow | null = null;
+      if (type === 'articles') before = await this.deps.repo.findArticleById(tx, id, false);
+      else if (type === 'videos') before = await this.deps.repo.findVideoById(tx, id);
+      else if (type === 'trainings') before = await this.deps.repo.findTrainingById(tx, id);
+      else if (type === 'groups') before = await this.deps.repo.findGroupById(tx, id);
+
+      if (!before) {
+        throw new AppError('NOT_FOUND', { detail: `${type.slice(0, -1)} not found` });
+      }
+
+      const updated = await this.deps.repo.reviewContent(tx, type, id, body.status, scope.userId, body.note);
+      if (!updated) {
+        throw new AppError('NOT_FOUND', { detail: `${type.slice(0, -1)} not found` });
+      }
+
+      const singular = type === 'articles' ? 'article' : type === 'videos' ? 'video' : type === 'trainings' ? 'training' : 'group';
+      await writeAuditLog(tx, {
+        actorId: scope.userId,
+        actorRole: scope.roleCode,
+        actionCode: `learning.${singular}.review`,
+        entityType: `learning_${singular}`,
+        entityId: id,
+        before,
+        after: updated,
+        changedFields: changedFields(before as unknown as Record<string, unknown>, updated as unknown as Record<string, unknown>),
+      });
+
+      if (type === 'articles') return mapArticle(updated as ArticleRow);
+      if (type === 'videos') return mapVideo(updated as VideoRow);
+      if (type === 'trainings') return mapAdminTraining(updated as TrainingRow);
+      return mapAdminGroup(updated as GroupRow);
+    });
   }
 }
 

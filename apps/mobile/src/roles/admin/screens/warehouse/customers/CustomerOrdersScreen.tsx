@@ -36,6 +36,7 @@ export interface CustomerOrdersScreenProps extends WarehouseScreenBaseProps, Cus
   customer?: CustomerRef | undefined;
   /** Open on a status bucket tab ('Active', 'Completed' or 'Cancelled'); anything else opens All. */
   defaultFilter?: string | undefined;
+  onOpenFilters?: (() => void) | undefined;
   onOpenOrder?: ((order: CustomerOrderRow) => void) | undefined;
   /** The loaded rows, page by page. */
   orders?: readonly CustomerOrderRow[] | undefined;

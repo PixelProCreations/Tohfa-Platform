@@ -55,8 +55,15 @@ describe('M9-05: the GST Invoice tile lists live B2B invoices', () => {
     expect(FLOW).toMatch(/initialChip=\{params\.historyChip\}/);
   });
 
-  it('shows no generation notice and offers no Generate action', () => {
-    expect(HUB).not.toMatch(/Generation Restricted|Generate Invoice|onGenerate|invoice\.gst\.generate/);
+  it('draws the design Generate Invoice tile and Invoice Required card, but nothing here can generate: no handler is wired, the card is permission-gated, no restricted notice', () => {
+    expect(HUB).toMatch(/t\('billing\.hub\.generateInvoice'\)/);
+    expect(HUB).toMatch(/t\('billing\.hub\.invoiceRequired'\)/);
+    // The Invoice Required card and the quick action sit behind the invoice.generate permission (none for both warehouse roles).
+    expect(HUB).toMatch(/const canGenerate = can\('invoice\.generate'\);/);
+    expect(HUB).toMatch(/\{canGenerate \? \(/);
+    // There is no create-invoice route, so the flow hands the hub no handler: the tile is inert.
+    expect(FLOW).not.toMatch(/onGenerateInvoice\s*=/);
+    expect(HUB).not.toMatch(/Generation Restricted|invoice\.gst\.generate/);
   });
 
   it('the hub has no raw colour literal (#F0562A is adminColors.brand) and no numeric fontSize', () => {

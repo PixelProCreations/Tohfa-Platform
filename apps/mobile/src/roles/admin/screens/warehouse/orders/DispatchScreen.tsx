@@ -12,6 +12,21 @@
  *     the one that performs the dispatch) render only with `order.dispatch`.
  *   - Picking a delivery partner has no rbac code of its own; it is left
  *     ungated, since without `order.dispatch` the choice cannot be submitted.
+ *     The partner list itself is GET /admin/delivery-partners, which needs
+ *     `delivery.partner.manage` (the flow only fetches it with that code).
+ *
+ * Live data: the order number, customer and item count are GET
+ * /admin/orders/{orderId}. AdminOrderDetail carries no delivery address (BR-99
+ * allow-list) and OrderDetailView does not map the delivery slot, so both show
+ * ADMIN_NO_VALUE. The delivery slot is READ-ONLY here (a plain field): only the
+ * delivery partner is chosen, so the request carries `deliveryPartnerId` and
+ * never a slot. The second "Confirm Dispatch" is POST /admin/orders/{id}/dispatch
+ * (BR-21, BR-118; Idempotency-Key) through the LiveOrderAction the flow supplies
+ * (useOrdersData.ts, same as Packing). The dispatched card is reached ONLY
+ * after the server answered 2xx, and shows the status the server returned,
+ * never an invented "Dispatched". A failure stays on the confirm step with the
+ * error shown. availability.ts still keeps this route out of the app (delivery
+ * is not offered, BR-21), so nothing navigates here until that changes.
  */
 // Design id: M5S14 (M5S14_Dispatch), absorbs M5S14B, M5S14C
 import React, { useState } from 'react';
@@ -33,12 +48,35 @@ import {
   adminShadow,
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
-import { SAMPLE_DELIVERY_ORDER_ID, SAMPLE_DELIVERY_PARTNERS, SAMPLE_DISPATCH, SAMPLE_PARTNER_PLACEHOLDER } from './fixtures';
-import type { DispatchStep, OrderScreenBaseProps } from './types';
+import type { DeliveryPartnerDto, DispatchOrderBody } from '../../../api/orders';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { detailStatusOf, orderStatusLabel } from './mappers';
+import type { DispatchStep, OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
+import type { LiveOrderAction } from './useOrdersData';
 
-export interface DispatchScreenProps extends OrderScreenBaseProps {
+/** What a screen needs of the delivery-partner list (GET /admin/delivery-partners). */
+export interface DispatchPartners {
+  partners: readonly DeliveryPartnerDto[];
+  isLoading?: boolean | undefined;
+  error?: unknown;
+}
+
+/** Statuses that show a delivery dispatch has happened (BR-21). */
+const DISPATCHED_STATUSES: readonly OrderDetailView['status'][] = ['dispatched', 'outForDelivery', 'delivered'];
+
+export interface DispatchScreenProps extends OrderScreenBaseProps, OrdersLiveStateProps {
+  /** The order; undefined while loading or when the route names no order the API knows. */
+  order?: OrderDetailView | undefined;
   /** Step to open on; an old M5S14B / M5S14C link maps to 'confirm' / 'dispatched'. */
   initialStep?: DispatchStep | undefined;
+  /** POST .../dispatch. */
+  dispatch?: LiveOrderAction<DispatchOrderBody> | undefined;
+  /** The delivery partners the picker offers. */
+  partnerList?: DispatchPartners | undefined;
 }
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -151,10 +189,38 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PrimaryButton({ label, icon, onPress }: { label: string; icon: React.ReactNode; onPress: () => void }) {
+/** A refused or failed write, worded for warehouse staff (adminErrorKey), never the server's detail. */
+function WriteError({ error }: { error: unknown }) {
+  if (error === null || error === undefined) return null;
+  return (
+    <View style={styles.errorBox}>
+      <Text style={styles.errorText}>{t(adminErrorKey(error))}</Text>
+    </View>
+  );
+}
+
+function PrimaryButton({
+  label,
+  icon,
+  onPress,
+  testID,
+  disabled = false,
+}: {
+  testID?: string;
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
     <View style={styles.bottomBar}>
-      <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onPress}>
+      <TouchableOpacity
+        testID={testID}
+        style={[styles.primaryBtn, disabled && styles.primaryBtnDisabled]}
+        activeOpacity={0.8}
+        disabled={disabled}
+        onPress={onPress}
+      >
         {icon}
         <Text style={styles.primaryBtnText}>{label}</Text>
       </TouchableOpacity>
@@ -165,75 +231,89 @@ function PrimaryButton({ label, icon, onPress }: { label: string; icon: React.Re
 // ─── Step: dispatch (M5S14) ──────────────────────────────────────────────────
 
 interface DispatchDetailsStepProps {
-  orderId: string;
+  order: OrderDetailView;
   canDispatch: boolean;
+  partnerList: DispatchPartners;
+  selectedPartnerId: string | null;
+  onSelectPartner: (id: string) => void;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: DispatchDetailsStepProps) {
-  const [selectedPartner, setSelectedPartner] = useState<string>(SAMPLE_PARTNER_PLACEHOLDER);
+function DispatchDetailsStep({
+  order,
+  canDispatch,
+  partnerList,
+  selectedPartnerId,
+  onSelectPartner,
+  onBack,
+  onConfirm,
+}: DispatchDetailsStepProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const partners = partnerList.partners;
+  const selectedPartner = partners.find((partner) => partner.id === selectedPartnerId);
 
   return (
     <>
-      <Header title="Dispatch" onBack={onBack} />
+      <Header title={t('orders.dispatch.title')} onBack={onBack} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.topSubtitleContainer}>
-          <Text style={styles.topSubtitleText}>{orderId} · Ready for Dispatch</Text>
+          <Text style={styles.topSubtitleText}>{t('orders.dispatch.subtitle', { order: order.orderNumber })}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Order Summary</Text>
+        <Text style={styles.sectionTitle}>{t('orders.dispatch.summary')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Field label="Customer" value={SAMPLE_DISPATCH.customer} />
+              <Field label={t('orders.dispatch.field.customer')} value={order.buyerName} />
             </View>
             <View style={styles.col}>
-              <Field label="Items" value={String(SAMPLE_DISPATCH.itemCount)} />
+              <Field label={t('orders.dispatch.field.items')} value={String(order.itemCount)} />
             </View>
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Address" value={SAMPLE_DISPATCH.deliveryAddress} />
+            <Field label={t('orders.dispatch.field.address')} value={ADMIN_NO_VALUE} />
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Slot" value={SAMPLE_DISPATCH.deliverySlot} />
+            <Field label={t('orders.dispatch.field.slot')} value={ADMIN_NO_VALUE} />
           </View>
         </View>
 
-        <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>Delivery Partner</Text>
+        <Text style={[styles.sectionTitle, styles.sectionTitleSpaced]}>{t('orders.dispatch.partner')}</Text>
         <View style={styles.card}>
-          <Text style={styles.assignmentLabel}>Assignment</Text>
+          <Text style={styles.assignmentLabel}>{t('orders.dispatch.assignment')}</Text>
           <TouchableOpacity
+            testID="orders.dispatch.partnerPicker"
             style={styles.pickerBox}
             activeOpacity={0.75}
             onPress={() => setIsDropdownOpen((prev) => !prev)}
           >
-            <Text style={styles.pickerText}>{selectedPartner}</Text>
+            <Text style={styles.pickerText}>{selectedPartner?.name ?? ADMIN_NO_VALUE}</Text>
             <ChevronDownIcon />
           </TouchableOpacity>
 
           {isDropdownOpen && (
             <View style={styles.dropdownMenu}>
-              {SAMPLE_DELIVERY_PARTNERS.map((partner, index) => {
-                const isSelected = selectedPartner === partner;
+              {partners.map((partner, index) => {
+                const isSelected = selectedPartnerId === partner.id;
                 return (
                   <TouchableOpacity
-                    key={partner}
+                    key={partner.id}
+                    testID={`orders.dispatch.partner.${partner.id}`}
                     style={[
                       styles.dropdownItem,
-                      index === SAMPLE_DELIVERY_PARTNERS.length - 1 && styles.dropdownItemLast,
+                      index === partners.length - 1 && styles.dropdownItemLast,
                       isSelected && styles.dropdownItemSelected,
                     ]}
                     activeOpacity={0.7}
                     onPress={() => {
-                      setSelectedPartner(partner);
+                      onSelectPartner(partner.id);
                       setIsDropdownOpen(false);
                     }}
                   >
                     <Text style={[styles.dropdownItemText, isSelected && styles.dropdownItemTextSelected]}>
-                      {partner}
+                      {partner.name}
                     </Text>
                     {isSelected && <SelectedCheckIcon />}
                   </TouchableOpacity>
@@ -241,13 +321,21 @@ function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: Dispat
               })}
             </View>
           )}
+          {partnerList.error !== null && partnerList.error !== undefined ? <WriteError error={partnerList.error} /> : null}
         </View>
 
         <View style={styles.scrollTail} />
       </ScrollView>
 
+      {/* Hidden without order.dispatch; disabled until a delivery partner is picked (the slot is read-only here). */}
       {canDispatch ? (
-        <PrimaryButton label="Confirm Dispatch" icon={<DeliveryTruckIcon />} onPress={onConfirm} />
+        <PrimaryButton
+          label={t('orders.dispatch.confirm')}
+          icon={<DeliveryTruckIcon />}
+          testID="orders.dispatch.open"
+          disabled={selectedPartner === undefined}
+          onPress={onConfirm}
+        />
       ) : null}
     </>
   );
@@ -256,42 +344,52 @@ function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: Dispat
 // ─── Step: confirm (folded M5S14B) ───────────────────────────────────────────
 
 interface ConfirmStepProps {
-  orderId: string;
+  order: OrderDetailView;
   canDispatch: boolean;
+  isPending: boolean;
+  error: unknown;
   onBack: () => void;
   onDispatch: () => void;
 }
 
-function ConfirmStep({ orderId, canDispatch, onBack, onDispatch }: ConfirmStepProps) {
+function ConfirmStep({ order, canDispatch, isPending, error, onBack, onDispatch }: ConfirmStepProps) {
   return (
     <>
-      <Header title="Confirm Dispatch" onBack={onBack} />
+      <Header title={t('orders.dispatch.confirmTitle')} onBack={onBack} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainerConfirm} showsVerticalScrollIndicator={false}>
         <View style={styles.confirmPromptBox}>
           <QuestionCircleIcon />
-          <Text style={styles.confirmPromptText}>Confirm Dispatch?</Text>
+          <Text style={styles.confirmPromptText}>{t('orders.dispatch.confirmPrompt')}</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Field label="Order" value={orderId} />
+              <Field label={t('orders.dispatch.field.order')} value={order.orderNumber} />
             </View>
             <View style={styles.col}>
-              <Field label="Destination" value={SAMPLE_DISPATCH.deliveryAddress} />
+              <Field label={t('orders.dispatch.field.destination')} value={ADMIN_NO_VALUE} />
             </View>
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Slot" value={SAMPLE_DISPATCH.deliverySlot} />
+            <Field label={t('orders.dispatch.field.slot')} value={ADMIN_NO_VALUE} />
           </View>
         </View>
+
+        <WriteError error={error} />
 
         <View style={styles.scrollTail} />
       </ScrollView>
 
       {canDispatch ? (
-        <PrimaryButton label="Confirm Dispatch" icon={<CheckmarkIcon />} onPress={onDispatch} />
+        <PrimaryButton
+          label={isPending ? t('orders.action.saving') : t('orders.dispatch.confirm')}
+          icon={<CheckmarkIcon />}
+          testID="orders.dispatch.submit"
+          disabled={isPending}
+          onPress={onDispatch}
+        />
       ) : null}
     </>
   );
@@ -300,37 +398,39 @@ function ConfirmStep({ orderId, canDispatch, onBack, onDispatch }: ConfirmStepPr
 // ─── Step: dispatched (folded M5S14C) ────────────────────────────────────────
 
 interface DispatchedStepProps {
-  orderId: string;
+  order: OrderDetailView;
+  /** The status label from the server's answer to the dispatch (the order refetch may lag it). */
+  statusLabel: string;
   onBack: () => void;
   onViewHistory: () => void;
 }
 
-function DispatchedStep({ orderId, onBack, onViewHistory }: DispatchedStepProps) {
+function DispatchedStep({ order, statusLabel, onBack, onViewHistory }: DispatchedStepProps) {
   return (
     <>
-      <Header title="Order Dispatched" onBack={onBack} />
+      <Header title={t('orders.dispatch.dispatchedTitle')} onBack={onBack} />
 
       <View style={styles.contentPacked}>
         <View style={styles.heroContainer}>
           <View style={styles.successCircleBadge}>
             <DeliveryTruckIcon size={32} color={adminColors.success.text} />
           </View>
-          <Text style={styles.heroTitle}>Order Dispatched</Text>
+          <Text style={styles.heroTitle}>{t('orders.dispatch.dispatchedTitle')}</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Field label="Order" value={orderId} />
+              <Field label={t('orders.dispatch.field.order')} value={order.orderNumber} />
             </View>
             <View style={styles.col}>
-              <Field label="Status" value="Dispatched" />
+              <Field label={t('orders.dispatch.field.status')} value={statusLabel} />
             </View>
           </View>
         </View>
       </View>
 
-      <PrimaryButton label="View Status History" icon={<HistoryClockIcon />} onPress={onViewHistory} />
+      <PrimaryButton label={t('orders.dispatch.viewHistory')} icon={<HistoryClockIcon />} onPress={onViewHistory} />
     </>
   );
 }
@@ -341,42 +441,99 @@ export function DispatchScreen({
   can,
   onBack,
   onNavigate,
-  orderId = SAMPLE_DELIVERY_ORDER_ID,
+  order,
+  dispatch,
+  partnerList = NO_PARTNERS,
   initialStep = 'dispatch',
+  isLoading = false,
+  error,
+  onRetry,
 }: DispatchScreenProps) {
   const [step, setStep] = useState<DispatchStep>(initialStep);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
+  // The status the server returned for the dispatch made from this screen (2xx only).
+  const [dispatchedStatus, setDispatchedStatus] = useState<string | undefined>(undefined);
+  const [dispatchedHere, setDispatchedHere] = useState(false);
   const canDispatch = can('order.dispatch');
+  const view = queryViewState({ isLoading, error, itemCount: order === undefined ? 0 : 1 });
+  const selectedPartner = partnerList.partners.find((partner) => partner.id === selectedPartnerId);
+  // "Order Dispatched" needs the server's 2xx from this screen, or an order that already reads dispatched
+  // (a deep link to the step for any other order opens the partner step instead).
+  const isDispatched = dispatchedHere || (order !== undefined && DISPATCHED_STATUSES.includes(order.status));
+
+  if (view !== 'ready' || order === undefined || dispatch === undefined) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.container}>
+          <Header title={t('orders.dispatch.title')} onBack={onBack} />
+          {view === 'loading' ? (
+            <AdminLoadingState />
+          ) : view === 'error' ? (
+            <AdminErrorState error={error} onRetry={onRetry} />
+          ) : (
+            <AdminEmptyState title={t('orders.empty.notFound')} />
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
-        {step === 'dispatch' ? (
+        {step === 'dispatch' || (step === 'confirm' && selectedPartner === undefined) || (step === 'dispatched' && !isDispatched) ? (
           <DispatchDetailsStep
-            orderId={orderId}
+            order={order}
             canDispatch={canDispatch}
+            partnerList={partnerList}
+            selectedPartnerId={selectedPartnerId}
+            onSelectPartner={setSelectedPartnerId}
             onBack={onBack}
-            onConfirm={() => setStep('confirm')}
+            onConfirm={() => {
+              dispatch.reset();
+              setStep('confirm');
+            }}
           />
         ) : null}
-        {step === 'confirm' ? (
+        {step === 'confirm' && selectedPartner !== undefined ? (
           <ConfirmStep
-            orderId={orderId}
+            order={order}
             canDispatch={canDispatch}
+            isPending={dispatch.isPending}
+            error={dispatch.error}
             onBack={() => setStep('dispatch')}
-            onDispatch={() => setStep('dispatched')}
+            onDispatch={() =>
+              // The partner only; the slot is read-only at dispatch and is never sent.
+              dispatch.run({ deliveryPartnerId: selectedPartner.id }, (result) => {
+                setDispatchedStatus(statusOf(result));
+                setDispatchedHere(true);
+                setStep('dispatched');
+              })
+            }
           />
         ) : null}
-        {step === 'dispatched' ? (
+        {step === 'dispatched' && isDispatched ? (
           <DispatchedStep
-            orderId={orderId}
+            order={order}
+            statusLabel={dispatchedStatus === undefined ? order.statusLabel : orderStatusLabel(detailStatusOf(dispatchedStatus))}
             onBack={() => setStep('confirm')}
-            onViewHistory={() => onNavigate?.('M5S15', { orderId })}
+            onViewHistory={() => onNavigate?.('M5S15', { orderId: order.id })}
           />
         ) : null}
       </View>
     </SafeAreaView>
   );
+}
+
+const NO_PARTNERS: DispatchPartners = { partners: [] };
+
+/** The `status` of the server's answer to the dispatch, or undefined when it did not carry one. */
+function statusOf(result: unknown): string | undefined {
+  if (typeof result !== 'object' || result === null) return undefined;
+  const status = (result as Record<string, unknown>)['status'];
+  return typeof status === 'string' ? status : undefined;
 }
 
 // Success badge diameter: an icon size, not spacing (no size token exists for it).
@@ -492,7 +649,16 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
     ...adminShadow.md,
   },
+  primaryBtnDisabled: { backgroundColor: adminColors.brandTint },
   primaryBtnText: { ...adminType.sectionHead, color: adminColors.onBrand },
+  errorBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+  },
+  errorText: { ...adminType.body, color: adminColors.danger.text },
   contentPacked: { flex: 1, paddingTop: 36, paddingHorizontal: adminSpacing.lg },
   heroContainer: { alignItems: 'center', marginBottom: 28 },
   successCircleBadge: {

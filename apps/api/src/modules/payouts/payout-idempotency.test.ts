@@ -13,6 +13,7 @@ import { signAccessToken } from '../../auth/jwt.js';
 import { pool } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
 import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { randomMobile } from '../../test/dbFixtures.js';
 
 interface Admin {
   userId: string;
@@ -24,12 +25,15 @@ describeIfDatabase('BR-72: payout replay safety and payout numbers (real databas
   const server = createApp().listen(0);
   let year: string;
   const admins: Admin[] = [];
+  const createdUsers: string[] = [];
+  const createdFarmers: string[] = [];
 
   async function makeAdmin(role: 'SUPER_ADMIN' | 'TOHFA_ADMIN' = 'SUPER_ADMIN'): Promise<Admin> {
     const userId = newId();
+    createdUsers.push(userId);
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Payout Replay Admin', 'ADMIN', 'ACTIVE')`,
-      [userId, `+9193${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [userId, randomMobile()],
     );
     const admin = { userId, token: signAccessToken({ sub: userId, roles: [{ code: role }], customerId: null, farmerId: null }) };
     admins.push(admin);
@@ -38,11 +42,13 @@ describeIfDatabase('BR-72: payout replay safety and payout numbers (real databas
 
   async function makeFarmer(): Promise<string> {
     const userId = newId();
+    createdUsers.push(userId);
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Payout Replay Farmer', 'FARMER', 'ACTIVE')`,
-      [userId, `+9192${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [userId, randomMobile()],
     );
     const farmerId = newId();
+    createdFarmers.push(farmerId);
     await pool.query(`INSERT INTO farmers (id, user_id, tohfa_farmer_id) VALUES ($1, $2, $3)`, [
       farmerId,
       userId,
@@ -77,8 +83,15 @@ describeIfDatabase('BR-72: payout replay safety and payout numbers (real databas
 
   afterAll(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
+    for (const farmerId of createdFarmers) {
+      await pool.query(`DELETE FROM payout_approvals WHERE payout_id IN (SELECT id FROM payouts WHERE farmer_id = $1)`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM payouts WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM farmers WHERE id = $1`, [farmerId]).catch(() => undefined);
+    }
+    for (const userId of createdUsers) {
+      await pool.query(`DELETE FROM idempotency_keys WHERE actor_user_id = $1`, [userId]).catch(() => undefined);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId]).catch(() => undefined);
+    }
   });
 
   // ---- create: replay ----------------------------------------------------

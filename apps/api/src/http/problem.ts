@@ -107,11 +107,15 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   SALE_CHANNEL_NOT_SUPPORTED: 501,
   COUNTER_SALE_NOT_REASSIGNABLE: 409,
   ROLE_NOT_FOUND: 422,
+  ZONE_NOT_RESOLVED: 422,
+  ZONE_NOT_FOUND: 422,
   COMMUNITY_PLANTING_NOT_CONFIGURED: 503,
   PASSWORD_ALREADY_SET: 409,
   WALLET_TRANSFER_DISABLED: 403,
   WALLET_TRANSFER_LIMIT_EXCEEDED: 422,
   WALLET_TRANSFER_SELF: 422,
+  APPLICATION_DOCUMENTS_NOT_VERIFIED: 409,
+  APPLICATION_FMB_NOT_VERIFIED: 409,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -182,11 +186,15 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   SALE_CHANNEL_NOT_SUPPORTED: 'Sales channel not supported yet',
   COUNTER_SALE_NOT_REASSIGNABLE: 'Counter sales cannot be moved to another warehouse',
   ROLE_NOT_FOUND: 'Role is not defined',
+  ZONE_NOT_RESOLVED: 'Taluk could not be mapped to an active zone',
+  ZONE_NOT_FOUND: 'Taluk could not be mapped to an active zone',
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'Community planting summary is not configured',
   PASSWORD_ALREADY_SET: 'A password is already set for this account',
   WALLET_TRANSFER_DISABLED: 'Wallet transfers are not available',
   WALLET_TRANSFER_LIMIT_EXCEEDED: 'Wallet transfer limit exceeded',
   WALLET_TRANSFER_SELF: 'Cannot send money to your own wallet',
+  APPLICATION_DOCUMENTS_NOT_VERIFIED: 'Application documents are not all verified',
+  APPLICATION_FMB_NOT_VERIFIED: 'Application land boundaries are not all verified',
 };
 
 /**

@@ -84,31 +84,39 @@ describe('sliding window limiter', () => {
 
 describe('auth rate limiter middleware', () => {
   it('returns 429 problem+json with Retry-After when the mobile bucket is exhausted', async () => {
-    const app = probeApp(fakeRedis());
-    const mobile = '+919000000001';
-    for (let i = 0; i < 20; i += 1) {
-      await request(app).post('/v1/auth/otp/send').send({ mobile, purpose: 'LOGIN' });
-    }
-    const rejected = await request(app)
-      .post('/v1/auth/otp/send')
-      .send({ mobile, purpose: 'LOGIN' });
+    const server = probeApp(fakeRedis()).listen(0);
+    try {
+      const mobile = '+919000000001';
+      for (let i = 0; i < 20; i += 1) {
+        await request(server).post('/v1/auth/otp/send').send({ mobile, purpose: 'LOGIN' });
+      }
+      const rejected = await request(server)
+        .post('/v1/auth/otp/send')
+        .send({ mobile, purpose: 'LOGIN' });
 
-    expect(rejected.status).toBe(429);
-    expect(rejected.headers['retry-after']).toBeDefined();
-    expect(rejected.body.code).toBe('RATE_LIMITED');
-    expect(rejected.body.status).toBe(429);
+      expect(rejected.status).toBe(429);
+      expect(rejected.headers['retry-after']).toBeDefined();
+      expect(rejected.body.code).toBe('RATE_LIMITED');
+      expect(rejected.body.status).toBe(429);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it('does not share a budget across mobile numbers', async () => {
-    const app = probeApp(fakeRedis());
-    // Exhaust the first mobile budget; a second mobile is not impacted.
-    const first = '+919000000001';
-    const second = '+919000000002';
-    for (let i = 0; i < 20; i += 1) {
-      await request(app).post('/v1/auth/otp/send').send({ mobile: first, purpose: 'LOGIN' });
+    const server = probeApp(fakeRedis()).listen(0);
+    try {
+      // Exhaust the first mobile budget; a second mobile is not impacted.
+      const first = '+919000000001';
+      const second = '+919000000002';
+      for (let i = 0; i < 20; i += 1) {
+        await request(server).post('/v1/auth/otp/send').send({ mobile: first, purpose: 'LOGIN' });
+      }
+      const res = await request(server).post('/v1/auth/otp/send').send({ mobile: second, purpose: 'LOGIN' });
+      expect(res.status).toBe(202);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
     }
-    const res = await request(app).post('/v1/auth/otp/send').send({ mobile: second, purpose: 'LOGIN' });
-    expect(res.status).toBe(202);
   });
 
   it('fail-open: a Redis outage never errors the request', async () => {

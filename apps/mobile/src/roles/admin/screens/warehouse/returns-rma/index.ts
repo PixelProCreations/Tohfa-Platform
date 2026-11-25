@@ -8,7 +8,9 @@ export { RefundStatusScreen, type RefundStatusScreenProps } from './RefundStatus
 export { RejectReturnRequestScreen, type RejectReturnRequestScreenProps } from './RejectReturnRequestScreen';
 export { RequestRejectedScreen, type RequestRejectedScreenProps } from './RequestRejectedScreen';
 export { ReturnApprovedScreen, type ReturnApprovedScreenProps } from './ReturnApprovedScreen';
+export { ReturnHistoryDetailScreen, type ReturnHistoryDetailScreenProps } from './ReturnHistoryDetailScreen';
 export { ReturnHistoryScreen, type ReturnHistoryScreenProps } from './ReturnHistoryScreen';
+export { ReturnsFiltersScreen, type ReturnsFiltersScreenProps, type RmaFilterValues } from './ReturnsFiltersScreen';
 export { ReturnsIssuesScreen, type ReturnsIssuesScreenProps } from './ReturnsIssuesScreen';
 export { ReviewReturnRequestScreen, type ReviewReturnRequestScreenProps } from './ReviewReturnRequestScreen';
 export { RmaDetailScreen, type RmaDetailScreenProps } from './RmaDetailScreen';

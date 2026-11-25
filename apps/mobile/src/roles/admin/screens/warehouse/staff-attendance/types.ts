@@ -113,7 +113,18 @@ export interface AttendanceChange {
 }
 
 /** Screens of the staff & attendance flow (old App.tsx keys without the 'SubWarehouse' prefix). */
-export type StaffRoute = 'Staff' | 'StaffDetail' | 'EditStaffProfile' | 'Attendance' | 'AttendanceDetail' | 'AttendanceHistory';
+export type StaffRoute =
+  | 'Staff'
+  | 'StaffList'
+  | 'StaffDetail'
+  | 'EditStaffProfile'
+  | 'Attendance'
+  | 'AttendanceDetail'
+  | 'AttendanceHistory'
+  | 'AttendanceCorrection'
+  | 'Roles'
+  | 'AssignAccess'
+  | 'CreateStaffAccount';
 
 export interface StaffRouteParams {
   /** Staff Detail / Edit: the member tapped (Edit without one is "Add staff"). */
@@ -125,4 +136,6 @@ export interface StaffRouteParams {
   /** Attendance History narrowed to one staff member (from Staff Detail). */
   historyStaffId?: string | undefined;
   historyStaffName?: string | undefined;
+  /** Assign Access opened on a role (a role code from GET /roles). */
+  roleCode?: string | undefined;
 }

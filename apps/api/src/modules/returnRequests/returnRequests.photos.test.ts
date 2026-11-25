@@ -27,6 +27,8 @@ function harness(uploads: Array<{ id: string; storageKey: string; uploadedBy: st
   const row = (): ReturnRequestResponse => ({
     id: 'r1', orderId: ORDER, customerId: CUSTOMER, warehouseId: WH, status: 'PENDING', reason: 'bad',
     note: null, photos: stored, items: [], createdAt: new Date().toISOString(), updatedAt: null,
+    // Staff-side evidence fields (HEAD): empty on a freshly filed customer return.
+    customerEvidence: [], inspectionPhotos: [],
   });
   const repo = {
     async findOrderForReturn() { return { id: ORDER, customerId: CUSTOMER, warehouseId: WH, status: 'DELIVERED' }; },

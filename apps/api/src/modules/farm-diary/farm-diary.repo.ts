@@ -17,6 +17,7 @@
  */
 import type { Executor } from '../../db/pool.js';
 import type {
+  AdminDiaryCategoriesListResponse,
   CreateDiaryCategoryBody,
   CreateDiarySubActivityBody,
   DiaryCalendarResponse,
@@ -179,7 +180,8 @@ export interface FarmDiaryRepo {
   /** Removes the photo only if its entry is live and owned by farmerId. */
   deletePhoto(db: Executor, farmerId: string, entryId: string, photoId: string): Promise<boolean>;
 
-  // --- Admin taxonomy (BR-45) ---
+  // --- Admin taxonomy (BR-45, BR-146) ---
+  listCategoriesWithCounts(db: Executor): Promise<AdminDiaryCategoriesListResponse>;
   findCategory(db: Executor, key: string): Promise<DiaryCategoryResponse | null>;
   createCategory(db: Executor, data: CreateDiaryCategoryBody): Promise<DiaryCategoryResponse>;
   updateCategory(db: Executor, key: string, patch: UpdateCategoryPatch): Promise<DiaryCategoryResponse | null>;
@@ -715,5 +717,56 @@ export const farmDiaryRepo: FarmDiaryRepo = {
     );
     const row = result.rows[0];
     return row === undefined ? null : toSubActivity(row);
+  },
+
+  async listCategoriesWithCounts(db) {
+    const itemsResult = await db.query<CategoryRow & { subActivityCount: number }>(
+      `SELECT c.key, c.name, c.name_ta, c.icon_key, c.sort_order, c.is_active,
+              COUNT(s.key)::int AS "subActivityCount"
+         FROM diary_activity_categories c
+         LEFT JOIN diary_sub_activities s ON s.category_key = c.key
+        GROUP BY c.key, c.name, c.name_ta, c.icon_key, c.sort_order, c.is_active
+        ORDER BY c.sort_order ASC, c.key ASC`,
+    );
+
+    const countsResult = await db.query<{
+      totalActivityTypes: number;
+      activeCategories: number;
+      retiredActivities: number;
+      totalSubActivities: number;
+    }>(
+      `SELECT
+         COUNT(*)::int AS "totalActivityTypes",
+         COUNT(*) FILTER (WHERE is_active)::int AS "activeCategories",
+         COUNT(*) FILTER (WHERE NOT is_active)::int AS "retiredActivities",
+         (SELECT COUNT(*)::int FROM diary_sub_activities)::int AS "totalSubActivities"
+       FROM diary_activity_categories`,
+    );
+
+    const counts = countsResult.rows[0] ?? {
+      totalActivityTypes: 0,
+      activeCategories: 0,
+      retiredActivities: 0,
+      totalSubActivities: 0,
+    };
+
+    const items = itemsResult.rows.map((r) => ({
+      key: r.key,
+      name: r.name,
+      nameTa: r.name_ta,
+      iconKey: r.icon_key,
+      sortOrder: Number(r.sort_order),
+      isActive: Boolean(r.is_active),
+      subActivityCount: Number(r.subActivityCount),
+    }));
+
+    return {
+      items,
+      totalActivityTypes: counts.totalActivityTypes,
+      activeCategories: counts.activeCategories,
+      totalSubActivities: counts.totalSubActivities,
+      retiredActivities: counts.retiredActivities,
+      counts,
+    };
   },
 };

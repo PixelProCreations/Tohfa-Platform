@@ -4,7 +4,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } 
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
-import { adminColors, adminSpacing } from '../../../theme';
+import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { isAreaAvailable } from '../availability';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
@@ -107,83 +107,100 @@ export function BatchDetailScreen({
 
         {/* ── Batch Information ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Batch Information</Text>
+          <Text style={styles.sectionTitle}>{t('inventory.batchDetail.infoTitle')}</Text>
           <View style={styles.card}>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Batch Code</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.batchCode')}</Text>
                 <Text style={styles.fieldValue}>{batch.batchCode}</Text>
               </View>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Product</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.product')}</Text>
                 <Text style={styles.fieldValue}>{batch.productName}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Grade</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.grade')}</Text>
                 <Text style={styles.fieldValue}>{batch.gradeLabel}</Text>
               </View>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Warehouse</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.warehouse')}</Text>
                 <Text style={styles.fieldValue}>{warehouse}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Storage Location</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.storageLocation')}</Text>
                 <Text style={styles.fieldValue}>{batch.storageLocation ?? t('inventory.noValue')}</Text>
               </View>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Received Quantity</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.receivedQty')}</Text>
                 <Text style={styles.fieldValue}>{kg(batch.receivedGrams)}</Text>
               </View>
             </View>
             <View style={[styles.gridRow, { marginBottom: 0 }]}>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Available Quantity</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.availableQty')}</Text>
                 <Text style={styles.fieldValue}>{kg(batch.availableGrams)}</Text>
               </View>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Received Date</Text>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.receivedDate')}</Text>
                 <Text style={styles.fieldValue}>{batch.receivedOn === '' ? t('inventory.noValue') : batch.receivedOn}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Traceability is not shown: the batch carries only the goods receipt and
-            farmer uuids, no human reference to show (spec gap). */}
+        {/* ── Traceability ── */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>{t('inventory.batchDetail.traceTitle')}</Text>
+            <Text style={styles.sectionMuted}>{t('inventory.batchDetail.traceInternal')}</Text>
+          </View>
+          <View style={styles.card}>
+            <View style={[styles.gridRow, { marginBottom: 0 }]}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.goodsReceipt')}</Text>
+                <Text style={styles.fieldValue}>{t('inventory.noValue')}</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>{t('inventory.batchDetail.field.sourceFarmer')}</Text>
+                <Text style={styles.fieldValue}>{t('inventory.noValue')}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* ── Stock Movement Summary ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
+          <Text style={styles.sectionTitle}>{t('inventory.batchDetail.movementTitle')}</Text>
           <View style={styles.movementRow}>
             <View style={styles.movementCard}>
               <Text style={styles.movementValue}>{kg(batch.receivedGrams)}</Text>
-              <Text style={styles.movementLabel}>RECEIVED</Text>
+              <Text style={styles.movementLabel}>{t('inventory.batchDetail.tile.received')}</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>{kg(batch.availableGrams)}</Text>
-              <Text style={styles.movementLabel}>{t('inventory.batch.availableCaption')}</Text>
+              <Text style={styles.movementValue}>{t('inventory.noValue')}</Text>
+              <Text style={styles.movementLabel}>{t('inventory.batchDetail.tile.dispatched')}</Text>
             </View>
             <View style={styles.movementCard}>
               <Text style={styles.movementValue}>{kg(batch.reservedGrams)}</Text>
-              <Text style={styles.movementLabel}>RESERVED</Text>
+              <Text style={styles.movementLabel}>{t('inventory.batchDetail.tile.reserved')}</Text>
             </View>
           </View>
         </View>
 
         {/* ── Actions ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Actions</Text>
+          <Text style={styles.sectionTitle}>{t('inventory.batchDetail.actionsTitle')}</Text>
           <TouchableOpacity
             style={styles.actionBtn}
             onPress={() => requestIdleCallback(() => onNavigate?.('M3S06', { batchId: batch.id }))}
             activeOpacity={0.7}
           >
             <LedgerIcon />
-            <Text style={styles.actionBtnText}>View Stock Ledger</Text>
+            <Text style={styles.actionBtnText}>{t('inventory.batchDetail.viewLedger')}</Text>
           </TouchableOpacity>
           {canVerify ? (
           <TouchableOpacity
@@ -192,7 +209,7 @@ export function BatchDetailScreen({
             activeOpacity={0.7}
           >
             <VerifyIcon />
-            <Text style={styles.actionBtnText}>Verify Stock</Text>
+            <Text style={styles.actionBtnText}>{t('inventory.batchDetail.verifyStock')}</Text>
           </TouchableOpacity>
           ) : null}
           {canAdjust ? (
@@ -232,6 +249,16 @@ const styles = StyleSheet.create({
   // Sections
   section: {
     marginBottom: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.sm,
+  },
+  sectionMuted: {
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   sectionTitle: {
     fontSize: 15,

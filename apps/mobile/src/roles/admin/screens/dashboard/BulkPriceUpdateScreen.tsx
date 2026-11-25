@@ -1,10 +1,28 @@
 /**
- * Screen 41 — Bulk Price Update
- * Super Admin can apply a percentage change across selected crops
- * with checkboxes for selection.
+ * Screen 41 — Bulk Price Update, wired to GET /fair-prices (the rows) and
+ * POST /fair-prices/bulk (the write).
+ *
+ * BR-08: only a Super Admin may change a ceiling, so Apply is DISABLED, not
+ * hidden, without pricing.fair_price.bulk_update; the list itself needs
+ * pricing.fair_price.view. The server authorises both again (CLAUDE.md 2.1).
+ *
+ * Money (root CLAUDE.md 2.2): the percentage is a percentage, not money. Each
+ * new ceiling is computed from the row's real ceiling in integer paise
+ * (applyPercentToCeiling) and sent as a Money string. Nothing here parses a
+ * rupee string or multiplies a float.
+ *
+ * All-or-nothing: the server rejects the whole batch if one row fails, so this
+ * screen never reports a partial success, and reports no success at all until
+ * a real 200 comes back.
+ *
+ * The design groups crops under Vegetables / Fruits / Dairy / Grains. A fair
+ * price ceiling carries no category (pricingTypes: FairPriceRowView.category
+ * is null), so the single section header renders the dash rather than inventing
+ * four groups. The fixture's hardcoded palette is left exactly as it was.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +30,13 @@ import {
   View,
 } from 'react-native';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { adminErrorKey } from '../../api/errors';
+import { useBulkFairPriceUpdate, useFairPriceList } from '../../api/pricingHooks';
+import { buildBulkFairPriceItems, formatPrice, toBulkDraftRows, todayInIndia } from '../../api/pricingMappers';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -25,59 +50,69 @@ const P = {
   muted: '#9A8F88',
   lightGray: '#B0A9A3',
   border: '#EDE9E4',
+  danger: '#C62828',
+  success: '#2E7D32',
 };
 
-interface CropItem {
-  id: string;
-  name: string;
-  currentPrice: number;
-  category: 'Vegetables' | 'Fruits' | 'Dairy' | 'Grains';
-}
-
-const CROPS: CropItem[] = [
-  // Vegetables
-  { id: '1', name: 'Carrots', currentPrice: 42, category: 'Vegetables' },
-  { id: '2', name: 'Cabbage', currentPrice: 28, category: 'Vegetables' },
-  { id: '3', name: 'Beetroot', currentPrice: 35, category: 'Vegetables' },
-  { id: '4', name: 'Tomatoes', currentPrice: 30, category: 'Vegetables' },
-  { id: '5', name: 'Onions', currentPrice: 25, category: 'Vegetables' },
-  
-  // Fruits
-  { id: '6', name: 'Apples', currentPrice: 120, category: 'Fruits' },
-  { id: '7', name: 'Bananas', currentPrice: 40, category: 'Fruits' },
-  { id: '8', name: 'Mangoes', currentPrice: 80, category: 'Fruits' },
-  { id: '9', name: 'Oranges', currentPrice: 60, category: 'Fruits' },
-  
-  // Dairy
-  { id: '10', name: 'Milk', currentPrice: 55, category: 'Dairy' },
-  { id: '11', name: 'Curd', currentPrice: 60, category: 'Dairy' },
-  { id: '12', name: 'Butter', currentPrice: 450, category: 'Dairy' },
-  { id: '13', name: 'Cheese', currentPrice: 400, category: 'Dairy' },
-  
-  // Grains
-  { id: '14', name: 'Rice', currentPrice: 45, category: 'Grains' },
-  { id: '15', name: 'Wheat', currentPrice: 30, category: 'Grains' },
-  { id: '16', name: 'Millets', currentPrice: 50, category: 'Grains' },
-  { id: '17', name: 'Corn', currentPrice: 35, category: 'Grains' },
-];
-
-interface BulkPriceUpdateScreenProps {
+export interface BulkPriceUpdateScreenProps {
   onBack: () => void;
-  onApply?: (selectedIds: string[], percentage: number) => void;
+  /** Permission check from /auth/me. Missing means nothing is permitted (fail closed). */
+  can?: Can | undefined;
+  /** The caller's warehouse, for the query cache key only. */
+  warehouseId?: string | undefined;
+  /** Fires only after the server applied the batch (a real 200). */
+  onApplied?: ((applied: number) => void) | undefined;
 }
 
-export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreenProps) {
-  const [selectedIds, setSelectedIds] = useState<string[]>(['1', '2']);
+/** One percentage point, the fixture's step. A UI step, not a business threshold. */
+const STEP_PERCENT = 1;
+
+export function BulkPriceUpdateScreen({ onBack, can, warehouseId, onApplied }: BulkPriceUpdateScreenProps) {
+  const canView = can !== undefined && can('pricing.fair_price.view');
+  const canBulk = can !== undefined && can('pricing.fair_price.bulk_update');
+  const list = useFairPriceList(warehouseId, {}, { enabled: canView });
+  const write = useBulkFairPriceUpdate({ enabled: canBulk });
+  const effectiveFrom = useMemo(() => todayInIndia(), []);
+
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [percentage, setPercentage] = useState(5);
+  const [applied, setApplied] = useState<number | null>(null);
+
+  const drafts = useMemo(() => toBulkDraftRows(list.items, selectedIds, percentage), [list.items, selectedIds, percentage]);
+  const items = useMemo(() => buildBulkFairPriceItems(drafts, effectiveFrom), [drafts, effectiveFrom]);
+  const anySelected = selectedIds.length > 0;
 
   const toggleSelection = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setApplied(null);
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
-  const increment = () => setPercentage((p) => p + 1);
-  const decrement = () => setPercentage((p) => Math.max(1, p - 1));
+  const increment = () => {
+    setApplied(null);
+    setPercentage((p) => p + STEP_PERCENT);
+  };
+  const decrement = () => {
+    setApplied(null);
+    setPercentage((p) => Math.max(STEP_PERCENT, p - STEP_PERCENT));
+  };
+
+  const applyDisabled = !canBulk || items === null || write.isPending;
+  const errorKey = write.error === undefined || write.error === null ? null : adminErrorKey(write.error);
+
+  const handleApply = () => {
+    if (applyDisabled || items === null) return;
+    setApplied(null);
+    write.run(items, (result) => {
+      // Only a real 200 reaches here.
+      setApplied(result.applied);
+      setSelectedIds([]);
+      write.finish();
+      if (onApplied) onApplied(result.applied);
+    });
+  };
+
+  const dash = t('pricingUpdate.noValue');
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.items.length });
 
   return (
     <SafeAreaView style={styles.root}>
@@ -90,7 +125,7 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
           style={styles.backBtn}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('pricingUpdate.back')}
         >
           <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
@@ -98,154 +133,116 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Title */}
-        <Text style={styles.title}>Bulk Price Update</Text>
-        <Text style={styles.subtitle}>
-          Apply a percentage change across selected crops · SA only
-        </Text>
+        <Text style={styles.title}>{t('pricingUpdate.bulk.title')}</Text>
+        <Text style={styles.subtitle}>{t('pricingUpdate.bulk.subtitle')}</Text>
 
-        {/* Crop List */}
-        <View style={styles.cropList}>
-          {/* Vegetables */}
-          <Text style={styles.categoryHeader}>Vegetables</Text>
-          {CROPS.filter((c) => c.category === 'Vegetables').map((crop) => {
-            const isSelected = selectedIds.includes(crop.id);
-            return (
-              <TouchableOpacity
-                key={crop.id}
-                style={styles.cropCard}
-                onPress={() => toggleSelection(crop.id)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[styles.checkbox, isSelected && styles.checkboxSelected]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
+        {!canView ? <AdminEmptyState title={t('pricingCeiling.notAvailable.title')} subtitle={t('pricingCeiling.notAvailable.subtitle')} /> : null}
+        {canView && view === 'loading' ? <AdminLoadingState /> : null}
+        {canView && view === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
+        {canView && view === 'empty' ? <AdminEmptyState title={t('pricingUpdate.bulk.empty')} /> : null}
+
+        {canView && view === 'ready' ? (
+          <>
+            {/* Ceiling list. The design's category grouping has no API source, so the
+                single section header shows the dash instead of invented groups. */}
+            <View style={styles.cropList}>
+              <Text style={styles.categoryHeader}>{dash}</Text>
+              {drafts.map((draft) => (
+                <TouchableOpacity
+                  key={draft.row.id}
+                  style={styles.cropCard}
+                  onPress={() => toggleSelection(draft.row.id)}
+                  activeOpacity={0.7}
+                  testID={`pricingUpdate.bulk.row.${draft.row.id}`}
                 >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
-                </View>
-                <View style={styles.cropInfo}>
-                  <Text style={styles.cropName}>{crop.name}</Text>
-                  <Text style={styles.cropPrice}>Current: ₹{crop.currentPrice}/kg</Text>
-                </View>
-                <View style={styles.percentBadge}>
-                  <Text style={styles.percentBadgeText}>+{percentage}%</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                  <View
+                    style={[styles.checkbox, draft.selected && styles.checkboxSelected]}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: draft.selected }}
+                  >
+                    {draft.selected && <Icon name="check" size={16} color="#FFFFFF" />}
+                  </View>
+                  <View style={styles.cropInfo}>
+                    <Text style={styles.cropName}>{draft.row.cropName ?? dash}</Text>
+                    <Text style={styles.cropPrice}>
+                      {t('pricingUpdate.bulk.currentPrice', { price: formatPrice(draft.row.ceilingPrice) ?? dash })}
+                    </Text>
+                    {draft.selected ? (
+                      <Text style={styles.cropPrice} testID={`pricingUpdate.bulk.row.${draft.row.id}.proposed`}>
+                        {t('pricingUpdate.bulk.proposedPrice', { price: formatPrice(draft.proposedCeiling) ?? dash })}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.percentBadge}>
+                    <Text style={styles.percentBadgeText}>{t('pricingUpdate.bulk.percent', { percent: percentage })}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          {/* Fruits */}
-          <Text style={[styles.categoryHeader, { marginTop: 16 }]}>Fruits</Text>
-          {CROPS.filter((c) => c.category === 'Fruits').map((crop) => {
-            const isSelected = selectedIds.includes(crop.id);
-            return (
+            {/* Percentage Control */}
+            <Text style={styles.sectionLabel}>{t('pricingUpdate.bulk.sectionLabel')}</Text>
+            <View style={styles.percentCard}>
               <TouchableOpacity
-                key={crop.id}
-                style={styles.cropCard}
-                onPress={() => toggleSelection(crop.id)}
+                style={styles.circleBtn}
+                onPress={decrement}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('pricingUpdate.bulk.decrease')}
+                testID="pricingUpdate.bulk.decrease"
               >
-                <View
-                  style={[styles.checkbox, isSelected && styles.checkboxSelected]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
-                >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
-                </View>
-                <View style={styles.cropInfo}>
-                  <Text style={styles.cropName}>{crop.name}</Text>
-                  <Text style={styles.cropPrice}>Current: ₹{crop.currentPrice}/kg</Text>
-                </View>
-                <View style={styles.percentBadge}>
-                  <Text style={styles.percentBadgeText}>+{percentage}%</Text>
-                </View>
+                <Text style={styles.btnSymbol}>−</Text>
               </TouchableOpacity>
-            );
-          })}
 
-          {/* Dairy */}
-          <Text style={[styles.categoryHeader, { marginTop: 16 }]}>Dairy</Text>
-          {CROPS.filter((c) => c.category === 'Dairy').map((crop) => {
-            const isSelected = selectedIds.includes(crop.id);
-            return (
+              <Text style={styles.percentDisplay}>{t('pricingUpdate.bulk.percent', { percent: percentage })}</Text>
+
               <TouchableOpacity
-                key={crop.id}
-                style={styles.cropCard}
-                onPress={() => toggleSelection(crop.id)}
+                style={styles.circleBtn}
+                onPress={increment}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={t('pricingUpdate.bulk.increase')}
+                testID="pricingUpdate.bulk.increase"
               >
-                <View
-                  style={[styles.checkbox, isSelected && styles.checkboxSelected]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
-                >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
-                </View>
-                <View style={styles.cropInfo}>
-                  <Text style={styles.cropName}>{crop.name}</Text>
-                  <Text style={styles.cropPrice}>Current: ₹{crop.currentPrice}/kg</Text>
-                </View>
-                <View style={styles.percentBadge}>
-                  <Text style={styles.percentBadgeText}>+{percentage}%</Text>
-                </View>
+                <Text style={styles.btnSymbol}>+</Text>
               </TouchableOpacity>
-            );
-          })}
+            </View>
 
-          {/* Grains */}
-          <Text style={[styles.categoryHeader, { marginTop: 16 }]}>Grains</Text>
-          {CROPS.filter((c) => c.category === 'Grains').map((crop) => {
-            const isSelected = selectedIds.includes(crop.id);
-            return (
-              <TouchableOpacity
-                key={crop.id}
-                style={styles.cropCard}
-                onPress={() => toggleSelection(crop.id)}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[styles.checkbox, isSelected && styles.checkboxSelected]}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected }}
-                >
-                  {isSelected && <Icon name="check" size={16} color="#FFFFFF" />}
-                </View>
-                <View style={styles.cropInfo}>
-                  <Text style={styles.cropName}>{crop.name}</Text>
-                  <Text style={styles.cropPrice}>Current: ₹{crop.currentPrice}/kg</Text>
-                </View>
-                <View style={styles.percentBadge}>
-                  <Text style={styles.percentBadgeText}>+{percentage}%</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+            {/* Apply Button */}
+            <TouchableOpacity
+              style={[styles.applyBtn, applyDisabled && styles.applyBtnDisabled]}
+              onPress={handleApply}
+              disabled={applyDisabled}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: applyDisabled, busy: write.isPending }}
+              testID="pricingUpdate.bulk.apply"
+            >
+              {write.isPending ? (
+                <ActivityIndicator color="#FFFFFF" style={{ marginRight: 8 }} />
+              ) : (
+                <Icon name="check_circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              )}
+              <Text style={styles.applyBtnText}>
+                {write.isPending ? t('pricingUpdate.bulk.applying') : t('pricingUpdate.bulk.apply')}
+              </Text>
+            </TouchableOpacity>
 
-        {/* Percentage Control */}
-        <Text style={styles.sectionLabel}>Apply percentage change to selected</Text>
-        <View style={styles.percentCard}>
-          <TouchableOpacity style={styles.circleBtn} onPress={decrement} activeOpacity={0.7}>
-            <Text style={styles.btnSymbol}>−</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.percentDisplay}>+{percentage}%</Text>
-
-          <TouchableOpacity style={styles.circleBtn} onPress={increment} activeOpacity={0.7}>
-            <Text style={styles.btnSymbol}>+</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Apply Button */}
-        <TouchableOpacity
-          style={[styles.applyBtn, selectedIds.length === 0 && styles.applyBtnDisabled]}
-          onPress={() => (onApply ? onApply(selectedIds, percentage) : onBack())}
-          disabled={selectedIds.length === 0}
-          activeOpacity={0.8}
-        >
-          <Icon name="check_circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.applyBtnText}>Apply to Selected</Text>
-        </TouchableOpacity>
+            <Text style={styles.noteText}>{t('pricingUpdate.bulk.effectiveNote', { date: effectiveFrom })}</Text>
+            {!canBulk ? <Text style={styles.noteText}>{t('pricingUpdate.bulk.notPermitted')}</Text> : null}
+            {canBulk && anySelected && items === null ? <Text style={styles.noteText}>{t('pricingUpdate.bulk.unreadable')}</Text> : null}
+            {errorKey !== null ? (
+              <Text style={styles.errorText} testID="pricingUpdate.bulk.error">
+                {t(errorKey)}
+              </Text>
+            ) : null}
+            {applied !== null && errorKey === null ? (
+              <Text style={styles.successText} testID="pricingUpdate.bulk.applied">
+                {t('pricingUpdate.bulk.applied', { count: applied })}
+              </Text>
+            ) : null}
+          </>
+        ) : null}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -413,6 +410,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+    fontFamily: 'Manrope, system-ui, sans-serif',
+  },
+  noteText: {
+    fontSize: 12,
+    color: P.lightGray,
+    marginTop: 10,
+    lineHeight: 17,
+    fontFamily: 'Manrope, system-ui, sans-serif',
+  },
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: P.danger,
+    marginTop: 10,
+    fontFamily: 'Manrope, system-ui, sans-serif',
+  },
+  successText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: P.success,
+    marginTop: 10,
     fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

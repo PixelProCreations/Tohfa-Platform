@@ -68,10 +68,14 @@ describe('no invoice generation (no create-invoice route)', () => {
     expect(FLOW).toMatch(/const screen = isRouteAvailable\(current\.screen\) \? current\.screen : HOME_SCREEN;/);
   });
 
-  it('no live billing screen offers Generate Invoice or the Invoice Required card', () => {
-    for (const source of [HUB, LIST, DETAIL]) {
-      expect(source).not.toMatch(/Generate Invoice|onGenerateInvoice|INVOICE REQUIRED|Invoice Required/);
+  it('the hub draws Generate Invoice and the Invoice Required card (design), but no live billing screen can generate: no host wires a handler', () => {
+    expect(HUB).toMatch(/t\('billing\.hub\.generateInvoice'\)/);
+    expect(HUB).toMatch(/t\('billing\.hub\.invoiceRequired'\)/);
+    // The list and the detail never offer it, and BillingFlow passes no onGenerateInvoice to any screen.
+    for (const source of [LIST, DETAIL]) {
+      expect(source).not.toMatch(/Generate Invoice|onGenerateInvoice|billing\.hub\.generateInvoice/);
     }
+    expect(FLOW).not.toMatch(/onGenerateInvoice\s*=/);
   });
 
   it('App.tsx refuses the legacy generation route keys through billingRouteArea', () => {
@@ -111,9 +115,12 @@ describe('hidden: what the API cannot back', () => {
     expect(DETAIL).not.toMatch(/label="Share"/);
   });
 
-  it('the list opens no filters screen (the API filters by type and date only; the chips cover type)', () => {
-    expect(LIST).not.toMatch(/onOpenFilters/);
-    expect(functionBody(FLOW, 'LiveListRoute')).not.toMatch(/navigate\('InvoiceFilters'/);
+  it('the list draws the design filter button and opens the filters screen, but applying filters sends nothing the API cannot filter by', () => {
+    expect(LIST).toMatch(/onPress=\{\(\) => onOpenFilters\?\.\(\)\}/);
+    expect(FLOW).toMatch(/onOpenFilters=\{\(\) => navigate\('InvoiceFilters'\)\}/);
+    // Apply just returns: no filter value is carried into the list request (type and date only, via the chips).
+    expect(FLOW).toMatch(/onApplyFilters=\{\(\) => back\(\)\}/);
+    expect(DATA).not.toMatch(/listInvoices\(\{[^}]*(customer|amount|sort|status)/);
   });
 
   it('the hub shows no invoice KPI tiles (there is no invoice summary endpoint)', () => {

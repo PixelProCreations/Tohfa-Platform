@@ -84,10 +84,42 @@ export const ERROR_CODES: readonly (GenericProblemCode | ErrorCode)[] = [
 ];
 
 export class MissingIdempotencyKeyError extends Error {
-  constructor() {
-    super('A cash top-up must carry an Idempotency-Key');
+  constructor(message = 'An Idempotency-Key is required for this wallet mutation') {
+    super(message);
     this.name = 'MissingIdempotencyKeyError';
   }
+}
+
+/** docs/openapi.yaml deductCustomerWallet request body. */
+export interface WalletDeductRequest {
+  amount: Money;
+  /** 1..DEDUCT_REASON_MAX_LENGTH characters. */
+  reason: string;
+}
+
+/** docs/openapi.yaml deductCustomerWallet `reason` maxLength (the request schema's bound, not a business threshold). */
+export const DEDUCT_REASON_MAX_LENGTH = 300;
+
+/**
+ * Manually debit a customer's wallet for an adjustment or penalty (BR-17).
+ * POST /admin/wallets/{customerId}/deduct
+ * Requires Idempotency-Key header.
+ */
+export function deductCustomerWallet(
+  customerId: string,
+  body: WalletDeductRequest,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<WalletTransactionDto> {
+  if (idempotencyKey.trim() === '') return Promise.reject(new MissingIdempotencyKeyError('A wallet deduction must carry an Idempotency-Key'));
+  const payload: WalletDeductRequest = {
+    amount: body.amount,
+    reason: body.reason,
+  };
+  return adminPost<WalletTransactionDto>(`/admin/wallets/${encodeURIComponent(customerId)}/deduct`, payload, {
+    idempotencyKey,
+    signal,
+  });
 }
 
 /**

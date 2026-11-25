@@ -9,7 +9,8 @@ import { isAreaAvailable } from '../availability';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps, StockMovementRow } from './types';
-import { movementRouteParams } from './movementDetailMappers';
+import { movementReference, movementRouteParams } from './movementDetailMappers';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
@@ -154,16 +155,28 @@ export function StockLedgerScreen({
   // Stock counts (BR-107) are shown only with inventory.stock_verification.perform
   // (availability.ts); a count is started from the Verify tab or Batch Detail.
   const canVerify = isAreaAvailable('stockCounts', can);
+  // 'Verify / Adjust a Batch': drawn on the Main view only. Resolved through
+  // availability.ts like every other hidden-route entry point, so the gate for
+  // the stockAdjustments area is defined in exactly one place.
+  const canAdjust = isAreaAvailable('stockAdjustments', can);
+  const isSub = scope.warehouseId !== undefined || !canViewAll;
   const view = queryViewState({ isLoading, error, itemCount: movements.length });
   const activeBatches = batches.filter((batch) => batch.status === 'active');
+  const firstBatch = activeBatches[0];
 
   return (
     <View style={styles.safeArea}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader 
-          title="Stock Ledger"
+          title={t('inventory.stockLedger.title')}
           onBack={onBack}
+          showFilter={true}
+          // The design's filter control stays visible. M3S16 was the sample
+          // filters screen and has been deleted, and there is no live filters
+          // route yet, so the press is inert rather than a navigation into a
+          // screen that no longer exists.
+          onFilterPress={() => undefined}
           showWarehouse={!canViewAll}
           warehouseName={scope.warehouseName}
           bottomContent={
@@ -189,7 +202,7 @@ export function StockLedgerScreen({
             activeOpacity={0.7}
           >
             <StockTabBoxIcon color={activeTab === 'Stock' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>Stock</Text>
+            <Text style={[styles.tabCardText, activeTab === 'Stock' && styles.activeTabCardText]}>{t('inventory.allocation.tab.stock')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -198,7 +211,7 @@ export function StockLedgerScreen({
             activeOpacity={0.7}
           >
             <LedgerTabIcon color={activeTab === 'Ledger' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>Ledger</Text>
+            <Text style={[styles.tabCardText, activeTab === 'Ledger' && styles.activeTabCardText]}>{t('inventory.allocation.tab.ledger')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -210,7 +223,7 @@ export function StockLedgerScreen({
             activeOpacity={0.7}
           >
             <AllocationTabIcon color={activeTab === 'Allocation' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>Allocation</Text>
+            <Text style={[styles.tabCardText, activeTab === 'Allocation' && styles.activeTabCardText]}>{t('inventory.allocation.tab.allocation')}</Text>
           </TouchableOpacity>
 
           {canVerify ? (
@@ -223,7 +236,7 @@ export function StockLedgerScreen({
             activeOpacity={0.7}
           >
             <VerifyTabIcon color={activeTab === 'Verify' ? adminColors.onBrand : adminColors.ink} />
-            <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>Verify</Text>
+            <Text style={[styles.tabCardText, activeTab === 'Verify' && styles.activeTabCardText]}>{t('inventory.allocation.tab.verify')}</Text>
           </TouchableOpacity>
           ) : null}
         </View>
@@ -294,62 +307,76 @@ export function StockLedgerScreen({
                 </Text>
               </View>
 
-              {movement.productLabel === undefined ? null : (
-                <Text style={styles.productTitle}>{movement.productLabel}</Text>
-              )}
+              <Text style={styles.productTitle}>{movement.productLabel ?? ADMIN_NO_VALUE}</Text>
 
               <View style={styles.metaRow}>
-                {movement.batchCode === undefined ? (
-                  <View />
-                ) : (
-                  <Text style={styles.metaLabelText}>
-                    {t('inventory.ledger.batch')} <Text style={styles.metaValueText}>{movement.batchCode}</Text>
-                  </Text>
-                )}
+                <Text style={styles.metaLabelText}>
+                  {t('inventory.ledger.batch')} <Text style={styles.metaValueText}>{movement.batchCode ?? ADMIN_NO_VALUE}</Text>
+                </Text>
                 <Text style={styles.timeText}>{movement.performedAt}</Text>
               </View>
 
-              {movement.balanceText === '' ? null : (
-                <View style={[styles.metaRow, styles.metaRowEnd]}>
-                  <Text style={styles.metaLabelText}>
-                    {t('inventory.ledger.balance')} <Text style={styles.metaValueText}>{movement.balanceText}</Text>
+              <View style={styles.metaRow}>
+                <Text style={styles.metaLabelText}>
+                  {t('inventory.stockLedger.ref')}{' '}
+                  <Text style={styles.metaValueText}>
+                    {movementReference(movement.refType, movement.refId) ?? ADMIN_NO_VALUE}
                   </Text>
-                </View>
-              )}
+                </Text>
+                <Text style={styles.metaLabelText}>
+                  {t('inventory.ledger.balance')}{' '}
+                  <Text style={styles.metaValueText}>{movement.balanceText === '' ? ADMIN_NO_VALUE : movement.balanceText}</Text>
+                </Text>
+              </View>
             </TouchableOpacity>
           ))}
 
           {/* Load Earlier Movements */}
-          {hasMore ? (
-            <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7} onPress={onLoadMore}>
-              <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
-            </TouchableOpacity>
-          ) : null}
+          <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7} onPress={onLoadMore} disabled={!hasMore}>
+            <Text style={styles.loadMoreText}>{t('inventory.stockLedger.loadMore')}</Text>
+          </TouchableOpacity>
 
           {/* Batches across warehouses (absorbed Main StockLedgerScreen) */}
-          {canViewAll && activeBatches.length > 0 ? (
+          {canViewAll ? (
             <>
-              <Text style={styles.batchSectionTitle}>Batches across warehouses</Text>
+              <Text style={styles.batchSectionTitle}>{t('inventory.stockLedger.batchesTitle')}</Text>
               {activeBatches.map((item) => (
                 <View key={item.id} style={styles.batchCard}>
                   <View style={styles.batchRow}>
                     <Text style={styles.batchName}>{item.productName}</Text>
                     <Text style={styles.batchName}>
-                      {item.availableGrams === null ? t('inventory.noValue') : formatKg(item.availableGrams)}
+                      {item.availableGrams === null ? ADMIN_NO_VALUE : formatKg(item.availableGrams)}
                     </Text>
                   </View>
                   <View style={styles.batchRow}>
                     <Text style={styles.batchMeta}>
-                      Batch {item.batchCode}
-                      {item.storageLocation === null ? '' : ` · ${item.storageLocation}`}
+                      {t('inventory.stockLedger.batchMeta', {
+                        code: item.batchCode,
+                        location: item.storageLocation ?? ADMIN_NO_VALUE,
+                      })}
                     </Text>
                     <Text style={styles.batchMeta}>
-                      {item.receivedOn === '' ? '' : t('inventory.batch.receivedOn', { date: item.receivedOn })}
+                      {t('inventory.batch.receivedOn', { date: item.receivedOn === '' ? ADMIN_NO_VALUE : item.receivedOn })}
                     </Text>
                   </View>
                 </View>
               ))}
             </>
+          ) : null}
+
+          {/* Permission is the outermost gate: the stockAdjustments area must be
+              available before the Main-view presentation conditions are even
+              considered, so the route into M3S11 can never be drawn without it. */}
+          {canAdjust ? (
+            !isSub && firstBatch ? (
+              <TouchableOpacity
+                style={styles.adjustBtn}
+                activeOpacity={0.8}
+                onPress={() => onNavigate?.('M3S11', { batchId: firstBatch.id })}
+              >
+                <Text style={styles.adjustBtnText}>{t('inventory.stockLedger.adjustBatch')}</Text>
+              </TouchableOpacity>
+            ) : null
           ) : null}
         </ScrollView>
       </View>
@@ -378,7 +405,18 @@ const styles = StyleSheet.create({
   batchRow: { flexDirection: 'row', justifyContent: 'space-between' },
   batchName: { ...adminType.rowTitle, color: adminColors.ink },
   batchMeta: { ...adminType.rowMeta, color: adminColors.muted },
-  metaRowEnd: { justifyContent: 'flex-end' },
+  adjustBtn: {
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    paddingVertical: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xl,
+    alignItems: 'center',
+  },
+  adjustBtnText: { ...adminType.sectionHead, color: adminColors.ink },
   safeArea: {
     flex: 1,
     backgroundColor: adminColors.brand, // status bar blends with header

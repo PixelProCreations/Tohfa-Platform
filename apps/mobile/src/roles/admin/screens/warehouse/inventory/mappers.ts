@@ -20,8 +20,9 @@
  * neutral label, never the crop uuid or a guessed name.
  */
 import type { AlertItemDto } from '../../../api/alerts';
-import type { AllocationDto, BatchDto, StockLedgerEntryDto } from '../../../api/inventory';
+import type { AllocationConfigDto, AllocationDto, BatchDto, StockLedgerEntryDto } from '../../../api/inventory';
 import { t, type TranslationKey } from '../../../i18n';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { formatAdminDate, formatAdminDay } from '../../../utils/datetime';
 import type { InfoFieldValue } from '../shared/infoFields';
@@ -29,6 +30,10 @@ import type {
   AllocationChannelKey,
   AllocationChannelSummary,
   AllocationDashboard,
+  AllocationSplitChannel,
+  AllocationSplitFigures,
+  AllocationSplitView,
+  WarehouseAllocationRow,
   BatchRow,
   BatchUiStatus,
   LowStockRow,
@@ -307,7 +312,15 @@ export function toStockMovementRow(
     performedAt: formatAdminDate(dto.performedAt, now),
     ...(batch === undefined
       ? {}
-      : { batchCode: batch.batchCode, productLabel: productLabelOf(batch.productName, batch.grade) }),
+      : {
+          batchCode: batch.batchCode,
+          productLabel: productLabelOf(batch.productName, batch.grade),
+          cropId: batch.cropId,
+          grade: batch.grade,
+          productName: batch.productName,
+          gradeLabel: batch.gradeLabel,
+          ...(batch.storageLocation === null ? {} : { storageLocation: batch.storageLocation }),
+        }),
     ...(remarks === undefined ? {} : { remarks }),
     ...(refType === undefined ? {} : { refType }),
     ...(refId === undefined ? {} : { refId }),
@@ -451,6 +464,94 @@ export function allocatedByProduct(rows: readonly AllocationDto[]): Map<string, 
   return totals;
 }
 
+// ─── Allocation split (design M3-08 split views) ────────────────────────────
+
+/** Every design channel with no figure. */
+function emptySplitFigures(): AllocationSplitFigures {
+  return {
+    online: ADMIN_NO_VALUE,
+    liveMarket: ADMIN_NO_VALUE,
+    horeca: ADMIN_NO_VALUE,
+    b2b: ADMIN_NO_VALUE,
+    reserve: ADMIN_NO_VALUE,
+    buffer: ADMIN_NO_VALUE,
+  };
+}
+
+/** Hundredths of a percent ('7050' -> '70.5%'), as integers so no float reaches the text. */
+function percentFromHundredths(hundredths: number): string {
+  const whole = Math.trunc(hundredths / 100);
+  const fraction = Math.abs(hundredths % 100);
+  const value = fraction === 0 ? String(whole) : `${whole}.${String(fraction).padStart(2, '0').replace(/0$/, '')}`;
+  return t('inventory.allocation.percent', { value });
+}
+
+/**
+ * The configured split from GET /admin/allocation-config, per design channel.
+ * Only the four BR-12 buckets can carry a value; HORECA and B2B stay
+ * ADMIN_NO_VALUE. The total is the sum of the server's own percentages, shown
+ * only when all four buckets came back.
+ */
+export function allocationSplitView(config: AllocationConfigDto | undefined): AllocationSplitView {
+  const figures = emptySplitFigures();
+  if (config === undefined) return { figures, total: ADMIN_NO_VALUE };
+  let totalHundredths = 0;
+  const seen = new Set<AllocationSplitChannel>();
+  for (const entry of config.channels ?? []) {
+    if (entry.channel === undefined || typeof entry.percentage !== 'number' || !Number.isFinite(entry.percentage)) continue;
+    const key = allocationChannelOf(entry.channel);
+    if (key === 'unknown' || seen.has(key)) continue;
+    const hundredths = Math.round(entry.percentage * 100);
+    figures[key] = percentFromHundredths(hundredths);
+    totalHundredths += hundredths;
+    seen.add(key);
+  }
+  return { figures, total: seen.size === KNOWN_CHANNELS.length ? percentFromHundredths(totalHundredths) : ADMIN_NO_VALUE };
+}
+
+/**
+ * The warehouses the 'Warehouse allocation' table lists: the one the request
+ * is narrowed to, otherwise every warehouse the host offered. Names come only
+ * from the scope and the host's options.
+ */
+export function allocationTableWarehouses(
+  scope: WarehouseScope,
+  options: readonly WarehouseScope[] | undefined,
+  warehouseId: string | undefined,
+): { warehouseId: string; name: string }[] {
+  if (warehouseId !== undefined) {
+    const option = (options ?? []).find((o) => o.warehouseId === warehouseId);
+    const name = option?.warehouseName ?? (scope.warehouseId === warehouseId ? scope.warehouseName : undefined);
+    return [{ warehouseId, name: name ?? ADMIN_NO_VALUE }];
+  }
+  return (options ?? []).flatMap((o) =>
+    o.warehouseId === undefined ? [] : [{ warehouseId: o.warehouseId, name: o.warehouseName ?? ADMIN_NO_VALUE }],
+  );
+}
+
+/**
+ * Each listed warehouse's channel shares of its own allocated grams (GET
+ * /admin/allocations rows). Not the configured split, which is global: a
+ * warehouse with nothing allocated, and HORECA and B2B always, show
+ * ADMIN_NO_VALUE.
+ */
+export function warehouseAllocationRows(
+  rows: readonly AllocationDto[],
+  warehouses: readonly { warehouseId: string; name: string }[],
+): WarehouseAllocationRow[] {
+  return warehouses.map(({ warehouseId, name }) => {
+    const figures = emptySplitFigures();
+    const dashboard = buildAllocationDashboard(rows.filter((row) => row.warehouseId === warehouseId));
+    if (dashboard.totalAllocatedGrams > 0) {
+      for (const summary of dashboard.channels) {
+        // Basis points are hundredths of a percent.
+        if (summary.channel !== 'unknown') figures[summary.channel] = percentFromHundredths(summary.shareBasisPoints);
+      }
+    }
+    return { warehouseId, name, figures };
+  });
+}
+
 // ─── Low stock (LOW_STOCK alerts) ────────────────────────────────────────────
 
 function stringParam(alert: AlertItemDto, key: string): string | undefined {
@@ -492,4 +593,65 @@ export function toLowStockRow(alert: AlertItemDto, cropNames: ReadonlyMap<string
     threshold: kgParam(alert, 'thresholdKg'),
     warehouseId: alert.warehouseId,
   };
+}
+
+// ─── Inventory overview (GET /admin/inventory/overview, BR-116) ──────────────
+
+/**
+ * True when the overview describes the warehouse a screen shows. The endpoint
+ * takes no warehouse filter: it answers for the caller's whole scope (BR-30).
+ * A Sub scope is its own warehouse; the Main view matches only with no
+ * warehouse picked. A Main view narrowed to one warehouse gets nothing from it.
+ */
+export function overviewCoversView(scope: WarehouseScope, warehouseId: string | undefined): boolean {
+  return scope.warehouseId !== undefined || warehouseId === undefined;
+}
+
+/** The overview figures the inventory screens draw; null = show the dash. */
+export interface InventoryOverviewFigures {
+  /** Stock verifications in RECORDED (BR-107). */
+  verificationPendingCount: number | null;
+  /** system_config.low_stock_threshold_kg as the server used it (BR-77e), as "20 kg". */
+  lowStockThresholdLabel: string | null;
+}
+
+/**
+ * The overview's figures for a screen, or nulls when the overview has not
+ * loaded or does not cover the warehouse shown. A threshold the server sent as
+ * null (system_config unusable) stays null: the screen shows the dash, never 0.
+ */
+export function inventoryOverviewFigures(
+  overview: { unreconciledVerificationCount: number; thresholds: { lowStockThresholdKg: string | null } } | undefined,
+  covers: boolean,
+): InventoryOverviewFigures {
+  if (overview === undefined || !covers) return { verificationPendingCount: null, lowStockThresholdLabel: null };
+  const raw = overview.thresholds.lowStockThresholdKg;
+  const grams = raw === null ? null : parseKgToGrams(raw);
+  return {
+    verificationPendingCount: overview.unreconciledVerificationCount,
+    lowStockThresholdLabel: grams === null ? null : formatKg(grams),
+  };
+}
+
+// ─── Consolidated stock (Main, all warehouses) ───────────────────────────────
+
+/**
+ * Available grams (BR-100 qtyAvailable) of each product per warehouse over the
+ * ACTIVE batches: productKey -> warehouseId -> grams. A batch whose quantity
+ * could not be read adds nothing (its product is already flagged incomplete by
+ * aggregateStockByProduct).
+ */
+export function availableByProductAndWarehouse(batches: readonly BatchRow[]): Map<string, Map<string, number>> {
+  const out = new Map<string, Map<string, number>>();
+  for (const batch of batches) {
+    if (batch.status !== 'active' || batch.availableGrams === null) continue;
+    const key = productKey(batch.cropId, batch.grade);
+    let perWarehouse = out.get(key);
+    if (perWarehouse === undefined) {
+      perWarehouse = new Map();
+      out.set(key, perWarehouse);
+    }
+    perWarehouse.set(batch.warehouseId, (perWarehouse.get(batch.warehouseId) ?? 0) + batch.availableGrams);
+  }
+  return out;
 }

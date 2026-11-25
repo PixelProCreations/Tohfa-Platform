@@ -46,6 +46,13 @@ import type {
   MarkAttendanceBody,
   RollCallQuery,
   RollCallResponse,
+  StaffBankAccountBody,
+  StaffBankAccountResponse,
+  StaffDocumentBody,
+  StaffDocumentResponse,
+  ListStaffDocumentsResponse,
+  StaffEmergencyContactBody,
+  StaffEmergencyContactResponse,
   StaffResponse,
   UpdateStaffBody,
 } from './warehouse-staff.schema.js';
@@ -175,6 +182,12 @@ export interface WarehouseStaffService {
   listAttendance(scope: ResolvedScope, query: ListAttendanceQuery): Promise<ListAttendanceResponse>;
   attendanceSummary(scope: ResolvedScope, query: AttendanceSummaryQuery): Promise<AttendanceSummaryResponse>;
   attendanceHistory(scope: ResolvedScope, staffId: string, date: string): Promise<AttendanceHistoryResponse>;
+  getBankAccount(scope: ResolvedScope, staffId: string): Promise<StaffBankAccountResponse>;
+  upsertBankAccount(scope: ResolvedScope, staffId: string, body: StaffBankAccountBody): Promise<StaffBankAccountResponse>;
+  listDocuments(scope: ResolvedScope, staffId: string): Promise<ListStaffDocumentsResponse>;
+  createDocument(scope: ResolvedScope, staffId: string, body: StaffDocumentBody): Promise<StaffDocumentResponse>;
+  getEmergencyContact(scope: ResolvedScope, staffId: string): Promise<StaffEmergencyContactResponse>;
+  upsertEmergencyContact(scope: ResolvedScope, staffId: string, body: StaffEmergencyContactBody): Promise<StaffEmergencyContactResponse>;
 }
 
 export function createWarehouseStaffService(
@@ -479,6 +492,80 @@ export function createWarehouseStaffService(
       const attendance = await repo.findAttendanceByStaffDay(db, scope, staffId, date);
       if (attendance === null) throw notFound('Attendance record', `${staffId}/${date}`);
       return { items: await repo.listHistory(db, attendance.id) };
+    },
+
+    async getBankAccount(scope, staffId) {
+      const staff = await repo.findStaffById(db, scope, staffId);
+      if (!staff) throw notFound('Warehouse staff', staffId);
+      const bank = await repo.getBankAccount(db, staffId);
+      if (!bank) throw notFound('Bank account', staffId);
+      return bank;
+    },
+
+    async upsertBankAccount(scope, staffId, body) {
+      const staff = await repo.findStaffById(db, scope, staffId);
+      if (!staff) throw notFound('Warehouse staff', staffId);
+      return runTx(async (tx) => {
+        const res = await repo.upsertBankAccount(tx, staffId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'staff.bank_account.update',
+          entityType: 'warehouse_staff',
+          entityId: staffId,
+          warehouseId: staff.warehouseId,
+        });
+        return res;
+      });
+    },
+
+    async listDocuments(scope, staffId) {
+      const staff = await repo.findStaffById(db, scope, staffId);
+      if (!staff) throw notFound('Warehouse staff', staffId);
+      const items = await repo.listDocuments(db, staffId);
+      return { items };
+    },
+
+    async createDocument(scope, staffId, body) {
+      const staff = await repo.findStaffById(db, scope, staffId);
+      if (!staff) throw notFound('Warehouse staff', staffId);
+      return runTx(async (tx) => {
+        const res = await repo.createDocument(tx, staffId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'staff.document.create',
+          entityType: 'warehouse_staff',
+          entityId: staffId,
+          warehouseId: staff.warehouseId,
+        });
+        return res;
+      });
+    },
+
+    async getEmergencyContact(scope, staffId) {
+      const staff = await repo.findStaffById(db, scope, staffId);
+      if (!staff) throw notFound('Warehouse staff', staffId);
+      const contact = await repo.getEmergencyContact(db, staffId);
+      if (!contact) throw notFound('Emergency contact', staffId);
+      return contact;
+    },
+
+    async upsertEmergencyContact(scope, staffId, body) {
+      const staff = await repo.findStaffById(db, scope, staffId);
+      if (!staff) throw notFound('Warehouse staff', staffId);
+      return runTx(async (tx) => {
+        const res = await repo.upsertEmergencyContact(tx, staffId, body);
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'staff.emergency_contact.update',
+          entityType: 'warehouse_staff',
+          entityId: staffId,
+          warehouseId: staff.warehouseId,
+        });
+        return res;
+      });
     },
   };
 }

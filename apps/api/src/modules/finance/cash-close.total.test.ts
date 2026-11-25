@@ -8,7 +8,7 @@
  *
  * Service + real SQL inside rolled-back transactions, on a far-past day no other suite uses.
  */
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import { fromPaise, RoleCode, ScopeLevel, toPaise, type Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -22,11 +22,6 @@ const IN_DAY = '1949-08-17T05:00:00Z'; // 10:30 IST on DAY
 
 class RollbackFixture extends Error {}
 
-afterAll(async () => {
-  if (process.env['DATABASE_URL'] === undefined) return;
-  const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-  await Promise.allSettled([closePool(), closeRedis()]);
-});
 
 describeIfDatabase('daily cash summary total across warehouses (PostgreSQL, rolled back) — BR-133', () => {
   let ready = false;

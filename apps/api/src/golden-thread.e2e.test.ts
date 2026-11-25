@@ -361,10 +361,6 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
     const totalMs = Object.values(stageTimings).reduce((a, b) => a + b, 0);
     console.log(`  ⚡ TOTAL GOLDEN THREAD DURATION: ${totalMs}ms\n`);
 
-    if (!dbAvailable) return;
-    const { closePool } = await import('./db/pool.js');
-    const { closeRedis } = await import('./redis.js');
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   // -------------------------------------------------------------------------

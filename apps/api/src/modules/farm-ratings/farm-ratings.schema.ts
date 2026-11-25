@@ -49,6 +49,8 @@ export const farmRatingResponse = z.object({
   overallRating: z.number().nullable(),
   ratingTier: z.enum(ratingTiers).nullable(),
   ratedAt: z.string().nullable(),
+  ratedBy: z.string().uuid().nullable().optional(),
+  ratedByName: z.string().nullable().optional(),
   // Additive (2026-10-01). null only for a farmer who has never been rated.
   source: z.enum(ratingSources).nullable(),
   sourceAuditId: z.string().uuid().nullable(),

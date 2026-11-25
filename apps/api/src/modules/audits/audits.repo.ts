@@ -163,6 +163,10 @@ export interface AuditCursor {
 
 export interface ListAuditsArgs {
   access: AuditAccess;
+  q?: string | undefined;
+  minScore?: number | undefined;
+  maxScore?: number | undefined;
+  auditorUserId?: string | undefined;
   zoneId?: string | undefined;
   statuses?: AuditStatus[] | undefined;
   type?: AuditType | undefined;
@@ -595,6 +599,15 @@ export const auditsRepo: AuditsRepo = {
       params.push(value);
       conditions.push(sql(params.length));
     };
+    if (args.q !== undefined) {
+      params.push(`%${args.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+      conditions.push(
+        `(fu.full_name ILIKE $${params.length} ESCAPE '\\' OR f.tohfa_farmer_id ILIKE $${params.length} ESCAPE '\\' OR z.name ILIKE $${params.length} ESCAPE '\\')`,
+      );
+    }
+    if (args.minScore !== undefined) add((i) => `a.total_score >= $${i}`, args.minScore);
+    if (args.maxScore !== undefined) add((i) => `a.total_score <= $${i}`, args.maxScore);
+    if (args.auditorUserId !== undefined) add((i) => `a.auditor_user_id = $${i}::uuid`, args.auditorUserId);
     if (args.zoneId !== undefined) add((i) => `a.zone_id = $${i}::uuid`, args.zoneId);
     if (args.statuses !== undefined) add((i) => `a.status = ANY($${i}::audit_status[])`, args.statuses);
     if (args.type !== undefined) add((i) => `a.audit_type = $${i}::audit_type`, args.type);

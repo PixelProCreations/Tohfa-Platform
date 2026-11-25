@@ -1,14 +1,38 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useTheme, authPalette as P, typography } from '../../theme';
-import { fetchApplicationStatus, type ApplicationStatusResponse } from '../../api/auth';
+import {
+  fetchApplicationStatus,
+  type ApplicationStatusResponse,
+  type FarmerInfoRequestItem,
+} from '../../api/auth';
+import { getFarmerApplicationDraft } from '../../api/registration';
+import { useRegistrationDraftStore } from '../../storage/registrationDraft';
 import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { formatErrorMessage } from '../../../../shell/api/client';
-import { t } from '../../../../i18n/farmer';
+import { t, type TranslationKey } from '../../../../i18n/farmer';
 
 interface ApplicationStatusScreenProps {
   applicationId: string;
-  onNavigate: (screen: 'Welcome' | 'MainTabs') => void;
+  onNavigate: (screen: 'Welcome' | 'MainTabs' | 'Register', params?: Record<string, string | number | undefined>) => void;
+}
+
+const ITEM_LABEL_KEYS: Record<FarmerInfoRequestItem, TranslationKey> = {
+  AADHAAR: 'farmer.applicationStatus.item.AADHAAR',
+  FMB_SKETCH: 'farmer.applicationStatus.item.FMB_SKETCH',
+  PATTA_CHITTA: 'farmer.applicationStatus.item.PATTA_CHITTA',
+  BANK_DETAILS: 'farmer.applicationStatus.item.BANK_DETAILS',
+  CERTIFICATE: 'farmer.applicationStatus.item.CERTIFICATE',
+  OTHER: 'farmer.applicationStatus.item.OTHER',
+};
+
+function firstStepForRequestedItems(items: readonly FarmerInfoRequestItem[]): number {
+  const stepNumbers = items.map((item) => {
+    if (item === 'BANK_DETAILS') return 1;
+    if (item === 'FMB_SKETCH') return 3;
+    return 4;
+  });
+  return stepNumbers.length > 0 ? Math.min(...stepNumbers) : 4;
 }
 
 const STEPS = [
@@ -28,6 +52,9 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
   const [data, setData] = useState<ApplicationStatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [openingDraft, setOpeningDraft] = useState(false);
+  const [resubmitError, setResubmitError] = useState<string | null>(null);
+  const restoreFullDraft = useRegistrationDraftStore((s) => s.restoreFullDraft);
 
   const loadStatus = useCallback(async () => {
     setLoading(true);
@@ -56,11 +83,51 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
     onNavigate('Welcome');
   }
 
+  async function handleFixAndResubmit() {
+    if (openingDraft) return;
+    setOpeningDraft(true);
+    setResubmitError(null);
+    try {
+      const draftRes = await getFarmerApplicationDraft(applicationId);
+      const targetStep = firstStepForRequestedItems(data?.infoRequest?.items ?? []);
+      restoreFullDraft(
+        {
+          applicationId: draftRes.id,
+          currentStep: targetStep,
+          step1Personal: draftRes.step1Personal,
+          step2FarmDetails: draftRes.step2FarmDetails,
+          step3Location: draftRes.step3Location,
+          step4Documents: draftRes.step4Documents,
+        },
+        { isResubmit: true },
+      );
+      onNavigate('Register');
+    } catch (err: unknown) {
+      setResubmitError(formatErrorMessage(err, t('error.generic')));
+    } finally {
+      setOpeningDraft(false);
+    }
+  }
+
+  const isInfoRequested = data?.status === 'INFO_REQUESTED';
+  const isRejected = data?.status === 'REJECTED';
+  const rejectionReason =
+    data?.steps
+      ?.slice()
+      .reverse()
+      .find((s) => s.status === 'REJECTED')?.note ??
+    data?.notes ??
+    null;
+
   // Derived from the server's own status value
-  const activeStep = Math.max(
-    0,
-    STEPS.findIndex((step) => step.key === data?.status),
-  );
+  const activeStep = isInfoRequested
+    ? 1
+    : isRejected
+      ? -1
+      : Math.max(
+          0,
+          STEPS.findIndex((step) => step.key === data?.status),
+        );
 
   if (loading) {
     return (
@@ -83,22 +150,87 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         
-        {/* Top Check Icon */}
+        {/* Top Status Icon */}
         <View style={styles.topIconContainer}>
-          <View style={[styles.iconOuterCircle, { backgroundColor: colors.brandGreenLight }]}>
-            <View style={[styles.iconInnerCircle, { backgroundColor: colors.brandGreen }]}>
-              <Icon name="check" size={32} color={P.white} />
+          <View
+            style={[
+              styles.iconOuterCircle,
+              { backgroundColor: isInfoRequested ? P.amber50 : colors.brandGreenLight },
+            ]}
+          >
+            <View
+              style={[
+                styles.iconInnerCircle,
+                { backgroundColor: isInfoRequested ? P.amberAccent : isRejected ? P.red600 : colors.brandGreen },
+              ]}
+            >
+              <Icon
+                name={isInfoRequested ? 'info' : isRejected ? 'close' : 'check'}
+                size={32}
+                color={P.white}
+              />
             </View>
           </View>
         </View>
 
         <Text style={[styles.title, { color: colors.textDark }]}>
-          Application{'\n'}Submitted!
+          {isInfoRequested
+            ? t('farmer.applicationStatus.infoRequested.title')
+            : isRejected
+              ? t('farmer.applicationStatus.rejected.title')
+              : 'Application\nSubmitted!'}
         </Text>
-        
+
         <Text style={[styles.subtitle, { color: colors.textSubtle }]}>
-          Your farmer application has been received and{'\n'}is now under review.
+          {isInfoRequested
+            ? t('farmer.applicationStatus.infoRequested.subtitle')
+            : isRejected
+              ? t('farmer.applicationStatus.rejected.subtitle')
+              : 'Your farmer application has been received and\nis now under review.'}
         </Text>
+
+        {isInfoRequested && data?.infoRequest ? (
+          <View style={styles.actionCard} testID="farmer.applicationStatus.infoRequestCard">
+            <Text style={styles.actionCardTitle}>{t('farmer.applicationStatus.infoRequested.bannerTitle')}</Text>
+            {data.infoRequest.items.length > 0 ? (
+              <>
+                <Text style={styles.actionCardLabel}>{t('farmer.applicationStatus.infoRequested.itemsLabel')}</Text>
+                {data.infoRequest.items.map((item) => (
+                  <Text key={item} style={styles.actionCardItem}>
+                    • {t(ITEM_LABEL_KEYS[item] ?? 'farmer.applicationStatus.item.OTHER')}
+                  </Text>
+                ))}
+              </>
+            ) : null}
+            {data.infoRequest.message ? (
+              <>
+                <Text style={styles.actionCardLabel}>{t('farmer.applicationStatus.infoRequested.messageLabel')}</Text>
+                <Text style={styles.actionCardMessage}>{data.infoRequest.message}</Text>
+              </>
+            ) : null}
+            {resubmitError ? <Text style={styles.resubmitErrorText}>{resubmitError}</Text> : null}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.resubmitBtn, { backgroundColor: P.amberAccent, opacity: openingDraft ? 0.7 : 1 }]}
+              onPress={handleFixAndResubmit}
+              disabled={openingDraft}
+              testID="farmer.applicationStatus.resubmitBtn"
+            >
+              {openingDraft ? (
+                <ActivityIndicator size="small" color={P.white} />
+              ) : (
+                <Text style={styles.resubmitBtnText}>{t('farmer.applicationStatus.infoRequested.cta')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
+        {isRejected && rejectionReason ? (
+          <View style={styles.actionCard} testID="farmer.applicationStatus.rejectedCard">
+            <Text style={styles.actionCardLabel}>{t('farmer.applicationStatus.rejected.reasonLabel')}</Text>
+            <Text style={styles.actionCardMessage}>{rejectionReason}</Text>
+          </View>
+        ) : null}
 
         {/* App ID Card */}
         <View style={[styles.idCard, { borderColor: colors.borderMedium, backgroundColor: colors.white }]}>
@@ -146,7 +278,9 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
                     styles.stepSub,
                     { color: isPassed || isCurrent ? colors.textSubtle : P.pendingSubGrey }
                   ]}>
-                    {step.sub}
+                    {isInfoRequested && step.key === 'DOCS_REVIEW'
+                      ? t('farmer.applicationStatus.infoRequested.timeline')
+                      : step.sub}
                   </Text>
                 </View>
               </View>
@@ -200,6 +334,28 @@ const styles = StyleSheet.create({
   stepSub: { fontSize: typography.body },
   infoBox: { backgroundColor: P.noticeBg, borderWidth: 1, borderColor: P.noticeBorder, borderRadius: 8, padding: 16, width: '100%', marginBottom: 16 },
   infoBoxText: { fontSize: typography.body, color: P.noticeText, lineHeight: 20 },
+  actionCard: {
+    width: '100%',
+    backgroundColor: P.amber50,
+    borderWidth: 1,
+    borderColor: P.amber200,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  actionCardTitle: { fontSize: typography.bodyLarge, fontWeight: '800', color: P.twAmber900, marginBottom: 8 },
+  actionCardLabel: { fontSize: typography.caption, fontWeight: '700', color: P.twAmber900, marginTop: 6, marginBottom: 4 },
+  actionCardItem: { fontSize: typography.body, color: P.twAmber900, lineHeight: 20 },
+  actionCardMessage: { fontSize: typography.body, color: P.twAmber900, lineHeight: 20 },
+  resubmitErrorText: { fontSize: typography.bodySmall, color: P.red600, marginTop: 8 },
+  resubmitBtn: {
+    marginTop: 14,
+    height: 46,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resubmitBtnText: { fontSize: typography.body, fontWeight: '700', color: P.white },
   footer: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, borderTopWidth: 1, gap: 12 },
   footerBtn: { width: '100%', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footerBtnOutline: { backgroundColor: 'transparent', borderWidth: 1.5 },

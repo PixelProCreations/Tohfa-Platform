@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
@@ -363,10 +363,6 @@ describe('Farmer Profile Documents HTTP (BR-54e)', () => {
 });
 
 describeIfDatabase('Farmer Profile Documents integration (PostgreSQL)', () => {
-  afterAll(async () => {
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   interface Seeded {
     userId: string;

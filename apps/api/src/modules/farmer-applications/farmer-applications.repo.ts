@@ -1,10 +1,15 @@
 import type { Executor } from '../../db/pool.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import type { ApplicationReviewRow, ReviewDecision, ReviewSubjectType } from './farmer-applications.review.js';
 
+/** The database enum `application_status` (0001, plus INFO_REQUESTED from 0200). */
 export type ApplicationStatus =
   | 'SUBMITTED'
   | 'DOCS_REVIEW'
   | 'FARM_VERIFICATION'
   | 'AUDIT'
+  | 'INFO_REQUESTED'
   | 'APPROVED'
   | 'REJECTED';
 
@@ -23,9 +28,22 @@ export interface FarmerApplicationRow {
   step4_documents: Record<string, unknown>;
   user_id: string | null;
   farmer_id: string | null;
+  zone_id: string | null;
   submitted_at: Date | null;
   created_at: Date;
   updated_at: Date | null;
+  tohfa_farmer_id?: string | null;
+  decided_at?: Date | null;
+  decided_by?: string | null;
+  rejection_reason?: string | null;
+  /** BR-218: the reject reason code, from its own history column. */
+  rejection_reason_code?: string | null;
+  /** BR-217: the newest request-info transition (null when there has never been one). */
+  info_request_items?: string[] | null;
+  info_request_message?: string | null;
+  info_requested_at?: Date | null;
+  info_requested_by?: string | null;
+  is_info_requested?: boolean;
 }
 
 export interface StatusHistoryRow {
@@ -36,6 +54,38 @@ export interface StatusHistoryRow {
   actor_id: string | null;
   note: string | null;
   created_at: Date;
+  /** BR-218: TRANSITION (status moved) or NOTE (review note, from_status = to_status). */
+  event_type: 'TRANSITION' | 'NOTE';
+  reason_code: string | null;
+  requested_items: string[] | null;
+}
+
+/** Extra structured fields a transition may record on its history row. */
+export interface TransitionDetails {
+  /** BR-218: reject reason code. */
+  reasonCode?: string | undefined;
+  /** BR-217: request-info checklist. */
+  requestedItems?: readonly string[] | undefined;
+}
+
+export interface ApplicationUploadRow {
+  storage_key: string;
+  mime_type: string;
+  /** bigint arrives from pg as a string. */
+  size_bytes: string;
+}
+
+export interface NewFarmerDocument {
+  farmerId: string;
+  docType: string;
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+  isMandatory: boolean;
+  verificationStatus: 'UNVERIFIED' | 'VERIFIED' | 'REJECTED';
+  verifiedBy: string | null;
+  verifiedAt: Date | null;
+  rejectReason: string | null;
 }
 
 export interface FarmerProfileRow {
@@ -71,9 +121,22 @@ export interface FarmerProfileRow {
 }
 
 export interface ListAdminApplicationsOptions {
-  status?: ApplicationStatus | undefined;
+  status?:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'INFO_REQUESTED'
+    | 'APPROVED'
+    | 'REJECTED'
+    | undefined;
   zoneId?: string | undefined;
+  hasZone?: boolean | undefined;
+  zoneIds?: string[] | undefined;
   submittedAfter?: string | undefined;
+  q?: string | undefined;
+  pendingOnly?: boolean | undefined;
   limit: number;
   cursor?: string | undefined;
 }
@@ -89,7 +152,10 @@ export interface FarmerApplicationsRepo {
     },
   ): Promise<FarmerApplicationRow>;
   findById(db: Executor, id: string): Promise<FarmerApplicationRow | null>;
+  findByIdForUpdate(db: Executor, id: string): Promise<FarmerApplicationRow | null>;
   findLiveByMobile(db: Executor, mobile: string): Promise<FarmerApplicationRow | null>;
+  findZoneByTaluk(db: Executor, taluk: string, district?: string | null): Promise<{ id: string; code: string; name: string } | null>;
+  isZoneActive(db: Executor, zoneId: string): Promise<boolean>;
   updateStepData(
     db: Executor,
     id: string,
@@ -104,7 +170,32 @@ export interface FarmerApplicationsRepo {
     toStatus: ApplicationStatus,
     actorId?: string | undefined,
     note?: string | undefined,
+    zoneId?: string | null | undefined,
+    details?: TransitionDetails | undefined,
   ): Promise<FarmerApplicationRow>;
+  /** BR-218: a review note; a history row that does not move the status. */
+  insertNote(
+    db: Executor,
+    row: { applicationId: string; status: ApplicationStatus; actorId: string; note: string },
+  ): Promise<StatusHistoryRow>;
+  /** BR-215/BR-216: every review decision on an application, oldest first. */
+  listReviews(db: Executor, applicationId: string): Promise<ApplicationReviewRow[]>;
+  insertReview(
+    db: Executor,
+    row: {
+      applicationId: string;
+      subjectType: ReviewSubjectType;
+      subjectKey: string;
+      contentFingerprint: string;
+      decision: ReviewDecision;
+      reason: string | null;
+      reviewedBy: string;
+    },
+  ): Promise<ApplicationReviewRow>;
+  /** BR-219: the uploads recorded against this application (the proof a step-4 URL is its own file). */
+  findApplicationUploads(db: Executor, applicationId: string): Promise<ApplicationUploadRow[]>;
+  /** BR-219: one carried-over document. */
+  insertFarmerDocument(db: Executor, row: NewFarmerDocument): Promise<{ id: string }>;
   listAdminApplications(
     db: Executor,
     options: ListAdminApplicationsOptions,
@@ -131,6 +222,41 @@ export interface FarmerApplicationsRepo {
   findApplicantLiveRoles(db: Executor, lookup: { userId: string | null; mobile: string }): Promise<string[]>;
 }
 
+const APPLICATION_SELECT = `
+  fa.id, fa.mobile, fa.full_name, fa.preferred_locale, fa.status, fa.is_draft,
+  fa.current_step, fa.completed_steps, fa.step1_personal, fa.step2_farm_details,
+  fa.step3_location, fa.step4_documents, fa.user_id, fa.farmer_id, fa.zone_id, fa.submitted_at,
+  fa.created_at, fa.updated_at,
+  f.tohfa_farmer_id,
+  dec.created_at AS decided_at,
+  dec.actor_id AS decided_by,
+  CASE WHEN fa.status = 'REJECTED' THEN dec.note ELSE NULL END AS rejection_reason,
+  CASE WHEN fa.status = 'REJECTED' THEN dec.reason_code ELSE NULL END AS rejection_reason_code,
+  info.requested_items AS info_request_items,
+  info.note AS info_request_message,
+  info.created_at AS info_requested_at,
+  info.actor_id AS info_requested_by,
+  (fa.status = 'INFO_REQUESTED') AS is_info_requested
+`;
+
+const APPLICATION_JOINS = `
+  LEFT JOIN farmers f ON f.id = fa.farmer_id
+  LEFT JOIN LATERAL (
+    SELECT created_at, actor_id, note, reason_code
+      FROM farmer_application_status_history
+     WHERE application_id = fa.id AND to_status IN ('APPROVED', 'REJECTED') AND event_type = 'TRANSITION'
+     ORDER BY created_at DESC LIMIT 1
+  ) dec ON true
+  -- BR-217: the request-info move is a stored transition with a structured checklist; the old
+  -- "newest note LIKE 'More info requested:%'" derivation is gone (migration 0201 backfilled it).
+  LEFT JOIN LATERAL (
+    SELECT note, requested_items, created_at, actor_id
+      FROM farmer_application_status_history
+     WHERE application_id = fa.id AND to_status = 'INFO_REQUESTED' AND event_type = 'TRANSITION'
+     ORDER BY created_at DESC LIMIT 1
+  ) info ON true
+`;
+
 export const farmerApplicationsRepo: FarmerApplicationsRepo = {
   async createApplication(db, params) {
     const result = await db.query<FarmerApplicationRow>(
@@ -138,7 +264,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
        VALUES ($1, $2, $3, $4)
        RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                  current_step, completed_steps, step1_personal, step2_farm_details,
-                 step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                 step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                  created_at, updated_at`,
       [params.mobile, params.fullName, params.preferredLocale, params.userId ?? null],
     );
@@ -147,13 +273,23 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
   async findById(db, id) {
     const result = await db.query<FarmerApplicationRow>(
-      `SELECT id, mobile, full_name, preferred_locale, status, is_draft,
-              current_step, completed_steps, step1_personal, step2_farm_details,
-              step3_location, step4_documents, user_id, farmer_id, submitted_at,
-              created_at, updated_at
-         FROM farmer_applications
-        WHERE id = $1 AND deleted_at IS NULL
+      `SELECT ${APPLICATION_SELECT}
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
+        WHERE fa.id = $1 AND fa.deleted_at IS NULL
         LIMIT 1`,
+      [id],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async findByIdForUpdate(db, id) {
+    const result = await db.query<FarmerApplicationRow>(
+      `SELECT ${APPLICATION_SELECT}
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
+        WHERE fa.id = $1 AND fa.deleted_at IS NULL
+        FOR UPDATE OF fa`,
       [id],
     );
     return result.rows[0] ?? null;
@@ -161,16 +297,41 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
   async findLiveByMobile(db, mobile) {
     const result = await db.query<FarmerApplicationRow>(
-      `SELECT id, mobile, full_name, preferred_locale, status, is_draft,
-              current_step, completed_steps, step1_personal, step2_farm_details,
-              step3_location, step4_documents, user_id, farmer_id, submitted_at,
-              created_at, updated_at
-         FROM farmer_applications
-        WHERE mobile = $1 AND status NOT IN ('APPROVED', 'REJECTED') AND deleted_at IS NULL
+      `SELECT ${APPLICATION_SELECT}
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
+        WHERE fa.mobile = $1 AND fa.status NOT IN ('APPROVED', 'REJECTED') AND fa.deleted_at IS NULL
         LIMIT 1`,
       [mobile],
     );
     return result.rows[0] ?? null;
+  },
+
+  async findZoneByTaluk(db, taluk, district) {
+    const trimmedTaluk = taluk.trim();
+    const query = district
+      ? `SELECT gz.zone_id AS id, gz.zone_code AS code, gz.zone_name AS name
+           FROM geographic_zones gz
+          WHERE lower(gz.taluk) = lower($1)
+            AND lower(gz.district) = lower($2)
+            AND gz.is_active = true
+          LIMIT 1`
+      : `SELECT gz.zone_id AS id, gz.zone_code AS code, gz.zone_name AS name
+           FROM geographic_zones gz
+          WHERE lower(gz.taluk) = lower($1)
+            AND gz.is_active = true
+          LIMIT 1`;
+    const params = district ? [trimmedTaluk, district.trim()] : [trimmedTaluk];
+    const res = await db.query<{ id: string; code: string; name: string }>(query, params);
+    return res.rows[0] ?? null;
+  },
+
+  async isZoneActive(db, zoneId) {
+    const res = await db.query<{ count: string }>(
+      `SELECT count(*) FROM zones WHERE id = $1 AND is_active = true`,
+      [zoneId],
+    );
+    return parseInt(res.rows[0]?.count ?? '0', 10) > 0;
   },
 
   async updateStepData(db, id, step, stepData, completedSteps) {
@@ -192,7 +353,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
           WHERE id = $1 AND deleted_at IS NULL
           RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                     current_step, completed_steps, step1_personal, step2_farm_details,
-                    step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                    step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                     created_at, updated_at`,
         [id, JSON.stringify(stepData), completedSteps, Math.min(step + 1, 5)],
       );
@@ -206,85 +367,215 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
         WHERE id = $1 AND deleted_at IS NULL
         RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                   current_step, completed_steps, step1_personal, step2_farm_details,
-                  step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                  step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                   created_at, updated_at`,
       [id, completedSteps],
     );
     return result.rows[0] ?? null;
   },
 
-  async transitionStatus(db, id, fromStatus, toStatus, actorId, note) {
-    const isSubmitted = toStatus === 'SUBMITTED' || toStatus === 'DOCS_REVIEW';
+  async transitionStatus(db, id, fromStatus, toStatus, actorId, note, zoneId, details) {
+    // Only the applicant's FIRST submit (draft SUBMITTED -> DOCS_REVIEW) stamps submitted_at and
+    // sets the zone outright (BR-143: it may legitimately clear it when the taluk maps to none).
+    // Every other move -- including INFO_REQUESTED -> DOCS_REVIEW on resubmit -- keeps the stored
+    // zone unless a value is passed. The old test (`toStatus === 'DOCS_REVIEW'`) also matched
+    // request-info, which wiped the zone of every application sent back to the applicant.
+    const isSubmitted = fromStatus === 'SUBMITTED' && (toStatus === 'SUBMITTED' || toStatus === 'DOCS_REVIEW');
     const result = await db.query<FarmerApplicationRow>(
       `UPDATE farmer_applications
           SET status = $2,
               is_draft = CASE WHEN $3 = true THEN false ELSE is_draft END,
               submitted_at = CASE WHEN $3 = true AND submitted_at IS NULL THEN now() ELSE submitted_at END,
+              zone_id = CASE WHEN $3 = true THEN $4 ELSE COALESCE($4, zone_id) END,
               updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 AND ($5::text IS NULL OR status = $5::application_status)
         RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                   current_step, completed_steps, step1_personal, step2_farm_details,
-                  step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                  step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                   created_at, updated_at`,
-      [id, toStatus, isSubmitted],
+      [id, toStatus, isSubmitted, zoneId ?? null, fromStatus ?? null],
     );
 
-    // Record in history log
+    if (result.rowCount === 0) {
+      throw new Error(`CONCURRENT_MODIFICATION: Application ${id} was modified concurrently.`);
+    }
+
+    // Record in history log (append-only, BR-218)
     await db.query(
-      `INSERT INTO farmer_application_status_history (application_id, from_status, to_status, actor_id, note)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [id, fromStatus ?? null, toStatus, actorId ?? null, note ?? null],
+      `INSERT INTO farmer_application_status_history
+         (application_id, from_status, to_status, actor_id, note, event_type, reason_code, requested_items)
+       VALUES ($1, $2, $3, $4, $5, 'TRANSITION', $6, $7::text[])`,
+      [
+        id,
+        fromStatus ?? null,
+        toStatus,
+        actorId ?? null,
+        note ?? null,
+        details?.reasonCode ?? null,
+        details?.requestedItems !== undefined ? [...details.requestedItems] : null,
+      ],
     );
 
     return result.rows[0]!;
   },
 
+  async insertNote(db, row) {
+    const result = await db.query<StatusHistoryRow>(
+      `INSERT INTO farmer_application_status_history
+         (application_id, from_status, to_status, actor_id, note, event_type)
+       VALUES ($1, $2, $2, $3, $4, 'NOTE')
+       RETURNING id, application_id, from_status, to_status, actor_id, note, created_at,
+                 event_type, reason_code, requested_items`,
+      [row.applicationId, row.status, row.actorId, row.note],
+    );
+    return result.rows[0]!;
+  },
+
+  async listReviews(db, applicationId) {
+    const result = await db.query<ApplicationReviewRow>(
+      `SELECT id, application_id, subject_type, subject_key, content_fingerprint, decision, reason,
+              reviewed_by, created_at
+         FROM farmer_application_reviews
+        WHERE application_id = $1
+        ORDER BY created_at ASC, id ASC`,
+      [applicationId],
+    );
+    return result.rows;
+  },
+
+  async insertReview(db, row) {
+    const result = await db.query<ApplicationReviewRow>(
+      `INSERT INTO farmer_application_reviews
+         (application_id, subject_type, subject_key, content_fingerprint, decision, reason, reviewed_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, application_id, subject_type, subject_key, content_fingerprint, decision, reason,
+                 reviewed_by, created_at`,
+      [row.applicationId, row.subjectType, row.subjectKey, row.contentFingerprint, row.decision, row.reason, row.reviewedBy],
+    );
+    return result.rows[0]!;
+  },
+
+  async findApplicationUploads(db, applicationId) {
+    const result = await db.query<ApplicationUploadRow>(
+      `SELECT storage_key, mime_type, size_bytes::text AS size_bytes
+         FROM uploads
+        WHERE entity_type = 'farmer_application' AND entity_id = $1 AND deleted_at IS NULL
+        ORDER BY created_at ASC, id ASC`,
+      [applicationId],
+    );
+    return result.rows;
+  },
+
+  async insertFarmerDocument(db, row) {
+    const result = await db.query<{ id: string }>(
+      `INSERT INTO farmer_documents
+         (farmer_id, doc_type, storage_key, mime_type, size_bytes, is_mandatory,
+          verification_status, verified_by, verified_at, reject_reason)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::verification_status, $8, $9, $10)
+       RETURNING id`,
+      [
+        row.farmerId,
+        row.docType,
+        row.storageKey,
+        row.mimeType,
+        row.sizeBytes,
+        row.isMandatory,
+        row.verificationStatus,
+        row.verifiedBy,
+        row.verifiedAt,
+        row.rejectReason,
+      ],
+    );
+    return result.rows[0]!;
+  },
+
   async listAdminApplications(db, options) {
-    const conditions: string[] = ['deleted_at IS NULL'];
+    const conditions: string[] = ['fa.deleted_at IS NULL'];
     const values: unknown[] = [];
     let paramIndex = 1;
 
-    if (options.status !== undefined) {
-      conditions.push(`status = $${paramIndex++}`);
+    // Draft and status filtering
+    // INFO_REQUESTED is a stored status since migration 0200 (BR-217), so it is filtered like any other.
+    if (options.status === 'DRAFT') {
+      conditions.push('fa.is_draft = true');
+    } else if (options.status !== undefined) {
+      conditions.push(`fa.status = $${paramIndex++}`);
       values.push(options.status);
+      conditions.push('fa.is_draft = false');
+    } else {
+      // By default exclude drafts
+      conditions.push('fa.is_draft = false');
+    }
+
+    if (options.pendingOnly === true) {
+      conditions.push(`fa.status NOT IN ('APPROVED', 'REJECTED') AND fa.is_draft = false`);
+    }
+
+    if (options.q !== undefined && options.q.trim().length > 0) {
+      const term = `%${options.q.trim()}%`;
+      conditions.push(`(fa.full_name ILIKE $${paramIndex} OR fa.mobile ILIKE $${paramIndex})`);
+      values.push(term);
+      paramIndex++;
+    }
+
+    if (options.zoneIds !== undefined) {
+      if (options.zoneIds.length === 0) {
+        conditions.push('FALSE');
+      } else {
+        conditions.push(`fa.zone_id = ANY($${paramIndex++}::uuid[])`);
+        values.push(options.zoneIds);
+      }
+    } else if (options.zoneId !== undefined) {
+      conditions.push(`fa.zone_id = $${paramIndex++}::uuid`);
+      values.push(options.zoneId);
+    }
+    if (options.hasZone === true) {
+      conditions.push('fa.zone_id IS NOT NULL');
+    } else if (options.hasZone === false) {
+      conditions.push('fa.zone_id IS NULL');
     }
     if (options.submittedAfter !== undefined) {
-      conditions.push(`submitted_at >= $${paramIndex++}`);
+      conditions.push(`fa.submitted_at >= $${paramIndex++}`);
       values.push(options.submittedAfter);
     }
     if (options.cursor !== undefined && options.cursor.length > 0) {
-      conditions.push(`id < $${paramIndex++}`);
-      values.push(options.cursor);
+      const after = requireKeysetCursor(CURSOR_TAGS.farmerApplications, options.cursor);
+      conditions.push(`(fa.created_at, fa.id) < ($${paramIndex++}::timestamptz, $${paramIndex++}::uuid)`);
+      values.push(after.ts, after.id);
     }
 
     values.push(options.limit + 1);
     const limitParam = paramIndex;
 
-    const result = await db.query<FarmerApplicationRow>(
-      `SELECT id, mobile, full_name, preferred_locale, status, is_draft,
-              current_step, completed_steps, step1_personal, step2_farm_details,
-              step3_location, step4_documents, user_id, farmer_id, submitted_at,
-              created_at, updated_at
-         FROM farmer_applications
+    const result = await db.query<FarmerApplicationRow & { cursor_ts: string }>(
+      `SELECT ${APPLICATION_SELECT},
+              ${MICRO_TS_SQL('fa.created_at')} AS cursor_ts
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
         WHERE ${conditions.join(' AND ')}
-        ORDER BY created_at DESC, id DESC
+        ORDER BY fa.created_at DESC, fa.id DESC
         LIMIT $${limitParam}`,
       values,
     );
 
     const hasMore = result.rows.length > options.limit;
     const items = hasMore ? result.rows.slice(0, options.limit) : result.rows;
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.id : null;
+    const last = items[items.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined
+        ? encodeKeysetCursor(CURSOR_TAGS.farmerApplications, { ts: last.cursor_ts, id: last.id })
+        : null;
 
     return { items, nextCursor, hasMore };
   },
 
   async getStatusHistory(db, applicationId) {
     const result = await db.query<StatusHistoryRow>(
-      `SELECT id, application_id, from_status, to_status, actor_id, note, created_at
+      `SELECT id, application_id, from_status, to_status, actor_id, note, created_at,
+              event_type, reason_code, requested_items
          FROM farmer_application_status_history
         WHERE application_id = $1
-        ORDER BY created_at ASC`,
+        ORDER BY created_at ASC, id ASC`,
       [applicationId],
     );
     return result.rows;

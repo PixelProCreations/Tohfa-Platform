@@ -94,8 +94,6 @@ export async function startHttpHarness(): Promise<HttpHarness> {
     auth: (role) => `Bearer ${tokens[role]}`,
     async stop() {
       await new Promise<void>((resolve) => server.close(() => resolve()));
-      const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-      await Promise.allSettled([closePool(), closeRedis()]);
     },
   };
 }

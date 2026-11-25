@@ -108,7 +108,6 @@ describeIfDatabase('BR-67: own live sessions and /auth/me additions (real databa
       // sessions.user_id is ON DELETE CASCADE.
       await pool.query('DELETE FROM users WHERE id = ANY($1::uuid[])', [createdUserIds]);
     }
-    await pool.end();
   });
 
   it('BR-67a: returns only live sessions (a revoked and an expired session are excluded)', async () => {
@@ -163,7 +162,7 @@ describeIfDatabase('BR-67: own live sessions and /auth/me additions (real databa
     expect(res.status).toBe(200);
     const [session] = res.body as Array<Record<string, unknown>>;
     expect(Object.keys(session!).sort()).toEqual(
-      ['expiresAt', 'id', 'issuedAt', 'lastSeenAt', 'lastSeenIp', 'platform', 'userAgent'],
+      ['expiresAt', 'id', 'isCurrent', 'issuedAt', 'lastSeenAt', 'lastSeenIp', 'platform', 'userAgent'],
     );
     expect(session).toMatchObject({
       platform: 'ios',
@@ -174,6 +173,29 @@ describeIfDatabase('BR-67: own live sessions and /auth/me additions (real databa
     });
     expect(JSON.stringify(res.body)).not.toContain(SECRET_SENTINEL_FCM);
     expect(JSON.stringify(res.body)).not.toContain(SECRET_SENTINEL_DEVICE);
+  });
+
+  it('BR-67c / BR-82: GET /auth/me/sessions includes isCurrent marker matching caller access token', async () => {
+    if (!ready) return;
+    const userId = await createUser('CUSTOMER');
+    const s1 = await createSession(userId);
+    const s2 = await createSession(userId);
+
+    const token = signAccessToken({
+      sub: userId,
+      roles: [{ code: 'CUSTOMER' }],
+      farmerId: null,
+      customerId: null,
+      sessionId: s1,
+    } as any);
+
+    const res = await request(app).get('/v1/auth/me/sessions').set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    const sessions = res.body as Array<{ id: string; isCurrent: boolean }>;
+    const current = sessions.find((s) => s.id === s1);
+    const other = sessions.find((s) => s.id === s2);
+    expect(current?.isCurrent).toBe(true);
+    expect(other?.isCurrent).toBe(false);
   });
 
   it('BR-67d: lists newest first and caps the list at 50 rows', async () => {
@@ -265,5 +287,20 @@ describeIfDatabase('BR-67: own live sessions and /auth/me additions (real databa
     const body = res.body as Record<string, unknown>;
     expect(body).toHaveProperty('lastLoginAt', null);
     expect(body['status']).toBe('PENDING');
+  });
+
+  it('BR-auth: /auth/me includes flat permission codes for TOHFA_ADMIN', async () => {
+    if (!ready) return;
+    const userId = await createUser('ADMIN', { status: 'ACTIVE' });
+    const res = await request(app)
+      .get('/v1/auth/me')
+      .set('Authorization', `Bearer ${tokenFor(userId, RoleCode.TOHFA_ADMIN)}`);
+
+    expect(res.status).toBe(200);
+    const body = res.body as { permissions: string[] };
+    expect(Array.isArray(body.permissions)).toBe(true);
+    expect(body.permissions.length).toBeGreaterThan(0);
+    expect(body.permissions).toContain('auth.session.login');
+    expect(body.permissions).toContain('auth.principal.view_own');
   });
 });

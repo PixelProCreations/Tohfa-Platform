@@ -714,7 +714,7 @@ describeIfDatabase('Customers routes (local Express app, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ withTransaction, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { withTransaction } = await import('../../db/pool.js');
     // Ledgers are append-only for the app role; replica mode lets this test-only cleanup remove
     // exactly this run's rows from the scratch test database.
     await withTransaction(async (tx) => {
@@ -729,7 +729,6 @@ describeIfDatabase('Customers routes (local Express app, PostgreSQL)', () => {
       await tx.query(`DELETE FROM customers WHERE id = ANY($1::uuid[])`, [c]);
       await tx.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [created.users]);
     });
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

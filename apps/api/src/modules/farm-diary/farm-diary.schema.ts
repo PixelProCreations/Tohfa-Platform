@@ -256,6 +256,29 @@ export const diaryCategoryResponse = z.object({
 });
 export type DiaryCategoryResponse = z.infer<typeof diaryCategoryResponse>;
 
+export const adminDiaryCategoryResponse = diaryCategoryResponse.extend({
+  subActivityCount: z.number().int(),
+});
+export type AdminDiaryCategoryResponse = z.infer<typeof adminDiaryCategoryResponse>;
+
+export const adminDiaryCategoriesCounts = z.object({
+  totalActivityTypes: z.number().int(),
+  activeCategories: z.number().int(),
+  totalSubActivities: z.number().int(),
+  retiredActivities: z.number().int(),
+});
+export type AdminDiaryCategoriesCounts = z.infer<typeof adminDiaryCategoriesCounts>;
+
+export const adminDiaryCategoriesListResponse = z.object({
+  items: z.array(adminDiaryCategoryResponse),
+  totalActivityTypes: z.number().int(),
+  activeCategories: z.number().int(),
+  totalSubActivities: z.number().int(),
+  retiredActivities: z.number().int(),
+  counts: adminDiaryCategoriesCounts,
+});
+export type AdminDiaryCategoriesListResponse = z.infer<typeof adminDiaryCategoriesListResponse>;
+
 export const diaryTaxonomyResponse = z.object({
   categories: z.array(
     diaryCategoryResponse.extend({ subActivities: z.array(diarySubActivityResponse) }),

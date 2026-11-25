@@ -93,11 +93,19 @@ export const subAdminsRepo: SubAdminsRepo = {
   },
 
   async insertProfile(db, { userId, createdBy }) {
+    await db.query(`SELECT pg_advisory_xact_lock(hashtextextended('admin_profiles.admin_code', 0))`);
+    const maxRes = await db.query<{ max_seq: string }>(
+      `SELECT COALESCE(MAX(substring(admin_code FROM '^SWA-([0-9]+)$')::bigint), 0)::text AS max_seq FROM admin_profiles`,
+    );
+    const seqRes = await db.query<{ val: string }>(`SELECT nextval('sub_wh_admin_code_seq')::text AS val`);
+    const nextNum = Math.max(Number(maxRes.rows[0]?.max_seq ?? 0) + 1, Number(seqRes.rows[0]?.val ?? 1));
+    const adminCode = `SWA-${String(nextNum).padStart(3, '0')}`;
+
     const result = await db.query<{ admin_code: string }>(
       `INSERT INTO admin_profiles (user_id, admin_code, created_by)
-       VALUES ($1, 'SWA-' || lpad(nextval('sub_wh_admin_code_seq')::text, 3, '0'), $2)
+       VALUES ($1, $2, $3)
        RETURNING admin_code`,
-      [userId, createdBy],
+      [userId, adminCode, createdBy],
     );
     return result.rows[0]!.admin_code;
   },

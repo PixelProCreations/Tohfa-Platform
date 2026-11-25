@@ -241,10 +241,14 @@ describe('App.tsx: no sign-out handler only navigates', () => {
     expect(APP_SOURCE).toMatch(/<CustomerMainApp onSignOut=\{\(\) => signOutTo\('Welcome'\)\} \/>/);
   });
 
-  it('the AdminAllFarmers Profile tab opens the admin profile instead of leaving the session', () => {
-    const block = APP_SOURCE.match(/<AdminAllFarmersScreen[\s\S]*?onSelectFarmer=/)?.[0] ?? '';
-    expect(block).toMatch(/tab === 'Profile'/);
-    expect(block).not.toMatch(/navigate\('Welcome'\)/);
-    expect(block).toMatch(/navigate\('TohfaAdminDashboard', \{ initialTab: 'Profile' \}\)/);
+  it('the farmers list cannot leave the session from its Profile tab (phase 3A: no App.tsx farmers route)', () => {
+    // The All Farmers screen used to be an App.tsx route whose Profile tab
+    // navigated away; it is now mounted only inside the dashboards through
+    // the shared FarmersFlow, which keeps the list's own bottom nav off
+    // (the host dashboard's tab bar, Profile included, stays in charge).
+    expect(APP_SOURCE).not.toMatch(/<AdminAllFarmersScreen\b/);
+    const flow = fs.readFileSync(path.join(FARMER_DIR, '..', 'admin', 'screens', 'farmers', 'FarmersFlow.tsx'), 'utf8');
+    expect(flow).toMatch(/showBottomNav = false/);
+    expect(flow).not.toMatch(/navigate\('Welcome'\)|signOut|logout/i);
   });
 });

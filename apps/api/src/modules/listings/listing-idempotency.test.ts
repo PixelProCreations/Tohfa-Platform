@@ -23,6 +23,7 @@ import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { randomMobile } from '../../test/dbFixtures.js';
 import { CounterOffersService } from './counter-offers.service.js';
 import type { ListingRow } from './listings.repo.js';
 import { getTodayKolkata, ListingsService } from './listings.service.js';
@@ -72,6 +73,7 @@ const sampleListing: ListingRow = {
   rejectedBy: null,
   rejectedAt: null,
   rejectionReason: null,
+  rejectionReasonCode: null,
   createdAt: '2026-08-27T10:00:00.000Z',
   updatedAt: null,
 };
@@ -229,7 +231,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     const userId = newId();
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Idempotency Test Farmer', 'FARMER', 'ACTIVE')`,
-      [userId, `+9198${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [userId, randomMobile()],
     );
     const farmerId = newId();
     await pool.query(`INSERT INTO farmers (id, user_id, tohfa_farmer_id, is_market_blocked) VALUES ($1, $2, $3, false)`, [
@@ -273,7 +275,7 @@ describeIfDatabase('listing idempotency (real database)', () => {
     adminUserId = newId();
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Idempotency Test Admin', 'ADMIN', 'ACTIVE')`,
-      [adminUserId, `+9197${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [adminUserId, randomMobile()],
     );
     createdUsers.push(adminUserId);
     const category = await pool.query<{ id: string }>('SELECT id FROM categories LIMIT 1');
@@ -293,9 +295,16 @@ describeIfDatabase('listing idempotency (real database)', () => {
     // Best effort: audit_log is append-only and may pin users; a throwaway DB is the contract.
     for (const farmerId of createdFarmers) {
       await pool.query(`DELETE FROM produce_listings WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM certifications WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM farmers WHERE id = $1`, [farmerId]).catch(() => undefined);
+    }
+    if (cropId) {
+      await pool.query(`DELETE FROM fair_prices WHERE crop_id = $1`, [cropId]).catch(() => undefined);
+      await pool.query(`DELETE FROM crop_master WHERE id = $1`, [cropId]).catch(() => undefined);
     }
     for (const userId of createdUsers) {
       await pool.query(`DELETE FROM idempotency_keys WHERE actor_user_id = $1`, [userId]).catch(() => undefined);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId]).catch(() => undefined);
     }
   });
 

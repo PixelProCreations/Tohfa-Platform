@@ -21,7 +21,6 @@ export function BatchListScreen({
   scope,
   onNavigate,
   onBack,
-  routeParams,
   batches = [],
   isLoading = false,
   error,
@@ -32,9 +31,16 @@ export function BatchListScreen({
   hasMore = false,
 }: BatchListScreenProps) {
   const view = queryViewState({ isLoading, error, itemCount: batches.length });
-  // Opened from a product: name it from its batches (the route carries only ids).
-  const first = routeParams?.['cropId'] === undefined ? undefined : batches[0];
-  const subtitle = first === undefined ? undefined : t('inventory.product.label', { product: first.productName, grade: first.gradeLabel });
+  // The route carries only ids, so the product is named from its batches. The
+  // list API returns no total, so the active count is known only once every page
+  // is loaded; until then it shows the dash.
+  const first = batches[0];
+  const activeCount = hasMore ? t('inventory.noValue') : String(batches.filter((b) => b.status === 'active').length);
+  const subtitle = t('inventory.batchList.subtitle', {
+    product: first?.productName ?? t('inventory.noValue'),
+    grade: first?.gradeLabel ?? t('inventory.noValue'),
+    count: activeCount,
+  });
 
   const renderBatch = ({ item: batch }: { item: BatchRow }) => (
     <TouchableOpacity
@@ -52,20 +58,20 @@ export function BatchListScreen({
 
       <View style={styles.batchStatsRow}>
         <View style={styles.batchStatCol}>
-          <Text style={styles.batchStatLabel}>Available</Text>
+          <Text style={styles.batchStatLabel}>{t('inventory.batchList.available')}</Text>
           <Text style={styles.batchStatValueAvailable}>
             {batch.availableGrams === null ? t('inventory.noValue') : formatKg(batch.availableGrams)}
           </Text>
         </View>
         <View style={styles.batchStatCol}>
-          <Text style={styles.batchStatLabel}>Storage</Text>
+          <Text style={styles.batchStatLabel}>{t('inventory.batchList.storage')}</Text>
           <Text style={styles.batchStatValueStorage}>{batch.storageLocation ?? t('inventory.noValue')}</Text>
         </View>
       </View>
 
-      {batch.receivedOn === '' ? null : (
-        <Text style={styles.batchDate}>{t('inventory.batch.receivedOn', { date: batch.receivedOn })}</Text>
-      )}
+      <Text style={styles.batchDate}>
+        {t('inventory.batch.receivedOn', { date: batch.receivedOn === '' ? t('inventory.noValue') : batch.receivedOn })}
+      </Text>
     </TouchableOpacity>
   );
 
@@ -73,7 +79,7 @@ export function BatchListScreen({
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title="Batches"
+          title={t('inventory.batchList.title')}
           subtitle={subtitle}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}

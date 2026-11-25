@@ -195,3 +195,23 @@ export function listAllocations(params: ListAllocationsParams = {}, signal?: Abo
     signal,
   );
 }
+
+/**
+ * docs/openapi.yaml `AllocationConfig`: the configured channel percentages
+ * (BR-12). Read only here; the PATCH is not wired in the app.
+ */
+export interface AllocationConfigDto {
+  /** date (YYYY-MM-DD). */
+  effectiveFrom: string;
+  channels: { channel?: AllocationChannel; percentage?: number }[];
+  setBy?: string;
+  setAt?: string;
+}
+
+/**
+ * GET /admin/allocation-config (allocation.channel_percentage.set, Super Admin
+ * only). `cropId` asks for that crop's configuration.
+ */
+export function getAllocationConfig(cropId: string | undefined, signal?: AbortSignal): Promise<AllocationConfigDto> {
+  return adminGet<AllocationConfigDto>('/admin/allocation-config', { cropId }, signal);
+}

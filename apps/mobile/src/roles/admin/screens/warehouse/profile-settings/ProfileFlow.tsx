@@ -36,6 +36,7 @@
  * server, this one included, so the flow signs out at once (`onLogout`).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View } from 'react-native';
 import { useFlowBack } from '../useFlowBack';
 
 import { AboutScreen } from './AboutScreen';
@@ -49,10 +50,17 @@ import { SessionSecurityScreen } from './SessionSecurityScreen';
 import { SettingsScreen, type SettingsChildRoute } from './SettingsScreen';
 import { StorageInfoScreen, type StorageStatusFilter } from './StorageInfoScreen';
 import { UserProfileScreen } from './UserProfileScreen';
+import { WarehouseEditProfileScreen } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
+import { TohfaBankAccountManagementScreen } from './TohfaBankAccountManagementScreen';
+import { SystemSettingsFlow } from '../../dashboard/SystemSettingsFlow';
+import { AdminProfileScreen } from '../../dashboard/AdminProfileScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
-import { isMainScope, profileWarehouseId, toOperatingWeek } from './mappers';
+import { AdminEmptyState } from '../shared/AsyncStates';
+import { WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { t } from '../../../i18n';
+import { canOpenProfileRoute, isMainScope, profileWarehouseId, toOperatingWeek } from './mappers';
 import { filterParam, type DocumentStatusFilter, type DocumentTypeFilter } from './mappers_documents';
 import { pickWarehouseId } from './mappers_settings';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -91,6 +99,9 @@ import {
 export interface ProfileFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: string | undefined;
+  subtitle?: string | undefined;
+  onSwitchRole?: (() => void) | undefined;
   initialScreen?: ProfileRoute | undefined;
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
@@ -116,9 +127,11 @@ interface LiveSettingsProps {
   initialView?: 'hub' | 'changePassword' | undefined;
   onOpen?: ((route: SettingsChildRoute) => void) | undefined;
   onLogout?: (() => void) | undefined;
+  role?: string | undefined;
+  subtitle?: string | undefined;
 }
 
-function LiveSettingsRoute({ base, initialView, onOpen, onLogout }: LiveSettingsProps) {
+function LiveSettingsRoute({ base, initialView, onOpen, onLogout, role, subtitle }: LiveSettingsProps) {
   const change = useChangePassword();
   // A changed password revokes EVERY session on the server, this one included
   // (docs/openapi.yaml changeOwnPassword): sign out at once, never stay on a
@@ -129,6 +142,8 @@ function LiveSettingsRoute({ base, initialView, onOpen, onLogout }: LiveSettings
   return (
     <SettingsScreen
       {...base}
+      role={role}
+      subtitle={subtitle}
       initialView={initialView}
       onOpen={onOpen}
       onLogout={onLogout}
@@ -237,7 +252,13 @@ interface LiveWarehouseProps {
   warehouseId: string | undefined;
 }
 
-function LiveWarehouseInfoRoute({ base, selection, warehouseId, onOpen }: LiveWarehouseProps & { onOpen: (route: ProfileRoute) => void }) {
+function LiveWarehouseInfoRoute({
+  base,
+  selection,
+  warehouseId,
+  onOpen,
+  onEdit,
+}: LiveWarehouseProps & { onOpen: (route: ProfileRoute) => void; onEdit: () => void }) {
   const warehouse = useWarehouseProfile(warehouseId);
   const capacity = useWarehouseCapacity(warehouseId);
   const locations = useStorageLocations(warehouseId, {});
@@ -246,6 +267,7 @@ function LiveWarehouseInfoRoute({ base, selection, warehouseId, onOpen }: LiveWa
       {...base}
       {...selection}
       onOpen={onOpen}
+      onEdit={onEdit}
       profile={warehouse.warehouse}
       capacity={capacity.capacity}
       locationCount={locations.total}
@@ -481,9 +503,30 @@ function LiveWarehouseSettingsRoute({ base, selection }: { base: WarehouseScreen
   );
 }
 
+/**
+ * Edit Warehouse Profile for the warehouse the flow reads (BR-30: a Sub scope is
+ * its own, Main the uuid pick). The screen refuses without warehouse.profile.edit
+ * too, so a host that mounts the flow on this route still gets no form.
+ */
+function LiveWarehouseEditRoute({ base, warehouseId, onSaved }: { base: WarehouseScreenBaseProps; warehouseId: string | undefined; onSaved: () => void }) {
+  return <WarehouseEditProfileScreen scope={base.scope} can={base.can} onBack={base.onBack} warehouseId={warehouseId} onSaveSuccess={onSaved} />;
+}
+
+/** What a route the caller may not open renders: a note, never the screen. */
+function RouteNotAvailable({ onBack }: { onBack: () => void }) {
+  return (
+    <WalletScreen title={t('warehouseEdit.title')} onBack={onBack}>
+      <AdminEmptyState title={t('warehouseAdmin.notAvailable.title')} subtitle={t('warehouseEdit.noPermission')} />
+    </WalletScreen>
+  );
+}
+
 export function ProfileFlow({
   scope,
   can,
+  role,
+  subtitle,
+  onSwitchRole,
   initialScreen = 'Settings',
   onBack,
   onLogout,
@@ -521,7 +564,11 @@ export function ProfileFlow({
   }, [initialScreen]);
 
   const current = stack[stack.length - 1] ?? initialScreen;
-  const navigate = (screen: ProfileRoute) => setStack((prev) => [...prev, screen]);
+  // Fail closed: a gated route (WarehouseEditProfile) is refused without its code.
+  const navigate = (screen: ProfileRoute) => {
+    if (!canOpenProfileRoute(screen, can)) return;
+    setStack((prev) => [...prev, screen]);
+  };
   const back = () => {
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
@@ -545,12 +592,50 @@ export function ProfileFlow({
 
   switch (current) {
     case 'Settings':
-      return <LiveSettingsRoute key="settings" base={common} onOpen={navigate} onLogout={onLogout} />;
+      return (
+        <View style={{ flex: 1 }}>
+          <LiveSettingsRoute key="settings" base={common} onOpen={navigate} onLogout={onLogout} role={role} subtitle={subtitle} />
+          {role === 'SUPER_ADMIN' ? (
+            <View style={{ display: 'none' }}>
+              <AdminProfileScreen
+                role="SUPER_ADMIN"
+                onBack={back}
+                onSignOut={onLogout ?? (() => {})}
+                onSwitchRole={onSwitchRole}
+              />
+            </View>
+          ) : null}
+        </View>
+      );
+    case 'SystemSettings':
+      return (
+        <SystemSettingsFlow
+          role={role ?? 'SUPER_ADMIN'}
+          can={can}
+          onBack={back}
+        />
+      );
+    case 'BankAccountManagement':
+      return (
+        <TohfaBankAccountManagementScreen
+          onBack={back}
+        />
+      );
     case 'ChangePassword':
       // The Settings screen's inline change-password state; back leaves it. The
       // distinct key gives it fresh state rather than reusing the hub instance.
-      return <LiveSettingsRoute key="change-password" base={common} initialView="changePassword" onLogout={onLogout} />;
+      return <LiveSettingsRoute key="change-password" base={common} initialView="changePassword" onLogout={onLogout} role={role} subtitle={subtitle} />;
     case 'UserProfile':
+      if (role === 'SUPER_ADMIN') {
+        return (
+          <AdminProfileScreen
+            role="SUPER_ADMIN"
+            onBack={back}
+            onSignOut={onLogout ?? (() => {})}
+            onSwitchRole={onSwitchRole}
+          />
+        );
+      }
       return <LiveUserProfileRoute base={common} onChangePassword={() => navigate('ChangePassword')} onLogout={onLogout} />;
     case 'NotificationSettings':
       return <LiveNotificationSettingsRoute base={common} />;
@@ -610,7 +695,22 @@ export function ProfileFlow({
     case 'About':
       return <AboutScreen {...common} />;
     case 'WarehouseProfile':
-      return <LiveWarehouseInfoRoute base={common} selection={selection} warehouseId={warehouseId} onOpen={navigate} />;
+      return (
+        <LiveWarehouseInfoRoute
+          base={common}
+          selection={selection}
+          warehouseId={warehouseId}
+          onOpen={navigate}
+          onEdit={() => navigate('WarehouseEditProfile')}
+        />
+      );
+    case 'WarehouseEditProfile':
+      // The save invalidates the warehouse module, so Warehouse Info refetches on return.
+      return canOpenProfileRoute(current, can) ? (
+        <LiveWarehouseEditRoute base={common} warehouseId={warehouseId} onSaved={back} />
+      ) : (
+        <RouteNotAvailable onBack={back} />
+      );
     case 'StorageInfo':
       return <LiveStorageInfo base={common} selection={selection} warehouseId={warehouseId} onSelectLocation={onSelectStorageLocation} />;
     case 'OperatingInfo':

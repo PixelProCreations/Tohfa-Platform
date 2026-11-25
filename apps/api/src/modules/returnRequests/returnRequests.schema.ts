@@ -51,6 +51,10 @@ export const createReturnRequestBody = z
     reason: z.string().trim().min(1).max(300),
     items: z.array(createReturnRequestItem).min(1),
     note: z.string().trim().max(500).optional(),
+    issueCategory: z.string().trim().max(100).optional(),
+    issueTicket: z.string().trim().max(100).optional(),
+    requestedResolution: z.string().trim().max(200).optional(),
+    customerEvidence: z.array(z.string().trim()).default([]).optional(),
     /**
      * BR-204: up to five of the caller's own uploads signed with purpose ISSUE_PHOTO (the support
      * ticket photo flow; EXIF/GPS stripped at upload, BR-16).
@@ -72,11 +76,38 @@ export type ReturnIdParams = z.infer<typeof returnIdParams>;
 export const listReturnsQuery = z
   .object({
     status: z.enum(returnStatuses).optional(),
+    q: z.string().trim().min(1).max(100).optional(),
+    warehouseId: z.string().uuid('warehouseId must be a UUID').optional(),
     cursor: z.string().optional(),
     limit: z.coerce.number().int().min(1).max(100).default(20),
   })
   .strict();
 export type ListReturnsQuery = z.infer<typeof listReturnsQuery>;
+
+export const returnsSummaryQuery = z
+  .object({
+    warehouseId: z.string().uuid().optional(),
+    from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+    to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD').optional(),
+  })
+  .strict()
+  .refine((data) => !data.from || !data.to || data.from <= data.to, {
+    message: '"from" must be earlier than or equal to "to"',
+    path: ['to'],
+  });
+export type ReturnsSummaryQuery = z.infer<typeof returnsSummaryQuery>;
+
+export const returnsSummaryResponse = z
+  .object({
+    total: z.number().int().min(0),
+    pending: z.number().int().min(0),
+    inspecting: z.number().int().min(0),
+    approved: z.number().int().min(0),
+    rejected: z.number().int().min(0),
+    refunded: z.number().int().min(0),
+  })
+  .strict();
+export type ReturnsSummaryResponse = z.infer<typeof returnsSummaryResponse>;
 
 // ---------------------------------------------------------------------------
 // POST /v1/admin/returns/:id/inspect
@@ -92,7 +123,11 @@ export const inspectReturnItem = z
 export type InspectReturnItem = z.infer<typeof inspectReturnItem>;
 
 export const inspectReturnBody = z
-  .object({ items: z.array(inspectReturnItem).min(1) })
+  .object({
+    items: z.array(inspectReturnItem).min(1),
+    inspectionNotes: z.string().trim().max(1000).optional(),
+    inspectionPhotos: z.array(z.string().trim()).default([]).optional(),
+  })
   .strict();
 export type InspectReturnBody = z.infer<typeof inspectReturnBody>;
 
@@ -120,11 +155,22 @@ export type ReturnRequestItemResponse = z.infer<typeof returnRequestItemResponse
 export const returnSummaryResponse = z.object({
   id: z.string().uuid(),
   orderId: z.string().uuid(),
+  orderNumber: z.string().nullable().optional(),
   customerId: z.string().uuid(),
+  customerName: z.string().nullable().optional(),
   warehouseId: z.string().uuid(),
   status: z.enum(returnStatuses),
   reason: z.string(),
   note: z.string().nullable(),
+  issueCategory: z.string().nullable().optional(),
+  issueTicket: z.string().nullable().optional(),
+  requestedResolution: z.string().nullable().optional(),
+  customerEvidence: z.array(z.string()).default([]),
+  inspectionNotes: z.string().nullable().optional(),
+  inspectionPhotos: z.array(z.string()).default([]),
+  returnWindowEligible: z.boolean().optional(),
+  projectedRefundAmount: moneySchema.nullable().optional(),
+  projectedRefundMethod: z.string().nullable().optional(),
   /** BR-204: short-lived signed read URLs of the attached photos (storage keys never leave the API). */
   photos: z.array(z.string()),
   createdAt: z.string(),
@@ -137,12 +183,21 @@ export const returnRequestResponse = returnSummaryResponse.extend({
 });
 export type ReturnRequestResponse = z.infer<typeof returnRequestResponse>;
 
+export const returnKpiSummary = z.object({
+  pending: z.number().int().nonnegative(),
+  underReview: z.number().int().nonnegative(),
+  approved: z.number().int().nonnegative(),
+  refundPending: z.number().int().nonnegative(),
+});
+export type ReturnKpiSummary = z.infer<typeof returnKpiSummary>;
+
 export const listReturnsResponse = z.object({
   items: z.array(returnSummaryResponse),
   page: z.object({
     nextCursor: z.string().nullable(),
     hasMore: z.boolean(),
   }),
+  summary: returnKpiSummary,
 });
 export type ListReturnsResponse = z.infer<typeof listReturnsResponse>;
 

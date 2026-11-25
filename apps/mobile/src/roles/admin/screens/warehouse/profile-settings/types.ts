@@ -111,7 +111,9 @@ export type AboutView = 'main' | 'privacy' | 'terms' | 'licenses';
  * 'ChangePassword' renders the Settings screen's inline change-password state
  * (the owner dropped the standalone Main stub, SPEC_GAPS W4l-1).
  * 'WarehouseSettings' is Main-only (warehouse.capacity.set); the flow renders
- * nothing for it without that code.
+ * nothing for it without that code. 'WarehouseEditProfile' needs
+ * warehouse.profile.edit (canOpenProfileRoute): navigate() refuses it without
+ * the code and the flow renders a not-available note if it is opened directly.
  */
 export type ProfileRoute =
   | 'Settings'
@@ -128,8 +130,11 @@ export type ProfileRoute =
   | 'Contact'
   | 'Documents'
   | 'WarehouseSettings'
+  | 'WarehouseEditProfile'
   | 'ReportIssue'
-  | 'IssueSubmitted';
+  | 'IssueSubmitted'
+  | 'SystemSettings'
+  | 'BankAccountManagement';
 
 // ─── Part B: warehouse-facing profile screens ────────────────────────────────
 //

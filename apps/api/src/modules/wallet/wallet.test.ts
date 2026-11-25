@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode, parseMoney, type Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { createWalletService } from './wallet.service.js';
@@ -335,11 +335,6 @@ describeIfDatabase('walletService (integration)', () => {
     `);
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it('BR-35: ledger sum equals cached balance', async (ctx) => {
     if (!ready) return ctx.skip();

@@ -77,13 +77,13 @@ export type CustomerIdParam = z.infer<typeof customerIdParamSchema>;
 export const cashTopupCreateSchema = z.object({
   amount: moneySchema,
   warehouseId: z.string().uuid(),
-  fiscalCashTag: z.string().min(3).max(60),
+  fiscalCashTag: z.string().max(60).optional(),
   remarks: z.string().max(300).optional(),
 });
 export type CashTopupCreateInput = {
   amount: Money;
   warehouseId: string;
-  fiscalCashTag: string;
+  fiscalCashTag?: string | undefined;
   remarks?: string | undefined;
 };
 
@@ -110,3 +110,12 @@ export type CashTopupCustomerLookupQuery = z.infer<typeof cashTopupCustomerLooku
 /** The match shape is the sales counter's SaleCustomerMatch (same allow-list, masked mobile). */
 export { customerLookupResponse as cashTopupCustomerLookupResponse } from '../sales/sales.schema.js';
 export type { CustomerLookupResponse as CashTopupCustomerLookupResponse } from '../sales/sales.schema.js';
+
+/** POST /admin/wallets/:customerId/deduct (BR-170) */
+export const walletDeductBodySchema = z.object({
+  amount: z
+    .string()
+    .regex(/^[0-9]{1,10}(\.[0-9]{1,2})?$/, 'amount must be a positive decimal string'),
+  reason: z.string().min(1).max(300),
+});
+export type WalletDeductBody = z.infer<typeof walletDeductBodySchema>;

@@ -29,6 +29,17 @@ import { diaryTaxonomyAdminService } from './farm-diary.service.js';
 
 export const adminDiaryTaxonomyRouter: Router = Router();
 
+// GET /v1/admin/diary/categories
+adminDiaryTaxonomyRouter.get(
+  '/categories',
+  requireAuth,
+  requirePermission('admin.diary_taxonomy.manage'),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await diaryTaxonomyAdminService.listCategories(scope));
+  }),
+);
+
 // POST /v1/admin/diary/categories
 adminDiaryTaxonomyRouter.post(
   '/categories',

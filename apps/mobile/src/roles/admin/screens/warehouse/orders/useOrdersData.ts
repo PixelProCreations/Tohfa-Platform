@@ -11,12 +11,23 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
 import {
+  assignOrderWarehouse,
+  cancelAdminOrder,
+  createAdminOrderIssue,
   dispatchOrder,
   getAdminOrder,
   listAdminOrders,
+  listDeliveryPartners,
   packOrder,
   verifyPickupOtp,
+  type AdminOrderDetailDto,
+  type AssignWarehouseBody,
+  type CancelOrderBody,
+  type CreateOrderIssueBody,
+  type DeliveryPartnerDto,
+  type DispatchOrderBody,
   type OrderDto,
+  type OrderIssueResponseDto,
   type OrderListStatusFilter,
   type OrderSummaryDto,
   type PackOrderBody,
@@ -90,7 +101,13 @@ export function useOrderTaskCounts(warehouseId: string | undefined): LiveOrderTa
   return { ...queryState(query), counts: orderTaskCounts(query.data) };
 }
 
-function postFor(action: OrderAction, orderId: string, body: unknown, key: string): Promise<OrderDto> {
+/** The endpoint each action posts to, always with its Idempotency-Key (exported for the wiring tests). */
+export function postFor(
+  action: OrderAction,
+  orderId: string,
+  body: unknown,
+  key: string,
+): Promise<OrderDto | AdminOrderDetailDto | OrderIssueResponseDto> {
   switch (action) {
     case 'pack':
       return packOrder(orderId, body as PackOrderBody, key);
@@ -99,12 +116,25 @@ function postFor(action: OrderAction, orderId: string, body: unknown, key: strin
       return dispatchOrder(orderId, {}, key);
     case 'verifyOtp':
       return verifyPickupOtp(orderId, body as VerifyOtpBody, key);
+    case 'assign':
+      return assignOrderWarehouse(orderId, body as AssignWarehouseBody, key);
+    case 'dispatch':
+      // A delivery dispatch: the partner goes in the body; the slot is read-only here and never sent.
+      return dispatchOrder(orderId, body as DispatchOrderBody, key);
+    case 'cancel':
+      return cancelAdminOrder(orderId, body as CancelOrderBody, key);
+    case 'reportIssue':
+      return createAdminOrderIssue(orderId, body as CreateOrderIssueBody, key);
   }
 }
 
 export interface LiveOrderAction<TBody> {
-  /** Runs the write; `onDone` fires once it has landed (directly or found on a re-read). */
-  run: (body: TBody, onDone?: () => void) => void;
+  /**
+   * Runs the write; `onDone` fires once it has landed (directly or found on a
+   * re-read). It gets the server's answer when this call posted it, or
+   * undefined when the write was found already landed on a re-read.
+   */
+  run: (body: TBody, onDone?: (result: unknown) => void) => void;
   isPending: boolean;
   /** The last failure, for adminErrorKey; null after a success or reset(). */
   error: unknown;
@@ -121,12 +151,20 @@ export function useOrderAction<TBody>(action: OrderAction, orderId: string | und
   if (ringRef.current === null) ringRef.current = createOrderActionKeyRing();
   const ring = ringRef.current;
   const stateRef = useRef<OrderActionState>(INITIAL_ORDER_ACTION_STATE);
+  // The last answer the server posted back, for a screen that shows it (the created issue).
+  const resultRef = useRef<unknown>(undefined);
   const mutation = useAdminMutation<TBody, OrderActionOutcome>({
     mutationFn: async (body) => {
       if (orderId === undefined) throw new Error('No order to act on.');
       const key = ring.keyFor(orderId, action, body);
+      resultRef.current = undefined;
       const outcome = await performOrderAction(stateRef.current, action, {
-        post: () => postFor(action, orderId, body, key),
+        post: async () => {
+          const answer = await postFor(action, orderId, body, key);
+          resultRef.current = answer;
+          // performOrderAction reads nothing from the answer; only the screen reads it, from resultRef.
+          return answer as OrderDto;
+        },
         currentStatus: async () => (await getAdminOrder(orderId)).status,
       });
       stateRef.current = outcome.state;
@@ -138,10 +176,10 @@ export function useOrderAction<TBody>(action: OrderAction, orderId: string | und
   const { mutate, isPending, error, reset } = mutation;
   return useMemo(
     () => ({
-      run: (body: TBody, onDone?: () => void) => {
+      run: (body: TBody, onDone?: (result: unknown) => void) => {
         if (isPending) return;
         if (onDone === undefined) mutate(body);
-        else mutate(body, { onSuccess: () => onDone() });
+        else mutate(body, { onSuccess: () => onDone(resultRef.current) });
       },
       isPending,
       error,
@@ -149,4 +187,18 @@ export function useOrderAction<TBody>(action: OrderAction, orderId: string | und
     }),
     [mutate, isPending, error, reset],
   );
+}
+
+export interface LiveDeliveryPartners extends LiveQueryState {
+  partners: readonly DeliveryPartnerDto[];
+}
+
+/** The active delivery partners for the dispatch picker; nothing is fetched while `enabled` is false. */
+export function useDeliveryPartners(enabled: boolean): LiveDeliveryPartners {
+  const query = useAdminQuery(
+    adminKeys.module('delivery-partners'),
+    (signal) => listDeliveryPartners(signal),
+    { enabled },
+  );
+  return { ...queryState(query), isLoading: enabled && query.isPending, partners: query.data ?? [] };
 }

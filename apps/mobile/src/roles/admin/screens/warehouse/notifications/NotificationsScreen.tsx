@@ -1,13 +1,13 @@
 /**
  * The signed-in admin's own notifications (GET /notifications), with the All /
- * Unread tabs (the API has no categories), pull-to-refresh and load-more.
+ * Unread tabs plus the design's category tabs (the API has no categories, so those narrow the loaded rows on the device), pull-to-refresh and load-more.
  * Controlled: NotificationsFlow fetches, owns the tab and does the read writes;
  * this screen only draws them. Loading, error and empty come from the shared
  * AsyncStates so the area looks the same everywhere. The System Messages
  * entry (M13-04) is drawn only when the host passes `onOpenSystemMessages`
  * (NotificationsFlow checks its code); colours and type are admin theme tokens.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -26,12 +26,16 @@ import { adminColors, adminRadius, adminSpacing, adminType } from '../../../them
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import {
+  CATEGORY_FILTER_CATEGORIES,
+  CATEGORY_FILTER_LABEL_KEY,
+  CATEGORY_FILTERS,
   CategoryBadge,
   ChevronRightIcon,
   FILTER_LABEL_KEY,
   NOTIFICATION_FILTERS,
   TARGET_ROW_LABEL,
   canOpenTarget,
+  type CategoryFilter,
   type LiveNotificationFilter,
 } from './NotificationParts';
 import type { NotificationItem, NotificationTarget, WarehouseScreenBaseProps } from './types';
@@ -85,6 +89,8 @@ export function NotificationsScreen({
   onLoadMore,
   hasMore = false,
 }: NotificationsScreenProps) {
+  const [category, setCategory] = useState<CategoryFilter | null>(null);
+  const shown = category === null ? notifications : notifications.filter((n) => CATEGORY_FILTER_CATEGORIES[category].includes(n.category));
   const view = queryViewState({ isLoading, error, itemCount: notifications.length });
 
   const openItem = (item: NotificationItem) => {
@@ -183,19 +189,42 @@ export function NotificationsScreen({
           keyboardShouldPersistTaps="handled"
         >
           {NOTIFICATION_FILTERS.map((opt) => {
-            const active = opt === filter;
+            const active = category === null && opt === filter;
             const label = t(FILTER_LABEL_KEY[opt]);
             return (
               <TouchableOpacity
                 key={opt}
                 style={[styles.tabChip, active ? styles.tabChipActive : styles.tabChipInactive]}
-                onPress={() => onFilterChange(opt)}
+                onPress={() => {
+                  setCategory(null);
+                  onFilterChange(opt);
+                }}
                 activeOpacity={0.8}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
               >
                 <Text style={[styles.tabText, active ? styles.tabTextActive : styles.tabTextInactive]}>
                   {label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+          {CATEGORY_FILTERS.map((opt) => {
+            const active = category === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.tabChip, active ? styles.tabChipActive : styles.tabChipInactive]}
+                onPress={() => {
+                  setCategory(opt);
+                  if (filter !== 'All') onFilterChange('All');
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.tabText, active ? styles.tabTextActive : styles.tabTextInactive]}>
+                  {t(CATEGORY_FILTER_LABEL_KEY[opt])}
                 </Text>
               </TouchableOpacity>
             );
@@ -229,7 +258,7 @@ export function NotificationsScreen({
         <FlatList
           style={styles.list}
           contentContainerStyle={styles.listContent}
-          data={notifications}
+          data={shown}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
@@ -246,7 +275,7 @@ export function NotificationsScreen({
             ) : undefined
           }
           ListEmptyComponent={
-            filter === 'Unread' ? (
+            category === null && filter === 'Unread' ? (
               <AdminEmptyState title={t('notifications.empty.unread')} />
             ) : (
               <AdminEmptyState title={t('notifications.empty.title')} subtitle={t('notifications.empty.subtitle')} />

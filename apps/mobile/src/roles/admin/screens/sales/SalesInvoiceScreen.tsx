@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,6 +10,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { getInvoiceDownloadUrl } from '../../api/invoices';
+import { t } from '../../i18n';
 import {
   BackChevronIcon,
   SALES_PALETTE,
@@ -35,12 +38,15 @@ function DocPdfIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: n
   );
 }
 
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+
 export interface InvoiceItem {
   description: string;
   amount: number;
 }
 
 export interface SalesInvoiceScreenProps {
+  invoiceId?: string;
   orderNumber?: string;
   customerName?: string;
   warehouse?: string;
@@ -52,37 +58,31 @@ export interface SalesInvoiceScreenProps {
 }
 
 export function SalesInvoiceScreen({
-  orderNumber = 'ORD-20260909-0084',
-  customerName = 'Ramesh P.',
-  warehouse = 'Gudalur Warehouse',
-  date = 'Sep 9, 2026',
-  invoiceNumber = 'Invoice #INV-20260909-084',
-  items = [
-    { description: 'Cabbage — 2kg @ ₹28/kg', amount: 56 },
-    { description: 'Carrots — 1kg @ ₹39/kg', amount: 39 },
-  ],
-  total = 95,
+  invoiceId,
+  orderNumber = ADMIN_NO_VALUE,
+  customerName = ADMIN_NO_VALUE,
+  warehouse = ADMIN_NO_VALUE,
+  date = ADMIN_NO_VALUE,
+  invoiceNumber = ADMIN_NO_VALUE,
+  items = [],
+  total,
   onBack,
 }: SalesInvoiceScreenProps) {
-  const [isGst, setIsGst] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
-  const handleGeneratePdf = () => {
-    Alert.alert(
-      'Invoice PDF Generated',
-      `${invoiceNumber} has been generated and queued for download/print.`,
-      [{ text: 'OK' }]
-    );
-  };
+  const canDownload = Boolean(invoiceId && !downloading);
 
-  const handleToggleGst = () => {
-    setIsGst(!isGst);
-    Alert.alert(
-      'GST Invoice Mode',
-      isGst
-        ? 'Switched to Standard Customer Invoice'
-        : 'Switched to B2B Tax / GST Invoice format with HSN 0709 codes and 5% GST breakdown.',
-      [{ text: 'OK' }]
-    );
+  const handleDownloadPdf = async () => {
+    if (!invoiceId || downloading) return;
+    setDownloading(true);
+    try {
+      const signedUrl = await getInvoiceDownloadUrl(invoiceId);
+      await Linking.openURL(signedUrl);
+    } catch {
+      Alert.alert(t('wiringSales.invoice.downloadPdf'), t('wiringSales.invoice.downloadFailed'), [{ text: 'OK' }]);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -126,7 +126,7 @@ export function SalesInvoiceScreen({
 
           {/* Invoice ID */}
           <Text style={styles.invoiceIdText}>
-            {isGst ? `Tax ${invoiceNumber}-GST` : invoiceNumber}
+            {invoiceNumber}
           </Text>
 
           <View style={styles.divider} />
@@ -139,12 +139,10 @@ export function SalesInvoiceScreen({
                 <Text style={styles.itemAmount}>₹{item.amount}</Text>
               </View>
             ))}
-            {isGst && (
-              <View style={styles.itemRow}>
-                <Text style={styles.itemDescMuted}>CGST 2.5% + SGST 2.5% (included)</Text>
-                <Text style={styles.itemAmountMuted}>₹{((total * 0.05) / 1.05).toFixed(2)}</Text>
-              </View>
-            )}
+            <View style={styles.itemRow}>
+              <Text style={styles.itemDescMuted}>{t('wiringSales.invoice.taxBreakdownUnavailable')}</Text>
+              <Text style={styles.itemAmountMuted}>{ADMIN_NO_VALUE}</Text>
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -152,29 +150,36 @@ export function SalesInvoiceScreen({
           {/* Total row */}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalAmount}>₹{total}</Text>
+            <Text style={styles.totalAmount}>{total !== undefined ? `₹${total}` : ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity
-            style={styles.generatePdfBtn}
-            onPress={handleGeneratePdf}
+            style={[styles.generatePdfBtn, !canDownload && { opacity: 0.45 }]}
+            onPress={canDownload ? () => { void handleDownloadPdf(); } : undefined}
+            disabled={!canDownload}
+            accessibilityState={{ disabled: !canDownload }}
             activeOpacity={0.85}
           >
             <DocPdfIcon color="#FFFFFF" size={16} />
-            <Text style={styles.generatePdfBtnText}>Generate Invoice PDF</Text>
+            <Text style={styles.generatePdfBtnText}>{t('wiringSales.invoice.downloadPdf')}</Text>
           </TouchableOpacity>
+          {!invoiceId ? (
+            <Text style={styles.itemDescMuted}>{t('wiringSales.invoice.downloadUnavailable')}</Text>
+          ) : null}
 
           <TouchableOpacity
-            style={styles.gstInvoiceBtn}
-            onPress={handleToggleGst}
+            style={[styles.gstInvoiceBtn, { opacity: 0.45 }]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringSales.invoice.gstToggleUnavailable')}
             activeOpacity={0.7}
           >
             <DocPdfIcon color="#1F1714" size={16} />
             <Text style={styles.gstInvoiceBtnText}>
-              {isGst ? 'Generate Standard Invoice Instead' : 'Generate GST Invoice Instead'}
+              {t('wiringSales.invoice.gstToggleUnavailable')}
             </Text>
           </TouchableOpacity>
         </View>

@@ -117,18 +117,37 @@ type DescribeFn = (name: string, fn: () => void) => void;
 
 export const describeIfDatabase: DescribeFn = hasDatabase ? describe : describe.skip;
 
-/** True when we can connect AND `table` exists. Never throws. */
+/**
+ * True when we can connect AND `table` exists.
+ *
+ * A transient connection failure is NOT the same fact as "the table is not
+ * migrated", and conflating them is why the suite was non-deterministic: under
+ * full-suite load the shared pool occasionally refuses a connection, this
+ * returned false, `requireDatabaseTables` read that as an unmigrated schema and
+ * threw in `beforeAll`, and that file's whole suite collapsed — a different
+ * file each run. Connection errors are retried briefly and then rethrown, so a
+ * real outage fails loudly instead of masquerading as a missing table.
+ */
 export async function databaseReady(table: string): Promise<boolean> {
   if (!hasDatabase) return false;
-  try {
-    const { pool } = await import('../db/pool.js');
-    const target = table.includes('.') ? table : `public.${table}`;
-    const result = await pool.query<{ present: boolean }>(
-      'SELECT to_regclass($1) IS NOT NULL AS present',
-      [target],
-    );
-    return result.rows[0]?.present === true;
-  } catch {
-    return false;
+  const target = table.includes('.') ? table : `public.${table}`;
+  const { pool } = await import('../db/pool.js');
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const result = await pool.query<{ present: boolean }>(
+        'SELECT to_regclass($1) IS NOT NULL AS present',
+        [target],
+      );
+      return result.rows[0]?.present === true;
+    } catch (err) {
+      lastError = err;
+      await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
+    }
   }
+  throw new Error(
+    `databaseReady('${table}') could not reach the database after 3 attempts. ` +
+      'This is a connection failure, not a missing table — check pool limits or Postgres availability. ' +
+      `Last error: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+  );
 }

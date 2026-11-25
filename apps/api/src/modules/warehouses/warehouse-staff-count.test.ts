@@ -27,12 +27,6 @@ const WAREHOUSE_KEYS = [
   'longitude', 'marketDayOfWeek', 'name', 'operatingHours', 'pincode', 'staffCount', 'type',
 ].sort();
 
-// The pool is closed ONCE, after every describe in this file.
-afterAll(async () => {
-  if (process.env['DATABASE_URL'] === undefined) return;
-  const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-  await Promise.allSettled([closePool(), closeRedis()]);
-});
 
 describeIfDatabase('warehouse staffCount (PostgreSQL, rolled back) — BR-132', () => {
   let ready = false;

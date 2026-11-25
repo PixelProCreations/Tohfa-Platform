@@ -71,3 +71,25 @@ export const MORE_OPTION_GROUPS: readonly OptionGroup[] = [
     items: [item('settings', 'settings', 'more.item.settings.title', 'more.item.settings.subtitle')],
   },
 ];
+
+/**
+ * Farmers Management (Module 1): the design's first row of the Operations
+ * card. Not in MORE_OPTION_GROUPS: its labels live in the farmersEntry
+ * catalogue and its gate is farmer.profile.view_all (canOpenFarmers), which
+ * MoreScreen checks before calling withFarmersRow. The row opens the shared
+ * FarmersFlow inside MoreScreen.
+ */
+export const FARMERS_MORE_ROW: MoreOptionItem = item(
+  'farm_management',
+  'farm_management',
+  'farmersEntry.more.title',
+  'farmersEntry.more.subtitle',
+);
+
+/** The visible groups with the Farmers row first in Operations, when the caller may open Farmers. */
+export function withFarmersRow(groups: readonly OptionGroup[], allowed: boolean): OptionGroup[] {
+  if (!allowed) return [...groups];
+  const hasOperations = groups.some((g) => g.id === 'operations');
+  if (!hasOperations) return [{ id: 'operations', titleKey: 'more.group.operations', items: [FARMERS_MORE_ROW] }, ...groups];
+  return groups.map((g) => (g.id === 'operations' ? { ...g, items: [FARMERS_MORE_ROW, ...g.items] } : g));
+}

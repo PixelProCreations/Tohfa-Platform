@@ -24,6 +24,7 @@ export interface BatchRow {
   crop_name?: string | null;
   grade: string;
   goods_receipt_id: string | null;
+  goods_receipt_number?: string | null;
   source_farmer_id: string;
   qty_received: string;
   qty_available: string;
@@ -67,6 +68,7 @@ export function toBatchView(row: BatchRow): BatchView {
     cropName: row.crop_name ?? undefined,
     grade: row.grade as ProduceGrade,
     goodsReceiptId: row.goods_receipt_id,
+    goodsReceiptNumber: row.goods_receipt_number ?? null,
     sourceFarmerId: row.source_farmer_id,
     qtyReceivedKg: row.qty_received,
     qtyAvailableKg: row.qty_available,
@@ -324,9 +326,10 @@ export const inventoryRepo: InventoryRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT b.*, cm.name AS crop_name, ${MICRO_TS_SQL('b.created_at')} AS cursor_ts
+      SELECT b.*, cm.name AS crop_name, gr.grn_number AS goods_receipt_number, ${MICRO_TS_SQL('b.created_at')} AS cursor_ts
         FROM inventory_batches b
         LEFT JOIN crop_master cm ON cm.id = b.crop_id
+        LEFT JOIN goods_receipts gr ON gr.id = b.goods_receipt_id
        WHERE ${where}
        ORDER BY b.created_at DESC, b.id DESC
        LIMIT $${params.length}
@@ -362,9 +365,10 @@ export const inventoryRepo: InventoryRepo = {
 
     const where = conditions.join(' AND ');
     const querySql = `
-      SELECT b.*, cm.name AS crop_name
+      SELECT b.*, cm.name AS crop_name, gr.grn_number AS goods_receipt_number
         FROM inventory_batches b
         LEFT JOIN crop_master cm ON cm.id = b.crop_id
+        LEFT JOIN goods_receipts gr ON gr.id = b.goods_receipt_id
        WHERE ${where}
        LIMIT 1
     `;

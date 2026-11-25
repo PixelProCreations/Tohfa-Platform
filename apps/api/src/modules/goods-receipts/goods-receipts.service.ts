@@ -8,6 +8,7 @@ import {
   type IdempotencyStore,
 } from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
+import { kgToGrams, gramsToKg } from '../sales/sales.math.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import { allocationsService, type AllocateBatchInput } from '../allocations/allocations.service.js';
@@ -147,16 +148,8 @@ const allocateNewBatch: BatchAllocator = (input, tx) => allocationsService.alloc
  * accepted quantity above zero) at a sellable grade. A REJECT grade is never sellable
  * (docs/openapi.yaml recordQualityCheck), so it is never stocked.
  */
-function qualityCheckStocks(outcome: QcOutcome, grade: ProduceGrade, acceptedQtyKg: number): boolean {
-  return (outcome === 'ACCEPTED' || outcome === 'PARTIALLY_ACCEPTED') && grade !== 'REJECT' && acceptedQtyKg > 0;
-}
-
-/**
- * A Quantity decimal string (at most 3 decimals) as integer grams, so quantity sums are compared
- * exactly rather than as floats (BR-120). Exact for every value numeric(12,3) can hold.
- */
-function kgToGrams(kg: string): number {
-  return Math.round(Number(kg) * 1000);
+function qualityCheckStocks(outcome: QcOutcome, grade: ProduceGrade, acceptedGrams: number): boolean {
+  return (outcome === 'ACCEPTED' || outcome === 'PARTIALLY_ACCEPTED') && grade !== 'REJECT' && acceptedGrams > 0;
 }
 
 /** uq_inventory_batches_goods_receipt_id (migration 0070) decided a race the row lock did not see. */
@@ -346,8 +339,7 @@ export function createGoodsReceiptsService(
           receivedBy: actor.userId,
         });
 
-        // 4. Audit log (BR-35), through the shared helper on this transaction. It used to be a raw
-        // INSERT on the pool, outside the receipt's transaction, whose failure was swallowed.
+        // 4. Audit log (BR-35b), through the shared helper on this transaction.
         await repo.recordAudit(tx, {
           actorId: actor.userId,
           actorRole: scope.roleCode,
@@ -442,23 +434,23 @@ export function createGoodsReceiptsService(
         }
 
         // 3. Validate quantity balance (accepted + rejected <= gross)
-        const acceptedQty = Number(input.acceptedQtyKg);
-        const rejectedQty = Number(input.rejectedQtyKg ?? '0.000');
-        const grossQty = Number(grn.grossQtyKg);
+        const acceptedGrams = kgToGrams(input.acceptedQtyKg);
+        const rejectedGrams = kgToGrams(input.rejectedQtyKg ?? '0.000');
+        const grossGrams = kgToGrams(grn.grossQtyKg);
 
-        if (acceptedQty < 0 || rejectedQty < 0) {
+        if (acceptedGrams < 0 || rejectedGrams < 0) {
           throw new AppError('VALIDATION_FAILED', {
             detail: 'Accepted and rejected quantities must be non-negative.',
           });
         }
 
-        if (acceptedQty + rejectedQty > grossQty + 0.0001) {
+        if (acceptedGrams + rejectedGrams > grossGrams) {
           throw new AppError('VALIDATION_FAILED', {
-            detail: `acceptedQtyKg (${acceptedQty}) + rejectedQtyKg (${rejectedQty}) cannot exceed grossQtyKg (${grossQty}).`,
+            detail: `acceptedQtyKg (${input.acceptedQtyKg}) + rejectedQtyKg (${input.rejectedQtyKg ?? '0.000'}) cannot exceed grossQtyKg (${grn.grossQtyKg}).`,
           });
         }
 
-        if (rejectedQty > 0 && !input.rejectionReason && !input.defectNotes && input.rejectionReasonCode === undefined) {
+        if (rejectedGrams > 0 && !input.rejectionReason && !input.defectNotes && input.rejectionReasonCode === undefined) {
           throw new AppError('VALIDATION_FAILED', {
             detail: 'A non-zero rejected quantity requires a rejection reason, a rejection reason code or defect notes.',
           });
@@ -467,7 +459,6 @@ export function createGoodsReceiptsService(
         // BR-120: damaged and spoiled are a breakdown OF the rejected quantity, never in addition to
         // it, so with accepted + rejected <= gross above they can never make the books hold more than
         // arrived. They never change what is stocked (accepted quantity only, BR-106). Integer grams.
-        const rejectedGrams = kgToGrams(input.rejectedQtyKg ?? '0');
         const damagedGrams = kgToGrams(input.damagedQtyKg ?? '0');
         const spoiledGrams = kgToGrams(input.spoiledQtyKg ?? '0');
         if (damagedGrams + spoiledGrams > rejectedGrams) {
@@ -524,7 +515,8 @@ export function createGoodsReceiptsService(
 
         // 4. One transaction: the claim, the quality check & items, the GRN status, the batch the
         // accepted goods are stocked as (BR-106) and the audit rows commit or roll back together.
-        const acceptedQtyKg = Number(acceptedQty).toFixed(3);
+        const acceptedQtyKg = gramsToKg(acceptedGrams);
+        const rejectedQtyKg = gramsToKg(rejectedGrams);
         const qc = await repo.insertQualityCheckWithItems(tx, {
           ...input,
           ...(storageLocation === undefined ? {} : { storageLocation }),
@@ -539,7 +531,7 @@ export function createGoodsReceiptsService(
           goodsReceiptId,
           input.outcome,
           acceptedQtyKg,
-          Number(rejectedQty).toFixed(3),
+          rejectedQtyKg,
           // The free-text note first, as before; a structured code alone also satisfies the
           // receipt's "rejected needs a reason" CHECK (BR-120).
           input.rejectionReason ?? input.defectNotes ?? input.rejectionReasonCode,
@@ -563,7 +555,7 @@ export function createGoodsReceiptsService(
         // quantity only (never the rejected part). A quality counter-offer sent on this receipt
         // later finds it stocked and stocks nothing again (stockAcceptedQualityCounterOffer).
         let batch: BatchView | null = null;
-        if (qualityCheckStocks(input.outcome, input.assignedGrade, acceptedQty)) {
+        if (qualityCheckStocks(input.outcome, input.assignedGrade, acceptedGrams)) {
           const source = await repo.findStockingSource(tx, goodsReceiptId);
           if (source === null) {
             throw new AppError('NOT_FOUND', { detail: `Goods receipt "${goodsReceiptId}" was not found.` });

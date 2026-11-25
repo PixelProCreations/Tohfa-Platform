@@ -91,47 +91,70 @@ function BoxActionIcon({ color = '#FFFFFF', size = 18 }: { color?: string; size?
   );
 }
 
+import { t } from '../../i18n';
+import { packOrder } from '../../api/orders';
+import { useAdminMutation } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { useWarehouseOptions } from '../warehouse/shared/useWarehouseOptions';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+
 export interface SalesFulfillmentAssignmentScreenProps {
+  orderId?: string;
   orderNumber?: string;
   customerName?: string;
   onBack?: () => void;
   onNavigateToInvoice?: () => void;
+  onPacked?: () => void;
 }
 
-const WAREHOUSES = [
-  'Ooty Warehouse',
-  'Kotagiri Sub-Warehouse',
-  'Coonoor Warehouse',
-  'Gudalur Warehouse',
-];
-
 export function SalesFulfillmentAssignmentScreen({
-  orderNumber = 'ORD-20260910-0091',
-  customerName = 'Divya Ramesh',
+  orderId,
+  orderNumber = ADMIN_NO_VALUE,
+  customerName = ADMIN_NO_VALUE,
   onBack,
   onNavigateToInvoice,
+  onPacked,
 }: SalesFulfillmentAssignmentScreenProps) {
-  const [selectedWarehouse, setSelectedWarehouse] = useState('Ooty Warehouse');
+  const { options: warehouseOptions, isLoading: loadingWarehouses } = useWarehouseOptions();
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
   const [isPacked, setIsPacked] = useState(false);
   const [warehousePickerVisible, setWarehousePickerVisible] = useState(false);
+  const [packAttemptKey] = useState(() =>
+    orderId ? `pack-${orderId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` : '',
+  );
+
+  const packMutation = useAdminMutation({
+    mutationFn: () => packOrder(orderId ?? '', {}, packAttemptKey),
+    invalidates: [adminKeys.module('orders')],
+  });
+
+  const selectedWarehouseName =
+    warehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ??
+    warehouseOptions[0]?.warehouseName ??
+    ADMIN_NO_VALUE;
+  const canPack = Boolean(orderId && !isPacked && !packMutation.isPending);
 
   const handleMarkPacked = () => {
-    if (!isPacked) {
-      setIsPacked(true);
-      Alert.alert(
-        'Order Packed',
-        `${orderNumber} has been marked as Packed at ${selectedWarehouse}. Ready for pickup OTP verification.`,
-        [
-          {
-            text: 'View Invoice',
-            onPress: () => onNavigateToInvoice?.(),
-          },
-          { text: 'OK' },
-        ]
-      );
-    } else {
-      Alert.alert('Ready For Pickup', 'Pickup OTP #8492 sent to customer mobile.');
-    }
+    if (!canPack) return;
+    packMutation.mutate(undefined, {
+      onSuccess: () => {
+        setIsPacked(true);
+        onPacked?.();
+        Alert.alert(
+          t('wiringSales.fulfillment.packSuccessTitle'),
+          t('wiringSales.fulfillment.packSuccessBody', { order: orderNumber }),
+          [
+            ...(onNavigateToInvoice
+              ? [{ text: 'View Invoice', onPress: () => onNavigateToInvoice() }]
+              : []),
+            { text: 'OK' },
+          ],
+        );
+      },
+      onError: () => {
+        Alert.alert(t('wiringSales.fulfillment.packErrorTitle'), t('wiringSales.fulfillment.packUnavailable'));
+      },
+    });
   };
 
   return (
@@ -183,7 +206,7 @@ export function SalesFulfillmentAssignmentScreen({
             </View>
             <View style={styles.stepContent}>
               <Text style={styles.stepTitleActive}>
-                Assigned to {selectedWarehouse}
+                Assigned to {selectedWarehouseName}
               </Text>
             </View>
           </View>
@@ -224,22 +247,32 @@ export function SalesFulfillmentAssignmentScreen({
             onPress={() => setWarehousePickerVisible(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.dropdownSelectedText}>{selectedWarehouse}</Text>
+            <Text style={styles.dropdownSelectedText}>
+              {loadingWarehouses ? t('wiringSales.fulfillment.warehousesLoading') : selectedWarehouseName}
+            </Text>
             <ChevronDownIcon />
           </TouchableOpacity>
         </View>
 
         {/* Action Button */}
         <TouchableOpacity
-          style={styles.primaryActionButton}
-          onPress={handleMarkPacked}
+          style={[styles.primaryActionButton, !canPack && { opacity: 0.45 }]}
+          onPress={canPack ? handleMarkPacked : undefined}
+          disabled={!canPack}
+          accessibilityState={{ disabled: !canPack }}
           activeOpacity={0.85}
         >
           <BoxActionIcon />
           <Text style={styles.primaryActionText}>
-            {isPacked ? 'Ready for Pickup — Verify OTP' : 'Mark as Packed'}
+            {isPacked ? 'Order Packed' : 'Mark as Packed'}
           </Text>
         </TouchableOpacity>
+        {!orderId ? (
+          <Text style={styles.stepTitleMuted}>{t('wiringSales.fulfillment.packUnavailable')}</Text>
+        ) : null}
+        {isPacked ? (
+          <Text style={styles.stepTitleMuted}>{t('wiringSales.fulfillment.otpUnavailable')}</Text>
+        ) : null}
 
         {/* Warehouse Selection Modal */}
         <Modal
@@ -255,28 +288,37 @@ export function SalesFulfillmentAssignmentScreen({
           >
             <View style={styles.pickerModal}>
               <Text style={styles.pickerModalTitle}>Select Warehouse</Text>
-              {WAREHOUSES.map((wh) => (
-                <TouchableOpacity
-                  key={wh}
-                  style={[
-                    styles.pickerOption,
-                    selectedWarehouse === wh && styles.pickerOptionActive,
-                  ]}
-                  onPress={() => {
-                    setSelectedWarehouse(wh);
-                    setWarehousePickerVisible(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.pickerOptionText,
-                      selectedWarehouse === wh && styles.pickerOptionTextActive,
-                    ]}
-                  >
-                    {wh}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {warehouseOptions.length === 0 ? (
+                <Text style={styles.pickerOptionText}>{t('wiringSales.fulfillment.warehousesUnavailable')}</Text>
+              ) : (
+                warehouseOptions.map((wh) => {
+                  const isSel =
+                    selectedWarehouseId === wh.warehouseId ||
+                    (selectedWarehouseId === null && warehouseOptions[0]?.warehouseId === wh.warehouseId);
+                  return (
+                    <TouchableOpacity
+                      key={wh.warehouseId}
+                      style={[
+                        styles.pickerOption,
+                        isSel && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedWarehouseId(wh.warehouseId);
+                        setWarehousePickerVisible(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          isSel && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {wh.warehouseName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
           </TouchableOpacity>
         </Modal>

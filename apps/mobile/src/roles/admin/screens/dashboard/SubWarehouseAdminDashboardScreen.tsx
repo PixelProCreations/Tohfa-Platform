@@ -35,6 +35,7 @@ import {
   type HomeRoute,
   type HomeRouteParams,
 } from '../warehouse/dashboard-home-more';
+import { SWABottomNav } from '../swa/components';
 import {
   CustomersFlow,
   type CustomersRoute,
@@ -120,6 +121,9 @@ import {
   walletLayout,
 } from '../warehouse/wallet-cashtopup/WalletParts';
 import { t } from '../../i18n';
+import { FarmersFlow } from '../farmers/FarmersFlow';
+import { FarmersPeopleIcon } from '../farmers/flow/FarmersEntryIcons';
+import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { OverviewDashboardCard } from '../../components';
 
@@ -347,52 +351,6 @@ function BrokenCrateIcon() {
   );
 }
 
-function HomeTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceivingTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 14h4l2 3h4l2-3h4v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 3v9M8 8l4 4 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function InventoryTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 10h18M10 14h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function MoreTabIcon({ active }: { active: boolean }) {
-  const color = active ? PALETTE.primary : PALETTE.tabInactive;
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="5" cy="5" r="2" fill={color} />
-      <Circle cx="12" cy="5" r="2" fill={color} />
-      <Circle cx="19" cy="5" r="2" fill={color} />
-      <Circle cx="5" cy="12" r="2" fill={color} />
-      <Circle cx="12" cy="12" r="2" fill={color} />
-      <Circle cx="19" cy="12" r="2" fill={color} />
-      <Circle cx="5" cy="19" r="2" fill={color} />
-      <Circle cx="12" cy="19" r="2" fill={color} />
-      <Circle cx="19" cy="19" r="2" fill={color} />
-    </Svg>
-  );
-}
 
 interface SubWarehouseAdminDashboardScreenProps {
   /** Warehouse this Sub Warehouse admin is assigned to; handed to shared warehouse screens. */
@@ -1091,6 +1049,8 @@ export function SubWarehouseAdminDashboardScreen({
     }
   }, [initialShowRecentActivity, can]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
+  // Farmers Management (Module 1), opened from the Home "Farmers" tile; the More row opens it inside MoreScreen.
+  const [showFarmersFlow, setShowFarmersFlow] = useState(false);
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
   // This entry only says where the tab opens.
@@ -1341,6 +1301,10 @@ export function SubWarehouseAdminDashboardScreen({
     return formatPaise(totalPaise);
   };
 
+
+  if (showFarmersFlow && canOpenFarmers(can)) {
+    return <FarmersFlow can={can} warehouseId={scope.warehouseId} onBack={() => setShowFarmersFlow(false)} />;
+  }
 
   if (taskOrderNo !== null) {
     // Order detail of a HomeFlow order task; back returns to the task list.
@@ -2276,6 +2240,16 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.quickActionLabel}>Activity</Text>
                 </Pressable>
                 ) : null}
+
+                {canOpenFarmers(can) ? (
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
+                  onPress={() => setShowFarmersFlow(true)}
+                >
+                  <FarmersPeopleIcon color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>{t('farmersEntry.tile.farmers')}</Text>
+                </Pressable>
+                ) : null}
               </View>
 
               {/* 4. Needs Attention */}
@@ -2714,7 +2688,7 @@ export function SubWarehouseAdminDashboardScreen({
             onNavigateToDashboard={() => setActiveTab('Home')}
             onTabChange={(tab) => {
               if (tab === 'More') return;
-              setActiveTab(tab);
+              navigateTo(tab);
             }}
             onNavigateToNotifications={() => {
               if (onNavigate) onNavigate('SubWarehouseNotifications');
@@ -2794,49 +2768,7 @@ export function SubWarehouseAdminDashboardScreen({
 
       {/* ─── Bottom Navigation Bar (Home; the Receiving flow draws its own on its dashboard) ─── */}
       {activeTab === 'Home' && !showOrdersModule && (
-        <View style={styles.bottomTabBar}>
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigateTo('Home')}
-            accessibilityRole="tab"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <HomeTabIcon active={activeTab === 'Home'} />
-            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => openReceiving()}
-            accessibilityRole="tab"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ReceivingTabIcon active={false} />
-            <Text style={styles.tabLabel}>Receiving</Text>
-          </TouchableOpacity>
-
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => setActiveTab('Inventory')}
-            accessibilityRole="tab"
-          >
-            <InventoryTabIcon active={false} />
-            <Text style={styles.tabLabel}>Inventory</Text>
-          </Pressable>
-
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigateTo('More')}
-            accessibilityRole="tab"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MoreTabIcon active={false} />
-            <Text style={styles.tabLabel}>More</Text>
-          </TouchableOpacity>
-        </View>
+        <SWABottomNav activeTab="Home" onTabChange={navigateTo} />
       )}
     </SafeAreaView>
   );
@@ -3477,31 +3409,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: PALETTE.textSecondary,
     marginTop: 4,
-  },
-
-  // ─── Bottom Tab Bar ────────────────────────────────────────────────────────
-  bottomTabBar: {
-    flexDirection: 'row',
-    backgroundColor: PALETTE.cardBg,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    justifyContent: 'space-around',
-  },
-  tabItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  tabLabel: {
-    fontSize: 9.5,
-    fontWeight: '600',
-    color: PALETTE.tabInactive,
-    marginTop: 2.5,
-  },
-  tabLabelActive: {
-    color: PALETTE.primary,
-    fontWeight: '800',
   },
 });

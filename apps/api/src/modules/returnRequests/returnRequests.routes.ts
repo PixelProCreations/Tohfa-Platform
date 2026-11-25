@@ -31,6 +31,7 @@ import {
   orderIdParams,
   rejectReturnBody,
   returnIdParams,
+  returnsSummaryQuery,
 } from './returnRequests.schema.js';
 
 export const returnRequestsRouter: Router = Router();
@@ -76,6 +77,18 @@ adminReturnsRouter.get(
     const scope = requireScope(req.scope);
     const query = getValidated(req, 'query', listReturnsQuery);
     res.status(200).json(await returnRequestsService.list(scope, query));
+  }),
+);
+
+adminReturnsRouter.get(
+  '/summary',
+  requireAuth,
+  requirePermission('rma.request.process'),
+  validate({ query: returnsSummaryQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', returnsSummaryQuery);
+    res.status(200).json(await returnRequestsService.getSummary(scope, query));
   }),
 );
 

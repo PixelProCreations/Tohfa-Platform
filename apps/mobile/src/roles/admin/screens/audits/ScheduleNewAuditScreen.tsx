@@ -8,6 +8,14 @@ import {
   View,
 } from 'react-native';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { adminErrorKey } from '../../api/errors';
+import { useFarmerList } from '../../api/farmerHooks';
+import { t } from '../../i18n';
+import { makeCan, type Can } from '../../permissions/can';
+import { adminColors, adminType } from '../../theme';
+import type { AuditType } from '../../api/audits';
+import { buildQuickScheduleBody, isStartTimePicked } from './auditActions';
+import { useCreateAudit } from './useAuditsData';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const A = {
@@ -31,15 +39,15 @@ const CARD_SHADOW = {
   elevation: 1,
 };
 
-// ─── Auditor lists (Common across audits) ─────────────────────────────────────
-export const ALL_AUDITORS = [
-  'Ravi K. \u2013 Quality Auditor',
-  'Meena P. \u2013 Certification Lead',
-  'Suresh V. \u2013 Field Auditor',
-  'AgriCert Co. \u2013 Senior Auditor',
-  'PGS Certifiers \u2013 Lead Assessor',
-  'BioVerify Ltd. \u2013 Compliance Officer',
-];
+/** docs/rbac.json codes this screen checks. */
+export const SCHEDULE_NEW_AUDIT_CODES = {
+  schedule: 'audit.schedule',
+  /** GET /admin/farmers, behind the farmer search. */
+  farmers: 'farmer.profile.view_all',
+} as const;
+
+const FAIL_CLOSED: Can = makeCan([]);
+const AUDIT_TYPES: readonly AuditType[] = ['INTERNAL', 'EXTERNAL'];
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 export const MONTHS = [
@@ -481,42 +489,81 @@ export interface ScheduleNewAuditScreenProps {
   onBack: () => void;
   onScheduled?: () => void;
   onSuccess?: () => void;
+  /** The signed-in admin's permission check; without it every action is refused (fail closed). */
+  can?: Can | undefined;
 }
 
 export function ScheduleNewAuditScreen({
   onBack,
   onScheduled,
   onSuccess,
+  can = FAIL_CLOSED,
 }: ScheduleNewAuditScreenProps) {
   const now = new Date();
+  const canSchedule = can(SCHEDULE_NEW_AUDIT_CODES.schedule);
+  const canSearchFarmers = can(SCHEDULE_NEW_AUDIT_CODES.farmers);
 
   const [farmerQuery,     setFarmerQuery]     = useState('');
+  const [farmer,          setFarmer]          = useState<{ id: string; label: string } | null>(null);
   const [showCal,         setShowCal]         = useState(false);
   const [selDay,          setSelDay]          = useState(now.getDate());
   const [selMonth,        setSelMonth]        = useState(now.getMonth());
   const [selYear,         setSelYear]         = useState(now.getFullYear());
-  const [auditorOpen,     setAuditorOpen]     = useState(false);
-  const [selectedAuditor, setSelectedAuditor] = useState(ALL_AUDITORS[0]);
+  const [startTime,       setStartTime]       = useState('');
+  const [typeOpen,        setTypeOpen]        = useState(false);
+  const [auditType,       setAuditType]       = useState<AuditType>('INTERNAL');
+  const [agency,          setAgency]          = useState('');
+  const [formError,       setFormError]       = useState<string | null>(null);
+
+  const createAudit = useCreateAudit();
+  const isPending = createAudit.isPending;
+  // No time is substituted: until the admin has typed a usable start time the submit stays off.
+  const timePicked = isStartTimePicked(startTime);
+  // The directory is only searched while the admin is typing a name and no farmer is chosen.
+  const searchText = farmer === null ? farmerQuery.trim() : '';
+  const farmers = useFarmerList(undefined, searchText === '' || !canSearchFarmers ? { q: undefined } : { q: searchText });
+  const showResults = canSearchFarmers && farmer === null && searchText !== '';
 
   function handleDateTap() {
     setShowCal((v) => !v);
-    setAuditorOpen(false);
+    setTypeOpen(false);
   }
 
-  function handleAuditorTap() {
-    setAuditorOpen((o) => !o);
+  function handleTypeTap() {
+    setTypeOpen((o) => !o);
     setShowCal(false);
   }
 
+  // Success is only ever reported from the server's 2xx (onSuccess of the mutation), never before it.
   function handleSchedule() {
-    if (onSuccess) {
-      onSuccess();
-    } else if (onScheduled) {
-      onScheduled();
-      onBack();
-    } else {
-      onBack();
+    if (isPending || !canSchedule || !timePicked) return;
+    const result = buildQuickScheduleBody({
+      farmerId: farmer?.id ?? null,
+      auditType,
+      externalAgencyName: agency,
+      day: selDay,
+      month0: selMonth,
+      year: selYear,
+      startTime,
+    });
+    if (!result.ok) {
+      setFormError(t(result.errorKey));
+      return;
     }
+    setFormError(null);
+    createAudit.mutate(result.body, {
+      onSuccess: () => {
+        if (onSuccess) {
+          onSuccess();
+        } else if (onScheduled) {
+          onScheduled();
+          onBack();
+        } else {
+          onBack();
+        }
+      },
+      onError: (err) => setFormError(t(adminErrorKey(err))),
+    });
   }
 
   return (
@@ -547,12 +594,44 @@ export function ScheduleNewAuditScreen({
             style={styles.textInput}
             placeholder="Search and select a farmer"
             placeholderTextColor={A.muted}
-            value={farmerQuery}
-            onChangeText={setFarmerQuery}
+            value={farmer === null ? farmerQuery : farmer.label}
+            onChangeText={(text) => {
+              setFarmer(null);
+              setFarmerQuery(text);
+              setFormError(null);
+            }}
+            editable={canSearchFarmers}
             returnKeyType="search"
           />
           <Icon name="search" size={20} color={A.muted} />
         </View>
+        {!canSearchFarmers ? <Text style={styles.noteText}>{t('admin.auditActions.schedule.farmerNoAccess')}</Text> : null}
+        {showResults ? (
+          <View style={styles.dropdownList}>
+            {farmers.items.length === 0 ? (
+              <Text style={styles.noteText}>
+                {farmers.isLoading ? t('admin.auditActions.schedule.farmerSearching') : t('admin.auditActions.schedule.farmerNone')}
+              </Text>
+            ) : (
+              farmers.items.slice(0, 8).map((f, i, arr) => {
+                const label = t('admin.auditActions.schedule.farmerOption', { name: f.name, code: f.farmerCode });
+                return (
+                  <TouchableOpacity
+                    key={f.id}
+                    style={[styles.dropdownItem, i === arr.length - 1 && { borderBottomWidth: 0 }]}
+                    onPress={() => {
+                      setFarmer({ id: f.id, label });
+                      setFormError(null);
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.dropdownItemText}>{label}</Text>
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </View>
+        ) : null}
 
         {/* ─── Scheduled Date (Date on left, Calendar Icon on right) ─── */}
         <Text style={styles.fieldLabel}>Scheduled date</Text>
@@ -581,39 +660,58 @@ export function ScheduleNewAuditScreen({
           />
         )}
 
-        {/* ─── Assign Auditor Dropdown ─── */}
-        <Text style={styles.fieldLabel}>Assign auditor</Text>
+        {/* ─── Start time (IST; typed like the Schedule Audit form's start time, no default) ─── */}
+        <Text style={styles.fieldLabel}>{t('admin.auditActions.schedule.timeLabel')}</Text>
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.textInput}
+            placeholder={t('admin.auditActions.schedule.timePlaceholder')}
+            placeholderTextColor={A.muted}
+            value={startTime}
+            onChangeText={(text) => {
+              setStartTime(text);
+              setFormError(null);
+            }}
+            autoCapitalize="characters"
+            maxLength={12}
+          />
+          <Icon name="schedule" size={20} color={A.body} />
+        </View>
+
+        {/* ─── Audit type (the API schedules an INTERNAL or EXTERNAL audit; auditors are not picked here) ─── */}
+        <Text style={styles.fieldLabel}>{t('admin.auditActions.schedule.typeLabel')}</Text>
         <TouchableOpacity
-          style={[styles.inputRow, auditorOpen && styles.inputRowOpen]}
-          onPress={handleAuditorTap}
+          style={[styles.inputRow, typeOpen && styles.inputRowOpen]}
+          onPress={handleTypeTap}
           activeOpacity={0.75}
         >
-          <Text style={[styles.inputText, { flex: 1 }]}>{selectedAuditor}</Text>
-          <View style={{ transform: [{ rotate: auditorOpen ? '180deg' : '0deg' }] }}>
+          <Text style={[styles.inputText, { flex: 1 }]}>{t(`admin.auditActions.schedule.type.${auditType}`)}</Text>
+          <View style={{ transform: [{ rotate: typeOpen ? '180deg' : '0deg' }] }}>
             <Icon name="expand_more" size={22} color={A.body} />
           </View>
         </TouchableOpacity>
 
-        {auditorOpen && (
+        {typeOpen && (
           <View style={styles.dropdownList}>
-            {ALL_AUDITORS.map((a, i) => {
-              const active = selectedAuditor === a;
+            {AUDIT_TYPES.map((type, i) => {
+              const active = auditType === type;
               return (
                 <TouchableOpacity
-                  key={a}
+                  key={type}
                   style={[
                     styles.dropdownItem,
                     active && styles.dropdownItemActive,
-                    i === ALL_AUDITORS.length - 1 && { borderBottomWidth: 0 },
+                    i === AUDIT_TYPES.length - 1 && { borderBottomWidth: 0 },
                   ]}
                   onPress={() => {
-                    setSelectedAuditor(a);
-                    setAuditorOpen(false);
+                    setAuditType(type);
+                    setTypeOpen(false);
+                    setFormError(null);
                   }}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.dropdownItemText, active && styles.dropdownItemTextActive]}>
-                    {a}
+                    {t(`admin.auditActions.schedule.type.${type}`)}
                   </Text>
                   {active && <Icon name="check" size={16} color={A.orange} />}
                 </TouchableOpacity>
@@ -622,12 +720,39 @@ export function ScheduleNewAuditScreen({
           </View>
         )}
 
+        {auditType === 'EXTERNAL' ? (
+          <>
+            <Text style={styles.fieldLabel}>{t('admin.auditActions.schedule.agencyLabel')}</Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.textInput}
+                placeholder={t('admin.auditActions.schedule.agencyPlaceholder')}
+                placeholderTextColor={A.muted}
+                value={agency}
+                onChangeText={(text) => {
+                  setAgency(text);
+                  setFormError(null);
+                }}
+                maxLength={200}
+              />
+            </View>
+          </>
+        ) : null}
+
+        {!canSchedule ? <Text style={styles.errorText}>{t('admin.auditActions.schedule.noPermission')}</Text> : null}
+        {formError !== null ? <Text style={styles.errorText}>{formError}</Text> : null}
+
         <View style={{ height: 16 }} />
 
         {/* ─── Primary CTA Button: Schedule Audit ─── */}
-        <TouchableOpacity style={styles.ctaBtn} onPress={handleSchedule} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.ctaBtn, (!canSchedule || isPending || !timePicked) && styles.ctaBtnDisabled]}
+          onPress={handleSchedule}
+          disabled={!canSchedule || isPending || !timePicked}
+          activeOpacity={0.85}
+        >
           <Icon name="calendar_month" size={18} color="#FFFFFF" />
-          <Text style={styles.ctaBtnLabel}>Schedule Audit</Text>
+          <Text style={styles.ctaBtnLabel}>{isPending ? t('admin.auditActions.schedule.submitting') : 'Schedule Audit'}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 36 }} />
@@ -787,6 +912,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 6,
     elevation: 3,
+  },
+  ctaBtnDisabled: {
+    opacity: 0.5,
+  },
+  noteText: {
+    ...adminType.body,
+    color: A.muted,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  errorText: {
+    ...adminType.body,
+    color: adminColors.danger.text,
+    marginBottom: 12,
   },
   ctaBtnLabel: {
     fontSize: 16,

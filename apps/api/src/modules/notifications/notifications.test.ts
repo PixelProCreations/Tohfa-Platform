@@ -735,6 +735,34 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
 
       expect(res).not.toBeNull();
     });
+
+    it('BR-52d: PUSH delivery without registered device tokens marks notification SKIPPED, not DELIVERED', async () => {
+      const { notificationDispatch } = await import('../../jobs/worker.js');
+      const { notificationsRepo } = await import('./notifications.repo.js');
+      const spy = vi.spyOn(notificationsRepo, 'findActiveDeviceTokens').mockResolvedValue([]);
+      const updateSpy = vi.spyOn(notificationsRepo, 'updateNotificationDelivery').mockResolvedValue(null as any);
+
+      await notificationDispatch(
+        {
+          notificationId: '00000000-0000-0000-0000-000000000001',
+          userId: IDS.userFarmer,
+          channel: 'PUSH',
+          title: 'Test',
+          body: 'Test body',
+        },
+        { attemptsMade: 0 } as any,
+      );
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        '00000000-0000-0000-0000-000000000001',
+        expect.objectContaining({
+          status: 'SKIPPED',
+        }),
+      );
+      spy.mockRestore();
+      updateSpy.mockRestore();
+    });
   });
 
   describe('HTTP Route Integration', () => {

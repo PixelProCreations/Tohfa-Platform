@@ -129,6 +129,10 @@ export const createCropMasterBody = z
     seasonMonths: z.array(z.number().int().min(1).max(12)).max(12).optional(),
     shelfLifeDays: z.number().int().positive().optional(),
     iconKey: z.string().trim().min(1).max(80).optional(),
+    gradeSystem: z.string().trim().min(1).max(120).optional(),
+    durationDays: z.string().trim().min(1).max(120).optional(),
+    storageTemp: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().max(2000).optional(),
   })
   .strict();
 export type CreateCropMasterBody = z.infer<typeof createCropMasterBody>;
@@ -143,6 +147,11 @@ export const updateCropMasterBody = z
     shelfLifeDays: z.number().int().positive().nullable().optional(),
     iconKey: z.string().trim().min(1).max(80).nullable().optional(),
     isActive: z.boolean().optional(),
+    gradeSystem: z.string().trim().min(1).max(120).nullable().optional(),
+    durationDays: z.string().trim().min(1).max(120).nullable().optional(),
+    storageTemp: z.string().trim().min(1).max(120).nullable().optional(),
+    description: z.string().trim().max(2000).nullable().optional(),
+    deactivationReason: z.string().trim().max(1000).nullable().optional(),
     // BR-181: display-only catalog metadata, set by admin (never echoed on farmer endpoints).
     tasteNotes: z.string().trim().min(1).max(300).nullable().optional(),
     harvestSeason: z.string().trim().min(1).max(80).nullable().optional(),
@@ -177,6 +186,7 @@ export type UpdateCropMasterBody = z.infer<typeof updateCropMasterBody>;
  */
 export const cropMasterResponse = z.object({
   id: z.string().uuid(),
+  code: z.string(),
   slug: z.string(),
   name: z.string(),
   nameTa: z.string().nullable(),
@@ -187,6 +197,20 @@ export const cropMasterResponse = z.object({
   shelfLifeDays: z.number().int().nullable(),
   iconKey: z.string().nullable(),
   isActive: z.boolean(),
+  gradeSystem: z.string().nullable(),
+  durationDays: z.string().nullable(),
+  storageTemp: z.string().nullable(),
+  description: z.string().nullable(),
+  deactivationReason: z.string().nullable(),
+  createdBy: z.string().uuid().nullable(),
+  /**
+   * The creator's display name (`users.full_name`), beside `createdBy`. NULL when the crop has
+   * no creator. Admin staff identity: present on the admin endpoints, omitted (not null) on the
+   * farmer-facing list — see cropsService.listCropMaster.
+   */
+  createdByName: z.string().nullable().optional(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
 });
 export type CropMasterResponse = z.infer<typeof cropMasterResponse>;
 

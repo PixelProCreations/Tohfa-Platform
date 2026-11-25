@@ -2,9 +2,13 @@ import { Router, type RequestHandler } from 'express';
 import { optionalAuth, requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { signUploadBody } from '../uploads/uploads.schema.js';
 import {
+  addApplicationNoteBody,
+  advanceApplicationBody,
+  applicationDocumentParams,
+  applicationLocationParams,
   approveApplicationBody,
   createFarmerApplicationBody,
   farmerApplicationIdParams,
@@ -12,6 +16,7 @@ import {
   registrationStepBodySchemas,
   rejectApplicationBody,
   requestInfoApplicationBody,
+  reviewDecisionBody,
   updateFarmerProfileBody,
   updateStepParams,
 } from './farmer-applications.schema.js';
@@ -82,6 +87,22 @@ farmerApplicationsRouter.post(
   }),
 );
 
+// BR-217: the applicant answers a request for information (INFO_REQUESTED -> DOCS_REVIEW).
+// Same optionalAuth + possession-of-UUID model as /submit and /status: an applicant usually has
+// no account yet, so the unguessable application id is the credential. No Idempotency-Key: there
+// is no account to scope one to, so the operation is idempotent by state instead (a repeat call
+// returns the current state and writes nothing).
+farmerApplicationsRouter.post(
+  '/applications/:id/resubmit',
+  optionalAuth,
+  validate({ params: farmerApplicationIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const result = await farmerApplicationsService.resubmitApplication(req.actor, id);
+    res.json(result);
+  }),
+);
+
 // Status timeline
 farmerApplicationsRouter.get(
   '/applications/:id/status',
@@ -146,8 +167,9 @@ adminFarmerApplicationsRouter.get(
   validate({ query: listAdminApplicationsQuery }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const query = getValidated(req, 'query', listAdminApplicationsQuery);
-    const result = await farmerApplicationsService.listAdminApplications(actor, query);
+    const result = await farmerApplicationsService.listAdminApplications(actor, scope, query);
     res.json(result);
   }),
 );
@@ -159,12 +181,15 @@ adminFarmerApplicationsRouter.get(
   validate({ params: farmerApplicationIdParams }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', farmerApplicationIdParams);
-    const result = await farmerApplicationsService.getAdminApplication(actor, id);
+    const result = await farmerApplicationsService.getAdminApplication(actor, scope, id);
     res.json(result);
   }),
 );
 
+// Every admin mutation: requireAuth -> requirePermission -> validate -> service, with the
+// resolved scope and the raw Idempotency-Key (the service requires it, BR-214).
 adminFarmerApplicationsRouter.post(
   '/:id/approve',
   requireAuth,
@@ -172,9 +197,10 @@ adminFarmerApplicationsRouter.post(
   validate({ params: farmerApplicationIdParams, body: approveApplicationBody }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', farmerApplicationIdParams);
     const body = getValidated(req, 'body', approveApplicationBody);
-    const result = await farmerApplicationsService.approveApplication(actor, id, body);
+    const result = await farmerApplicationsService.approveApplication(actor, scope, id, body, req.header('idempotency-key'));
     res.json(result);
   }),
 );
@@ -186,9 +212,10 @@ adminFarmerApplicationsRouter.post(
   validate({ params: farmerApplicationIdParams, body: rejectApplicationBody }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', farmerApplicationIdParams);
     const body = getValidated(req, 'body', rejectApplicationBody);
-    const result = await farmerApplicationsService.rejectApplication(actor, id, body);
+    const result = await farmerApplicationsService.rejectApplication(actor, scope, id, body, req.header('idempotency-key'));
     res.json(result);
   }),
 );
@@ -200,9 +227,88 @@ adminFarmerApplicationsRouter.post(
   validate({ params: farmerApplicationIdParams, body: requestInfoApplicationBody }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', farmerApplicationIdParams);
     const body = getValidated(req, 'body', requestInfoApplicationBody);
-    const result = await farmerApplicationsService.requestInfoApplication(actor, id, body);
+    const result = await farmerApplicationsService.requestInfoApplication(actor, scope, id, body, req.header('idempotency-key'));
+    res.json(result);
+  }),
+);
+
+// BR-214: DOCS_REVIEW -> FARM_VERIFICATION once the documents gate is met.
+adminFarmerApplicationsRouter.post(
+  '/:id/advance',
+  requireAuth,
+  requirePermission('farmer.application.advance'),
+  validate({ params: farmerApplicationIdParams, body: advanceApplicationBody }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const body = getValidated(req, 'body', advanceApplicationBody);
+    const result = await farmerApplicationsService.advanceApplication(actor, scope, id, body, req.header('idempotency-key'));
+    res.json(result);
+  }),
+);
+
+// BR-215: verify or reject one step-4 document.
+adminFarmerApplicationsRouter.post(
+  '/:id/documents/:documentKey/review',
+  requireAuth,
+  requirePermission('farmer.application.verify_document'),
+  validate({ params: applicationDocumentParams, body: reviewDecisionBody }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id, documentKey } = getValidated(req, 'params', applicationDocumentParams);
+    const body = getValidated(req, 'body', reviewDecisionBody);
+    const result = await farmerApplicationsService.reviewApplicationDocument(
+      actor,
+      scope,
+      id,
+      documentKey,
+      body,
+      req.header('idempotency-key'),
+    );
+    res.json(result);
+  }),
+);
+
+// BR-216: verify or reject one land location's FMB boundary.
+adminFarmerApplicationsRouter.post(
+  '/:id/locations/:locationId/fmb-review',
+  requireAuth,
+  requirePermission('farmer.application.verify_fmb'),
+  validate({ params: applicationLocationParams, body: reviewDecisionBody }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id, locationId } = getValidated(req, 'params', applicationLocationParams);
+    const body = getValidated(req, 'body', reviewDecisionBody);
+    const result = await farmerApplicationsService.reviewApplicationFmb(
+      actor,
+      scope,
+      id,
+      locationId,
+      body,
+      req.header('idempotency-key'),
+    );
+    res.json(result);
+  }),
+);
+
+// BR-218: a review note at any live stage; no status change.
+adminFarmerApplicationsRouter.post(
+  '/:id/notes',
+  requireAuth,
+  requirePermission('farmer.application.add_note'),
+  validate({ params: farmerApplicationIdParams, body: addApplicationNoteBody }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', farmerApplicationIdParams);
+    const body = getValidated(req, 'body', addApplicationNoteBody);
+    const result = await farmerApplicationsService.addApplicationNote(actor, scope, id, body, req.header('idempotency-key'));
     res.json(result);
   }),
 );

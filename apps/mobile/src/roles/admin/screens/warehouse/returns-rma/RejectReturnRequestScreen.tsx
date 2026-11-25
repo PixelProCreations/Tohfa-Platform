@@ -7,8 +7,8 @@
  * (docs/openapi.yaml ReturnRejectCreate), checked by validateRejectReason
  * before anything is sent.
  *
- * Hidden, because the reject body has only `reason`: the rejection category
- * dropdown and the "notify customer" toggle.
+ * The design (origin/Superadmin-main) has only the reason box; it never had a
+ * rejection category dropdown or a "notify customer" toggle, so none is drawn.
  */
 // Design id: M10-S07
 import React, { useState } from 'react';

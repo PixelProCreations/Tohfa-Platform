@@ -5,12 +5,23 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { adminErrorKey } from '../../api/errors';
+import type { AuditSummaryDto } from '../../api/audits';
+import { t, type TranslationKey } from '../../i18n';
+import { makeCan, type Can } from '../../permissions/can';
+import { adminColors, adminType } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { BULK_RESCHEDULE_MAX_ITEMS, buildBulkBody, isStartTimePicked, summariseBulk, type BulkOutcome } from './auditActions';
+import { scheduleDateLabel } from './auditScheduleFormat';
 import { InlineDatePicker, formatDisplay } from './ScheduleNewAuditScreen';
+import { useAuditList, useBulkRescheduleAudits } from './useAuditsData';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -29,60 +40,34 @@ const PALETTE = {
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-export interface RescheduleAuditItem {
-  id: string;
-  farmerName: string;
-  farmId: string;
-  currentDate: string;
-  auditor: string;
-  location: string;
-  scope?: string;
-}
+/** docs/rbac.json codes this screen checks. */
+export const BULK_RESCHEDULE_CODES = {
+  view: 'audit.view',
+  schedule: 'audit.schedule',
+} as const;
+
+const FAIL_CLOSED: Can = makeCan([]);
 
 export interface BulkRescheduleAuditsScreenProps {
   onBack: () => void;
+  /** Called with the number the SERVER rescheduled, only when every selected audit was. */
   onSuccess?: (count: number) => void;
+  /** The signed-in admin's permission check; without it every action is refused (fail closed). */
+  can?: Can | undefined;
 }
 
-// ─── Common Audits Data (No Internal/External Type Distinction) ────────────────
-const DEFAULT_AUDITS: RescheduleAuditItem[] = [
-  {
-    id: 'aud-1',
-    farmerName: 'Vijay Anand',
-    farmId: '#TOHFA-F-00234',
-    currentDate: 'Sep 14, 2026',
-    auditor: 'Ravi K.',
-    location: 'Zone A - Coimbatore',
-    scope: 'Organic Cotton & Millets Certification',
-  },
-  {
-    id: 'aud-2',
-    farmerName: 'Karthik Raja',
-    farmId: '#TOHFA-F-00189',
-    currentDate: 'Sep 15, 2026',
-    auditor: 'Ravi K.',
-    location: 'Zone B - Pollachi',
-    scope: 'Annual PGS Organic Verification',
-  },
-  {
-    id: 'aud-3',
-    farmerName: 'Selvi Murugan',
-    farmId: '#TOHFA-F-00312',
-    currentDate: 'Sep 16, 2026',
-    auditor: 'AgriCert Co.',
-    location: 'Zone C - Tiruppur',
-    scope: 'Traceability & Soil Quality Audit',
-  },
-  {
-    id: 'aud-4',
-    farmerName: 'Gopalakrishnan S.',
-    farmId: '#TOHFA-F-00445',
-    currentDate: 'Sep 17, 2026',
-    auditor: 'Meena P.',
-    location: 'Zone A - Coimbatore',
-    scope: 'Post-Harvest Standards Inspection',
-  },
-];
+/** The audits this screen moves are the SCHEDULED ones; the server refuses any other status per item. */
+const LIST_FILTERS = { status: ['SCHEDULED'], sort: 'scheduledFor', limit: BULK_RESCHEDULE_MAX_ITEMS } as const;
+
+function auditorText(a: AuditSummaryDto): string {
+  const v = a.auditType === 'EXTERNAL' ? a.externalAgencyName : a.auditorName;
+  return v === null || v === '' ? ADMIN_NO_VALUE : v;
+}
+
+function locationText(a: AuditSummaryDto): string {
+  const parts = [a.farmName, a.zoneName].filter((p): p is string => p !== null && p !== '');
+  return parts.length === 0 ? ADMIN_NO_VALUE : parts.join(' · ');
+}
 
 const RESCHEDULE_REASONS = [
   'Heavy Rainfall / Weather',
@@ -159,12 +144,20 @@ function CalendarIcon() {
 export function BulkRescheduleAuditsScreen({
   onBack,
   onSuccess,
+  can = FAIL_CLOSED,
 }: BulkRescheduleAuditsScreenProps) {
   const now = new Date();
+  const canView = can(BULK_RESCHEDULE_CODES.view);
+  const canSchedule = can(BULK_RESCHEDULE_CODES.schedule);
+
+  const list = useAuditList(LIST_FILTERS, { enabled: canView });
+  const audits = list.items;
+  const reschedule = useBulkRescheduleAudits();
+  const isPending = reschedule.isPending;
 
   // Audit selection & accordion state
-  const [selectedIds, setSelectedIds] = useState<string[]>(['aud-1', 'aud-2']);
-  const [expandedIds, setExpandedIds] = useState<string[]>(['aud-1']);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
   // Reschedule date parameters
   const [dateMode, setDateMode] = useState<'shift' | 'custom'>('shift');
@@ -175,20 +168,26 @@ export function BulkRescheduleAuditsScreen({
   const [customMonth, setCustomMonth] = useState<number>(now.getMonth());
   const [customYear, setCustomYear] = useState<number>(now.getFullYear());
   const [showCustomCal, setShowCustomCal] = useState<boolean>(false);
+  const [customTime, setCustomTime] = useState<string>('');
 
-  // Reason & SMS notification
+  // Reason (recorded by the server in every audit_log row)
   const [selectedReason, setSelectedReason] = useState<string>(
     RESCHEDULE_REASONS[0] ?? 'Heavy Rainfall / Weather',
   );
-  const [notifySms, setNotifySms] = useState<boolean>(true);
 
-  const allSelected = selectedIds.length === DEFAULT_AUDITS.length;
+  const [formError, setFormError] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<BulkOutcome | null>(null);
+
+  // No time is substituted: a custom date is not submittable until the admin has typed a usable start time.
+  const timeMissing = dateMode === 'custom' && !isStartTimePicked(customTime);
+
+  const allSelected = audits.length > 0 && selectedIds.length === audits.length;
 
   function toggleSelectAll() {
     if (allSelected) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(DEFAULT_AUDITS.map((a) => a.id));
+      setSelectedIds(audits.map((a) => a.id));
     }
   }
 
@@ -206,43 +205,77 @@ export function BulkRescheduleAuditsScreen({
     );
   }
 
+  function send(chosen: AuditSummaryDto[]) {
+    const result = buildBulkBody(
+      chosen.map((a) => ({ id: a.id, scheduledFor: a.scheduledFor })),
+      dateMode === 'custom'
+        ? { mode: 'custom', day: customDay, month0: customMonth, year: customYear, startTime: customTime }
+        : { mode: 'shift', days: selectedShift },
+      selectedReason,
+    );
+    if (!result.ok) {
+      setFormError(t(result.errorKey));
+      return;
+    }
+    const dateTargetText =
+      dateMode === 'custom'
+        ? `${formatDisplay(customDay, customMonth, customYear)}, ${customTime.trim()}`
+        : `+${selectedShift} days`;
+    reschedule.mutate(result.body, {
+      // A 200 is not "all rescheduled": the batch may partially succeed, so read the per-audit outcome.
+      onSuccess: (res) => {
+        const summary = summariseBulk(res);
+        setOutcome(summary);
+        if (summary.failedCount === 0 && summary.rescheduledCount > 0) {
+          Alert.alert(
+            t('admin.auditActions.bulk.doneTitle'),
+            t('admin.auditActions.bulk.successBody', { count: summary.rescheduledCount, target: dateTargetText }),
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  onSuccess?.(summary.rescheduledCount);
+                  onBack();
+                },
+              },
+            ],
+          );
+        } else {
+          // Keep only the failures selected so a retry targets exactly them.
+          const failedIds = new Set(summary.failed.map((f) => f.auditId));
+          setSelectedIds((prev) => prev.filter((id) => failedIds.has(id)));
+        }
+      },
+      onError: (err) => setFormError(t(adminErrorKey(err))),
+    });
+  }
+
   function handleConfirmReschedule() {
-    if (selectedIds.length === 0) {
-      Alert.alert('No Audits Selected', 'Please choose at least one audit to reschedule.');
+    if (isPending || !canSchedule || timeMissing) return;
+    setFormError(null);
+    setOutcome(null);
+    const chosen = audits.filter((a) => selectedIds.includes(a.id));
+    if (chosen.length === 0) {
+      setFormError(t('admin.auditActions.bulk.noneSelected'));
       return;
     }
 
     const dateTargetText =
       dateMode === 'custom'
-        ? formatDisplay(customDay, customMonth, customYear)
+        ? `${formatDisplay(customDay, customMonth, customYear)}, ${customTime.trim()}`
         : `+${selectedShift} days`;
 
     Alert.alert(
       'Confirm Bulk Reschedule',
-      `Reschedule ${selectedIds.length} audits to ${dateTargetText} due to "${selectedReason}"?`,
+      `Reschedule ${chosen.length} audits to ${dateTargetText} due to "${selectedReason}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm Reschedule',
-          onPress: () => {
-            Alert.alert(
-              'Batch Reschedule Complete',
-              `Successfully updated ${selectedIds.length} audits to ${dateTargetText}. Automated notifications have been dispatched to farmers and auditors.`,
-              [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    onSuccess?.(selectedIds.length);
-                    onBack();
-                  },
-                },
-              ],
-            );
-          },
-        },
+        { text: 'Confirm Reschedule', onPress: () => send(chosen) },
       ],
     );
   }
+
+  const failedNames = new Map(audits.map((a) => [a.id, a.farmerName]));
 
   return (
     <SafeAreaView style={styles.root}>
@@ -278,7 +311,7 @@ export function BulkRescheduleAuditsScreen({
           >
             <CheckmarkBoxIcon checked={allSelected} />
             <Text style={styles.selectAllText}>
-              {allSelected ? 'Deselect All' : `Select All (${DEFAULT_AUDITS.length} audits)`}
+              {allSelected ? 'Deselect All' : `Select All (${audits.length} audits)`}
             </Text>
           </TouchableOpacity>
           <View style={styles.countBadge}>
@@ -286,9 +319,18 @@ export function BulkRescheduleAuditsScreen({
           </View>
         </View>
 
+        {!canView ? <Text style={styles.errorText}>{t('admin.auditActions.bulk.noPermission')}</Text> : null}
+        {canView && audits.length === 0 && list.isLoading ? <AdminLoadingState /> : null}
+        {canView && audits.length === 0 && !list.isLoading && list.error !== null ? (
+          <AdminErrorState error={list.error} onRetry={list.refresh} />
+        ) : null}
+        {canView && audits.length === 0 && !list.isLoading && list.error === null ? (
+          <Text style={styles.errorText}>{t('admin.auditActions.bulk.empty')}</Text>
+        ) : null}
+
         {/* ─── Audit Cards with Accordion (Common for all audits) ─── */}
         <View style={styles.auditList}>
-          {DEFAULT_AUDITS.map((item) => {
+          {audits.map((item) => {
             const isChecked = selectedIds.includes(item.id);
             const isExpanded = expandedIds.includes(item.id);
 
@@ -316,7 +358,7 @@ export function BulkRescheduleAuditsScreen({
                     <View style={{ flex: 1 }}>
                       <Text style={styles.farmerName}>{item.farmerName}</Text>
                       <Text style={styles.farmIdSubtitle}>
-                        {item.farmId} · {item.location}
+                        {item.tohfaFarmerId} · {locationText(item)}
                       </Text>
                     </View>
 
@@ -348,39 +390,44 @@ export function BulkRescheduleAuditsScreen({
                     <View style={styles.detailsGrid}>
                       <View style={styles.detailCol}>
                         <Text style={styles.detailLabel}>Current Date</Text>
-                        <Text style={styles.detailVal}>{item.currentDate}</Text>
+                        <Text style={styles.detailVal}>{scheduleDateLabel(item.scheduledFor)}</Text>
                       </View>
                       <View style={styles.detailCol}>
                         <Text style={styles.detailLabel}>Assigned Auditor</Text>
-                        <Text style={styles.detailVal}>{item.auditor}</Text>
+                        <Text style={styles.detailVal}>{auditorText(item)}</Text>
                       </View>
                     </View>
 
                     <View style={[styles.detailsGrid, { marginTop: 10 }]}>
                       <View style={styles.detailCol}>
                         <Text style={styles.detailLabel}>Farm Identifier</Text>
-                        <Text style={styles.detailVal}>{item.farmId}</Text>
+                        <Text style={styles.detailVal}>{item.tohfaFarmerId}</Text>
                       </View>
                       <View style={styles.detailCol}>
                         <Text style={styles.detailLabel}>Zone & Location</Text>
-                        <Text style={styles.detailVal}>{item.location}</Text>
+                        <Text style={styles.detailVal}>{locationText(item)}</Text>
                       </View>
                     </View>
 
-                    {item.scope && (
-                      <View style={styles.scopeRow}>
-                        <Text style={styles.scopeLabel}>Audit Scope:</Text>
-                        <View style={styles.scopeBadge}>
-                          <Text style={styles.scopeBadgeText}>{item.scope}</Text>
-                        </View>
+                    {/* The audit list row carries no scope field yet, so the badge reads as unavailable. */}
+                    <View style={styles.scopeRow}>
+                      <Text style={styles.scopeLabel}>{t('admin.auditActions.bulk.scopeLabel')}</Text>
+                      <View style={styles.scopeBadge}>
+                        <Text style={styles.scopeBadgeText}>{ADMIN_NO_VALUE}</Text>
                       </View>
-                    )}
+                    </View>
                   </View>
                 )}
               </View>
             );
           })}
         </View>
+
+        {list.hasMore ? (
+          <TouchableOpacity style={styles.shiftChip} onPress={list.loadMore} activeOpacity={0.7}>
+            <Text style={styles.shiftChipText}>{t('admin.auditActions.bulk.loadMore')}</Text>
+          </TouchableOpacity>
+        ) : null}
 
         {/* ─── Reschedule Parameters Section ─── */}
         <Text style={styles.sectionHeader}>Reschedule Parameters</Text>
@@ -458,6 +505,25 @@ export function BulkRescheduleAuditsScreen({
                   />
                 </View>
               )}
+
+              <Text style={[styles.fieldLabel, { marginTop: 12, marginBottom: 6 }]}>{t('admin.auditActions.bulk.timeLabel')}</Text>
+              <View style={styles.customDateTrigger}>
+                <TextInput
+                  style={[styles.customDateValue, { flex: 1, padding: 0 }]}
+                  placeholder={t('admin.auditActions.bulk.timePlaceholder')}
+                  placeholderTextColor={PALETTE.labelMuted}
+                  value={customTime}
+                  onChangeText={(text) => {
+                    setCustomTime(text);
+                    setFormError(null);
+                  }}
+                  autoCapitalize="characters"
+                  maxLength={12}
+                />
+                <View style={styles.calIconBubble}>
+                  <Icon name="schedule" size={20} color={PALETTE.orange} />
+                </View>
+              </View>
             </View>
           )}
 
@@ -481,15 +547,18 @@ export function BulkRescheduleAuditsScreen({
             })}
           </View>
 
-          {/* SMS Notification Toggle */}
-          <View style={styles.switchRow}>
+          {/* POST /admin/audits/bulk-reschedule has no notify flag: shown, off and disabled. */}
+          <View
+            style={[styles.switchRow, { opacity: 0.5 }]}
+            accessibilityState={{ disabled: true }}
+          >
             <View style={{ flex: 1, paddingRight: 10 }}>
-              <Text style={styles.switchLabel}>Notify Farmers & Auditors</Text>
-              <Text style={styles.switchSub}>Sends automated SMS with updated inspection slot</Text>
+              <Text style={styles.switchLabel}>{t('admin.auditActions.bulk.notifyLabel')}</Text>
+              <Text style={styles.switchSub}>{t('admin.auditActions.bulk.notifyUnavailable')}</Text>
             </View>
             <Switch
-              value={notifySms}
-              onValueChange={setNotifySms}
+              value={false}
+              disabled
               trackColor={{ false: '#DDD8D2', true: PALETTE.orange }}
               thumbColor="#FFFFFF"
             />
@@ -498,15 +567,43 @@ export function BulkRescheduleAuditsScreen({
 
         <View style={{ height: 16 }} />
 
+        {formError !== null ? <Text style={styles.errorText}>{formError}</Text> : null}
+        {!canSchedule ? <Text style={styles.errorText}>{t('admin.auditActions.bulk.noPermission')}</Text> : null}
+        {outcome !== null && (outcome.failedCount > 0 || outcome.rescheduledCount === 0) ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorBoxTitle}>
+              {outcome.rescheduledCount === 0
+                ? t('admin.auditActions.bulk.allFailed')
+                : t('admin.auditActions.bulk.partialTitle')}
+            </Text>
+            {outcome.rescheduledCount > 0 ? (
+              <Text style={styles.errorText}>
+                {t('admin.auditActions.bulk.partial', { done: outcome.rescheduledCount, failed: outcome.failedCount })}
+              </Text>
+            ) : null}
+            {outcome.failed.map((f) => (
+              <Text key={f.auditId} style={styles.errorText}>
+                {t('admin.auditActions.bulk.failedRow', {
+                  farmer: failedNames.get(f.auditId) ?? ADMIN_NO_VALUE,
+                  reason: t((f.code !== null ? `admin.error.${f.code}` : 'admin.error.generic') as TranslationKey),
+                })}
+              </Text>
+            ))}
+          </View>
+        ) : null}
+
         {/* Submit CTA */}
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, (!canSchedule || isPending || timeMissing) && styles.submitBtnDisabled]}
           onPress={handleConfirmReschedule}
+          disabled={!canSchedule || isPending || timeMissing}
           activeOpacity={0.85}
         >
           <CalendarIcon />
           <Text style={styles.submitBtnText}>
-            Confirm Batch Reschedule ({selectedIds.length})
+            {isPending
+              ? t('admin.auditActions.bulk.submitting')
+              : `Confirm Batch Reschedule (${selectedIds.length})`}
           </Text>
         </TouchableOpacity>
 
@@ -518,6 +615,25 @@ export function BulkRescheduleAuditsScreen({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  submitBtnDisabled: {
+    opacity: 0.5,
+  },
+  errorText: {
+    ...adminType.body,
+    color: adminColors.danger.text,
+    marginBottom: 8,
+  },
+  errorBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  errorBoxTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.danger.text,
+    marginBottom: 6,
+  },
   root: {
     flex: 1,
     backgroundColor: PALETTE.pageBg,

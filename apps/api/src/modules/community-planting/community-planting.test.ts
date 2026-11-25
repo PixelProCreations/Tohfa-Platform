@@ -713,9 +713,12 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       await farmer(tx, null, plant, { farmerTaluk: taluk });
       await farmer(tx, '   ', plant, { farmerTaluk: taluk.toLowerCase() }); // blank farm taluk = none
       await farmer(tx, taluk, plant); // farm taluk set, profile taluk NULL
-      // A farm taluk, when present, wins over the profile: these are not in `taluk`. They are k
-      // farmers in one other region, so the region slice also passes the BR-136i differencing
-      // guard (a lone outside-region farmer would rightly withhold the crop from the slice).
+      // A farm taluk, when present, wins over the profile: these are not in `taluk`. There are
+      // THREE of them, not one, because BR-136i withholds a crop whose all-regions count minus
+      // this region's count would expose fewer than k farmers. With a single outside farmer,
+      // 4 (all regions) - 3 (this region) = 1 would isolate that farmer's 10 kg, so the guard
+      // correctly suppresses the crop. Three outside farmers keep both slices at >= k. If the
+      // fallback wrongly preferred the profile taluk, the region would read 6 farmers / 60 kg.
       const elsewhere = `Fxt${letters(10)}`;
       for (let i = 0; i < 3; i += 1) {
         await farmer(tx, elsewhere, plant, { farmerTaluk: taluk });

@@ -103,6 +103,63 @@ export const replyBody = z
   .strict();
 export type ReplyBody = z.infer<typeof replyBody>;
 
+export const customerAddressInputSchema = z
+  .object({
+    line1: z.string().trim().min(1, 'Address line 1 is required').max(255),
+    line2: z.string().trim().max(255).optional().nullable(),
+    city: z.string().trim().min(1, 'City is required').max(100),
+    district: z.string().trim().max(100).optional().nullable(),
+    state: z.string().trim().max(100).default('Tamil Nadu'),
+    pincode: z.string().regex(/^[1-9][0-9]{5}$/, 'Must be a valid 6-digit Indian pincode'),
+    label: z.string().trim().max(50).optional(),
+  })
+  .strict();
+export type CustomerAddressInput = z.infer<typeof customerAddressInputSchema>;
+
+export const createCustomerBody = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required').max(100),
+    mobile: z.string().regex(/^\+[1-9][0-9]{7,14}$/, 'Must be a valid E.164 mobile number (+91...)'),
+    email: z.string().email('Invalid email address').optional().nullable(),
+    customerType: z.enum(['RETAIL', 'B2B', 'HORECA']),
+    businessName: z.string().trim().min(1).max(200).optional().nullable(),
+    businessType: z.string().trim().min(1).max(100).optional().nullable(),
+    gstin: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/, 'Must be a valid 15-character GSTIN')
+      .optional()
+      .nullable(),
+    preferredWarehouseId: z.string().uuid().optional().nullable(),
+    address: customerAddressInputSchema.optional().nullable(),
+    businessAddress: customerAddressInputSchema.optional().nullable(),
+  })
+  .strict()
+  .refine(
+    (b) => b.customerType === 'RETAIL' || (typeof b.businessName === 'string' && b.businessName.trim().length > 0),
+    { message: 'Business name is required for B2B and HORECA customers', path: ['businessName'] },
+  );
+export type CreateCustomerBody = z.infer<typeof createCustomerBody>;
+
+export const updateCustomerBody = z
+  .object({
+    name: z.string().trim().min(1).max(100).optional(),
+    email: z.string().email('Invalid email address').optional().nullable(),
+    customerType: z.enum(['RETAIL', 'B2B', 'HORECA']).optional(),
+    businessName: z.string().trim().min(1).max(200).optional().nullable(),
+    businessType: z.string().trim().min(1).max(100).optional().nullable(),
+    gstin: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$/, 'Must be a valid 15-character GSTIN')
+      .optional()
+      .nullable(),
+    preferredWarehouseId: z.string().uuid().optional().nullable(),
+    address: customerAddressInputSchema.optional().nullable(),
+  })
+  .strict();
+export type UpdateCustomerBody = z.infer<typeof updateCustomerBody>;
+
 // ---------------------------------------------------------------------------
 // Responses
 // ---------------------------------------------------------------------------
@@ -121,6 +178,7 @@ export const adminCustomerListItemSchema = z
     mobile: z.string().optional(),
     email: z.string().nullable().optional(),
     customerType,
+    businessName: z.string().nullable(),
     status: customerStatus,
     isNew: z.boolean(),
     preferredWarehouseId: z.string().uuid().nullable(),
@@ -172,6 +230,9 @@ export const adminCustomerDetailSchema = z
     addresses: z.array(adminCustomerAddressSchema).optional(),
     customerType,
     businessName: z.string().nullable(),
+    businessType: z.string().nullable(),
+    gstin: z.string().nullable(),
+    gstVerified: z.boolean(),
     status: customerStatus,
     isNew: z.boolean(),
     preferredWarehouseId: z.string().uuid().nullable(),
@@ -185,6 +246,27 @@ export const adminCustomerDetailSchema = z
   })
   .strict();
 export type AdminCustomerDetail = z.infer<typeof adminCustomerDetailSchema>;
+
+export const createCustomerResponseSchema = z
+  .object({
+    id: z.string().uuid(),
+    customerCode: z.string(),
+    userId: z.string().uuid(),
+    name: z.string(),
+    mobileMasked: maskedMobileSchema,
+    mobile: z.string().optional(),
+    email: z.string().nullable().optional(),
+    customerType,
+    businessName: z.string().nullable(),
+    businessType: z.string().nullable(),
+    gstin: z.string().nullable(),
+    gstVerified: z.boolean(),
+    preferredWarehouseId: z.string().uuid().nullable(),
+    linkedToExistingUser: z.boolean(),
+    createdAt: isoDateTime,
+  })
+  .strict();
+export type CreateCustomerResponse = z.infer<typeof createCustomerResponseSchema>;
 
 const salesChannel = z.enum(['ONLINE', 'MARKET', 'HORECA', 'B2B', 'DIRECT']);
 const grade = z.enum(['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT']);

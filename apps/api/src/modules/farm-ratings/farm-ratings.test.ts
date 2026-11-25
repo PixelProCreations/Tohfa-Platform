@@ -123,6 +123,8 @@ function createFakeRatings(overrides: Partial<FarmRatingsRepo> = {}): FakeRating
         tierCode: latest.tierCode,
         ratedAt: latest.ratedAt,
         sourceAuditId: latest.sourceAuditId,
+        ratedBy: latest.ratedBy ?? null,
+        ratedByName: (latest as any).ratedByName ?? null,
       };
     },
     findScoresForRating: async (_tx, ratingId) => {
@@ -259,6 +261,28 @@ describe('FarmRatingsService (Unit)', () => {
     expect(() => farmRatingResponse.parse(result)).not.toThrow();
   });
 
+  it('BR-06 / P0-41: FarmRating response includes ratedBy and ratedByName', async () => {
+    const fake = createFakeRatings();
+    fake.ratings.push({
+      id: 'rate-1',
+      farmerId: FARMER_ID,
+      farmId: FARM_ID,
+      zoneId: ZONE_NORTH,
+      periodLabel: '2026-27 Q3',
+      totalScore: 75,
+      tierCode: 'GOOD',
+      ratedBy: ADMIN,
+      sourceAuditId: 'audit-1',
+      status: 'COMPLETE',
+      ratedAt: new Date('2026-10-01T10:00:00Z'),
+      seq: 1,
+      scores: new Map(),
+    });
+    const service = serviceWith(fake);
+    const result = await service.getAdminRating(adminView, FARMER_ID);
+    expect((result as any).ratedBy).toBe(ADMIN);
+  });
+
   it('BR-04a: changing rating_tier_config changes which tier the same audit total maps to', async () => {
     const fake = createFakeRatings({ resolveTierForScore: async () => 'EXCELLENT' });
     const result = await serviceWith(fake).recordAuditRating(recordingTx().tx, auditInput());
@@ -359,11 +383,23 @@ describe('FarmRatingsService (Unit)', () => {
     expect(result).toMatchObject({ periodLabel: 'CYCLE-1', overallRating: 83, source: 'MANUAL', sourceAuditId: null });
   });
 
-  it('BR-06e: docs/rbac.json carries no farm-rating write permission (farmer.rating.edit removed)', () => {
-    const codes = loadRbac()
-      .document.permissions.map((permission) => permission.code)
+  it('BR-06e: docs/rbac.json carries farmer.rating.edit for SUPER_ADMIN and TOHFA_ADMIN only (reinstated by owner decision 2026-11-09; no endpoint yet)', () => {
+    const rbac = loadRbac();
+    const codes = rbac.document.permissions
+      .map((permission) => permission.code)
       .filter((code) => code.startsWith('farmer.rating.'));
-    expect(codes.sort()).toEqual(['farmer.rating.configure_tiers', 'farmer.rating.view']);
+    expect(codes.sort()).toEqual(['farmer.rating.configure_tiers', 'farmer.rating.edit', 'farmer.rating.view']);
+    expect(rbac.grantFor('farmer.rating.edit', RoleCode.SUPER_ADMIN)).toBe(ScopeLevel.ALL);
+    expect(rbac.grantFor('farmer.rating.edit', RoleCode.TOHFA_ADMIN)).toBe(ScopeLevel.ALL);
+    for (const role of [
+      RoleCode.FARMER_ADMIN,
+      RoleCode.MAIN_WH_ADMIN,
+      RoleCode.SUB_WH_ADMIN,
+      RoleCode.FARMER,
+      RoleCode.CUSTOMER,
+    ]) {
+      expect(rbac.grantFor('farmer.rating.edit', role), `${role} must not hold farmer.rating.edit`).toBe(ScopeLevel.NONE);
+    }
   });
 
   it('BR-06e: the service exposes no manual write (setRating is gone)', () => {

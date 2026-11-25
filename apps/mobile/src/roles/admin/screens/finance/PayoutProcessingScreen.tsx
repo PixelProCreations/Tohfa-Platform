@@ -10,22 +10,43 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { adminErrorKey } from '../../api/errors';
+import type { PayoutDto } from '../../api/payouts';
+import { useApprovePayout } from '../../api/payoutsHooks';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { adminColors, adminShadow } from '../../theme';
+import type { Money } from '@tohfa/shared-types';
+import { formatPaise, rupeesNumberToPaise } from '../../money/paise';
+import { moneyText } from '../dashboard/saOverviewFormat';
+
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+
+/** docs/rbac.json code of POST /admin/payouts/{id}/approve (SUPER_ADMIN only). */
+const APPROVE_PAYOUT_CODE = 'payout.approve_above_10k';
+
+/**
+ * A payout that has both approvals in. Until then (PENDING_APPROVAL) the caller's
+ * approval is recorded but no money is on its way, and the screen must say so.
+ */
+const FULLY_APPROVED: readonly string[] = ['APPROVED', 'PROCESSING', 'PAID'];
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#E8D5C4', // Soft golden-brown border for approval card
-  grayBorder:    '#EDE8E0',
-  peachBadgeBg:  '#FEF3C7',
-  peachBadgeText:'#943818',
-  greenApproved: '#2E7D32',
-  greenBtnBg:    '#EAF5EA',
-  bannerBg:      '#FFF9F0',
-  bannerBorder:  '#F3E0C9',
-  bannerText:    '#78350F',
+  titleRust:     adminColors.brandDeep,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  grayBorder:    adminColors.border,
+  peachBadgeBg:  adminColors.warning.bg,
+  peachBadgeText:adminColors.warning.text,
+  greenApproved: adminColors.success.text,
+  greenBtnBg:    adminColors.success.bg,
+  bannerBg:      adminColors.card,
+  bannerBorder:  adminColors.border,
+  bannerText:    adminColors.brandDeep,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -34,7 +55,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -49,7 +70,7 @@ function GreenCheckCircle() {
       <Circle cx="12" cy="12" r="10" fill={PALETTE.greenApproved} />
       <Path
         d="M8 12l3 3 5-5"
-        stroke="#FFFFFF"
+        stroke={adminColors.card}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -61,8 +82,8 @@ function GreenCheckCircle() {
 function ClockCircle() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#9CA3AF" strokeWidth="2" fill="none" />
-      <Path d="M12 6v6l4 2" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.muted} strokeWidth="2" fill="none" />
+      <Path d="M12 6v6l4 2" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -100,7 +121,7 @@ function ReturnIcon() {
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 10h10a5 5 0 0 1 5 5v2M3 10l6-6M3 10l6 6"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -109,37 +130,69 @@ function ReturnIcon() {
   );
 }
 
+/** A rupee number through integer paise; the dash when it is not a 2-dp amount. */
+function rupeeNumberText(rupees: number): string {
+  try {
+    return formatPaise(rupeesNumberToPaise(rupees));
+  } catch {
+    return ADMIN_NO_VALUE;
+  }
+}
+
 export interface PayoutProcessingScreenProps {
   onBack: () => void;
-  payoutAmount?: number | undefined;
+  /**
+   * The amount as the API sent it (Money). A rupee number is still accepted for
+   * the legacy caller in roles/farmer/App.tsx and goes through integer paise.
+   * Absent: the dash, never ₹0.
+   */
+  payoutAmount?: Money | number | undefined;
   farmerName?: string | undefined;
   farmerId?: string | undefined;
   zone?: string | undefined;
+  /**
+   * The payout (docs/openapi.yaml Payout.id) the approval is recorded against.
+   * Without it there is nothing to approve and the button stays disabled: a
+   * payout "due" is not a payout, so the screen never guesses one.
+   */
+  payoutId?: string | undefined;
+  /** Permission check from /auth/me. Missing denies the approval (fail closed, root CLAUDE.md 2.1). */
+  can?: Can | undefined;
   onApprovedSuccess?: () => void;
 }
 
 export function PayoutProcessingScreen({
   onBack,
-  payoutAmount = 15400,
-  farmerName = 'Ramasamy S.',
-  farmerId = '#TOHFA-F-00189',
-  zone = 'Coonoor',
+  payoutAmount,
+  farmerName = ADMIN_NO_VALUE,
+  farmerId = ADMIN_NO_VALUE,
+  zone = ADMIN_NO_VALUE,
+  payoutId,
+  can,
   onApprovedSuccess,
 }: PayoutProcessingScreenProps) {
-  const [approved, setApproved] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // What the server answered to our approval; undefined until a real 2xx. Nothing
+  // on this screen reads "approved" from anything else.
+  const [result, setResult] = useState<PayoutDto | undefined>(undefined);
+  const allowed = typeof can === 'function' && can(APPROVE_PAYOUT_CODE);
+  const approval = useApprovePayout({ enabled: allowed });
+  const loading = approval.isPending;
+  const recorded = result !== undefined;
+  const approved = result !== undefined && FULLY_APPROVED.includes(result.status);
+  const canApprove = allowed && payoutId !== undefined;
 
   function handleApprove() {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setApproved(true);
+    if (!canApprove || payoutId === undefined || recorded || loading) return;
+    approval.run(payoutId, {}, (payout) => {
+      setResult(payout);
+      const amount = moneyText(payout.amount);
+      const fully = FULLY_APPROVED.includes(payout.status);
       Alert.alert(
-        'Dual Approval Successful',
-        `₹${payoutAmount.toLocaleString('en-IN')} approved by 2nd Super Admin. Payout dispatched to ${farmerName} account.`,
+        t(fully ? 'payoutProcessing.done.title' : 'payoutProcessing.recorded.title'),
+        t(fully ? 'payoutProcessing.done.body' : 'payoutProcessing.recorded.body', { amount, farmer: farmerName }),
         [
           {
-            text: 'OK',
+            text: t('payoutProcessing.done.ok'),
             onPress: () => {
               if (onApprovedSuccess) onApprovedSuccess();
               else onBack();
@@ -147,19 +200,10 @@ export function PayoutProcessingScreen({
           },
         ]
       );
-    }, 800);
+    });
   }
 
-  function handleReturn() {
-    Alert.alert(
-      'Return for Review',
-      'The payout request will be returned to TOHFA Admin (Ganga Devi) for audit correction.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm Return', style: 'destructive', onPress: onBack },
-      ]
-    );
-  }
+  const amountText = typeof payoutAmount === 'number' ? rupeeNumberText(payoutAmount) : moneyText(payoutAmount);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -189,9 +233,7 @@ export function PayoutProcessingScreen({
           </View>
 
           {/* Amount */}
-          <Text style={styles.amountText}>
-            ₹{payoutAmount.toLocaleString('en-IN')}
-          </Text>
+          <Text style={styles.amountText}>{amountText}</Text>
 
           {/* Beneficiary Details */}
           <Text style={styles.farmerDetailText}>
@@ -204,8 +246,9 @@ export function PayoutProcessingScreen({
           <View style={styles.stepRow}>
             <GreenCheckCircle />
             <View style={styles.stepTextCol}>
-              <Text style={styles.stepTitle}>Initiated by Ganga Devi (TOHFA Admin)</Text>
-              <Text style={styles.stepSub}>Today, 9:14 AM</Text>
+              {/* Who initiated it and when are not passed to this screen. */}
+              <Text style={styles.stepTitle}>{t('wiringPayouts.payoutProcessing.initiatedBy', { who: ADMIN_NO_VALUE })}</Text>
+              <Text style={styles.stepSub}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -215,7 +258,7 @@ export function PayoutProcessingScreen({
             <View style={styles.stepTextCol}>
               <Text style={styles.stepTitle}>
                 {approved
-                  ? 'Approved by 2nd Super Admin (Rajesh Kumar)'
+                  ? t('payoutProcessing.step.approved')
                   : 'Awaiting 2nd Super Admin approval'}
               </Text>
               <Text style={styles.stepSub}>
@@ -239,10 +282,13 @@ export function PayoutProcessingScreen({
         <View style={styles.btnStack}>
           {/* Approve Button */}
           <TouchableOpacity
-            style={[styles.approveBtn, approved && { opacity: 0.6 }]}
+            style={[styles.approveBtn, (recorded || !canApprove) && { opacity: 0.6 }]}
             onPress={handleApprove}
             activeOpacity={0.8}
-            disabled={approved || loading}
+            disabled={recorded || loading || !canApprove}
+            testID="payoutProcessing.approve"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: recorded || loading || !canApprove }}
           >
             <ActionCheckIcon />
             <Text style={styles.approveBtnText}>
@@ -250,16 +296,32 @@ export function PayoutProcessingScreen({
                 ? 'Processing Sign-Off...'
                 : approved
                 ? '✓ Approved'
+                : recorded
+                ? t('payoutProcessing.button.recorded')
                 : 'Approve as 2nd Super Admin'}
             </Text>
           </TouchableOpacity>
 
-          {/* Return for Review Button */}
+          {/* The real failure, worded by adminErrorKey; never the design's success copy. */}
+          {approval.error ? (
+            <Text style={styles.errorText} testID="payoutProcessing.error">
+              {t(adminErrorKey(approval.error))}
+            </Text>
+          ) : null}
+          {payoutId === undefined && !recorded ? (
+            <Text style={styles.stepSub} testID="payoutProcessing.noPayout">
+              {t('payoutProcessing.noPayout')}
+            </Text>
+          ) : null}
+
+          {/* Return for Review: no payout return endpoint exists (api/payouts.ts), so it is disabled (R3). */}
           <TouchableOpacity
-            style={styles.returnBtn}
-            onPress={handleReturn}
-            activeOpacity={0.75}
-            disabled={approved}
+            style={[styles.returnBtn, styles.actionUnavailable]}
+            disabled
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutProcessing.return"
           >
             <ReturnIcon />
             <Text style={styles.returnBtnText}>Return for Review</Text>
@@ -296,11 +358,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   screenTitle: {
     fontSize: 24,
@@ -323,11 +381,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 20,
     marginBottom: 20,
-    shadowColor: '#8E3314',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
+    ...adminShadow.md,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -416,6 +470,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: PALETTE.greenApproved,
   },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
   returnBtn: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 12,
@@ -426,11 +484,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.danger.text,
+    lineHeight: 17,
   },
   returnBtnText: {
     fontSize: 14,

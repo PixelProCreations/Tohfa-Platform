@@ -27,7 +27,10 @@ import {
   listStaffQuery,
   markAttendanceBody,
   rollCallQuery,
+  staffBankAccountBody,
   staffDayParams,
+  staffDocumentBody,
+  staffEmergencyContactBody,
   staffIdParams,
   updateStaffBody,
 } from './warehouse-staff.schema.js';
@@ -94,6 +97,94 @@ adminWarehouseStaffRouter.post(
   asyncHandler(async (req, res) => {
     const { id } = getValidated(req, 'params', staffIdParams);
     res.json(await warehouseStaffService.deactivateStaff(requireScope(req.scope), id));
+  }),
+);
+
+// GET /v1/admin/warehouse-staff/:id/bank-account
+adminWarehouseStaffRouter.get(
+  '/:id/bank-account',
+  requireAuth,
+  requirePermission('admin.staff.list_view'),
+  validate({ params: staffIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    res.json(await warehouseStaffService.getBankAccount(requireScope(req.scope), id));
+  }),
+);
+
+// POST /v1/admin/warehouse-staff/:id/bank-account
+adminWarehouseStaffRouter.post(
+  '/:id/bank-account',
+  requireAuth,
+  requirePermission('admin.staff.manage'),
+  validate({ params: staffIdParams, body: staffBankAccountBody }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    const body = getValidated(req, 'body', staffBankAccountBody);
+    res.status(201).json(await warehouseStaffService.upsertBankAccount(requireScope(req.scope), id, body));
+  }),
+);
+
+// PUT /v1/admin/warehouse-staff/:id/bank-account
+adminWarehouseStaffRouter.put(
+  '/:id/bank-account',
+  requireAuth,
+  requirePermission('admin.staff.manage'),
+  validate({ params: staffIdParams, body: staffBankAccountBody }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    const body = getValidated(req, 'body', staffBankAccountBody);
+    res.status(200).json(await warehouseStaffService.upsertBankAccount(requireScope(req.scope), id, body));
+  }),
+);
+
+// GET /v1/admin/warehouse-staff/:id/documents
+adminWarehouseStaffRouter.get(
+  '/:id/documents',
+  requireAuth,
+  requirePermission('admin.staff.list_view'),
+  validate({ params: staffIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    res.json(await warehouseStaffService.listDocuments(requireScope(req.scope), id));
+  }),
+);
+
+// POST /v1/admin/warehouse-staff/:id/documents
+adminWarehouseStaffRouter.post(
+  '/:id/documents',
+  requireAuth,
+  requirePermission('admin.staff.manage'),
+  validate({ params: staffIdParams, body: staffDocumentBody }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    const body = getValidated(req, 'body', staffDocumentBody);
+    res.status(201).json(await warehouseStaffService.createDocument(requireScope(req.scope), id, body));
+  }),
+);
+
+// GET /v1/admin/warehouse-staff/:id/emergency-contact
+adminWarehouseStaffRouter.get(
+  '/:id/emergency-contact',
+  requireAuth,
+  requirePermission('admin.staff.list_view'),
+  validate({ params: staffIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    res.json(await warehouseStaffService.getEmergencyContact(requireScope(req.scope), id));
+  }),
+);
+
+// PUT /v1/admin/warehouse-staff/:id/emergency-contact
+adminWarehouseStaffRouter.put(
+  '/:id/emergency-contact',
+  requireAuth,
+  requirePermission('admin.staff.manage'),
+  validate({ params: staffIdParams, body: staffEmergencyContactBody }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', staffIdParams);
+    const body = getValidated(req, 'body', staffEmergencyContactBody);
+    res.status(200).json(await warehouseStaffService.upsertEmergencyContact(requireScope(req.scope), id, body));
   }),
 );
 

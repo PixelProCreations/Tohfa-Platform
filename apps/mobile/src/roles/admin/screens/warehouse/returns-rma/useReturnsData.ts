@@ -16,6 +16,7 @@
  */
 import { useCallback, useMemo } from 'react';
 import { useAdminMutation, useAdminQuery, useCursorList, useIdempotencyKey, type CursorList } from '../../../api/hooks';
+import { getAdminOrder } from '../../../api/orders';
 import { adminKeys } from '../../../api/queryKeys';
 import {
   approveReturn,
@@ -29,8 +30,8 @@ import {
   type ReturnStatus,
   type ReturnSummaryDto,
 } from '../../../api/returns';
-import { refundIdempotencyFingerprint, toRefundResult, toReturnDetail, toReturnRow, toReturnTimeline, type RefundResultView } from './mappers';
-import type { ReturnDetailView, ReturnRowView, ReturnTimelineEntry } from './types';
+import { refundIdempotencyFingerprint, toRefundResult, toReturnDetail, toReturnOrder, toReturnRow, toReturnTimeline, type RefundResultView } from './mappers';
+import type { ReturnDetailView, ReturnOrderView, ReturnRowView, ReturnTimelineEntry } from './types';
 
 const RETURNS = 'returns';
 const CUSTOMERS = 'customers';
@@ -85,6 +86,25 @@ export function useReturn(warehouseId: string | undefined, returnId: string | un
     },
     isRefreshing: detailQuery.isRefetching,
   };
+}
+
+/**
+ * The order a return belongs to (customer, order number and date, warehouse,
+ * channel, payment status), through GET /admin/orders/{id}. `orderId` is
+ * undefined until the return has loaded, and the caller passes undefined when
+ * it lacks order.list.view_all, so nothing is requested and every field stays
+ * a dash. A failure also leaves `order` undefined: the return screens never
+ * depend on it. It shares the orders module's query key, so an order already
+ * opened there is not fetched twice.
+ */
+export function useReturnOrder(warehouseId: string | undefined, orderId: string | undefined): { order: ReturnOrderView | undefined } {
+  const query = useAdminQuery(
+    adminKeys.scoped('orders', warehouseId, { resource: 'order', id: orderId ?? null }),
+    (signal) => getAdminOrder(orderId ?? '', signal),
+    { enabled: orderId !== undefined },
+  );
+  const order = useMemo(() => (query.data === undefined ? undefined : toReturnOrder(query.data, new Date())), [query.data]);
+  return { order };
 }
 
 export interface LiveReturnWrite<TVariables, TResult> {

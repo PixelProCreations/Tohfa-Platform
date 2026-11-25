@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
+import { INFO_REQUEST_ITEMS, REJECT_REASON_CODES } from './farmer-applications.review.js';
 
 const mobileRegex = /^\+[1-9][0-9]{7,14}$/;
 const pincodeRegex = /^[1-9][0-9]{5}$/;
@@ -113,6 +115,7 @@ export const step1PersonalSchema = z
     district: z.string().max(120).optional(),
     state: z.string().max(120).optional(),
     country: z.string().max(120).optional(),
+    zoneId: z.string().uuid().optional().nullable(),
     // An empty string is what the app sends for "not entered"; approval stores NULL for it.
     pincode: z.union([z.literal(''), z.string().regex(pincodeRegex, { message: 'pincode must be a 6-digit PIN code not starting with 0.' })]).optional(),
     preferredLocale: z.enum(['en', 'ta']).optional(),
@@ -285,10 +288,35 @@ export const updateFarmerProfileBody = z
 export type UpdateFarmerProfileBody = z.infer<typeof updateFarmerProfileBody>;
 
 export const listAdminApplicationsQuery = z.object({
-  status: z.enum(['SUBMITTED', 'DOCS_REVIEW', 'FARM_VERIFICATION', 'AUDIT', 'APPROVED', 'REJECTED']).optional(),
+  status: z
+    .enum([
+      'DRAFT',
+      'SUBMITTED',
+      'DOCS_REVIEW',
+      'FARM_VERIFICATION',
+      'AUDIT',
+      'INFO_REQUESTED',
+      'APPROVED',
+      'REJECTED',
+    ])
+    .optional(),
   zoneId: z.string().uuid().optional(),
+  hasZone: z
+    .preprocess((val) => {
+      if (val === 'true' || val === true) return true;
+      if (val === 'false' || val === false) return false;
+      return val;
+    }, z.boolean())
+    .optional(),
   submittedAfter: z.string().datetime().optional(),
-  cursor: z.string().optional(),
+  q: z.string().trim().optional(),
+  pendingOnly: z.coerce.boolean().optional(),
+  cursor: z
+    .string()
+    .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.farmerApplications, raw) !== null, {
+      message: 'Invalid cursor.',
+    })
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type ListAdminApplicationsQuery = z.infer<typeof listAdminApplicationsQuery>;
@@ -299,24 +327,70 @@ export const approveApplicationBody = z.object({
 });
 export type ApproveApplicationBody = z.infer<typeof approveApplicationBody>;
 
-export const rejectApplicationBody = z
-  .object({
-    reasonCode: z
-      .enum(['DOCUMENTS_INVALID', 'LAND_NOT_VERIFIED', 'DUPLICATE_APPLICANT', 'OUTSIDE_SERVICE_AREA', 'OTHER'])
-      .optional(),
-    reason: z.string().trim().min(1).max(500).optional(),
-    rejectionReason: z.string().trim().min(1).max(500).optional(),
-    note: z.string().trim().min(1).max(500).optional(),
-  })
-  .transform((data) => ({
-    reasonCode: data.reasonCode ?? 'OTHER',
-    reason: data.reason || data.rejectionReason || data.note || 'Application rejected by administrator.',
-  }));
+export const rejectApplicationBody = z.object({
+  reasonCode: z.enum(REJECT_REASON_CODES),
+  reason: z.string().trim().min(5).max(500),
+});
 export type RejectApplicationBody = z.infer<typeof rejectApplicationBody>;
 
+/**
+ * BR-217: the request is a checklist plus a message. `items` is required (an empty request tells
+ * the applicant nothing actionable); duplicates are collapsed by the service. `requiredSteps` is
+ * the older body field, still accepted: when present it also re-opens those steps.
+ */
 export const requestInfoApplicationBody = z.object({
+  items: z.array(z.enum(INFO_REQUEST_ITEMS)).min(1).max(INFO_REQUEST_ITEMS.length * 2),
   message: z.string().trim().min(5).max(1000),
   requiredSteps: z.array(z.number().int().min(1).max(5)).optional(),
 });
 export type RequestInfoApplicationBody = z.infer<typeof requestInfoApplicationBody>;
+
+/**
+ * BR-215 / BR-216: one review decision. A rejection must say why (the applicant acts on it); a
+ * verification carries no reason, so a stray "reason" cannot be mistaken for a rejection note.
+ * Same rule as the `farmer_application_reviews_reason_chk` CHECK in migration 0201.
+ */
+export const reviewDecisionBody = z
+  .object({
+    decision: z.enum(['VERIFIED', 'REJECTED']),
+    reason: z.string().trim().min(5).max(500).optional(),
+  })
+  .strict()
+  .superRefine((body, ctx) => {
+    if (body.decision === 'REJECTED' && body.reason === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'A reason is required to reject.' });
+    }
+    if (body.decision === 'VERIFIED' && body.reason !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'A verification takes no reason; add a review note instead.' });
+    }
+  });
+export type ReviewDecisionBody = z.infer<typeof reviewDecisionBody>;
+
+/** BR-214: the only forward admin move this flow has; named explicitly so a retry cannot skip a stage. */
+export const advanceApplicationBody = z
+  .object({
+    toStatus: z.literal('FARM_VERIFICATION'),
+    note: z.string().trim().min(1).max(500).optional(),
+  })
+  .strict();
+export type AdvanceApplicationBody = z.infer<typeof advanceApplicationBody>;
+
+/** BR-218: a review note. */
+export const addApplicationNoteBody = z
+  .object({
+    note: z.string().trim().min(1).max(1000),
+  })
+  .strict();
+export type AddApplicationNoteBody = z.infer<typeof addApplicationNoteBody>;
+
+export const applicationDocumentParams = z.object({
+  id: z.string().uuid(),
+  documentKey: z.string().regex(/^[0-9a-f]{32}$/, { message: 'documentKey must be 32 lowercase hex characters.' }),
+});
+
+export const applicationLocationParams = z.object({
+  id: z.string().uuid(),
+  // Same bounds as a step-3 location id (farmLocationItemSchema.id).
+  locationId: z.string().min(1).max(100),
+});
 

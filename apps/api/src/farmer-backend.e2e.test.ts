@@ -427,8 +427,6 @@ describeIfDatabase('Farmer backend M1-M10: real-database HTTP smoke', () => {
       if (server === undefined) return resolve();
       server.close(() => resolve());
     });
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('./db/pool.js'), import('./redis.js')]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   // =========================================================================
@@ -1066,6 +1064,58 @@ describeIfDatabase('Farmer backend M1-M10: real-database HTTP smoke', () => {
       expectShape(learningGroupResponse, pg.body, 'patched group');
     });
 
+    dbIt('BR-59: admin list/detail reads (incl. unpublished) and the farmer group detail with membership', async () => {
+      // Admin list + detail for each kind. The list is narrowed by `q` so rows other suites left on the same
+      // database cannot push ours off the page; the detail must be the same row the admin created.
+      const reads = [
+        ['articles', articleId, 'E2E Article v2', learningArticleSummaryResponse, learningArticleResponse],
+        ['videos', videoId, 'E2E Video', learningVideoResponse, learningVideoResponse],
+        ['trainings', trainingId, 'E2E Training', learningTrainingResponse, learningTrainingResponse],
+        ['groups', groupId, 'E2E Group', learningGroupResponse, learningGroupResponse],
+      ] as const;
+      for (const [kind, id, q, itemSchema, detailSchema] of reads) {
+        const list = await call('GET', `${admin}/${kind}`, { token: superAdminToken, query: { page: 1, limit: 100, q } });
+        expectStatus(list, 200, `admin list ${kind}`);
+        const items = list.body.items as unknown[];
+        for (const item of items) expectShape(itemSchema, item, `admin ${kind} item`);
+        expect(JSON.stringify(items), `admin list ${kind} carries the created row`).toContain(id);
+        const detail = await call('GET', `${admin}/${kind}/:id`, { token: superAdminToken, params: { id } });
+        expectStatus(detail, 200, `admin ${kind} detail`);
+        expect(expectShape(detailSchema, detail.body, `admin ${kind} detail`).id).toBe(id);
+        expectProblem(await call('GET', `${admin}/${kind}/:id`, { token: superAdminToken, params: { id: RANDOM_UUID } }), 404, 'NOT_FOUND');
+        expectProblem(await call('GET', `${admin}/${kind}/:id`, { token: superAdminToken, params: { id: BAD_ID } }), 422);
+      }
+
+      // The admin surface includes unpublished content that the farmer surface hides (BR-59m).
+      const draft = await call('POST', `${admin}/articles`, {
+        token: superAdminToken,
+        body: { title: 'E2E Draft Article', content: 'Draft body', readTime: '1 min', author: 'E2E', tag: 'e2e-tag', isPublished: false },
+      });
+      expectStatus(draft, 201, 'create unpublished article');
+      const draftId = expectShape(learningArticleResponse, draft.body, 'create unpublished article').id;
+      const drafts = await call('GET', `${admin}/articles`, { token: superAdminToken, query: { isPublished: 'false', q: 'E2E Draft Article' } });
+      expectStatus(drafts, 200, 'admin list unpublished articles');
+      expect(JSON.stringify(drafts.body.items)).toContain(draftId);
+      expectStatus(await call('GET', `${admin}/articles/:id`, { token: superAdminToken, params: { id: draftId } }), 200, 'admin reads unpublished article');
+      expectProblem(await call('GET', `${farmer}/articles/:id`, { token: farmerA.token, params: { id: draftId } }), 404, 'NOT_FOUND');
+      expectStatus(await call('DELETE', `${admin}/articles/:id`, { token: superAdminToken, params: { id: draftId } }), 204, 'delete unpublished article');
+
+      // Farmer group detail reports the caller's own membership (BR-59o).
+      expectStatus(await call('POST', `${farmer}/groups/:id/join`, { token: farmerA.token, params: { id: groupId } }), 200, 'join group again');
+      const mine = await call('GET', `${farmer}/groups/:id`, { token: farmerA.token, params: { id: groupId } });
+      expectStatus(mine, 200, 'farmer group detail');
+      const seen = expectShape(learningGroupResponse, mine.body, 'farmer group detail');
+      expect(seen.id).toBe(groupId);
+      expect(seen.isJoined).toBe(true);
+      expect(seen.memberCount).toBe(1);
+      const other = await call('GET', `${farmer}/groups/:id`, { token: farmerB.token, params: { id: groupId } });
+      expectStatus(other, 200, 'another farmer reads the same group');
+      expect(expectShape(learningGroupResponse, other.body, 'farmer B group detail').isJoined).toBe(false);
+      expectStatus(await call('DELETE', `${farmer}/groups/:id/leave`, { token: farmerA.token, params: { id: groupId } }), 204, 'leave group again');
+      expectProblem(await call('GET', `${farmer}/groups/:id`, { token: farmerA.token, params: { id: RANDOM_UUID } }), 404, 'NOT_FOUND');
+      expectProblem(await call('GET', `${farmer}/groups/:id`, { token: farmerA.token, params: { id: BAD_ID } }), 422);
+    });
+
     dbIt('capacity: a full training refuses a second farmer with a 4xx', async () => {
       const small = await call('POST', `${admin}/trainings`, {
         token: superAdminToken,
@@ -1448,7 +1498,9 @@ describeIfDatabase('Farmer backend M1-M10: real-database HTTP smoke', () => {
     dbIt('the route table is what we think it is', async () => {
       // 13 routers; update this number (and add calls above) when a route is added.
       // 64 = 63 + GET /v1/farmers/me/crop-inputs (BR-56h).
-      expect(routes.length).toBe(64);
+      // 73 = 64 + the 8 admin learning reads (GET list + detail for articles, videos, trainings, groups; BR-59m)
+      //        + GET /v1/farmers/me/learning/groups/:id (BR-59o).
+      expect(routes.length).toBe(73);
     });
 
     dbIt('no token -> 401 on every route', async () => {

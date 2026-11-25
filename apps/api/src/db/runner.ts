@@ -45,6 +45,7 @@ export const SEED_KINDS: Readonly<Record<string, 'reference' | 'dev'>> = {
   '002_permissions.js': 'reference',
   '003_dev_users.sql': 'dev',
   '004_demo.js': 'dev',
+  '005_zones.sql': 'reference',
   // Inserts plots for every farm that has none and DELETEs all
   // crop_rotation_entries / cover_crop_windows on every run: that is a demo
   // fixture, not reference data, and destructive against real farmers' data.
@@ -53,6 +54,8 @@ export const SEED_KINDS: Readonly<Record<string, 'reference' | 'dev'>> = {
   '006_pest_library_seed.sql': 'dev',
   // Customer-app catalogue fixtures (products, prices, stock); needs the 003 users.
   '007_customer_products.js': 'dev',
+  // Dev demo application states (Task 6); owner runs manually on tohfa dev DB.
+  'dev_demo_applications.sql': 'dev',
 };
 
 export interface SeedPlan {

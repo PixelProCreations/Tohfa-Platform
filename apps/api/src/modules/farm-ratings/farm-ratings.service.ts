@@ -86,6 +86,8 @@ async function assembleResponse(
     overallRating: latest?.totalScore ?? null,
     ratingTier: (latest?.tierCode as RatingTier | null | undefined) ?? null,
     ratedAt: latest?.ratedAt ? latest.ratedAt.toISOString() : null,
+    ratedBy: latest?.ratedBy ?? null,
+    ratedByName: latest?.ratedByName ?? null,
     source: latest === null ? null : latest.sourceAuditId === null ? 'MANUAL' : 'AUDIT',
     sourceAuditId: latest?.sourceAuditId ?? null,
   };

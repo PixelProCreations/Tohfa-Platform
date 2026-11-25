@@ -195,7 +195,8 @@ export function createTopupService(opts: {
       // docs/openapi.yaml IdempotencyKeyHeader is `required: true` on this money-moving POST
       // (CLAUDE.md 2.4); without a key a retry cannot be told from a second top-up.
       const key = requireIdempotencyKey(idempotencyKey);
-      if (!input.fiscalCashTag || input.fiscalCashTag.trim().length === 0) {
+      const fiscalCashTag = input.fiscalCashTag?.trim();
+      if (!fiscalCashTag) {
         throw new AppError('FISCAL_TAG_REQUIRED', {
           status: 422,
           detail: 'Fiscal cash tag is mandatory for cash top-up.',
@@ -259,14 +260,14 @@ export function createTopupService(opts: {
             warehouseId: input.warehouseId,
             processedBy: actor.userId,
             amount: input.amount,
-            fiscalCashTag: input.fiscalCashTag,
+            fiscalCashTag,
           });
         } catch (err: unknown) {
           const pgErr = err as { code?: string };
           if (pgErr.code === '23505') {
             throw new AppError('CONFLICT', {
               status: 409,
-              detail: `Fiscal cash tag ${input.fiscalCashTag} has already been used.`,
+              detail: `Fiscal cash tag ${fiscalCashTag} has already been used.`,
             });
           }
           if (pgErr.code === '23514') {
@@ -325,7 +326,9 @@ export function createTopupService(opts: {
         walletId: outcome.walletTxn.walletId,
         amount: input.amount,
         balanceAfter: outcome.walletTxn.balanceAfter,
-        reference: input.fiscalCashTag,
+        // The validated, trimmed tag (guarded above), not the raw optional input: BR-18a
+        // guarantees a cash top-up has one, and this is the value the ledger row carries.
+        reference: fiscalCashTag,
       });
 
       // BR-18c: SMS dispatch outcome outside credit transaction (never re-sent on a replay)

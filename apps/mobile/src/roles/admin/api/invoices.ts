@@ -2,6 +2,7 @@
  * Invoices as the warehouse admin reads them (docs/openapi.yaml tag
  * "Payouts & Invoices"):
  *   GET /invoices                  invoice.view_own (BR-16, BR-30, BR-36)
+ *   GET /invoices/summary          invoice.view_own (BR-30, BR-36)
  *   GET /invoices/{id}             invoice.view_own (BR-16, BR-30, BR-36)
  *   GET /invoices/{id}/download    invoice.view_own (BR-16, BR-30, BR-36)
  *
@@ -73,9 +74,13 @@ export interface InvoiceLineDto {
 
 /** docs/openapi.yaml InvoiceDetail. */
 export interface InvoiceDetailDto extends InvoiceDto {
-  /** BR-128: the customer's name, else the order's walk-in name; null for a farmer-side invoice. */
+  /**
+   * BR-128: the invoice's buyer as the server reads it live (the customer's
+   * name, else the walk-in name on its order); null on a farmer purchase or
+   * payout invoice. A name only, never a mobile (BR-92).
+   */
   buyerName?: string | null;
-  /** BR-128: the customer's GSTIN as stored; null when none, for a walk-in and a farmer-side invoice. */
+  /** BR-128: the buyer's GSTIN exactly as stored; null when none is, as for a walk-in and a farmer-side invoice. */
   buyerGstin?: string | null;
   placeOfSupply?: string | null;
   cgst?: Money;
@@ -95,7 +100,37 @@ export interface ListInvoicesParams {
   toDate?: string | undefined;
 }
 
-/** Every problem code the three invoice routes document (401, 403, 404, 422 on a bad query, 500). */
+/** One bucket of docs/openapi.yaml InvoiceSummary.byStatus. */
+export interface InvoiceStatusBucketDto {
+  status: InvoiceStatus;
+  count: number;
+  totalAmount: Money;
+}
+
+/** One bucket of docs/openapi.yaml InvoiceSummary.byType. */
+export interface InvoiceTypeBucketDto {
+  type: InvoiceType;
+  count: number;
+  totalAmount: Money;
+}
+
+/**
+ * docs/openapi.yaml InvoiceSummary: counts and totals over exactly the
+ * invoices GET /invoices returns the same caller for the same filters. A
+ * scope that reaches no invoice gets every count 0, never a 403 (BR-30,
+ * BR-36), so the figure never reveals another warehouse's rows.
+ */
+export interface InvoiceSummaryDto {
+  count: number;
+  totalAmount: Money;
+  byStatus: InvoiceStatusBucketDto[];
+  byType: InvoiceTypeBucketDto[];
+}
+
+/** The summary route takes the list's filters, without paging. */
+export type InvoiceSummaryParams = Omit<ListInvoicesParams, 'cursor' | 'limit'>;
+
+/** Every problem code the invoice routes document (401, 403, 404, 422 on a bad query, 500). */
 export const ERROR_CODES: readonly GenericProblemCode[] = [
   'UNAUTHENTICATED',
   'FORBIDDEN',
@@ -119,6 +154,15 @@ export function listInvoices(params: ListInvoicesParams = {}, signal?: AbortSign
       fromDate: params.fromDate,
       toDate: params.toDate,
     },
+    signal,
+  );
+}
+
+/** The KPI figures over the caller's visible invoices (docs/openapi.yaml summarizeInvoices). */
+export function getInvoiceSummary(params: InvoiceSummaryParams = {}, signal?: AbortSignal): Promise<InvoiceSummaryDto> {
+  return adminGet<InvoiceSummaryDto>(
+    '/invoices/summary',
+    { type: params.type, fromDate: params.fromDate, toDate: params.toDate },
     signal,
   );
 }

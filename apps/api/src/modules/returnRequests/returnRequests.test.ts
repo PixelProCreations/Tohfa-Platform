@@ -11,7 +11,7 @@
  * Integration test (`describeIfDatabase`) proves the SQL parses against a
  * migrated schema; it soft-skips with no reachable database.
  */
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel, type Money } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import type { Executor } from '../../db/pool.js';
@@ -123,6 +123,8 @@ function buildFakeRepo(options: {
       status: r.status,
       reason: r.reason,
       note: r.note,
+      customerEvidence: [],
+      inspectionPhotos: [],
       items: r.items,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt === null ? null : r.updatedAt.toISOString(),
@@ -201,7 +203,12 @@ function buildFakeRepo(options: {
       return r === undefined ? null : toSummaryShape(r);
     },
     async list(_db, _args: ListArgs): Promise<ListResult> {
-      return { items: [...store.values()].map(toResponse), nextCursor: null, hasMore: false };
+      return {
+        items: [...store.values()].map(toResponse),
+        nextCursor: null,
+        hasMore: false,
+        summary: { pending: 0, underReview: 0, approved: 0, refundPending: 0 },
+      };
     },
     async updateStatus(_db, id, status) {
       const r = store.get(id);
@@ -247,6 +254,16 @@ function buildFakeRepo(options: {
         return sum + qty * 40; // matches the fixture unitPrice '40.00'
       }, 0);
       return total.toFixed(2);
+    },
+    async getSummary() {
+      return {
+        total: 0,
+        pending: 0,
+        inspecting: 0,
+        approved: 0,
+        rejected: 0,
+        refunded: 0,
+      };
     },
   };
 }
@@ -352,6 +369,37 @@ describe('returnRequestsService.createReturnRequest', () => {
     expect((error as AppError).status).toBe(404);
   });
 
+  it('BR-35c: return-request audit-log failure rolls back', async () => {
+    let rolledBack = false;
+    const trackingRunTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => {
+      try {
+        return await fn({ query: async () => ({ rows: [] }) } as unknown as Executor);
+      } catch (err) {
+        rolledBack = true;
+        throw err;
+      }
+    };
+
+    const auditModule = await import('../../audit/auditLog.js');
+    const spy = vi.spyOn(auditModule, 'writeAuditLog').mockRejectedValueOnce(new Error('AUDIT_LOG_FAILED'));
+
+    const repo = buildFakeRepo({});
+    const service = createReturnRequestsService({ repo, db: noopDb, runTx: trackingRunTx });
+
+    try {
+      await expect(
+        service.createReturnRequest(adminActor, adminScope, ORDER_ID, {
+          reason: 'Produce arrived spoiled',
+          items: [{ orderItemId: ORDER_ITEM_ID, qty: '5.000' }],
+        }),
+      ).rejects.toThrow('AUDIT_LOG_FAILED');
+
+      expect(rolledBack).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('rejects a quantity greater than what was ordered', async () => {
     const repo = buildFakeRepo({});
     const service = createReturnRequestsService({ repo, db: noopDb, runTx: mockRunTx });
@@ -360,6 +408,18 @@ describe('returnRequestsService.createReturnRequest', () => {
       service.createReturnRequest(adminActor, adminScope, ORDER_ID, {
         reason: 'Produce arrived spoiled',
         items: [{ orderItemId: ORDER_ITEM_ID, qty: '999.000' }],
+      }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
+
+  it('BR-61: rejects a return quantity that exceeds ordered quantity by even 1 gram (5.001 vs 5.000)', async () => {
+    const repo = buildFakeRepo({});
+    const service = createReturnRequestsService({ repo, db: noopDb, runTx: mockRunTx });
+
+    await expect(
+      service.createReturnRequest(adminActor, adminScope, ORDER_ID, {
+        reason: 'Produce arrived spoiled',
+        items: [{ orderItemId: ORDER_ITEM_ID, qty: '5.001' }],
       }),
     ).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
   });
@@ -544,11 +604,6 @@ describeIfDatabase('returnRequestsService (integration)', () => {
     }
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it('runs the real list query against Postgres', async () => {
     if (!ready) return;

@@ -29,18 +29,24 @@ import type {
   PackOrderRequest,
   DispatchOrderRequest,
   VerifyOtpRequest,
+  CancelOrderRequest,
+  OrderIssueRequest,
+  OrderIssueResponse,
+  StockCheckResponse,
+  OrdersSummaryQuery,
+  OrdersSummaryResponse,
   OrderTracking,
   OrderTrackingEvent,
 } from './fulfilment.schema.js';
-import type { OrderStatus } from './orders.schema.js';
+import { orderStatuses, type OrderStatus, type DeliverySlot } from './orders.schema.js';
 
 export const orderEventsEmitter = new EventEmitter();
 
 // Valid state machine transitions
 const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PENDING_PAYMENT: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['PACKED', 'READY_FOR_PICKUP', 'CANCELLED'],
-  PACKED: ['READY_FOR_PICKUP', 'DISPATCHED', 'PICKED_UP', 'CANCELLED'],
+  CONFIRMED: ['PACKED', 'CANCELLED'],
+  PACKED: ['READY_FOR_PICKUP', 'DISPATCHED', 'OUT_FOR_DELIVERY', 'PICKED_UP', 'CANCELLED'],
   READY_FOR_PICKUP: ['PICKED_UP', 'CANCELLED'],
   DISPATCHED: ['OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'],
   OUT_FOR_DELIVERY: ['DELIVERED', 'CANCELLED', 'RETURNED'],
@@ -100,6 +106,36 @@ export interface FulfilmentService {
     idempotencyKey?: string,
   ): Promise<AdminOrderDetail>;
 
+  /** Cancel an order prior to completion (BR-151). Honours Idempotency-Key. */
+  cancelOrder(
+    actor: Actor,
+    scope: ResolvedScope,
+    orderId: string,
+    input: CancelOrderRequest,
+    idempotencyKey?: string,
+  ): Promise<AdminOrderDetailResponse>;
+
+  /** Report an issue against an order, linked to warehouse_issues (BR-152). Honours Idempotency-Key. */
+  createOrderIssue(
+    actor: Actor,
+    scope: ResolvedScope,
+    orderId: string,
+    input: OrderIssueRequest,
+    idempotencyKey?: string,
+  ): Promise<OrderIssueResponse>;
+
+  /** Check warehouse stock availability and shortage for an order (BR-156). */
+  checkStock(
+    scope: ResolvedScope,
+    orderId: string,
+  ): Promise<StockCheckResponse>;
+
+  /** Get aggregated orders summary by status and warehouse (BR-163). */
+  getOrdersSummary(
+    scope: ResolvedScope,
+    query: OrdersSummaryQuery,
+  ): Promise<OrdersSummaryResponse>;
+
   getOrderTracking(
     actor: Actor,
     scope: ResolvedScope,
@@ -128,8 +164,8 @@ export interface FulfilmentService {
  * every scope on the admin order detail and list (BR-99, BR-101): like `Sale`, the response never
  * carries a full mobile.
  */
-export function maskMobile(mobile: string | null): string | null {
-  if (mobile === null) return null;
+export function maskMobile(mobile: string | null | undefined): string | null {
+  if (!mobile) return null;
   if (mobile.length <= 4) return '*'.repeat(Math.max(mobile.length, 1));
   return `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
 }
@@ -153,6 +189,7 @@ export function toAdminOrderListItem(record: AdminOrderListRecord): AdminOrderLi
     paymentStatus: record.paymentStatus,
     deliveryDate: record.deliveryDate,
     placedAt: record.placedAt,
+    buyerName: record.buyerName ?? null,
     customerName: record.buyerName ?? null,
     customerMobileMasked: maskMobile(record.buyerMobile ?? null),
     packedAt: record.packedAt ?? null,
@@ -188,11 +225,14 @@ export function toAdminOrderDetail(record: AdminOrderDetailRecord): AdminOrderDe
     channel: record.channel,
     status: record.status,
     fulfilmentType: record.fulfilmentType,
+    pickupType: record.pickupType ?? (record.fulfilmentType === 'PICKUP' ? 'WAREHOUSE_PICKUP' : 'HOME_DELIVERY'),
+    notes: record.notes ?? null,
     paymentMethod: record.paymentMethod,
     paymentStatus: record.paymentStatus,
     warehouse: { id: record.warehouseId, name: record.warehouseName },
     buyer,
     items: record.items.map((item) => ({
+      id: item.id,
       productId: item.productId,
       name: item.name,
       grade: item.grade,
@@ -228,6 +268,29 @@ export function toAdminOrderDetail(record: AdminOrderDetailRecord): AdminOrderDe
     packedAt: record.packedAt,
     completedAt: record.completedAt,
     cancelledAt: record.cancelledAt,
+    deliveryAddress:
+      record.fulfilmentType === 'DELIVERY' && record.deliveryAddress
+        ? {
+            line1: record.deliveryAddress.line1,
+            line2: record.deliveryAddress.line2 ?? null,
+            city: record.deliveryAddress.city,
+            district: record.deliveryAddress.district ?? null,
+            state: record.deliveryAddress.state ?? null,
+            pincode: record.deliveryAddress.pincode,
+            lat: record.deliveryAddress.lat !== null && record.deliveryAddress.lat !== undefined ? Number(record.deliveryAddress.lat) : null,
+            lng: record.deliveryAddress.lng !== null && record.deliveryAddress.lng !== undefined ? Number(record.deliveryAddress.lng) : null,
+          }
+        : null,
+    deliveryPartner:
+      record.fulfilmentType === 'DELIVERY' && record.deliveryPartner
+        ? {
+            id: record.deliveryPartner.id,
+            name: record.deliveryPartner.name,
+            phone: record.deliveryPartner.phone,
+            vehicleRef: record.deliveryPartner.vehicleRef ?? null,
+          }
+        : null,
+    deliverySlot: record.deliverySlot ?? null,
   });
 }
 
@@ -241,6 +304,8 @@ const OPERATION = {
   pack: 'order.mark_packed',
   dispatch: 'order.dispatch',
   verifyOtp: 'order.pickup_otp.verify',
+  cancel: 'order.cancel',
+  issue: 'order.issue',
 } as const;
 
 /**
@@ -489,37 +554,136 @@ export function createFulfilmentService(opts: {
           });
         }
 
-        const targetStatus: OrderStatus =
-          order.fulfillmentType === 'PICKUP' ? 'READY_FOR_PICKUP' : 'DISPATCHED';
+        let targetStatus: OrderStatus;
+        let note: string;
 
-        validateTransition(order.status, targetStatus);
+        if (order.fulfillmentType === 'PICKUP') {
+          if (input.deliveryPartnerId) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Order ${orderId} is for warehouse pickup and cannot be assigned a delivery partner.`,
+            });
+          }
+          targetStatus = 'READY_FOR_PICKUP';
+          validateTransition(order.status, targetStatus);
+          note = input.vehicleNumber
+            ? `Dispatched via vehicle ${input.vehicleNumber}`
+            : 'Ready for customer pickup';
 
-        const note = input.vehicleNumber
-          ? `Dispatched via vehicle ${input.vehicleNumber}`
-          : order.fulfillmentType === 'PICKUP'
-            ? 'Ready for customer pickup'
-            : 'Dispatched for delivery';
+          assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
+            orderId,
+            fromStatus: order.status,
+            toStatus: targetStatus,
+            actorUserId: actor.userId,
+            note,
+          }));
 
-        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
-          orderId,
-          fromStatus: order.status,
-          toStatus: targetStatus,
-          actorUserId: actor.userId,
-          note,
-        }));
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            actionCode: 'order.dispatch',
+            entityType: 'orders',
+            entityId: orderId,
+            after: {
+              previousStatus: order.status,
+              newStatus: targetStatus,
+              vehicleNumber: input.vehicleNumber,
+            },
+          });
+        } else {
+          // DELIVERY order (BR-21, BR-159)
+          if (!input.deliveryPartnerId) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Order ${orderId} is for home delivery and requires a delivery partner.`,
+            });
+          }
 
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          actionCode: 'order.dispatch',
-          entityType: 'orders',
-          entityId: orderId,
-          after: {
-            previousStatus: order.status,
-            newStatus: targetStatus,
-            vehicleNumber: input.vehicleNumber,
+          const partnerRes = await tx.query<{ id: string; name: string; is_active: boolean }>(
+            `SELECT id, name, is_active FROM delivery_partners WHERE id = $1 AND deleted_at IS NULL`,
+            [input.deliveryPartnerId],
+          );
+          const partner = partnerRes.rows[0];
+          if (!partner || !partner.is_active) {
+            throw new AppError('NOT_FOUND', {
+              status: 404,
+              detail: `Delivery partner ${input.deliveryPartnerId} not found or inactive.`,
+            });
+          }
+
+          targetStatus = 'OUT_FOR_DELIVERY';
+          validateTransition(order.status, targetStatus);
+
+          if (!order.deliveryDate) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: 'Cannot dispatch a delivery order with no delivery date.',
+            });
+          }
+
+          // Check slot locking and capacity (BR-159)
+          if (input.slot && order.deliverySlot && input.slot !== order.deliverySlot) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: `Cannot change delivery slot at dispatch; order is booked for slot ${order.deliverySlot}.`,
+            });
+          }
+
+          const effectiveSlot = input.slot ?? (order.deliverySlot as DeliverySlot | null | undefined);
+          const effectiveDate = order.deliveryDate;
+          if (effectiveSlot && effectiveDate) {
+            const slotRes = await tx.query<{ id: string; capacity_orders: number; booked_orders: number }>(
+              `SELECT id, capacity_orders, booked_orders
+                 FROM delivery_slots
+                WHERE warehouse_id = $1 AND slot_date = $2 AND slot = $3
+                FOR UPDATE`,
+              [order.warehouseId, effectiveDate, effectiveSlot],
+            );
+            if (slotRes.rows.length > 0) {
+              const slotRow = slotRes.rows[0]!;
+              const alreadyBooked = order.deliverySlot === effectiveSlot;
+              if (!alreadyBooked) {
+                if (slotRow.booked_orders >= slotRow.capacity_orders) {
+                  throw new AppError('CONFLICT', {
+                    status: 409,
+                    detail: `Delivery slot ${effectiveSlot} is fully booked.`,
+                  });
+                }
+                await tx.query(
+                  `UPDATE delivery_slots SET booked_orders = booked_orders + 1, updated_at = now() WHERE id = $1`,
+                  [slotRow.id],
+                );
+              }
+            }
+          }
+
+          note = input.vehicleNumber
+            ? `Dispatched via ${partner.name} (${input.vehicleNumber})`
+            : `Dispatched via ${partner.name}`;
+
+          assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
+            orderId,
+            fromStatus: order.status,
+            toStatus: targetStatus,
+            actorUserId: actor.userId,
+            note,
             deliveryPartnerId: input.deliveryPartnerId,
-          },
-        });
+            deliverySlot: effectiveSlot ?? undefined,
+          }));
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            actionCode: 'order.dispatch',
+            entityType: 'orders',
+            entityId: orderId,
+            after: {
+              previousStatus: order.status,
+              newStatus: targetStatus,
+              deliveryPartnerId: input.deliveryPartnerId,
+              vehicleNumber: input.vehicleNumber,
+              slot: effectiveSlot ?? undefined,
+            },
+          });
+        }
 
         const updated = await orderAfterChange(tx, orderId);
         await idem.complete(updated);
@@ -534,7 +698,7 @@ export function createFulfilmentService(opts: {
       };
       emitter.emit(`order:${orderId}`, eventPayload);
       // A pickup order becomes READY_FOR_PICKUP here; only a real dispatch is "on its way".
-      if (outcome.targetStatus === 'DISPATCHED') await events.publish('order.dispatched', orderId);
+      if (outcome.targetStatus === 'OUT_FOR_DELIVERY') await events.publish('order.dispatched', orderId);
 
       return outcome.order;
     },
@@ -724,6 +888,333 @@ export function createFulfilmentService(opts: {
 
       emitter.on(`order:${orderId}`, onStatusChange);
       req.on('close', cleanup);
+    },
+
+    async cancelOrder(actor, scope, orderId, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
+      const warehouseScope = getWarehouseScope(actor);
+      return await runTx(async (tx) => {
+        const idem = await beginIdempotent<AdminOrderDetailResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.cancel,
+          request: { orderId, body: input },
+        });
+        if (idem.replay) return idem.response;
+
+        const order = await repo.findOrderForFulfilment(tx, orderId, warehouseScope);
+        if (!order || !warehouseVisible(scope, order.warehouseId)) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
+        if (warehouseScope && order.warehouseId !== warehouseScope) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
+
+        validateTransition(order.status, 'CANCELLED');
+
+        const reason = input.reason?.trim() || 'Cancelled by admin';
+
+        assertOrderUpdated(
+          orderId,
+          await repo.updateOrderStatus(tx, {
+            orderId,
+            fromStatus: order.status,
+            toStatus: 'CANCELLED',
+            actorUserId: actor.userId,
+            cancelledAt: new Date(),
+            cancellationReason: reason,
+            note: reason,
+          }),
+        );
+
+        await writeAuditLog(tx, {
+          actorId: actor.userId,
+          actionCode: 'order.cancel',
+          entityType: 'orders',
+          entityId: orderId,
+          after: {
+            previousStatus: order.status,
+            newStatus: 'CANCELLED',
+            reason,
+          },
+        });
+
+        const record = await repo.findAdminOrderDetail(tx, scope, orderId);
+        if (record === null) {
+          throw new AppError('INTERNAL', { detail: `Order ${orderId} vanished.` });
+        }
+        const response = toAdminOrderDetail(record);
+        await idem.complete(response);
+        return response;
+      });
+    },
+
+    async createOrderIssue(actor, scope, orderId, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
+      const warehouseScope = getWarehouseScope(actor);
+      return await runTx(async (tx) => {
+        const idem = await beginIdempotent<OrderIssueResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.issue,
+          request: { orderId, body: input },
+        });
+        if (idem.replay) return idem.response;
+
+        const order = await repo.findOrderForFulfilment(tx, orderId, warehouseScope);
+        if (!order || !warehouseVisible(scope, order.warehouseId)) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
+        if (warehouseScope && order.warehouseId !== warehouseScope) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
+
+        const seqRes = await tx.query<{ nextval: string }>(
+          `SELECT nextval('warehouse_issue_number_seq')::text AS nextval`,
+        );
+        const seqNum = seqRes.rows[0]?.nextval ?? '1';
+        const issueNumber = `ISS-${seqNum.padStart(4, '0')}`;
+
+        const issueType = input.issueType ?? 'OTHER';
+        const severity = input.severity ?? 'MEDIUM';
+        const category =
+          issueType.toLowerCase() === 'quality' || issueType.toLowerCase() === 'damaged'
+            ? 'QUALITY'
+            : 'OTHER';
+        const title = `Order ${order.orderNumber} Issue: ${issueType}`.slice(0, 160);
+        const description = input.description.slice(0, 4000);
+        const lineItemIdsJson = JSON.stringify(input.lineItemIds ?? []);
+
+        const insertRes = await tx.query<{ id: string; issue_number: string; status: string }>(
+          `INSERT INTO warehouse_issues (
+             issue_number, warehouse_id, category, severity, title,
+             description, status, reported_by, order_id, order_line_ids
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, 'OPEN', $7, $8, $9::jsonb)
+           RETURNING id, issue_number, status`,
+          [
+            issueNumber,
+            order.warehouseId,
+            category,
+            severity,
+            title,
+            description,
+            actor.userId,
+            orderId,
+            lineItemIdsJson,
+          ],
+        );
+        const issueRow = insertRes.rows[0]!;
+
+        await writeAuditLog(tx, {
+          actorId: actor.userId,
+          actionCode: 'warehouse.issue.manage',
+          entityType: 'warehouse_issues',
+          entityId: issueRow.id,
+          after: {
+            orderId,
+            issueNumber: issueRow.issue_number,
+            category,
+            status: issueRow.status,
+          },
+        });
+
+        const response: OrderIssueResponse = {
+          id: issueRow.id,
+          issueNumber: issueRow.issue_number,
+          status: issueRow.status,
+        };
+        await idem.complete(response);
+        return response;
+      });
+    },
+
+    async checkStock(scope, orderId) {
+      const order = await repo.findOrderForFulfilment(db, orderId);
+      if (!order || !warehouseVisible(scope, order.warehouseId)) {
+        throw new AppError('NOT_FOUND', {
+          status: 404,
+          detail: `Order ${orderId} not found.`,
+        });
+      }
+
+      const linesRes = await db.query<{
+        id: string;
+        crop_id: string;
+        name: string;
+        grade: string;
+        qty_kg: string;
+      }>(
+        `SELECT oi.id, oi.crop_id, cm.name, oi.grade::text AS grade, oi.qty_kg::text AS qty_kg
+           FROM order_items oi
+           JOIN crop_master cm ON cm.id = oi.crop_id
+          WHERE oi.order_id = $1
+          ORDER BY oi.created_at, oi.id`,
+        [orderId],
+      );
+
+      let anyShortage = false;
+      const lines = [];
+
+      for (const line of linesRes.rows) {
+        const orderedKg = Number(line.qty_kg);
+
+        const stockRes = await db.query<{ shelf_stock: string }>(
+          `SELECT COALESCE(SUM(qty_available), 0)::text AS shelf_stock
+             FROM inventory_batches
+            WHERE warehouse_id = $1
+              AND crop_id = $2
+              AND grade = $3::produce_grade
+              AND status = 'ACTIVE'`,
+          [order.warehouseId, line.crop_id, line.grade],
+        );
+        const availableStockKg = Number(stockRes.rows[0]?.shelf_stock ?? 0);
+
+        const reservedRes = await db.query<{ reserved: string }>(
+          `SELECT COALESCE(SUM(a.reserved_qty), 0)::text AS reserved
+             FROM allocations a
+             JOIN inventory_batches b ON b.id = a.batch_id
+            WHERE b.warehouse_id = $1
+              AND b.crop_id = $2
+              AND b.grade = $3::produce_grade
+              AND b.status = 'ACTIVE'`,
+          [order.warehouseId, line.crop_id, line.grade],
+        );
+        const reservedKg = Number(reservedRes.rows[0]?.reserved ?? 0);
+
+        const availableKg = Math.max(0, availableStockKg - reservedKg);
+        const shortageKg = Math.max(0, orderedKg - availableKg);
+        const isShort = shortageKg > 0;
+        if (isShort) anyShortage = true;
+
+        lines.push({
+          orderItemId: line.id,
+          cropId: line.crop_id,
+          cropName: line.name,
+          grade: line.grade,
+          orderedKg: orderedKg.toFixed(3),
+          availableStockKg: availableStockKg.toFixed(3),
+          reservedKg: reservedKg.toFixed(3),
+          availableKg: availableKg.toFixed(3),
+          shortageKg: shortageKg.toFixed(3),
+          status: isShort ? ('SHORTAGE' as const) : ('IN_STOCK' as const),
+        });
+      }
+
+      return {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        status: anyShortage ? ('INSUFFICIENT' as const) : ('AVAILABLE' as const),
+        lines,
+      };
+    },
+
+    async getOrdersSummary(scope, query) {
+      if (query.warehouseId && !warehouseVisible(scope, query.warehouseId)) {
+        return {
+          total: 0,
+          byStatus: Object.fromEntries(orderStatuses.map((s) => [s, 0])),
+          byWarehouse: [],
+        };
+      }
+
+      const params: any[] = [];
+      const conditions: string[] = [];
+
+      // Warehouse scoping
+      if (scope.level === 'own' && scope.warehouseIds && scope.warehouseIds.length > 0) {
+        params.push(scope.warehouseIds);
+        conditions.push(`o.warehouse_id = ANY($${params.length}::uuid[])`);
+      } else if (query.warehouseId) {
+        params.push(query.warehouseId);
+        conditions.push(`o.warehouse_id = $${params.length}`);
+      }
+
+      if (query.from) {
+        params.push(query.from);
+        conditions.push(`o.placed_at >= $${params.length}::timestamptz`);
+      }
+      if (query.to) {
+        params.push(query.to);
+        conditions.push(`o.placed_at <= $${params.length}::timestamptz`);
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+      const statusRes = await db.query<{ status: string; count: string }>(
+        `SELECT o.status::text, count(*)::text AS count
+           FROM orders o
+          ${whereClause}
+          GROUP BY o.status`,
+        params,
+      );
+
+      const byStatus: Record<string, number> = Object.fromEntries(
+        orderStatuses.map((s) => [s, 0]),
+      );
+      let total = 0;
+      for (const row of statusRes.rows) {
+        const count = Number(row.count);
+        byStatus[row.status] = count;
+        total += count;
+      }
+
+      // Warehouse counts
+      const whConditions: string[] = [];
+      const whParams: any[] = [];
+      if (scope.level === 'own' && scope.warehouseIds && scope.warehouseIds.length > 0) {
+        whParams.push(scope.warehouseIds);
+        whConditions.push(`w.id = ANY($${whParams.length}::uuid[])`);
+      } else if (query.warehouseId) {
+        whParams.push(query.warehouseId);
+        whConditions.push(`w.id = $${whParams.length}`);
+      }
+      const whWhere = whConditions.length > 0 ? `WHERE ${whConditions.join(' AND ')}` : '';
+
+      const orderJoinConditions = ['o.warehouse_id = w.id'];
+      const joinParams = [...whParams];
+      if (query.from) {
+        joinParams.push(query.from);
+        orderJoinConditions.push(`o.placed_at >= $${joinParams.length}::timestamptz`);
+      }
+      if (query.to) {
+        joinParams.push(query.to);
+        orderJoinConditions.push(`o.placed_at <= $${joinParams.length}::timestamptz`);
+      }
+
+      const whRes = await db.query<{ warehouseId: string; name: string; count: string }>(
+        `SELECT w.id AS "warehouseId", w.name, count(o.id)::text AS count
+           FROM warehouses w
+           LEFT JOIN orders o ON ${orderJoinConditions.join(' AND ')}
+          ${whWhere}
+          GROUP BY w.id, w.name
+          ORDER BY w.name`,
+        joinParams,
+      );
+
+      const byWarehouse = whRes.rows.map((r) => ({
+        warehouseId: r.warehouseId,
+        name: r.name,
+        count: Number(r.count),
+      }));
+
+      return {
+        total,
+        byStatus,
+        byWarehouse,
+      };
     },
   };
 }

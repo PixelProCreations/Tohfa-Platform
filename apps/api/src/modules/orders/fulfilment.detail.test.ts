@@ -51,10 +51,13 @@ const OTP_SECRET_KEY = /otp(?!Required|VerifiedAt)|hash|attempt/i;
 function keysMatching(pattern: RegExp, value: unknown, path = '$'): string[] {
   if (Array.isArray(value)) return value.flatMap((item, i) => keysMatching(pattern, item, `${path}[${i}]`));
   if (value !== null && typeof value === 'object') {
-    return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => [
-      ...(pattern.test(key) ? [`${path}.${key}`] : []),
-      ...keysMatching(pattern, child, `${path}.${key}`),
-    ]);
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, child]) => {
+      if (path === '$' && key === 'deliveryAddress') return [];
+      return [
+        ...(pattern.test(key) ? [`${path}.${key}`] : []),
+        ...keysMatching(pattern, child, `${path}.${key}`),
+      ];
+    });
   }
   return [];
 }
@@ -70,8 +73,8 @@ function mobileFragments(value: unknown, mobiles: string[]): string[] {
 }
 
 const DOCUMENTED_KEYS = [
-  'buyer', 'cancelledAt', 'channel', 'completedAt', 'fulfilment', 'fulfilmentType', 'id', 'invoice', 'items',
-  'orderNumber', 'packedAt', 'paymentMethod', 'paymentStatus', 'placedAt', 'status', 'timeline', 'totals', 'warehouse',
+  'buyer', 'cancelledAt', 'channel', 'completedAt', 'deliveryAddress', 'deliveryPartner', 'deliverySlot', 'fulfilment', 'fulfilmentType', 'id', 'invoice', 'items',
+  'notes', 'orderNumber', 'packedAt', 'paymentMethod', 'paymentStatus', 'pickupType', 'placedAt', 'status', 'timeline', 'totals', 'warehouse',
 ].sort();
 
 function aRecord(overrides: Partial<AdminOrderDetailRecord> = {}): AdminOrderDetailRecord {
@@ -194,6 +197,9 @@ describe('admin order detail service (fake repo)', () => {
       packedAt: null,
       completedAt: null,
       cancelledAt: null,
+      deliveryAddress: null,
+      deliveryPartner: null,
+      deliverySlot: null,
     };
     expect(adminOrderDetailResponse.safeParse(ok).success).toBe(true);
     expect(adminOrderDetailResponse.safeParse({ ...ok, farmerId: newId() }).success).toBe(false);
@@ -419,8 +425,16 @@ describeIfDatabase('admin order detail repo + service (PostgreSQL)', () => {
         expect(json, key).not.toContain(f.farmerName);
         expect(json, key).not.toContain(f.batchCode);
         expect(json, key).not.toContain('Fixture Farm');
-        expect(json, key).not.toContain('Secret Lane');
-        expect(json, key).not.toContain('76.79');
+        if (key === 'online') {
+          // Narrow BR-99 exception: delivery address returned for DELIVERY orders
+          expect(detail.deliveryAddress?.line1).toBe('12 Secret Lane');
+          expect(detail.deliveryAddress?.lat).toBe(11.35);
+          expect(detail.deliveryAddress?.lng).toBe(76.79);
+        } else {
+          expect(detail.deliveryAddress).toBeNull();
+          expect(json, key).not.toContain('Secret Lane');
+          expect(json, key).not.toContain('76.79');
+        }
         expect(detail.warehouse).toEqual({ id: f.coonoor, name: 'Coonoor Warehouse' });
         expect(detail.timeline.map((t) => t.toStatus)).toEqual(['CONFIRMED', 'PACKED']);
       }
@@ -486,7 +500,7 @@ describeIfDatabase('admin order detail repo + service (PostgreSQL)', () => {
 
       expect(online.totals).toEqual({ subtotal: '950.50', deliveryFee: '0.10', discount: '0.20', gst: '47.53', total: '997.93' });
       expect(online.items).toEqual([
-        { productId: expect.any(String), name: 'Fixture Crop', grade: 'GRADE_1', qtyKg: '0.125', unitPrice: '0.80', gstRate: '5.00', gstAmount: '0.01', lineTotal: '0.10' },
+        { id: expect.any(String), productId: expect.any(String), name: 'Fixture Crop', grade: 'GRADE_1', qtyKg: '0.125', unitPrice: '0.80', gstRate: '5.00', gstAmount: '0.01', lineTotal: '0.10' },
       ]);
 
       expect(online.invoice).toMatchObject({ id: expect.any(String), invoiceNumber: expect.stringMatching(/^INV-OD-/), status: 'ISSUED' });
@@ -587,22 +601,17 @@ describeIfDatabase('admin order detail route (HTTP, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ closePool, withTransaction }, { closeRedis }, { removeCommittedFixtures }] = await Promise.all([
+    const [{ withTransaction }, { removeCommittedFixtures }] = await Promise.all([
       import('../../db/pool.js'),
-      import('../../redis.js'),
       import('../../test/committedFixtureCleanup.js'),
     ]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    try {
-      await removeCommittedFixtures(withTransaction, {
-        orderIds: created.orders,
-        cropIds: created.crops,
-        customerIds: created.customers,
-        userIds: created.users,
-      });
-    } finally {
-      await Promise.allSettled([closePool(), closeRedis()]);
-    }
+    await removeCommittedFixtures(withTransaction, {
+      orderIds: created.orders,
+      cropIds: created.crops,
+      customerIds: created.customers,
+      userIds: created.users,
+    });
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

@@ -49,10 +49,13 @@ async function runDemoSeed() {
     const gudaWh = whMap.get('WH-GUDA');
 
     let defaultZone;
-    const zoneRes = await client.query(`SELECT id, code FROM zones LIMIT 4`);
-    if (zoneRes.rows.length > 0) {
-      defaultZone = zoneRes.rows[0].id;
-    } else {
+    const zoneRes = await client.query(`SELECT id, code FROM zones`);
+    const zoneCodeMap = new Map(zoneRes.rows.map((r) => [r.code, r.id]));
+    const coonZoneId = zoneCodeMap.get('ZONE-COON') || zoneRes.rows[0]?.id;
+    const ootyZoneId = zoneCodeMap.get('ZONE-OOTY') || zoneRes.rows[0]?.id;
+    const kotaZoneId = zoneCodeMap.get('ZONE-KOTA') || zoneRes.rows[0]?.id;
+    defaultZone = ootyZoneId;
+    if (!defaultZone) {
       const newZone = await client.query(
         `INSERT INTO zones (code, name, is_active) VALUES ('ZONE-DEMO-01', 'Ooty Demo Zone', true) RETURNING id`,
       );
@@ -76,19 +79,18 @@ async function runDemoSeed() {
     // windows — system_config cert_expiry_max_past_days (365) and
     // cert_expiry_max_future_days (730) — or the app cannot save an edit to it.
     const farmerConfigs = [
-      { num: 1, name: 'Ramesh Patel (Organic Pro)', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 300, blocked: false },
-      { num: 2, name: 'Lakshmi Narayanan', status: 'APPROVED', cert: 'NPOP', certStatus: 'VERIFIED', expiryDays: 200, blocked: false },
-      { num: 3, name: 'Suresh Gowda', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 400, blocked: false },
-      { num: 4, name: 'Anand Murugan (Expired Cert)', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: -5, blocked: true },
-      { num: 5, name: 'Priya Sundaram (Unverified Cert)', status: 'APPROVED', cert: 'NPOP', certStatus: 'UNVERIFIED', expiryDays: 180, blocked: true },
-      { num: 6, name: 'Muthuvel Karunanidhi', status: 'SUBMITTED', cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
-      { num: 7, name: 'Kavitha Dharmaraj', status: 'DOCS_REVIEW', cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
-      { num: 8, name: 'Dharmendra Yadav', status: 'FARM_VERIFICATION', cert: 'NPOP', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
-      { num: 9, name: 'Balamurugan Raj', status: 'AUDIT', cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
-      { num: 10, name: 'Venkatesh Babu (New Applicant)', status: 'SUBMITTED', cert: null, certStatus: 'UNVERIFIED', expiryDays: 0, blocked: true },
-      { num: 11, name: 'Selvaraj Nadar (Rejected App)', status: 'REJECTED', cert: null, certStatus: 'REJECTED', expiryDays: -100, blocked: true },
-      // 12: verified PGS expiring in 20 days — inside the 30-day warning window (cert_expiry_warning_days), still unexpired so not market-blocked.
-      { num: 12, name: 'Geetha Manoharan', status: 'APPROVED', cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 20, blocked: false },
+      { num: 1, name: 'Ramesh Patel', status: 'APPROVED', userStatus: 'ACTIVE', zoneId: coonZoneId, zoneName: 'Coonoor', village: 'Coonoor', taluk: 'Coonoor', pincode: '643101', farmingType: 'Organic', crops: ['Carrot', 'Potato', 'Tea'], area: 4.5, rating: 92.0, cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 300, blocked: false },
+      { num: 2, name: 'Lakshmi Narayanan', status: 'APPROVED', userStatus: 'ACTIVE', zoneId: coonZoneId, zoneName: 'Coonoor', village: 'Coonoor', taluk: 'Coonoor', pincode: '643101', farmingType: 'Organic', crops: ['Tea', 'Spices'], area: 3.5, rating: 88.0, cert: 'NPOP', certStatus: 'VERIFIED', expiryDays: 200, blocked: false },
+      { num: 3, name: 'Suresh Gowda', status: 'APPROVED', userStatus: 'ACTIVE', zoneId: ootyZoneId, zoneName: 'Ooty', village: 'Ketti', taluk: 'Udhagamandalam', pincode: '643001', farmingType: 'Organic', crops: ['Carrot', 'Cabbage', 'Beetroot'], area: 5.0, rating: 90.0, cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 400, blocked: false },
+      { num: 4, name: 'Anand Murugan', status: 'APPROVED', userStatus: 'ACTIVE', zoneId: ootyZoneId, zoneName: 'Ooty', village: 'Fingerpost', taluk: 'Udhagamandalam', pincode: '643001', farmingType: 'Natural', crops: ['Potato', 'Beans'], area: 3.0, rating: 78.0, cert: 'PGS', certStatus: 'VERIFIED', expiryDays: -5, blocked: true },
+      { num: 5, name: 'Priya Sundaram', status: 'APPROVED', userStatus: 'ACTIVE', zoneId: kotaZoneId, zoneName: 'Kotagiri', village: 'Kodanad', taluk: 'Kotagiri', pincode: '643217', farmingType: 'Natural', crops: ['Broccoli', 'Lettuce'], area: 2.8, rating: 82.0, cert: 'NPOP', certStatus: 'UNVERIFIED', expiryDays: 180, blocked: true },
+      { num: 6, name: 'Muthuvel Karunanidhi', status: 'SUBMITTED', userStatus: 'ACTIVE', zoneId: kotaZoneId, zoneName: 'Kotagiri', village: 'Nedugula', taluk: 'Kotagiri', pincode: '643217', farmingType: 'Organic', crops: ['Carrot', 'Potato'], area: 4.2, rating: 84.0, cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
+      { num: 7, name: 'Kavitha Dharmaraj', status: 'DOCS_REVIEW', userStatus: 'ACTIVE', zoneId: coonZoneId, zoneName: 'Coonoor', village: 'Aruvankadu', taluk: 'Coonoor', pincode: '643101', farmingType: 'Organic', crops: ['Tea', 'Cardamom'], area: 3.8, rating: 80.0, cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
+      { num: 8, name: 'Dharmendra Yadav', status: 'FARM_VERIFICATION', userStatus: 'ACTIVE', zoneId: ootyZoneId, zoneName: 'Ooty', village: 'Lovedale', taluk: 'Udhagamandalam', pincode: '643001', farmingType: 'Natural', crops: ['Garlic', 'Radish'], area: 3.2, rating: 81.0, cert: 'NPOP', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
+      { num: 9, name: 'Balamurugan Raj', status: 'AUDIT', userStatus: 'ACTIVE', zoneId: kotaZoneId, zoneName: 'Kotagiri', village: 'Kodanad', taluk: 'Kotagiri', pincode: '643217', farmingType: 'Organic', crops: ['Strawberry', 'Carrot'], area: 4.0, rating: 86.0, cert: 'PGS', certStatus: 'UNVERIFIED', expiryDays: 365, blocked: true },
+      { num: 10, name: 'Venkatesh Babu', status: 'SUBMITTED', userStatus: 'PENDING', zoneId: coonZoneId, zoneName: 'Coonoor', village: 'Coonoor', taluk: 'Coonoor', pincode: '643101', farmingType: 'Bio-dynamic', crops: ['Spinach', 'Peas'], area: 2.5, rating: 76.0, cert: null, certStatus: 'UNVERIFIED', expiryDays: 0, blocked: true },
+      { num: 11, name: 'Selvaraj Nadar', status: 'REJECTED', userStatus: 'DISABLED', zoneId: ootyZoneId, zoneName: 'Ooty', village: 'Ooty', taluk: 'Udhagamandalam', pincode: '643001', farmingType: 'Conventional', crops: ['Cabbage', 'Cauliflower'], area: 2.0, rating: 68.0, cert: null, certStatus: 'REJECTED', expiryDays: -100, blocked: true },
+      { num: 12, name: 'Geetha Manoharan', status: 'APPROVED', userStatus: 'ACTIVE', zoneId: kotaZoneId, zoneName: 'Kotagiri', village: 'Kotagiri', taluk: 'Kotagiri', pincode: '643217', farmingType: 'Organic', crops: ['Tea', 'Rosemary'], area: 4.8, rating: 91.0, cert: 'PGS', certStatus: 'VERIFIED', expiryDays: 20, blocked: false },
     ];
 
     const farmerIds = [];
@@ -98,12 +100,18 @@ async function runDemoSeed() {
       const fId = `20000000-0000-0000-0000-${String(f.num).padStart(12, '0')}`;
       farmerIds.push(fId);
 
+      const targetZoneId = f.zoneId || defaultZone;
+      const tierCode = f.rating >= 85 ? 'EXCELLENT' : f.rating >= 70 ? 'GOOD' : 'MODERATE';
+      const addressLine1 = `${10 + f.num} Green Valley Road`;
+      const addressLine2 = `Near High Mountain View`;
+      const fullAddress = `${addressLine1}, ${addressLine2}, ${f.village}, ${f.taluk} Taluk, The Nilgiris - ${f.pincode}`;
+
       // User
       await client.query(
         `INSERT INTO users (id, mobile, email, password_hash, full_name, user_type, status)
-         VALUES ($1, $2, $3, $4, $5, 'FARMER', 'ACTIVE')
-         ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, mobile = EXCLUDED.mobile`,
-        [uId, `+91987000${String(f.num).padStart(4, '0')}`, `farmer${f.num}@tohfa.demo`, DEMO_PASSWORD_HASH, f.name],
+         VALUES ($1, $2, $3, $4, $5, 'FARMER', $6)
+         ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, mobile = EXCLUDED.mobile, status = EXCLUDED.status`,
+        [uId, `+91987000${String(f.num).padStart(4, '0')}`, `farmer${f.num}@tohfa.demo`, DEMO_PASSWORD_HASH, f.name, f.userStatus],
       );
 
       // Assign FARMER role
@@ -115,37 +123,51 @@ async function runDemoSeed() {
         [uId],
       );
 
-
-      // Farmer. dob/gender/farming_experience_years/aadhaar_last4 mirror the exact values this
-      // same loop writes into this farmer's farmer_applications.step1_personal below -- a real
-      // approval copies those step1 fields onto this row (see farmer-applications.service.ts's
-      // approval handler), but this demo seed inserts the farmer directly, bypassing that copy, so
-      // without this they silently stayed null and the Profile screen showed truncated personal
-      // details for every demo farmer.
+      // Farmer
       await client.query(
-        `INSERT INTO farmers (id, user_id, tohfa_farmer_id, zone_id, application_status, kyc_status, is_market_blocked, rejection_reason, market_block_reason, dob, gender, farming_experience_years, aadhaar_last4)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        `INSERT INTO farmers
+           (id, user_id, tohfa_farmer_id, zone_id, application_status, kyc_status, is_market_blocked, rejection_reason, market_block_reason,
+            dob, gender, farming_experience_years, aadhaar_last4, address_line1, address_line2, village, taluk, district, pincode,
+            overall_rating, rating_tier_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
          ON CONFLICT (id) DO UPDATE SET
            application_status = EXCLUDED.application_status,
+           kyc_status = EXCLUDED.kyc_status,
            is_market_blocked = EXCLUDED.is_market_blocked,
-           dob = COALESCE(farmers.dob, EXCLUDED.dob),
-           gender = COALESCE(farmers.gender, EXCLUDED.gender),
-           farming_experience_years = COALESCE(farmers.farming_experience_years, EXCLUDED.farming_experience_years),
-           aadhaar_last4 = COALESCE(farmers.aadhaar_last4, EXCLUDED.aadhaar_last4)`,
+           dob = EXCLUDED.dob,
+           gender = EXCLUDED.gender,
+           farming_experience_years = EXCLUDED.farming_experience_years,
+           aadhaar_last4 = EXCLUDED.aadhaar_last4,
+           address_line1 = EXCLUDED.address_line1,
+           address_line2 = EXCLUDED.address_line2,
+           village = EXCLUDED.village,
+           taluk = EXCLUDED.taluk,
+           district = EXCLUDED.district,
+           pincode = EXCLUDED.pincode,
+           overall_rating = EXCLUDED.overall_rating,
+           rating_tier_code = EXCLUDED.rating_tier_code`,
         [
           fId,
           uId,
           `TF-DEMO-${String(f.num).padStart(4, '0')}`,
-          defaultZone,
+          targetZoneId,
           f.status,
           f.status === 'APPROVED' ? 'VERIFIED' : 'PENDING',
           f.blocked,
           f.status === 'REJECTED' ? 'Incomplete land title documentation' : null,
           f.blocked ? 'Pending unexpired PGS/NPOP certification' : null,
           '1985-05-15',
-          'MALE',
+          f.num % 2 === 0 ? 'FEMALE' : 'MALE',
           10 + f.num,
-          '4321',
+          String(4000 + f.num),
+          addressLine1,
+          addressLine2,
+          f.village,
+          f.taluk,
+          'The Nilgiris',
+          f.pincode,
+          f.rating,
+          tierCode,
         ],
       );
 
@@ -207,6 +229,41 @@ async function runDemoSeed() {
         );
       }
 
+      // Farmer 3's three zones get drawn boundaries that tile inside the farm boundary above, so
+      // ZonesScreen has real overlay polygons to display (without these the zones exist as cards
+      // but never appear on the map because boundary is null).
+      if (f.num === 3) {
+        const plotPrefix = `31000000-${String(f.num).padStart(4, '0')}-0000-0000`;
+        // Farm: lon 76.70435–76.70565, lat 11.42436–11.42564
+        // Zone A (North Field): top two-thirds
+        const zoneAGeoJson = JSON.stringify({ type: 'Polygon', coordinates: [[
+          [76.70435, 11.42479], [76.70565, 11.42479], [76.70565, 11.42564],
+          [76.70435, 11.42564], [76.70435, 11.42479],
+        ]]});
+        // Zone B (South Valley): bottom-left quarter
+        const zoneBGeoJson = JSON.stringify({ type: 'Polygon', coordinates: [[
+          [76.70435, 11.42436], [76.70500, 11.42436], [76.70500, 11.42479],
+          [76.70435, 11.42479], [76.70435, 11.42436],
+        ]]});
+        // Zone C (Terrace Ridge): bottom-right quarter
+        const zoneCGeoJson = JSON.stringify({ type: 'Polygon', coordinates: [[
+          [76.70500, 11.42436], [76.70565, 11.42436], [76.70565, 11.42479],
+          [76.70500, 11.42479], [76.70500, 11.42436],
+        ]]});
+        await client.query(
+          `UPDATE plots SET boundary = ST_GeomFromGeoJSON($2)::geography WHERE id = $1`,
+          [`${plotPrefix}-000000000001`, zoneAGeoJson],
+        );
+        await client.query(
+          `UPDATE plots SET boundary = ST_GeomFromGeoJSON($2)::geography WHERE id = $1`,
+          [`${plotPrefix}-000000000002`, zoneBGeoJson],
+        );
+        await client.query(
+          `UPDATE plots SET boundary = ST_GeomFromGeoJSON($2)::geography WHERE id = $1`,
+          [`${plotPrefix}-000000000003`, zoneCGeoJson],
+        );
+      }
+
       // Farmer 3 (Suresh Gowda) also gets a SECOND farm with no boundary at all, so this demo
       // account exercises both FMBSketchScreen states: one farm with an existing boundary to
       // edit (above), and one still "not positioned yet" that needs a boundary drawn from
@@ -243,53 +300,190 @@ async function runDemoSeed() {
         );
       }
 
+      // Farmer Bank Account
+      const bankId = `50000000-0000-0000-0000-${String(f.num).padStart(12, '0')}`;
+      await client.query(
+        `INSERT INTO farmer_bank_accounts
+           (id, farmer_id, account_holder_name, account_number_last4, ifsc, bank_name, is_verified, verified_by, verified_at, is_default)
+         VALUES ($1, $2, $3, $4, 'SBIN0001428', 'State Bank of India', true, $5, now(), true)
+         ON CONFLICT (id) DO UPDATE SET is_verified = true`,
+        [bankId, fId, f.name, String(5000 + f.num), superAdminUserId],
+      );
+
+      // Farmer Subscription
+      const subId = `60000000-0000-0000-0000-${String(f.num).padStart(12, '0')}`;
+      await client.query(
+        `INSERT INTO farmer_subscriptions
+           (id, farmer_id, tier, amount, period_start, period_end, status)
+         VALUES ($1, $2, 'PAID', 500.00, CURRENT_DATE - 30, CURRENT_DATE + 335, 'ACTIVE')
+         ON CONFLICT (farmer_id) WHERE status = 'ACTIVE' DO UPDATE SET status = 'ACTIVE'`,
+        [subId, fId],
+      );
+
+      // Farmer Documents
+      const docTypes = [
+        { type: 'ID_PROOF', key: `docs/demo/aadhaar_${f.num}.pdf`, size: 1258291 },
+        { type: 'FARM_DOC', key: `docs/demo/patta_${f.num}.pdf`, size: 3565158 },
+        { type: 'BANK_PROOF', key: `docs/demo/passbook_${f.num}.pdf`, size: 943718 },
+        { type: 'CERTIFICATE', key: `docs/demo/cert_${f.num}.pdf`, size: 2202009 },
+      ];
+      for (let dIdx = 0; dIdx < docTypes.length; dIdx++) {
+        const docCfg = docTypes[dIdx];
+        const docId = `70000000-${String(f.num).padStart(4, '0')}-0000-0000-${String(dIdx + 1).padStart(12, '0')}`;
+        await client.query(
+          `INSERT INTO farmer_documents
+             (id, farmer_id, doc_type, storage_key, mime_type, size_bytes, is_mandatory, verification_status, verified_by, verified_at, uploaded_by)
+           VALUES ($1, $2, $3, $4, 'application/pdf', $5, true, 'VERIFIED', $6, now(), $7)
+           ON CONFLICT (id) DO UPDATE SET verification_status = 'VERIFIED'`,
+          [docId, fId, docCfg.type, docCfg.key, docCfg.size, superAdminUserId, uId],
+        );
+      }
+
       // Farmer Application (for Admin Applications Queue)
       const appId = `11000000-0000-0000-0000-${String(f.num).padStart(12, '0')}`;
+      const fmbArea = Number((f.area - 0.05).toFixed(2));
+      const mainPlotArea = Number((f.area * 0.6).toFixed(2));
+      const secondPlotArea = Number((f.area * 0.4).toFixed(2));
+
       await client.query(
         `INSERT INTO farmer_applications
-           (id, mobile, full_name, preferred_locale, status, is_draft, current_step, completed_steps, step1_personal, step2_farm_details, step3_location, step4_documents, user_id, farmer_id, submitted_at, created_at)
+           (id, mobile, full_name, preferred_locale, status, is_draft, current_step, completed_steps, zone_id, step1_personal, step2_farm_details, step3_location, step4_documents, user_id, farmer_id, submitted_at, created_at)
          VALUES
-           ($1, $2, $3, 'en', $4, false, 5, '{1,2,3,4,5}', $5, $6, $7, $8, $9, $10, now() - ($11 * INTERVAL '1 day'), now() - (($11 + 5) * INTERVAL '1 day'))
-         ON CONFLICT (id) DO UPDATE SET status = EXCLUDED.status`,
+           ($1, $2, $3, 'en', $4, false, 5, '{1,2,3,4,5}', $5, $6, $7, $8, $9, $10, $11, now() - ($12 * INTERVAL '1 day'), now() - (($12 + 5) * INTERVAL '1 day'))
+         ON CONFLICT (id) DO UPDATE SET
+           status = EXCLUDED.status,
+           zone_id = EXCLUDED.zone_id,
+           step1_personal = EXCLUDED.step1_personal,
+           step2_farm_details = EXCLUDED.step2_farm_details,
+           step3_location = EXCLUDED.step3_location,
+           step4_documents = EXCLUDED.step4_documents`,
         [
           appId,
           `+91987000${String(f.num).padStart(4, '0')}`,
           f.name,
           f.status,
+          targetZoneId,
           JSON.stringify({
             fullName: f.name,
             dob: '1985-05-15',
-            gender: 'MALE',
-            aadhaarLast4: '4321',
+            gender: f.num % 2 === 0 ? 'FEMALE' : 'MALE',
+            mobile: `+91987000${String(f.num).padStart(4, '0')}`,
+            aadhaarLast4: String(4000 + f.num),
             farmingExperienceYears: 10 + f.num,
-            village: 'Kodanad',
-            taluk: 'Kotagiri',
+            addressLine1,
+            addressLine2,
+            address: fullAddress,
+            village: f.village,
+            taluk: f.taluk,
             district: 'The Nilgiris',
-            pincode: '643217',
+            pincode: f.pincode,
+            preferredLocale: 'en',
           }),
           JSON.stringify({
-            farms: [
+            farmName: `${f.name}'s Organic Farm`,
+            typeOfFarming: f.farmingType,
+            experienceYears: 10 + f.num,
+            numberOfFarms: 2,
+            totalAreaAcres: f.area,
+            waterSource: 'Rainfed & Borewell',
+            primaryCrops: f.crops,
+            organicSince: '2020-01-01',
+            farmingPractices: ['Crop Rotation', 'Vermicomposting', 'Bio-fertilizers'],
+          }),
+          JSON.stringify({
+            gpsCaptured: true,
+            latitude: 11.41 + (f.num * 0.005),
+            longitude: 76.69 + (f.num * 0.005),
+            fmbAreaAcres: fmbArea,
+            gpsAccuracy: '±8 m (High)',
+            village: f.village,
+            taluk: f.taluk,
+            district: 'The Nilgiris',
+            locations: [
               {
-                name: `${f.name}'s Organic Farm`,
-                totalAreaAcres: 3.5 + f.num * 0.5,
-                organicSince: '2020-01-01',
-                waterSource: 'Rainfed & Borewell',
-                primaryCrops: ['Carrot', 'Potato'],
+                id: `loc-${f.num}-1`,
+                label: 'Main Cultivation Plot',
+                surveyNumber: `SF-${100 + f.num}/1A`,
+                subDivision: '1A',
+                areaAcres: mainPlotArea,
+                calculatedAreaAcres: mainPlotArea,
+                village: f.village,
+                taluk: f.taluk,
+                district: 'The Nilgiris',
+                pincode: f.pincode,
+                latitude: 11.41 + (f.num * 0.005),
+                longitude: 76.69 + (f.num * 0.005),
+                fmbPolygon: {
+                  type: 'Polygon',
+                  coordinates: [
+                    [[76.69, 11.41], [76.70, 11.41], [76.70, 11.42], [76.69, 11.42], [76.69, 11.41]],
+                  ],
+                },
+                zones: [
+                  { name: 'Zone A', crop: f.crops[0] || 'Tomato', areaHa: 1.02, status: 'Active' },
+                  { name: 'Zone B', crop: f.crops[1] || 'Carrot', areaHa: 0.85, status: 'Active' },
+                ],
+              },
+              {
+                id: `loc-${f.num}-2`,
+                label: 'Terrace Plot',
+                surveyNumber: `SF-${100 + f.num}/2B`,
+                subDivision: '2B',
+                areaAcres: secondPlotArea,
+                calculatedAreaAcres: secondPlotArea,
+                village: f.village,
+                taluk: f.taluk,
+                district: 'The Nilgiris',
+                pincode: f.pincode,
+                latitude: 11.412 + (f.num * 0.005),
+                longitude: 76.692 + (f.num * 0.005),
+                fmbPolygon: {
+                  type: 'Polygon',
+                  coordinates: [
+                    [[76.70, 11.42], [76.71, 11.42], [76.71, 11.43], [76.70, 11.43], [76.70, 11.42]],
+                  ],
+                },
+                zones: [
+                  { name: 'Zone C', crop: f.crops[2] || 'Cabbage', areaHa: 0.58, status: 'Active' },
+                ],
               },
             ],
           }),
           JSON.stringify({
-            gpsCaptured: true,
-            latitude: 11.41 + f.num * 0.005,
-            longitude: 76.69 + f.num * 0.005,
-            village: 'Kodanad',
-            taluk: 'Kotagiri',
-            district: 'The Nilgiris',
-          }),
-          JSON.stringify({
             documents: [
-              { docType: 'ID_PROOF', fileUrl: 'https://storage.tohfa.in/docs/id_proof.pdf', fileName: 'id_proof.pdf' },
-              { docType: 'FARM_DOC', fileUrl: 'https://storage.tohfa.in/docs/patta.pdf', fileName: 'patta.pdf' },
+              {
+                docType: 'ID_PROOF',
+                docSubType: 'Aadhaar Card',
+                fileName: `aadhaar_${f.num}.pdf`,
+                fileUrl: 'https://storage.tohfa.in/docs/id_proof.pdf',
+                fileSize: '1.2 MB',
+                verified: true,
+              },
+              {
+                docType: 'FARM_DOC',
+                docSubType: 'Land Deed (Patta/Chitta)',
+                fileName: `patta_chitta_${f.num}.pdf`,
+                fileUrl: 'https://storage.tohfa.in/docs/patta.pdf',
+                fileSize: '3.4 MB',
+                verified: true,
+              },
+              {
+                docType: 'BANK_PROOF',
+                docSubType: 'Bank Passbook',
+                fileName: `bank_passbook_${f.num}.pdf`,
+                fileUrl: 'https://storage.tohfa.in/docs/passbook.pdf',
+                fileSize: '0.9 MB',
+                verified: true,
+              },
+              {
+                docType: 'CERTIFICATION',
+                docSubType: 'PGS Organic Certificate',
+                fileName: `pgs_cert_${f.num}.pdf`,
+                fileUrl: 'https://storage.tohfa.in/docs/pgs_cert.pdf',
+                fileSize: '2.1 MB',
+                validTill: '2027-03-15',
+                verified: true,
+              },
             ],
           }),
           uId,

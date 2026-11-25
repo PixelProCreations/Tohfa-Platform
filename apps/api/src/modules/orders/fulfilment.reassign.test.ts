@@ -142,7 +142,11 @@ describe('assign-warehouse row lock (fake repo) — BR-85j', () => {
 describe('pack / dispatch status updates that match no row (fake repo) — BR-85j', () => {
   it('BR-85j: pack and dispatch are 409 CONFLICT with no audit row when the conditional status update changes nothing', async () => {
     for (const action of ['pack', 'dispatch'] as const) {
-      const h = harness({ unlocked: { status: 'CONFIRMED', channel: 'ONLINE' }, locked: null, updatedRows: 0 });
+      const h = harness({
+        unlocked: { status: action === 'pack' ? 'CONFIRMED' : 'PACKED', channel: 'ONLINE' },
+        locked: null,
+        updatedRows: 0,
+      });
       const call =
         action === 'pack'
           ? h.service.packOrder(h.actor, h.main, h.orderId, {}, newId())
@@ -214,21 +218,16 @@ describeIfDatabase('assign-warehouse races a concurrent status change (PostgreSQ
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ closePool, withTransaction }, { closeRedis }, { removeCommittedFixtures }] = await Promise.all([
+    const [{ withTransaction }, { removeCommittedFixtures }] = await Promise.all([
       import('../../db/pool.js'),
-      import('../../redis.js'),
       import('../../test/committedFixtureCleanup.js'),
     ]);
-    try {
-      await removeCommittedFixtures(withTransaction, {
-        orderIds: created.orders,
-        cropIds: created.crops,
-        customerIds: created.customers,
-        userIds: created.users,
-      });
-    } finally {
-      await Promise.allSettled([closePool(), closeRedis()]);
-    }
+    await removeCommittedFixtures(withTransaction, {
+      orderIds: created.orders,
+      cropIds: created.crops,
+      customerIds: created.customers,
+      userIds: created.users,
+    });
   });
 
   it('BR-85j: a pack that commits while the reassign waits for the row makes the reassign 409; the order stays put and no reassign history or audit row is written', async () => {

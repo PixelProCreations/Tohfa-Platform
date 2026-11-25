@@ -11,14 +11,11 @@
  * old M5S10 route was folded into it.
  *
  * Live data (API integration plan, phase 5): the rows are GET /admin/orders
- * with status READY_FOR_PICKUP, page by page. The list carries no customer
- * name (BR-101), so a card shows the order number, items, total and when it
- * was placed; the name is on the verify step, from the detail. The design's
- * "Packed 11:15 AM" and "Ready for 2h 15m" stay hidden too: the list row has
- * no packedAt and no ready-at time, and neither is guessed from placedAt. The
- * time badge is how long ago the order was placed (placedAt). The bottom
- * action opened verification with no order, so it is gone: every pickup starts
- * from its order's card.
+ * with status READY_FOR_PICKUP, page by page. The list row has no buyer name,
+ * so the card's customer line shows ADMIN_NO_VALUE. The list row has no
+ * packedAt or ready-at time either; the time badge and the bottom-left line
+ * show when the order was placed (placedAt), labelled as such. The bottom
+ * action opens pickup verification with no order, as in the design.
  */
 import React, { useState } from 'react';
 import {
@@ -36,6 +33,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { t } from '../../../i18n';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import type { OrderListRow, OrderScreenBaseProps, OrdersLiveStateProps } from './types';
@@ -79,6 +77,21 @@ function SearchIcon() {
   );
 }
 
+function PackageIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={styles.buttonIcon}>
+      <Path
+        d="M21 8H3V4h18v4zM21 8v12H3V8"
+        stroke={adminColors.onBrand}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M10 12h4" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function OrderCardBody({ order }: { order: OrderListRow }) {
   return (
     <>
@@ -88,6 +101,8 @@ function OrderCardBody({ order }: { order: OrderListRow }) {
           <Text style={styles.timeBadgeText}>{order.placedAgo}</Text>
         </View>
       </View>
+
+      <Text style={styles.customerName}>{ADMIN_NO_VALUE}</Text>
 
       <View style={styles.itemsPriceRow}>
         <Text style={styles.itemsText}>{order.itemsLabel}</Text>
@@ -191,6 +206,19 @@ export function ReadyForPickupScreen({
             ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : <View style={styles.bottomSpacer} />}
           />
         )}
+
+        {canVerify ? (
+          <View style={styles.fixedBottomContainer}>
+            <TouchableOpacity
+              style={styles.primaryActionButton}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S11', { step: 'verify' })}
+            >
+              <PackageIcon />
+              <Text style={styles.primaryActionText}>{t('ordersLive.ready.newPacking')}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -293,6 +321,12 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.warning.text,
   },
+  customerName: {
+    ...adminType.body,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginBottom: 10,
+  },
   itemsPriceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -329,5 +363,28 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  fixedBottomContainer: {
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  primaryActionButton: {
+    backgroundColor: adminColors.brand,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.lg,
+    ...adminShadow.sm,
+  },
+  buttonIcon: {
+    marginRight: adminSpacing.sm,
+  },
+  primaryActionText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
@@ -285,11 +285,6 @@ describeIfDatabase('Reports (PostgreSQL)', () => {
     ready = await databaseReady('goods_receipts');
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   async function inRolledBackTx(fn: (tx: Executor) => Promise<void>): Promise<void> {
     const { withTransaction } = await import('../../db/pool.js');

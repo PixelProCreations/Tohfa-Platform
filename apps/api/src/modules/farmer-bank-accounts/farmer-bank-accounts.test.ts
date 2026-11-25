@@ -762,8 +762,6 @@ describeIfDatabase('Farmer Bank Accounts integration (PostgreSQL)', () => {
     await pool.query(`DELETE FROM farmer_bank_accounts WHERE farmer_id = ANY($1::uuid[])`, [farmerIds]);
     await pool.query(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, [farmerIds]);
     // The users stay: audit_log rows (append-only) reference them.
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   it('BR-53a: the full number is never stored; the row keeps last 4 and a NULL token, and neither audit nor list leaks it', async () => {

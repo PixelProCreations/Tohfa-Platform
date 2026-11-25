@@ -17,10 +17,10 @@
  * tasks from GET /admin/tasks/summary (ORDER_PACK = orders confirmed and not
  * packed, ORDER_DISPATCH = packed and not yet ready, ORDER_PICKUP_OTP = ready
  * and waiting for the customer); a count that has not loaded shows as no
- * value, never 0. Figures with no API are hidden: new orders as a separate
- * state, delivery, order issues, today's summary, the Main total / issues KPIs
- * and the per-warehouse breakdown. Main's recent orders are the newest rows of
- * GET /admin/orders.
+ * value, never 0. Every designed figure renders; one the API has no source
+ * for shows ADMIN_NO_VALUE. "Pending" is CONFIRMED + PACKED + READY_FOR_PICKUP
+ * (owner definition), the sum of the three task counts. Main's recent orders
+ * are the newest rows of GET /admin/orders.
  */
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, RefreshControl } from 'react-native';
@@ -29,7 +29,8 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { t } from '../../../i18n';
+import { t, type TranslationKey } from '../../../i18n';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { orderToneColors } from './statusTone';
 import type {
@@ -55,8 +56,23 @@ function countText(value: number | undefined): string {
   return value === undefined ? t('orders.noValue') : String(value);
 }
 
-// "Issues" is gone with the order-issues area (no API).
-const FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed'];
+/** Pending orders (CONFIRMED + PACKED + READY_FOR_PICKUP), or undefined until the counts load. */
+function pendingCount(counts: OrderTaskCounts | null): number | undefined {
+  return counts === null ? undefined : counts.toPack + counts.toMarkReady + counts.awaitingPickup;
+}
+
+const FILTER_PILLS = [
+  { key: 'All', label: 'ordersLive.dashboard.pill.all' },
+  { key: 'New', label: 'ordersLive.dashboard.pill.new' },
+  { key: 'Confirmed', label: 'ordersLive.dashboard.pill.confirmed' },
+  { key: 'Packing', label: 'ordersLive.dashboard.pill.packing' },
+  { key: 'Ready', label: 'ordersLive.dashboard.pill.ready' },
+  { key: 'Completed', label: 'ordersLive.dashboard.pill.completed' },
+  { key: 'Issues', label: 'ordersLive.dashboard.pill.issues' },
+] as const satisfies readonly { key: string; label: TranslationKey }[];
+
+// Fixed component size (no size token exists for it).
+const BELL_BADGE = 16;
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -212,6 +228,30 @@ function ChevronRightIcon() {
   );
 }
 
+function ErrorExclamationIcon() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.danger.text} strokeWidth="1.8" />
+      <Path d="M12 7v5.5M12 15.5h.01" stroke={adminColors.danger.text} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function WarningTriangleAccentIcon() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+        stroke={adminColors.brand}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M12 9v4M12 17h.01" stroke={adminColors.brand} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function ViewOrdersReceiptIcon() {
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -248,6 +288,11 @@ export function OrdersDashboardScreen({
   );
 
   const isAllWarehouses = scope.warehouseId === undefined;
+  const warehouseNameOf = (id: string | null): string => warehouses.find((w) => w.id === id)?.name ?? ADMIN_NO_VALUE;
+  // The design's per-warehouse rows: the selected warehouse, or every warehouse offered. Order counts per warehouse have no source.
+  const summaryWarehouses = selectedWarehouseId !== undefined ? warehouses.filter((w) => w.id === selectedWarehouseId) : warehouses;
+  const summaryRows = summaryWarehouses.length > 0 ? summaryWarehouses : [{ id: '', name: ADMIN_NO_VALUE }];
+  const pending = pendingCount(counts);
 
   // The flow holds the Main warehouse selection, so the list it opens is already narrowed.
   const listParams = (extra?: Record<string, unknown>): Record<string, unknown> => ({ ...extra });
@@ -272,7 +317,7 @@ export function OrdersDashboardScreen({
                   </TouchableOpacity>
                 ) : null}
                 <GridMenuIcon />
-                <Text style={styles.headerTitle}>Customer Orders</Text>
+                <Text style={styles.headerTitle}>{t('ordersLive.dashboard.titleMain')}</Text>
               </View>
               <TouchableOpacity style={styles.bellBtn} activeOpacity={0.75}>
                 <BellIcon />
@@ -288,7 +333,7 @@ export function OrdersDashboardScreen({
               <Text style={styles.dropdownBtnText}>
                 {selectedWarehouseId
                   ? (warehouses.find((w) => w.id === selectedWarehouseId)?.name ?? selectedWarehouseId)
-                  : 'All Warehouses'}
+                  : t('ordersLive.dashboard.allWarehouses')}
               </Text>
               <ChevronDownSmallIcon />
             </TouchableOpacity>
@@ -305,7 +350,7 @@ export function OrdersDashboardScreen({
                 onPress={() => setShowWarehouseModal(false)}
               >
                 <View style={styles.dropdownModalMenu}>
-                  <Text style={styles.dropdownModalTitle}>Select Warehouse</Text>
+                  <Text style={styles.dropdownModalTitle}>{t('ordersLive.dashboard.selectWarehouse')}</Text>
                   <TouchableOpacity
                     style={[styles.dropdownModalItem, selectedWarehouseId === undefined && styles.dropdownModalItemActive]}
                     onPress={() => {
@@ -319,7 +364,7 @@ export function OrdersDashboardScreen({
                         selectedWarehouseId === undefined && styles.dropdownModalItemTextActive,
                       ]}
                     >
-                      All Warehouses
+                      {t('ordersLive.dashboard.allWarehouses')}
                     </Text>
                     {selectedWarehouseId === undefined ? <CheckSmallIcon /> : null}
                   </TouchableOpacity>
@@ -359,16 +404,21 @@ export function OrdersDashboardScreen({
                   <BackArrowIcon />
                 </TouchableOpacity>
                 <ReceiptHeaderIcon />
-                <Text style={styles.headerTitle}>Orders</Text>
+                <Text style={styles.headerTitle}>{t('ordersLive.dashboard.titleSub')}</Text>
               </View>
               <TouchableOpacity style={styles.bellBtn} activeOpacity={0.75}>
                 <BellIcon />
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>{ADMIN_NO_VALUE}</Text>
+                </View>
               </TouchableOpacity>
             </View>
 
             <View style={styles.warehousePill}>
               <LockSmallIcon />
-              <Text style={styles.warehousePillText}>{scope.warehouseName ?? '—'} · Assigned Warehouse</Text>
+              <Text style={styles.warehousePillText}>
+                {t('ordersLive.dashboard.assignedWarehouse', { name: scope.warehouseName ?? ADMIN_NO_VALUE })}
+              </Text>
             </View>
           </View>
         )}
@@ -376,16 +426,83 @@ export function OrdersDashboardScreen({
         {isAllWarehouses ? (
           // Main Warehouse Content (Matches M5-01 Customer Orders design)
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
-            {/* KPI cards: open order tasks. Total orders and issues have no API. */}
             {/* Design (mod1213farmadmin M5-01): the shared card, design icons. */}
             <View style={styles.mainKpiGrid}>
-              <OverviewDashboardCard value={countText(counts?.toPack)} title="NEW ORDERS" icon="receiving" />
-              <OverviewDashboardCard value={countText(counts?.awaitingPickup)} title="READY PICKUP" icon="pickup" />
+              <OverviewDashboardCard
+                value={ADMIN_NO_VALUE}
+                title={t('ordersLive.dashboard.kpi.totalOrders')}
+                subtitle={t('ordersLive.dashboard.kpi.totalOrdersHint')}
+                icon="orders"
+              />
+              <OverviewDashboardCard
+                value={countText(counts?.toPack)}
+                title={t('ordersLive.dashboard.kpi.newOrders')}
+                subtitle={t('ordersLive.dashboard.kpi.newOrdersHint')}
+                icon="receiving"
+              />
+              <OverviewDashboardCard
+                value={countText(counts?.awaitingPickup)}
+                title={t('ordersLive.dashboard.kpi.readyPickup')}
+                subtitle={t('ordersLive.dashboard.kpi.readyPickupHint')}
+                icon="pickup"
+              />
+              <OverviewDashboardCard
+                value={ADMIN_NO_VALUE}
+                title={t('ordersLive.dashboard.kpi.issues')}
+                subtitle={t('ordersLive.dashboard.kpi.issuesHint')}
+                icon="alert"
+                tone="danger"
+              />
             </View>
             {countsState === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
 
+            {/* Warehouse Order Summary */}
+            <View style={styles.mainSectionHeaderRow}>
+              <Text style={styles.mainSectionTitle}>{t('ordersLive.dashboard.warehouseSummary')}</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S02', listParams())}>
+                <Text style={styles.mainViewLinkText}>{t('ordersLive.dashboard.viewLink')}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.whSummaryList}>
+              {summaryRows.map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.whSummaryCard}
+                  activeOpacity={0.75}
+                  onPress={() => onNavigate?.('M5S02', item.id === '' ? listParams() : { warehouseId: item.id })}
+                >
+                  <Text style={styles.whSummaryName}>{item.name}</Text>
+                  <View style={styles.orderCountBadge}>
+                    <Text style={styles.orderCountBadgeText}>{t('ordersLive.dashboard.warehouseOrders', { count: ADMIN_NO_VALUE })}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Needs Attention */}
+            <View style={styles.mainSectionHeaderRow}>
+              <Text style={styles.mainSectionTitle}>{t('ordersLive.dashboard.needsAttention')}</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S05', { step: 'shortage' })}>
+                <Text style={styles.mainViewLinkText}>{t('ordersLive.dashboard.viewLink')}</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.needsAttentionCard}
+              activeOpacity={0.75}
+              onPress={() => onNavigate?.('M5S05', { step: 'shortage' })}
+            >
+              <View style={styles.needsAttentionAccent} />
+              <View style={styles.needsAttentionInner}>
+                <WarningTriangleAccentIcon />
+                <View style={styles.needsAttentionTextWrap}>
+                  <Text style={styles.needsAttentionTitle}>{t('ordersLive.dashboard.stockShortage', { count: ADMIN_NO_VALUE })}</Text>
+                  <Text style={styles.needsAttentionSubtitle}>{t('ordersLive.dashboard.stockShortageHint')}</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
             {/* Quick Actions */}
-            <Text style={styles.mainSectionTitleStandalone}>Quick Actions</Text>
+            <Text style={styles.mainSectionTitleStandalone}>{t('ordersLive.dashboard.quickActions')}</Text>
             <View style={styles.mainQuickActionsRow}>
               <TouchableOpacity
                 style={styles.mainQuickActionCard}
@@ -395,7 +512,7 @@ export function OrdersDashboardScreen({
                 <View style={styles.mainQuickActionIconWrap}>
                   <ViewOrdersReceiptIcon />
                 </View>
-                <Text style={styles.mainQuickActionLabel}>View Orders</Text>
+                <Text style={styles.mainQuickActionLabel}>{t('ordersLive.dashboard.viewOrders')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -406,12 +523,12 @@ export function OrdersDashboardScreen({
                 <View style={styles.mainQuickActionIconWrap}>
                   <ShelfPickupIcon />
                 </View>
-                <Text style={styles.mainQuickActionLabel}>Ready for Pickup</Text>
+                <Text style={styles.mainQuickActionLabel}>{t('ordersLive.dashboard.readyForPickup')}</Text>
               </TouchableOpacity>
             </View>
 
             {/* Recent Orders */}
-            <Text style={styles.mainSectionTitleStandalone}>Recent Orders</Text>
+            <Text style={styles.mainSectionTitleStandalone}>{t('ordersLive.dashboard.recentOrders')}</Text>
             {recentOrders.slice(0, RECENT_ORDER_ROWS).map((order) => {
               const tone = orderToneColors(order.tone);
               return (
@@ -427,10 +544,13 @@ export function OrdersDashboardScreen({
                       <Text style={[styles.confirmedBadgeText, { color: tone.text }]}>{order.statusLabel}</Text>
                     </View>
                   </View>
-                  <Text style={styles.recentOrderCustomer}>{order.placedLabel}</Text>
+                  {/* The order list carries no buyer name (GET /admin/orders). */}
+                  <Text style={styles.recentOrderCustomer}>{ADMIN_NO_VALUE}</Text>
                   <View style={styles.recentOrderDivider} />
                   <View style={styles.recentOrderBottomRow}>
-                    <Text style={styles.recentOrderMeta}>{order.itemsLabel}</Text>
+                    <Text style={styles.recentOrderMeta}>
+                      {t('ordersLive.dashboard.recentMeta', { warehouse: warehouseNameOf(order.warehouseId), items: order.itemsLabel })}
+                    </Text>
                     <Text style={styles.recentOrderAmount}>{order.amountLabel}</Text>
                   </View>
                 </TouchableOpacity>
@@ -443,19 +563,25 @@ export function OrdersDashboardScreen({
           // Sub Warehouse Content (existing, untouched)
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionHeaderInline}>Order Status</Text>
+              <Text style={styles.sectionHeaderInline}>{t('ordersLive.dashboard.orderStatus')}</Text>
               <TouchableOpacity activeOpacity={0.7} onPress={() => onNavigate?.('M5S02', listParams())}>
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={styles.viewAllText}>{t('ordersLive.dashboard.viewAll')}</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Open order tasks. New orders (no separate state), delivery and issues have no API. */}
             {/* Design (mod1213farmadmin M5S01 Sub): the shared card in the design grid.
                 "Packed" has no design card; it uses the same shared card (owner, 2026-11-03). */}
             <View style={styles.mainKpiGrid}>
               <OverviewDashboardCard
+                value={ADMIN_NO_VALUE}
+                title={t('ordersLive.dashboard.tile.newOrders')}
+                icon="orders"
+                onPress={() => onNavigate?.('M5S02', listParams())}
+              />
+
+              <OverviewDashboardCard
                 value={countText(counts?.toPack)}
-                title="Confirmed"
+                title={t('ordersLive.dashboard.tile.confirmed')}
                 icon="receiving"
                 onPress={() => onNavigate?.('M5S02', listParams({ status: 'CONFIRMED' }))}
               />
@@ -469,9 +595,24 @@ export function OrdersDashboardScreen({
 
               <OverviewDashboardCard
                 value={countText(counts?.awaitingPickup)}
-                title="Ready for Pickup"
+                title={t('ordersLive.dashboard.tile.readyForPickup')}
                 icon="pickup"
                 onPress={() => onNavigate?.('M5S09')}
+              />
+
+              <OverviewDashboardCard
+                value={ADMIN_NO_VALUE}
+                title={t('ordersLive.dashboard.tile.delivery')}
+                icon="truck"
+                onPress={() => onNavigate?.('M5S02', listParams())}
+              />
+
+              <OverviewDashboardCard
+                value={ADMIN_NO_VALUE}
+                title={t('ordersLive.dashboard.tile.orderIssues')}
+                icon="alert"
+                tone="danger"
+                onPress={() => onNavigate?.('M5S16')}
               />
             </View>
 
@@ -482,15 +623,15 @@ export function OrdersDashboardScreen({
               style={styles.pillsScrollView}
             >
               {FILTER_PILLS.map((pill) => {
-                const isActive = activeFilterPill === pill;
+                const isActive = activeFilterPill === pill.key;
                 return (
                   <TouchableOpacity
-                    key={pill}
+                    key={pill.key}
                     style={[styles.pillBtn, isActive && styles.pillBtnActive]}
                     activeOpacity={0.75}
-                    onPress={() => setActiveFilterPill(pill)}
+                    onPress={() => setActiveFilterPill(pill.key)}
                   >
-                    <Text style={[styles.pillText, isActive && styles.pillTextActive]}>{pill}</Text>
+                    <Text style={[styles.pillText, isActive && styles.pillTextActive]}>{t(pill.label)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -498,7 +639,7 @@ export function OrdersDashboardScreen({
 
             <View style={styles.attentionHeaderRow}>
               <WarningTriangleIcon />
-              <Text style={styles.attentionSectionTitle}>Needs Attention</Text>
+              <Text style={styles.attentionSectionTitle}>{t('ordersLive.dashboard.needsAttention')}</Text>
             </View>
 
             {countsState === 'loading' ? (
@@ -561,20 +702,56 @@ export function OrdersDashboardScreen({
               </>
             )}
 
-            <Text style={styles.sectionHeader}>Quick Actions</Text>
+            <TouchableOpacity
+              style={[styles.attentionCard, styles.dangerLeftBorder]}
+              activeOpacity={0.75}
+              onPress={() => onNavigate?.('M5S16')}
+            >
+              <ErrorExclamationIcon />
+              <View style={styles.attentionContent}>
+                <Text style={styles.attentionTitle}>{t('ordersLive.dashboard.attention.issues', { count: ADMIN_NO_VALUE })}</Text>
+                <Text style={styles.attentionDesc}>{t('ordersLive.dashboard.attention.issuesHint')}</Text>
+              </View>
+              <ChevronRightIcon />
+            </TouchableOpacity>
+
+            <Text style={styles.sectionHeader}>{t('ordersLive.dashboard.todaySummary')}</Text>
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{ADMIN_NO_VALUE}</Text>
+                <Text style={styles.summaryLabel}>{t('ordersLive.dashboard.today.orders')}</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{ADMIN_NO_VALUE}</Text>
+                <Text style={styles.summaryLabel}>{t('ordersLive.dashboard.today.completed')}</Text>
+              </View>
+              <View style={styles.summaryCard}>
+                <Text style={styles.summaryValue}>{countText(pending)}</Text>
+                <Text style={styles.summaryLabel}>{t('ordersLive.dashboard.today.pending')}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.sectionHeader}>{t('ordersLive.dashboard.quickActions')}</Text>
             <View style={styles.quickActionsRow}>
               <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S02', listParams())}>
                 <View style={styles.quickActionIconWrap}>
                   <ViewOrdersReceiptIcon />
                 </View>
-                <Text style={styles.quickActionText}>View Orders</Text>
+                <Text style={styles.quickActionText}>{t('ordersLive.dashboard.viewOrders')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S09')}>
                 <View style={styles.quickActionIconWrap}>
                   <AttentionPersonIcon />
                 </View>
-                <Text style={styles.quickActionText}>Ready for Pickup</Text>
+                <Text style={styles.quickActionText}>{t('ordersLive.dashboard.readyForPickup')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S16')}>
+                <View style={styles.quickActionIconWrap}>
+                  <ErrorExclamationIcon />
+                </View>
+                <Text style={styles.quickActionText}>{t('ordersLive.dashboard.orderIssues')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -623,6 +800,19 @@ const styles = StyleSheet.create({
     ...adminType.title,
     color: adminColors.onBrand,
   },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: BELL_BADGE,
+    height: BELL_BADGE,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.danger.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: { ...adminType.caption, color: adminColors.onBrand },
   bellBtn: {
     width: 36,
     height: 36,
@@ -738,6 +928,89 @@ const styles = StyleSheet.create({
   mainKpiValue: {
     ...adminType.kpiValue,
     color: adminColors.ink,
+  },
+  mainSectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  mainSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  mainViewLinkText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+    fontWeight: '600',
+  },
+  whSummaryList: {
+    gap: 10,
+    marginBottom: 16,
+  },
+  whSummaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...adminShadow.sm,
+  },
+  whSummaryName: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '600',
+  },
+  orderCountBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  orderCountBadgeText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    fontWeight: '600',
+  },
+  needsAttentionCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    flexDirection: 'row',
+    overflow: 'hidden',
+    marginBottom: 16,
+    ...adminShadow.sm,
+  },
+  needsAttentionAccent: {
+    width: 4.5,
+    backgroundColor: adminColors.brand,
+  },
+  needsAttentionInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  needsAttentionTextWrap: {
+    flex: 1,
+  },
+  needsAttentionTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  needsAttentionSubtitle: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
   },
   mainSectionTitleStandalone: {
     ...adminType.sectionHead,
@@ -907,6 +1180,35 @@ const styles = StyleSheet.create({
   brandLeftBorder: {
     borderLeftWidth: 4.5,
     borderLeftColor: adminColors.brand,
+  },
+  dangerLeftBorder: {
+    borderLeftWidth: 4.5,
+    borderLeftColor: adminColors.danger.text,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  summaryLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   attentionContent: {
     flex: 1,

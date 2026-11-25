@@ -9,12 +9,21 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import {
-  BackChevronIcon,
-  SALES_PALETTE,
-} from './SalesChannelOverviewScreen';
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { BackChevronIcon, SALES_PALETTE } from './SalesChannelOverviewScreen';
+import { useAdminQuery } from '../../api/hooks';
+import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 // ─── Order Box Icon ──────────────────────────────────────────────────────────
-function PackageBoxIcon({ color = SALES_PALETTE.primaryOrange, size = 18 }: { color?: string; size?: number }) {
+function PackageBoxIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -46,87 +55,61 @@ export interface OnlineOrderItem {
   time?: string;
 }
 
-export const DEMO_ONLINE_ORDERS: OnlineOrderItem[] = [
-  {
-    id: 'ord-1',
-    orderNumber: 'ORD-20260910-0091',
-    customerName: 'Divya Ramesh',
-    pickupLocation: 'Ooty pickup',
-    status: 'Confirmed',
-    amount: 135,
-    itemsCount: 3,
-    time: '10:15 AM',
-  },
-  {
-    id: 'ord-2',
-    orderNumber: 'ORD-20260909-0088',
-    customerName: 'Anitha K.',
-    pickupLocation: 'Coonoor pickup',
-    status: 'Packed',
-    amount: 210,
-    itemsCount: 4,
-    time: 'Yesterday',
-  },
-  {
-    id: 'ord-3',
-    orderNumber: 'ORD-20260909-0084',
-    customerName: 'Ramesh P.',
-    pickupLocation: 'Gudalur pickup',
-    status: 'Ready for Pickup',
-    amount: 95,
-    itemsCount: 2,
-    time: 'Yesterday',
-  },
-  {
-    id: 'ord-4',
-    orderNumber: 'ORD-20260909-0079',
-    customerName: 'Suresh M.',
-    pickupLocation: 'Kotagiri pickup',
-    status: 'Confirmed',
-    amount: 180,
-    itemsCount: 3,
-    time: 'Yesterday',
-  },
-  {
-    id: 'ord-5',
-    orderNumber: 'ORD-20260908-0071',
-    customerName: 'Priya N.',
-    pickupLocation: 'Ooty pickup',
-    status: 'Packed',
-    amount: 320,
-    itemsCount: 5,
-    time: 'Sep 8',
-  },
-  {
-    id: 'ord-6',
-    orderNumber: 'ORD-20260908-0065',
-    customerName: 'Karthik Raja',
-    pickupLocation: 'Coonoor pickup',
-    status: 'Ready for Pickup',
-    amount: 150,
-    itemsCount: 2,
-    time: 'Sep 8',
-  },
-];
-
 export interface SalesOnlineOrdersScreenProps {
   onBack?: () => void;
   onSelectOrder?: (order: OnlineOrderItem) => void;
   onOpenInvoice?: (order: OnlineOrderItem) => void;
+  orders?: OnlineOrderItem[];
 }
 
 type FilterTab = 'All' | 'Confirmed' | 'Packed' | 'Ready for Pickup' | 'Delivered';
+
+function toOnlineStatus(status: string): OnlineOrderItem['status'] {
+  switch (status) {
+    case 'PACKED':
+      return 'Packed';
+    case 'READY_FOR_PICKUP':
+      return 'Ready for Pickup';
+    case 'DELIVERED':
+    case 'PICKED_UP':
+      return 'Delivered';
+    case 'CONFIRMED':
+    default:
+      return 'Confirmed';
+  }
+}
 
 export function SalesOnlineOrdersScreen({
   onBack,
   onSelectOrder,
   onOpenInvoice,
+  orders,
 }: SalesOnlineOrdersScreenProps) {
   const [activeTab, setActiveTab] = useState<FilterTab>('All');
 
+  const query = useAdminQuery(
+    ['admin', 'orders', 'online-list'],
+    (signal) => listAdminOrders({ channel: 'ONLINE', limit: 50 }, signal),
+    { enabled: !orders }
+  );
+
+  const displayOrders: OnlineOrderItem[] = orders ?? (query.data?.items ?? []).map((item: OrderSummaryDto) => ({
+    id: item.id,
+    orderNumber: item.orderNumber,
+    customerName: item.customerName ?? ADMIN_NO_VALUE,
+    pickupLocation:
+      item.fulfillmentType === 'WAREHOUSE_PICKUP'
+        ? t('wiringSales.online.warehousePickup')
+        : t('wiringSales.online.homeDelivery'),
+    status: toOnlineStatus(item.status),
+    amount: Number(item.totalAmount) || 0,
+    itemsCount: item.itemCount ?? 0,
+    time: item.deliveryDate ?? ADMIN_NO_VALUE,
+  }));
+
   const filterTabs: FilterTab[] = ['All', 'Confirmed', 'Packed', 'Ready for Pickup', 'Delivered'];
 
-  const filteredOrders = DEMO_ONLINE_ORDERS.filter((ord) => {
+  const filteredOrders = displayOrders.filter((ord) => {
     if (activeTab === 'All') return true;
     return ord.status === activeTab;
   });
@@ -134,19 +117,19 @@ export function SalesOnlineOrdersScreen({
   const getStatusBadgeStyle = (status: OnlineOrderItem['status']) => {
     switch (status) {
       case 'Confirmed':
-        return { bg: '#E0F2FE', text: '#0284C7' };
+        return { bg: adminColors.info.bg, text: adminColors.info.text };
       case 'Packed':
-        return { bg: '#FEF3C7', text: '#D97706' };
+        return { bg: adminColors.warning.bg, text: adminColors.warning.text };
       case 'Ready for Pickup':
-        return { bg: '#DCFCE7', text: '#15803D' };
+        return { bg: adminColors.success.bg, text: adminColors.success.text };
       case 'Delivered':
-        return { bg: '#F3F4F6', text: '#4B5563' };
+        return { bg: adminColors.card, text: adminColors.muted };
     }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -155,15 +138,19 @@ export function SalesOnlineOrdersScreen({
             onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
           >
-            <BackChevronIcon />
+            <BackChevronIcon color={adminColors.ink} />
           </TouchableOpacity>
         </View>
 
         {/* Title Block */}
         <View style={styles.titleBlock}>
           <Text style={styles.screenTitle}>Online Orders</Text>
-          <Text style={styles.screenSubtitle}>412 orders this month · Customer App</Text>
+          <Text style={styles.screenSubtitle}>
+            {t('wiringSales.online.subtitle', { shown: displayOrders.length })}
+          </Text>
         </View>
 
         {/* Filter Tabs */}
@@ -181,6 +168,8 @@ export function SalesOnlineOrdersScreen({
                   style={[styles.filterPill, isActive && styles.filterPillActive]}
                   onPress={() => setActiveTab(item)}
                   activeOpacity={0.7}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: isActive }}
                 >
                   <Text
                     style={[
@@ -194,82 +183,68 @@ export function SalesOnlineOrdersScreen({
               );
             }}
           />
-
-          {/* Sub visual scroll track line */}
-          <View style={styles.scrollTrackWrapper}>
-            <Text style={styles.trackArrow}>◀</Text>
-            <View style={styles.scrollTrackBar}>
-              <View
-                style={[
-                  styles.scrollTrackThumb,
-                  {
-                    left:
-                      activeTab === 'All'
-                        ? '0%'
-                        : activeTab === 'Confirmed'
-                        ? '25%'
-                        : activeTab === 'Packed'
-                        ? '50%'
-                        : '75%',
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.trackArrow}>▶</Text>
-          </View>
         </View>
 
         {/* Orders List */}
-        <FlatList
-          data={filteredOrders}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.ordersList}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const badge = getStatusBadgeStyle(item.status);
-            return (
-              <TouchableOpacity
-                style={styles.orderCard}
-                onPress={() => {
-                  if (item.status === 'Ready for Pickup') {
-                    onOpenInvoice?.(item);
-                  } else {
-                    onSelectOrder?.(item);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.orderCardLeft}>
-                  <View style={styles.packageIconBox}>
-                    <PackageBoxIcon color={SALES_PALETTE.primaryOrange} size={20} />
-                  </View>
-                  <View style={styles.orderInfo}>
-                    <View style={styles.orderNumberRow}>
-                      <Text style={styles.orderNumber}>{item.orderNumber}</Text>
+        {query.isPending && displayOrders.length === 0 ? (
+          <AdminLoadingState label="Loading online orders..." />
+        ) : query.error && displayOrders.length === 0 ? (
+          <AdminErrorState error={query.error} onRetry={() => void query.refetch()} />
+        ) : filteredOrders.length === 0 ? (
+          <AdminEmptyState title="No Online Orders" subtitle="No orders found for the selected filter." />
+        ) : (
+          <FlatList
+            data={filteredOrders}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.ordersList}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const badge = getStatusBadgeStyle(item.status);
+              return (
+                <TouchableOpacity
+                  style={styles.orderCard}
+                  onPress={() => {
+                    if (item.status === 'Ready for Pickup') {
+                      onOpenInvoice?.(item);
+                    } else {
+                      onSelectOrder?.(item);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.orderCardLeft}>
+                    <View style={styles.packageIconBox}>
+                      <PackageBoxIcon color={adminColors.brand} size={20} />
                     </View>
-                    <Text style={styles.orderCustomer}>
-                      {item.customerName} · {item.pickupLocation}
-                    </Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        { backgroundColor: badge.bg },
-                      ]}
-                    >
-                      <Text style={[styles.statusBadgeText, { color: badge.text }]}>
-                        {item.status}
+                    <View style={styles.orderInfo}>
+                      <View style={styles.orderNumberRow}>
+                        <Text style={styles.orderNumber}>{item.orderNumber}</Text>
+                      </View>
+                      <Text style={styles.orderCustomer}>
+                        {item.customerName} · {item.pickupLocation}
                       </Text>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: badge.bg },
+                        ]}
+                      >
+                        <Text style={[styles.statusBadgeText, { color: badge.text }]}>
+                          {item.status}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                </View>
 
-                <View style={styles.orderCardRight}>
-                  <Text style={styles.orderAmount}>₹{item.amount}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
-        />
+                  <View style={styles.orderCardRight}>
+                    <Text style={styles.orderAmount}>₹{item.amount.toFixed(2)}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -278,137 +253,98 @@ export function SalesOnlineOrdersScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   container: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.md,
   },
   backButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: SALES_PALETTE.cardBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   titleBlock: {
-    marginBottom: 16,
+    marginBottom: adminSpacing.md,
   },
   screenTitle: {
-    fontSize: 22,
+    ...adminType.title,
+    color: adminColors.ink,
     fontWeight: '700',
-    color: SALES_PALETTE.textHeading,
-    letterSpacing: -0.3,
     marginBottom: 4,
   },
   screenSubtitle: {
-    fontSize: 13,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 18,
   },
   filterTabsContainer: {
-    marginBottom: 18,
+    marginBottom: adminSpacing.md,
   },
   filterTabsList: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingBottom: 8,
+    gap: adminSpacing.xs,
   },
   filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: SALES_PALETTE.cardBg,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
+    borderColor: adminColors.border,
   },
   filterPillActive: {
-    backgroundColor: SALES_PALETTE.primaryOrange,
-    borderColor: SALES_PALETTE.primaryOrange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   filterPillText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.muted,
   },
   filterPillTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  scrollTrackWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
-    paddingHorizontal: 2,
-  },
-  trackArrow: {
-    fontSize: 8,
-    color: '#A0978E',
-  },
-  scrollTrackBar: {
-    flex: 1,
-    height: 3,
-    backgroundColor: '#E6DFD5',
-    borderRadius: 2,
-    marginHorizontal: 4,
-    position: 'relative',
-  },
-  scrollTrackThumb: {
-    position: 'absolute',
-    width: '35%',
-    height: 3,
-    backgroundColor: '#9E948B',
-    borderRadius: 2,
+    color: adminColors.onBrand,
   },
   ordersList: {
-    paddingBottom: 32,
+    paddingBottom: adminSpacing.xxl * 2,
   },
   orderCard: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: SALES_PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   orderCardLeft: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flex: 1,
-    marginRight: 10,
   },
   packageIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: SALES_PALETTE.primaryOrangeLight,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
-    marginTop: 2,
+    marginRight: adminSpacing.md,
   },
   orderInfo: {
     flex: 1,
@@ -419,32 +355,33 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   orderNumber: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
   },
   orderCustomer: {
-    fontSize: 12,
-    color: SALES_PALETTE.textSecondary,
-    marginBottom: 8,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 4,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: adminSpacing.xs,
+    paddingVertical: 2,
+    borderRadius: adminRadius.xs,
   },
   statusBadgeText: {
+    ...adminType.caption,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   orderCardRight: {
     alignItems: 'flex-end',
-    justifyContent: 'flex-start',
+    marginLeft: adminSpacing.sm,
   },
   orderAmount: {
-    fontSize: 16,
+    ...adminType.body,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
   },
 });

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { closePool, pool } from '../../db/pool.js';
+import { pool } from '../../db/pool.js';
 import { describeIfDatabase } from '../../test/factories.js';
 import { randomMobile, requireDatabaseTables } from '../../test/dbFixtures.js';
 
@@ -119,7 +119,6 @@ describeIfDatabase('BR-82: PATCH /v1/auth/me (real database, real router)', () =
       await pool.query(`DROP TRIGGER IF EXISTS ${name} ON audit_log`);
     }
     await pool.query('DROP FUNCTION IF EXISTS br82_fail_audit()');
-    await closePool();
   });
 
   describe('BR-82a: who may call it', () => {

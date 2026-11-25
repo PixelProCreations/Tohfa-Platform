@@ -70,6 +70,10 @@ function makeDb(rec: Recorder): { db: Executor; runTx: <T>(fn: (tx: Executor) =>
 function summary(id: string, customerId: string): ReturnSummaryResponse {
   return {
     photos: [],
+    // Staff-side evidence fields (HEAD): always present on the response contract,
+    // empty on a customer-filed return that has not been inspected yet.
+    customerEvidence: [],
+    inspectionPhotos: [],
     id,
     orderId: ORDER_ID,
     customerId,
@@ -126,6 +130,8 @@ function buildRepo(options: {
     async findOrderItemsByIds(_db, orderId, ids) {
       return orderId === order.id ? orderItems.filter((oi) => ids.includes(oi.id)) : [];
     },
+    // Staff-side KPI roll-up (HEAD): the customer list never asks for it.
+    getSummary: unused,
     async sumAlreadyReturnedQty() {
       return options.alreadyReturned ?? {};
     },

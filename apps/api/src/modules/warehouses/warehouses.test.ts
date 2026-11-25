@@ -22,7 +22,7 @@
 import type { Express } from 'express';
 import request from 'supertest';
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
@@ -499,14 +499,6 @@ describeIfDatabase('warehouses (PostgreSQL)', () => {
     );
     for (const row of seeded.rows) ids.set(row.code, row.id);
     expect(ids.size).toBe(4);
-  });
-
-  afterAll(async () => {
-    const [{ closePool }, { closeRedis }] = await Promise.all([
-      import('../../db/pool.js'),
-      import('../../redis.js'),
-    ]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   it('runs the real list query against Postgres and returns the detail fields', async () => {

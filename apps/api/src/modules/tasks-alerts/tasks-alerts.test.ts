@@ -1074,22 +1074,31 @@ describeIfDatabase('Tasks and alerts routes (real app router, PostgreSQL)', () =
   });
 
   afterAll(async () => {
-    const [{ pool, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    const del = (sql: string, ids: string[]): Promise<unknown> => (ids.length === 0 ? Promise.resolve() : pool.query(sql, [ids]));
-    await del(`DELETE FROM task_alert_states WHERE user_id = ANY($1::uuid[])`, created.users);
-    await del(`DELETE FROM inventory_batches WHERE id = ANY($1::uuid[])`, created.batches);
-    await del(`DELETE FROM goods_receipts WHERE id = ANY($1::uuid[])`, created.receipts);
-    await del(`DELETE FROM purchase_orders WHERE id = ANY($1::uuid[])`, created.purchaseOrders);
-    await del(`DELETE FROM produce_listings WHERE id = ANY($1::uuid[])`, created.listings);
-    await del(`DELETE FROM fair_prices WHERE id = ANY($1::uuid[])`, created.fairPrices);
-    await del(`DELETE FROM plots WHERE farm_id IN (SELECT id FROM farms WHERE farmer_id = ANY($1::uuid[]))`, created.farmers);
-    await del(`DELETE FROM farms WHERE farmer_id = ANY($1::uuid[])`, created.farmers);
-    await del(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, created.farmers);
-    await del(`DELETE FROM crop_master WHERE id = ANY($1::uuid[])`, created.crops);
-    await del(`DELETE FROM warehouses WHERE id = ANY($1::uuid[])`, created.warehouses);
-    await del(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [...created.users, ...created.farmerUsers]);
+    const { pool } = await import('../../db/pool.js');
+    const client = await pool.connect();
+    const del = (sql: string, ids: string[]): Promise<unknown> => (ids.length === 0 ? Promise.resolve() : client.query(sql, [ids]));
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL session_replication_role = replica');
+      await del(`DELETE FROM task_alert_states WHERE user_id = ANY($1::uuid[])`, created.users);
+      await del(`DELETE FROM inventory_batches WHERE id = ANY($1::uuid[])`, created.batches);
+      await del(`DELETE FROM goods_receipts WHERE id = ANY($1::uuid[])`, created.receipts);
+      await del(`DELETE FROM purchase_orders WHERE id = ANY($1::uuid[])`, created.purchaseOrders);
+      await del(`DELETE FROM produce_listings WHERE id = ANY($1::uuid[])`, created.listings);
+      await del(`DELETE FROM fair_prices WHERE id = ANY($1::uuid[])`, created.fairPrices);
+      await del(`DELETE FROM plots WHERE farm_id IN (SELECT id FROM farms WHERE farmer_id = ANY($1::uuid[]))`, created.farmers);
+      await del(`DELETE FROM farms WHERE farmer_id = ANY($1::uuid[])`, created.farmers);
+      await del(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, created.farmers);
+      await del(`DELETE FROM crop_master WHERE id = ANY($1::uuid[])`, created.crops);
+      await del(`DELETE FROM warehouses WHERE id = ANY($1::uuid[])`, created.warehouses);
+      await del(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [...created.users, ...created.farmerUsers]);
+      await client.query('COMMIT');
+    } catch {
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

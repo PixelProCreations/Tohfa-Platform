@@ -126,6 +126,7 @@ export function useStep1Form(
       taluk: state.taluk.trim(),
       district: state.district.trim(),
       pincode: cleanPin,
+      zoneId: state.zoneId ? state.zoneId : undefined,
     };
 
     const validation = validateStep(1, payload);

@@ -193,6 +193,35 @@ class MockAllocationsRepo implements AllocationsRepo {
     };
   }
 
+  async getAllocationConfig(
+    _db: unknown,
+    cropId?: string | null,
+  ): Promise<AllocationConfigView> {
+    const targetCropId = cropId ?? null;
+    const matching = this.configRows.filter((r) => r.crop_id === targetCropId);
+    const rows = matching.length === 4 ? matching : this.configRows.filter((r) => r.crop_id === null);
+    if (rows.length === 4) {
+      return {
+        effectiveFrom: rows[0]!.effective_from,
+        cropId: rows[0]!.crop_id,
+        channels: rows.map((r) => ({ channel: r.channel, percentage: r.percentage })),
+        setBy: rows[0]!.set_by,
+        setAt: new Date().toISOString(),
+      };
+    }
+    return {
+      effectiveFrom: '2026-08-28',
+      cropId: null,
+      channels: [
+        { channel: 'ONLINE', percentage: 70 },
+        { channel: 'LIVE_MARKET', percentage: 10 },
+        { channel: 'RESERVE', percentage: 10 },
+        { channel: 'BUFFER', percentage: 10 },
+      ],
+      setBy: null,
+    };
+  }
+
   async listAllocations(
     _db: unknown,
     _scope: ResolvedScope,
@@ -346,6 +375,50 @@ describe('AllocationsService (Unit & Business Rules S-27)', () => {
       expect(second).toHaveLength(4);
       expect(repo.allocationRows).toHaveLength(4);
     });
+
+    it('BR-12c: allocation split uses integer grams without float truncation on 2.3 kg, 33.3 kg, 4.35 kg (P0-13)', async () => {
+      class Live70Repo extends MockAllocationsRepo {
+        override async getEffectivePercentages(): Promise<EffectivePercentage[]> {
+          return [
+            { channel: 'LIVE_MARKET', percentage: 70 },
+            { channel: 'ONLINE', percentage: 10 },
+            { channel: 'RESERVE', percentage: 10 },
+            { channel: 'BUFFER', percentage: 10 },
+          ];
+        }
+      }
+      const { service } = createTestService(new Live70Repo());
+
+      // Case 1: 2.3 kg -> 70% of 2300g = 1610g = 1.610 kg (not 1.609)
+      const r1 = await service.allocateBatch({
+        batchId: 'batch-2-3',
+        warehouseId: IDS.warehouseOoty,
+        cropId: IDS.cropCarrot,
+        qtyReceivedKg: '2.300',
+      });
+      const live1 = r1.find((r) => r.channel === 'LIVE_MARKET');
+      expect(live1?.allocatedQtyKg).toBe('1.610');
+
+      // Case 2: 33.3 kg -> 70% of 33300g = 23310g = 23.310 kg (not 23.309)
+      const r2 = await service.allocateBatch({
+        batchId: 'batch-33-3',
+        warehouseId: IDS.warehouseOoty,
+        cropId: IDS.cropCarrot,
+        qtyReceivedKg: '33.300',
+      });
+      const live2 = r2.find((r) => r.channel === 'LIVE_MARKET');
+      expect(live2?.allocatedQtyKg).toBe('23.310');
+
+      // Case 3: 4.35 kg -> 70% of 4350g = 3045g = 3.045 kg (not 3.044)
+      const r3 = await service.allocateBatch({
+        batchId: 'batch-4-35',
+        warehouseId: IDS.warehouseOoty,
+        cropId: IDS.cropCarrot,
+        qtyReceivedKg: '4.350',
+      });
+      const live3 = r3.find((r) => r.channel === 'LIVE_MARKET');
+      expect(live3?.allocatedQtyKg).toBe('3.045');
+    });
   });
 
   describe('BR-12b: Allocation Configuration Updates & Sum Guard Validation', () => {
@@ -418,6 +491,16 @@ describe('AllocationsService (Unit & Business Rules S-27)', () => {
       expect(result.setBy).toBe(IDS.superAdminUser);
       const onlineRow = repo.configRows.find((r) => r.channel === 'ONLINE' && r.effective_from === '2026-09-01');
       expect(onlineRow?.percentage).toBe(65);
+    });
+
+    it('BR-148: Super Admin successfully retrieves current channel percentages', async () => {
+      const { service } = createTestService();
+      const result = await service.getAllocationConfig(
+        superAdminScope('allocation.channel_percentage.set'),
+      );
+      expect(result.channels).toHaveLength(4);
+      const sum = result.channels.reduce((acc, c) => acc + c.percentage, 0);
+      expect(sum).toBe(100);
     });
   });
 

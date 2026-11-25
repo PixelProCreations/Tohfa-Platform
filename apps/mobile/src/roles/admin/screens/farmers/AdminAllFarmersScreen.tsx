@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -7,702 +8,1640 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import { type Can } from '../../permissions/can';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { useFarmerList, useApplicationList, useFarmerSummary } from '../../api/farmerHooks';
+import { toDesignFarmerItem, toDesignApplicationItem, ratingText, statusLabelKey } from './allFarmersMappers';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import { AdminLoadingState, AdminErrorState, AdminEmptyState } from '../warehouse/shared/AsyncStates';
+import { t } from '../../i18n';
 
-function NavDashboardIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
-      <Rect x="14" y="3" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
-      <Rect x="3" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
-      <Rect x="14" y="14" width="7" height="7" rx="1.5" stroke={color} strokeWidth="2.2" />
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function NavFarmersIcon({ color = '#D9532F', size = 22 }: { color?: string; size?: number }) {
+function FarmersManagementHeaderIcon({ size = 24, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FarmerAvatarSilhouetteIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M17 21v-2a4 4 0 00-3-3.87"
+        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path
-        d="M9 21v-2a4 4 0 00-4-4H4a4 4 0 00-4 4v2"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path
-        d="M23 21v-2a4 4 0 00-3-3.87"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M16 3.13a4 4 0 010 7.75" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-function NavSalesIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function SearchMagnifierIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2.5" stroke={color} strokeWidth="2.2" />
-      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
+      <Path d="M20 20l-3.5-3.5" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function NavReportsIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 20h18" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Path d="M7 20V14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Path d="M12 20V9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Path d="M17 20V5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="4" y1="21" x2="4" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="10" x2="4" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="12" y1="21" x2="12" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="12" y1="8" x2="12" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="20" y1="21" x2="20" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="20" y1="12" x2="20" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="1" y1="14" x2="7" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="9" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="17" y1="16" x2="23" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function NavProfileIcon({ color = '#9CA3AF', size = 22 }: { color?: string; size?: number }) {
+function LocationPinIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2.2" />
       <Path
-        d="M6 19.5c1.8-2 3.8-3 6-3s4.2 1 6 3"
+        d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="12" cy="9" r="3" stroke={color} strokeWidth="2.2" />
+      <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
 
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  inputBg: '#FFFFFF',
-  inputBorder: '#EDE7DF',
-  placeholder: '#BDB6AF',
-  pillBorder: '#E8E1D7',
-  pillActiveBg: '#F0562A',
-  pillActiveText: '#FFFFFF',
-  pillInactiveBg: '#FFFFFF',
-  pillInactiveText: '#4A443F',
-  ratingAmberBg: '#FFF3E0',
-  ratingAmberText: '#E08000',
-  ratingBlueBg: '#E3F2FD',
-  ratingBlueText: '#1565C0',
-  ratingPurpleBg: '#EDE7F6',
-  ratingPurpleText: '#7C4DFF',
-  ratingMutedBg: '#F5F5F5',
-  ratingMutedText: '#9E9E9E',
-  dotGreen: '#2E7D32',
-  dotRed: '#F0562A',
-};
+function DocumentTextIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ShieldCheckIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// Bottom Nav Icons matching Image 1 (Home, Farmers, Produce, Audits, More)
+function NavHomeIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1V9.5z" stroke={color} strokeWidth="2" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NavFarmersIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NavProduceIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 2a4 4 0 0 0-4 4v1a6 6 0 1 0 8 0V6a4 4 0 0 0-4-4z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NavAuditsIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="4" width="16" height="17" rx="2.5" stroke={color} strokeWidth="1.9" />
+      <Path d="M9 2.5h6a1 1 0 0 1 1 1V5H8V3.5a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.9" strokeLinejoin="round" />
+      <Path d="M8.5 13l2.5 2.5 5-5" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function NavMoreIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="1.5" stroke={color} strokeWidth="2" fill={color} />
+      <Circle cx="19" cy="12" r="1.5" stroke={color} strokeWidth="2" fill={color} />
+      <Circle cx="5" cy="12" r="1.5" stroke={color} strokeWidth="2" fill={color} />
+    </Svg>
+  );
+}
+
+// ─── Data Types & Demo Data ─────────────────────────────────────────────────
 
 export interface FarmerListItem {
   id: string;
   name: string;
-  code: string;
-  initials: string;
+  code?: string;
+  farmerId?: string;
+  initials?: string;
   farmName?: string;
-  location: string;
-  status: 'ACTIVE' | 'DISABLED';
-  rating: number | null;
+  location?: string;
+  zone?: string;
+  farmingType?: string;
+  status: 'ACTIVE' | 'DISABLED' | 'PENDING';
+  rating?: number | string | null | undefined;
   ratingTier?: string;
   mobile?: string;
   aadhaar?: string;
   memberSince?: string;
   subscription?: string;
-  farmSize?: string;
-  fmbZones?: string;
+  kycVerifiedText?: string;
+  kycStatus?: string;
+  certStatus?: 'Expired' | 'Pending' | 'Verified';
+  hasExpiredCert?: boolean;
   primaryCrops?: string;
-  soilType?: string;
-  irrigation?: string;
-  aadhaarStatus?: 'Verified' | 'Pending' | 'Uploaded';
-  pattaStatus?: 'Verified' | 'Pending' | 'Uploaded';
-  passbookStatus?: 'Verified' | 'Pending' | 'Uploaded';
-  certStatus?: 'Verified' | 'Pending' | 'Expired';
-  kycNotes?: string;
+  crops?: string;
 }
 
-export const DEMO_ALL_FARMERS: FarmerListItem[] = [
-  {
-    id: 'farmer-001',
-    name: 'Vijay Anand',
-    code: '#TOHFA-F-00234',
-    initials: 'VA',
-    farmName: 'Wild Eden Organic Farms',
-    location: 'Ooty',
-    status: 'ACTIVE',
-    rating: 782,
-    ratingTier: 'Excellent',
-    mobile: '+91 98765 43210',
-    aadhaar: 'XXXX XXXX 7654',
-    memberSince: 'Mar 2025',
-    subscription: 'Active · Paid',
-  },
-  {
-    id: 'farmer-002',
-    name: 'Ramasamy S.',
-    code: '#TOHFA-F-00189',
-    initials: 'RS',
-    location: 'Coonoor',
-    status: 'ACTIVE',
-    rating: 718,
-    ratingTier: 'Good',
-    mobile: '+91 98765 11092',
-    aadhaar: 'XXXX XXXX 1928',
-    memberSince: 'Jan 2025',
-    subscription: 'Active · Paid',
-  },
-  {
-    id: 'farmer-003',
-    name: 'Kavitha M.',
-    code: '#TOHFA-F-00302',
-    initials: 'KM',
-    location: 'Gudalur',
-    status: 'ACTIVE',
-    rating: 668,
-    ratingTier: 'Good',
-    mobile: '+91 98765 44821',
-    aadhaar: 'XXXX XXXX 5561',
-    memberSince: 'Apr 2025',
-    subscription: 'Active · Free',
-  },
-  {
-    id: 'farmer-004',
-    name: 'Selvi N.',
-    code: '#TOHFA-F-00098',
-    initials: 'SN',
-    location: 'Kotagiri · Disabled',
-    status: 'DISABLED',
-    rating: null,
-    ratingTier: 'Disabled',
-    mobile: '+91 98765 99321',
-    aadhaar: 'XXXX XXXX 7701',
-    memberSince: 'Nov 2024',
-    subscription: 'Inactive',
-  },
-];
-
-interface Props {
-  onBack?: () => void;
-  onSelectFarmer: (farmer: FarmerListItem) => void;
-  onNavigateTab?: (tab: 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile') => void;
-  showBottomNav?: boolean;
+export interface ApplicationListItem {
+  id: string;
+  name: string;
+  applicantName?: string;
+  code: string;
+  status: 'Pending' | 'Approved' | 'Correction Required' | 'Rejected';
+  phone: string;
+  address: string;
+  zone: string;
+  farmingType: string;
+  crops: string;
+  submittedDate: string;
+  approvedDate?: string;
+  kycStatus: string;
+  farmSize: string;
+  soilType: string;
+  landArea: string;
+  fmbSketch: string;
+  reviewNotes: string;
+  identityProofNumber: string;
+  identityProofStatus?: 'Pending' | 'Verified' | null;
 }
 
-const FILTER_TABS = [
-  { id: 'ALL', label: 'All' },
-  { id: 'ACTIVE', label: 'Active' },
-  { id: 'DISABLED', label: 'Disabled' },
-  { id: 'EXCELLENT', label: 'Excellent tier' },
-];
+export interface AdminAllFarmersScreenProps {
+  title?: string | undefined;
+  onBack?: (() => void) | undefined;
+  onSelectFarmer?: ((farmer: FarmerListItem) => void) | undefined;
+  onReviewApplication?: ((application: ApplicationListItem) => void) | undefined;
+  onNavigateTab?: ((tab: 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More' | 'Dashboard' | 'Sales' | 'Reports' | 'Profile') => void) | undefined;
+  showBottomNav?: boolean | undefined;
+  initialTab?: ('farmers' | 'applications') | undefined;
+  initialStatusFilter?: string | undefined;
+  initialShowFilter?: boolean | undefined;
+  can?: Can | undefined;
+  role?: string | undefined;
+  warehouseId?: string | undefined;
+  userScope?: {
+    zoneId?: string | undefined;
+    warehouseId?: string | undefined;
+  } | undefined;
+  onViewChange?: ((view: 'list' | 'search_filter' | 'profile') => void) | undefined;
+  onNavigateAuditHistory?: (() => void) | undefined;
+  onOpenFarmRecords?: (() => void) | undefined;
+  onOpenVerificationCompliance?: (() => void) | undefined;
+  onOpenApprovalInbox?: (() => void) | undefined;
+  onOpenSubscriptionOverview?: (() => void) | undefined;
+}
 
-export const AdminAllFarmersScreen: React.FC<Props> = ({
+export const AdminAllFarmersScreen: React.FC<AdminAllFarmersScreenProps> = ({
+  title,
   onBack,
   onSelectFarmer,
+  onReviewApplication,
   onNavigateTab,
-  showBottomNav = true,
+  showBottomNav = false,
+  initialTab = 'farmers',
+  initialStatusFilter = 'All',
+  initialShowFilter = false,
+  can,
+  role,
+  warehouseId,
+  userScope,
+  onViewChange,
+  onOpenFarmRecords,
+  onOpenVerificationCompliance,
+  onOpenApprovalInbox,
+  onOpenSubscriptionOverview,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('ALL');
+  const scrollViewRef = useRef<any>(null);
+  const [listSectionY, setListSectionY] = useState(0);
 
-  const filteredFarmers = DEMO_ALL_FARMERS.filter((f) => {
-    if (selectedFilter === 'ACTIVE' && f.status !== 'ACTIVE') return false;
-    if (selectedFilter === 'DISABLED' && f.status !== 'DISABLED') return false;
-    if (selectedFilter === 'EXCELLENT' && (f.rating === null || f.rating < 750)) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        f.name.toLowerCase().includes(q) ||
-        f.code.toLowerCase().includes(q) ||
-        f.location.toLowerCase().includes(q)
-      );
+  const [activeMainTab, setActiveMainTab] = useState<'farmers' | 'applications'>(initialTab);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(initialShowFilter);
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('All');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>(initialStatusFilter);
+  const [selectedCertFilter, setSelectedCertFilter] = useState<'All' | 'Expired' | 'Pending' | 'Verified'>('All');
+  const [activeCardFilterName, setActiveCardFilterName] = useState<string | null>(null);
+
+  // RBAC checks
+  const normalizedRole = (role ?? 'TOHFA_ADMIN').toUpperCase();
+  const isSuperAdmin = normalizedRole === 'SUPER_ADMIN';
+  const isTohfaAdmin = normalizedRole === 'TOHFA_ADMIN';
+  const isFarmerAdmin = normalizedRole === 'FARMER_ADMIN';
+  const effectiveWarehouseId = userScope?.warehouseId ?? warehouseId;
+  const isSubWarehouse =
+    normalizedRole === 'SUB_WH_ADMIN' ||
+    Boolean(effectiveWarehouseId && !effectiveWarehouseId.toLowerCase().includes('main'));
+  const _isWarehouseAdmin =
+    normalizedRole === 'MAIN_WH_ADMIN' ||
+    normalizedRole === 'WAREHOUSE_ADMIN' ||
+    isSubWarehouse;
+
+  // Full Admin view (Super Admin and TOHFA Admin share 8-stat cards, zones, quick access)
+  const isFullAdmin = isSuperAdmin || isTohfaAdmin;
+
+  // Applications tab allowed for Super Admin, TOHFA Admin, and Farmer Admin
+  const canViewApplications =
+    isFullAdmin ||
+    isFarmerAdmin ||
+    (can ? can('farmer.application.view') || can('farmer.application.list_pending') : false);
+
+  const defaultTitle = isFullAdmin ? 'Farmers Management' : 'Farmer Management';
+  const displayTitle = title ? title : defaultTitle;
+
+  const farmerSummaryQuery = useFarmerSummary(effectiveWarehouseId);
+  const farmerListQuery = useFarmerList(effectiveWarehouseId);
+  const applicationListQuery = useApplicationList(effectiveWarehouseId);
+
+  const mappedFarmers = useMemo(
+    () => farmerListQuery.items.map(toDesignFarmerItem),
+    [farmerListQuery.items],
+  );
+  const mappedApplications = useMemo(
+    () => applicationListQuery.items.map(toDesignApplicationItem),
+    [applicationListQuery.items],
+  );
+
+  const farmersViewState = queryViewState({
+    isLoading: farmerListQuery.isLoading,
+    error: farmerListQuery.error,
+    itemCount: farmerListQuery.items.length,
+  });
+
+  const applicationsViewState = queryViewState({
+    isLoading: applicationListQuery.isLoading,
+    error: applicationListQuery.error,
+    itemCount: applicationListQuery.items.length,
+  });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveMainTab(initialTab);
     }
-    return true;
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (initialStatusFilter) {
+      setSelectedStatusFilter(initialStatusFilter);
+    }
+  }, [initialStatusFilter]);
+
+  useEffect(() => {
+    if (initialShowFilter) {
+      setShowFilterModal(true);
+    }
+  }, [initialShowFilter]);
+
+  // Card click handler: smoothly switches tab/filters and scrolls down to list
+  const handleCardPress = (
+    targetTab: 'farmers' | 'applications',
+    statusFilter = 'All',
+    certFilter: 'All' | 'Expired' | 'Pending' | 'Verified' = 'All',
+    filterLabel?: string
+  ) => {
+    setActiveMainTab(targetTab);
+    setSelectedStatusFilter(statusFilter);
+    setSelectedCertFilter(certFilter);
+    setActiveCardFilterName(filterLabel ? filterLabel : null);
+
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, listSectionY - 14),
+        animated: true,
+      });
+    }, 60);
+  };
+
+  const handleClearCardFilter = () => {
+    setSelectedStatusFilter('All');
+    setSelectedCertFilter('All');
+    setActiveCardFilterName(null);
+  };
+
+  // Base list of farmers: Sub Warehouse is scoped to Coonoor
+  const scopedFarmers = isSubWarehouse
+    ? mappedFarmers.filter(
+        (f) =>
+          f.location?.toLowerCase() === 'coonoor' ||
+          f.zone?.toLowerCase() === 'coonoor'
+      )
+    : mappedFarmers;
+
+  // Filtered farmers
+  const filteredFarmers = scopedFarmers.filter((f) => {
+    if (
+      !isSubWarehouse &&
+      selectedZoneFilter !== 'All' &&
+      f.location &&
+      f.location.toLowerCase() !== selectedZoneFilter.toLowerCase()
+    ) {
+      return false;
+    }
+    if (selectedStatusFilter !== 'All') {
+      if (selectedStatusFilter === 'Active' && f.status !== 'ACTIVE') return false;
+      if (selectedStatusFilter === 'Inactive' && f.status !== 'DISABLED') return false;
+      if (selectedStatusFilter === 'Disabled' && f.status !== 'DISABLED') return false;
+      if (selectedStatusFilter === 'Pending' && f.status !== 'PENDING') return false;
+    }
+    if (selectedCertFilter !== 'All') {
+      if (selectedCertFilter === 'Expired' && f.certStatus !== 'Expired' && !f.hasExpiredCert) return false;
+      if (selectedCertFilter === 'Pending' && f.certStatus !== 'Pending') return false;
+      if (selectedCertFilter === 'Verified' && f.certStatus !== 'Verified') return false;
+    }
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      f.name.toLowerCase().includes(q) ||
+      (f.code && f.code.toLowerCase().includes(q)) ||
+      (f.location && f.location.toLowerCase().includes(q)) ||
+      (f.farmingType && f.farmingType.toLowerCase().includes(q))
+    );
+  });
+
+  // Filtered applications
+  const filteredApplications = mappedApplications.filter((a) => {
+    if (selectedStatusFilter !== 'All') {
+      if (selectedStatusFilter === 'Pending' && a.status !== 'Pending') return false;
+      if (selectedStatusFilter === 'Correction Required' && a.status !== 'Correction Required') return false;
+      if (selectedStatusFilter === 'Approved' && a.status !== 'Approved') return false;
+      if (selectedStatusFilter === 'Rejected' && a.status !== 'Rejected') return false;
+    }
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      a.name.toLowerCase().includes(q) ||
+      (a.code && a.code.toLowerCase().includes(q)) ||
+      (a.applicantName && a.applicantName.toLowerCase().includes(q)) ||
+      (a.crops && a.crops.toLowerCase().includes(q))
+    );
   });
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header back button if provided */}
-      {onBack ? (
-        <View style={styles.header}>
+      {/* ─── Header Banner in Brand Orange #F0562A ─── */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerRow}>
+          {onBack && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+          )}
+
+          <View style={styles.headerTitleBox}>
+            <FarmersManagementHeaderIcon size={24} color={adminColors.onBrand} />
+            <View style={styles.headerTitleTextCol}>
+              <Text style={styles.headerTitle}>{displayTitle}</Text>
+              <Text style={styles.headerSubtitle}>Farmer Community</Text>
+            </View>
+          </View>
+
+          {/* Top-right Filter Icon Button */}
           <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.7}
+            style={styles.headerFilterBtn}
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel="Filter Farmers"
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M15 19L8 12L15 5"
-                stroke="#2B2523"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
+            <FilterSlidersIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-      ) : (
-        <View style={{ height: 16 }} />
-      )}
+      </View>
 
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        ref={scrollViewRef}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title & Subtitle */}
-        <Text style={styles.title}>All Farmers</Text>
-        <Text style={styles.subtitle}>1,284 registered farmers across 4 zones</Text>
-
-        {/* Search Bar */}
-        <View style={styles.searchBox}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.searchIcon}>
-            <Path
-              d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+        {/* ─── RBAC Stat Cards Grid (Reference Image 5 styling) ─── */}
+        {isFullAdmin ? (
+          // 8 Summary Metric Cards for Super Admin & TOHFA Admin (Images 1, 2, 5)
+          <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.totalFarmers != null ? String(farmerSummaryQuery.summary.totalFarmers) : ADMIN_NO_VALUE}
+              title="Total Farmers"
+              icon="users"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'All', 'All', 'Total Farmers')}
             />
-            <Path
-              d="M21 21L16.65 16.65"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.pendingApplications != null ? String(farmerSummaryQuery.summary.pendingApplications) : ADMIN_NO_VALUE}
+              title="Pending Applications"
+              icon="clipboard"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('applications', 'Pending', 'All', 'Pending Applications')}
             />
-          </Svg>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name, ID, or zone"
-            placeholderTextColor={P.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.activeFarmers != null ? String(farmerSummaryQuery.summary.activeFarmers) : ADMIN_NO_VALUE}
+              title="Active Farmers"
+              icon="users"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'Active', 'All', 'Active Farmers')}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.deactivatedFarmers != null ? String(farmerSummaryQuery.summary.deactivatedFarmers) : ADMIN_NO_VALUE}
+              title="Deactivated"
+              icon="alert"
+              tone="danger"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'Disabled', 'All', 'Deactivated')}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.inactiveFarmers != null ? String(farmerSummaryQuery.summary.inactiveFarmers) : ADMIN_NO_VALUE}
+              title="Inactive"
+              icon="users"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'Inactive', 'All', 'Inactive')}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.expiredCertifications != null ? String(farmerSummaryQuery.summary.expiredCertifications) : ADMIN_NO_VALUE}
+              title="Expired Certifications"
+              icon="clipboard"
+              tone="danger"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'All', 'Expired', 'Expired Certifications')}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.activeSubscriptions != null ? String(farmerSummaryQuery.summary.activeSubscriptions) : ADMIN_NO_VALUE}
+              title="Subscription Overview"
+              icon="users"
+              titlePosition="bottom"
+              onPress={() => {
+                if (onOpenSubscriptionOverview) onOpenSubscriptionOverview();
+                else handleCardPress('farmers', 'Active', 'All', 'Subscription Overview');
+              }}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.approvalInbox != null ? String(farmerSummaryQuery.summary.approvalInbox) : ADMIN_NO_VALUE}
+              title="Approval Inbox"
+              icon="clipboard"
+              titlePosition="bottom"
+              onPress={() => {
+                if (onOpenApprovalInbox) onOpenApprovalInbox();
+                else handleCardPress('applications', 'Pending', 'All', 'Approval Inbox');
+              }}
+            />
+          </OverviewCardsGrid>
+        ) : (
+          // 4 Summary Metric Cards for Farmer Admin & Warehouse Admins (Images 3, 4)
+          <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.totalFarmers != null ? String(farmerSummaryQuery.summary.totalFarmers) : ADMIN_NO_VALUE}
+              title="ALL FARMERS"
+              icon="users"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'All', 'All', 'All Farmers')}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.activeFarmers != null ? String(farmerSummaryQuery.summary.activeFarmers) : ADMIN_NO_VALUE}
+              title="ACTIVE"
+              icon="users"
+              tone="success"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'Active', 'All', 'Active')}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.pendingApplications != null ? String(farmerSummaryQuery.summary.pendingApplications) : ADMIN_NO_VALUE}
+              title="PENDING APPROVAL"
+              icon="clipboard"
+              tone="warning"
+              titlePosition="bottom"
+              onPress={() => {
+                if (canViewApplications) {
+                  handleCardPress('applications', 'Pending', 'All', 'Pending Approval');
+                } else {
+                  handleCardPress('farmers', 'Pending', 'All', 'Pending Approval');
+                }
+              }}
+            />
+            <OverviewDashboardCard
+              value={farmerSummaryQuery.summary?.inactiveFarmers != null ? String(farmerSummaryQuery.summary.inactiveFarmers) : ADMIN_NO_VALUE}
+              title="INACTIVE"
+              icon="alert"
+              titlePosition="bottom"
+              onPress={() => handleCardPress('farmers', 'Inactive', 'All', 'Inactive')}
+            />
+          </OverviewCardsGrid>
+        )}
 
-        {/* Filter Pills */}
-        <View style={styles.filterRow}>
-          {FILTER_TABS.map((tab) => {
-            const isActive = selectedFilter === tab.id;
-            return (
+        {/* ─── Farmers by Zone (Only for Super Admin & TOHFA Admin) ─── */}
+        {isFullAdmin && (farmerSummaryQuery.summary?.zones?.length ?? 0) > 0 && (
+          <View style={styles.zoneCard}>
+            <View style={styles.zoneHeader}>
+              <LocationPinIcon size={18} color={adminColors.brand} />
+              <Text style={styles.zoneHeaderTitle}>Farmers by Zone</Text>
+            </View>
+            <View style={styles.zoneList}>
+              {(farmerSummaryQuery.summary?.zones ?? []).map((z) => (
+                <View key={z.name} style={styles.zoneRow}>
+                  <Text style={styles.zoneName}>{z.name}</Text>
+                  <View style={styles.zoneBarTrack}>
+                    <View
+                      style={[
+                        styles.zoneBarFill,
+                        { width: `${Math.round(z.ratio * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.zoneCount}>{z.count}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.zoneFooter}
+              onPress={() => setShowFilterModal(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.zoneFooterText}>View Zones →</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ─── Quick Access Grid (Only for Super Admin & TOHFA Admin) ─── */}
+        {isFullAdmin && (
+          <View style={styles.quickAccessSection}>
+            <Text style={styles.sectionTitle}>Quick Access</Text>
+            <View style={styles.quickAccessGrid}>
               <TouchableOpacity
-                key={tab.id}
-                onPress={() => setSelectedFilter(tab.id)}
-                activeOpacity={0.8}
+                style={styles.quickAccessCard}
+                onPress={onOpenFarmRecords}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+              >
+                <View style={styles.quickAccessIconWrap}>
+                  <DocumentTextIcon size={22} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickAccessLabel} numberOfLines={2}>
+                  Farm Records
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickAccessCard}
+                onPress={onOpenVerificationCompliance}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+              >
+                <View style={styles.quickAccessIconWrap}>
+                  <ShieldCheckIcon size={22} color={adminColors.brand} />
+                </View>
+                <Text style={styles.quickAccessLabel} numberOfLines={2}>
+                  Verification & Compliance
+                </Text>
+              </TouchableOpacity>
+
+            </View>
+          </View>
+        )}
+
+        {/* ─── Target Anchor for Scroll Down ─── */}
+        <View onLayout={(e) => setListSectionY(e.nativeEvent.layout.y)}>
+          {/* Active Card Filter Banner */}
+          {activeCardFilterName && (
+            <View style={styles.activeFilterBanner}>
+              <Text style={styles.activeFilterText}>
+                Showing: <Text style={styles.activeFilterBold}>{activeCardFilterName}</Text>
+              </Text>
+              <TouchableOpacity
+                style={styles.activeFilterClearBtn}
+                onPress={handleClearCardFilter}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Clear Filter"
+              >
+                <Text style={styles.activeFilterClearText}>✕ Clear filter</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ─── Tab Switcher: [Farmers] | [Applications] (RBAC-aware) ─── */}
+          {canViewApplications && (
+            <View style={styles.tabToggleContainer}>
+              <TouchableOpacity
                 style={[
-                  styles.filterPill,
-                  isActive ? styles.filterPillActive : styles.filterPillInactive,
+                  styles.tabToggleButton,
+                  activeMainTab === 'farmers' && styles.tabToggleButtonActive,
                 ]}
+                onPress={() => {
+                  setActiveMainTab('farmers');
+                  handleClearCardFilter();
+                }}
+                activeOpacity={0.8}
               >
                 <Text
                   style={[
-                    styles.filterPillText,
-                    isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
+                    styles.tabToggleText,
+                    activeMainTab === 'farmers' && styles.tabToggleTextActive,
                   ]}
                 >
-                  {tab.label}
+                  Farmers
                 </Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
 
-        {/* Farmer Cards */}
-        <View style={styles.listSection}>
-          {filteredFarmers.map((item) => {
-            const isDisabled = item.status === 'DISABLED';
-            return (
               <TouchableOpacity
-                key={item.id}
-                style={[styles.card, isDisabled && styles.cardDisabled]}
-                activeOpacity={0.85}
-                onPress={() => onSelectFarmer(item)}
+                style={[
+                  styles.tabToggleButton,
+                  activeMainTab === 'applications' && styles.tabToggleButtonActive,
+                ]}
+                onPress={() => {
+                  setActiveMainTab('applications');
+                  handleClearCardFilter();
+                }}
+                activeOpacity={0.8}
               >
-                <View
+                <Text
                   style={[
-                    styles.avatarCircle,
-                    isDisabled ? styles.avatarCircleDisabled : styles.avatarCircleNormal,
+                    styles.tabToggleText,
+                    activeMainTab === 'applications' && styles.tabToggleTextActive,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.avatarText,
-                      isDisabled ? styles.avatarTextDisabled : styles.avatarTextNormal,
-                    ]}
-                  >
-                    {item.initials}
-                  </Text>
-                </View>
-
-                <View style={styles.cardInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={[styles.cardName, isDisabled && { color: P.subtitle }]}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.codeText}> {item.code}</Text>
-                  </View>
-
-                  <View style={styles.subRow}>
-                    <View
-                      style={[
-                        styles.statusDot,
-                        { backgroundColor: isDisabled ? P.dotRed : P.dotGreen },
-                      ]}
-                    />
-                    <Text style={styles.subText}>
-                      {item.farmName ? `${item.farmName} · ` : ''}
-                      {item.location}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Rating Badge */}
-                <View
-                  style={[
-                    styles.ratingBadge,
-                    item.rating && item.rating >= 750
-                      ? styles.ratingBadgeAmber
-                      : item.rating
-                      ? styles.ratingBadgeBlue
-                      : styles.ratingBadgeMuted,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.ratingText,
-                      item.rating && item.rating >= 750
-                        ? styles.ratingTextAmber
-                        : item.rating
-                        ? styles.ratingTextBlue
-                        : styles.ratingTextMuted,
-                    ]}
-                  >
-                    ★ {item.rating ?? '-'}
-                  </Text>
-                </View>
+                  Applications
+                </Text>
               </TouchableOpacity>
-            );
-          })}
-        </View>
+            </View>
+          )}
 
-        <View style={{ height: 40 }} />
+          {/* ─── Search Bar ─── */}
+          <View style={styles.searchBarRow}>
+            <View style={styles.searchInputBox}>
+              <SearchMagnifierIcon />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search common or scientific name"
+                placeholderTextColor={adminColors.placeholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+            </View>
+            <TouchableOpacity
+              style={styles.searchFilterBtn}
+              onPress={() => setShowFilterModal(true)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Filter"
+            >
+              <FilterSlidersIcon size={18} color={adminColors.brand} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Results count label */}
+          {((activeMainTab === 'farmers' && farmersViewState === 'ready') ||
+            (activeMainTab === 'applications' && applicationsViewState === 'ready')) && (
+            <Text style={styles.countText}>
+              {activeMainTab === 'farmers'
+                ? `${filteredFarmers.length} farmers`
+                : `${filteredApplications.length} applications`}
+            </Text>
+          )}
+
+          {/* ─── Content for FARMERS tab ─── */}
+          {activeMainTab === 'farmers' && (
+            <>
+              {farmersViewState === 'loading' && <AdminLoadingState />}
+              {farmersViewState === 'error' && (
+                <AdminErrorState
+                  error={farmerListQuery.error}
+                  onRetry={farmerListQuery.refresh}
+                />
+              )}
+              {farmersViewState === 'empty' && (
+                <AdminEmptyState title={t('farmersList.empty.farmers')} />
+              )}
+              {farmersViewState === 'ready' &&
+                (filteredFarmers.length === 0 ? (
+                  <AdminEmptyState title={t('farmersList.empty.farmersFiltered')} />
+                ) : (
+                  <View style={styles.cardsList}>
+                    {filteredFarmers.map((farmer) => {
+                      const isActive = farmer.status === 'ACTIVE';
+                      const hasExpired = farmer.certStatus === 'Expired' || farmer.hasExpiredCert;
+
+                      // Farmer Admin layout (Image 3: Avatar circle + 3-column stats row)
+                      if (isFarmerAdmin) {
+                        return (
+                          <TouchableOpacity
+                            key={farmer.id}
+                            style={styles.farmerCard}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              onViewChange?.('profile');
+                              onSelectFarmer?.(farmer);
+                            }}
+                          >
+                            <View style={styles.cardTopRow}>
+                              <View style={styles.cardAvatarCircle}>
+                                <FarmerAvatarSilhouetteIcon size={20} color={adminColors.brand} />
+                              </View>
+                              <View style={styles.cardIdentityCol}>
+                                <Text style={styles.cardFarmerName}>{farmer.name}</Text>
+                                <Text style={styles.cardFarmerCodeZone}>
+                                  {farmer.code ?? farmer.farmerId ?? ADMIN_NO_VALUE} · {farmer.location ?? ADMIN_NO_VALUE}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <View style={styles.cardDivider} />
+
+                            <View style={styles.cardStatsRow}>
+                              <View style={styles.cardStatCol}>
+                                <Text style={styles.cardStatLabel}>Farming</Text>
+                                <Text style={styles.cardStatValue}>{farmer.farmingType ?? ADMIN_NO_VALUE}</Text>
+                              </View>
+                              <View style={styles.cardStatCol}>
+                                <Text style={styles.cardStatLabel}>Rating</Text>
+                                <Text style={styles.cardStatValue}>{ratingText(farmer)}</Text>
+                              </View>
+                              <View style={styles.cardStatCol}>
+                                <Text style={styles.cardStatLabel}>Status</Text>
+                                <Text
+                                  style={[
+                                    styles.cardStatValue,
+                                    isActive ? styles.statusActiveText : styles.statusPendingText,
+                                  ]}
+                                >
+                                  {t(statusLabelKey(farmer.status))}
+                                </Text>
+                              </View>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+
+                      // Super Admin, TOHFA Admin, and Warehouse Admins (Images 1, 2, 4)
+                      return (
+                        <TouchableOpacity
+                          key={farmer.id}
+                          style={styles.farmerCardClean}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            onViewChange?.('profile');
+                            onSelectFarmer?.(farmer);
+                          }}
+                        >
+                          <View style={styles.cardHeaderRow}>
+                            <Text style={styles.farmerNameBold}>{farmer.name}</Text>
+                            <View
+                              style={
+                                isActive
+                                  ? styles.statusPillActive
+                                  : styles.statusPillDisabled
+                              }
+                            >
+                              <Text
+                                style={
+                                  isActive
+                                    ? styles.statusPillActiveText
+                                    : styles.statusPillDisabledText
+                                }
+                              >
+                                {t(statusLabelKey(farmer.status))}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.cardSubText}>
+                            {farmer.code ?? farmer.farmerId ?? ADMIN_NO_VALUE} · {farmer.location ?? ADMIN_NO_VALUE} · {farmer.farmingType ?? ADMIN_NO_VALUE}
+                          </Text>
+
+                          <View style={styles.farmerCardBottomRow}>
+                            <Text style={styles.farmerRatingText}>
+                              {farmer.kycVerifiedText ?? ADMIN_NO_VALUE} · {ratingText(farmer)}
+                            </Text>
+                            {hasExpired ? (
+                              <View style={styles.expiredOutlinedPill}>
+                                <Text style={styles.expiredOutlinedPillText}>Certification expired</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
+            </>
+          )}
+
+          {/* ─── Content for APPLICATIONS tab ─── */}
+          {activeMainTab === 'applications' && (
+            <>
+              {applicationsViewState === 'loading' && <AdminLoadingState />}
+              {applicationsViewState === 'error' && (
+                <AdminErrorState
+                  error={applicationListQuery.error}
+                  onRetry={applicationListQuery.refresh}
+                />
+              )}
+              {applicationsViewState === 'empty' && (
+                <AdminEmptyState title={t('farmersList.empty.applications')} />
+              )}
+              {applicationsViewState === 'ready' &&
+                (filteredApplications.length === 0 ? (
+                  <AdminEmptyState title={t('farmersList.empty.applicationsSearch')} />
+                ) : (
+                  <View style={styles.cardsList}>
+                    {filteredApplications.map((app) => {
+                      const isPending = app.status === 'Pending';
+                      const isCorrection = app.status === 'Correction Required';
+
+                      return (
+                        <View key={app.id} style={styles.applicationCard}>
+                          <View style={styles.cardHeaderRow}>
+                            <Text style={styles.cardName}>{app.name}</Text>
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                isPending
+                                  ? styles.statusBadgePending
+                                  : isCorrection
+                                  ? styles.statusBadgeCorrection
+                                  : styles.statusBadgeApproved,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.statusBadgeText,
+                                  isPending
+                                    ? styles.statusBadgeTextPending
+                                    : isCorrection
+                                    ? styles.statusBadgeTextCorrection
+                                    : styles.statusBadgeTextApproved,
+                                ]}
+                              >
+                                {app.status}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text style={styles.cardSubText}>
+                            {app.code} · {app.phone} · {app.farmingType}
+                          </Text>
+
+                          <Text style={styles.cardDetailText}>
+                            Submitted {app.submittedDate} · {app.kycStatus}
+                          </Text>
+
+                          {/* Review Application Action Button (Images 1, 2) */}
+                          {isFullAdmin && (
+                            <TouchableOpacity
+                              style={styles.reviewApplicationBtn}
+                              onPress={() => onReviewApplication?.(app)}
+                              activeOpacity={0.8}
+                            >
+                              <Text style={styles.reviewApplicationBtnText}>Review Application</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
+            </>
+          )}
+        </View>
       </ScrollView>
 
-      {/* Bottom Navigation Bar */}
+      {/* ─── Bottom Navigation Bar ─── */}
       {showBottomNav && (
-        <View style={styles.bottomNav}>
-          {/* Tab 1: Dashboard */}
+        <View style={styles.bottomNavContainer}>
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => {
-              if (onNavigateTab) {
-                onNavigateTab('Dashboard');
-              } else if (onBack) {
-                onBack();
-              }
-            }}
+            onPress={() => onNavigateTab?.('Home')}
             activeOpacity={0.7}
           >
-            <NavDashboardIcon color="#9CA3AF" />
-            <Text style={styles.navTabLabel}>Dashboard</Text>
+            <NavHomeIcon />
+            <Text style={styles.navTabLabel}>Home</Text>
           </TouchableOpacity>
 
-          {/* Tab 2: Farmers (Active) */}
           <TouchableOpacity
             style={styles.navTabItem}
+            onPress={() => onNavigateTab?.('Farmers')}
             activeOpacity={0.7}
           >
-            <NavFarmersIcon color="#D9532F" />
+            <NavFarmersIcon />
             <Text style={[styles.navTabLabel, styles.navTabLabelActive]}>Farmers</Text>
           </TouchableOpacity>
 
-          {/* Tab 3: Sales */}
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => onNavigateTab?.('Sales')}
+            onPress={() => onNavigateTab?.('Produce')}
             activeOpacity={0.7}
           >
-            <NavSalesIcon color="#9CA3AF" />
-            <Text style={styles.navTabLabel}>Sales</Text>
+            <NavProduceIcon />
+            <Text style={styles.navTabLabel}>Produce</Text>
           </TouchableOpacity>
 
-          {/* Tab 4: Reports */}
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => onNavigateTab?.('Reports')}
+            onPress={() => onNavigateTab?.('Audits')}
             activeOpacity={0.7}
           >
-            <NavReportsIcon color="#9CA3AF" />
-            <Text style={styles.navTabLabel}>Reports</Text>
+            <NavAuditsIcon />
+            <Text style={styles.navTabLabel}>Audits</Text>
           </TouchableOpacity>
 
-          {/* Tab 5: Profile */}
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => onNavigateTab?.('Profile')}
+            onPress={() => onNavigateTab?.('More')}
             activeOpacity={0.7}
           >
-            <NavProfileIcon color="#9CA3AF" />
-            <Text style={styles.navTabLabel}>Profile</Text>
+            <NavMoreIcon />
+            <Text style={styles.navTabLabel}>More</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* ─── Filter Modal ─── */}
+      <Modal visible={showFilterModal} transparent animationType="fade">
+        <View style={styles.filterModalOverlay}>
+          <View style={styles.filterModalCard}>
+            <Text style={styles.filterModalTitle}>Filter Farmers</Text>
+
+            {!isSubWarehouse && (
+              <>
+                <Text style={styles.filterSectionLabel}>Zone</Text>
+                <View style={styles.filterChipRow}>
+                  {['All', 'Coonoor', 'Ooty', 'Kotagiri'].map((zone) => (
+                    <TouchableOpacity
+                      key={zone}
+                      style={[
+                        styles.filterChip,
+                        selectedZoneFilter === zone && styles.filterChipActive,
+                      ]}
+                      onPress={() => setSelectedZoneFilter(zone)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          selectedZoneFilter === zone && styles.filterChipTextActive,
+                        ]}
+                      >
+                        {zone}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.filterSectionLabel}>Status</Text>
+            <View style={styles.filterChipRow}>
+              {['All', 'Active', 'Pending', 'Inactive'].map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filterChip,
+                    selectedStatusFilter === status && styles.filterChipActive,
+                  ]}
+                  onPress={() => setSelectedStatusFilter(status)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      selectedStatusFilter === status && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={styles.filterModalCloseBtn}
+              onPress={() => setShowFilterModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.filterModalCloseBtnText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
   },
-  bottomNav: {
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: 8,
+    paddingBottom: adminSpacing.md,
+  },
+  headerRow: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  backButton: {
+    padding: 6,
+    marginRight: 6,
+  },
+  headerTitleBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerTitleTextCol: {
+    marginLeft: 12,
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 24,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: adminOverlay.headerText,
+    marginTop: 1,
+  },
+  headerFilterBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: adminOverlay.whitePill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  scrollContent: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxxl,
+  },
+  zoneCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  zoneHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+    marginBottom: adminSpacing.sm,
+  },
+  zoneHeaderTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  zoneList: {
+    gap: adminSpacing.xs,
+  },
+  zoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  zoneName: {
+    ...adminType.rowMeta,
+    color: adminColors.ink,
+    width: 60,
+  },
+  zoneBarTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: adminColors.platform.neutral100,
+    borderRadius: 4,
+    marginHorizontal: adminSpacing.sm,
+    overflow: 'hidden',
+  },
+  zoneBarFill: {
+    height: '100%',
+    backgroundColor: adminColors.dashboard.brandBrown,
+    borderRadius: 4,
+  },
+  zoneCount: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    width: 40,
+    textAlign: 'right',
+  },
+  zoneFooter: {
+    marginTop: adminSpacing.sm,
+    paddingTop: adminSpacing.xs,
     borderTopWidth: 1,
-    borderTopColor: '#F0ECE6',
-    paddingTop: 10,
-    paddingBottom: 12,
+    borderTopColor: adminColors.border,
+    alignItems: 'flex-end',
+  },
+  zoneFooterText: {
+    ...adminType.rowMeta,
+    color: adminColors.brand,
+    fontWeight: '600',
+  },
+  quickAccessSection: {
+    marginBottom: adminSpacing.lg,
+  },
+  sectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: adminSpacing.sm,
+  },
+  quickAccessCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 90,
+    ...adminShadow.sm,
+  },
+  quickAccessIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  quickAccessLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.ink,
+    fontWeight: '600',
+    textAlign: 'center',
+    fontSize: 12,
+  },
+  activeFilterBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 8,
+    marginBottom: adminSpacing.sm,
+    borderWidth: 1,
+    borderColor: adminColors.brandSoft.border,
+  },
+  activeFilterText: {
+    fontSize: 12.5,
+    color: adminColors.brandDeep,
+  },
+  activeFilterBold: {
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  activeFilterClearBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: adminColors.brandTint,
+  },
+  activeFilterClearText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  tabToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: adminColors.dashboard.track,
+    borderRadius: adminRadius.md,
+    padding: 3,
+    marginBottom: adminSpacing.md,
+  },
+  tabToggleButton: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: adminRadius.sm,
+  },
+  tabToggleButtonActive: {
+    backgroundColor: adminColors.brand,
+    ...adminShadow.sm,
+  },
+  tabToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  tabToggleTextActive: {
+    color: adminColors.onBrand,
+  },
+  searchBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  searchInputBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    gap: adminSpacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+    padding: 0,
+  },
+  searchFilterBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
+  },
+  cardsList: {
+    gap: adminSpacing.md,
+  },
+  farmerCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  farmerCardClean: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  farmerNameBold: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  farmerCardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  farmerRatingText: {
+    fontSize: 12.5,
+    color: adminColors.muted,
+  },
+  statusPillActive: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusPillActiveText: {
+    color: adminColors.success.text,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusPillDisabled: {
+    backgroundColor: adminColors.platform.neutral100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusPillDisabledText: {
+    color: adminColors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  expiredOutlinedPill: {
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    backgroundColor: adminColors.danger.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  expiredOutlinedPillText: {
+    color: adminColors.danger.text,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  cardIdentityCol: {
+    flex: 1,
+  },
+  cardFarmerName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  cardFarmerCodeZone: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
+  },
+  cardStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardStatCol: {
+    flex: 1,
+  },
+  cardStatLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  cardStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  statusActiveText: {
+    color: adminColors.success.text,
+  },
+  statusPendingText: {
+    color: adminColors.warning.text,
+  },
+  applicationCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  cardName: {
+    ...adminType.rowTitle,
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  cardSubText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    fontSize: 12.5,
+    marginBottom: 2,
+  },
+  cardDetailText: {
+    fontSize: 11.5,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.sm,
+  },
+  reviewApplicationBtn: {
+    marginTop: adminSpacing.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.sm,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewApplicationBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  statusBadgePending: {
+    backgroundColor: adminColors.warning.bg,
+  },
+  statusBadgeCorrection: {
+    backgroundColor: adminColors.info.bg,
+  },
+  statusBadgeApproved: {
+    backgroundColor: adminColors.success.bg,
+  },
+  statusBadgeText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  statusBadgeTextPending: {
+    color: adminColors.warning.text,
+  },
+  statusBadgeTextCorrection: {
+    color: adminColors.info.text,
+  },
+  statusBadgeTextApproved: {
+    color: adminColors.success.text,
+  },
+  bottomNavContainer: {
+    flexDirection: 'row',
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
     justifyContent: 'space-around',
     alignItems: 'center',
   },
   navTabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
+    paddingVertical: 4,
   },
   navTabLabel: {
-    fontSize: 11.5,
+    fontSize: 11,
+    color: adminColors.muted,
+    marginTop: 3,
     fontWeight: '500',
-    color: '#9CA3AF',
-    marginTop: 4,
   },
   navTabLabelActive: {
-    color: '#D9532F',
+    color: adminColors.brand,
     fontWeight: '700',
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    alignItems: 'center',
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-    cursor: 'pointer' as any,
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 6,
-    letterSpacing: -0.4,
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: P.subtitle,
-    marginBottom: 18,
-  },
-  searchBox: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.inputBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: P.inputBorder,
-    paddingHorizontal: 14,
-    height: 48,
-    marginBottom: 14,
+    padding: adminSpacing.xl,
   },
-  searchIcon: {
-    marginRight: 10,
+  filterModalCard: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.xl,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: P.ink,
-    paddingVertical: 0,
+  filterModalTitle: {
+    ...adminType.sectionHead,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
   },
-  filterRow: {
+  filterSectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.xs,
+  },
+  filterChipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 20,
+    marginBottom: adminSpacing.md,
   },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 22,
-    borderWidth: 1,
-    cursor: 'pointer' as any,
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.platform.neutral100,
   },
-  filterPillActive: {
-    backgroundColor: P.pillActiveBg,
-    borderColor: P.pillActiveBg,
+  filterChipActive: {
+    backgroundColor: adminColors.brand,
   },
-  filterPillInactive: {
-    backgroundColor: P.pillInactiveBg,
-    borderColor: P.pillBorder,
-  },
-  filterPillText: {
-    fontSize: 13,
+  filterChipText: {
+    fontSize: 12.5,
     fontWeight: '600',
+    color: adminColors.ink,
   },
-  filterPillTextActive: {
-    color: P.pillActiveText,
+  filterChipTextActive: {
+    color: adminColors.onBrand,
   },
-  filterPillTextInactive: {
-    color: P.pillInactiveText,
-  },
-  listSection: {
-    gap: 12,
-  },
-  card: {
-    flexDirection: 'row',
+  filterModalCloseBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: P.cardBorder,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
-    cursor: 'pointer' as any,
+    marginTop: adminSpacing.md,
   },
-  cardDisabled: {
-    opacity: 0.75,
-  },
-  avatarCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarCircleNormal: {
-    backgroundColor: P.orangeBg,
-  },
-  avatarCircleDisabled: {
-    backgroundColor: '#F0ECE6',
-  },
-  avatarText: {
+  filterModalCloseBtnText: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
     fontSize: 14,
-    fontWeight: '700',
-  },
-  avatarTextNormal: {
-    color: P.titleBrown,
-  },
-  avatarTextDisabled: {
-    color: P.subtitle,
-  },
-  cardInfo: {
-    flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-    flexWrap: 'wrap',
-  },
-  cardName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.ink,
-  },
-  codeText: {
-    fontSize: 12,
-    color: P.subtitle,
-    fontWeight: '500',
-  },
-  subRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginRight: 6,
-  },
-  subText: {
-    fontSize: 12,
-    color: P.textSecondary,
-  },
-  ratingBadge: {
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  ratingBadgeAmber: {
-    backgroundColor: P.ratingAmberBg,
-  },
-  ratingBadgeBlue: {
-    backgroundColor: P.ratingBlueBg,
-  },
-  ratingBadgeMuted: {
-    backgroundColor: P.ratingMutedBg,
-  },
-  ratingText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  ratingTextAmber: {
-    color: P.ratingAmberText,
-  },
-  ratingTextBlue: {
-    color: P.ratingBlueText,
-  },
-  ratingTextMuted: {
-    color: P.ratingMutedText,
   },
 });

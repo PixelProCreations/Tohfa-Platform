@@ -1,33 +1,33 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { t } from '../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const CONFIG_PALETTE = {
-  primaryOrange: '#F0562A',
-  primaryOrangeLight: '#FFF1EB',
-  primaryOrangeBorder: '#FAD9CC',
-  pageBg: '#FAF7F2',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#1F1714',
-  textSecondary: '#786F68',
-  textMuted: '#9C938C',
-  borderSoft: '#EDE7DE',
-  greenBg: '#DCFCE7',
-  greenText: '#15803D',
-  blueBg: '#EBF3FA',
-  blueText: '#1D6399',
+  primaryOrange: adminColors.brand,
+  primaryOrangeLight: adminColors.brandTint,
+  primaryOrangeBorder: adminColors.brandTint,
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textHeading: adminColors.brandDeep,
+  textPrimary: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  borderSoft: adminColors.border,
+  greenBg: adminColors.success.bg,
+  greenText: adminColors.success.text,
+  blueBg: adminColors.info.bg,
+  blueText: adminColors.info.text,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -158,34 +158,10 @@ export function SystemConfigScreen({
   onOpenCompanyDetails,
   onOpenAuditLogs,
 }: SystemConfigScreenProps) {
-  // Config state values
-  const [channelSplit] = useState('70/10/10/10');
-  const [subscriptionFee, setSubscriptionFee] = useState('₹500/yr');
-  const [sessionTimeout, setSessionTimeout] = useState('30 min');
-  const [ratingThresholds, setRatingThresholds] = useState('650/700/750');
-
-  // Quick Edit modal states
-  const [editModalField, setEditModalField] = useState<
-    'fee' | 'timeout' | 'thresholds' | null
-  >(null);
-  const [editInputValue, setEditInputValue] = useState('');
-
-  const handleOpenEdit = (field: 'fee' | 'timeout' | 'thresholds', initialVal: string) => {
-    setEditModalField(field);
-    setEditInputValue(initialVal);
-  };
-
-  const handleSaveEdit = () => {
-    if (editModalField === 'fee') {
-      setSubscriptionFee(editInputValue);
-    } else if (editModalField === 'timeout') {
-      setSessionTimeout(editInputValue);
-    } else if (editModalField === 'thresholds') {
-      setRatingThresholds(editInputValue);
-    }
-    setEditModalField(null);
-    Alert.alert('Configuration Saved', 'System parameter updated successfully.');
-  };
+  const channelSplit = ADMIN_NO_VALUE;
+  const subscriptionFee = ADMIN_NO_VALUE;
+  const sessionTimeout = ADMIN_NO_VALUE;
+  const ratingThresholds = ADMIN_NO_VALUE;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -236,15 +212,17 @@ export function SystemConfigScreen({
 
           <View style={styles.divider} />
 
-          {/* Row 2: Farmer Subscription Fee */}
+          {/* Row 2: Farmer Subscription Fee (disabled: no endpoint) */}
           <TouchableOpacity
-            style={styles.configRow}
-            onPress={() => handleOpenEdit('fee', subscriptionFee)}
+            style={[styles.configRow, { opacity: 0.55 }]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringReports.config.saveUnavailable')}
             activeOpacity={0.7}
           >
             <View style={styles.configRowLeft}>
               <Text style={styles.configRowTitle}>Farmer Subscription Fee</Text>
-              <Text style={styles.configRowSubtitle}>Annual, free tier available</Text>
+              <Text style={styles.configRowSubtitle}>{t('wiringReports.config.saveUnavailable')}</Text>
             </View>
             <View style={styles.configRowRight}>
               <Text style={styles.configRowValue}>{subscriptionFee}</Text>
@@ -254,10 +232,12 @@ export function SystemConfigScreen({
 
           <View style={styles.divider} />
 
-          {/* Row 3: Session Timeout */}
+          {/* Row 3: Session Timeout (disabled: no endpoint) */}
           <TouchableOpacity
-            style={styles.configRow}
-            onPress={() => handleOpenEdit('timeout', sessionTimeout)}
+            style={[styles.configRow, { opacity: 0.55 }]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringReports.config.saveUnavailable')}
             activeOpacity={0.7}
           >
             <View style={styles.configRowLeft}>
@@ -272,10 +252,12 @@ export function SystemConfigScreen({
 
           <View style={styles.divider} />
 
-          {/* Row 4: Rating Tier Thresholds */}
+          {/* Row 4: Rating Tier Thresholds (disabled: no endpoint) */}
           <TouchableOpacity
-            style={styles.configRow}
-            onPress={() => handleOpenEdit('thresholds', ratingThresholds)}
+            style={[styles.configRow, { opacity: 0.55 }]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringReports.config.saveUnavailable')}
             activeOpacity={0.7}
           >
             <View style={styles.configRowLeft}>
@@ -389,47 +371,6 @@ export function SystemConfigScreen({
             <ChevronRightIcon />
           </TouchableOpacity>
         </View>
-
-        {/* Quick Edit Modal */}
-        <Modal
-          visible={editModalField !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setEditModalField(null)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>
-                {editModalField === 'fee'
-                  ? 'Edit Subscription Fee'
-                  : editModalField === 'timeout'
-                  ? 'Edit Session Timeout'
-                  : 'Edit Rating Thresholds'}
-              </Text>
-              <TextInput
-                style={styles.modalInput}
-                value={editInputValue}
-                onChangeText={setEditInputValue}
-                placeholder="Enter value"
-                autoFocus
-              />
-              <View style={styles.modalBtnRow}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => setEditModalField(null)}
-                >
-                  <Text style={styles.modalCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.modalSaveBtn}
-                  onPress={handleSaveEdit}
-                >
-                  <Text style={styles.modalSaveBtnText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </ScrollView>
     </SafeAreaView>
   );

@@ -26,7 +26,19 @@ const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace
 const ORDERS = 'roles/admin/screens/warehouse/orders';
 const SCREEN = read(`${ORDERS}/OrderInvoiceScreen.tsx`);
 const FLOW = read(`${ORDERS}/OrdersFlow.tsx`);
-const FIXTURES = read(`${ORDERS}/fixtures.ts`);
+/**
+ * The orders sample data was deleted when the module went live. An absent file
+ * satisfies the "no sample invoice number" check more strongly than a clean one,
+ * so treat missing as empty rather than failing to load the whole suite.
+ */
+const readIfPresent = (rel: string): string => {
+  try {
+    return read(rel);
+  } catch {
+    return '';
+  }
+};
+const FIXTURES = readIfPresent(`${ORDERS}/fixtures.ts`);
 
 const WH = '11111111-1111-4111-8111-111111111111';
 const ORDER = '22222222-2222-4222-8222-222222222222';

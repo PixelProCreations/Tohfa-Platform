@@ -12,10 +12,64 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PoolClient } from 'pg';
 import type * as PoolModule from '../../db/pool.js';
+import type { IdempotencyStore } from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
-import { anActor, IDS } from '../../test/factories.js';
+import { aScope, anActor, IDS } from '../../test/factories.js';
 import type { FarmerApplicationRow, FarmerApplicationsRepo } from './farmer-applications.repo.js';
 import { createFarmerApplicationsService } from './farmer-applications.service.js';
+import { documentKeyOf, fmbFingerprintOf, type ApplicationReviewRow } from './farmer-applications.review.js';
+
+const ALL_SCOPE = aScope({ permission: 'farmer.application.approve' });
+const LOCATION = { id: 'loc-a', label: 'Plot', areaAcres: 1 };
+const DOCUMENTS = [
+  { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+  { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+];
+
+/**
+ * BR-214: approval needs FARM_VERIFICATION with the documents and the boundary VERIFIED. These
+ * tests are about BR-135, so every gate is met and the review rows say so.
+ */
+const VERIFIED_REVIEWS: ApplicationReviewRow[] = [
+  ...DOCUMENTS.map((d, i) => ({
+    id: `r-${i}`,
+    application_id: '11111111-1111-1111-1111-111111111111',
+    subject_type: 'DOCUMENT' as const,
+    subject_key: documentKeyOf(d.docType, d.fileUrl),
+    content_fingerprint: documentKeyOf(d.docType, d.fileUrl),
+    decision: 'VERIFIED' as const,
+    reason: null,
+    reviewed_by: IDS.userSuperAdmin,
+    created_at: new Date('2026-11-25T00:00:00Z'),
+  })),
+  {
+    id: 'r-fmb',
+    application_id: '11111111-1111-1111-1111-111111111111',
+    subject_type: 'FMB',
+    subject_key: 'loc-a',
+    content_fingerprint: fmbFingerprintOf(LOCATION),
+    decision: 'VERIFIED',
+    reason: null,
+    reviewed_by: IDS.userSuperAdmin,
+    created_at: new Date('2026-11-25T00:00:00Z'),
+  },
+];
+
+/**
+ * The Idempotency-Key claim is an INSERT in the approval transaction; in production it rolls back
+ * with a refused approval. This fake transaction never rolls back, so the claim is kept in memory
+ * here and "nothing written" keeps meaning "no domain row written".
+ */
+function memoryIdempotency(): IdempotencyStore {
+  return { claim: async () => ({ claimed: true }), complete: async () => undefined };
+}
+
+function serviceFor(repo: FarmerApplicationsRepo) {
+  return createFarmerApplicationsService(repo, undefined, { idempotency: memoryIdempotency() });
+}
+
+let keySeq = 0;
+const nextKey = () => `br135-${++keySeq}`;
 
 const capture = vi.hoisted(() => ({
   queries: [] as string[],
@@ -45,14 +99,14 @@ function anApplication(overrides: Partial<FarmerApplicationRow> = {}): FarmerApp
     mobile: '+919812300135',
     full_name: 'Applicant',
     preferred_locale: 'en',
-    status: 'AUDIT',
+    status: 'FARM_VERIFICATION',
     is_draft: false,
     current_step: 5,
     completed_steps: [1, 2, 3, 4],
     step1_personal: {},
     step2_farm_details: {},
-    step3_location: { locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1 }] },
-    step4_documents: {},
+    step3_location: { locations: [LOCATION] },
+    step4_documents: { documents: DOCUMENTS },
     user_id: APPLICANT_USER_ID,
     farmer_id: null,
     submitted_at: null,
@@ -78,6 +132,8 @@ function fakeRepo(app: FarmerApplicationRow, applicantRoles: string[]): { repo: 
   };
   const repo = {
     findById: async () => app,
+    findByIdForUpdate: async () => app,
+    listReviews: async () => VERIFIED_REVIEWS,
     findApplicantLiveRoles: async (_db: unknown, lookup: Lookup) => {
       lookups.push(lookup);
       return applicantRoles;
@@ -100,8 +156,8 @@ describe('BR-135: farmer approval never makes a single-role admin a farmer', () 
   for (const role of ['SUPER_ADMIN', 'TOHFA_ADMIN', 'MAIN_WH_ADMIN', 'SUB_WH_ADMIN']) {
     it(`BR-135: refuses approving an application whose account is a ${role} (409, nothing written)`, async () => {
       const { repo } = fakeRepo(anApplication(), [role]);
-      const error = await createFarmerApplicationsService(repo)
-        .approveApplication(admin, APP_ID, {})
+      const error = await serviceFor(repo)
+        .approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())
         .then(
           () => null,
           (e: unknown) => e,
@@ -116,7 +172,7 @@ describe('BR-135: farmer approval never makes a single-role admin a farmer', () 
 
   it('BR-135: with no user_id on the application, the account is looked up by the application mobile', async () => {
     const { repo, lookups } = fakeRepo(anApplication({ user_id: null }), ['SUB_WH_ADMIN']);
-    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toMatchObject({
+    await expect(serviceFor(repo).approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())).rejects.toMatchObject({
       code: 'CONFLICT',
     });
     expect(lookups).toEqual([{ userId: null, mobile: '+919812300135' }]);
@@ -124,7 +180,7 @@ describe('BR-135: farmer approval never makes a single-role admin a farmer', () 
 
   it('BR-135: a Farmer Admin applicant is approved as usual (an elected farmer may be a farmer)', async () => {
     const { repo, lookups } = fakeRepo(anApplication(), ['FARMER_ADMIN']);
-    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
+    await expect(serviceFor(repo).approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())).rejects.toThrow(
       REACHED_ALLOCATION,
     );
     expect(lookups).toEqual([{ userId: APPLICANT_USER_ID, mobile: '+919812300135' }]);
@@ -132,28 +188,28 @@ describe('BR-135: farmer approval never makes a single-role admin a farmer', () 
 
   it('BR-135: an applicant with no roles yet is approved as usual', async () => {
     const { repo } = fakeRepo(anApplication(), []);
-    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
+    await expect(serviceFor(repo).approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())).rejects.toThrow(
       REACHED_ALLOCATION,
     );
   });
 
   it('BR-135: a customer applicant is approved as usual (FARMER + CUSTOMER is allowed)', async () => {
     const { repo } = fakeRepo(anApplication(), ['CUSTOMER']);
-    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
+    await expect(serviceFor(repo).approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())).rejects.toThrow(
       REACHED_ALLOCATION,
     );
   });
 
   it('BR-135: a Farmer Admin who is also a customer is approved as usual (the whole group may be held)', async () => {
     const { repo } = fakeRepo(anApplication(), ['FARMER_ADMIN', 'CUSTOMER']);
-    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
+    await expect(serviceFor(repo).approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())).rejects.toThrow(
       REACHED_ALLOCATION,
     );
   });
 
   it('BR-135: refuses an applicant holding a single-role admin beside a group role (pre-rule TOHFA_ADMIN + FARMER_ADMIN account)', async () => {
     const { repo } = fakeRepo(anApplication(), ['FARMER_ADMIN', 'TOHFA_ADMIN']);
-    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toMatchObject({
+    await expect(serviceFor(repo).approveApplication(admin, ALL_SCOPE, APP_ID, {}, nextKey())).rejects.toMatchObject({
       code: 'CONFLICT',
       meta: { rule: 'BR-135' },
     });

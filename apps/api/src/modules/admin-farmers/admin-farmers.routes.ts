@@ -10,7 +10,14 @@ import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope, resolveScope } from '../../rbac/requirePermission.js';
-import { farmerDocumentParams, farmerIdParams, listAdminFarmersQuery, updateAdminFarmerBody } from './admin-farmers.schema.js';
+import {
+  createAdminFarmerBody,
+  farmerDocumentParams,
+  farmerIdParams,
+  listAdminFarmersQuery,
+  updateAdminFarmerBody,
+  updateAdminFarmerStatusBody,
+} from './admin-farmers.schema.js';
 import { adminFarmersService } from './admin-farmers.service.js';
 
 export const adminFarmersRouter: Router = Router();
@@ -24,6 +31,30 @@ adminFarmersRouter.get(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     res.json(await adminFarmersService.list(scope, getValidated(req, 'query', listAdminFarmersQuery)));
+  }),
+);
+
+// POST /v1/admin/farmers — create a farmer directly
+adminFarmersRouter.post(
+  '/',
+  requireAuth,
+  requirePermission('farmer.profile.edit'),
+  validate({ body: createAdminFarmerBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const body = getValidated(req, 'body', createAdminFarmerBody);
+    res.status(201).json(await adminFarmersService.create(scope, body));
+  }),
+);
+
+// GET /v1/admin/farmers/summary — the 8 overview KPI cards and zone breakdown
+adminFarmersRouter.get(
+  '/summary',
+  requireAuth,
+  requirePermission('farmer.profile.view_all'),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    res.json(await adminFarmersService.getSummary(scope));
   }),
 );
 
@@ -54,6 +85,23 @@ adminFarmersRouter.patch(
     const { id } = getValidated(req, 'params', farmerIdParams);
     const body = getValidated(req, 'body', updateAdminFarmerBody);
     res.json(await adminFarmersService.update(scope, lockedFieldScope, id, body));
+  }),
+);
+
+// POST /v1/admin/farmers/:id/status — deactivate, disable, or activate account
+adminFarmersRouter.post(
+  '/:id/status',
+  requireAuth,
+  requirePermission('farmer.profile.edit'),
+  validate({ params: farmerIdParams, body: updateAdminFarmerStatusBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const actor = requireActor(req.actor);
+    const disableScope = resolveScope(actor, 'farmer.account.disable');
+    const reactivateScope = resolveScope(actor, 'farmer.account.reactivate');
+    const { id } = getValidated(req, 'params', farmerIdParams);
+    const body = getValidated(req, 'body', updateAdminFarmerStatusBody);
+    res.json(await adminFarmersService.updateStatus(scope, disableScope, reactivateScope, id, body));
   }),
 );
 

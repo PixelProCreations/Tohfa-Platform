@@ -114,26 +114,71 @@ export function classifyDatabaseUrl(
 }
 
 /**
- * Abort (throw) when a test run is about to target a non-local database.
+ * Safely extract the database name from a connection URL or socket string.
+ * Handles standard postgres:// URLs, socket paths, and falls back to PGDATABASE.
+ */
+export function extractDatabaseName(
+  url: string,
+  env: Readonly<Record<string, string | undefined>> = {},
+): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('/')) {
+    const parts = trimmed.split(/\s+/);
+    return (parts[1] || env['PGDATABASE'] || '').trim();
+  }
+  try {
+    const parsed = new URL(trimmed);
+    const rawName = parsed.pathname.replace(/^\/+/, '').split('?')[0];
+    return (rawName || env['PGDATABASE'] || '').trim();
+  } catch {
+    const withoutQuery = trimmed.split('?')[0] ?? '';
+    const lastSlash = withoutQuery.lastIndexOf('/');
+    if (lastSlash !== -1 && lastSlash < withoutQuery.length - 1) {
+      return withoutQuery.slice(lastSlash + 1).trim();
+    }
+    return (env['PGDATABASE'] || '').trim();
+  }
+}
+
+/**
+ * Abort (throw) when a test run is about to target a non-local database or a
+ * database whose name does not end in "_test".
  * The message never contains the URL's credentials.
  */
 export function assertSafeTestDatabase(
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): void {
   if (env['NODE_ENV'] !== 'test') return;
+
+  const url = env['DATABASE_URL'];
+  if (!url || url.trim() === '') return;
+
+  // Database name check runs FIRST for every database, local or remote.
+  // ALLOW_REMOTE_TEST_DB allows remote hosts, but NEVER a database not ending in "_test".
+  const dbName = extractDatabaseName(url, env);
+  if (!dbName || !dbName.endsWith('_test')) {
+    throw new Error(
+      [
+        `REFUSING TO RUN TESTS: database name "${dbName}" does not end in "_test".`,
+        '  Running tests against a non-test database will destroy or corrupt data.',
+        '  Use a database ending in "_test" (e.g. postgres://tohfa:tohfa@localhost:5432/tohfa_test).',
+      ].join('\n'),
+    );
+  }
+
   if (env['ALLOW_REMOTE_TEST_DB'] === 'true') return;
 
-  const target = classifyDatabaseUrl(env['DATABASE_URL'], env);
-  if (target.local) return;
-
-  throw new Error(
-    [
-      'REFUSING TO RUN TESTS: DATABASE_URL points at a non-local database.',
-      `  ${target.reason}`,
-      '  The integration suites COMMIT rows and mutate global tables; run against a shared or remote',
-      '  database and they will pollute or corrupt it.',
-      '  Use a local Postgres (e.g. postgres://tohfa:tohfa@localhost:5432/tohfa_test), or, for a',
-      '  disposable remote test database ONLY, set ALLOW_REMOTE_TEST_DB=true.',
-    ].join('\n'),
-  );
+  const target = classifyDatabaseUrl(url, env);
+  if (!target.local) {
+    throw new Error(
+      [
+        'REFUSING TO RUN TESTS: DATABASE_URL points at a non-local database.',
+        `  ${target.reason}`,
+        '  The integration suites COMMIT rows and mutate global tables; run against a shared or remote',
+        '  database and they will pollute or corrupt it.',
+        '  Use a local Postgres (e.g. postgres://tohfa:tohfa@localhost:5432/tohfa_test), or, for a',
+        '  disposable remote test database ONLY, set ALLOW_REMOTE_TEST_DB=true.',
+      ].join('\n'),
+    );
+  }
 }

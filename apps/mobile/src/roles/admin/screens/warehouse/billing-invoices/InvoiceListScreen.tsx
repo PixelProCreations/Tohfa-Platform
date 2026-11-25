@@ -13,12 +13,14 @@
  * the invoices of orders placed at its own warehouse, and nothing here filters
  * by warehouse. Gates: read-only; View / Download need invoice.view_own.
  *
- * Hidden, because GET /invoices cannot back them: the filters screen (status,
- * customer, order, amount and sort have no query parameter; the type filter is
- * the chips), the customer name and order number on a card (the invoice row
- * carries neither) and the time of day (the issue date is a calendar date).
- * The Main all-warehouses selector is not drawn: the API cannot filter by
- * warehouse.
+ * Every designed element is drawn. One the API cannot back renders the dash:
+ * the customer name and order number on a card and the time of day (the invoice
+ * row carries neither, and the issue date is a calendar date). The filter
+ * button opens the filters screen (status, customer, order, amount and sort
+ * have no query parameter; the type filter is the chips). The Main
+ * all-warehouses selector is drawn from GET /warehouses; the API cannot
+ * filter by warehouse, so choosing one does not narrow the list. Search
+ * matches the loaded invoice numbers only.
  */
 // Design id: M9-S02
 import React, { useEffect, useMemo, useState } from 'react';
@@ -28,12 +30,14 @@ import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   ActionError,
   BillingButton,
   BillingScreen,
   ChipGroup,
-  isAllWarehouses,
+  FilterSlidersIcon,
+  HeaderIconButton,
   LoadMoreButton,
   ScopeHeader,
   SearchBar,
@@ -45,6 +49,7 @@ import type {
   InvoiceHistoryChip,
   InvoiceListLayout,
   InvoiceRow,
+  WarehouseScope,
   WarehouseScreenBaseProps,
 } from './types';
 
@@ -53,6 +58,10 @@ export interface InvoiceListScreenProps extends WarehouseScreenBaseProps, Billin
   /** Lets the host keep the chosen layout. */
   onLayoutChange?: ((layout: InvoiceListLayout) => void) | undefined;
   onNavigateToInvoiceDetail: (invoiceId: string) => void;
+  /** Opens the filters screen (the header filter button). */
+  onOpenFilters?: (() => void) | undefined;
+  /** Warehouses for the Main selector; omitted = the live GET /warehouses list. */
+  warehouseOptions?: readonly WarehouseScope[] | undefined;
   /** The loaded rows, page by page. */
   invoices?: readonly InvoiceRow[] | undefined;
   /** The history chip, owned by the host because it is the server's type filter. */
@@ -72,6 +81,8 @@ export function InvoiceListScreen({
   onBack,
   initialLayout = 'list',
   onNavigateToInvoiceDetail,
+  onOpenFilters,
+  warehouseOptions: warehouseOptionsProp,
   invoices = [],
   historyChip = 'All',
   onHistoryChipChange,
@@ -93,6 +104,14 @@ export function InvoiceListScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | undefined>(undefined);
   const canView = can('invoice.view_own');
+  const dash = t('billing.noValue');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const live = useWarehouseOptions({
+    enabled: scope.warehouseId === undefined && can('warehouse.all.view') && warehouseOptionsProp === undefined,
+  });
+  const warehouseOptions: readonly WarehouseScope[] =
+    warehouseOptionsProp ??
+    live.options.map((o) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName, warehouseCode: o.warehouseCode }));
   const view = queryViewState({ isLoading, error, itemCount: invoices.length });
 
   const rows = useMemo(() => {
@@ -115,11 +134,12 @@ export function InvoiceListScreen({
           <Text style={styles.invoiceId}>{inv.invoiceNumber}</Text>
           <ToneBadge label={inv.statusLabel} tone={inv.tone} />
         </View>
+        <Text style={styles.metaText}>{t('billing.list.customerOrder', { customer: dash, order: dash })}</Text>
         <View style={[styles.rowBetween, styles.cardMidRow]}>
           <Text style={styles.metaText}>{inv.typeLabel}</Text>
           <Text style={styles.amountText}>{inv.amountLabel}</Text>
         </View>
-        <Text style={styles.metaText}>{inv.issueDateLabel}</Text>
+        <Text style={styles.metaText}>{t('billing.list.dateTime', { date: inv.issueDateLabel, time: dash })}</Text>
         {expanded && canView ? (
           <View style={styles.actionRow}>
             <BillingButton
@@ -157,8 +177,9 @@ export function InvoiceListScreen({
         <Text style={styles.invoiceId}>{inv.invoiceNumber}</Text>
         <ToneBadge label={inv.statusLabel} tone={inv.tone} />
       </View>
+      <Text style={styles.metaText}>{dash}</Text>
       <View style={[styles.rowBetween, styles.cardMidRow]}>
-        <Text style={styles.metaText}>{inv.typeLabel}</Text>
+        <Text style={styles.metaText}>{t('billing.list.typeTime', { type: inv.typeLabel, time: dash })}</Text>
         <Text style={styles.amountText}>{inv.amountLabel}</Text>
       </View>
     </TouchableOpacity>
@@ -168,7 +189,19 @@ export function InvoiceListScreen({
     <BillingScreen
       title={layout === 'history' ? 'Invoice History' : 'Invoice List'}
       onBack={onBack}
-      headerExtra={isAllWarehouses(scope) ? null : <ScopeHeader scope={scope} />}
+      headerRight={
+        <HeaderIconButton onPress={() => onOpenFilters?.()} accessibilityLabel={t('billing.list.filter')}>
+          <FilterSlidersIcon />
+        </HeaderIconButton>
+      }
+      headerExtra={
+        <ScopeHeader
+          scope={scope}
+          warehouseOptions={warehouseOptions}
+          selectedWarehouseId={selectedWarehouseId}
+          onSelectWarehouse={setSelectedWarehouseId}
+        />
+      }
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -180,7 +213,7 @@ export function InvoiceListScreen({
           ) : undefined
         }
       >
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder={t('billing.list.searchPlaceholder')} />
+        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder={t(layout === 'history' ? 'billing.list.searchHistoryPlaceholder' : 'billing.list.searchPlaceholder')} />
 
         {layout === 'history' ? (
           <View style={styles.chipsWrap}>

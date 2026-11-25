@@ -27,6 +27,19 @@ export interface OffsetPage<T> {
   total: number;
 }
 
+/**
+ * One page of a `page`/`limit` list (docs/openapi.yaml
+ * `LearningArticlesListResponse` and its siblings). The same idea as
+ * `OffsetPage` but a different wire shape — the page size is `limit`, not
+ * `pageSize` — so it is its own type rather than a cast of the other.
+ */
+export interface NumberedPage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export type QueryValue = string | number | boolean | null | undefined;
 export type QueryParams = Readonly<Record<string, QueryValue>>;
 
@@ -51,6 +64,18 @@ export function buildQueryString(params: QueryParams): string {
  */
 export function nextPageParam(lastPage: Page<unknown>): string | undefined {
   return lastPage.page.hasMore && lastPage.page.nextCursor !== null ? lastPage.page.nextCursor : undefined;
+}
+
+/**
+ * The number of the page after `lastPage`, or undefined when there is none.
+ *
+ * An empty page ends the walk whatever `total` says: a `total` that outruns the
+ * rows the server actually returns would otherwise loop forever. `total` is
+ * trusted for the count, never for the existence of another page.
+ */
+export function nextNumberedPage(lastPage: NumberedPage<unknown>): number | undefined {
+  if (lastPage.items.length === 0) return undefined;
+  return lastPage.page * lastPage.limit < lastPage.total ? lastPage.page + 1 : undefined;
 }
 
 /** Every item of a cursor walk; `complete` is false only when `maxPages` stopped it early. */

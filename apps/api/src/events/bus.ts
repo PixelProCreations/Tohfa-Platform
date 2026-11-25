@@ -22,6 +22,8 @@ export interface DomainEvents {
     userId: string;
     applicationId: string;
     steps: number[];
+    /** BR-217: the requested checklist (FMB_SKETCH, AADHAAR, ...). */
+    items?: string[];
     message: string;
   };
   'counter_offer.received': {

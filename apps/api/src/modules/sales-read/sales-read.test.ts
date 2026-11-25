@@ -1021,9 +1021,7 @@ describeIfDatabase('sales-read routes (HTTP, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

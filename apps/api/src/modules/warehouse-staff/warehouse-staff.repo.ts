@@ -13,7 +13,17 @@
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
-import type { AttendanceStatus, StaffStatus } from './warehouse-staff.schema.js';
+import type {
+  AttendanceStatus,
+  StaffStatus,
+  StaffBankAccountBody,
+  StaffBankAccountResponse,
+  StaffDocumentBody,
+  StaffDocumentResponse,
+  StaffDocumentType,
+  StaffEmergencyContactBody,
+  StaffEmergencyContactResponse,
+} from './warehouse-staff.schema.js';
 
 // ---------------------------------------------------------------------------
 // Records
@@ -313,6 +323,12 @@ export interface WarehouseStaffRepo {
   listHistory(db: Executor, attendanceId: string): Promise<HistoryRecord[]>;
   findAttendanceByStaffDay(db: Executor, scope: ResolvedScope, staffId: string, workDate: string): Promise<AttendanceRecord | null>;
   getMaxRangeDays(db: Executor): Promise<number>;
+  getBankAccount(db: Executor, staffId: string): Promise<StaffBankAccountResponse | null>;
+  upsertBankAccount(db: Executor, staffId: string, input: StaffBankAccountBody): Promise<StaffBankAccountResponse>;
+  listDocuments(db: Executor, staffId: string): Promise<StaffDocumentResponse[]>;
+  createDocument(db: Executor, staffId: string, input: StaffDocumentBody): Promise<StaffDocumentResponse>;
+  getEmergencyContact(db: Executor, staffId: string): Promise<StaffEmergencyContactResponse | null>;
+  upsertEmergencyContact(db: Executor, staffId: string, input: StaffEmergencyContactBody): Promise<StaffEmergencyContactResponse>;
 }
 
 export const warehouseStaffRepo: WarehouseStaffRepo = {
@@ -611,5 +627,178 @@ export const warehouseStaffRepo: WarehouseStaffRepo = {
     const parsed =
       typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
     return Number.isInteger(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_RANGE_DAYS;
+  },
+
+  async getBankAccount(db, staffId) {
+    const res = await db.query<{
+      id: string;
+      staff_id: string;
+      account_holder_name: string;
+      account_number: string;
+      ifsc: string;
+      bank_name: string;
+      branch_name: string;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `SELECT * FROM warehouse_staff_bank_accounts WHERE staff_id = $1`,
+      [staffId],
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      staffId: row.staff_id,
+      accountHolderName: row.account_holder_name,
+      accountNumber: row.account_number,
+      ifsc: row.ifsc,
+      bankName: row.bank_name,
+      branchName: row.branch_name,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    };
+  },
+
+  async upsertBankAccount(db, staffId, input) {
+    const res = await db.query<{
+      id: string;
+      staff_id: string;
+      account_holder_name: string;
+      account_number: string;
+      ifsc: string;
+      bank_name: string;
+      branch_name: string;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `INSERT INTO warehouse_staff_bank_accounts (staff_id, account_holder_name, account_number, ifsc, bank_name, branch_name)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (staff_id) DO UPDATE SET
+         account_holder_name = EXCLUDED.account_holder_name,
+         account_number = EXCLUDED.account_number,
+         ifsc = EXCLUDED.ifsc,
+         bank_name = EXCLUDED.bank_name,
+         branch_name = EXCLUDED.branch_name,
+         updated_at = now()
+       RETURNING *`,
+      [staffId, input.accountHolderName, input.accountNumber, input.ifsc, input.bankName, input.branchName],
+    );
+    const row = res.rows[0]!;
+    return {
+      id: row.id,
+      staffId: row.staff_id,
+      accountHolderName: row.account_holder_name,
+      accountNumber: row.account_number,
+      ifsc: row.ifsc,
+      bankName: row.bank_name,
+      branchName: row.branch_name,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    };
+  },
+
+  async listDocuments(db, staffId) {
+    const res = await db.query<{
+      id: string;
+      staff_id: string;
+      document_type: StaffDocumentType;
+      document_number: string;
+      file_url: string;
+      created_at: Date;
+    }>(
+      `SELECT * FROM warehouse_staff_documents WHERE staff_id = $1 ORDER BY created_at ASC`,
+      [staffId],
+    );
+    return res.rows.map((row) => ({
+      id: row.id,
+      staffId: row.staff_id,
+      type: row.document_type,
+      documentNumber: row.document_number,
+      fileUrl: row.file_url,
+      createdAt: row.created_at.toISOString(),
+    }));
+  },
+
+  async createDocument(db, staffId, input) {
+    const res = await db.query<{
+      id: string;
+      staff_id: string;
+      document_type: StaffDocumentType;
+      document_number: string;
+      file_url: string;
+      created_at: Date;
+    }>(
+      `INSERT INTO warehouse_staff_documents (staff_id, document_type, document_number, file_url)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [staffId, input.type, input.documentNumber, input.fileUrl],
+    );
+    const row = res.rows[0]!;
+    return {
+      id: row.id,
+      staffId: row.staff_id,
+      type: row.document_type,
+      documentNumber: row.document_number,
+      fileUrl: row.file_url,
+      createdAt: row.created_at.toISOString(),
+    };
+  },
+
+  async getEmergencyContact(db, staffId) {
+    const res = await db.query<{
+      id: string;
+      staff_id: string;
+      name: string;
+      relationship: string;
+      mobile: string;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `SELECT * FROM warehouse_staff_emergency_contacts WHERE staff_id = $1`,
+      [staffId],
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      staffId: row.staff_id,
+      name: row.name,
+      relationship: row.relationship,
+      mobile: row.mobile,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    };
+  },
+
+  async upsertEmergencyContact(db, staffId, input) {
+    const res = await db.query<{
+      id: string;
+      staff_id: string;
+      name: string;
+      relationship: string;
+      mobile: string;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `INSERT INTO warehouse_staff_emergency_contacts (staff_id, name, relationship, mobile)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (staff_id) DO UPDATE SET
+         name = EXCLUDED.name,
+         relationship = EXCLUDED.relationship,
+         mobile = EXCLUDED.mobile,
+         updated_at = now()
+       RETURNING *`,
+      [staffId, input.name, input.relationship, input.mobile],
+    );
+    const row = res.rows[0]!;
+    return {
+      id: row.id,
+      staffId: row.staff_id,
+      name: row.name,
+      relationship: row.relationship,
+      mobile: row.mobile,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString(),
+    };
   },
 };

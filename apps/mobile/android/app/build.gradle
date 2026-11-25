@@ -65,7 +65,22 @@ android {
 
     externalNativeBuild {
         cmake {
-            buildStagingDirectory file("C:/cxx")
+            // Where the CMake/NDK staging output goes. It was hardcoded to
+            // "C:/cxx" — a Windows absolute path, almost certainly to dodge
+            // Windows' 260-character MAX_PATH limit, which the deep
+            // react-native codegen paths do hit. On macOS and Linux there is
+            // no C: drive, so Gradle created a directory literally named "C:"
+            // inside app/ and wrote ~325 MB of build output into it. That path
+            // is not covered by .gitignore's `.cxx` rule, so it also showed up
+            // as untracked in every `git status`.
+            //
+            // Default to the conventional, gitignored app/.cxx, and let a
+            // Windows developer override it WITHOUT committing their path:
+            //   gradle.properties (not checked in) or -P on the command line
+            //   tohfaCxxDir=C:/cxx
+            buildStagingDirectory file(
+                project.hasProperty("tohfaCxxDir") ? project.property("tohfaCxxDir") : "${projectDir}/.cxx"
+            )
         }
     }
 }

@@ -1,0 +1,22 @@
+{
+  "homeDashboards.sa.greeting": "Good morning, {{name}}",
+  "homeDashboards.sa.lastUpdated": "Last updated {{time}} · All details",
+  "homeDashboards.sa.refresh": "Refresh operational summary",
+  "homeDashboards.sa.market.noSource": "Market open / close status and schedules are not available yet.",
+  "homeDashboards.sa.workQueue.notLoaded": "Live work items are listed in the Work Queue.",
+  "homeDashboards.sa.approvalInbox.notLoaded": "Live approvals are listed in the Approval Inbox.",
+  "homeDashboards.sa.activity.notLoaded": "Recent activity is not available here yet.",
+  "homeDashboards.fa.greeting": "Good morning, {{name}}",
+  "homeDashboards.fa.attention.listingTitle": "{{crop}} — {{grade}}",
+  "homeDashboards.fa.attention.listingMeta": "Farmer: {{farmer}} · Quantity: {{qty}} · Listed Price: {{price}}",
+  "homeDashboards.fa.attention.counterMeta": "Farmer: {{farmer}} · Crop: {{crop}} · Requires response",
+  "homeDashboards.fa.attention.auditMeta": "Farmer: {{farmer}} · Zone: {{zone}} · Date: {{date}}",
+  "homeDashboards.fa.attention.disputeMeta": "Farmer vs Farmer · Status: {{status}}",
+  "homeDashboards.fa.listings.summary": "{{pending}} pending · {{farmers}} farmers",
+  "homeDashboards.fa.listings.farmerPending": "{{count}} pending listings",
+  "homeDashboards.fa.listings.line": "• {{crop}} — {{grade}} ({{qty}})",
+  "homeDashboards.fa.listings.qty": "{{qty}} KG",
+  "homeDashboards.fa.listings.price": "{{price}}/KG",
+  "homeDashboards.fa.listings.empty": "No listings are waiting for review.",
+  "homeDashboards.fa.activity.notLoaded": "Recent Farmer Admin activity is not available here yet."
+}

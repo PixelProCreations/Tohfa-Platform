@@ -10,8 +10,10 @@ import {
   createTopupSchema,
   customerIdParamSchema,
   topupIdParamSchema,
+  walletDeductBodySchema,
 } from './topup.schema.js';
 import { topupService } from './topup.service.js';
+import { walletService } from '../wallet/wallet.service.js';
 
 export const topupRouter: Router = Router();
 export const webhookRouter: Router = Router();
@@ -64,6 +66,41 @@ adminTopupRouter.post(
       idempotencyKey,
     );
     res.status(201).json(result);
+  }),
+);
+
+// POST /v1/admin/wallets/:customerId/deduct  (BR-170)
+// Manually debit a customer's wallet (e.g. penalty, correction). SA-only permission.
+// Idempotency-Key header required; replays return the original response unchanged.
+adminTopupRouter.post(
+  '/wallets/:customerId/deduct',
+  requireAuth,
+  requirePermission('wallet.manual_credit_debit'),
+  validate({
+    params: customerIdParamSchema,
+    body: walletDeductBodySchema,
+  }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const params = getValidated(req, 'params', customerIdParamSchema);
+    const body = getValidated(req, 'body', walletDeductBodySchema);
+    const idempotencyKey = req.header('idempotency-key');
+
+    if (!idempotencyKey) {
+      res.status(422).json({ status: 422, title: 'Idempotency-Key header is required.' });
+      return;
+    }
+
+    const result = await walletService.move(scope, {
+      customerId: params.customerId,
+      idempotencyKey,
+      direction: 'DEBIT',
+      type: 'ADJUSTMENT',
+      amount: parseMoney(body.amount),
+      remarks: body.reason,
+    });
+
+    res.status(200).json(result);
   }),
 );
 

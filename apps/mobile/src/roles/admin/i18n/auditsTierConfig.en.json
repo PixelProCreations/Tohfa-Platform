@@ -1,0 +1,5 @@
+{
+  "admin.audits.tierConfig.field.tier": "Tier",
+  "admin.audits.tierConfig.select": "Select...",
+  "admin.audits.tierConfig.tiersPending": "The tier filter appears once tiers are configured."
+}

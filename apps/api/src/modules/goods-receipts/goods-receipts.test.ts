@@ -246,13 +246,50 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
     ...overrides,
   });
 
-  const mockTx = { query: async () => ({ rows: [] }) } as unknown as Executor;
+  const mockTx = { query: async () => ({ rows: [{ id: 'audit-row-id' }] }) } as unknown as Executor;
   const mockRunTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn(mockTx);
   const mockDb = { query: async () => ({ rows: [] }) } as unknown as Executor;
 
   const noAllocation = async (): Promise<void> => {};
   const createTestService = (overrides?: Partial<GoodsReceiptsRepo>) =>
     createGoodsReceiptsService(createMockRepo(overrides), mockRunTx, mockDb, noAllocation, createInMemoryIdempotencyStore());
+
+  it('BR-35b: goods-receipt audit-log failure rolls back the goods receipt', async () => {
+    let rolledBack = false;
+    const trackingRunTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => {
+      try {
+        return await fn(mockTx);
+      } catch (err) {
+        rolledBack = true;
+        throw err;
+      }
+    };
+
+    const service = createGoodsReceiptsService(
+      createMockRepo({
+        recordAudit: async () => {
+          throw new Error('AUDIT_LOG_FAILED');
+        },
+      }),
+      trackingRunTx,
+      mockDb,
+      noAllocation,
+      createInMemoryIdempotencyStore(),
+    );
+
+    const input: CreateGoodsReceiptBody = {
+      purchaseOrderId: samplePO.id,
+      warehouseId: WH_OOTY,
+      grossQtyKg: '250.000',
+      vehicleNumber: 'TN43AB1234',
+      photos: [],
+    };
+
+    await expect(
+      service.createGoodsReceipt(mockActorSubWhOoty, mockScopeSubWhOoty, input, randomUUID()),
+    ).rejects.toThrow('AUDIT_LOG_FAILED');
+    expect(rolledBack).toBe(true);
+  });
 
   it('BR-30a: Sub Warehouse Admin creates goods receipt for their assigned warehouse', async () => {
     const service = createTestService();
@@ -348,6 +385,31 @@ describe('GoodsReceiptsService (Unit & Business Rules S-25)', () => {
       outcome: 'PARTIALLY_ACCEPTED',
       acceptedQtyKg: '200.000',
       rejectedQtyKg: '60.000',
+      rejectionReason: 'Surface damage',
+      items: valid5PointItems,
+      photos: [],
+      priceAdjustment: '0.00',
+    };
+
+    await expect(
+      service.recordQualityCheck(mockActorAdmin, mockScopeAdmin, sampleGRN.id, input, randomUUID()),
+    ).rejects.toSatisfy((err: unknown) => {
+      const e = err as AppError;
+      expect(e.status).toBe(422);
+      expect(e.detail).toContain('cannot exceed grossQtyKg');
+      return true;
+    });
+  });
+
+  it('BR-106: quantity check rejects accepted + rejected exceeding gross by 1 gram without float tolerance', async () => {
+    const service = createTestService();
+
+    // 249.999 accepted + 0.002 rejected = 250.001 > 250.000 gross (by exactly 1 gram)
+    const input: QualityCheckCreateBody = {
+      assignedGrade: 'GRADE_1',
+      outcome: 'PARTIALLY_ACCEPTED',
+      acceptedQtyKg: '249.999',
+      rejectedQtyKg: '0.002',
       rejectionReason: 'Surface damage',
       items: valid5PointItems,
       photos: [],
@@ -851,22 +913,26 @@ describeIfDatabase('BR-30: goods receipts are confined to the caller\'s assigned
   });
 
   afterAll(async () => {
-    const [{ pool, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { pool } = await import('../../db/pool.js');
     const pos = [poA, poB].filter((po): po is PoFixture => po !== undefined);
     const del = async (sql: string, ids: string[]): Promise<void> => {
       if (ids.length > 0) await pool.query(sql, [ids]);
     };
-    await del(`DELETE FROM goods_receipts WHERE purchase_order_id = ANY($1::uuid[])`, pos.map((p) => p.purchaseOrderId));
-    await del(`DELETE FROM purchase_orders WHERE id = ANY($1::uuid[])`, pos.map((p) => p.purchaseOrderId));
-    await del(`DELETE FROM produce_listings WHERE id = ANY($1::uuid[])`, pos.map((p) => p.listingId));
-    await del(`DELETE FROM fair_prices WHERE id = ANY($1::uuid[])`, pos.map((p) => p.fairPriceId));
-    await del(`DELETE FROM plots WHERE farm_id IN (SELECT id FROM farms WHERE farmer_id = ANY($1::uuid[]))`, pos.map((p) => p.farmerId));
-    await del(`DELETE FROM farms WHERE farmer_id = ANY($1::uuid[])`, pos.map((p) => p.farmerId));
-    await del(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, pos.map((p) => p.farmerId));
-    await del(`DELETE FROM crop_master WHERE id = ANY($1::uuid[])`, pos.map((p) => p.cropId));
-    await del(`DELETE FROM users WHERE id = ANY($1::uuid[])`, pos.flatMap((p) => [p.farmerUserId, p.issuedBy]));
+    await pool.query('SET session_replication_role = replica');
+    try {
+      await del(`DELETE FROM goods_receipts WHERE purchase_order_id = ANY($1::uuid[])`, pos.map((p) => p.purchaseOrderId));
+      await del(`DELETE FROM purchase_orders WHERE id = ANY($1::uuid[])`, pos.map((p) => p.purchaseOrderId));
+      await del(`DELETE FROM produce_listings WHERE id = ANY($1::uuid[])`, pos.map((p) => p.listingId));
+      await del(`DELETE FROM fair_prices WHERE id = ANY($1::uuid[])`, pos.map((p) => p.fairPriceId));
+      await del(`DELETE FROM plots WHERE farm_id IN (SELECT id FROM farms WHERE farmer_id = ANY($1::uuid[]))`, pos.map((p) => p.farmerId));
+      await del(`DELETE FROM farms WHERE farmer_id = ANY($1::uuid[])`, pos.map((p) => p.farmerId));
+      await del(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, pos.map((p) => p.farmerId));
+      await del(`DELETE FROM crop_master WHERE id = ANY($1::uuid[])`, pos.map((p) => p.cropId));
+      await del(`DELETE FROM users WHERE id = ANY($1::uuid[])`, pos.flatMap((p) => [p.farmerUserId, p.issuedBy]));
+    } finally {
+      await pool.query('SET session_replication_role = DEFAULT');
+    }
     if (server !== undefined) await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   /** Everything a goods-receipt write could have changed, measured from `since` (DB clock). */

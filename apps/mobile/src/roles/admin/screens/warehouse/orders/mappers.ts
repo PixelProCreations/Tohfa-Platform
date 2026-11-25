@@ -488,6 +488,14 @@ const LANDED: Readonly<Record<OrderAction, readonly OrderUiStatus[]>> = {
   pack: ['packed', 'readyForPickup', 'dispatched', 'outForDelivery', 'delivered', 'pickedUp'],
   markReady: ['readyForPickup', 'dispatched', 'outForDelivery', 'delivered', 'pickedUp'],
   verifyOtp: ['pickedUp', 'delivered'],
+  // Assigning a warehouse does not move the status, so a status can never show it landed.
+  assign: [],
+  // A delivery dispatch leaves PACKED for DISPATCHED / OUT_FOR_DELIVERY (BR-21).
+  dispatch: ['dispatched', 'outForDelivery', 'delivered'],
+  cancel: ['cancelled'],
+  // Recording an issue does not touch the order's status, so a status can never show it landed;
+  // a retry reuses the same Idempotency-Key and the server replays the first answer (BR-118).
+  reportIssue: [],
 };
 
 /**

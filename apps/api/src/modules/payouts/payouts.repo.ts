@@ -1,10 +1,19 @@
 import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
+import { maskMobile } from '../sales/sales.math.js';
 import type {
   AgeBucket,
   PayoutDue,
   PayoutDuesTotals,
   PayoutDuesQuery,
+  ListPayoutsQuery,
+  ListPayoutsResponse,
+  PayoutListItem,
+  PayoutDetailResponse,
+  PayoutLinkedItem,
+  PayoutAuditEvent,
 } from './payouts.schema.js';
 
 // ---------------------------------------------------------------------------
@@ -52,8 +61,38 @@ export interface PayoutRepo {
       dueIds?: string[];
       remarks?: string;
       initiatedBy: string;
+      requiresDualApproval?: boolean;
     },
   ): Promise<{ payout: PayoutRow; approvals: PayoutApprovalRow[] }>;
+
+  insertPayoutItems(
+    db: Executor,
+    payoutId: string,
+    items: Array<{ goodsReceiptId: string; amount: string }>,
+  ): Promise<void>;
+
+  getGoodsReceiptsDues(
+    db: Executor,
+    farmerId: string,
+    goodsReceiptIds: string[],
+  ): Promise<Array<{
+    id: string;
+    acceptedValuePaise: number;
+    settledAmountPaise: number;
+    remainingDuePaise: number;
+  }>>;
+
+  listPayoutsForExport(
+    db: Executor,
+    from?: string,
+    to?: string,
+  ): Promise<Array<{
+    payout_number: string;
+    farmer_name: string;
+    amount: string;
+    status: string;
+    created_at: Date;
+  }>>;
 
   /**
    * `forUpdate` locks the payout row until the caller's transaction ends. The
@@ -125,6 +164,16 @@ export interface PayoutRepo {
    * `users.id` everywhere else — needs this translation.
    */
   getFarmerUserId(db: Executor, farmerId: string): Promise<string | null>;
+
+  listPayouts(
+    db: Executor,
+    query: ListPayoutsQuery,
+  ): Promise<ListPayoutsResponse>;
+
+  getPayoutDetail(
+    db: Executor,
+    payoutId: string,
+  ): Promise<PayoutDetailResponse | null>;
 }
 
 // ---------------------------------------------------------------------------
@@ -148,34 +197,33 @@ export const payoutsRepo: PayoutRepo = {
     const values: unknown[] = [];
     let idx = 1;
 
-    // Payout dues = purchase orders that are accepted and not yet fully paid out.
-    // We derive dues from goods_receipts that passed quality check, joined to PO and farmer.
+    // BR-144: Dues = purchase orders/goods receipts where remaining due (accepted value - sum of non-failed payout items) > 0.
     let sql = `
       SELECT
-        gr.id                                                          AS id,
-        po.farmer_id                                                   AS farmer_id,
-        f.tohfa_farmer_id                                              AS tohfa_farmer_id,
-        u.full_name                                                    AS farmer_name,
-        gr.purchase_order_id                                           AS purchase_order_id,
-        gr.id                                                          AS goods_receipt_id,
-        (po.price_per_kg * gr.accepted_qty_kg)::numeric(12,2)          AS amount_due,
-        gr.created_at::date                                            AS due_since,
-        (CURRENT_DATE - gr.created_at::date)::int                     AS age_days
+        gr.id                                                                         AS id,
+        po.farmer_id                                                                  AS farmer_id,
+        f.tohfa_farmer_id                                                             AS tohfa_farmer_id,
+        u.full_name                                                                   AS farmer_name,
+        gr.purchase_order_id                                                          AS purchase_order_id,
+        gr.id                                                                         AS goods_receipt_id,
+        ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0))::numeric(12,2)::text AS amount_due,
+        gr.created_at::date                                                           AS due_since,
+        (CURRENT_DATE - gr.created_at::date)::int                                    AS age_days
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN farmers f           ON f.id = po.farmer_id
       JOIN users u             ON u.id = f.user_id
+      LEFT JOIN (
+        SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
+        FROM payout_items pi
+        JOIN payouts p ON p.id = pi.payout_id
+        WHERE p.status NOT IN ('FAILED', 'REVERSED')
+        GROUP BY pi.goods_receipt_id
+      ) paid ON paid.goods_receipt_id = gr.id
       WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
         AND gr.accepted_qty_kg > 0
-        AND NOT EXISTS (
-          SELECT 1
-          FROM payouts p
-          WHERE p.farmer_id = po.farmer_id
-            AND p.status IN ('APPROVED', 'PROCESSING', 'PAID')
-            AND $${idx} = $${idx}
-        )
+        AND ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0)) > 0
     `;
-    values.push(1); idx++; // dummy self-ref to keep param index consistent
 
     if (query.farmerId) {
       conditions.push(`po.farmer_id = $${idx}`);
@@ -240,11 +288,20 @@ export const payoutsRepo: PayoutRepo = {
     // Totals
     const totalsRes = await db.query<{ total_due: string; farmer_count: string }>(`
       SELECT
-        COALESCE(SUM((po.price_per_kg * gr.accepted_qty_kg)::numeric(12,2)), 0)::text AS total_due,
+        COALESCE(SUM((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0)), 0)::numeric(12,2)::text AS total_due,
         COUNT(DISTINCT po.farmer_id)::text AS farmer_count
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
-      WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE') AND gr.accepted_qty_kg > 0
+      LEFT JOIN (
+        SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
+        FROM payout_items pi
+        JOIN payouts p ON p.id = pi.payout_id
+        WHERE p.status NOT IN ('FAILED', 'REVERSED')
+        GROUP BY pi.goods_receipt_id
+      ) paid ON paid.goods_receipt_id = gr.id
+      WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
+        AND gr.accepted_qty_kg > 0
+        AND ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0)) > 0
     `);
 
     const totals: PayoutDuesTotals = {
@@ -253,6 +310,52 @@ export const payoutsRepo: PayoutRepo = {
     };
 
     return { items, totals, nextCursor };
+  },
+
+  async insertPayoutItems(db, payoutId, items) {
+    for (const item of items) {
+      await db.query(
+        `INSERT INTO payout_items (payout_id, goods_receipt_id, amount)
+         VALUES ($1, $2, $3)`,
+        [payoutId, item.goodsReceiptId, item.amount],
+      );
+    }
+  },
+
+  async getGoodsReceiptsDues(db, farmerId, goodsReceiptIds) {
+    if (goodsReceiptIds.length === 0) return [];
+    const res = await db.query<{
+      id: string;
+      accepted_value: string;
+      settled_amount: string;
+      remaining_due: string;
+    }>(
+      `SELECT
+         gr.id,
+         (po.price_per_kg * gr.accepted_qty_kg)::numeric(12,2)::text AS accepted_value,
+         COALESCE(paid.total_paid, 0)::numeric(12,2)::text AS settled_amount,
+         ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0))::numeric(12,2)::text AS remaining_due
+       FROM goods_receipts gr
+       JOIN purchase_orders po ON po.id = gr.purchase_order_id
+       LEFT JOIN (
+         SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
+         FROM payout_items pi
+         JOIN payouts p ON p.id = pi.payout_id
+         WHERE p.status NOT IN ('FAILED', 'REVERSED')
+         GROUP BY pi.goods_receipt_id
+       ) paid ON paid.goods_receipt_id = gr.id
+       WHERE gr.id = ANY($1::uuid[])
+         AND po.farmer_id = $2
+         AND gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
+         AND gr.accepted_qty_kg > 0`,
+      [goodsReceiptIds, farmerId],
+    );
+    return res.rows.map((r) => ({
+      id: r.id,
+      acceptedValuePaise: toPaise(parseMoney(r.accepted_value)),
+      settledAmountPaise: toPaise(parseMoney(r.settled_amount)),
+      remainingDuePaise: toPaise(parseMoney(r.remaining_due)),
+    }));
   },
 
   /**
@@ -278,8 +381,8 @@ export const payoutsRepo: PayoutRepo = {
     const insertRes = await db.query<PayoutRow>(
       `INSERT INTO payouts
          (payout_number, farmer_id, bank_account_id, amount, mode, status,
-          initiated_by, created_at)
-       VALUES ($1, $2, $3, $4, $5, 'REQUESTED', $6, now())
+          requires_dual_approval, initiated_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'REQUESTED', $6, $7, now())
        RETURNING
          id, payout_number, farmer_id, amount::text, mode, status,
          requires_dual_approval, initiated_by, released_by, released_at,
@@ -291,6 +394,7 @@ export const payoutsRepo: PayoutRepo = {
         params.bankAccountId ?? null,
         params.amount,
         params.mode,
+        params.requiresDualApproval ?? false,
         params.initiatedBy,
       ],
     );
@@ -407,6 +511,41 @@ export const payoutsRepo: PayoutRepo = {
     return res.rows[0]?.user_id ?? null;
   },
 
+  async listPayoutsForExport(db, from, to) {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (from) {
+      params.push(from.length === 10 ? `${from}T00:00:00.000Z` : from);
+      conditions.push(`p.created_at >= $${params.length}`);
+    }
+    if (to) {
+      params.push(to.length === 10 ? `${to}T23:59:59.999Z` : to);
+      conditions.push(`p.created_at <= $${params.length}`);
+    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const res = await db.query<{
+      payout_number: string;
+      farmer_name: string;
+      amount: string;
+      status: string;
+      created_at: Date;
+    }>(
+      `SELECT p.payout_number,
+              COALESCE(u.full_name, 'Unknown') AS farmer_name,
+              p.amount,
+              p.status,
+              p.created_at
+         FROM payouts p
+         JOIN farmers f ON f.id = p.farmer_id
+         JOIN users u ON u.id = f.user_id
+        ${whereClause}
+        ORDER BY p.created_at ASC`,
+      params,
+    );
+    return res.rows;
+  },
+
   // Internal helper (not part of interface)
   async _getApprovals(db: Executor, payoutId: string): Promise<PayoutApprovalRow[]> {
     const res = await db.query<PayoutApprovalRow>(
@@ -414,5 +553,285 @@ export const payoutsRepo: PayoutRepo = {
       [payoutId],
     );
     return res.rows;
+  },
+
+  async listPayouts(db: Executor, query: ListPayoutsQuery): Promise<ListPayoutsResponse> {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (query.status !== undefined) {
+      params.push(query.status);
+      conditions.push(`p.status = $${params.length}`);
+    }
+    if (query.farmerId !== undefined) {
+      params.push(query.farmerId);
+      conditions.push(`p.farmer_id = $${params.length}::uuid`);
+    }
+    if (query.fromDate !== undefined) {
+      params.push(query.fromDate);
+      conditions.push(`p.created_at >= $${params.length}::timestamptz`);
+    }
+    if (query.toDate !== undefined) {
+      params.push(query.toDate);
+      conditions.push(`p.created_at <= $${params.length}::timestamptz`);
+    }
+    if (query.cursor !== undefined && query.cursor.length > 0) {
+      const after = requireKeysetCursor(CURSOR_TAGS.adminPayouts, query.cursor);
+      params.push(after.ts, after.id);
+      conditions.push(`(p.created_at, p.id) < ($${params.length - 1}::timestamptz, $${params.length}::uuid)`);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const limit = query.limit ?? 20;
+    params.push(limit + 1);
+
+    const result = await db.query<{
+      id: string;
+      payout_number: string;
+      farmer_id: string;
+      farmer_name: string;
+      amount: string;
+      status: string;
+      created_at: Date;
+      requested_by: string;
+      cursor_ts: string;
+    }>(
+      `SELECT p.id,
+              p.payout_number,
+              p.farmer_id,
+              COALESCE(u_farmer.full_name, 'Unknown') AS farmer_name,
+              p.amount::text,
+              p.status,
+              p.created_at,
+              COALESCE(u_init.full_name, 'System') AS requested_by,
+              ${MICRO_TS_SQL('p.created_at')} AS cursor_ts
+         FROM payouts p
+         JOIN farmers f ON f.id = p.farmer_id
+         JOIN users u_farmer ON u_farmer.id = f.user_id
+         LEFT JOIN users u_init ON u_init.id = p.initiated_by
+        ${whereClause}
+        ORDER BY p.created_at DESC, p.id DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const last = rows[rows.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined ? encodeKeysetCursor(CURSOR_TAGS.adminPayouts, { ts: last.cursor_ts, id: last.id }) : null;
+
+    const items: PayoutListItem[] = rows.map((r) => ({
+      id: r.id,
+      payoutNumber: r.payout_number,
+      farmerId: r.farmer_id,
+      farmerName: r.farmer_name,
+      amount: r.amount,
+      status: r.status as PayoutListItem['status'],
+      requestedAt: new Date(r.created_at).toISOString(),
+      requestedBy: r.requested_by,
+    }));
+
+    return {
+      items,
+      page: { nextCursor, hasMore },
+      nextCursor,
+      hasMore,
+    };
+  },
+
+  async getPayoutDetail(db: Executor, payoutId: string): Promise<PayoutDetailResponse | null> {
+    const payoutRes = await db.query<{
+      id: string;
+      payout_number: string;
+      farmer_id: string;
+      farmer_code: string | null;
+      farmer_name: string;
+      farmer_mobile: string | null;
+      amount: string;
+      status: string;
+      created_at: Date;
+      requested_by: string;
+      bank_account_last4: string | null;
+      failure_reason: string | null;
+      released_at: Date | null;
+      released_by_name: string | null;
+    }>(
+      `SELECT p.id,
+              p.payout_number,
+              p.farmer_id,
+              f.tohfa_farmer_id AS farmer_code,
+              COALESCE(u_farmer.full_name, 'Unknown') AS farmer_name,
+              u_farmer.mobile AS farmer_mobile,
+              p.amount::text,
+              p.status,
+              p.created_at,
+              COALESCE(u_init.full_name, 'System') AS requested_by,
+              fba.account_number_last4 AS bank_account_last4,
+              p.failure_reason,
+              p.released_at,
+              u_rel.full_name AS released_by_name
+         FROM payouts p
+         JOIN farmers f ON f.id = p.farmer_id
+         JOIN users u_farmer ON u_farmer.id = f.user_id
+         LEFT JOIN users u_init ON u_init.id = p.initiated_by
+         LEFT JOIN users u_rel ON u_rel.id = p.released_by
+         LEFT JOIN farmer_bank_accounts fba ON fba.id = p.bank_account_id
+        WHERE p.id = $1`,
+      [payoutId],
+    );
+
+    const row = payoutRes.rows[0];
+    if (!row) return null;
+
+    const itemsRes = await db.query<{
+      id: string;
+      goods_receipt_id: string;
+      amount: string;
+      grn_number: string;
+      purchase_order_id: string;
+      po_number: string;
+      po_grade: string;
+      po_unit_price: string;
+      crop_name: string;
+      accepted_qty_kg: string | null;
+      accepted_grade: string | null;
+    }>(
+      `SELECT pi.id,
+              pi.goods_receipt_id,
+              pi.amount::text,
+              gr.grn_number,
+              gr.purchase_order_id,
+              po.po_number,
+              po.grade::text AS po_grade,
+              po.price_per_kg::text AS po_unit_price,
+              cm.name AS crop_name,
+              gr.accepted_qty_kg::text AS accepted_qty_kg,
+              qc.assigned_grade::text AS accepted_grade
+         FROM payout_items pi
+         JOIN goods_receipts gr ON gr.id = pi.goods_receipt_id
+         JOIN purchase_orders po ON po.id = gr.purchase_order_id
+         JOIN crop_master cm ON cm.id = po.crop_id
+         LEFT JOIN quality_checks qc ON qc.goods_receipt_id = gr.id
+        WHERE pi.payout_id = $1
+        ORDER BY pi.created_at ASC`,
+      [payoutId],
+    );
+
+    const items: PayoutLinkedItem[] = itemsRes.rows.map((it) => {
+      const acceptedQty = it.accepted_qty_kg ?? '0';
+      const unitPrice = it.po_unit_price ?? '0';
+      const purchaseValue = (parseFloat(acceptedQty) * parseFloat(unitPrice)).toFixed(2);
+      return {
+        id: it.id,
+        purchaseOrderId: it.purchase_order_id,
+        purchaseOrderNumber: it.po_number,
+        goodsReceiptId: it.goods_receipt_id,
+        goodsReceiptNumber: it.grn_number,
+        produce: it.crop_name,
+        acceptedQuantity: it.accepted_qty_kg,
+        acceptedGrade: it.accepted_grade ?? it.po_grade,
+        unitPrice: it.po_unit_price,
+        purchaseValue,
+        amount: it.amount,
+      };
+    });
+
+    const firstItem = items[0];
+
+    const approvalsRes = await db.query<{
+      approver_id: string;
+      approver_name: string;
+      approver_role_code: string;
+      approved_at: Date;
+      note: string | null;
+    }>(
+      `SELECT pa.approver_id,
+              u.full_name AS approver_name,
+              pa.approver_role_code,
+              pa.approved_at,
+              pa.note
+         FROM payout_approvals pa
+         JOIN users u ON u.id = pa.approver_id
+        WHERE pa.payout_id = $1
+        ORDER BY pa.approved_at ASC`,
+      [payoutId],
+    );
+
+    const auditRes = await db.query<{
+      id: string;
+      action_code: string;
+      actor_id: string;
+      actor_name: string | null;
+      outcome: string;
+      created_at: Date;
+      after: unknown;
+    }>(
+      `SELECT a.id,
+              a.action_code,
+              a.actor_id,
+              u.full_name AS actor_name,
+              a.outcome,
+              a.created_at,
+              a.after
+         FROM audit_log a
+         LEFT JOIN users u ON u.id = a.actor_id
+        WHERE a.entity_id = $1 AND a.entity_type = 'payouts'
+        ORDER BY a.created_at ASC`,
+      [payoutId],
+    );
+
+    const auditTrail: PayoutAuditEvent[] = auditRes.rows.map((a) => ({
+      id: a.id,
+      actionCode: a.action_code,
+      actorId: a.actor_id,
+      actorName: a.actor_name,
+      outcome: a.outcome,
+      createdAt: new Date(a.created_at).toISOString(),
+      details: a.after,
+    }));
+
+    const lastApproval = approvalsRes.rows[approvalsRes.rows.length - 1];
+    const approverName = lastApproval?.approver_name ?? row.released_by_name ?? null;
+
+    let approvalStatus = row.status;
+    if (row.status === 'REQUESTED') approvalStatus = 'Requested';
+    else if (row.status === 'PENDING_APPROVAL') approvalStatus = 'Awaiting Super Admin Approval';
+    else if (row.status === 'APPROVED') approvalStatus = 'Approved';
+    else if (row.status === 'PAID') approvalStatus = 'Paid';
+    else if (row.status === 'REJECTED') approvalStatus = 'Rejected';
+
+    const rejectionReason = row.failure_reason ?? approvalsRes.rows.find((a) => a.note)?.note ?? null;
+
+    return {
+      id: row.id,
+      payoutNumber: row.payout_number,
+      farmerId: row.farmer_id,
+      farmerName: row.farmer_name,
+      amount: row.amount,
+      status: row.status as PayoutDetailResponse['status'],
+      requestedAt: new Date(row.created_at).toISOString(),
+      requestedBy: row.requested_by,
+      farmerContact: row.farmer_mobile ? maskMobile(row.farmer_mobile) : null,
+      farmerCode: row.farmer_code,
+      verifiedPayoutAccount: row.bank_account_last4 ? `•••• ${row.bank_account_last4.trim()}` : null,
+      purchaseOrderId: firstItem?.purchaseOrderId ?? null,
+      purchaseOrderNumber: firstItem?.purchaseOrderNumber ?? null,
+      goodsReceiptId: firstItem?.goodsReceiptId ?? null,
+      goodsReceiptNumber: firstItem?.goodsReceiptNumber ?? null,
+      produce: firstItem?.produce ?? null,
+      acceptedQuantity: firstItem?.acceptedQuantity ?? null,
+      acceptedGrade: firstItem?.acceptedGrade ?? null,
+      unitPrice: firstItem?.unitPrice ?? null,
+      purchaseValue: firstItem?.purchaseValue ?? null,
+      items,
+      netPayableAmount: row.amount,
+      approvedAdjustments: '0.00',
+      calculationReference: `CALC-${row.payout_number}`,
+      approvalStatus,
+      approver: approverName,
+      rejectionReason,
+      auditTrail,
+    };
   },
 } as PayoutRepo & { _getApprovals(db: Executor, payoutId: string): Promise<PayoutApprovalRow[]> };

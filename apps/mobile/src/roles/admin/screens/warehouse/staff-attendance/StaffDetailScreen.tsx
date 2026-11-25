@@ -32,6 +32,7 @@ import {
 import {
   canDeactivateStaff,
   canManageStaff,
+  canMarkAttendance,
   canViewAttendance,
   istToday,
   monthOf,
@@ -48,9 +49,11 @@ export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
   onEditProfile?: ((staff: StaffMember) => void) | undefined;
   /** Attendance summary tap: opens Attendance History for this member. */
   onViewAttendanceHistory?: ((staff: StaffMember) => void) | undefined;
+  /** Attendance summary "Edit": opens Attendance Correction for this member (admin.staff.attendance.mark). */
+  onCorrectAttendance?: ((staff: StaffMember) => void) | undefined;
 }
 
-export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, onViewAttendanceHistory }: StaffDetailScreenProps) {
+export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, onViewAttendanceHistory, onCorrectAttendance }: StaffDetailScreenProps) {
   const allowed = can(STAFF_CODES.listView);
   const [now] = useState(() => new Date());
   const [confirmDeactivate, setConfirmDeactivate] = useState(false);
@@ -171,7 +174,17 @@ export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, on
 
         {attendanceAllowed ? (
           <>
-            <SectionTitle>{t('staff.detail.attendanceMonth')}</SectionTitle>
+            <SectionTitle
+              right={
+                onCorrectAttendance && canMarkAttendance(can) ? (
+                  <TouchableOpacity onPress={() => onCorrectAttendance(member)} activeOpacity={0.8} accessibilityRole="button">
+                    <Text style={styles.editLink}>{t('staffAccess.correction.edit')}</Text>
+                  </TouchableOpacity>
+                ) : undefined
+              }
+            >
+              {t('staff.detail.attendanceMonth')}
+            </SectionTitle>
             {summary.error ? (
               <AdminErrorState error={summary.error} onRetry={summary.refresh} />
             ) : onViewAttendanceHistory ? (
@@ -197,6 +210,7 @@ export function StaffDetailScreen({ scope, can, onBack, staff, onEditProfile, on
 }
 
 const styles = StyleSheet.create({
+  editLink: { ...adminType.rowTitle, color: adminColors.brand },
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',

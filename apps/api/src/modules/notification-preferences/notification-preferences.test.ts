@@ -126,14 +126,19 @@ describe('notificationPreferencesService.updateMine', () => {
 
 describe('HTTP Route Integration', () => {
   const app = createApp();
+  const server = app.listen(0);
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
 
   it('GET /v1/notification-preferences requires authentication', async () => {
-    const res = await request(app).get('/v1/notification-preferences');
+    const res = await request(server).get('/v1/notification-preferences');
     expect(res.status).toBe(401);
   });
 
   it('PATCH /v1/notification-preferences/:category requires authentication', async () => {
-    const res = await request(app)
+    const res = await request(server)
       .patch('/v1/notification-preferences/MARKETING')
       .send({ enabled: false });
     expect(res.status).toBe(401);
@@ -152,11 +157,6 @@ describeIfDatabase('notificationPreferencesService (integration)', () => {
     }
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it('runs the real list query against Postgres', async () => {
     if (!ready) return;

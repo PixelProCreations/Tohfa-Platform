@@ -15,6 +15,10 @@ export default tseslint.config(
       '**/coverage/**',
       '**/.angular/**',
       '**/*.d.ts',
+      // Helper-agent / review worktrees are full copies of the repo (each with its own
+      // node_modules). Linting them from the root double-counts files, and a removed worktree
+      // makes the editor's ESLint server print hundreds of ENOENT errors.
+      '**/.claude/**',
     ],
   },
   eslint.configs.recommended,

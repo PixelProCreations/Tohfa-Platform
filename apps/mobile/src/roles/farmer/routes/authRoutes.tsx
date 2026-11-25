@@ -70,7 +70,7 @@ export const renderAuthRoute: FarmerRouteRenderer = ({ screen, params, navigate,
       return (
         <ApplicationStatusScreen
           applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
-          onNavigate={(s) => navigate(s)}
+          onNavigate={(s, p) => navigate(s, p)}
         />
       );
     default:

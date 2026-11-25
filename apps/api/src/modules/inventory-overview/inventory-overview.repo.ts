@@ -40,18 +40,33 @@ export interface AlertConditionCounts {
   lowStockGroups: number;
 }
 
+export interface OverviewThresholds extends AlertThresholds {
+  criticalStockKg: string | null;
+}
+
 export interface InventoryOverviewRepo {
   /** `alert_batch_expiry_days` and `low_stock_threshold_kg` (and the capacity one), read exactly as the alerts do. */
-  getThresholds(db: Executor): Promise<AlertThresholds>;
+  getThresholds(db: Executor): Promise<OverviewThresholds>;
   warehouseStock(db: Executor, scope: ResolvedScope): Promise<WarehouseStockRow[]>;
   backlogCounts(db: Executor, scope: ResolvedScope): Promise<BacklogCounts>;
   /** Counts of the BATCH_NEAR_EXPIRY and LOW_STOCK conditions; a type with an unusable threshold counts 0 here (the service reports null). */
   alertConditionCounts(db: Executor, scope: ResolvedScope, thresholds: AlertThresholds): Promise<AlertConditionCounts>;
+  criticalStockCount(db: Executor, scope: ResolvedScope, thresholdKg: string | null): Promise<number | null>;
 }
 
 export const inventoryOverviewRepo: InventoryOverviewRepo = {
-  getThresholds(db) {
-    return tasksAlertsRepo.getAlertThresholds(db);
+  async getThresholds(db) {
+    const base = await tasksAlertsRepo.getAlertThresholds(db);
+    const res = await db.query<{ value: string }>(
+      `SELECT value FROM system_config WHERE key = 'critical_stock_threshold_kg'`,
+    );
+    const val = res.rows[0]?.value;
+    const str = typeof val === 'number' ? String(val) : (typeof val === 'string' ? val : null);
+    const criticalStockKg = str !== null && /^\d+(\.\d+)?$/.test(str.trim()) ? str.trim() : null;
+    return {
+      ...base,
+      criticalStockKg,
+    };
   },
 
   async warehouseStock(db, scope) {
@@ -98,5 +113,22 @@ export const inventoryOverviewRepo: InventoryOverviewRepo = {
   async alertConditionCounts(db, scope, thresholds) {
     const counts = await countAlertConditions(db, { scope, types: ['BATCH_NEAR_EXPIRY', 'LOW_STOCK'], thresholds });
     return { nearExpiryBatches: counts.BATCH_NEAR_EXPIRY ?? 0, lowStockGroups: counts.LOW_STOCK ?? 0 };
+  },
+
+  async criticalStockCount(db, scope, thresholdKg) {
+    if (thresholdKg === null) return null;
+    const filter = warehouseScopeFilter(scope, 'b.warehouse_id', 1);
+    const res = await db.query<{ count: number }>(
+      `SELECT count(*)::int AS count
+         FROM (
+           SELECT b.warehouse_id, b.crop_id, b.grade
+             FROM inventory_batches b
+            WHERE b.status = 'ACTIVE' AND ${filter.sql}
+            GROUP BY b.warehouse_id, b.crop_id, b.grade
+           HAVING SUM(b.qty_available) < $${filter.params.length + 1}::numeric
+         ) g`,
+      [...filter.params, thresholdKg],
+    );
+    return res.rows[0]?.count ?? 0;
   },
 };

@@ -31,7 +31,9 @@ export const channelPercentageItem = z.object({
 export const updateAllocationConfigBody = z
   .object({
     effectiveFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD'),
+    warehouseId: z.string().uuid().optional().nullable(),
     cropId: z.string().uuid().optional().nullable(),
+    grade: z.string().max(10).optional().nullable(),
     channels: z.array(channelPercentageItem).length(4, 'Must provide percentages for all 4 channels'),
   })
   .strict();
@@ -57,7 +59,9 @@ export type AllocationView = z.infer<typeof allocationSchema>;
 
 export const allocationConfigSchema = z.object({
   effectiveFrom: z.string(),
+  warehouseId: z.string().uuid().nullable().optional(),
   cropId: z.string().uuid().nullable().optional(),
+  grade: z.string().nullable().optional(),
   channels: z.array(channelPercentageItem),
   setBy: z.string().uuid().nullable().optional(),
   setAt: z.string().optional(),

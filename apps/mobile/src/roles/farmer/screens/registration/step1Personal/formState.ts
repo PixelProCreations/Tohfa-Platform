@@ -11,6 +11,10 @@ export interface Step1State {
   taluk: string;
   district: string;
   pincode: string;
+  zoneId: string;
+  zoneUserOverridden: boolean;
+  showZoneMenu: boolean;
+  availableZones: Array<{ id: string; name: string; warehouseTown: string }>;
   otp: string;
   showDatePicker: boolean;
   showGenderMenu: boolean;
@@ -66,6 +70,10 @@ export function initStep1State(initialData: Step1PersonalData | undefined): Step
     taluk: initialData?.taluk ?? '',
     district: initialData?.district ?? 'The Nilgiris',
     pincode: initialData?.pincode ?? '643217',
+    zoneId: initialData?.zoneId ?? '',
+    zoneUserOverridden: Boolean(initialData?.zoneId),
+    showZoneMenu: false,
+    availableZones: [],
     otp: '',
     showDatePicker: false,
     showGenderMenu: false,

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
@@ -97,11 +97,11 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
+      svc.approvePayout(actor, aScope({ permission: 'payout.approve_above_10k' }), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'SAME_ACTOR_APPROVAL', status: 403 });
   });
 
-  it('BR-31c: Non-Super-Admin cannot approve payout above threshold', async () => {
+  it('BR-31c: Actor without payout.approve_above_10k permission cannot approve payout above threshold', async () => {
     const initiatorId = newId();
     const approverIdNonSuper = newId();
     const payoutId = newId();
@@ -144,13 +144,13 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
 
     const actor = {
       userId: approverIdNonSuper,
-      roles: [{ code: 'TOHFA_ADMIN' as const }],  // Not SUPER_ADMIN
+      roles: [{ code: 'TOHFA_ADMIN' as const }],
       farmerId: null,
       customerId: null,
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
+      svc.approvePayout(actor, aScope({ permission: 'payout.farmer.initiate' }), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 });
   });
 
@@ -201,7 +201,7 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
     };
 
     await expect(
-      svc.approvePayout(actor, aScope({}), payoutId, {}, newId()),
+      svc.approvePayout(actor, aScope({ permission: 'payout.approve_above_10k' }), payoutId, {}, newId()),
     ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION', status: 409 });
   });
 });
@@ -307,6 +307,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
   let warehouseId: string;
   let purchaseOrderId: string;
   let cropId: string;
+  let fairPriceId: string;
 
   beforeAll(async () => {
     ready = await databaseReady('payouts');
@@ -386,7 +387,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
       `SELECT id FROM fair_prices WHERE crop_id = $1 AND grade = 'GRADE_1' LIMIT 1`,
       [cropId],
     );
-    let fairPriceId = fpRes.rows[0]?.id;
+    fairPriceId = fpRes.rows[0]?.id ?? '';
     if (!fairPriceId) {
       const insFp = await pool.query<{ id: string }>(
         `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
@@ -424,11 +425,6 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     );
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   // --------------------------------------------------------------------------
 
@@ -436,7 +432,7 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     if (!ready) return;
 
     const res = await request(app)
-      .get('/v1/admin/payout-dues')
+      .get(`/v1/admin/payout-dues?farmerId=${farmerId}`)
       .set('Authorization', `Bearer ${superAdminToken}`);
 
     expect(res.status).toBe(200);
@@ -664,5 +660,371 @@ describeIfDatabase('Payouts Integration Tests (BR-31, BR-35)', () => {
     } finally {
       publishSpy.mockRestore();
     }
+  });
+
+  // -------------------------------------------------------------------------
+  // BR-31c: Dual-approval threshold comes from system_config and is stored in DB
+  // -------------------------------------------------------------------------
+  it('BR-31c: changing system_config threshold changes requires_dual_approval flag for new payouts', async () => {
+    if (!ready) return;
+
+    // Change system_config threshold to 500.00
+    await pool.query(
+      `INSERT INTO system_config (key, value, description)
+       VALUES ('payout_dual_approval_threshold', '500.00'::jsonb, 'Threshold test')
+       ON CONFLICT (key) DO UPDATE SET value = '500.00'::jsonb`,
+    );
+
+    try {
+      // Payout of 600.00 is > 500.00 threshold, but <= 10000.00
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-threshold-config-${Date.now()}`)
+        .send({ farmerId, amount: '600.00', mode: 'IMPS' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('PENDING_APPROVAL');
+      expect(res.body.requiresDualApproval).toBe(true);
+
+      // Verify the database row directly
+      const dbRow = await pool.query<{ requires_dual_approval: boolean }>(
+        `SELECT requires_dual_approval FROM payouts WHERE id = $1`,
+        [res.body.id],
+      );
+      expect(dbRow.rows[0]!.requires_dual_approval).toBe(true);
+    } finally {
+      // Restore threshold to 10000.00
+      await pool.query(
+        `UPDATE system_config SET value = '10000.00'::jsonb WHERE key = 'payout_dual_approval_threshold'`,
+      );
+    }
+  });
+
+  it('BR-31d: payout export returns CSV with correct columns', async () => {
+    if (!ready) return;
+
+    // Unauthenticated -> 401
+    const unauthRes = await request(app).get('/v1/admin/payouts/export?from=2026-01-01&to=2026-12-31');
+    expect(unauthRes.status).toBe(401);
+
+    // Export with Super Admin
+    const res = await request(app)
+      .get('/v1/admin/payouts/export?from=2026-01-01&to=2026-12-31')
+      .set('Authorization', `Bearer ${superAdminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    const lines = res.text.trim().split('\n');
+    expect(lines[0]).toBe('payout_number,farmer_name,amount,status,created_at');
+    // If there is data, check the format of data lines
+    if (lines.length > 1) {
+      const dataRow = lines[1]!;
+      expect(dataRow).toMatch(/^PO-[^,]+,[^,]+,₹\d+\.\d{2},[^,]+,.+$/);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // BR-144: Payout dues settlement and item linkage
+  // -------------------------------------------------------------------------
+  describe('BR-144: Payout dues settlement and item linkage', () => {
+    let grnId: string;
+    let grnFarmerId: string;
+
+    beforeAll(async () => {
+      if (!ready) return;
+      const ts2 = Date.now();
+      const uId = newId();
+      await pool.query(
+        `INSERT INTO users (id, mobile, full_name, user_type, status)
+         VALUES ($1, $2, 'BR144 Farmer', 'FARMER', 'ACTIVE')`,
+        [uId, `+9191${String(ts2).slice(-8)}`],
+      );
+      const fRes = await pool.query<{ id: string }>(
+        `INSERT INTO farmers (user_id, tohfa_farmer_id) VALUES ($1, $2) RETURNING id`,
+        [uId, `TF-BR144-${ts2}`],
+      );
+      grnFarmerId = fRes.rows[0]!.id;
+
+      const listRes1 = await pool.query<{ id: string }>(
+        `INSERT INTO produce_listings
+           (listing_number, farmer_id, crop_id, grade, quantity_kg, price_per_kg, fair_price_id, status)
+         VALUES ($1, $2, $3, 'GRADE_1', 10.000, 50.00, $4, 'ACCEPTED')
+         RETURNING id`,
+        [`LIST-BR144-${ts2}`, grnFarmerId, cropId, fairPriceId],
+      );
+
+      const poRes = await pool.query<{ id: string }>(
+        `INSERT INTO purchase_orders
+           (po_number, farmer_id, listing_id, warehouse_id, crop_id, grade,
+            quantity_kg, price_per_kg, total_amount, status, issued_by)
+         VALUES ($1, $2, $3, $4, $5, 'GRADE_1', 10.000, 50.00, 500.00, 'ISSUED', $6)
+         RETURNING id`,
+        [`PO-BR144-${ts2}`, grnFarmerId, listRes1.rows[0]!.id, warehouseId, cropId, superAdminUserId],
+      );
+
+      const grRes = await pool.query<{ id: string }>(
+        `INSERT INTO goods_receipts
+           (grn_number, purchase_order_id, warehouse_id, farmer_id,
+            gross_qty_kg, accepted_qty_kg, status, received_by)
+         VALUES ($1, $2, $3, $4, 10.000, 10.000, 'ACCEPTED', $5)
+         RETURNING id`,
+        [`GRN-BR144-${ts2}`, poRes.rows[0]!.id, warehouseId, grnFarmerId, superAdminUserId],
+      );
+      grnId = grRes.rows[0]!.id;
+    });
+
+    it('BR-144a: creating payout with items persists payout_items and reduces remaining due', async () => {
+      if (!ready) return;
+
+      // Partial payout of 200.00 for goods receipt of 500.00
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br144-partial-${Date.now()}`)
+        .send({
+          farmerId: grnFarmerId,
+          amount: '200.00',
+          mode: 'IMPS',
+          items: [{ goodsReceiptId: grnId, amount: '200.00' }],
+        });
+
+      expect(res.status).toBe(201);
+
+      // Verify payout_items table row
+      const itemsRes = await pool.query<{ goods_receipt_id: string; amount: string }>(
+        `SELECT goods_receipt_id, amount::text FROM payout_items WHERE payout_id = $1`,
+        [res.body.id],
+      );
+      expect(itemsRes.rows).toHaveLength(1);
+      expect(itemsRes.rows[0]!.goods_receipt_id).toBe(grnId);
+      expect(itemsRes.rows[0]!.amount).toBe('200.00');
+
+      // Verify listPayoutDues shows remaining due 300.00
+      const duesRes = await request(app)
+        .get(`/v1/admin/payout-dues?farmerId=${grnFarmerId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(duesRes.status).toBe(200);
+      const due = duesRes.body.items.find((d: { goodsReceiptId: string }) => d.goodsReceiptId === grnId);
+      expect(due).toBeDefined();
+      expect(due.amountDue).toBe('300.00');
+    });
+
+    it('BR-144b: payout creation fails with 422 if amount != sum of items', async () => {
+      if (!ready) return;
+
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br144-mismatch-${Date.now()}`)
+        .send({
+          farmerId: grnFarmerId,
+          amount: '300.00',
+          mode: 'IMPS',
+          items: [{ goodsReceiptId: grnId, amount: '250.00' }],
+        });
+
+      expect(res.status).toBe(422);
+    });
+
+    it('BR-144c: payout creation fails with 422 if item amount > remaining due', async () => {
+      if (!ready) return;
+
+      // Remaining due is 300.00; try to pay 400.00
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br144-exceed-${Date.now()}`)
+        .send({
+          farmerId: grnFarmerId,
+          amount: '400.00',
+          mode: 'IMPS',
+          items: [{ goodsReceiptId: grnId, amount: '400.00' }],
+        });
+
+      expect(res.status).toBe(422);
+    });
+
+    it('BR-144d: settling remaining due completely removes goods receipt from payout dues', async () => {
+      if (!ready) return;
+
+      // Settle the remaining 300.00
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br144-settle-${Date.now()}`)
+        .send({
+          farmerId: grnFarmerId,
+          amount: '300.00',
+          mode: 'IMPS',
+          items: [{ goodsReceiptId: grnId, amount: '300.00' }],
+        });
+
+      expect(res.status).toBe(201);
+
+      // Verify listPayoutDues no longer contains this GR
+      const duesRes = await request(app)
+        .get(`/v1/admin/payout-dues?farmerId=${grnFarmerId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+
+      expect(duesRes.status).toBe(200);
+      const due = duesRes.body.items.find((d: { goodsReceiptId: string }) => d.goodsReceiptId === grnId);
+      expect(due).toBeUndefined();
+    });
+
+    it('BR-144e: a failed payout restores the remaining due for its goods receipt', async () => {
+      if (!ready) return;
+
+      // Create another GR of 100.00
+      const listResFail = await pool.query<{ id: string }>(
+        `INSERT INTO produce_listings
+           (listing_number, farmer_id, crop_id, grade, quantity_kg, price_per_kg, fair_price_id, status)
+         VALUES ($1, $2, $3, 'GRADE_1', 2.000, 50.00, $4, 'ACCEPTED')
+         RETURNING id`,
+        [`LIST-BR144-FAIL-${Date.now()}`, grnFarmerId, cropId, fairPriceId],
+      );
+
+      const poRes = await pool.query<{ id: string }>(
+        `INSERT INTO purchase_orders
+           (po_number, farmer_id, listing_id, warehouse_id, crop_id, grade,
+            quantity_kg, price_per_kg, total_amount, status, issued_by)
+         VALUES ($1, $2, $3, $4, $5, 'GRADE_1', 2.000, 50.00, 100.00, 'ISSUED', $6)
+         RETURNING id`,
+        [`PO-BR144-FAIL-${Date.now()}`, grnFarmerId, listResFail.rows[0]!.id, warehouseId, cropId, superAdminUserId],
+      );
+
+      const grRes = await pool.query<{ id: string }>(
+        `INSERT INTO goods_receipts
+           (grn_number, purchase_order_id, warehouse_id, farmer_id,
+            gross_qty_kg, accepted_qty_kg, status, received_by)
+         VALUES ($1, $2, $3, $4, 2.000, 2.000, 'ACCEPTED', $5)
+         RETURNING id`,
+        [`GRN-BR144-FAIL-${Date.now()}`, poRes.rows[0]!.id, warehouseId, grnFarmerId, superAdminUserId],
+      );
+      const failGrnId = grRes.rows[0]!.id;
+
+      // Settle 100.00
+      const res = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-br144-willfail-${Date.now()}`)
+        .send({
+          farmerId: grnFarmerId,
+          amount: '100.00',
+          mode: 'IMPS',
+          items: [{ goodsReceiptId: failGrnId, amount: '100.00' }],
+        });
+
+      expect(res.status).toBe(201);
+      const payoutId = res.body.id;
+
+      // Dues list should now be empty for failGrnId
+      let duesRes = await request(app)
+        .get(`/v1/admin/payout-dues?farmerId=${grnFarmerId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      expect(duesRes.body.items.find((d: { goodsReceiptId: string }) => d.goodsReceiptId === failGrnId)).toBeUndefined();
+
+      // Now mark the payout as FAILED
+      await pool.query(`UPDATE payouts SET status = 'FAILED' WHERE id = $1`, [payoutId]);
+
+      // Dues list should now show failGrnId with 100.00 due again!
+      duesRes = await request(app)
+        .get(`/v1/admin/payout-dues?farmerId=${grnFarmerId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      const restored = duesRes.body.items.find((d: { goodsReceiptId: string }) => d.goodsReceiptId === failGrnId);
+      expect(restored).toBeDefined();
+      expect(restored.amountDue).toBe('100.00');
+    });
+  });
+
+  describeIfDatabase('BR-72 / P0-40: GET /admin/payouts and GET /admin/payouts/:id', () => {
+    it('BR-72l: GET /admin/payouts is gated on payout.view (403 for farmer or unauthorized)', async () => {
+      const farmerUserId = newId();
+      const farmerToken = signAccessToken({
+        sub: farmerUserId,
+        roles: [{ code: 'FARMER' as const }],
+        customerId: null,
+        farmerId: newId(),
+      });
+      const res = await request(app)
+        .get('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${farmerToken}`);
+      expect(res.status).toBe(403);
+    });
+
+    it('BR-72l: GET /admin/payouts returns cursor-paged list with status and farmer filters', async () => {
+      const createRes = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-list-${Date.now()}`)
+        .send({
+          farmerId,
+          amount: '500.00',
+          mode: 'IMPS',
+        });
+      expect(createRes.status).toBe(201);
+      const createdPayoutNumber = createRes.body.payoutNumber;
+
+      const listRes = await request(app)
+        .get(`/v1/admin/payouts?farmerId=${farmerId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      expect(listRes.status).toBe(200);
+      expect(Array.isArray(listRes.body.items)).toBe(true);
+      expect(listRes.body.items.length).toBeGreaterThan(0);
+      const row = listRes.body.items.find((item: any) => item.payoutNumber === createdPayoutNumber);
+      expect(row).toBeDefined();
+      expect(row).toMatchObject({
+        payoutNumber: createdPayoutNumber,
+        farmerName: expect.any(String),
+        amount: '500.00',
+        status: expect.any(String),
+        requestedAt: expect.any(String),
+        requestedBy: expect.any(String),
+      });
+    });
+
+    it('BR-72m / BR-92: GET /admin/payouts/:id returns detail with linked items, calculation, approval state, and masked contact', async () => {
+      const createRes = await request(app)
+        .post('/v1/admin/payouts')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', `test-detail-${Date.now()}`)
+        .send({
+          farmerId,
+          amount: '750.00',
+          mode: 'IMPS',
+        });
+      expect(createRes.status).toBe(201);
+      const payoutId = createRes.body.id;
+
+      const detailRes = await request(app)
+        .get(`/v1/admin/payouts/${payoutId}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      expect(detailRes.status).toBe(200);
+      expect(detailRes.body).toMatchObject({
+        id: payoutId,
+        payoutNumber: createRes.body.payoutNumber,
+        farmerName: expect.any(String),
+        amount: '750.00',
+        status: expect.any(String),
+        requestedAt: expect.any(String),
+        requestedBy: expect.any(String),
+        netPayableAmount: '750.00',
+        approvedAdjustments: expect.any(String),
+        calculationReference: `CALC-${createRes.body.payoutNumber}`,
+        approvalStatus: expect.any(String),
+        auditTrail: expect.any(Array),
+      });
+      if (detailRes.body.farmerContact) {
+        expect(detailRes.body.farmerContact).toMatch(/^\*+\d{4}$/);
+      }
+    });
+
+    it('BR-72m: GET /admin/payouts/:id returns 404 for unknown payout ID', async () => {
+      const res = await request(app)
+        .get(`/v1/admin/payouts/${newId()}`)
+        .set('Authorization', `Bearer ${superAdminToken}`);
+      expect(res.status).toBe(404);
+    });
   });
 });

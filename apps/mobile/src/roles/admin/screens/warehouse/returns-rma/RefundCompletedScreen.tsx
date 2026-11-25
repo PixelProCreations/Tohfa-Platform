@@ -18,6 +18,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
 import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { RETURN_CODES } from './mappers';
 import { InfoCard, ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
 import type { ReturnRefundParams, ReturnTimelineEntry, WarehouseScreenBaseProps } from './types';
@@ -46,7 +47,7 @@ function SuccessCheckmarkIcon() {
 }
 
 export function RefundCompletedScreen({ can, reference, refund, timeline, onBack, onViewReturnHistory }: RefundCompletedScreenProps) {
-  const noValue = t('returns.noValue');
+  const noValue = ADMIN_NO_VALUE;
   const showHistoryLink = can(RETURN_CODES.view) && onViewReturnHistory !== undefined;
 
   return (

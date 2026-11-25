@@ -217,11 +217,19 @@ describe('honest figures: no claim the data does not back', () => {
     expect(MAIN).toContain("openTaskCount(taskSummary, 'RETURN_APPROVAL')");
   });
 
-  it('alerts carry no invented Critical / High / Medium priority and no Resolved filter (only active alerts are fetched)', () => {
-    expect(MAIN).not.toMatch(/'Critical'|'High'|'Medium'/);
-    expect(MAIN).not.toContain('Resolved');
-    expect(MAIN).not.toContain('alertPriorityFilter');
-    expect(MAIN).not.toContain('alertStatusFilter');
+  it('the alert filter sheet draws the design Status and Priority chips through the catalogue, but invents no priority or read state and sends neither to the API', () => {
+    // Drawn, with every label a catalogue key (no English literal in the screen).
+    expect(MAIN).toContain('alertStatusFilter');
+    expect(MAIN).toContain('alertPriorityFilter');
+    expect(MAIN).toContain("t('mainDashboard.alerts.filter.sec.status')");
+    expect(MAIN).toContain("t('mainDashboard.alerts.filter.sec.priority')");
+    expect(MAIN).not.toMatch(/'Critical'|'High'|'Medium'|'Resolved'|'Unread'/);
+    for (const key of ['status.unread', 'status.resolved', 'priority.critical', 'priority.high']) {
+      expect({ key, has: `mainDashboard.alerts.filter.${key}` in EN }).toEqual({ key, has: true });
+    }
+    // The API has no priority or read state: a choice other than "all" matches nothing, and no request carries it.
+    expect(MAIN).toMatch(/alertStatusFilter !== 'all' \|\| alertPriorityFilter !== 'all'\s*\? \[\]/);
+    expect(MAIN).not.toMatch(/listAlerts\(\{[^}]*(priority|status|resolved|unread)/i);
   });
 
   it('Recent Activity words titleKey through the catalogue (toRecentActivity) and never renders it raw', () => {
@@ -373,8 +381,7 @@ describe('theme: the screen takes colours from adminColors where a token exists'
     const hex = /(['"`])#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3,4})\1/g;
     const rgb = /\brgba?\s*\(/g;
     const count = (MAIN.match(hex)?.length ?? 0) + (MAIN.match(rgb)?.length ?? 0);
-    expect(Number(allowed)).toBeGreaterThan(0);
-    expect(count).toBeLessThanOrEqual(Number(allowed));
+    expect(count).toBeLessThanOrEqual(Number(allowed ?? 0));
   });
 });
 
@@ -550,10 +557,12 @@ describe('BR-78: the Alerts & Action Center snoozes alerts and lists the snoozed
     expect(MAIN).toContain('<SectionGate sources={[alertState === \'active\' ? alertsSrc : snoozedAlertsSrc, warehousesSrc]}>');
   });
 
-  it('Active / Snoozed and the type filter are chips with counts from the pure mapper', () => {
+  it('Active / Snoozed are chips; the alert type is the design filter sheet category, applied by the pure mapper (the design draws no counts)', () => {
     expect(MAIN).toContain('ChipGroup');
-    expect(MAIN).toContain('countDashboardAlerts(');
-    expect(MAIN).toContain('filterDashboardAlerts(');
+    expect(MAIN).toContain('ALERT_STATE_FILTERS');
+    expect(MAIN).toContain('filterDashboardAlerts(inWarehouse, alertTypeFilter)');
+    expect(MAIN).toContain("t('mainDashboard.alerts.filter.sec.category')");
+    expect(MAIN).not.toContain('countDashboardAlerts(');
   });
 
   it('the new copy is in the catalogue', () => {

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -10,19 +11,44 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import { useAdminQuery } from '../../api/hooks';
+import { getWarehouseCapacity, listWarehouses } from '../../api/warehouses';
+import { getTransferStatusCounts } from '../../api/dashboardFeeds';
+import { getInventoryReport } from '../../api/reports';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  border: '#F0ECE6',
-  orangePrimary: '#E85226',
-  orangeLight: '#FFF1EB',
-  greenSuccess: '#16A34A',
-  greenBar: '#2E7D32',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
+  greenBar:      adminColors.success.text,
+  greenSuccess:  adminColors.success.text,
+  orangePrimary: adminColors.brand,
+  textHeading:   adminColors.brandDeep,
+  textSecondary: adminColors.muted,
+  textPrimary:   adminColors.ink,
 };
+const COLORS = PALETTE;
 
 export interface WarehouseOpsReportScreenProps {
   onBack: () => void;
@@ -59,216 +85,122 @@ interface WarehouseData {
     coldStorageTemp: string;
     lotsGraded: string;
     dispatchTurnaround: string;
-  };
+  } | undefined;
 }
-
-const WAREHOUSES_DATA: Record<string, WarehouseData> = {
-  all: {
-    id: 'all',
-    name: 'All Warehouses',
-    shortName: 'Network Aggregate',
-    capacity: '225 MT',
-    hubs: 'All 4 Regional Hubs',
-    stockTurnover: '4.2',
-    turnoverTrend: '↑ 12%',
-    turnoverTrendType: 'up',
-    receivingVolume: '280 MT',
-    volumeTrend: '↑ 8%',
-    volumeTrendType: 'up',
-    rejectionRate: '2.1%',
-    rejectionTrend: '↓ 3%',
-    rejectionTrendType: 'down',
-    pendingTransfers: '12',
-    transfersTrend: '↓ 5%',
-    transfersTrendType: 'down',
-    stockTurnoverData: [
-      { label: 'Apr', value: 48 },
-      { label: 'May', value: 55 },
-      { label: 'Jun', value: 68 },
-      { label: 'Jul', value: 64 },
-      { label: 'Aug', value: 78 },
-      { label: 'Sep', value: 84 },
-    ],
-    comparisonRows: [
-      { name: 'Ooty', stock: 420, turnover: 4.8, rejection: '1.8%' },
-      { name: 'Coonoor', stock: 380, turnover: 4.2, rejection: '2.3%' },
-      { name: 'Kotagiri', stock: 290, turnover: 3.9, rejection: '2.8%' },
-      { name: 'Gudalur', stock: 260, turnover: 3.5, rejection: '3.1%' },
-    ],
-  },
-  ooty: {
-    id: 'ooty',
-    name: 'Ooty Sub-Zero Cold Storage Facility',
-    shortName: 'Ooty Hub',
-    capacity: '60 MT',
-    hubs: 'Hub WH-OTY-02',
-    stockTurnover: '4.8',
-    turnoverTrend: '↑ 18%',
-    turnoverTrendType: 'up',
-    receivingVolume: '78 MT',
-    volumeTrend: '↑ 6%',
-    volumeTrendType: 'up',
-    rejectionRate: '1.8%',
-    rejectionTrend: '↓ 4.5%',
-    rejectionTrendType: 'down',
-    pendingTransfers: '3',
-    transfersTrend: '↓ 8%',
-    transfersTrendType: 'down',
-    stockTurnoverData: [
-      { label: 'Apr', value: 52 },
-      { label: 'May', value: 60 },
-      { label: 'Jun', value: 74 },
-      { label: 'Jul', value: 70 },
-      { label: 'Aug', value: 86 },
-      { label: 'Sep', value: 92 },
-    ],
-    comparisonRows: [
-      { name: 'Ooty', stock: 420, turnover: 4.8, rejection: '1.8%', isHighlighted: true },
-      { name: 'Coonoor', stock: 380, turnover: 4.2, rejection: '2.3%' },
-      { name: 'Kotagiri', stock: 290, turnover: 3.9, rejection: '2.8%' },
-      { name: 'Gudalur', stock: 260, turnover: 3.5, rejection: '3.1%' },
-    ],
-    details: {
-      currentStock: '52 MT (86.6% capacity)',
-      coldStorageTemp: '-2°C to 4°C (Optimal)',
-      lotsGraded: '310 Lots (76% Grade A)',
-      dispatchTurnaround: '1.8 Hours',
-    },
-  },
-  coonoor: {
-    id: 'coonoor',
-    name: 'Coonoor Transit & Dry Storage Depot',
-    shortName: 'Coonoor Depot',
-    capacity: '40 MT',
-    hubs: 'Hub WH-CNR-03',
-    stockTurnover: '4.2',
-    turnoverTrend: '↑ 10%',
-    turnoverTrendType: 'up',
-    receivingVolume: '52 MT',
-    volumeTrend: '↑ 4%',
-    volumeTrendType: 'up',
-    rejectionRate: '2.3%',
-    rejectionTrend: '↓ 2.1%',
-    rejectionTrendType: 'down',
-    pendingTransfers: '4',
-    transfersTrend: '↓ 4%',
-    transfersTrendType: 'down',
-    stockTurnoverData: [
-      { label: 'Apr', value: 44 },
-      { label: 'May', value: 50 },
-      { label: 'Jun', value: 62 },
-      { label: 'Jul', value: 58 },
-      { label: 'Aug', value: 72 },
-      { label: 'Sep', value: 78 },
-    ],
-    comparisonRows: [
-      { name: 'Ooty', stock: 420, turnover: 4.8, rejection: '1.8%' },
-      { name: 'Coonoor', stock: 380, turnover: 4.2, rejection: '2.3%', isHighlighted: true },
-      { name: 'Kotagiri', stock: 290, turnover: 3.9, rejection: '2.8%' },
-      { name: 'Gudalur', stock: 260, turnover: 3.5, rejection: '3.1%' },
-    ],
-    details: {
-      currentStock: '34 MT (85.0% capacity)',
-      coldStorageTemp: 'Ambient Dry (Ventilated)',
-      lotsGraded: '195 Lots (70% Grade A)',
-      dispatchTurnaround: '2.1 Hours',
-    },
-  },
-  kotagiri: {
-    id: 'kotagiri',
-    name: 'Kotagiri Central Grading & Aggregation',
-    shortName: 'Kotagiri Hub',
-    capacity: '85 MT',
-    hubs: 'Hub WH-KTG-01',
-    stockTurnover: '3.9',
-    turnoverTrend: '↑ 7%',
-    turnoverTrendType: 'up',
-    receivingVolume: '110 MT',
-    volumeTrend: '↑ 14%',
-    volumeTrendType: 'up',
-    rejectionRate: '2.8%',
-    rejectionTrend: '↑ 1.2%',
-    rejectionTrendType: 'up',
-    pendingTransfers: '5',
-    transfersTrend: '↓ 2%',
-    transfersTrendType: 'down',
-    stockTurnoverData: [
-      { label: 'Apr', value: 38 },
-      { label: 'May', value: 42 },
-      { label: 'Jun', value: 58 },
-      { label: 'Jul', value: 52 },
-      { label: 'Aug', value: 66 },
-      { label: 'Sep', value: 72 },
-    ],
-    comparisonRows: [
-      { name: 'Ooty', stock: 420, turnover: 4.8, rejection: '1.8%' },
-      { name: 'Coonoor', stock: 380, turnover: 4.2, rejection: '2.3%' },
-      { name: 'Kotagiri', stock: 290, turnover: 3.9, rejection: '2.8%', isHighlighted: true },
-      { name: 'Gudalur', stock: 260, turnover: 3.5, rejection: '3.1%' },
-    ],
-    details: {
-      currentStock: '74 MT (87.0% capacity)',
-      coldStorageTemp: '2°C to 6°C Pre-Cooling',
-      lotsGraded: '420 Lots (68% Grade A)',
-      dispatchTurnaround: '2.4 Hours',
-    },
-  },
-  gudalur: {
-    id: 'gudalur',
-    name: 'Gudalur Market Aggregation Center',
-    shortName: 'Gudalur Market',
-    capacity: '40 MT',
-    hubs: 'Hub WH-GDL-04',
-    stockTurnover: '3.5',
-    turnoverTrend: '↑ 5%',
-    turnoverTrendType: 'up',
-    receivingVolume: '40 MT',
-    volumeTrend: '↑ 9%',
-    volumeTrendType: 'up',
-    rejectionRate: '3.1%',
-    rejectionTrend: '↓ 1.0%',
-    rejectionTrendType: 'down',
-    pendingTransfers: '2',
-    transfersTrend: '↓ 6%',
-    transfersTrendType: 'down',
-    stockTurnoverData: [
-      { label: 'Apr', value: 32 },
-      { label: 'May', value: 38 },
-      { label: 'Jun', value: 48 },
-      { label: 'Jul', value: 44 },
-      { label: 'Aug', value: 56 },
-      { label: 'Sep', value: 64 },
-    ],
-    comparisonRows: [
-      { name: 'Ooty', stock: 420, turnover: 4.8, rejection: '1.8%' },
-      { name: 'Coonoor', stock: 380, turnover: 4.2, rejection: '2.3%' },
-      { name: 'Kotagiri', stock: 290, turnover: 3.9, rejection: '2.8%' },
-      { name: 'Gudalur', stock: 260, turnover: 3.5, rejection: '3.1%', isHighlighted: true },
-    ],
-    details: {
-      currentStock: '28 MT (70.0% capacity)',
-      coldStorageTemp: 'Fresh Mandi Ambient',
-      lotsGraded: '160 Lots (64% Grade A)',
-      dispatchTurnaround: '2.9 Hours',
-    },
-  },
-};
 
 export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('all');
   const [showWarehouseDropdown, setShowWarehouseDropdown] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
-  const currentWarehouse: WarehouseData =
-    WAREHOUSES_DATA[selectedWarehouseId] ?? WAREHOUSES_DATA['all']!;
+  const warehousesQuery = useAdminQuery(
+    ['admin', 'warehouses', 'list'],
+    (signal) => listWarehouses({}, signal),
+  );
 
-  const warehouseOptions = [
-    { id: 'all', name: 'All Warehouses', capacity: '225 MT', hubs: 'All 4 Regional Hubs' },
-    { id: 'ooty', name: 'Ooty Sub-Zero Cold Storage Facility', capacity: '60 MT', hubs: 'Hub WH-OTY-02' },
-    { id: 'coonoor', name: 'Coonoor Transit & Dry Storage Depot', capacity: '40 MT', hubs: 'Hub WH-CNR-03' },
-    { id: 'kotagiri', name: 'Kotagiri Central Grading & Aggregation', capacity: '85 MT', hubs: 'Hub WH-KTG-01' },
-    { id: 'gudalur', name: 'Gudalur Market Aggregation Center', capacity: '40 MT', hubs: 'Hub WH-GDL-04' },
-  ];
+  const capacityQuery = useAdminQuery(
+    ['admin', 'warehouses', selectedWarehouseId, 'capacity'],
+    (signal) => getWarehouseCapacity(selectedWarehouseId, signal),
+    { enabled: selectedWarehouseId !== 'all' },
+  );
+
+  const transfersCountQuery = useAdminQuery(
+    ['admin', 'transfers', 'counts', selectedWarehouseId],
+    (signal) => getTransferStatusCounts(selectedWarehouseId === 'all' ? undefined : selectedWarehouseId, signal),
+  );
+
+  const inventoryQuery = useAdminQuery(
+    ['admin', 'reports', 'inventory', selectedWarehouseId],
+    (signal) => getInventoryReport(selectedWarehouseId === 'all' ? {} : { warehouseId: selectedWarehouseId }, signal),
+  );
+
+  const dynamicWarehouseOptions = useMemo(() => {
+    const items = warehousesQuery.data?.items ?? [];
+    return [
+      {
+        id: 'all',
+        name: 'All Warehouses',
+        shortName: 'All Warehouses',
+        capacity: ADMIN_NO_VALUE,
+        hubs: items.length > 0 ? `${items.length} Warehouses` : ADMIN_NO_VALUE,
+      },
+      ...items.map((w) => ({
+        id: w.id,
+        name: w.name,
+        shortName: w.code,
+        capacity: w.capacityKg ? `${(Number(w.capacityKg) / 1000).toFixed(1)} MT` : ADMIN_NO_VALUE,
+        hubs: w.code,
+      })),
+    ];
+  }, [warehousesQuery.data?.items]);
+
+  const warehouseOptions = dynamicWarehouseOptions;
+  const selectedMeta =
+    warehouseOptions.find((w) => w.id === selectedWarehouseId) ?? warehouseOptions[0]!;
+
+  const pendingTransfersCount = transfersCountQuery.data
+    ? String(transfersCountQuery.data.PENDING_APPROVAL + transfersCountQuery.data.IN_TRANSIT)
+    : ADMIN_NO_VALUE;
+
+  const inventoryBatchCount = inventoryQuery.data
+    ? String(inventoryQuery.data.items.reduce((sum, item) => sum + item.batchCount, 0))
+    : ADMIN_NO_VALUE;
+
+  const liveCapacityDisplay = useMemo(() => {
+    if (selectedWarehouseId !== 'all') {
+      if (capacityQuery.data?.capacityKg) {
+        return `${(Number(capacityQuery.data.capacityKg) / 1000).toFixed(1)} MT`;
+      }
+      return selectedMeta.capacity;
+    }
+    const items = warehousesQuery.data?.items ?? [];
+    const withCap = items.filter((w) => w.capacityKg != null);
+    if (withCap.length > 0 && warehousesQuery.data && items.length === warehousesQuery.data.total) {
+      const totalKg = withCap.reduce((sum, w) => sum + Number(w.capacityKg), 0);
+      return `${(totalKg / 1000).toFixed(1)} MT`;
+    }
+    return ADMIN_NO_VALUE;
+  }, [selectedWarehouseId, capacityQuery.data?.capacityKg, selectedMeta.capacity, warehousesQuery.data]);
+
+  const currentWarehouse: WarehouseData = {
+    id: selectedMeta.id,
+    name: selectedMeta.name,
+    shortName: selectedMeta.shortName,
+    capacity: liveCapacityDisplay,
+    hubs: selectedMeta.hubs,
+    stockTurnover: ADMIN_NO_VALUE,
+    turnoverTrend: ADMIN_NO_VALUE,
+    turnoverTrendType: 'up',
+    receivingVolume: ADMIN_NO_VALUE,
+    volumeTrend: ADMIN_NO_VALUE,
+    volumeTrendType: 'up',
+    rejectionRate: ADMIN_NO_VALUE,
+    rejectionTrend: ADMIN_NO_VALUE,
+    rejectionTrendType: 'down',
+    pendingTransfers: pendingTransfersCount,
+    transfersTrend: `Active batches: ${inventoryBatchCount}`,
+    transfersTrendType: 'up',
+    stockTurnoverData: [],
+    comparisonRows: [],
+    details: selectedWarehouseId !== 'all'
+      ? {
+          currentStock: capacityQuery.data
+            ? `${capacityQuery.data.usedKg} kg (${
+                capacityQuery.data.utilizationPercent !== null
+                  ? `${capacityQuery.data.utilizationPercent}%`
+                  : ADMIN_NO_VALUE
+              })`
+            : ADMIN_NO_VALUE,
+          coldStorageTemp: ADMIN_NO_VALUE,
+          lotsGraded: inventoryQuery.data ? `${inventoryQuery.data.items.length} Crops / ${inventoryBatchCount} Batches` : ADMIN_NO_VALUE,
+          dispatchTurnaround: ADMIN_NO_VALUE,
+        }
+      : undefined,
+  };
+
+  const screenError = warehousesQuery.error ?? transfersCountQuery.error ?? inventoryQuery.error ?? capacityQuery.error;
+  const isInitialLoading =
+    warehousesQuery.isPending || transfersCountQuery.isPending || inventoryQuery.isPending;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -286,7 +218,7 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M15 19L8 12L15 5"
-                stroke="#2B2523"
+                stroke={adminColors.ink}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -370,59 +302,38 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
         </View>
 
         {/* 4 Metric Cards dynamically matching selected warehouse */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Stock Turnover</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.stockTurnover}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.turnoverTrendType === 'up' ? styles.trendUp : styles.trendDown,
-              ]}
-            >
-              {currentWarehouse.turnoverTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Receiving Volume</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.receivingVolume}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.volumeTrendType === 'up' ? styles.trendUp : styles.trendDown,
-              ]}
-            >
-              {currentWarehouse.volumeTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Rejection Rate</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.rejectionRate}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.rejectionTrendType === 'down' ? styles.trendUp : styles.trendDownAlert,
-              ]}
-            >
-              {currentWarehouse.rejectionTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Pending Transfers</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.pendingTransfers}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.transfersTrendType === 'down' ? styles.trendUp : styles.trendDownAlert,
-              ]}
-            >
-              {currentWarehouse.transfersTrend}
-            </Text>
-          </View>
-        </View>
+        <OverviewCardsGrid style={{ marginBottom: 16 }}>
+          <OverviewDashboardCard
+            value={currentWarehouse.stockTurnover}
+            title="Stock Turnover"
+            subtitle={currentWarehouse.turnoverTrend}
+            icon="inventory"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.receivingVolume}
+            title="Receiving Volume"
+            subtitle={currentWarehouse.volumeTrend}
+            icon="receiving"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.rejectionRate}
+            title="Rejection Rate"
+            subtitle={currentWarehouse.rejectionTrend}
+            icon="alert"
+            tone={currentWarehouse.rejectionTrendType === 'down' ? 'success' : 'danger'}
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.pendingTransfers}
+            title="Pending Transfers"
+            subtitle={currentWarehouse.transfersTrend}
+            icon="truck"
+            tone={currentWarehouse.transfersTrendType === 'down' ? 'default' : 'warning'}
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* Chart: Stock Turnover (Last 6 Months) */}
         <View style={styles.chartCard}>
@@ -432,17 +343,36 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
               <Text style={styles.chartScopePillText}>{currentWarehouse.shortName}</Text>
             </View>
           </View>
-          <View style={styles.barChartContainer}>
-            {currentWarehouse.stockTurnoverData.map((d, i) => (
-              <View key={i} style={styles.barCol}>
-                <View style={styles.barTrack}>
-                  <View style={[styles.barFill, { height: d.value, backgroundColor: PALETTE.greenBar }]} />
+          {currentWarehouse.stockTurnoverData.length === 0 ? (
+            <AdminEmptyState
+              title={t('wiringReports.common.noData')}
+              subtitle="Historical turnover series has no endpoint."
+            />
+          ) : (
+            <View style={styles.barChartContainer}>
+              {currentWarehouse.stockTurnoverData.map((d, i) => (
+                <View key={i} style={styles.barCol}>
+                  <View style={styles.barTrack}>
+                    <View style={[styles.barFill, { height: d.value, backgroundColor: PALETTE.greenBar }]} />
+                  </View>
+                  <Text style={styles.barLabel}>{d.label}</Text>
                 </View>
-                <Text style={styles.barLabel}>{d.label}</Text>
-              </View>
-            ))}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
+
+        {isInitialLoading && <AdminLoadingState />}
+        {screenError && (
+          <AdminErrorState
+            error={screenError}
+            onRetry={() => {
+              void warehousesQuery.refetch();
+              void transfersCountQuery.refetch();
+              void inventoryQuery.refetch();
+            }}
+          />
+        )}
 
         {/* Detailed Facility Breakdown when a specific warehouse is selected */}
         {currentWarehouse.details && (
@@ -472,30 +402,38 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
         {/* Table: Warehouse Comparison */}
         <View style={styles.tableCard}>
           <Text style={styles.tableTitle}>Warehouse Comparison</Text>
+          {currentWarehouse.comparisonRows.length === 0 ? (
+            <AdminEmptyState
+              title={t('wiringReports.common.noData')}
+              subtitle="Per-warehouse turnover and rejection comparison has no endpoint."
+            />
+          ) : (
+            <>
+              <View style={styles.columnHeaderRow}>
+                <Text style={[styles.colLabel, { flex: 2 }]}>Warehouse</Text>
+                <Text style={[styles.colLabel, { flex: 1.5, textAlign: 'center' }]}>Stock (MT)</Text>
+                <Text style={[styles.colLabel, { flex: 1.2, textAlign: 'center' }]}>Turnover</Text>
+                <Text style={[styles.colLabel, { flex: 1.2, textAlign: 'right' }]}>Rejection</Text>
+              </View>
 
-          <View style={styles.columnHeaderRow}>
-            <Text style={[styles.colLabel, { flex: 2 }]}>Warehouse</Text>
-            <Text style={[styles.colLabel, { flex: 1.5, textAlign: 'center' }]}>Stock (MT)</Text>
-            <Text style={[styles.colLabel, { flex: 1.2, textAlign: 'center' }]}>Turnover</Text>
-            <Text style={[styles.colLabel, { flex: 1.2, textAlign: 'right' }]}>Rejection</Text>
-          </View>
-
-          {currentWarehouse.comparisonRows.map((r, i) => (
-            <View
-              key={i}
-              style={[
-                styles.tableRow,
-                r.isHighlighted && styles.tableRowHighlighted,
-              ]}
-            >
-              <Text style={[styles.cellTextBold, { flex: 2 }, r.isHighlighted && styles.cellTextHighlight]}>
-                {r.name}
-              </Text>
-              <Text style={[styles.cellTextNormal, { flex: 1.5, textAlign: 'center' }]}>{r.stock}</Text>
-              <Text style={[styles.cellTextNormal, { flex: 1.2, textAlign: 'center' }]}>{r.turnover}</Text>
-              <Text style={[styles.cellTextRejection, { flex: 1.2, textAlign: 'right' }]}>{r.rejection}</Text>
-            </View>
-          ))}
+              {currentWarehouse.comparisonRows.map((r, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.tableRow,
+                    r.isHighlighted && styles.tableRowHighlighted,
+                  ]}
+                >
+                  <Text style={[styles.cellTextBold, { flex: 2 }, r.isHighlighted && styles.cellTextHighlight]}>
+                    {r.name}
+                  </Text>
+                  <Text style={[styles.cellTextNormal, { flex: 1.5, textAlign: 'center' }]}>{r.stock}</Text>
+                  <Text style={[styles.cellTextNormal, { flex: 1.2, textAlign: 'center' }]}>{r.turnover}</Text>
+                  <Text style={[styles.cellTextRejection, { flex: 1.2, textAlign: 'right' }]}>{r.rejection}</Text>
+                </View>
+              ))}
+            </>
+          )}
         </View>
 
         <View style={{ height: 20 }} />
@@ -507,16 +445,21 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Export Warehouse Operations</Text>
             <Text style={styles.modalSub}>
-              Download complete turnover, capacity, and receiving logs for {currentWarehouse.name}.
+              {t('wiringReports.reports.exportUnavailable')}
             </Text>
             <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                Alert.alert('Downloaded', 'Warehouse_Operations_Report.pdf saved to files.');
-              }}
+              style={[styles.modalBtn, { opacity: 0.45 }]}
+              disabled
+              accessibilityState={{ disabled: true }}
             >
               <Text style={styles.modalBtnText}>Download PDF</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { marginTop: 10 }]}
+              onPress={() => setShowExportModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -554,7 +497,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -567,7 +510,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   exportHeaderBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -596,7 +539,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 8,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -623,7 +566,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -639,7 +582,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   scopeBadge: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -668,7 +611,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 14,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -706,7 +649,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -724,7 +667,7 @@ const styles = StyleSheet.create({
     color: PALETTE.textPrimary,
   },
   chartScopePill: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.canvas,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -767,7 +710,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -787,7 +730,7 @@ const styles = StyleSheet.create({
   facilityMetric: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     padding: 10,
     borderRadius: 10,
   },
@@ -808,7 +751,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     padding: 16,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -824,7 +767,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F0E8',
+    borderBottomColor: adminColors.border,
     marginBottom: 8,
   },
   colLabel: {
@@ -837,10 +780,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#FAF8F5',
+    borderBottomColor: adminColors.border,
   },
   tableRowHighlighted: {
-    backgroundColor: '#FFF7F3',
+    backgroundColor: adminColors.brandTint,
     borderRadius: 8,
     paddingHorizontal: 6,
   },
@@ -863,14 +806,14 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     padding: 24,
     alignItems: 'center',
@@ -896,25 +839,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalBtnText: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontSize: 14,
     fontWeight: '700',
   },
   dropdownBoxOpen: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    borderBottomColor: '#F0EBE1',
+    borderBottomColor: adminColors.border,
     marginBottom: 0,
   },
   inlineDropdownMenu: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderTopWidth: 0,
     borderColor: PALETTE.border,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -928,10 +871,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#FAF6F0',
+    borderBottomColor: adminColors.border,
   },
   inlineDropdownItemActive: {
-    backgroundColor: '#FFF8F4',
+    backgroundColor: adminColors.brandTint,
   },
   inlineDropdownText: {
     fontSize: 14.5,

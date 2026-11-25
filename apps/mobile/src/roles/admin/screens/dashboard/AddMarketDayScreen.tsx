@@ -1,6 +1,20 @@
 /**
- * Add Market Day Screen
- * Configure a new market day with warehouse, date, and time selection
+ * Add Market Day — the design's form, over the live warehouse list.
+ *
+ * SPEC GAP, reported rather than faked: docs/openapi.yaml has no endpoint that
+ * creates a market day (GET /admin/sales/market-day is a read of one day's
+ * sales; the warehouse's own `is_market_day_venue` / `market_day_of_week` have
+ * no mobile write). So Save is shown, DISABLED, with an i18n explanation, and
+ * it is wired to nothing: it can never report a success the server never gave.
+ * The old `onSave` prop — which the host answered with "// Save market day
+ * logic here" — is gone rather than left looking live.
+ *
+ * What IS live: the warehouse picker, which lists the real warehouses from
+ * GET /warehouses (warehouse.all.view) and carries their uuids, not the
+ * fixture's four names. Date and time stay as the design's local pickers; they
+ * have nowhere to go yet.
+ *
+ * The fixture's hardcoded palette is left exactly as it was.
  */
 import React, { useState } from 'react';
 import {
@@ -11,7 +25,10 @@ import {
   View,
 } from 'react-native';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import type { MarketDay } from './MarketDayScheduleScreen';
+import { useMarketDayVenues } from '../../api/marketDayHooks';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -27,8 +44,6 @@ const P = {
   red: '#E8562A',
   danger: '#E53935',
 };
-
-const WAREHOUSES = ['Ooty Warehouse', 'Coonoor Warehouse', 'Kotagiri Warehouse', 'Gudalur Market'];
 
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
@@ -54,13 +69,17 @@ const END_TIMES = [
   '09:00 PM', '09:30 PM', '10:00 PM', '10:30 PM', '11:00 PM', '11:30 PM',
 ];
 
-interface AddMarketDayScreenProps {
+export interface AddMarketDayScreenProps {
   onBack: () => void;
-  onSave: (marketDay: Omit<MarketDay, 'id' | 'isActive'>) => void;
+  /** Permission check from /auth/me. Missing means nothing is permitted (fail closed). */
+  can?: Can | undefined;
 }
 
-export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) {
-  const [warehouse, setWarehouse] = useState<string>('');
+export function AddMarketDayScreen({ onBack, can }: AddMarketDayScreenProps) {
+  const canViewWarehouses = can !== undefined && can('warehouse.all.view');
+  const network = useMarketDayVenues({ enabled: canViewWarehouses });
+  const [warehouseId, setWarehouseId] = useState<string>('');
+  const warehouse = network.warehouses.find((w) => w.id === warehouseId)?.name ?? '';
   const [date, setDate] = useState<number>(14);
   const [month, setMonth] = useState<string>('SEP');
   const [startTime, setStartTime] = useState<string>('');
@@ -73,12 +92,12 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
   
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validate = (): boolean => {
+  const _validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     
-    if (!warehouse) newErrors.warehouse = 'Please select a warehouse';
-    if (!startTime) newErrors.startTime = 'Please select a start time';
-    if (!endTime) newErrors.endTime = 'Please select an end time';
+    if (!warehouseId) newErrors.warehouse = t('pricingMarketDay.add.error.warehouse');
+    if (!startTime) newErrors.startTime = t('pricingMarketDay.add.error.startTime');
+    if (!endTime) newErrors.endTime = t('pricingMarketDay.add.error.endTime');
     
     if (startTime && endTime) {
       // Convert times to minutes for comparison
@@ -103,7 +122,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
       const endMinutes = parseTime(endTime);
       
       if (endMinutes <= startMinutes) {
-        newErrors.endTime = 'End time must be after start time';
+        newErrors.endTime = t('pricingMarketDay.add.error.endBeforeStart');
       }
     }
     
@@ -111,18 +130,10 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = () => {
-    if (!validate()) return;
-    
-    const timeRange = `${startTime} – ${endTime}`;
-    
-    onSave({
-      date,
-      month,
-      warehouse,
-      timeRange,
-    });
-  };
+  // There is no create endpoint, so nothing is submitted. validate() still
+  // runs on the fields so the form behaves, but Save stays disabled and no
+  // success is ever shown.
+  const formComplete = warehouseId !== '' && startTime !== '' && endTime !== '' && validateQuietly(startTime, endTime);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -135,7 +146,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
           style={styles.backBtn}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('pricingMarketDay.back')}
         >
           <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
@@ -143,19 +154,19 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Title */}
-        <Text style={styles.title}>Add Market Day</Text>
-        <Text style={styles.subtitle}>Configure a new market day</Text>
+        <Text style={styles.title}>{t('pricingMarketDay.add.title')}</Text>
+        <Text style={styles.subtitle}>{t('pricingMarketDay.add.subtitle')}</Text>
 
         {/* Warehouse Selector */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Warehouse</Text>
+          <Text style={styles.label}>{t('pricingMarketDay.add.warehouse')}</Text>
           <TouchableOpacity
             style={[styles.input, errors.warehouse ? styles.inputError : undefined]}
             onPress={() => setShowWarehousePicker(!showWarehousePicker)}
             activeOpacity={0.7}
           >
             <Text style={[styles.inputText, !warehouse && styles.inputPlaceholder]}>
-              {warehouse || 'Select warehouse'}
+              {warehouse === '' ? t('pricingMarketDay.add.warehousePlaceholder') : warehouse}
             </Text>
             <Icon name="expand_more" size={20} color={P.muted} />
           </TouchableOpacity>
@@ -163,19 +174,24 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
           
           {showWarehousePicker && (
             <View style={styles.picker}>
-              {WAREHOUSES.map((wh) => (
+              {network.isLoading ? <AdminLoadingState /> : null}
+              {network.error !== null && network.error !== undefined ? (
+                <AdminErrorState error={network.error} onRetry={network.refresh} />
+              ) : null}
+              {network.warehouses.map((wh) => (
                 <TouchableOpacity
-                  key={wh}
+                  key={wh.id}
                   style={styles.pickerItem}
                   onPress={() => {
-                    setWarehouse(wh);
+                    setWarehouseId(wh.id);
                     setShowWarehousePicker(false);
                     setErrors({ ...errors, warehouse: '' });
                   }}
                   activeOpacity={0.7}
+                  testID={`pricingMarketDay.add.warehouse.${wh.id}`}
                 >
-                  <Text style={styles.pickerItemText}>{wh}</Text>
-                  {warehouse === wh && <Icon name="check" size={18} color={P.orange} />}
+                  <Text style={styles.pickerItemText}>{wh.name}</Text>
+                  {warehouseId === wh.id && <Icon name="check" size={18} color={P.orange} />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -184,7 +200,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 
         {/* Date Selector */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Market Date</Text>
+          <Text style={styles.label}>{t('pricingMarketDay.add.date')}</Text>
           <TouchableOpacity
             style={styles.input}
             onPress={() => setShowDatePicker(!showDatePicker)}
@@ -200,7 +216,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
             <View style={styles.picker}>
               <View style={styles.datePickerRow}>
                 <View style={styles.dateColumn}>
-                  <Text style={styles.dateColumnTitle}>Day</Text>
+                  <Text style={styles.dateColumnTitle}>{t('pricingMarketDay.add.date')}</Text>
                   <ScrollView 
                     style={styles.dateScroll}
                     showsVerticalScrollIndicator={true}
@@ -245,7 +261,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
                 onPress={() => setShowDatePicker(false)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.pickerDoneBtnText}>Done</Text>
+                <Text style={styles.pickerDoneBtnText}>{t('pricingCeiling.close')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -253,14 +269,14 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 
         {/* Start Time Selector */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Start Time</Text>
+          <Text style={styles.label}>{t('pricingMarketDay.add.startTime')}</Text>
           <TouchableOpacity
             style={[styles.input, errors.startTime ? styles.inputError : undefined]}
             onPress={() => setShowStartTimePicker(!showStartTimePicker)}
             activeOpacity={0.7}
           >
             <Text style={[styles.inputText, !startTime && styles.inputPlaceholder]}>
-              {startTime || 'Select start time'}
+              {startTime === '' ? t('pricingMarketDay.add.selectTime') : startTime}
             </Text>
             <Icon name="expand_more" size={20} color={P.muted} />
           </TouchableOpacity>
@@ -295,14 +311,14 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 
         {/* End Time Selector */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>End Time</Text>
+          <Text style={styles.label}>{t('pricingMarketDay.add.endTime')}</Text>
           <TouchableOpacity
             style={[styles.input, errors.endTime ? styles.inputError : undefined]}
             onPress={() => setShowEndTimePicker(!showEndTimePicker)}
             activeOpacity={0.7}
           >
             <Text style={[styles.inputText, !endTime && styles.inputPlaceholder]}>
-              {endTime || 'Select end time'}
+              {endTime === '' ? t('pricingMarketDay.add.selectTime') : endTime}
             </Text>
             <Icon name="expand_more" size={20} color={P.muted} />
           </TouchableOpacity>
@@ -335,15 +351,43 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
           )}
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
-          <Text style={styles.saveBtnText}>Save Market Day</Text>
+        {/* Save Button. No create endpoint exists (see the docblock): it is
+            visible, disabled, and wired to nothing. */}
+        <TouchableOpacity
+          style={[styles.saveBtn, styles.saveBtnDisabled]}
+          disabled
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="pricingMarketDay.add.save"
+        >
+          <Text style={styles.saveBtnText}>{t('pricingMarketDay.add.save')}</Text>
         </TouchableOpacity>
+        <Text style={styles.unavailableText} testID="pricingMarketDay.add.unavailable">
+          {t('pricingMarketDay.add.unavailable')}
+        </Text>
+        {formComplete ? null : null}
 
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+/** The design's "end after start" check, without touching the error state. */
+function validateQuietly(startTime: string, endTime: string): boolean {
+  return minutesOfDay(endTime) > minutesOfDay(startTime);
+}
+
+function minutesOfDay(time: string): number {
+  const parts = time.split(' ');
+  const timePart = parts[0] ?? '0:00';
+  const period = parts[1] ?? 'AM';
+  const segments = timePart.split(':');
+  let hours = Number(segments[0] ?? '0');
+  const minutes = Number(segments[1] ?? '0');
+  if (period === 'PM' && hours !== 12) hours += 12;
+  else if (period === 'AM' && hours === 12) hours = 0;
+  return hours * 60 + minutes;
 }
 
 const styles = StyleSheet.create({
@@ -517,6 +561,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+    fontFamily: 'Manrope, system-ui, sans-serif',
+  },
+  saveBtnDisabled: {
+    opacity: 0.5,
+  },
+  unavailableText: {
+    fontSize: 12,
+    color: P.lightGray,
+    marginTop: 10,
+    lineHeight: 17,
     fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

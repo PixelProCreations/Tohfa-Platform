@@ -26,9 +26,13 @@ import type { AdminWalletTransaction, CustomerSort, CustomerStatusFilter } from 
 // ---------------------------------------------------------------------------
 export interface CustomerRow {
   id: string;
+  userId: string;
   customerCode: string;
   customerType: 'RETAIL' | 'B2B' | 'HORECA';
   businessName: string | null;
+  businessType: string | null;
+  gstin: string | null;
+  gstVerified: boolean;
   preferredWarehouseId: string | null;
   fullName: string;
   mobile: string;
@@ -228,6 +232,57 @@ export interface CustomersRepo {
     db: Executor,
     input: { ticketId: string; senderUserId: string; body: string; attachmentKey: string | null },
   ): Promise<{ id: string; createdAt: string }>;
+  findLiveUserByMobile(db: Executor, mobile: string): Promise<{ id: string; userType: string; status: string; fullName: string } | null>;
+  findLiveCustomerByUserId(db: Executor, userId: string): Promise<string | null>;
+  findLiveRolesByUserId(db: Executor, userId: string): Promise<string[]>;
+  hasLiveFarmer(db: Executor, userId: string): Promise<boolean>;
+  insertUser(db: Executor, data: { mobile: string; fullName: string; email?: string | null | undefined }): Promise<string>;
+  assignCustomerRole(db: Executor, userId: string): Promise<void>;
+  generateCustomerCode(db: Executor): Promise<string>;
+  insertCustomer(
+    db: Executor,
+    data: {
+      userId: string;
+      customerCode: string;
+      customerType: 'RETAIL' | 'B2B' | 'HORECA';
+      businessName?: string | null | undefined;
+      businessType?: string | null | undefined;
+      gstin?: string | null | undefined;
+      preferredWarehouseId?: string | null | undefined;
+    },
+  ): Promise<string>;
+  insertCustomerAddress(
+    db: Executor,
+    data: {
+      customerId: string;
+      label?: string | null | undefined;
+      line1: string;
+      line2?: string | null | undefined;
+      city: string;
+      district?: string | null | undefined;
+      state?: string | null | undefined;
+      pincode: string;
+      isDefault: boolean;
+    },
+  ): Promise<string>;
+  setDefaultAddress(db: Executor, customerId: string, addressId: string): Promise<void>;
+  createWallet(db: Executor, customerId: string): Promise<string>;
+  findCustomerGstinConflict(db: Executor, gstin: string, excludeCustomerId?: string): Promise<boolean>;
+  checkWarehouseActive(db: Executor, warehouseId: string): Promise<boolean>;
+  getCustomerById(db: Executor, customerId: string): Promise<CustomerRow | null>;
+  updateCustomer(
+    db: Executor,
+    customerId: string,
+    data: {
+      customerType?: 'RETAIL' | 'B2B' | 'HORECA' | undefined;
+      businessName?: string | null | undefined;
+      businessType?: string | null | undefined;
+      gstin?: string | null | undefined;
+      gstVerified?: boolean | undefined;
+      preferredWarehouseId?: string | null | undefined;
+    },
+  ): Promise<void>;
+  updateUser(db: Executor, userId: string, data: { fullName?: string | undefined; email?: string | null | undefined }): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -292,9 +347,13 @@ const likeEscape = (term: string): string => term.replace(/[\\%_]/g, (c) => `\\$
 
 interface CustomerDbRow {
   id: string;
+  user_id: string;
   customer_code: string;
   customer_type: 'RETAIL' | 'B2B' | 'HORECA';
   business_name: string | null;
+  business_type: string | null;
+  gstin: string | null;
+  gst_verified: boolean;
   preferred_warehouse_id: string | null;
   full_name: string;
   mobile: string;
@@ -311,9 +370,13 @@ interface CustomerDbRow {
 function toCustomer(row: CustomerDbRow): CustomerRow {
   return {
     id: row.id,
+    userId: row.user_id,
     customerCode: row.customer_code,
     customerType: row.customer_type,
     businessName: row.business_name,
+    businessType: row.business_type,
+    gstin: row.gstin,
+    gstVerified: row.gst_verified,
     preferredWarehouseId: row.preferred_warehouse_id,
     fullName: row.full_name,
     mobile: row.mobile,
@@ -342,7 +405,7 @@ function classifiedCte(access: CustomerAccess, windowDays: number, add: Add, ext
   const where = ['c.deleted_at IS NULL', visibility, ...extraWhere].join(' AND ');
   return `
     base AS (
-      SELECT c.id, c.customer_code, c.customer_type, c.business_name, c.preferred_warehouse_id, c.created_at,
+      SELECT c.id, c.user_id, c.customer_code, c.customer_type, c.business_name, c.business_type, c.gstin, c.gst_verified, c.preferred_warehouse_id, c.created_at,
              u.full_name, u.mobile, u.email,
              agg.total_orders, agg.lifetime_value, agg.last_order_at,
              GREATEST(agg.last_completed_at, tp.last_topup_at) AS last_activity_at
@@ -407,7 +470,7 @@ function purchaseFilter(args: ListCustomersArgs, alias: string, add: Add): strin
   return `EXISTS (SELECT 1 FROM orders fo JOIN order_items fi ON fi.order_id = fo.id WHERE ${clauses.join(' AND ')})`;
 }
 
-const CUSTOMER_COLUMNS = `id, customer_code, customer_type, business_name, preferred_warehouse_id, full_name, mobile,
+const CUSTOMER_COLUMNS = `id, user_id, customer_code, customer_type, business_name, business_type, gstin, gst_verified, preferred_warehouse_id, full_name, mobile,
   email, total_orders, lifetime_value, last_order_at, last_activity_at, is_active, is_new, created_at`;
 
 // ---------------------------------------------------------------------------
@@ -913,6 +976,185 @@ export const customersRepo: CustomersRepo = {
     const row = res.rows[0];
     if (row === undefined) throw new Error('support_messages insert returned no row');
     return { id: row.id, createdAt: row.created_at.toISOString() };
+  },
+
+  async findLiveUserByMobile(db, mobile) {
+    const res = await db.query<{ id: string; user_type: string; status: string; full_name: string }>(
+      `SELECT id, user_type, status, full_name FROM users WHERE mobile = $1 AND deleted_at IS NULL LIMIT 1`,
+      [mobile],
+    );
+    const row = res.rows[0];
+    return row ? { id: row.id, userType: row.user_type, status: row.status, fullName: row.full_name } : null;
+  },
+
+  async findLiveCustomerByUserId(db, userId) {
+    const res = await db.query<{ id: string }>(
+      `SELECT id FROM customers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      [userId],
+    );
+    return res.rows[0]?.id ?? null;
+  },
+
+  async findLiveRolesByUserId(db, userId) {
+    const res = await db.query<{ code: string }>(
+      `SELECT r.code
+         FROM user_roles ur
+         JOIN roles r ON r.id = ur.role_id
+        WHERE ur.user_id = $1 AND (ur.valid_to IS NULL OR ur.valid_to > now())`,
+      [userId],
+    );
+    return res.rows.map((r) => r.code);
+  },
+
+  async hasLiveFarmer(db, userId) {
+    const res = await db.query<{ count: string }>(
+      `SELECT count(*) AS count FROM farmers WHERE user_id = $1 AND deleted_at IS NULL`,
+      [userId],
+    );
+    return Number(res.rows[0]?.count ?? 0) > 0;
+  },
+
+  async insertUser(db, data) {
+    const res = await db.query<{ id: string }>(
+      `INSERT INTO users (mobile, full_name, email, user_type, status)
+       VALUES ($1, $2, $3, 'CUSTOMER', 'ACTIVE')
+       RETURNING id`,
+      [data.mobile, data.fullName, data.email ?? null],
+    );
+    return res.rows[0]!.id;
+  },
+
+  async assignCustomerRole(db, userId) {
+    await db.query(
+      `INSERT INTO user_roles (user_id, role_id)
+       VALUES ($1, (SELECT id FROM roles WHERE code = 'CUSTOMER'))
+       ON CONFLICT DO NOTHING`,
+      [userId],
+    );
+  },
+
+  async generateCustomerCode(db) {
+    await db.query(`SELECT pg_advisory_xact_lock(hashtextextended('customers.customer_code', 0))`);
+    const maxRes = await db.query<{ max_seq: string }>(
+      `SELECT COALESCE(MAX(substring(customer_code FROM '^CUST-([0-9]+)$')::bigint), 0)::text AS max_seq FROM customers`,
+    );
+    const seqRes = await db.query<{ val: string }>(`SELECT nextval('customer_code_seq')::text AS val`);
+    const nextNum = Math.max(Number(maxRes.rows[0]?.max_seq ?? 0) + 1, Number(seqRes.rows[0]?.val ?? 1));
+    return `CUST-${String(nextNum).padStart(4, '0')}`;
+  },
+
+  async insertCustomer(db, data) {
+    const res = await db.query<{ id: string }>(
+      `INSERT INTO customers (
+         user_id, customer_code, customer_type, business_name, business_type,
+         gstin, gst_verified, preferred_warehouse_id
+       ) VALUES ($1, $2, $3, $4, $5, $6, false, $7)
+       RETURNING id`,
+      [
+        data.userId,
+        data.customerCode,
+        data.customerType,
+        data.businessName ?? null,
+        data.businessType ?? null,
+        data.gstin ?? null,
+        data.preferredWarehouseId ?? null,
+      ],
+    );
+    return res.rows[0]!.id;
+  },
+
+  async insertCustomerAddress(db, data) {
+    const res = await db.query<{ id: string }>(
+      `INSERT INTO customer_addresses (
+         customer_id, label, line1, line2, city, district, state, pincode, is_default
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
+        data.customerId,
+        data.label ?? (data.isDefault ? 'HOME' : null),
+        data.line1,
+        data.line2 ?? null,
+        data.city,
+        data.district ?? null,
+        data.state ?? 'Tamil Nadu',
+        data.pincode,
+        data.isDefault ?? false,
+      ],
+    );
+    return res.rows[0]!.id;
+  },
+
+  async setDefaultAddress(db, customerId, addressId) {
+    await db.query(`UPDATE customers SET default_address_id = $2 WHERE id = $1`, [customerId, addressId]);
+  },
+
+  async createWallet(db, customerId) {
+    const res = await db.query<{ id: string }>(
+      `INSERT INTO wallets (owner_type, customer_id, balance, currency, status)
+       VALUES ('CUSTOMER', $1, 0, 'INR', 'ACTIVE')
+       ON CONFLICT (customer_id) WHERE customer_id IS NOT NULL DO UPDATE SET status = 'ACTIVE'
+       RETURNING id`,
+      [customerId],
+    );
+    return res.rows[0]!.id;
+  },
+
+  async findCustomerGstinConflict(db, gstin, excludeCustomerId) {
+    const res = await db.query(
+      `SELECT 1 FROM customers WHERE gstin = $1 AND ($2::uuid IS NULL OR id <> $2::uuid) AND deleted_at IS NULL LIMIT 1`,
+      [gstin, excludeCustomerId ?? null],
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  async checkWarehouseActive(db, warehouseId) {
+    const res = await db.query(
+      `SELECT 1 FROM warehouses WHERE id = $1 AND is_active = true AND deleted_at IS NULL LIMIT 1`,
+      [warehouseId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  },
+
+  async getCustomerById(db, customerId) {
+    const res = await db.query<CustomerDbRow>(
+      `SELECT c.id, c.user_id, c.customer_code, c.customer_type, c.business_name, c.business_type,
+              c.gstin, c.gst_verified, c.preferred_warehouse_id, c.created_at,
+              u.full_name, u.mobile, u.email,
+              c.total_orders, c.lifetime_value::text AS lifetime_value,
+              NULL::timestamptz AS last_order_at, NULL::timestamptz AS last_activity_at,
+              true AS is_active, false AS is_new
+         FROM customers c
+         JOIN users u ON u.id = c.user_id
+        WHERE c.id = $1 AND c.deleted_at IS NULL
+        LIMIT 1`,
+      [customerId],
+    );
+    const row = res.rows[0];
+    return row ? toCustomer(row) : null;
+  },
+
+  async updateCustomer(db, customerId, data) {
+    const setClauses: string[] = ['updated_at = now()'];
+    const p = params();
+    const idParam = p.add(customerId);
+    if (data.customerType !== undefined) setClauses.push(`customer_type = ${p.add(data.customerType)}`);
+    if (data.businessName !== undefined) setClauses.push(`business_name = ${p.add(data.businessName)}`);
+    if (data.businessType !== undefined) setClauses.push(`business_type = ${p.add(data.businessType)}`);
+    if (data.gstin !== undefined) setClauses.push(`gstin = ${p.add(data.gstin)}`);
+    if (data.gstVerified !== undefined) setClauses.push(`gst_verified = ${p.add(data.gstVerified)}`);
+    if (data.preferredWarehouseId !== undefined) setClauses.push(`preferred_warehouse_id = ${p.add(data.preferredWarehouseId)}`);
+    await db.query(`UPDATE customers SET ${setClauses.join(', ')} WHERE id = ${idParam}::uuid`, p.values);
+  },
+
+  async updateUser(db, userId, data) {
+    const setClauses: string[] = ['updated_at = now()'];
+    const p = params();
+    const idParam = p.add(userId);
+    if (data.fullName !== undefined) setClauses.push(`full_name = ${p.add(data.fullName)}`);
+    if (data.email !== undefined) setClauses.push(`email = ${p.add(data.email)}`);
+    if (setClauses.length > 1) {
+      await db.query(`UPDATE users SET ${setClauses.join(', ')} WHERE id = ${idParam}::uuid`, p.values);
+    }
   },
 };
 

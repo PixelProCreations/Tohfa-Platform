@@ -19,9 +19,149 @@ import errorsTa from '../../../i18n/errors.ta.json';
 import { createI18n, LOCALES, type Locale } from '../../../i18n/runtime';
 import adminEn from './en.json';
 import adminTa from './ta.json';
+// Farmers Management catalogues: one file per screen group so parallel work never edits the same JSON.
+import farmerAppsEn from './farmerApps.en.json';
+import farmerAppsTa from './farmerApps.ta.json';
+import farmerDetailEn from './farmerDetail.en.json';
+import farmerDetailTa from './farmerDetail.ta.json';
+import farmersEntryEn from './farmersEntry.en.json';
+import farmersEntryTa from './farmersEntry.ta.json';
+import farmersListEn from './farmersList.en.json';
+import farmersListTa from './farmersList.ta.json';
+import farmersComplianceEn from './farmersCompliance.en.json';
+// Settings & Notifications catalogues.
+import settingsEn from './settings.en.json';
+import settingsTa from './settings.ta.json';
+// Market & Pricing catalogues: one file per screen group so parallel work never edits the same JSON.
+import pricingCeilingEn from './pricingCeiling.en.json';
+import pricingUpdateEn from './pricingUpdate.en.json';
+import pricingUpdateTa from './pricingUpdate.ta.json';
+import pricingCeilingTa from './pricingCeiling.ta.json';
+import pricingEntryEn from './pricingEntry.en.json';
+import pricingEntryTa from './pricingEntry.ta.json';
+import pricingRetailEn from './pricingRetail.en.json';
+import pricingRetailTa from './pricingRetail.ta.json';
+// Shared admin "More" menu catalogue.
+import moreMenuEn from './moreMenu.en.json';
+import moreMenuTa from './moreMenu.ta.json';
+// Inventory & Warehouse overview (M10-S01) catalogue.
+import warehouseOverviewEn from './warehouseOverview.en.json';
+import warehouseOverviewTa from './warehouseOverview.ta.json';
+// Tohfa Admin Home tab catalogue.
+import tohfaHomeEn from './tohfaHome.en.json';
+import tohfaHomeTa from './tohfaHome.ta.json';
+// Tohfa Admin Accounts & Finance hub catalogue.
+import financeHubEn from './financeHub.en.json';
+import financeHubTa from './financeHub.ta.json';
+// Tohfa Admin shell (bottom tab bar) catalogue.
+import tohfaShellEn from './tohfaShell.en.json';
+import tohfaShellTa from './tohfaShell.ta.json';
+// Tohfa Admin Work Queue tab catalogue.
+import workQueueEn from './workQueue.en.json';
+import workQueueTa from './workQueue.ta.json';
+// Purchase Orders catalogue.
+import purchaseOrdersEn from './purchaseOrders.en.json';
+import purchaseOrdersTa from './purchaseOrders.ta.json';
+// Listing approval (Tohfa "Produce list") catalogue.
+import listingsAdminEn from './listingsAdmin.en.json';
+import listingsAdminTa from './listingsAdmin.ta.json';
+// Notifications Center catalogue.
+import notificationsCenterEn from './notificationsCenter.en.json';
+import notificationsCenterTa from './notificationsCenter.ta.json';
+// Super Admin screens (origin/Superadmin-main port): one file per screen group.
+import saShellEn from './saShell.en.json';
+import saApprovalsEn from './saApprovals.en.json';
+import saThresholdsEn from './saThresholds.en.json';
+import saSystemSettingsEn from './saSystemSettings.en.json';
+// Audits screens (origin/Superadmin-main port): one file per screen group.
+import auditsManagementEn from './auditsManagement.en.json';
+import auditsScheduleEn from './auditsSchedule.en.json';
+import auditsDashboardScheduleEn from './auditsDashboardSchedule.en.json';
+import auditsInspectionOverviewEn from './auditsInspectionOverview.en.json';
+import auditsTierConfigEn from './auditsTierConfig.en.json';
+import auditDetailsRecordsEn from './auditDetailsRecords.en.json';
+// Warehouse order workflow screens (stock check, cancel, issue, delivery prep, dispatch) catalogue.
+import ordersWorkflowEn from './ordersWorkflow.en.json';
+// Warehouse order dashboard, detail, status history and ready-for-pickup screens catalogue.
+import ordersLiveEn from './ordersLive.en.json';
+// Community & Knowledge (Learning Hub) screens catalogue.
+import communityEn from './community.en.json';
+// Zone Management screens catalogue.
+import zonesEn from './zones.en.json';
+// Admin wiring honesty pass (brief 07): one catalogue per work stream so parallel work never edits the same JSON.
+import wiringFinanceEn from './wiringFinance.en.json';
+import wiringPayoutsEn from './wiringPayouts.en.json';
+import wiringSalesEn from './wiringSales.en.json';
+import wiringReportsEn from './wiringReports.en.json';
+import wiringFarmersEn from './wiringFarmers.en.json';
+// Admin role home dashboards catalogue.
+import homeDashboardsEn from './homeDashboards.en.json';
 
-export const en = { ...errorsEn, ...adminEn };
-const ta: Record<string, string> = { ...errorsTa, ...adminTa };
+export const en = {
+  ...errorsEn,
+  ...adminEn,
+  ...settingsEn,
+  ...farmersListEn,
+  ...farmersComplianceEn,
+  ...farmerDetailEn,
+  ...farmerAppsEn,
+  ...farmersEntryEn,
+  ...pricingCeilingEn,
+  ...pricingUpdateEn,
+  ...pricingRetailEn,
+  ...pricingEntryEn,
+  ...moreMenuEn,
+  ...warehouseOverviewEn,
+  ...tohfaHomeEn,
+  ...financeHubEn,
+  ...tohfaShellEn,
+  ...workQueueEn,
+  ...purchaseOrdersEn,
+  ...listingsAdminEn,
+  ...notificationsCenterEn,
+  ...saShellEn,
+  ...saApprovalsEn,
+  ...saThresholdsEn,
+  ...saSystemSettingsEn,
+  ...auditsManagementEn,
+  ...auditsScheduleEn,
+  ...auditsDashboardScheduleEn,
+  ...auditsInspectionOverviewEn,
+  ...auditsTierConfigEn,
+  ...auditDetailsRecordsEn,
+  ...ordersWorkflowEn,
+  ...ordersLiveEn,
+  ...communityEn,
+  ...zonesEn,
+  ...wiringFinanceEn,
+  ...wiringPayoutsEn,
+  ...wiringSalesEn,
+  ...wiringReportsEn,
+  ...wiringFarmersEn,
+  ...homeDashboardsEn,
+};
+const ta: Record<string, string> = {
+  ...errorsTa,
+  ...adminTa,
+  ...settingsTa,
+  ...farmersListTa,
+  ...farmerDetailTa,
+  ...farmerAppsTa,
+  ...farmersEntryTa,
+  ...pricingCeilingTa,
+  ...pricingUpdateTa,
+  ...pricingRetailTa,
+  ...pricingEntryTa,
+  ...moreMenuTa,
+  ...warehouseOverviewTa,
+  ...tohfaHomeTa,
+  ...financeHubTa,
+  ...tohfaShellTa,
+  ...workQueueTa,
+  ...purchaseOrdersTa,
+  ...listingsAdminTa,
+  ...notificationsCenterTa,
+};
 
 export type TranslationKey = keyof typeof en;
 

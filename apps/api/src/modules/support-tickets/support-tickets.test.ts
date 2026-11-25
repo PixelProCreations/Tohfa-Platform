@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -649,10 +649,6 @@ describeIfDatabase('Support Tickets (BR-60) against Postgres', () => {
     if (!ready) console.warn('[skip] farmer_support_tickets not migrated - apply 0039_support_tickets.sql');
   });
 
-  afterAll(async () => {
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   async function newTicket(farmer: { farmerId: string; userId: string }) {
     const scope = farmerScope(farmer.farmerId, farmer.userId);

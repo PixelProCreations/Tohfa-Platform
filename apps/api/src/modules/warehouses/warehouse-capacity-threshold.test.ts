@@ -45,13 +45,6 @@ function stubRepo(threshold: number | null, known: string[]): WarehousesRepo & {
   return repo as unknown as WarehousesRepo & { thresholdReads: number };
 }
 
-// The pool is closed ONCE, after every describe in this file: a describe that closed it would leave
-// the next one unable to reach the database.
-afterAll(async () => {
-  if (process.env['DATABASE_URL'] === undefined) return;
-  const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-  await Promise.allSettled([closePool(), closeRedis()]);
-});
 
 describe('warehouse capacity threshold (stub repo) — BR-131', () => {
   it('BR-131a: GET and the PATCH response carry the repo threshold with the capacity; null stays null', async () => {

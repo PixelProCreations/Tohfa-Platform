@@ -10,6 +10,11 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useAdminQuery } from '../../api/hooks';
+import { listAlerts, dismissAlert } from '../../api/alerts';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 const PALETTE = {
   pageBg: '#FAF8F5',
@@ -54,6 +59,7 @@ export function SystemAlertsScreen({
 }: SystemAlertsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'all' | 'critical' | 'warning' | 'info'>('all');
   const [isConfiguring, setIsConfiguring] = useState(false);
+  const [dismissedKeys, setDismissedKeys] = useState<string[]>([]);
 
   // Configurable thresholds
   const [stockThreshold, setStockThreshold] = useState('35');
@@ -61,54 +67,51 @@ export function SystemAlertsScreen({
   const [certDays, setCertDays] = useState('30');
   const [offerHours, setOfferHours] = useState('24');
 
-  const [alerts, setAlerts] = useState<SystemAlertItem[]>([
-    {
-      id: 'alert-1',
-      type: 'critical',
-      iconType: 'triangle',
-      title: 'Kotagiri stock at 31% — below threshold',
-      desc: 'Consider an inter-warehouse transfer to rebalance.',
-      action: onNavigateToStock,
-    },
-    {
-      id: 'alert-2',
-      type: 'critical',
-      iconType: 'shield',
-      title: '7 farms overdue for quarterly audit',
-      desc: 'Q3 audit window closes in 5 days.',
-      action: onNavigateToPayouts,
-    },
-    {
-      id: 'alert-3',
-      type: 'warning',
-      iconType: 'triangle',
-      title: '12 certifications expiring within 30 days',
-      desc: 'Listings will be auto-blocked if not renewed.',
-      action: onNavigateToCert,
-    },
-    {
-      id: 'alert-4',
-      type: 'info',
-      iconType: 'clock',
-      title: '3 counter-offers approaching 24hr window close',
-      desc: 'Review before automatic withdrawal.',
-    },
-  ]);
+  const alertsQuery = useAdminQuery(
+    ['admin', 'alerts', 'all'],
+    (signal) => listAlerts({ limit: 50 }, signal),
+  );
 
-  const handleDismiss = (id: string) => {
-    setAlerts((prev) => prev.filter((item) => item.id !== id));
+  const liveAlerts: SystemAlertItem[] = (alertsQuery.data?.items ?? []).map((dto) => {
+    const isCritical = dto.type === 'LOW_STOCK';
+    const isWarning = dto.type === 'BATCH_NEAR_EXPIRY';
+    const alertType: 'critical' | 'warning' | 'info' = isCritical ? 'critical' : isWarning ? 'warning' : 'info';
+    const iconType = isCritical ? 'triangle' : isWarning ? 'clock' : 'shield';
+    const title = dto.type === 'LOW_STOCK'
+      ? 'Low stock threshold reached'
+      : dto.type === 'BATCH_NEAR_EXPIRY'
+      ? 'Inventory batch near expiry'
+      : 'Storage capacity near maximum';
+    const desc = dto.warehouseId ? `Warehouse Hub: ${dto.warehouseId}` : 'Platform inventory notification';
+    return {
+      id: dto.itemKey,
+      type: alertType,
+      iconType,
+      title,
+      desc,
+      action: isCritical ? onNavigateToStock : undefined,
+    };
+  });
+
+  const allAlerts = liveAlerts.filter((a) => !dismissedKeys.includes(a.id));
+
+  const handleDismiss = async (id: string) => {
+    try {
+      await dismissAlert(id);
+      setDismissedKeys((prev) => [...prev, id]);
+    } catch {
+      Alert.alert(
+        t('wiringReports.alerts.dismissFailedTitle'),
+        t('wiringReports.alerts.dismissFailedBody'),
+      );
+    }
   };
 
-  const handleSaveThresholds = () => {
-    setIsConfiguring(false);
-    Alert.alert('Thresholds Updated', 'Platform monitoring rules updated across all nodes.');
-  };
+  const criticalCount = allAlerts.filter((a) => a.type === 'critical').length;
+  const warningCount = allAlerts.filter((a) => a.type === 'warning').length;
+  const infoCount = allAlerts.filter((a) => a.type === 'info').length;
 
-  const criticalCount = alerts.filter((a) => a.type === 'critical').length;
-  const warningCount = alerts.filter((a) => a.type === 'warning').length;
-  const infoCount = alerts.filter((a) => a.type === 'info').length;
-
-  const displayedAlerts = alerts.filter((a) => {
+  const displayedAlerts = allAlerts.filter((a) => {
     if (activeFilter === 'all') return true;
     return a.type === activeFilter;
   });
@@ -251,14 +254,17 @@ export function SystemAlertsScreen({
             </View>
           </View>
 
-          {/* Action Save Button */}
+          {/* Action Save Button (disabled: no admin threshold update endpoint) */}
           <TouchableOpacity
-            style={styles.primaryActionBtn}
-            onPress={handleSaveThresholds}
+            style={[styles.primaryActionBtn, { opacity: 0.45 }]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringReports.alerts.thresholdsUnavailable')}
             activeOpacity={0.85}
           >
             <Text style={styles.primaryActionBtnText}>Save Thresholds</Text>
           </TouchableOpacity>
+          <Text style={styles.pageSubtitle}>{t('wiringReports.alerts.thresholdsUnavailable')}</Text>
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -335,6 +341,13 @@ export function SystemAlertsScreen({
         </View>
 
         {/* Alerts List */}
+        {alertsQuery.isPending ? (
+          <AdminLoadingState />
+        ) : alertsQuery.error ? (
+          <AdminErrorState error={alertsQuery.error} onRetry={alertsQuery.refetch} />
+        ) : displayedAlerts.length === 0 ? (
+          <AdminEmptyState />
+        ) : (
         <View style={styles.alertsList}>
           {displayedAlerts.map((item) => (
             <TouchableOpacity
@@ -353,7 +366,7 @@ export function SystemAlertsScreen({
 
                 <TouchableOpacity
                   style={styles.dismissBtn}
-                  onPress={() => handleDismiss(item.id)}
+                  onPress={() => { void handleDismiss(item.id); }}
                   hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                   activeOpacity={0.6}
                 >
@@ -370,14 +383,8 @@ export function SystemAlertsScreen({
               </View>
             </TouchableOpacity>
           ))}
-
-          {displayedAlerts.length === 0 && (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No active alerts</Text>
-              <Text style={styles.emptySub}>All platform thresholds are operating within safe parameters.</Text>
-            </View>
-          )}
         </View>
+        )}
 
         {/* Configure Alert Thresholds Action Button -> Redirects to Full Screen */}
         <TouchableOpacity

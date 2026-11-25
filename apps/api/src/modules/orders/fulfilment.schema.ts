@@ -3,6 +3,7 @@ import type { Money } from '@tohfa/shared-types';
 import {
   orderStatuses,
   salesChannels,
+  deliverySlots,
   type OrderStatus,
   type SalesChannel,
   type FulfillmentType,
@@ -49,7 +50,7 @@ export type PackOrderRequest = z.infer<typeof packOrderSchema>;
 export const dispatchOrderSchema = z.object({
   vehicleNumber: z.string().max(20).optional(),
   deliveryPartnerId: z.string().uuid().optional(),
-  expectedArrival: z.string().datetime().optional(),
+  slot: z.enum(deliverySlots).optional(),
 });
 export type DispatchOrderRequest = z.infer<typeof dispatchOrderSchema>;
 
@@ -95,6 +96,7 @@ export interface AdminOrderSummary {
  * summary plus the buyer's name and BR-92-masked mobile. Built only by `toAdminOrderListItem`.
  */
 export interface AdminOrderListItem extends AdminOrderSummary {
+  buyerName: string | null;
   customerName: string | null;
   customerMobileMasked: string | null;
   /** BR-101 owner amendment 2026-10-26: `orders.packed_at`, the value the detail reports. */
@@ -168,6 +170,30 @@ const maskedMobile = z.string().regex(/^\*+[0-9]{0,4}$/);
 
 export const adminOrderIdParams = z.object({ orderId: z.string().uuid() });
 
+export const adminOrderDeliveryAddressSchema = z
+  .object({
+    line1: z.string(),
+    line2: z.string().nullable(),
+    city: z.string(),
+    district: z.string().nullable(),
+    state: z.string().nullable(),
+    pincode: z.string(),
+    lat: z.number().nullable(),
+    lng: z.number().nullable(),
+  })
+  .strict();
+export type AdminOrderDeliveryAddress = z.infer<typeof adminOrderDeliveryAddressSchema>;
+
+export const adminOrderDeliveryPartnerSchema = z
+  .object({
+    id: z.string().uuid(),
+    name: z.string(),
+    phone: z.string(),
+    vehicleRef: z.string().nullable(),
+  })
+  .strict();
+export type AdminOrderDeliveryPartner = z.infer<typeof adminOrderDeliveryPartnerSchema>;
+
 export const adminOrderDetailResponse = z
   .object({
     id: z.string().uuid(),
@@ -175,6 +201,8 @@ export const adminOrderDetailResponse = z
     channel: z.enum(adminOrderChannels),
     status: z.enum(adminOrderStatuses),
     fulfilmentType: z.enum(adminOrderFulfilmentTypes),
+    pickupType: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
     paymentMethod: z.enum(adminOrderPaymentMethods),
     paymentStatus: z.enum(adminOrderPaymentStatuses),
     warehouse: z.object({ id: z.string().uuid(), name: z.string() }).strict(),
@@ -190,6 +218,7 @@ export const adminOrderDetailResponse = z
     items: z.array(
       z
         .object({
+          id: z.string().uuid().optional(),
           productId: z.string().uuid(),
           name: z.string(),
           grade: z.enum(['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT']),
@@ -217,7 +246,7 @@ export const adminOrderDetailResponse = z
     fulfilment: z
       .object({
         deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
-        deliverySlot: z.enum(['MORNING_8_12', 'AFTERNOON_12_4', 'EVENING_4_8']).nullable(),
+        deliverySlot: z.enum(deliverySlots).nullable(),
         otpRequired: z.boolean(),
         otpVerifiedAt: isoInstant.nullable(),
       })
@@ -235,6 +264,69 @@ export const adminOrderDetailResponse = z
     packedAt: isoInstant.nullable(),
     completedAt: isoInstant.nullable(),
     cancelledAt: isoInstant.nullable(),
+    deliveryAddress: adminOrderDeliveryAddressSchema.nullable(),
+    deliveryPartner: adminOrderDeliveryPartnerSchema.nullable(),
+    deliverySlot: z.enum(deliverySlots).nullable(),
   })
   .strict();
 export type AdminOrderDetailResponse = z.infer<typeof adminOrderDetailResponse>;
+
+export const cancelOrderSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+});
+export type CancelOrderRequest = z.infer<typeof cancelOrderSchema>;
+
+export const orderIssueSchema = z.object({
+  lineItemIds: z.array(z.string().uuid()).optional(),
+  issueType: z.string().trim().max(100).optional().default('OTHER'),
+  severity: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional().default('MEDIUM'),
+  description: z.string().trim().min(1).max(4000),
+});
+export type OrderIssueRequest = z.infer<typeof orderIssueSchema>;
+
+export const orderIssueResponseSchema = z.object({
+  id: z.string().uuid(),
+  issueNumber: z.string(),
+  status: z.string(),
+});
+export type OrderIssueResponse = z.infer<typeof orderIssueResponseSchema>;
+
+export const stockCheckLineSchema = z.object({
+  orderItemId: z.string().uuid(),
+  cropId: z.string().uuid(),
+  cropName: z.string(),
+  grade: z.string(),
+  orderedKg: z.string(),
+  availableStockKg: z.string(),
+  reservedKg: z.string(),
+  availableKg: z.string(),
+  shortageKg: z.string(),
+  status: z.enum(['IN_STOCK', 'SHORTAGE']),
+});
+
+export const stockCheckResponseSchema = z.object({
+  orderId: z.string().uuid(),
+  orderNumber: z.string(),
+  status: z.enum(['AVAILABLE', 'INSUFFICIENT']),
+  lines: z.array(stockCheckLineSchema),
+});
+export type StockCheckResponse = z.infer<typeof stockCheckResponseSchema>;
+
+export const ordersSummaryQuerySchema = z.object({
+  warehouseId: z.string().uuid().optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+export type OrdersSummaryQuery = z.infer<typeof ordersSummaryQuerySchema>;
+
+export interface WarehouseOrderCount {
+  warehouseId: string;
+  name: string;
+  count: number;
+}
+
+export interface OrdersSummaryResponse {
+  total: number;
+  byStatus: Record<string, number>;
+  byWarehouse: WarehouseOrderCount[];
+}

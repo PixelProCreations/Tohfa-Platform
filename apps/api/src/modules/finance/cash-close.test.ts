@@ -587,13 +587,19 @@ describeIfDatabase('Cash close routes (real app router, PostgreSQL)', () => {
   const userIds = { sub: '', other: '' };
 
   /**
-   * cash_closes is append-only, so a committed row can never be cleaned up and a day closes once.
-   * Each run therefore closes a random day in 1960-2022 (never "today" or the future). The service
-   * tests above use 1950, EARLIER than every such day, so a committed row is never the "latest earlier
-   * close" that sets their opening cash; and 1950 is inside Asia/Kolkata's fixed +05:30 era, which the
-   * day-boundary assertions rely on.
+   * cash_closes is append-only, so each run chooses unused days in 1960-2022 (never "today" or
+   * the future). We query any existing closed dates in beforeAll to guarantee zero collision with
+   * earlier runs or within the run.
    */
-  const randomDay = (): string => new Date(Date.UTC(1960, 0, 1) + randomInt(0, 23_000) * 86_400_000).toISOString().slice(0, 10);
+  const usedDates = new Set<string>();
+  const randomDay = (): string => {
+    let day = '';
+    do {
+      day = new Date(Date.UTC(1960, 0, 1) + randomInt(0, 23_000) * 86_400_000).toISOString().slice(0, 10);
+    } while (usedDates.has(day));
+    usedDates.add(day);
+    return day;
+  };
   let seq = 0;
   const key = (label: string): string => `ci-cash-${Date.now()}-${label}-${(seq += 1)}`;
 
@@ -611,6 +617,14 @@ describeIfDatabase('Cash close routes (real app router, PostgreSQL)', () => {
     ootyId = wh.rows.find((w) => w.code === 'WH-OOTY')!.id;
     coonoorId = wh.rows.find((w) => w.code === 'WH-COON')!.id;
     kotagiriId = wh.rows.find((w) => w.code === 'WH-KOTA')!.id;
+
+    const existing = await pool.query<{ d: string }>(
+      `SELECT close_date::text AS d FROM cash_closes WHERE warehouse_id IN ($1, $2, $3)`,
+      [ootyId, coonoorId, kotagiriId],
+    );
+    for (const r of existing.rows) {
+      usedDates.add(r.d.slice(0, 10));
+    }
 
     const stamp = `${Date.now()}${Math.floor(Math.random() * 10000)}`;
     for (const [field, name, offset] of [['sub', 'CI Cash Sub', 1], ['other', 'CI Cash Other', 2]] as const) {
@@ -635,10 +649,21 @@ describeIfDatabase('Cash close routes (real app router, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ pool, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { pool } = await import('../../db/pool.js');
     await pool.query(`DELETE FROM idempotency_keys WHERE idempotency_key LIKE 'ci-cash-%'`);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SET LOCAL session_replication_role = replica');
+      await client.query(`DELETE FROM cash_closes WHERE note = 'ci close' OR closed_by IN ($1, $2)`, [userIds.sub, userIds.other]);
+      await client.query(`DELETE FROM users WHERE id IN ($1, $2)`, [userIds.sub, userIds.other]);
+      await client.query('COMMIT');
+    } catch {
+      await client.query('ROLLBACK');
+    } finally {
+      client.release();
+    }
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

@@ -18,7 +18,15 @@ export interface CreateFarmerApplicationPayload {
 export interface FarmerApplicationResponse {
   id: string;
   farmerId?: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'DOCS_REVIEW' | 'FARM_VERIFICATION' | 'AUDIT' | 'APPROVED' | 'REJECTED';
+  status:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'INFO_REQUESTED'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'APPROVED'
+    | 'REJECTED';
   step: number;
   submittedAt?: string;
   createdAt: string;
@@ -75,6 +83,18 @@ export async function createFarmerApplication(
   });
 }
 
+export interface PublicZoneItem {
+  id: string;
+  name: string;
+  warehouseTown: string;
+}
+
+export async function fetchPublicZones(): Promise<PublicZoneItem[]> {
+  return await request<PublicZoneItem[]>('/zones', {
+    method: 'GET',
+  });
+}
+
 /**
  * Full draft returned by `GET /farmers/applications/:id` -- everything saved so far via
  * `PATCH /farmers/applications/:id/steps/:step`, not just the lightweight status timeline
@@ -100,7 +120,14 @@ export interface FullDraftResponse {
   mobile: string;
   fullName: string;
   preferredLocale?: 'en' | 'ta';
-  status: 'SUBMITTED' | 'DOCS_REVIEW' | 'FARM_VERIFICATION' | 'AUDIT' | 'APPROVED' | 'REJECTED';
+  status:
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'INFO_REQUESTED'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'APPROVED'
+    | 'REJECTED';
   /**
    * True while the farmer is still filling in the 5-step form; flips false the moment
    * `submitFarmerApplication` succeeds. This -- not `status` -- is the "still drafting vs.
@@ -147,6 +174,18 @@ export async function submitFarmerApplication(
     {
       method: 'POST',
       idempotencyKey,
+    },
+  );
+}
+
+/** BR-217: applicant resubmits an INFO_REQUESTED application after updating requested steps. */
+export async function resubmitFarmerApplication(
+  applicationId: string,
+): Promise<FarmerApplicationResponse> {
+  return await request<FarmerApplicationResponse>(
+    `/farmers/applications/${applicationId}/resubmit`,
+    {
+      method: 'POST',
     },
   );
 }

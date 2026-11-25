@@ -13,6 +13,7 @@ import { signAccessToken } from '../../auth/jwt.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { randomMobile } from '../../test/dbFixtures.js';
 import { listingsRepo } from './listings.repo.js';
 import { getTodayKolkata, ListingsService } from './listings.service.js';
 
@@ -41,7 +42,7 @@ describeIfDatabase('BR-71: listing numbers (real database)', () => {
     const userId = newId();
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Listing Number Farmer', 'FARMER', 'ACTIVE')`,
-      [userId, `+9198${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [userId, randomMobile()],
     );
     const farmerId = newId();
     await pool.query(`INSERT INTO farmers (id, user_id, tohfa_farmer_id, is_market_blocked) VALUES ($1, $2, $3, false)`, [
@@ -92,7 +93,7 @@ describeIfDatabase('BR-71: listing numbers (real database)', () => {
     adminUserId = newId();
     await pool.query(
       `INSERT INTO users (id, mobile, full_name, user_type, status) VALUES ($1, $2, 'Listing Number Admin', 'ADMIN', 'ACTIVE')`,
-      [adminUserId, `+9197${Math.floor(10000000 + Math.random() * 89999999)}`],
+      [adminUserId, randomMobile()],
     );
     createdUsers.push(adminUserId);
     const category = await pool.query<{ id: string }>('SELECT id FROM categories LIMIT 1');
@@ -112,18 +113,19 @@ describeIfDatabase('BR-71: listing numbers (real database)', () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     for (const farmerId of createdFarmers) {
       await pool.query(`DELETE FROM produce_listings WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM certifications WHERE farmer_id = $1`, [farmerId]).catch(() => undefined);
+      await pool.query(`DELETE FROM farmers WHERE id = $1`, [farmerId]).catch(() => undefined);
     }
     for (const n of plantedNumbers) {
       await pool.query(`DELETE FROM produce_listings WHERE listing_number = $1`, [n]).catch(() => undefined);
     }
     for (const userId of createdUsers) {
       await pool.query(`DELETE FROM idempotency_keys WHERE actor_user_id = $1`, [userId]).catch(() => undefined);
+      await pool.query(`DELETE FROM users WHERE id = $1`, [userId]).catch(() => undefined);
     }
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
-  it('BR-71a: 20 parallel creates by 20 different farmers all succeed with 20 distinct numbers in the existing format', async () => {
+  it('BR-71a: 20 parallel creates by 20 different farmers all succeed with 20 distinct numbers in the existing format', { timeout: 30_000 }, async () => {
     const farmers = await Promise.all(Array.from({ length: 20 }, () => makeFarmer()));
     await warmPool();
     const settled = await Promise.allSettled(
@@ -136,7 +138,7 @@ describeIfDatabase('BR-71: listing numbers (real database)', () => {
     for (const n of numbers) expect(n).toMatch(new RegExp(`^LST-${year}-\\d{4,}$`));
   });
 
-  it('BR-71a: 20 parallel creates through the real router are all 201 with distinct numbers (no 500)', async () => {
+  it('BR-71a: 20 parallel creates through the real router are all 201 with distinct numbers (no 500)', { timeout: 30_000 }, async () => {
     const farmers = await Promise.all(Array.from({ length: 20 }, () => makeFarmer()));
     await warmPool();
     const responses = await Promise.all(

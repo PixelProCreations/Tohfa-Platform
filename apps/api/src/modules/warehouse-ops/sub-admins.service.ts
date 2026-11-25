@@ -50,6 +50,15 @@ function isMobileTaken(error: unknown): boolean {
   );
 }
 
+function isAdminCodeTaken(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as { code?: unknown }).code === '23505' &&
+    (error as { constraint?: unknown }).constraint === 'admin_profiles_admin_code_key'
+  );
+}
+
 const invalidWarehouse = (detail: string): AppError =>
   new AppError('VALIDATION_FAILED', { detail: 'One or more fields are invalid.', errors: { 'body.warehouseId': [detail] } });
 
@@ -95,7 +104,15 @@ export function createSubAdminsService(deps: Partial<SubAdminsServiceDeps> = {})
           }
           throw error;
         }
-        const adminCode = await repo.insertProfile(tx, { userId, createdBy: scope.userId });
+        let adminCode: string;
+        try {
+          adminCode = await repo.insertProfile(tx, { userId, createdBy: scope.userId });
+        } catch (error) {
+          if (isAdminCodeTaken(error)) {
+            throw new AppError('CONFLICT', { detail: 'An admin profile with that admin code already exists.' });
+          }
+          throw error;
+        }
         const assignedAt = await repo.insertAssignment(tx, { userId, warehouseId, assignedBy: scope.userId });
 
         await writeAuditLog(tx, {

@@ -1,9 +1,22 @@
 /**
- * Screen 43 — Market Day Schedule
- * Shows live market day dates by warehouse with toggles to enable/disable
- * and ability to add new market days.
+ * Screen 43 — Market Day Schedule, reading the live warehouse network.
+ *
+ * The fixture's MOCK_DAYS is gone, and so is the host prop that passed it back
+ * in. Rows come from GET /warehouses (warehouse.all.view) through
+ * useMarketDayVenues; see ../../api/marketDay.ts for the spec gap this sits on
+ * — there is no market-day schedule endpoint, only the warehouse's own
+ * `is_market_day_venue` / `market_day_of_week`.
+ *
+ * What the design shows and the API does not carry renders as the dash, never
+ * as a demo value: the calendar date (the server stores a recurring weekday,
+ * not dated occurrences) and the opening-hours range. The enable/disable
+ * switch has no write endpoint, so it is shown DISABLED with an explanation
+ * and can never report a change that did not happen.
+ *
+ * The fixture's hardcoded palette is left exactly as it was; a theme pass is a
+ * separate change.
  */
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -13,6 +26,12 @@ import {
   View,
 } from 'react-native';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { useMarketDayVenues } from '../../api/marketDayHooks';
+import type { MarketDayVenueView } from '../../api/marketDay';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -28,55 +47,23 @@ const P = {
   red: '#E8562A',
 };
 
-interface MarketDay {
-  id: string;
-  date: number;
-  month: string;
-  warehouse: string;
-  timeRange: string;
-  isActive: boolean;
-}
-
-export type { MarketDay };
-
-const MOCK_DAYS: MarketDay[] = [
-  { id: '1', date: 14, month: 'SEP', warehouse: 'Ooty Warehouse', timeRange: '6:00 AM – 11:00 AM', isActive: true },
-  { id: '2', date: 17, month: 'SEP', warehouse: 'Coonoor Warehouse', timeRange: '6:00 AM – 11:00 AM', isActive: true },
-  { id: '3', date: 21, month: 'SEP', warehouse: 'Kotagiri Warehouse', timeRange: '6:00 AM – 11:00 AM', isActive: false },
-  { id: '4', date: 24, month: 'SEP', warehouse: 'Gudalur Market', timeRange: '6:00 AM – 11:00 AM', isActive: true },
-];
-
-export { MOCK_DAYS };
-
-interface MarketDayScheduleScreenProps {
+export interface MarketDayScheduleScreenProps {
   onBack: () => void;
   onAddMarketDay: () => void;
-  onToggle: (id: string, value: boolean) => void;
-  days?: MarketDay[];
-  onDaysChange?: (days: MarketDay[]) => void;
+  /** Permission check from /auth/me. Missing means nothing is permitted (fail closed). */
+  can?: Can | undefined;
 }
 
-export function MarketDayScheduleScreen({
-  onBack,
-  onAddMarketDay,
-  onToggle,
-  days: propDays,
-  onDaysChange,
-}: MarketDayScheduleScreenProps) {
-  const [days, setDays] = useState(propDays || MOCK_DAYS);
+/** The weekday label for `market_day_of_week`, or the dash when the server has none. */
+export function weekdayLabel(dayOfWeek: number | null): string {
+  return dayOfWeek === null ? t('pricingMarketDay.noValue') : t(`pricingMarketDay.schedule.weekday.${dayOfWeek}` as never);
+}
 
-  useEffect(() => {
-    if (propDays) {
-      setDays(propDays);
-    }
-  }, [propDays]);
-
-  const handleToggle = (id: string, value: boolean) => {
-    const newDays = days.map((d) => (d.id === id ? { ...d, isActive: value } : d));
-    setDays(newDays);
-    if (onDaysChange) onDaysChange(newDays);
-    onToggle(id, value);
-  };
+export function MarketDayScheduleScreen({ onBack, onAddMarketDay, can }: MarketDayScheduleScreenProps) {
+  const canView = can !== undefined && can('warehouse.all.view');
+  const list = useMarketDayVenues({ enabled: canView });
+  const dash = t('pricingMarketDay.noValue');
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: list.venues.length });
 
   return (
     <SafeAreaView style={styles.root}>
@@ -89,7 +76,7 @@ export function MarketDayScheduleScreen({
           style={styles.backBtn}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('pricingMarketDay.back')}
         >
           <Icon name="chevron_right" size={20} color={P.ink} style={{ transform: [{ rotate: '180deg' }] }} />
         </TouchableOpacity>
@@ -97,38 +84,58 @@ export function MarketDayScheduleScreen({
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Title */}
-        <Text style={styles.title}>Market Day Schedule</Text>
-        <Text style={styles.subtitle}>Live market day dates by warehouse</Text>
+        <Text style={styles.title}>{t('pricingMarketDay.schedule.title')}</Text>
+        <Text style={styles.subtitle}>{t('pricingMarketDay.schedule.subtitle')}</Text>
+
+        {!canView ? <AdminEmptyState title={t('pricingMarketDay.schedule.notPermitted')} /> : null}
+        {canView && view === 'loading' ? <AdminLoadingState /> : null}
+        {canView && view === 'error' ? <AdminErrorState error={list.error} onRetry={list.refresh} /> : null}
+        {canView && view === 'empty' ? <AdminEmptyState title={t('pricingMarketDay.schedule.empty')} /> : null}
 
         {/* Market Day List */}
-        <View style={styles.dayList}>
-          {days.map((day) => (
-            <View key={day.id} style={styles.dayCard}>
-              <View style={styles.dateBox}>
-                <Text style={styles.dateNum}>{day.date}</Text>
-                <Text style={styles.dateMonth}>{day.month}</Text>
-              </View>
+        {canView && view === 'ready' ? (
+          <View style={styles.dayList}>
+            {list.venues.map((day: MarketDayVenueView) => (
+              <View key={day.warehouseId} style={styles.dayCard} testID={`pricingMarketDay.row.${day.warehouseId}`}>
+                <View style={styles.dateBox}>
+                  {/* No dated occurrence exists; the weekday is what the server stores. */}
+                  <Text style={styles.dateNum}>{dash}</Text>
+                  <Text style={styles.dateMonth}>{weekdayLabel(day.dayOfWeek)}</Text>
+                </View>
 
-              <View style={styles.dayInfo}>
-                <Text style={styles.warehouseName}>{day.warehouse}</Text>
-                <Text style={styles.timeRange}>{day.timeRange}</Text>
-              </View>
+                <View style={styles.dayInfo}>
+                  <Text style={styles.warehouseName}>{day.warehouseName}</Text>
+                  {/* Opening hours are not published on a warehouse read. */}
+                  <Text style={styles.timeRange}>{dash}</Text>
+                </View>
 
-              <Switch
-                value={day.isActive}
-                onValueChange={(value) => handleToggle(day.id, value)}
-                trackColor={{ false: P.border, true: P.orangeBg }}
-                thumbColor={day.isActive ? P.orange : P.muted}
-                ios_backgroundColor={P.border}
-              />
-            </View>
-          ))}
-        </View>
+                <Switch
+                  value={day.isMarketDayVenue}
+                  disabled
+                  accessibilityLabel={t('pricingMarketDay.schedule.toggleLabel')}
+                  accessibilityState={{ disabled: true, checked: day.isMarketDayVenue }}
+                  trackColor={{ false: P.border, true: P.orangeBg }}
+                  thumbColor={day.isMarketDayVenue ? P.orange : P.muted}
+                  ios_backgroundColor={P.border}
+                  testID={`pricingMarketDay.row.${day.warehouseId}.toggle`}
+                />
+              </View>
+            ))}
+            <Text style={styles.noteText}>{t('pricingMarketDay.schedule.toggleUnavailable')}</Text>
+            <Text style={styles.noteText}>{t('pricingMarketDay.schedule.hoursUnavailable')}</Text>
+          </View>
+        ) : null}
 
         {/* Add Button */}
-        <TouchableOpacity style={styles.addMarketBtn} onPress={onAddMarketDay} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.addMarketBtn}
+          onPress={onAddMarketDay}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          testID="pricingMarketDay.add"
+        >
           <Icon name="add" size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.addMarketBtnText}>Add Market Day</Text>
+          <Text style={styles.addMarketBtnText}>{t('pricingMarketDay.schedule.add')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 40 }} />
@@ -253,6 +260,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
+    fontFamily: 'Manrope, system-ui, sans-serif',
+  },
+  noteText: {
+    fontSize: 12,
+    color: P.lightGray,
+    marginTop: 6,
+    lineHeight: 17,
     fontFamily: 'Manrope, system-ui, sans-serif',
   },
 });

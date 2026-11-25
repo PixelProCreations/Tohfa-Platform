@@ -16,10 +16,11 @@
  * warehouse.storage_location.manage are `none` for a Sub admin, and Main's
  * capacity edit lives in Warehouse Settings.
  *
- * Hidden, because the API has no data for them: each location's current
- * occupancy and the Occupied / Empty counts (inventory_batches.storage_location
- * is free text and is not linked to these rows, BR-79), the "Storage Sections"
- * fill levels and the Main "Storage Hierarchy" tree.
+ * The design's ACTIVE LOCATIONS / OCCUPIED / EMPTY counts, each location's
+ * "Current" occupancy, the "Storage Sections" fill levels and the Main "Storage
+ * Hierarchy" tree are all shown. The API has no data for them
+ * (inventory_batches.storage_location is free text and is not linked to these
+ * rows, BR-79), so their values are an em-dash, never a missing element.
  */
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -43,7 +44,7 @@ import {
   WarehouseTabBar,
 } from '../wallet-cashtopup/WalletParts';
 import type { CapacityView, StorageLocationView, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
-import { FillBar, singleWarehouseId, SingleWarehouseHeader, warehouseProfileLayout } from './WarehouseProfileParts';
+import { FillBar, singleWarehouseId, SingleWarehouseHeader, warehouseNameOf, warehouseProfileLayout } from './WarehouseProfileParts';
 
 export type StorageStatusFilter = 'All' | 'Active' | 'Inactive';
 const STATUS_FILTERS: readonly StorageStatusFilter[] = ['All', 'Active', 'Inactive'];
@@ -119,7 +120,19 @@ export function StorageInfoScreen({
           keyboardShouldPersistTaps="handled"
           refreshControl={onRefresh ? <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} /> : undefined}
         >
-          <KpiRow items={[{ value: total === null ? noValue : String(total), label: 'STORAGE LOCATIONS' }]} />
+          <KpiRow
+            items={[
+              { value: total === null ? noValue : String(total), label: 'STORAGE LOCATIONS' },
+              { value: noValue, label: t('profile.storage.activeLocations') },
+            ]}
+          />
+          <View style={warehouseProfileLayout.gap} />
+          <KpiRow
+            items={[
+              { value: noValue, label: t('profile.storage.occupied') },
+              { value: noValue, label: t('profile.storage.empty') },
+            ]}
+          />
 
           <SectionTitle>Storage Capacity</SectionTitle>
           <Card>
@@ -147,6 +160,29 @@ export function StorageInfoScreen({
               : 'Capacity is displayed, never editable by SWA.'}
           </InfoNote>
 
+          {isMain ? (
+            <>
+              <SectionTitle>{t('profile.storage.hierarchy')}</SectionTitle>
+              <Card>
+                <Text style={styles.treeRoot}>{warehouseNameOf(scope, headerWarehouseId, warehouseOptions)}</Text>
+                <View style={styles.treeIndent}>
+                  <Text style={styles.treeLeaf}>{noValue}</Text>
+                </View>
+              </Card>
+
+              <SectionTitle>{t('profile.storage.sections')}</SectionTitle>
+              <Text style={styles.sectionType}>{noValue}</Text>
+              <View style={styles.sectionCard}>
+                <View style={styles.cardTop}>
+                  <Text style={styles.cardTitle}>{noValue}</Text>
+                  <StatusBadge label={noValue} tone="brandSoft" />
+                </View>
+                <Text style={styles.cardMeta}>{noValue}</Text>
+                <FillBar percent={0} />
+              </View>
+            </>
+          ) : null}
+
           <SectionTitle>Storage Locations</SectionTitle>
           <ChipGroup options={STATUS_FILTERS} value={statusFilter} onChange={(next) => onStatusFilterChange?.(next)} />
           <View style={warehouseProfileLayout.gap} />
@@ -173,10 +209,12 @@ export function StorageInfoScreen({
                     </View>
                     <Text style={styles.cardMeta}>
                       {loc.code}
+                      {isMain ? ` · ${warehouseNameOf(scope, headerWarehouseId, warehouseOptions)}` : ''}
                       {loc.type !== null ? ` · ${loc.type}` : ''}
                     </Text>
                     <View style={styles.locStats}>
                       <CapacityCell label="Capacity" value={loc.capacityGrams === null ? noValue : formatKg(loc.capacityGrams)} />
+                      <CapacityCell label={t('profile.storage.current')} value={noValue} />
                     </View>
                   </>
                 );
@@ -224,6 +262,11 @@ const styles = StyleSheet.create({
   cellLabel: { ...adminType.rowMeta, color: adminColors.muted },
   cellValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
 
+  treeRoot: { ...adminType.sectionHead, color: adminColors.brandDeep },
+  treeIndent: { paddingLeft: adminSpacing.md, marginTop: adminSpacing.xs, borderLeftWidth: 1, borderLeftColor: adminColors.border },
+  treeLeaf: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
+
+  sectionType: { ...adminType.rowTitle, color: adminColors.brandDeep, marginBottom: adminSpacing.sm },
   sectionCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

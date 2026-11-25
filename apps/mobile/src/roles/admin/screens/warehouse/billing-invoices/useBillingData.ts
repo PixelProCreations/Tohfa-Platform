@@ -13,10 +13,17 @@
 import { useMemo } from 'react';
 import { Linking } from 'react-native';
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
-import { getInvoice, getInvoiceDownloadUrl, listInvoices, type InvoiceDto, type InvoiceType } from '../../../api/invoices';
+import {
+  getInvoice,
+  getInvoiceDownloadUrl,
+  getInvoiceSummary,
+  listInvoices,
+  type InvoiceDto,
+  type InvoiceType,
+} from '../../../api/invoices';
 import { adminKeys } from '../../../api/queryKeys';
-import { toInvoiceDetail, toInvoiceRow } from './mappers';
-import type { InvoiceDetailView, InvoiceRow } from './types';
+import { toInvoiceDetail, toInvoiceKpis, toInvoiceRow } from './mappers';
+import type { InvoiceDetailView, InvoiceKpiView, InvoiceRow } from './types';
 
 const INVOICES = 'invoices';
 
@@ -27,6 +34,30 @@ export function useInvoiceList(warehouseId: string | undefined, type: InvoiceTyp
     (cursor, signal) => listInvoices({ cursor, type }, signal),
     toInvoiceRow,
   );
+}
+
+/** Today as the YYYY-MM-DD the summary's date filters take (the device's calendar day). */
+function todayIso(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * The hub's four KPI tiles from GET /invoices/summary (the caller's whole
+ * visible set, and today's). A tile whose summary has not arrived, or has no
+ * source, carries the dash: the tiles are always drawn.
+ */
+export function useInvoiceKpis(warehouseId: string | undefined): InvoiceKpiView {
+  const today = todayIso();
+  const all = useAdminQuery(adminKeys.scoped(INVOICES, warehouseId, { resource: 'summary', day: null }), (signal) =>
+    getInvoiceSummary({}, signal),
+  );
+  const day = useAdminQuery(adminKeys.scoped(INVOICES, warehouseId, { resource: 'summary', day: today }), (signal) =>
+    getInvoiceSummary({ fromDate: today, toDate: today }, signal),
+  );
+  return useMemo(() => toInvoiceKpis(all.data, day.data), [all.data, day.data]);
 }
 
 export interface LiveInvoice {

@@ -7,6 +7,7 @@ import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminSpacing, adminType 
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import type { InventoryLiveStateProps, InventoryScreenBaseProps, LowStockRow } from './types';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
@@ -18,6 +19,8 @@ export interface LowStockScreenProps extends InventoryScreenBaseProps, Inventory
   items?: readonly LowStockRow[] | undefined;
   /** 'Initiate Transfer' (absorbed from the Main LowStockAlertsScreen). Rendered only with transfer.inter_warehouse.initiate. */
   onInitiateTransfer?: (() => void) | undefined;
+  /** system_config.low_stock_threshold_kg from the overview, for a row whose alert carries none; null = dash. */
+  lowStockThresholdLabel?: string | null | undefined;
 }
 
 
@@ -52,8 +55,10 @@ export function LowStockScreen({
   can,
   onNavigate,
   onBack,
+  warehouseOptions,
   items = [],
   onInitiateTransfer,
+  lowStockThresholdLabel = null,
   isLoading = false,
   error,
   onRetry,
@@ -67,14 +72,17 @@ export function LowStockScreen({
   // for both warehouse roles.
   const canInitiateTransfer = can('transfer.inter_warehouse.initiate');
   const lowStockItems = items;
+  /** The row's warehouse, named from the Main selector's list (the alert carries only its uuid). */
+  const warehouseNameOf = (id: string): string =>
+    warehouseOptions?.find((option) => option.warehouseId === id)?.warehouseName ?? ADMIN_NO_VALUE;
   const view = queryViewState({ isLoading, error, itemCount: items.length });
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title="Low Stock"
-          subtitle={allWarehouses ? 'Platform-wide, below configured threshold' : undefined}
+          title={t('inventory.lowStockScreen.title')}
+          subtitle={allWarehouses ? t('inventory.lowStockScreen.subtitleAll') : undefined}
           onBack={onBack}
           showWarehouse={true}
           warehouseName={scope.warehouseName}
@@ -100,9 +108,7 @@ export function LowStockScreen({
             <View style={styles.infoIconWrap}>
               <InfoCircleIcon />
             </View>
-            <Text style={styles.infoText}>
-              Thresholds shown below are read from system configuration — never a fixed number in this app.
-            </Text>
+            <Text style={styles.infoText}>{t('inventory.lowStockScreen.infoBanner')}</Text>
           </View>
 
           {view === 'loading' ? <AdminLoadingState /> : null}
@@ -123,8 +129,16 @@ export function LowStockScreen({
                 </View>
                 <View style={styles.itemContent}>
                   <Text style={styles.itemName}>{item.name}</Text>
+                  {allWarehouses ? (
+                    <Text style={styles.itemDetails}>
+                      {warehouseNameOf(item.warehouseId)}
+                    </Text>
+                  ) : null}
                   <Text style={styles.itemDetails}>
-                    Available {item.available} · Configured Threshold {item.threshold}
+                    {t('inventory.lowStockScreen.itemDetails', {
+                      available: item.available === '' ? ADMIN_NO_VALUE : item.available,
+                      threshold: item.threshold !== '' ? item.threshold : lowStockThresholdLabel ?? ADMIN_NO_VALUE,
+                    })}
                   </Text>
                 </View>
                 <ChevronRightIcon color={adminColors.danger.text} size={18} />
@@ -134,7 +148,7 @@ export function LowStockScreen({
 
           {canInitiateTransfer && onInitiateTransfer ? (
             <TouchableOpacity style={styles.transferBtn} onPress={onInitiateTransfer} activeOpacity={0.85}>
-              <Text style={styles.transferBtnText}>Initiate Transfer</Text>
+              <Text style={styles.transferBtnText}>{t('inventory.lowStockScreen.initiateTransfer')}</Text>
             </TouchableOpacity>
           ) : null}
 

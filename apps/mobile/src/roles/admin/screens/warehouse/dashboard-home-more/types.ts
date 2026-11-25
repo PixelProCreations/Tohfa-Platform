@@ -23,7 +23,8 @@ export interface MoreOptionItem {
     | 'settings'
     | 'warehouse_operations'
     | 'warehouse_management'
-    | 'help';
+    | 'help'
+    | 'farm_management';
 }
 
 /** A titled card of More menu rows. */

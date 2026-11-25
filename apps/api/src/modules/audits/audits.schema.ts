@@ -96,6 +96,10 @@ export const listAuditsQuery = z
     redFlagged: booleanQuery.optional(),
     overdue: booleanQuery.optional(),
     hasOpenMajorFindings: booleanQuery.optional(),
+    q: z.string().trim().min(1).optional(),
+    minScore: z.coerce.number().int().min(0).max(100).optional(),
+    maxScore: z.coerce.number().int().min(0).max(100).optional(),
+    auditorUserId: z.string().uuid().optional(),
     sort: sortSchema,
   })
   .strict();

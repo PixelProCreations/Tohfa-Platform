@@ -17,8 +17,8 @@ import {
   type QueryKey,
 } from '@tanstack/react-query';
 import { createIdempotencyKeyCache, type IdempotencyKeyCache } from '../../../shell/api/idempotency';
-import { nextPageParam, type Page } from '../../../shell/api/pagination';
-import { bodyFingerprint, cursorListFlags, flattenPages } from './hookHelpers';
+import { nextNumberedPage, nextPageParam, type NumberedPage, type Page } from '../../../shell/api/pagination';
+import { bodyFingerprint, cursorListFlags, flattenNumberedPages, flattenPages } from './hookHelpers';
 
 export interface AdminQueryOptions {
   enabled?: boolean | undefined;
@@ -69,6 +69,62 @@ export function useCursorList<T, U, P extends Page<T> = Page<T>>(
   return {
     items,
     firstPage: query.data?.pages[0],
+    loadMore: () => {
+      if (flags.canLoadMore) void query.fetchNextPage();
+    },
+    hasMore: flags.hasMore,
+    isLoading: enabled && flags.isLoading,
+    error: query.error,
+    refresh: () => {
+      void query.refetch();
+    },
+    isRefreshing: flags.isRefreshing,
+  };
+}
+
+export interface NumberedList<U> {
+  items: U[];
+  /** The server's count of everything matching the filter, not of what is loaded; undefined before the first page. */
+  total: number | undefined;
+  /** True once every page has been fetched. A count derived from `items` is honest only then (see countLoadedWhere). */
+  allPagesLoaded: boolean;
+  loadMore: () => void;
+  hasMore: boolean;
+  isLoading: boolean;
+  error: unknown;
+  refresh: () => void;
+  isRefreshing: boolean;
+}
+
+/**
+ * A `page`/`limit` list (docs/openapi.yaml `LearningArticlesListResponse` and
+ * its siblings), with the same load-more / refresh surface as useCursorList.
+ *
+ * Its own helper rather than a bent useCursorList: that one walks opaque
+ * cursors and reads `page.hasMore`, neither of which these endpoints send.
+ * Here the next page is a number derived from `total`, so stopping is a
+ * calculation (nextNumberedPage) instead of a flag the server set.
+ */
+export function useNumberedList<T, U>(
+  key: QueryKey,
+  fetchPage: (page: number, signal: AbortSignal) => Promise<NumberedPage<T>>,
+  map: (item: T) => U,
+  options: AdminQueryOptions = {},
+): NumberedList<U> {
+  const enabled = options.enabled ?? true;
+  const query = useInfiniteQuery<NumberedPage<T>, Error, InfiniteData<NumberedPage<T>, number>, QueryKey, number>({
+    queryKey: key,
+    queryFn: ({ pageParam, signal }) => fetchPage(pageParam, signal),
+    initialPageParam: 1,
+    getNextPageParam: nextNumberedPage,
+    enabled,
+  });
+  const items = useMemo(() => flattenNumberedPages(query.data?.pages, map), [query.data, map]);
+  const flags = cursorListFlags(query);
+  return {
+    items,
+    total: query.data?.pages[0]?.total,
+    allPagesLoaded: query.data !== undefined && !flags.hasMore,
     loadMore: () => {
       if (flags.canLoadMore) void query.fetchNextPage();
     },

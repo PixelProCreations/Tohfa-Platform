@@ -14,6 +14,7 @@ import type {
   AdjustmentType,
   ListAdjustmentsQuery,
   StockAdjustment,
+  StockAdjustmentEvidenceItem,
 } from './stock-adjustments.schema.js';
 
 /** The batch facts an adjustment needs. */
@@ -53,10 +54,12 @@ export interface StockAdjustmentsRepo {
   markApproved(db: Executor, id: string, input: { approvedBy: string; ledgerEntryId: string }): Promise<void>;
   /** PENDING -> REJECTED with the rejecter and the reason. */
   markRejected(db: Executor, id: string, input: { rejectedBy: string; reason: string }): Promise<void>;
+  addEvidence(db: Executor, adjustmentId: string, url: string): Promise<StockAdjustmentEvidenceItem>;
 }
 
 interface AdjustmentRow {
   id: string;
+  adjustment_code?: string | null;
   batch_id: string;
   batch_code: string;
   warehouse_id: string;
@@ -82,9 +85,10 @@ interface AdjustmentRow {
 
 const iso = (value: Date | null): string | null => (value === null ? null : value.toISOString());
 
-function toAdjustment(row: AdjustmentRow): StockAdjustment {
+function toAdjustment(row: AdjustmentRow, evidence: StockAdjustmentEvidenceItem[] = []): StockAdjustment {
   return {
     id: row.id,
+    adjustmentCode: row.adjustment_code ?? `ADJ-${row.id.slice(0, 8)}`,
     batchId: row.batch_id,
     batchCode: row.batch_code,
     warehouseId: row.warehouse_id,
@@ -94,6 +98,7 @@ function toAdjustment(row: AdjustmentRow): StockAdjustment {
     qtyDeltaKg: row.qty_delta,
     reason: row.reason,
     status: row.status,
+    evidence,
     createdBy: row.created_by,
     createdByName: row.created_by_name,
     createdAt: row.created_at.toISOString(),
@@ -112,7 +117,7 @@ function toAdjustment(row: AdjustmentRow): StockAdjustment {
 // BR-130: the creator's and approver's names are LEFT JOINs in this same statement (never a per-row
 // lookup); `FOR UPDATE OF a` in lockAdjustment still locks only the adjustment row.
 const SELECT_ADJUSTMENT = `
-  SELECT a.id, a.batch_id, b.batch_code, a.warehouse_id, b.crop_id, b.grade::text AS grade,
+  SELECT a.id, a.adjustment_code, a.batch_id, b.batch_code, a.warehouse_id, b.crop_id, b.grade::text AS grade,
          a.adjustment_type, a.qty_delta::text AS qty_delta, a.reason, a.status,
          a.created_by, cu.full_name AS created_by_name, a.created_at,
          a.approved_by, au.full_name AS approved_by_name, a.approved_at,
@@ -151,13 +156,23 @@ export const stockAdjustmentsRepo: StockAdjustmentsRepo = {
   async findAdjustment(db, id) {
     const result = await db.query<AdjustmentRow>(`${SELECT_ADJUSTMENT} WHERE a.id = $1`, [id]);
     const row = result.rows[0];
-    return row === undefined ? null : toAdjustment(row);
+    if (row === undefined) return null;
+    const ev = await db.query<StockAdjustmentEvidenceItem>(
+      `SELECT id, url FROM stock_adjustment_evidence WHERE adjustment_id = $1 ORDER BY created_at ASC`,
+      [id],
+    );
+    return toAdjustment(row, ev.rows);
   },
 
   async lockAdjustment(db, id) {
     const result = await db.query<AdjustmentRow>(`${SELECT_ADJUSTMENT} WHERE a.id = $1 FOR UPDATE OF a`, [id]);
     const row = result.rows[0];
-    return row === undefined ? null : toAdjustment(row);
+    if (row === undefined) return null;
+    const ev = await db.query<StockAdjustmentEvidenceItem>(
+      `SELECT id, url FROM stock_adjustment_evidence WHERE adjustment_id = $1 ORDER BY created_at ASC`,
+      [id],
+    );
+    return toAdjustment(row, ev.rows);
   },
 
   async list(db, query, visibleWarehouses) {
@@ -194,7 +209,35 @@ export const stockAdjustmentsRepo: StockAdjustmentsRepo = {
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, query.pageSize, (query.page - 1) * query.pageSize],
     );
-    return { items: rows.rows.map(toAdjustment), total: Number(count.rows[0]?.total ?? '0') };
+    const items = rows.rows;
+    if (items.length === 0) {
+      return { items: [], total: Number(count.rows[0]?.total ?? '0') };
+    }
+    const ids = items.map((r) => r.id);
+    const evRes = await db.query<{ id: string; adjustment_id: string; url: string }>(
+      `SELECT id, adjustment_id, url FROM stock_adjustment_evidence WHERE adjustment_id = ANY($1::uuid[]) ORDER BY created_at ASC`,
+      [ids],
+    );
+    const evMap = new Map<string, StockAdjustmentEvidenceItem[]>();
+    for (const r of evRes.rows) {
+      const list = evMap.get(r.adjustment_id) ?? [];
+      list.push({ id: r.id, url: r.url });
+      evMap.set(r.adjustment_id, list);
+    }
+    return {
+      items: items.map((r) => toAdjustment(r, evMap.get(r.id) ?? [])),
+      total: Number(count.rows[0]?.total ?? '0'),
+    };
+  },
+
+  async addEvidence(db, adjustmentId, url) {
+    const res = await db.query<StockAdjustmentEvidenceItem>(
+      `INSERT INTO stock_adjustment_evidence (adjustment_id, url)
+       VALUES ($1, $2)
+       RETURNING id, url`,
+      [adjustmentId, url],
+    );
+    return res.rows[0]!;
   },
 
   async markApproved(db, id, input) {

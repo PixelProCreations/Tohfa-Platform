@@ -13,9 +13,10 @@
  * HH:MM-HH:MM); anything else, or nothing stored, reads "not configured"
  * (./mappers.ts toOperatingWeek). Today's row is the IST weekday.
  *
- * Hidden, because the warehouse record has no such field: Operational
- * Services, Fulfillment Information, Daily Operational Capacity, Special
- * Operating Days and Operating Notes.
+ * Operational Services, Fulfillment Information, Daily Operational Capacity,
+ * Special Operating Days and Operating Notes are design sections the warehouse
+ * record has no field for: they render the em-dash placeholder rather than
+ * disappearing.
  */
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -62,6 +63,7 @@ export function OperatingInfoScreen({
   const headerWarehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const state = unavailable ? 'unavailable' : profile !== undefined ? 'ready' : queryViewState({ isLoading, error, itemCount: 0 });
   const todayRow = week?.find((d) => d.isToday);
+  const noValue = t('profile.noValue');
 
   return (
     <WalletScreen
@@ -127,6 +129,37 @@ export function OperatingInfoScreen({
               </Card>
             </>
           )}
+
+          <SectionTitle>Operational Services</SectionTitle>
+          <Card>
+            <Text style={styles.placeholder}>{noValue}</Text>
+          </Card>
+
+          <SectionTitle>Fulfillment Information</SectionTitle>
+          <Card>
+            <DetailRow first label="Customer Pickup" value={noValue} />
+            <DetailRow label="Home Delivery" value={noValue} />
+            <DetailRow label="Market Sales" value={noValue} />
+          </Card>
+
+          <SectionTitle>Daily Operational Capacity</SectionTitle>
+          <Card>
+            <DetailRow first label="Orders" value={noValue} />
+            <DetailRow label="Receiving" value={noValue} />
+            <DetailRow label="Market Sales" value={noValue} />
+          </Card>
+          <View style={warehouseProfileLayout.gap} />
+          <InfoNote>Capacity numbers are shown only when configured.</InfoNote>
+
+          <SectionTitle>Special Operating Days</SectionTitle>
+          <Card>
+            <Text style={styles.placeholder}>{noValue}</Text>
+          </Card>
+
+          <SectionTitle>Operating Notes</SectionTitle>
+          <Card>
+            <Text style={styles.placeholder}>{noValue}</Text>
+          </Card>
         </ScrollView>
       )}
     </WalletScreen>
@@ -135,6 +168,7 @@ export function OperatingInfoScreen({
 
 const styles = StyleSheet.create({
   label: { ...adminType.rowMeta, color: adminColors.muted },
+  placeholder: { ...adminType.body, color: adminColors.muted, lineHeight: 20 },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm, marginTop: adminSpacing.xs },
   statusText: { ...adminType.sectionHead, color: adminColors.success.text },
   statusClosed: { color: adminColors.danger.text },

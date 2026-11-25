@@ -220,7 +220,11 @@ export function toTransferLine(line: WarehouseTransferDto['lines'][number]): Tra
   };
 }
 
-/** The progress steps of a transfer, from the server's timestamps (no ETA: the API has none). */
+/**
+ * The progress steps of a transfer, in the design's order. The API stamps only creation, approval, dispatch and
+ * receipt, so Arrived / Receiving / Quantity Verification / Accept-Partial-Reject follow the receipt, and Quality
+ * Check is never done (a transfer receipt records no quality check). A step without a time of its own shows no time.
+ */
 export function transferTimeline(dto: WarehouseTransferSummaryDto): TransferTimelineStep[] {
   const requested: TransferTimelineStep = { key: 'requested', label: t('transfers.timeline.requested'), done: true, at: dto.createdAt };
   if (dto.status === 'CANCELLED') {
@@ -230,8 +234,16 @@ export function transferTimeline(dto: WarehouseTransferSummaryDto): TransferTime
   if (dto.requiresApproval) {
     steps.push({ key: 'approved', label: t('transfers.timeline.approved'), done: dto.approvedAt !== null, at: dto.approvedAt });
   }
-  steps.push({ key: 'dispatched', label: t('transfers.timeline.dispatched'), done: dto.dispatchedAt !== null, at: dto.dispatchedAt });
-  steps.push({ key: 'received', label: t('transfers.timeline.received'), done: dto.receivedAt !== null, at: dto.receivedAt });
+  const dispatched = dto.dispatchedAt !== null;
+  const received = dto.receivedAt !== null;
+  steps.push({ key: 'dispatched', label: t('transfers.timeline.dispatched'), done: dispatched, at: dto.dispatchedAt });
+  steps.push({ key: 'inTransit', label: t('transfers.timeline.inTransit'), done: dispatched, at: null });
+  steps.push({ key: 'arrived', label: t('transfers.timeline.arrived'), done: received, at: null });
+  steps.push({ key: 'receiving', label: t('transfers.timeline.receiving'), done: received, at: null });
+  steps.push({ key: 'qtyVerification', label: t('transfers.timeline.qtyVerification'), done: received, at: null });
+  steps.push({ key: 'qualityCheck', label: t('transfers.timeline.qualityCheck'), done: false, at: null });
+  steps.push({ key: 'outcome', label: t('transfers.timeline.outcome'), done: received, at: null });
+  steps.push({ key: 'completed', label: t('transfers.timeline.completed'), done: received, at: dto.receivedAt });
   return steps;
 }
 
@@ -363,6 +375,13 @@ export function buildCreateTransferBody(draft: InitiateDraft): InitiateResult {
     },
   };
 }
+
+/** Quick-add quantity presets on Initiate New Transfer, in kg (design). */
+export const TRANSFER_QTY_PRESETS_KG: readonly number[] = [50, 100, 250, 500];
+
+/** Transfer Reason / Priority options (design). The create call has no such field: the choice is not sent. */
+export const TRANSFER_PRIORITIES = ['Urgent', 'Standard'] as const;
+export type TransferPriority = (typeof TRANSFER_PRIORITIES)[number];
 
 /** Grams as an editable kg string without trailing zeros: 300000 -> "300", 12500 -> "12.5". */
 export function kgInputText(grams: number): string {

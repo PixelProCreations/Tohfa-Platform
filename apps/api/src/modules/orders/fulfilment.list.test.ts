@@ -51,7 +51,8 @@ const FARM_KEY = /farm|village|gps|fmb|latitude|longitude|^lat$|^lng$|batch|sour
  * top level of an item. Every other FORBIDDEN_KEY match (customerId, walkInMobile, address, otp ...)
  * is still a failure.
  */
-const OWNER_APPROVED_BUYER_KEYS = ['customerName', 'customerMobileMasked'] as const;
+// BR-101 owner amendment 2026-11-16 (Batch 7): `buyerName` joins `customerName`.
+const OWNER_APPROVED_BUYER_KEYS = ['buyerName', 'customerName', 'customerMobileMasked'] as const;
 const isOwnerApprovedBuyerPath = (path: string): boolean =>
   OWNER_APPROVED_BUYER_KEYS.some((key) => new RegExp(`^\\$\\[\\d+\\]\\.${key}$`).test(path));
 
@@ -318,22 +319,17 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ closePool, withTransaction }, { closeRedis }, { removeCommittedFixtures }] = await Promise.all([
+    const [{ withTransaction }, { removeCommittedFixtures }] = await Promise.all([
       import('../../db/pool.js'),
-      import('../../redis.js'),
       import('../../test/committedFixtureCleanup.js'),
     ]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    try {
-      await removeCommittedFixtures(withTransaction, {
-        orderIds: created.orders,
-        cropIds: created.crops,
-        customerIds: created.customers,
-        userIds: created.users,
-      });
-    } finally {
-      await Promise.allSettled([closePool(), closeRedis()]);
-    }
+    await removeCommittedFixtures(withTransaction, {
+      orderIds: created.orders,
+      cropIds: created.crops,
+      customerIds: created.customers,
+      userIds: created.users,
+    });
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

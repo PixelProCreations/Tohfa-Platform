@@ -26,7 +26,9 @@ import { useFlowBack } from '../useFlowBack';
 import { t } from '../../../i18n';
 import { ApproveReturnScreen } from './ApproveReturnScreen';
 import { InspectProductScreen } from './InspectProductScreen';
-import { RETURN_HISTORY_FILTERS, RETURN_QUEUE_FILTERS, returnIdParam, returnReference, returnStatusView } from './mappers';
+import { ReturnHistoryDetailScreen } from './ReturnHistoryDetailScreen';
+import { ReturnsFiltersScreen, type RmaFilterValues } from './ReturnsFiltersScreen';
+import { RETURN_HISTORY_FILTERS, RETURN_ORDER_CODE, RETURN_QUEUE_FILTERS, returnIdParam, returnReference, returnStatusView } from './mappers';
 import { RefundCompletedScreen } from './RefundCompletedScreen';
 import { RefundFailedScreen } from './RefundFailedScreen';
 import { RefundStatusScreen } from './RefundStatusScreen';
@@ -53,6 +55,7 @@ import {
   useRejectReturn,
   useReturn,
   useReturnList,
+  useReturnOrder,
   useWalletRefund,
 } from './useReturnsData';
 
@@ -109,18 +112,38 @@ function statusChips<V extends ReturnStatus | undefined>(values: readonly V[]): 
 const QUEUE_CHIPS = statusChips(RETURN_QUEUE_FILTERS);
 const HISTORY_CHIPS = statusChips(RETURN_HISTORY_FILTERS);
 
+/**
+ * The order a return belongs to, for the customer / order / warehouse /
+ * channel / payment facts. Requested only once the return has loaded and the
+ * caller may read orders (order.list.view_all; the server scopes it, BR-30);
+ * otherwise every one of those fields stays a dash.
+ */
+function useLinkedOrder(base: WarehouseScreenBaseProps, warehouseId: string | undefined, orderId: string | undefined) {
+  return useReturnOrder(warehouseId, base.can(RETURN_ORDER_CODE) ? orderId : undefined).order;
+}
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
+
+const DEFAULT_FILTERS: RmaFilterValues = {
+  searchQuery: '',
+  status: 'All',
+  date: 'Today',
+  reason: 'All',
+  refundMethod: 'All',
+};
 
 function LiveQueueRoute({
   base,
   history,
   onSelectReturn,
   onNavigateToHistory,
+  onOpenFilters,
 }: {
   base: WarehouseScreenBaseProps;
   history: boolean;
   onSelectReturn: (returnId: string) => void;
   onNavigateToHistory?: (() => void) | undefined;
+  onOpenFilters?: (() => void) | undefined;
 }) {
   const chips: readonly FilterChip<ReturnStatus | undefined>[] = history ? HISTORY_CHIPS : QUEUE_CHIPS;
   // The history has no "All closed" (the server filters by one status), so it opens on its first chip.
@@ -144,23 +167,45 @@ function LiveQueueRoute({
   return history ? (
     <ReturnHistoryScreen {...common} />
   ) : (
-    <ReturnsIssuesScreen {...common} onNavigateToHistory={onNavigateToHistory} showTabs />
+    <ReturnsIssuesScreen {...common} onNavigateToHistory={onNavigateToHistory} onOpenFilters={onOpenFilters} showTabs />
   );
 }
 
 function LiveDetailRoute({ base, warehouseId, returnId, navigate }: LiveReturnRouteProps) {
   const live = useReturn(warehouseId, returnId);
+  const order = useLinkedOrder(base, warehouseId, live.detail?.orderId);
   const next = (screen: ReturnsRoute) => () => navigate(screen, { returnId });
   return (
     <RmaDetailScreen
       {...base}
       detail={live.detail}
+      order={order}
       timeline={live.timeline}
       notFound={returnId === undefined}
       onInspect={next('InspectProduct')}
       onReview={next('ReviewReturnRequest')}
       onReject={next('RejectReturnRequest')}
       onRefund={next('RefundStatus')}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+/** Read-only record of a closed return; no action buttons (BR-61). */
+function LiveHistoryDetailRoute({ base, warehouseId, returnId }: LiveReturnRouteProps) {
+  const live = useReturn(warehouseId, returnId);
+  const order = useLinkedOrder(base, warehouseId, live.detail?.orderId);
+  return (
+    <ReturnHistoryDetailScreen
+      {...base}
+      detail={live.detail}
+      order={order}
+      timeline={live.timeline}
+      notFound={returnId === undefined}
       isLoading={live.isLoading}
       error={live.error}
       onRetry={live.refresh}
@@ -197,10 +242,13 @@ function LiveInspectRoute({ base, warehouseId, returnId, params, navigate, repla
 
 function LiveReviewRoute({ base, warehouseId, returnId, navigate }: LiveReturnRouteProps) {
   const live = useReturn(warehouseId, returnId);
+  const order = useLinkedOrder(base, warehouseId, live.detail?.orderId);
   return (
     <ReviewReturnRequestScreen
       {...base}
       detail={live.detail}
+      timeline={live.timeline}
+      order={order}
       notFound={returnId === undefined}
       onApprove={() => navigate('ApproveReturn', { returnId })}
       onReject={() => navigate('RejectReturnRequest', { returnId })}
@@ -258,6 +306,7 @@ function LiveRejectRoute({ base, warehouseId, returnId, replace }: LiveReturnRou
  */
 function LiveRefundRoute({ base, warehouseId, returnId, replace }: LiveReturnRouteProps) {
   const live = useReturn(warehouseId, returnId);
+  const order = useLinkedOrder(base, warehouseId, live.detail?.orderId);
   const refund = useWalletRefund(returnId);
   // The last failure stays on screen while Try Again is in flight (the
   // mutation clears its own error when it restarts).
@@ -288,6 +337,7 @@ function LiveRefundRoute({ base, warehouseId, returnId, replace }: LiveReturnRou
     <RefundStatusScreen
       {...base}
       detail={live.detail}
+      order={order}
       notFound={returnId === undefined}
       onConfirmRefund={submit}
       isSubmitting={refund.isPending}
@@ -323,6 +373,7 @@ export function ReturnsFlow({
   onBack,
   onTabChange,
 }: ReturnsFlowProps) {
+  const [appliedFilters, setAppliedFilters] = useState<RmaFilterValues>(DEFAULT_FILTERS);
   const [stack, setStack] = useState<ReturnsStackEntry[]>(() => [
     ...(initialBackStack ?? []),
     { screen: initialScreen, params: initialParams },
@@ -385,14 +436,29 @@ export function ReturnsFlow({
           history={false}
           onSelectReturn={(id) => navigate('RmaDetail', { returnId: id })}
           onNavigateToHistory={() => navigate('ReturnHistory')}
+          onOpenFilters={() => navigate('ReturnsFilters')}
         />
       );
     case 'ReturnHistory':
       return <LiveQueueRoute base={base} history onSelectReturn={(id) => navigate('ReturnHistoryDetail', { returnId: id })} />;
     case 'RmaDetail':
-    case 'ReturnHistoryDetail':
-      // Return History's detail is the same live detail; a closed return offers nothing (BR-61).
       return <LiveDetailRoute {...live} />;
+    case 'ReturnHistoryDetail':
+      // History detail: read-only layout for a closed return (no action buttons, BR-61).
+      return <LiveHistoryDetailRoute {...live} />;
+    case 'ReturnsFilters':
+      return (
+        <ReturnsFiltersScreen
+          initialFilters={appliedFilters}
+          warehouseName={scope.warehouseName}
+          showWarehouseSelector={scope.warehouseId === undefined}
+          onBack={back}
+          onApply={(filters) => {
+            setAppliedFilters(filters);
+            back();
+          }}
+        />
+      );
     case 'InspectProduct':
       return <LiveInspectRoute {...live} />;
     case 'ReviewReturnRequest':

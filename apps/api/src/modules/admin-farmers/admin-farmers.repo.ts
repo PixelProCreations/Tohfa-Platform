@@ -151,8 +151,27 @@ export interface ListResult {
   hasMore: boolean;
 }
 
+export interface FarmerSummaryResult {
+  totalFarmers: number;
+  pendingApplications: number;
+  activeFarmers: number;
+  deactivatedFarmers: number;
+  inactiveFarmers: number;
+  expiredCertifications: number;
+  activeSubscriptions: number;
+  approvalInbox: number;
+  zones: Array<{
+    id: string;
+    code: string;
+    name: string;
+    count: number;
+    ratio: number;
+  }>;
+}
+
 export interface AdminFarmersRepo {
   list(db: Executor, args: ListArgs): Promise<ListResult>;
+  getSummary(db: Executor, scope: ScopedWhere): Promise<FarmerSummaryResult>;
   /** The farmer's profile if it exists, is live and is inside `scope`; null otherwise. */
   findProfile(db: Executor, farmerId: string, scope: ScopedWhere): Promise<FarmerProfileRow | null>;
   /** True when the farmer exists, is live and is inside `scope`. */
@@ -171,6 +190,35 @@ export interface AdminFarmersRepo {
   findCurrentSubscription(db: Executor, farmerId: string): Promise<AdminFarmerSubscription['current']>;
   /** `system_config.value` (parsed JSON) for `key`, or undefined when no row exists. */
   getConfig(db: Executor, key: string): Promise<unknown>;
+  updateFarmerStatus(
+    db: Executor,
+    farmerId: string,
+    params: {
+      userStatus: 'ACTIVE' | 'DISABLED';
+      isActive: boolean;
+      isMarketBlocked: boolean;
+      marketBlockReason: string | null;
+      actorId: string;
+      reason: string;
+      isReactivation?: boolean;
+    },
+  ): Promise<void>;
+  createFarmer(
+    db: Executor,
+    params: {
+      fullName: string;
+      mobile: string;
+      email?: string | null | undefined;
+      zoneId: string;
+      village: string;
+      taluk?: string | null | undefined;
+      district: string;
+      pincode?: string | null | undefined;
+      aadhaarLast4?: string | null | undefined;
+      farmingExperienceYears?: number | null | undefined;
+      addressLine1?: string | null | undefined;
+    },
+  ): Promise<string>;
 }
 
 /** Shift a `scopedWhere` fragment so its placeholders start at `startIndex`. */
@@ -292,7 +340,9 @@ export const adminFarmersRepo: AdminFarmersRepo = {
 
     if (filters.q !== undefined) {
       params.push(likePattern(filters.q));
-      conditions.push(`(u.full_name ILIKE $${params.length} ESCAPE '\\' OR u.mobile ILIKE $${params.length} ESCAPE '\\')`);
+      conditions.push(
+        `(u.full_name ILIKE $${params.length} ESCAPE '\\' OR u.mobile ILIKE $${params.length} ESCAPE '\\' OR f.tohfa_farmer_id ILIKE $${params.length} ESCAPE '\\' OR z.name ILIKE $${params.length} ESCAPE '\\')`,
+      );
     }
     if (filters.status !== undefined) {
       params.push(filters.status);
@@ -433,6 +483,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
       centroid_lng: string | null;
       has_boundary: boolean;
       is_primary: boolean;
+      created_at: Date;
       plots: Array<{
         id: string;
         name: string;
@@ -444,7 +495,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
     }>(
       `SELECT fm.id, fm.name, fm.survey_number, fm.area_acres::text AS area_acres, fm.address, fm.village,
               fm.taluk, fm.district, fm.centroid_lat::text AS centroid_lat, fm.centroid_lng::text AS centroid_lng,
-              fm.boundary IS NOT NULL AS has_boundary, fm.is_primary,
+              fm.boundary IS NOT NULL AS has_boundary, fm.is_primary, fm.created_at,
               COALESCE((
                 SELECT json_agg(json_build_object(
                          'id', p.id, 'name', p.name, 'areaAcres', p.area_acres, 'soilType', p.soil_type,
@@ -473,6 +524,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
           : { lat: Number(row.centroid_lat), lng: Number(row.centroid_lng) },
       hasBoundary: row.has_boundary,
       isPrimary: row.is_primary,
+      createdAt: row.created_at.toISOString(),
       plots: row.plots.map((plot) => ({ ...plot, areaAcres: toNumber(plot.areaAcres) })),
     }));
   },
@@ -624,5 +676,182 @@ export const adminFarmersRepo: AdminFarmersRepo = {
   async getConfig(db, key) {
     const result = await db.query<{ value: unknown }>(`SELECT value FROM system_config WHERE key = $1`, [key]);
     return result.rows[0]?.value;
+  },
+
+  async getSummary(db, scope) {
+    const scoped = renumber(scope, 1);
+    const params: unknown[] = [...scoped.params];
+
+    // 1. Farmer status counts
+    const farmersCountsResult = await db.query<{
+      total_farmers: string;
+      active_farmers: string;
+      deactivated_farmers: string;
+      inactive_farmers: string;
+    }>(
+      `SELECT
+         COUNT(*)::text AS total_farmers,
+         COUNT(*) FILTER (WHERE u.status = 'ACTIVE')::text AS active_farmers,
+         COUNT(*) FILTER (WHERE u.status = 'DISABLED')::text AS deactivated_farmers,
+         COUNT(*) FILTER (WHERE u.status = 'PENDING')::text AS inactive_farmers
+       FROM farmers f
+       JOIN users u ON u.id = f.user_id AND u.deleted_at IS NULL
+       LEFT JOIN zones z ON z.id = f.zone_id
+       WHERE f.deleted_at IS NULL AND ${scoped.sql}`,
+      params,
+    );
+
+    // 2. Pending applications & Approval inbox
+    const applicationsResult = await db.query<{
+      pending_applications: string;
+      approval_inbox: string;
+    }>(
+      `SELECT
+         COUNT(*) FILTER (WHERE status NOT IN ('APPROVED', 'REJECTED') AND is_draft = false)::text AS pending_applications,
+         COUNT(*) FILTER (WHERE status IN ('SUBMITTED', 'DOCS_REVIEW') AND is_draft = false)::text AS approval_inbox
+       FROM farmer_applications
+       WHERE deleted_at IS NULL`,
+    );
+
+    // 3. Expired certifications
+    const certsResult = await db.query<{ expired_certifications: string }>(
+      `SELECT
+         COUNT(*)::text AS expired_certifications
+       FROM certifications c
+       JOIN farmers f ON f.id = c.farmer_id AND f.deleted_at IS NULL
+       WHERE c.expires_on < CURRENT_DATE`,
+    );
+
+    // 4. Active subscriptions
+    const subsResult = await db.query<{ active_subscriptions: string }>(
+      `SELECT
+         COUNT(*)::text AS active_subscriptions
+       FROM farmer_subscriptions s
+       JOIN farmers f ON f.id = s.farmer_id AND f.deleted_at IS NULL
+       WHERE s.status = 'ACTIVE'`,
+    );
+
+    // 5. Zone breakdown
+    const zonesResult = await db.query<{
+      id: string;
+      code: string;
+      name: string;
+      farmer_count: string;
+    }>(
+      `SELECT
+         z.id,
+         z.code,
+         z.name,
+         COUNT(f.id)::text AS farmer_count
+       FROM zones z
+       LEFT JOIN farmers f ON f.zone_id = z.id AND f.deleted_at IS NULL
+       WHERE z.is_active = true
+       GROUP BY z.id, z.code, z.name
+       ORDER BY COUNT(f.id) DESC, z.name ASC`,
+    );
+
+    const fRow = farmersCountsResult.rows[0];
+    const appRow = applicationsResult.rows[0];
+    const certRow = certsResult.rows[0];
+    const subRow = subsResult.rows[0];
+
+    const totalFarmers = parseInt(fRow?.total_farmers ?? '0', 10);
+    const zones = zonesResult.rows.map((r) => {
+      const count = parseInt(r.farmer_count, 10);
+      return {
+        id: r.id,
+        code: r.code,
+        name: r.name,
+        count,
+        ratio: totalFarmers > 0 ? Number((count / totalFarmers).toFixed(2)) : 0,
+      };
+    });
+
+    return {
+      totalFarmers,
+      pendingApplications: parseInt(appRow?.pending_applications ?? '0', 10),
+      activeFarmers: parseInt(fRow?.active_farmers ?? '0', 10),
+      deactivatedFarmers: parseInt(fRow?.deactivated_farmers ?? '0', 10),
+      inactiveFarmers: parseInt(fRow?.inactive_farmers ?? '0', 10),
+      expiredCertifications: parseInt(certRow?.expired_certifications ?? '0', 10),
+      activeSubscriptions: parseInt(subRow?.active_subscriptions ?? '0', 10),
+      approvalInbox: parseInt(appRow?.approval_inbox ?? '0', 10),
+      zones,
+    };
+  },
+
+  async updateFarmerStatus(db, farmerId, params) {
+    if (params.isReactivation) {
+      await db.query(
+        `UPDATE users
+            SET status = 'ACTIVE',
+                reactivated_at = now(),
+                reactivated_by = $2,
+                updated_at = now()
+          WHERE id = (SELECT user_id FROM farmers WHERE id = $1)`,
+        [farmerId, params.actorId],
+      );
+    } else {
+      await db.query(
+        `UPDATE users
+            SET status = 'DISABLED',
+                disabled_at = now(),
+                disabled_by = $2,
+                disabled_reason = $3,
+                updated_at = now()
+          WHERE id = (SELECT user_id FROM farmers WHERE id = $1)`,
+        [farmerId, params.actorId, params.reason],
+      );
+    }
+
+    await db.query(
+      `UPDATE farmers
+          SET is_active = $2,
+              is_market_blocked = $3,
+              market_block_reason = $4,
+              updated_at = now()
+        WHERE id = $1`,
+      [farmerId, params.isActive, params.isMarketBlocked, params.marketBlockReason],
+    );
+  },
+
+  async createFarmer(db, params) {
+    const userRes = await db.query<{ id: string }>(
+      `INSERT INTO users (mobile, full_name, email, user_type, status)
+       VALUES ($1, $2, $3, 'FARMER', 'ACTIVE')
+       ON CONFLICT (mobile) WHERE deleted_at IS NULL DO UPDATE
+         SET full_name = EXCLUDED.full_name,
+             email = COALESCE(EXCLUDED.email, users.email),
+             status = 'ACTIVE',
+             updated_at = now()
+       RETURNING id`,
+      [params.mobile, params.fullName, params.email ?? null],
+    );
+    const userId = userRes.rows[0]!.id;
+
+    const tohfaFarmerId = `TOHFA-F-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const farmerRes = await db.query<{ id: string }>(
+      `INSERT INTO farmers (
+         user_id, tohfa_farmer_id, zone_id, village, taluk, district,
+         pincode, aadhaar_last4, farming_experience_years, address_line1,
+         application_status, kyc_status, is_market_blocked, is_active
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'APPROVED', 'VERIFIED', false, true)
+       RETURNING id`,
+      [
+        userId,
+        tohfaFarmerId,
+        params.zoneId,
+        params.village,
+        params.taluk ?? null,
+        params.district,
+        params.pincode ?? null,
+        params.aadhaarLast4 ?? null,
+        params.farmingExperienceYears ?? null,
+        params.addressLine1 ?? null,
+      ],
+    );
+    return farmerRes.rows[0]!.id;
   },
 };

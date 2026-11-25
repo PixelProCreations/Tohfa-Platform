@@ -26,15 +26,27 @@
  * area's LiveInvoiceDetail. It is gated on invoice.view_own (availability.ts
  * 'orderInvoices'), so a caller without it is refused like a hidden route.
  *
- * Cancel (M5S17), order issues (M5S16), the stock check (M5S05), delivery
- * preparation and dispatch (M5S13, M5S14) have no API yet (availability.ts).
- * The flow refuses to open them, whatever the deep link, and renders the
- * dashboard instead; the screens stay in the code.
+ * Cancel (M5S17), order issues (M5S16) and dispatch (M5S14) are wired to their
+ * writes (POST .../cancel, .../issues, .../dispatch) through useOrderAction,
+ * exactly like pack and verify-otp: each reaches its success step only after a
+ * 2xx. The stock check (M5S05) only reads the live order and shows
+ * ADMIN_NO_VALUE where a figure has no source.
+ * Delivery preparation and dispatch (M5S13, M5S14) are wired but availability.ts
+ * takes delivery out of the app (pickup only, BR-21), so the flow refuses those
+ * two routes and renders the dashboard; they stay in code.
  */
 import React, { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
-import type { DispatchOrderBody, OrderListStatusFilter, PackOrderBody, VerifyOtpBody } from '../../../api/orders';
+import type {
+  AssignWarehouseBody,
+  CancelOrderBody,
+  CreateOrderIssueBody,
+  DispatchOrderBody,
+  OrderListStatusFilter,
+  PackOrderBody,
+  VerifyOtpBody,
+} from '../../../api/orders';
 import { adminColors } from '../../../theme';
 import { isAreaAvailable, ordersRouteArea } from '../availability';
 import { OrderFiltersScreen } from '../customers';
@@ -54,15 +66,18 @@ import { ReadyForPickupScreen } from './ReadyForPickupScreen';
 import { StockCheckScreen } from './StockCheckScreen';
 import { orderIdParam, ordersWarehouseFilter } from './mappers';
 import type {
+  DispatchStep,
+  OrderIssueStep,
   OrderScreenBaseProps,
   OrdersWarehouseSelector,
   PackingStep,
   PermissionCheck,
   PickupStep,
+  StockCheckStep,
   WarehouseScope,
   WarehouseTab,
 } from './types';
-import { useOrder, useOrderAction, useOrderList, useOrderTaskCounts } from './useOrdersData';
+import { useDeliveryPartners, useOrder, useOrderAction, useOrderList, useOrderTaskCounts } from './useOrdersData';
 
 /** Route params passed between order screens. Loose on purpose: they come from deep links. */
 export type OrdersRouteParams = Record<string, any> | null;
@@ -167,6 +182,12 @@ function LiveMainDashboardRoute({ base, warehouseId, selector }: LiveRouteProps)
   );
 }
 
+/** The fulfilment a dashboard tile opened the list with. */
+function fulfillmentParam(params: OrdersRouteParams | undefined): 'Delivery' | 'Pickup' | undefined {
+  const value = params?.fulfillment;
+  return value === 'Delivery' || value === 'Pickup' ? value : undefined;
+}
+
 function LiveListRoute({ base, warehouseId, params, selector }: LiveRouteProps) {
   const status = statusParam(params);
   const list = useOrderList(warehouseId, status);
@@ -175,6 +196,7 @@ function LiveListRoute({ base, warehouseId, params, selector }: LiveRouteProps) 
       {...base}
       {...selector}
       status={status}
+      fulfillment={fulfillmentParam(params)}
       orders={list.items}
       isLoading={list.isLoading}
       error={list.error}
@@ -204,11 +226,15 @@ function LiveReadyRoute({ base, warehouseId }: LiveRouteProps) {
   );
 }
 
-function LiveDetailRoute({ base, warehouseId, params }: LiveRouteProps) {
-  const live = useOrder(warehouseId, orderIdParam(params));
+function LiveDetailRoute({ base, warehouseId, params, selector }: LiveRouteProps) {
+  const orderId = orderIdParam(params);
+  const live = useOrder(warehouseId, orderId);
+  const assign = useOrderAction<AssignWarehouseBody>('assign', orderId);
   return (
     <OrderDetailScreen
       {...base}
+      warehouseOptions={selector.warehouseOptions}
+      assign={assign}
       order={live.order}
       isLoading={live.isLoading}
       error={live.error}
@@ -293,6 +319,110 @@ function LivePickupRoute({ base, warehouseId, params }: LiveRouteProps) {
   );
 }
 
+const STOCK_CHECK_STEPS: readonly StockCheckStep[] = ['check', 'shortage'];
+
+function LiveStockCheckRoute({ base, warehouseId, params }: LiveRouteProps) {
+  const live = useOrder(warehouseId, orderIdParam(params));
+  return (
+    <StockCheckScreen
+      {...base}
+      initialStep={stepParam(params, STOCK_CHECK_STEPS)}
+      order={live.order}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+function LiveCancelRoute({ base, warehouseId, params }: LiveRouteProps) {
+  const orderId = orderIdParam(params);
+  const live = useOrder(warehouseId, orderId);
+  const cancel = useOrderAction<CancelOrderBody>('cancel', orderId);
+  return (
+    <CancelOrderScreen
+      {...base}
+      cancel={cancel}
+      order={live.order}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+const ORDER_ISSUE_STEPS: readonly OrderIssueStep[] = ['form', 'submitted'];
+
+function LiveOrderIssueRoute({
+  base,
+  warehouseId,
+  params,
+  onViewIssue,
+}: LiveRouteProps & { onViewIssue?: (() => void) | undefined }) {
+  const orderId = orderIdParam(params);
+  const live = useOrder(warehouseId, orderId);
+  const report = useOrderAction<CreateOrderIssueBody>('reportIssue', orderId);
+  const issueId: unknown = params?.['issueId'];
+  return (
+    <OrderIssueScreen
+      {...base}
+      report={report}
+      initialStep={stepParam(params, ORDER_ISSUE_STEPS)}
+      issueId={typeof issueId === 'string' ? issueId : undefined}
+      onViewIssue={onViewIssue}
+      order={live.order}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+function LiveDeliveryPrepRoute({ base, warehouseId, params }: LiveRouteProps) {
+  const live = useOrder(warehouseId, orderIdParam(params));
+  return (
+    <DeliveryPreparationScreen
+      {...base}
+      order={live.order}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+const DISPATCH_STEPS: readonly DispatchStep[] = ['dispatch', 'confirm', 'dispatched'];
+
+function LiveDispatchRoute({ base, warehouseId, params }: LiveRouteProps) {
+  const orderId = orderIdParam(params);
+  const live = useOrder(warehouseId, orderId);
+  const dispatch = useOrderAction<DispatchOrderBody>('dispatch', orderId);
+  // The partner list needs delivery.partner.manage; the picker is only useful to a caller who can dispatch.
+  const partners = useDeliveryPartners(base.can('order.dispatch') && base.can('delivery.partner.manage'));
+  return (
+    <DispatchScreen
+      {...base}
+      dispatch={dispatch}
+      partnerList={{ partners: partners.partners, isLoading: partners.isLoading, error: partners.error }}
+      initialStep={stepParam(params, DISPATCH_STEPS)}
+      order={live.order}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
 export function OrdersFlow({
   scope,
   can,
@@ -354,7 +484,6 @@ export function OrdersFlow({
     params,
     selector: { warehouseOptions, selectedWarehouseId, onSelectWarehouse: setSelectedWarehouseId },
   };
-  const orderId: string | undefined = params?.orderId;
   const dashboard =
     scope.warehouseId === undefined ? <LiveMainDashboardRoute {...live} /> : <LiveSubDashboardRoute {...live} />;
 
@@ -404,7 +533,7 @@ export function OrdersFlow({
         return <LiveDetailRoute {...live} />;
       case 'M5S05':
       case 'M5S05_StockCheck':
-        return <StockCheckScreen {...common} orderId={orderId} initialStep={params?.step} />;
+        return <LiveStockCheckRoute {...live} />;
       case 'M5S07':
       case 'M5S07_Packing':
         return <LivePackingRoute {...live} />;
@@ -416,27 +545,19 @@ export function OrdersFlow({
         return <LivePickupRoute {...live} />;
       case 'M5S13':
       case 'M5S13_DeliveryPreparation':
-        return <DeliveryPreparationScreen {...common} orderId={orderId} />;
+        return <LiveDeliveryPrepRoute {...live} />;
       case 'M5S14':
       case 'M5S14_Dispatch':
-        return <DispatchScreen {...common} orderId={orderId} initialStep={params?.step} />;
+        return <LiveDispatchRoute {...live} />;
       case 'M5S15':
       case 'M5S15_OrderStatusHistory':
         return <LiveHistoryRoute {...live} />;
       case 'M5S16':
       case 'M5S16_OrderIssue':
-        return (
-          <OrderIssueScreen
-            {...common}
-            orderId={orderId}
-            initialStep={params?.step}
-            issueId={params?.issueId}
-            onViewIssue={onViewIssue}
-          />
-        );
+        return <LiveOrderIssueRoute {...live} onViewIssue={onViewIssue} />;
       case 'M5S17':
       case 'M5S17_CancelOrder':
-        return <CancelOrderScreen {...common} orderId={orderId} />;
+        return <LiveCancelRoute {...live} />;
       case 'M5S18':
       case 'M5S18_OrderInvoice':
         return <LiveInvoiceRoute {...live} />;

@@ -21,7 +21,7 @@ import { resolveScope, type ResolvedScope } from '../../rbac/requirePermission.j
 import { aRole, anActor, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import { adminAccountsRepo, type AdminAccount, type AdminAccountRow, type AdminAccountsRepo } from './admin-accounts.repo.js';
 import { adminAccountsRouter } from './admin-accounts.routes.js';
-import { adminAccountStatus, disableAdminAccountBody } from './admin-accounts.schema.js';
+import { adminAccountStatus, disableAdminAccountBody, type AdminAccountListItem } from './admin-accounts.schema.js';
 import { createAdminAccountsService } from './admin-accounts.service.js';
 
 const PERMISSION = 'admin.account.disable';
@@ -99,6 +99,7 @@ function fakeRepo(target: AdminAccount | null, otherActiveSupers = 1): { repo: A
     findFarmerAdminForUpdate: unexpected,
     findZones: unexpected,
     endZoneAssignments: unexpected,
+    listAdminAccounts: unexpected,
   };
   return { repo, calls };
 }
@@ -366,7 +367,7 @@ describe('admin accounts router (BR-110f)', () => {
         const route = layer.route as unknown as { path: string; methods: Record<string, boolean> };
         return Object.keys(route.methods).map((m) => `${m} ${route.path}`);
       });
-    expect(new Set(routes)).toEqual(new Set(['post /', 'post /:id/disable', 'put /:id/zones']));
+    expect(new Set(routes)).toEqual(new Set(['get /', 'post /', 'post /:id/disable', 'put /:id/zones']));
   });
 
   it('BR-110f: 401 without a token; 403 for MAIN_WH_ADMIN, SUB_WH_ADMIN, FARMER and CUSTOMER (admin.account.disable = none)', async () => {
@@ -546,6 +547,69 @@ describeIfDatabase('admin account disable (PostgreSQL, rolled back)', () => {
       const actor = await anAdmin(tx, 'SUPER_ADMIN');
       expect((await caught(service(tx).disable(scopeAs(RoleCode.SUPER_ADMIN, actor), actor, {}))).status).toBe(403);
       expect((await tx.query(`SELECT status FROM users WHERE id = $1`, [actor])).rows[0]).toEqual({ status: 'ACTIVE' });
+    });
+  });
+
+  describe('BR-28 / P0-41: GET /admin/accounts', () => {
+    it('BR-28c: GET /admin/accounts is gated on role.definition.view / admin.staff.list_view (403 for unauthorized)', async () => {
+      const server = createApp().listen(0);
+      try {
+        const farmerToken = `Bearer ${signAccessToken({
+          sub: newId(),
+          roles: [{ code: RoleCode.FARMER }],
+          customerId: null,
+          farmerId: newId(),
+        })}`;
+        const res = await request(server)
+          .get('/v1/admin/accounts')
+          .set('Authorization', farmerToken);
+        expect(res.status).toBe(403);
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    });
+
+    it('BR-28c: GET /admin/accounts returns cursor-paged list of admin accounts with required fields', async () => {
+      const server = createApp().listen(0);
+      try {
+        const adminId = newId();
+        const email = `admin-list-${adminId}@example.com`;
+        await pool.query(
+          `INSERT INTO users (id, mobile, full_name, user_type, status, email)
+           VALUES ($1, $2, 'Super Admin Test List', 'ADMIN', 'ACTIVE', $3)`,
+          [adminId, `+9195${Math.floor(10000000 + Math.random() * 89999999)}`, email],
+        );
+        await pool.query(
+          `INSERT INTO user_roles (user_id, role_id, role_code, valid_from)
+           SELECT $1, id, code, now() FROM roles WHERE code = 'SUPER_ADMIN'`,
+          [adminId],
+        );
+        const adminToken = `Bearer ${signAccessToken({
+          sub: adminId,
+          roles: [{ code: RoleCode.SUPER_ADMIN }],
+          customerId: null,
+          farmerId: null,
+        })}`;
+
+        const res = await request(server)
+          .get('/v1/admin/accounts')
+          .set('Authorization', adminToken);
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.body.items)).toBe(true);
+        expect(res.body.items.length).toBeGreaterThan(0);
+        const acc = (res.body.items as AdminAccountListItem[]).find((a) => a.id === adminId);
+        expect(acc).toBeDefined();
+        expect(acc).toMatchObject({
+          id: adminId,
+          fullName: 'Super Admin Test List',
+          email,
+          roleCode: 'SUPER_ADMIN',
+          status: 'ACTIVE',
+          zones: expect.any(Array),
+        });
+      } finally {
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
     });
   });
 });

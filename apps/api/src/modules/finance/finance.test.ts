@@ -1307,11 +1307,10 @@ describeIfDatabase('Finance routes (real app router, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ pool, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { pool } = await import('../../db/pool.js');
     // The audit rows are append-only and stay; the expenses this suite committed are removed.
     await pool.query(`DELETE FROM expenses WHERE idempotency_key LIKE $1`, [`${tag}%`]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

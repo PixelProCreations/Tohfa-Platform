@@ -12,7 +12,7 @@
  * The PostgreSQL behaviour of the same rules (the visibility predicate, the ledger sum, the
  * keyset, the audit row) is in customers.db.test.ts.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
@@ -61,9 +61,13 @@ const superAll = (permission = 'customer.list.view'): ResolvedScope => aScope({ 
 function aCustomerRow(overrides: Partial<CustomerRow> = {}): CustomerRow {
   return {
     id: IDS.customer,
+    userId: IDS.userSuperAdmin,
     customerCode: 'CUST-0001',
     customerType: 'RETAIL',
     businessName: null,
+    businessType: null,
+    gstin: null,
+    gstVerified: false,
     preferredWarehouseId: OOTY,
     fullName: 'Lakshmi Narayan',
     mobile: MOBILE,
@@ -158,6 +162,22 @@ function stubRepo(overrides: Partial<CustomersRepo> = {}): CustomersRepo {
     farmerIdentityTerms: vi.fn(async () => IDENTITY),
     customerContact: vi.fn(async () => ({ mobile: MOBILE, email: 'lakshmi@example.com' })),
     insertMessage: vi.fn(async () => ({ id: newId(), createdAt: '2026-09-03T10:00:00.000Z' })),
+    findLiveUserByMobile: vi.fn(async () => null),
+    findLiveCustomerByUserId: vi.fn(async () => null),
+    findLiveRolesByUserId: vi.fn(async () => []),
+    hasLiveFarmer: vi.fn(async () => false),
+    insertUser: vi.fn(async () => newId()),
+    assignCustomerRole: vi.fn(async () => {}),
+    generateCustomerCode: vi.fn(async () => 'CUST-0001'),
+    insertCustomer: vi.fn(async () => newId()),
+    insertCustomerAddress: vi.fn(async () => newId()),
+    setDefaultAddress: vi.fn(async () => {}),
+    createWallet: vi.fn(async () => newId()),
+    findCustomerGstinConflict: vi.fn(async () => false),
+    checkWarehouseActive: vi.fn(async () => true),
+    getCustomerById: vi.fn(async () => aCustomerRow()),
+    updateCustomer: vi.fn(async () => {}),
+    updateUser: vi.fn(async () => {}),
     ...overrides,
   };
 }
@@ -699,10 +719,12 @@ function routeTable(): Array<{ path: string; method: string }> {
 }
 
 describe('customers routes: route table', () => {
-  it('BR-93f / BR-93a: the router has exactly the documented eleven routes; every wallet path is GET-only and the only write is the support reply', () => {
+  it('BR-93f / BR-93a / BR-160: the router has the documented routes; every wallet path is GET-only', () => {
     expect(routeTable()).toEqual([
       { path: '/', method: 'GET' },
+      { path: '/', method: 'POST' },
       { path: '/:customerId', method: 'GET' },
+      { path: '/:customerId', method: 'PATCH' },
       { path: '/:customerId/purchases', method: 'GET' },
       { path: '/:customerId/orders', method: 'GET' },
       { path: '/:customerId/wallet', method: 'GET' },
@@ -731,6 +753,11 @@ describe('customers routes: permission matrix (real middleware, stub service)', 
   app.use('/v1/admin/customers', createCustomersRouter(stub));
   app.use(notFoundHandler);
   app.use(errorHandler);
+  const server = app.listen(0);
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
 
   const base = { farmerId: null, customerId: null };
   const token = (roles: Array<{ code: RoleCode; warehouseId?: string; zoneId?: string }>, extra: Partial<{ farmerId: string; customerId: string }> = {}) =>
@@ -761,27 +788,27 @@ describe('customers routes: permission matrix (real middleware, stub service)', 
 
   it('BR-91a / BR-93b / BR-97d: every GET is 401 without a token, 403 for FARMER, FARMER_ADMIN and CUSTOMER, 200 for the four admin roles', async () => {
     for (const path of reads) {
-      expect((await request(app).get(path)).status, path).toBe(401);
+      expect((await request(server).get(path)).status, path).toBe(401);
       for (const role of ['FARMER', 'FARMER_ADMIN', 'CUSTOMER'] as const) {
-        const res = await request(app).get(path).set('Authorization', tokens[role]);
+        const res = await request(server).get(path).set('Authorization', tokens[role]);
         expect(res.status, `${role} ${path}`).toBe(403);
         expect(res.body.code).toBe('FORBIDDEN');
       }
       for (const role of ['SUB_WH_ADMIN', 'MAIN_WH_ADMIN', 'TOHFA_ADMIN', 'SUPER_ADMIN'] as const) {
-        expect((await request(app).get(path).set('Authorization', tokens[role])).status, `${role} ${path}`).toBe(200);
+        expect((await request(server).get(path).set('Authorization', tokens[role])).status, `${role} ${path}`).toBe(200);
       }
     }
   });
 
   it('BR-97d: the reply is 401 without a token, 403 for FARMER, FARMER_ADMIN and CUSTOMER, 201 for the four admin roles; a blank message is 422', async () => {
-    expect((await request(app).post(replyPath).send({ message: 'hi' })).status).toBe(401);
+    expect((await request(server).post(replyPath).send({ message: 'hi' })).status).toBe(401);
     for (const role of ['FARMER', 'FARMER_ADMIN', 'CUSTOMER'] as const) {
-      expect((await request(app).post(replyPath).set('Authorization', tokens[role]).send({ message: 'hi' })).status, role).toBe(403);
+      expect((await request(server).post(replyPath).set('Authorization', tokens[role]).send({ message: 'hi' })).status, role).toBe(403);
     }
     for (const role of ['SUB_WH_ADMIN', 'MAIN_WH_ADMIN', 'TOHFA_ADMIN', 'SUPER_ADMIN'] as const) {
-      expect((await request(app).post(replyPath).set('Authorization', tokens[role]).send({ message: 'hi' })).status, role).toBe(201);
+      expect((await request(server).post(replyPath).set('Authorization', tokens[role]).send({ message: 'hi' })).status, role).toBe(201);
     }
-    const blank = await request(app).post(replyPath).set('Authorization', tokens.SUPER_ADMIN).send({ message: '   ' });
+    const blank = await request(server).post(replyPath).set('Authorization', tokens.SUPER_ADMIN).send({ message: '   ' });
     expect(blank.status).toBe(422);
   });
 
@@ -790,7 +817,7 @@ describe('customers routes: permission matrix (real middleware, stub service)', 
     calls.length = 0;
     for (const path of walletPaths) {
       for (const verb of ['post', 'put', 'patch', 'delete'] as const) {
-        const res = await request(app)[verb](path).set('Authorization', tokens.SUB_WH_ADMIN).send({ amount: '100.00' });
+        const res = await request(server)[verb](path).set('Authorization', tokens.SUB_WH_ADMIN).send({ amount: '100.00' });
         expect([404, 405], `${verb} ${path}`).toContain(res.status);
       }
     }
@@ -799,15 +826,15 @@ describe('customers routes: permission matrix (real middleware, stub service)', 
 
   it('BR-92h: q (openapi: trimmed, 1..100 characters): a whitespace-only q or one longer than 100 characters is 422; a padded q reaches the service trimmed', async () => {
     for (const q of ['   ', 'x'.repeat(101)]) {
-      const res = await request(app).get('/v1/admin/customers').query({ q }).set('Authorization', tokens.SUPER_ADMIN);
+      const res = await request(server).get('/v1/admin/customers').query({ q }).set('Authorization', tokens.SUPER_ADMIN);
       expect(res.status, JSON.stringify(q)).toBe(422);
     }
-    const ok = await request(app).get('/v1/admin/customers').query({ q: `  ${'x'.repeat(100)}  ` }).set('Authorization', tokens.SUPER_ADMIN);
+    const ok = await request(server).get('/v1/admin/customers').query({ q: `  ${'x'.repeat(100)}  ` }).set('Authorization', tokens.SUPER_ADMIN);
     expect(ok.status).toBe(200);
   });
 
   it('a malformed customer id is 422, not 404 or 500', async () => {
-    const res = await request(app).get('/v1/admin/customers/not-a-uuid').set('Authorization', tokens.SUPER_ADMIN);
+    const res = await request(server).get('/v1/admin/customers/not-a-uuid').set('Authorization', tokens.SUPER_ADMIN);
     expect(res.status).toBe(422);
   });
 });

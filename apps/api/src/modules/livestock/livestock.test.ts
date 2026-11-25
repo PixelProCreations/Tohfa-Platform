@@ -1991,11 +1991,6 @@ describeIfDatabase('livestockRepo (integration)', () => {
     if (ready && !recordsReady) console.warn('[skip] livestock_health_records not migrated — run `pnpm db:migrate`');
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it('runs the list/lookup queries against Postgres for a nonexistent farmer', async () => {
     if (!ready) return;

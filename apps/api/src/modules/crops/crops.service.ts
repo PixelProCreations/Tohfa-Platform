@@ -133,7 +133,9 @@ export function createCropsService(deps: Partial<CropsServiceDeps> = {}): CropsS
   return {
     async listCropMaster(scope) {
       ownFarmerId(scope);
-      const items = await repo.listCropMaster(db, true);
+      const rows = await repo.listCropMaster(db, true);
+      // A farmer picking a crop type has no need of which admin created it.
+      const items = rows.map(({ createdByName: _createdByName, ...rest }) => rest);
       return { items };
     },
 
@@ -278,9 +280,18 @@ export function createCropTaxonomyAdminService(
 
         let created: CropMasterResponse;
         try {
-          created = await repo.createCropMaster(tx, body);
+          created = await repo.createCropMaster(tx, { ...body, createdBy: scope.userId });
         } catch (error) {
-          if (isUniqueViolation(error)) throw conflict(body.slug);
+          if (isUniqueViolation(error)) {
+            const constraint =
+              typeof error === 'object' && error !== null && 'constraint' in error
+                ? (error as { constraint?: string }).constraint
+                : undefined;
+            if (constraint === 'crop_master_code_key') {
+              throw new AppError('CONFLICT', { detail: 'Generated crop code already exists. Please retry.' });
+            }
+            throw conflict(body.slug);
+          }
           throw error;
         }
 

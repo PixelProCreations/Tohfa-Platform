@@ -240,11 +240,42 @@ export function isRoleSelectionRequired(res: OAuthLoginOutcome): res is RoleSele
   return (res as Partial<RoleSelectionRequired>).requiresRoleSelection === true;
 }
 
+export type FarmerInfoRequestItem =
+  | 'AADHAAR'
+  | 'FMB_SKETCH'
+  | 'PATTA_CHITTA'
+  | 'BANK_DETAILS'
+  | 'CERTIFICATE'
+  | 'OTHER';
+
+export interface FarmerInfoRequestDetail {
+  items: FarmerInfoRequestItem[];
+  message: string | null;
+  requestedAt: string;
+}
+
+export interface FarmerStatusStep {
+  status: string;
+  reachedAt: string;
+  note: string | null;
+}
+
 export interface ApplicationStatusResponse {
-  id: string;
-  status: 'SUBMITTED' | 'DOCS_REVIEW' | 'FARM_VERIFICATION' | 'AUDIT' | 'APPROVED' | 'REJECTED';
-  step: number;
-  submittedAt: string;
+  id?: string;
+  applicationId?: string;
+  status:
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'INFO_REQUESTED'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'APPROVED'
+    | 'REJECTED';
+  step?: number;
+  submittedAt: string | null;
+  expectedDecisionBy?: string;
+  infoRequest?: FarmerInfoRequestDetail | null;
+  steps?: FarmerStatusStep[];
   notes?: string;
   reviewerName?: string;
 }

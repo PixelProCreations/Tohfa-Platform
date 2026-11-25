@@ -9,24 +9,34 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { RecentReportDetailScreen } from './RecentReportDetailScreen';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  blueIconBg: '#EBF3FA',
-  blueIcon: '#1D6399',
-  greenSuccess: '#16A34A',
-};
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-function BarChartIcon({ color = P.orange, size = 20 }: { color?: string; size?: number }) {
+
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function BarChartIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Line x1="18" y1="20" x2="18" y2="10" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
@@ -36,7 +46,7 @@ function BarChartIcon({ color = P.orange, size = 20 }: { color?: string; size?: 
   );
 }
 
-function UserGroupIcon({ color = P.orange, size = 20 }: { color?: string; size?: number }) {
+function UserGroupIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -59,7 +69,7 @@ function UserGroupIcon({ color = P.orange, size = 20 }: { color?: string; size?:
   );
 }
 
-function WarehouseBuildingIcon({ color = P.orange, size = 20 }: { color?: string; size?: number }) {
+function WarehouseBuildingIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -80,7 +90,7 @@ function WarehouseBuildingIcon({ color = P.orange, size = 20 }: { color?: string
   );
 }
 
-function DocumentTextIcon({ color = P.blueIcon, size = 20 }: { color?: string; size?: number }) {
+function DocumentTextIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -95,7 +105,7 @@ function DocumentTextIcon({ color = P.blueIcon, size = 20 }: { color?: string; s
   );
 }
 
-function ChevronRight({ color = P.subtitle, size = 18 }: { color?: string; size?: number }) {
+function ChevronRight({ color = adminColors.muted, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -115,10 +125,12 @@ export interface AdminReportsMainScreenProps {
   onOpenFarmerPerformanceReport: () => void;
   onOpenWarehouseOpsReport: () => void;
   onOpenAnalyticsDashboard: () => void;
+  onOpenOperationalReports?: () => void;
   onOpenReportBuilder?: () => void;
   onOpenSystemAlerts?: () => void;
   onOpenAnnouncements?: () => void;
   onOpenAllRecentReports?: () => void;
+  recentDocs?: RecentDocItem[] | undefined;
 }
 
 export interface RecentDocItem {
@@ -133,66 +145,21 @@ export interface RecentDocItem {
   actionType: 'pl' | 'farmer' | 'warehouse';
 }
 
-const RECENT_DOCS: RecentDocItem[] = [
-  {
-    id: 'doc-pl-aug',
-    title: 'Audited P&L Statement (Aug 2026)',
-    categoryBadge: 'Audited Financial',
-    badgeColor: '#7E2E11',
-    dateStr: 'Generated 25 Sep 2026 · Closed Monthly Period',
-    fileFormat: 'PDF Document',
-    fileSize: '2.1 MB',
-    summaryMetrics: [
-      { label: 'Gross Revenue', value: '₹17.92L' },
-      { label: 'Net Profit', value: '₹6.84L' },
-      { label: 'EBITDA Margin', value: '38.2%' },
-    ],
-    actionType: 'pl',
-  },
-  {
-    id: 'doc-farmer-payout',
-    title: 'Farmer Mandi Parity & Payout Ledger',
-    categoryBadge: 'Banking Settlement',
-    badgeColor: '#16A34A',
-    dateStr: 'Generated Yesterday · 420 Farmers Disbursed',
-    fileFormat: 'Excel Spreadsheet',
-    fileSize: '1.4 MB',
-    summaryMetrics: [
-      { label: 'Total Disbursed', value: '₹8.20L' },
-      { label: 'Farmers Paid', value: '420' },
-      { label: 'Mandi Parity Uplift', value: '+8.4%' },
-    ],
-    actionType: 'farmer',
-  },
-  {
-    id: 'doc-warehouse-audit',
-    title: 'Kotagiri & Ooty Hub Cold-Chain Audit',
-    categoryBadge: 'Facility Compliance',
-    badgeColor: '#1D6399',
-    dateStr: 'Generated 3d ago · FSSAI Certified Hubs',
-    fileFormat: 'PDF Document',
-    fileSize: '3.2 MB',
-    summaryMetrics: [
-      { label: 'Capacity Inspected', value: '225 MT' },
-      { label: 'Stock Turnover', value: '4.2x' },
-      { label: 'QC Compliance', value: '100% Pass' },
-    ],
-    actionType: 'warehouse',
-  },
-];
-
 export function AdminReportsMainScreen({
   onBack,
   onOpenPLReport,
   onOpenFarmerPerformanceReport,
   onOpenWarehouseOpsReport,
   onOpenAnalyticsDashboard,
+  onOpenOperationalReports,
   onOpenReportBuilder,
   onOpenSystemAlerts,
   onOpenAnnouncements,
   onOpenAllRecentReports,
+  recentDocs,
 }: AdminReportsMainScreenProps) {
   const [selectedRecentDoc, setSelectedRecentDoc] = useState<RecentDocItem | null>(null);
+  const docsList = recentDocs ?? [];
 
   if (selectedRecentDoc) {
     return (
@@ -212,35 +179,24 @@ export function AdminReportsMainScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Top Header Row with Back Button & Create Report */}
-        <View style={styles.topBar}>
-          {onBack ? (
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={onBack}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Dashboard"
-            >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M15 19L8 12L15 5"
-                  stroke="#2B2523"
-                  strokeWidth="2.4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 44 }} />
-          )}
+      {/* Terracotta Header Band matching Admin Standard */}
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleGroup}>
+            {onBack ? (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                accessibilityLabel="Back to Dashboard"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+            ) : null}
+            <Text style={styles.headerTitle}>Reports</Text>
+          </View>
 
           {onOpenReportBuilder && (
             <TouchableOpacity
@@ -252,13 +208,14 @@ export function AdminReportsMainScreen({
             </TouchableOpacity>
           )}
         </View>
+        <Text style={styles.headerSubtitle}>View reports, alerts & analytics</Text>
+      </View>
 
-        {/* Title */}
-        <View style={styles.headerBlock}>
-          <Text style={styles.pageTitle}>Reports</Text>
-          <Text style={styles.pageSubtitle}>View reports, alerts & analytics</Text>
-        </View>
-
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ─── 1. Quick Reports (Live Interactive Dashboards) ────────────────── */}
         <View style={styles.sectionHeaderWithBadge}>
           <Text style={styles.sectionHeading}>Quick reports</Text>
@@ -277,7 +234,7 @@ export function AdminReportsMainScreen({
           >
             <View style={styles.quickLeft}>
               <View style={styles.quickIconCircle}>
-                <BarChartIcon size={20} color={P.orange} />
+                <BarChartIcon size={20} color={adminColors.brand} />
               </View>
               <View style={styles.quickTextCol}>
                 <View style={styles.cardTitleRow}>
@@ -300,7 +257,7 @@ export function AdminReportsMainScreen({
           >
             <View style={styles.quickLeft}>
               <View style={styles.quickIconCircle}>
-                <UserGroupIcon size={20} color={P.orange} />
+                <UserGroupIcon size={20} color={adminColors.brand} />
               </View>
               <View style={styles.quickTextCol}>
                 <View style={styles.cardTitleRow}>
@@ -323,7 +280,7 @@ export function AdminReportsMainScreen({
           >
             <View style={styles.quickLeft}>
               <View style={styles.quickIconCircle}>
-                <WarehouseBuildingIcon size={20} color={P.orange} />
+                <WarehouseBuildingIcon size={20} color={adminColors.brand} />
               </View>
               <View style={styles.quickTextCol}>
                 <View style={styles.cardTitleRow}>
@@ -337,6 +294,31 @@ export function AdminReportsMainScreen({
             </View>
             <ChevronRight />
           </TouchableOpacity>
+
+          {/* Warehouse Operational Reports */}
+          {onOpenOperationalReports ? (
+            <TouchableOpacity
+              style={styles.quickCard}
+              onPress={onOpenOperationalReports}
+              activeOpacity={0.7}
+            >
+              <View style={styles.quickLeft}>
+                <View style={styles.quickIconCircle}>
+                  <DocumentTextIcon size={20} color={adminColors.brand} />
+                </View>
+                <View style={styles.quickTextCol}>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.quickTitle}>Operational Warehouse Reports</Text>
+                    <View style={styles.miniLiveTag}>
+                      <Text style={styles.miniLiveTagText}>System</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.quickSub}>Sales, inventory, receiving, customer & exports</Text>
+                </View>
+              </View>
+              <ChevronRight />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         {/* ─── 2. Analytics ──────────────────────────────────────────────────── */}
@@ -348,7 +330,7 @@ export function AdminReportsMainScreen({
         >
           <View style={styles.analyticsLeft}>
             <View style={styles.analyticsIconSquare}>
-              <BarChartIcon size={22} color={P.orange} />
+              <BarChartIcon size={22} color={adminColors.brand} />
             </View>
             <View style={styles.analyticsTextCol}>
               <Text style={styles.analyticsTitle}>Analytics Dashboards</Text>
@@ -376,35 +358,41 @@ export function AdminReportsMainScreen({
         </View>
 
         <View style={styles.listSection}>
-          {RECENT_DOCS.map((doc) => (
-            <TouchableOpacity
-              key={doc.id}
-              style={styles.recentCard}
-              onPress={() => setSelectedRecentDoc(doc)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.recentLeft}>
-                <View style={styles.recentDocIconSquare}>
-                  <DocumentTextIcon size={20} color={P.orange} />
-                </View>
-                <View style={styles.recentTextCol}>
-                  <View style={styles.cardTitleRow}>
-                    <Text style={styles.recentTitle} numberOfLines={1}>{doc.title}</Text>
-                    <View style={styles.docFilePill}>
-                      <Text style={styles.docFilePillText}>{doc.fileSize}</Text>
+          {docsList.length === 0 ? (
+            <AdminEmptyState title="No recent reports" subtitle="Generated reports and exports will appear here." />
+          ) : (
+            docsList.map((doc) => (
+              <TouchableOpacity
+                key={doc.id}
+                style={styles.recentCard}
+                onPress={() => setSelectedRecentDoc(doc)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.recentLeft}>
+                  <View style={styles.recentDocIconSquare}>
+                    <DocumentTextIcon size={20} color={adminColors.brand} />
+                  </View>
+                  <View style={styles.recentTextCol}>
+                    <View style={styles.cardTitleRow}>
+                      <Text style={styles.recentTitle} numberOfLines={1}>{doc.title}</Text>
+                      {doc.fileSize !== ADMIN_NO_VALUE ? (
+                        <View style={styles.docFilePill}>
+                          <Text style={styles.docFilePillText}>{doc.fileSize}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.recentDate}>{doc.dateStr}</Text>
+                    <View style={styles.docTagRow}>
+                      <View style={styles.docCategoryBadge}>
+                        <Text style={styles.docCategoryBadgeText}>{doc.categoryBadge}</Text>
+                      </View>
                     </View>
                   </View>
-                  <Text style={styles.recentDate}>{doc.dateStr}</Text>
-                  <View style={styles.docTagRow}>
-                    <View style={styles.docCategoryBadge}>
-                      <Text style={styles.docCategoryBadgeText}>{doc.categoryBadge}</Text>
-                    </View>
-                  </View>
                 </View>
-              </View>
-              <ChevronRight />
-            </TouchableOpacity>
-          ))}
+                <ChevronRight />
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         {/* ─── 4. Bottom Cards: System Alerts & Announcements ───────────────── */}
@@ -419,12 +407,12 @@ export function AdminReportsMainScreen({
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-                    stroke={P.titleBrown}
+                    stroke={adminColors.brand}
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
-                  <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={P.titleBrown} strokeWidth="2" />
+                  <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={adminColors.brand} strokeWidth="2" />
                 </Svg>
               </View>
               <Text style={styles.shortcutTitle}>System Alerts</Text>
@@ -441,7 +429,7 @@ export function AdminReportsMainScreen({
                 <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                    stroke={P.titleBrown}
+                    stroke={adminColors.brand}
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -462,74 +450,62 @@ export function AdminReportsMainScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
+  },
+  header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  backBtn: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+  },
+  headerSubtitle: {
+    ...adminType.body,
+    color: adminOverlay.headerSubtitle,
+    marginTop: 4,
+  },
+  createReportHeaderBtn: {
+    backgroundColor: adminOverlay.whitePill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: adminRadius.full,
+  },
+  createReportHeaderBtnText: {
+    color: adminColors.onBrand,
+    ...adminType.caption,
+    fontWeight: '700',
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 40,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: P.cardBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  createReportHeaderBtn: {
-    backgroundColor: P.orange,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 14,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  createReportHeaderBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-  headerBlock: {
-    marginBottom: 20,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: P.titleBrown,
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  pageSubtitle: {
-    fontSize: 13.5,
-    color: P.subtitle,
-    lineHeight: 18,
-  },
   sectionHeading: {
-    fontSize: 15.5,
-    fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 12,
-    letterSpacing: -0.2,
+    ...adminType.sectionHead,
+    color: adminColors.muted,
+    marginBottom: 10,
+    textTransform: 'uppercase',
   },
   listSection: {
     marginBottom: 20,
@@ -538,18 +514,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   quickLeft: {
     flexDirection: 'row',
@@ -559,8 +531,8 @@ const styles = StyleSheet.create({
   quickIconCircle: {
     width: 42,
     height: 42,
-    borderRadius: 12,
-    backgroundColor: P.orangeBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -569,32 +541,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   quickTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 2,
-    letterSpacing: -0.2,
   },
   quickSub: {
-    fontSize: 12,
-    color: P.subtitle,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   analyticsCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 16,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   analyticsLeft: {
     flexDirection: 'row',
@@ -604,8 +570,8 @@ const styles = StyleSheet.create({
   analyticsIconSquare: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: P.orangeBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -614,15 +580,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   analyticsTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 2,
-    letterSpacing: -0.2,
   },
   analyticsSubtitle: {
-    fontSize: 12,
-    color: P.subtitle,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   recentSectionHeader: {
     flexDirection: 'row',
@@ -631,26 +595,22 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   viewAllText: {
-    fontSize: 13,
+    ...adminType.rowTitle,
+    color: adminColors.brand,
     fontWeight: '700',
-    color: P.greenSuccess,
   },
   recentCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   recentLeft: {
     flexDirection: 'row',
@@ -660,8 +620,8 @@ const styles = StyleSheet.create({
   recentDocIconSquare: {
     width: 42,
     height: 42,
-    borderRadius: 12,
-    backgroundColor: P.orangeBg,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -670,14 +630,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recentTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: P.ink,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   recentDate: {
-    fontSize: 12,
-    color: P.subtitle,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
   },
   bottomShortcutsRow: {
     flexDirection: 'row',
@@ -689,119 +648,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.cardBorder,
+    borderColor: adminColors.border,
     paddingVertical: 14,
     paddingHorizontal: 12,
+    ...adminShadow.sm,
   },
   shortcutIconContainer: {
     marginRight: 8,
   },
   shortcutTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: P.titleBrown,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  modalTag: {
-    alignSelf: 'flex-start',
-    backgroundColor: P.orangeBg,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 10,
-  },
-  modalTagText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: P.orange,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: P.ink,
-    letterSpacing: -0.3,
-    marginBottom: 4,
-  },
-  modalDate: {
-    fontSize: 12.5,
-    color: P.subtitle,
-    marginBottom: 12,
-  },
-  modalDivider: {
-    height: 1,
-    backgroundColor: P.cardBorder,
-    marginBottom: 14,
-  },
-  modalDetailsText: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: '#374151',
-    marginBottom: 20,
-  },
-  modalCloseBtn: {
-    backgroundColor: P.orange,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  modalCloseBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
     fontWeight: '700',
   },
-  // New Section Headers & Live Badges
+  // Section Headers & Live Badges
   sectionHeaderWithBadge: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   liveIndicatorBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EDFDF2',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    borderColor: '#D1FADF',
+    borderColor: adminColors.success.border,
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#16A34A',
+    backgroundColor: adminColors.success.text,
     marginRight: 5,
   },
   liveBadgeText: {
-    fontSize: 10.5,
+    ...adminType.caption,
+    color: adminColors.success.text,
     fontWeight: '700',
-    color: '#16A34A',
   },
   sectionSubHeading: {
-    fontSize: 12,
-    color: P.subtitle,
-    marginTop: -8,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: -6,
     marginBottom: 8,
   },
   cardTitleRow: {
@@ -811,27 +706,27 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   miniLiveTag: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.brandTint,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: adminRadius.sm,
   },
   miniLiveTagText: {
-    fontSize: 10,
+    ...adminType.caption,
+    color: adminColors.brand,
     fontWeight: '700',
-    color: P.titleBrown,
   },
   // Doc Cards & Tags
   docFilePill: {
-    backgroundColor: '#FAF5EE',
+    backgroundColor: adminColors.brandTint,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: adminRadius.sm,
   },
   docFilePillText: {
-    fontSize: 10,
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     fontWeight: '700',
-    color: '#7E2E11',
   },
   docTagRow: {
     flexDirection: 'row',
@@ -840,26 +735,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   docCategoryBadge: {
-    backgroundColor: '#FFF1EB',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   docCategoryBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: P.orange,
-  },
-  verifiedTag: {
-    backgroundColor: '#EDFDF2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  verifiedTagText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#16A34A',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
 });
 

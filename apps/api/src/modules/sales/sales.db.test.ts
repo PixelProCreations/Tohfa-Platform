@@ -119,24 +119,17 @@ describeIfDatabase('Sales write side (PostgreSQL, real HTTP)', () => {
   });
 
   afterAll(async () => {
-    const [{ closePool, withTransaction }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    if (!ready) {
-      await Promise.allSettled([closePool(), closeRedis()]);
-      return;
-    }
+    const { withTransaction } = await import('../../db/pool.js');
+    if (!ready) return;
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    try {
-      await removeCommittedFixtures(withTransaction, {
-        warehouseIds: created.warehouses,
-        cropIds: created.crops,
-        customerIds: created.customers,
-        userIds: created.users,
-        farmerIds: created.farmers,
-        idempotencyKeyPrefix: RUN_KEY_PREFIX,
-      });
-    } finally {
-      await Promise.allSettled([closePool(), closeRedis()]);
-    }
+    await removeCommittedFixtures(withTransaction, {
+      warehouseIds: created.warehouses,
+      cropIds: created.crops,
+      customerIds: created.customers,
+      userIds: created.users,
+      farmerIds: created.farmers,
+      idempotencyKeyPrefix: RUN_KEY_PREFIX,
+    });
   });
 
   // -------------------------------------------------------------------------

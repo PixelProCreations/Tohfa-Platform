@@ -9,20 +9,36 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { getFinanceExpenseReport } from '../../api/finance';
+import { useAdminQuery } from '../../api/hooks';
+import { listPayoutDues } from '../../api/payoutDues';
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../components/OverviewDashboardCard';
+import { t, type TranslationKey } from '../../i18n';
+import { adminColors, adminOverlay } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { moneyText } from '../dashboard/saOverviewFormat';
+import { istToday } from '../warehouse/finance-expenses/mappers';
+import { reportRange } from '../warehouse/finance-expenses/reportRanges';
+
+/** "Nov 2026" for a YYYY-MM-DD day, through the admin month names. */
+function monthLabel(day: string): string {
+  const [year, month] = day.split('-');
+  return t('wiringFinance.monthYear', {
+    month: t(`datetime.month.${(month ?? '').replace(/^0/, '')}` as TranslationKey),
+    year: year ?? ADMIN_NO_VALUE,
+  });
+}
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314', // Exact deep rust/terracotta for headings
-  orange:        '#E85226', // Vibrant orange
-  heroBg:        '#CE4A1E', // Rich rust-orange for Net Revenue card
-  pageBg:        '#FAF8F5', // Warm light cream
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  blueBox:       '#EBF5FF',
-  blueIcon:      '#2563EB',
-  amberBox:      '#FEF5E7',
-  amberIcon:     '#B45309',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  heroBg:        adminColors.brandDeep,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -31,38 +47,8 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CreditCardIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={PALETTE.blueIcon} strokeWidth="2" />
-      <Path d="M2 10h20" stroke={PALETTE.blueIcon} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function NoteIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-        stroke={PALETTE.amberIcon}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 2v6h6M16 13H8M16 17H8M10 9H8"
-        stroke={PALETTE.amberIcon}
-        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -75,7 +61,7 @@ function BarChartIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M18 20V10M12 20V4M6 20v-6"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -89,12 +75,12 @@ function WalletIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2"
       />
       <Path
         d="M16 3H4a2 2 0 0 0-2 2v2M18 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2"
       />
     </Svg>
@@ -106,12 +92,12 @@ function DocumentIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M14 2v6h6" stroke="#1A1412" strokeWidth="2" />
+      <Path d="M14 2v6h6" stroke={adminColors.ink} strokeWidth="2" />
     </Svg>
   );
 }
@@ -119,8 +105,8 @@ function DocumentIcon() {
 function LedgerIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="3" width="16" height="18" rx="2" stroke="#1A1412" strokeWidth="2" />
-      <Path d="M8 7h8M8 11h8M8 15h5" stroke="#1A1412" strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="4" y="3" width="16" height="18" rx="2" stroke={adminColors.ink} strokeWidth="2" />
+      <Path d="M8 7h8M8 11h8M8 15h5" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -133,12 +119,29 @@ export interface FinancialDashboardScreenProps {
   subtitle?: string;
 }
 
+/**
+ * Finance overview for the current month. The hero card is labelled MTD, so
+ * the expense report is asked for the 1st of this month to today (BR-63
+ * reports need real YYYY-MM-DD dates). Revenue from the API is gross, so the
+ * "Net Revenue" figure is dashed (R5); profit and margin would be computed on
+ * the phone, so they are dashed too (BR-63 clause 5, R6).
+ */
 export function FinancialDashboardScreen({
   onBack,
   onNavigate,
   title = 'Financial Dashboard',
-  subtitle = 'Platform-wide finance overview · September 2026',
+  subtitle,
 }: FinancialDashboardScreenProps) {
+  const range = reportRange('monthToDate', istToday());
+  const expenseReport = useAdminQuery(['admin', 'finance', 'expense-report', range.from, range.to], (signal) =>
+    getFinanceExpenseReport(range, signal),
+  );
+  // Payout dues totals cover every due, whatever page is asked for; one row is enough.
+  const dues = useAdminQuery(['admin', 'payout-dues', 'totals'], (signal) => listPayoutDues({ limit: 1 }, signal));
+
+  const expensesText = moneyText(expenseReport.data?.summary.total);
+  const duesPendingText = moneyText(dues.data?.totals.totalDue);
+
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
@@ -155,53 +158,53 @@ export function FinancialDashboardScreen({
 
         {/* Heading Next */}
         <Text style={styles.screenTitle}>{title}</Text>
-        <Text style={styles.screenSub}>{subtitle}</Text>
+        <Text style={styles.screenSub}>
+          {subtitle ?? t('wiringFinance.dashboard.subtitle', { month: monthLabel(range.from) })}
+        </Text>
 
         {/* Hero Card: Net Revenue (MTD) */}
         <View style={styles.heroCard}>
           <Text style={styles.heroLabel}>Net Revenue (MTD)</Text>
-          <Text style={styles.heroAmount}>₹18,40,200</Text>
+          <Text style={styles.heroAmount}>{ADMIN_NO_VALUE}</Text>
 
           <View style={styles.heroDivider} />
 
           <View style={styles.heroStatsRow}>
             <View style={styles.heroStatCol}>
               <Text style={styles.heroStatLabel}>Expenses</Text>
-              <Text style={styles.heroStatValue}>₹3,12,400</Text>
+              <Text style={styles.heroStatValue}>{expensesText}</Text>
             </View>
 
             <View style={styles.heroStatCol}>
               <Text style={styles.heroStatLabel}>Net Profit</Text>
-              <Text style={styles.heroStatValue}>₹15,27,800</Text>
+              <Text style={styles.heroStatValue}>{ADMIN_NO_VALUE}</Text>
             </View>
 
             <View style={styles.heroStatCol}>
               <Text style={styles.heroStatLabel}>Margin</Text>
-              <Text style={styles.heroStatValue}>83%</Text>
+              <Text style={styles.heroStatValue}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
         </View>
 
-        {/* 2 Summary Mini-Cards (Static Information Cards) */}
-        <View style={styles.miniCardsRow}>
-          {/* Card 1: Farmer Dues Pending */}
-          <View style={styles.miniCard}>
-            <View style={[styles.miniIconBox, { backgroundColor: PALETTE.blueBox }]}>
-              <CreditCardIcon />
-            </View>
-            <Text style={styles.miniVal}>₹4.2L</Text>
-            <Text style={styles.miniLabel}>Farmer Dues Pending</Text>
-          </View>
-
-          {/* Card 2: Expenses Awaiting Approval */}
-          <View style={styles.miniCard}>
-            <View style={[styles.miniIconBox, { backgroundColor: PALETTE.amberBox }]}>
-              <NoteIcon />
-            </View>
-            <Text style={styles.miniVal}>18</Text>
-            <Text style={styles.miniLabel}>Expenses Awaiting Approval</Text>
-          </View>
-        </View>
+        {/* 2 Summary Overview Cards (origin/Superadmin-main). Nothing awaits approval (BR-62), so that count is dashed. */}
+        <OverviewCardsGrid style={styles.overviewGrid}>
+          <OverviewDashboardCard
+            value={duesPendingText}
+            title="Farmer Dues Pending"
+            subtitle="Pending clearance"
+            icon="cash"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={ADMIN_NO_VALUE}
+            title="Expenses Pending"
+            subtitle="Awaiting approval"
+            icon="clipboard"
+            tone="warning"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* 4 Navigation Cards */}
         <View style={styles.navActionsCol}>
@@ -272,7 +275,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -296,7 +299,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#8E3314',
+    shadowColor: adminColors.brandDeep,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.16,
     shadowRadius: 8,
@@ -305,20 +308,20 @@ const styles = StyleSheet.create({
   heroLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     opacity: 0.9,
     marginBottom: 6,
   },
   heroAmount: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.5,
     marginBottom: 16,
   },
   heroDivider: {
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     marginBottom: 14,
   },
   heroStatsRow: {
@@ -331,14 +334,17 @@ const styles = StyleSheet.create({
   },
   heroStatLabel: {
     fontSize: 11,
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     opacity: 0.85,
     marginBottom: 3,
   },
   heroStatValue: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
+  },
+  overviewGrid: {
+    marginBottom: 20,
   },
   miniCardsRow: {
     flexDirection: 'row',
@@ -352,7 +358,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     padding: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -390,7 +396,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,

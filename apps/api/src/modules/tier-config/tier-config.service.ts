@@ -17,7 +17,7 @@
  */
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
-import { withTransaction } from '../../db/pool.js';
+import { pool, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { tierConfigRepo, type Generation, type NewTierRow, type TierConfigRepo } from './tier-config.repo.js';
@@ -31,6 +31,7 @@ export interface TierConfigServiceDeps {
 }
 
 export interface TierConfigService {
+  getCurrentTiers(): Promise<TierBandsGeneration>;
   replaceTiers(scope: ResolvedScope, body: TierBandsBody): Promise<TierBandsGeneration>;
 }
 
@@ -101,6 +102,11 @@ export function createTierConfigService(deps: Partial<TierConfigServiceDeps> = {
   const transaction: TransactionRunner = deps.transaction ?? ((fn) => withTransaction(fn));
 
   return {
+    async getCurrentTiers() {
+      const current = await repo.currentGeneration(pool);
+      return toResponse(current);
+    },
+
     async replaceTiers(scope, body) {
       const problems = validateBands(body.tiers);
       if (problems.any) {

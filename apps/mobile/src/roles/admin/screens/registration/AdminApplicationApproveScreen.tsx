@@ -1,264 +1,187 @@
+/**
+ * Approve Application (POST /admin/farmer-applications/{id}/approve,
+ * farmer.application.approve, Idempotency-Key), drawn as the design draws it
+ * (origin/Superadmin-main AdminApplicationApproveScreen): back card, title,
+ * sub-title, applicant card with its documents pill, "Approval Notes
+ * (Optional)", and "Confirm & Onboard Farmer".
+ *
+ * Reached from the review screen's Approve button; it replaces the earlier
+ * confirmation pop-up as the "are you sure" step. Against the design:
+ *   - The applicant card comes from the API by id, never the design's fixture phone.
+ *   - "All Documents Verified" is drawn only when the application says its
+ *     documents were verified; it never does yet, so the pill keeps its shape
+ *     and carries the dash (testID farmerApps.approve.docsPill).
+ *   - Approval notes: the approve-with-note backend is being built now, so the
+ *     box is drawn read-only and disabled (testID farmerApps.approve.notes) and
+ *     the approval is sent with no note.
+ *   - Confirm calls the real approval once; the host hears about it only after
+ *     the server agreed, and the Idempotency-Key is then released. A refused
+ *     approval (BR-69, BR-135, 403, 409 ...) is shown above the button, which
+ *     stays so the admin can retry with the same key.
+ *
+ * Access fails closed: approve AND reject are needed (applicationLogic.ts).
+ */
 import React, { useState } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import type { PendingApplicationItem } from './AdminPendingApplicationsScreen';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Icon, SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { APPROVE_NOTE_MAX, type FarmerApplicationDto } from '../../api/farmerApplications';
+import { useApplication, useApproveApplication } from '../../api/farmerHooks';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { adminColors } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
+import { BackButtonCard } from './applications/ApplicationParts';
+import { applicationAccess, applicationErrorKey } from './applications/applicationLogic';
+import { ApplicantCard, applicantSummary, decisionStyles } from './applications/DecisionScreenParts';
+import { FS, RAD, SP } from './designMetrics';
+import { documentVerificationState, gateBlockerSummary } from './detail/documentReview';
 
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  greenBg: '#E8F5E9',
-  greenText: '#2E7D32',
-  inputBorder: '#E0DDD7',
-  inputBg: '#FFFFFF',
-};
-
-interface Props {
-  application: PendingApplicationItem;
+export interface AdminApplicationApproveScreenProps {
+  applicationId: string | undefined;
+  /** Permission check from /auth/me. Missing = deny everything. */
+  can?: Can | undefined;
+  /** The caller's warehouse, for the query cache key only (BR-30). */
+  warehouseId?: string | undefined;
   onBack: () => void;
-  onConfirmApprove: (notes: string) => void;
+  /** After the server approved. */
+  onApproved?: ((result: FarmerApplicationDto) => void) | undefined;
 }
 
-export const AdminApplicationApproveScreen: React.FC<Props> = ({
-  application,
+export const AdminApplicationApproveScreen: React.FC<AdminApplicationApproveScreenProps> = ({
+  applicationId,
+  can,
+  warehouseId,
   onBack,
-  onConfirmApprove,
+  onApproved,
 }) => {
+  const access = applicationAccess(can);
+  const allowed = access.canView && access.canDecide;
+  const live = useApplication(warehouseId, allowed ? applicationId : undefined);
+  const approve = useApproveApplication(allowed ? applicationId : undefined);
   const [notes, setNotes] = useState('');
+  const app = live.application;
+  const summary = applicantSummary(app);
+  const verified = app !== undefined && documentVerificationState(app) === 'verified';
+  const gateReason =
+    app === undefined
+      ? null
+      : gateBlockerSummary(app.reviewGates?.approval, {
+          requireFarmVerificationStage: app.reviewGates !== undefined || app.status !== 'FARM_VERIFICATION',
+          status: app.status,
+        });
+  const canConfirm = Boolean(allowed && app !== undefined && !approve.isPending && gateReason === null);
+  const hasError = approve.error !== null && approve.error !== undefined;
+
+  const confirm = () => {
+    if (!canConfirm) return;
+    const note = notes.trim();
+    approve.run(note.length > 0 ? { note } : {}, (result) => {
+      // The decision is done: the next one gets a fresh Idempotency-Key.
+      approve.finish();
+      onApproved?.(result);
+    });
+  };
 
   return (
-    <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
-
-      {/* Header with Back button */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </TouchableOpacity>
+    <SafeAreaView style={decisionStyles.root}>
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
+      <View style={decisionStyles.header}>
+        <BackButtonCard onPress={onBack} />
       </View>
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.title}>Approve Application</Text>
-        <Text style={styles.subtitle}>
-          Confirm approval and onboard {application.name} to Tohfa Platform
+      <ScrollView style={decisionStyles.container} contentContainerStyle={decisionStyles.contentContainer} showsVerticalScrollIndicator={false}>
+        <Text style={decisionStyles.title} accessibilityRole="header">
+          {t('farmerApps.approve.title')}
         </Text>
 
-        {/* Applicant Summary Card */}
-        <View style={styles.card}>
-          <View style={styles.applicantRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{application.initials}</Text>
-            </View>
-            <View style={styles.applicantInfo}>
-              <Text style={styles.applicantName}>{application.name}</Text>
-              <Text style={styles.applicantSub}>
-                {application.location} · {application.phone ?? '+91 98XXX XX412'}
+        {!allowed ? (
+          <AdminEmptyState title={t('farmerApps.approve.denied')} />
+        ) : (
+          <>
+            <Text style={decisionStyles.subtitle}>{t('farmerApps.approve.subtitle', { name: summary.name })}</Text>
+
+            <ApplicantCard summary={summary}>
+              <View style={styles.badgeRow}>
+                <View
+                  style={[styles.verifiedPill, verified ? null : styles.unknownPill]}
+                  testID="farmerApps.approve.docsPill"
+                >
+                  <Icon
+                    name="check_circle"
+                    size={SP.s16}
+                    color={verified ? adminColors.success.text : adminColors.muted}
+                    style={styles.verifiedPillIcon}
+                  />
+                  <Text style={[styles.verifiedPillText, verified ? null : styles.unknownPillText]}>
+                    {verified ? t('farmerApps.approve.docsVerified') : t('farmerApps.approve.docsUnknown', { value: ADMIN_NO_VALUE })}
+                  </Text>
+                </View>
+              </View>
+            </ApplicantCard>
+
+            <Text style={decisionStyles.fieldLabel}>{t('farmerApps.approve.notesLabel')}</Text>
+            <TextInput
+              style={decisionStyles.notesInput}
+              editable={allowed && !approve.isPending}
+              value={notes}
+              onChangeText={setNotes}
+              maxLength={APPROVE_NOTE_MAX}
+              placeholder={t('farmerApps.approve.notesPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              multiline
+              numberOfLines={3}
+              testID="farmerApps.approve.notes"
+            />
+
+            {gateReason !== null ? (
+              <View style={decisionStyles.errorBox} testID="farmerApps.approve.gateBlocked">
+                <Text style={decisionStyles.errorText}>{t('farmerApps.approve.gateBlocked', { reason: gateReason })}</Text>
+              </View>
+            ) : null}
+
+            {hasError ? (
+              <View style={decisionStyles.errorBox} accessibilityLiveRegion="polite">
+                <Text style={decisionStyles.errorText}>{t(applicationErrorKey(approve.error))}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[decisionStyles.primaryBtn, !canConfirm ? decisionStyles.busy : null]}
+              activeOpacity={0.85}
+              onPress={confirm}
+              disabled={!canConfirm}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canConfirm, busy: approve.isPending }}
+              testID="farmerApps.approve.confirm"
+            >
+              <Icon name="check_circle" size={SP.s20} color={adminColors.onBrand} style={decisionStyles.primaryBtnIcon} />
+              <Text style={decisionStyles.primaryBtnText}>
+                {approve.isPending ? t('farmerApps.action.approving') : t('farmerApps.approve.confirm')}
               </Text>
-            </View>
-          </View>
+            </TouchableOpacity>
+          </>
+        )}
 
-          <View style={styles.cardDivider} />
-
-          <View style={styles.badgeRow}>
-            <View style={styles.verifiedPill}>
-              <Icon name="check_circle" size={16} color={P.greenText} style={{ marginRight: 6 }} />
-              <Text style={styles.verifiedPillText}>All Documents Verified</Text>
-            </View>
-          </View>
-        </View>
-
-
-        {/* Approval Notes */}
-        <Text style={styles.fieldLabel}>Approval Notes (Optional)</Text>
-        <TextInput
-          style={styles.notesInput}
-          placeholder="e.g. FMB boundary coordinates and Aadhaar successfully verified against land registry records."
-          placeholderTextColor="#A09890"
-          multiline
-          numberOfLines={3}
-          value={notes}
-          onChangeText={setNotes}
-        />
-
-        {/* Action Button: Confirm & Onboard Farmer */}
-        <TouchableOpacity
-          style={styles.confirmBtn}
-          activeOpacity={0.85}
-          onPress={() => onConfirmApprove(notes)}
-        >
-          <Icon name="check_circle" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.confirmBtnText}>Confirm & Onboard Farmer</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: 40 }} />
+        <View style={decisionStyles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.bg },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 6 },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-    cursor: 'pointer' as any,
-  },
-  container: { flex: 1 },
-  contentContainer: { paddingHorizontal: 20, paddingTop: 12 },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 4,
-    letterSpacing: -0.4,
-  },
-  subtitle: {
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: P.subtitle,
-    marginBottom: 20,
-  },
-  card: {
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: P.cardBorder,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  applicantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFECE8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: P.titleBrown,
-  },
-  applicantInfo: { flex: 1 },
-  applicantName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 3,
-  },
-  applicantSub: {
-    fontSize: 12.5,
-    color: P.subtitle,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: P.cardBorder,
-    marginVertical: 14,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-  },
+  badgeRow: { flexDirection: 'row' },
   verifiedPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.greenBg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: RAD.r12,
+    paddingHorizontal: SP.s12,
+    paddingVertical: SP.s6,
   },
-  verifiedPillText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: P.greenText,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 8,
-  },
-  notesInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8E4DD',
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 14,
-    color: P.ink,
-    textAlignVertical: 'top',
-    minHeight: 88,
-    marginBottom: 24,
-  },
-  confirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 16,
-    height: 52,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 3,
-    cursor: 'pointer' as any,
-  },
-  confirmBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
+  /** Nothing reports a verification: the same pill, neutral, carrying the dash. */
+  unknownPill: { backgroundColor: adminColors.warehouse.warmCanvas },
+  verifiedPillIcon: { marginRight: SP.s6 },
+  verifiedPillText: { fontSize: FS.s12_5, fontWeight: '700', color: adminColors.success.text },
+  unknownPillText: { color: adminColors.muted },
 });

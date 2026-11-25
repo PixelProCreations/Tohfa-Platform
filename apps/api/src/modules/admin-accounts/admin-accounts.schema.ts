@@ -3,6 +3,7 @@
  * `DisableAdminAccountRequest` and `AdminAccountStatus`.
  */
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 
 export const ACCOUNT_STATUSES = ['PENDING', 'ACTIVE', 'DISABLED'] as const;
 
@@ -99,3 +100,49 @@ export const farmerAdminZones = z.object({
   zoneIds: z.array(z.string().uuid()),
 });
 export type FarmerAdminZones = z.infer<typeof farmerAdminZones>;
+
+/* ---------------------------------------------------------------------------
+ * GET /admin/accounts (P0-41)
+ * ------------------------------------------------------------------------- */
+
+export const listAdminAccountsQuery = z
+  .object({
+    role: z.string().trim().optional(),
+    status: z.enum(ACCOUNT_STATUSES).optional(),
+    q: z.string().trim().min(1).max(100).optional(),
+    cursor: z
+      .string()
+      .max(512)
+      .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.adminAccounts, raw) !== null, { message: 'Invalid cursor.' })
+      .optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type ListAdminAccountsQuery = z.infer<typeof listAdminAccountsQuery>;
+
+export const adminAccountZoneSchema = z.object({
+  id: z.string().uuid(),
+  code: z.string(),
+  name: z.string(),
+});
+export type AdminAccountZone = z.infer<typeof adminAccountZoneSchema>;
+
+export const adminAccountListItem = z.object({
+  id: z.string().uuid(),
+  fullName: z.string(),
+  email: z.string().nullable(),
+  roleCode: z.string(),
+  status: z.enum(ACCOUNT_STATUSES),
+  zones: z.array(adminAccountZoneSchema),
+});
+export type AdminAccountListItem = z.infer<typeof adminAccountListItem>;
+
+export interface ListAdminAccountsResponse {
+  items: AdminAccountListItem[];
+  page: {
+    nextCursor: string | null;
+    hasMore: boolean;
+  };
+  nextCursor: string | null;
+  hasMore: boolean;
+}

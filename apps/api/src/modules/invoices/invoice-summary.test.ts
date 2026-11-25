@@ -204,11 +204,8 @@ describeIfDatabase('GET /v1/invoices/summary (HTTP)', () => {
     server = createApp().listen(0);
   });
 
-  // Closes the pool for the whole file (the repo suite above runs first and leaves it open).
   afterAll(async () => {
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
     if (ready) await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const get = (who?: string, query: Record<string, string> = EMPTY) => {

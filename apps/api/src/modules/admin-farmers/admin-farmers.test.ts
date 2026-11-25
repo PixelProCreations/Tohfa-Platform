@@ -190,6 +190,33 @@ function fakeRepo(
     async getConfig(_db, key) {
       return state.config?.[key];
     },
+    async getSummary(_db, scope) {
+      calls.scopes.push(scope.sql);
+      return {
+        totalFarmers: 12,
+        pendingApplications: 5,
+        activeFarmers: 10,
+        deactivatedFarmers: 1,
+        inactiveFarmers: 1,
+        expiredCertifications: 1,
+        activeSubscriptions: 12,
+        approvalInbox: 3,
+        zones: [],
+      };
+    },
+    async updateFarmerStatus(_db, _farmerId, params) {
+      if (profile) {
+        profile = {
+          ...profile,
+          accountStatus: params.userStatus,
+          isMarketBlocked: params.isMarketBlocked,
+          marketBlockReason: params.marketBlockReason,
+        };
+      }
+    },
+    async createFarmer(_db, _params) {
+      return newId();
+    },
   };
   return { repo, calls };
 }
@@ -390,6 +417,61 @@ describe('admin farmers: locked fields and the audited edit (BR-33, BR-35, BR-10
     expect(calls.updateUser).toEqual([]);
     expect(auditInserts(log)).toEqual([]);
   });
+
+  it('updateStatus: disables farmer account and writes farmer.account.disable audit row', async () => {
+    const { repo } = fakeRepo();
+    const log: RecordedQuery[] = [];
+    const disableScope = superScope('farmer.account.disable');
+    const detail = await serviceWith(repo, log).updateStatus(
+      superScope('farmer.profile.edit'),
+      disableScope,
+      null,
+      FARMER,
+      { action: 'DISABLE', reason: 'Failed KYC inspection', note: 'Flagged by audit' },
+    );
+    expect(detail.accountStatus).toBe('DISABLED');
+    expect(detail.isMarketBlocked).toBe(true);
+    const inserts = auditInserts(log);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.params[3]).toBe('farmer.account.disable');
+  });
+
+  it('updateStatus: reactivates farmer account and writes farmer.account.reactivate audit row', async () => {
+    const { repo } = fakeRepo({ profile: aProfile({ accountStatus: 'DISABLED', isMarketBlocked: true }) });
+    const log: RecordedQuery[] = [];
+    const reactivateScope = superScope('farmer.account.reactivate');
+    const detail = await serviceWith(repo, log).updateStatus(
+      superScope('farmer.profile.edit'),
+      null,
+      reactivateScope,
+      FARMER,
+      { action: 'ACTIVATE', reason: 'Passed re-audit' },
+    );
+    expect(detail.accountStatus).toBe('ACTIVE');
+    expect(detail.isMarketBlocked).toBe(false);
+    const inserts = auditInserts(log);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.params[3]).toBe('farmer.account.reactivate');
+  });
+
+  it('create: creates a new farmer directly and writes farmer.profile.create audit row', async () => {
+    const { repo } = fakeRepo();
+    const log: RecordedQuery[] = [];
+    const detail = await serviceWith(repo, log).create(
+      superScope('farmer.profile.edit'),
+      {
+        fullName: 'New Farmer',
+        mobile: '+919876543210',
+        zoneId: ZONE_A,
+        village: 'Ketti',
+        district: 'The Nilgiris',
+      },
+    );
+    expect(detail).toBeDefined();
+    const inserts = auditInserts(log);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0]!.params[3]).toBe('farmer.profile.create');
+  });
 });
 
 describe('admin farmers: documents and the idempotent verify (BR-108e, BR-35)', () => {
@@ -582,8 +664,11 @@ describe('admin farmers router (BR-108g, BR-33a)', () => {
     expect(new Set(routes)).toEqual(
       new Set([
         'get /',
+        'post /',
+        'get /summary',
         'get /:id',
         'patch /:id',
+        'post /:id/status',
         'get /:id/documents',
         'post /:id/documents/:docId/verify',
         'get /:id/bank-accounts',
@@ -952,6 +1037,49 @@ describeIfDatabase('admin farmers (PostgreSQL, rolled back)', () => {
       const result = await service(tx).getSubscription(farmerAdminScope([w.zoneA], 'farmer.subscription.view_tier_limits'), w.farmerA);
       expect(result).toEqual({ farmerId: w.farmerA, current: null, freeTierLimits: { enforced: false, listingLimit: null } });
       expect((await caught(service(tx).getSubscription(farmerAdminScope([w.zoneA], 'farmer.subscription.view_tier_limits'), w.farmerB))).status).toBe(404);
+    });
+  });
+
+  it('BR-36 / P0-38: Farmer search q matches tohfa_farmer_id and zone name as well as full_name and mobile', async () => {
+    await inRollback(async (tx) => {
+      const w = await seed(tx);
+      const farmerRow = (await tx.query<{ tohfa_farmer_id: string; zone_name: string }>(
+        `SELECT f.tohfa_farmer_id, z.name AS zone_name
+           FROM farmers f
+           JOIN zones z ON z.id = f.zone_id
+          WHERE f.id = $1`,
+        [w.farmerA],
+      )).rows[0]!;
+
+      // 1. Search by tohfa_farmer_id
+      const byId = await adminFarmersRepo.list(tx, {
+        filters: { q: farmerRow.tohfa_farmer_id },
+        scope: { sql: 'TRUE', params: [], nextIndex: 1 },
+        limit: 10,
+      });
+      expect(byId.items.some((item) => item.id === w.farmerA)).toBe(true);
+
+      // 2. Search by zone name
+      const byZone = await adminFarmersRepo.list(tx, {
+        filters: { q: farmerRow.zone_name },
+        scope: { sql: 'TRUE', params: [], nextIndex: 1 },
+        limit: 10,
+      });
+      expect(byZone.items.some((item) => item.id === w.farmerA)).toBe(true);
+    });
+  });
+
+  it('BR-36 / P0-39: AdminFarmerLandLocation includes createdAt from farms.created_at', async () => {
+    await inRollback(async (tx) => {
+      const w = await seed(tx);
+      await tx.query(
+        `INSERT INTO farms (farmer_id, name, area_acres, centroid_lat, centroid_lng, is_primary) VALUES ($1, 'Upper field', 2.5, 11.4, 76.7, true)`,
+        [w.farmerA],
+      );
+      const locations = await adminFarmersRepo.findLandLocations(tx, w.farmerA);
+      expect(locations.length).toBeGreaterThan(0);
+      expect(locations[0]).toHaveProperty('createdAt');
+      expect(typeof (locations[0] as any).createdAt).toBe('string');
     });
   });
 });

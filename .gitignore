@@ -29,6 +29,11 @@ apps/*/android/app/build/
 # CMake/Kotlin build state, generated now that the New Architecture builds the
 # app's native code (RN 0.88 template ignores these too)
 apps/*/android/app/.cxx/
+# A Windows absolute buildStagingDirectory ("C:/cxx") made Gradle create a
+# directory literally named "C:" here on macOS/Linux. app/build.gradle no
+# longer does that, but keep this so an older checkout or a stale override
+# does not put 300+ MB of CMake output back into `git status`.
+apps/*/android/app/C:/
 apps/*/android/.kotlin/
 apps/*/android/local.properties
 apps/*/android/app/src/main/res/values/strings.xml
@@ -62,3 +67,6 @@ requirement-doc/
 # Local dev blob storage fallback (LocalDiskBlobStorage, used when
 # AZURE_STORAGE_CONNECTION_STRING is unset -- see apps/api/src/storage/blobStorage.ts)
 apps/api/.local-uploads/
+
+# Local AI work briefs, not part of the product
+docs/antigravity/

@@ -23,13 +23,13 @@
  * "refunded at most once" true by construction rather than by a flag.
  */
 import { ScopeLevel, parseMoney } from '@tohfa/shared-types';
+import { kgToGrams } from '../sales/sales.math.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { confineToAssignedWarehouses } from '../warehouse-ops/scope.js';
-import { kgToGrams } from '../sales/sales.math.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
 import { defaultBlobStorage } from '../../storage/blobStorage.js';
 import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
@@ -56,6 +56,8 @@ import type {
   ReturnRequestItemResponse,
   ReturnRequestResponse,
   ReturnStatus,
+  ReturnsSummaryQuery,
+  ReturnsSummaryResponse,
 } from './returnRequests.schema.js';
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
@@ -228,6 +230,7 @@ export function createReturnRequestsService(
           });
         }
         // BR-155e: integer grams, never floats; returns not REJECTED already claim their share.
+        // Dev's remaining-quantity check subsumes HEAD's plain ordered-qty check.
         const remainingGrams =
           kgToGrams(orderItem.qtyKg) - kgToGrams(alreadyReturned[item.orderItemId] ?? '0');
         if (kgToGrams(item.qty) > remainingGrams) {
@@ -245,6 +248,10 @@ export function createReturnRequestsService(
           customerId: order.customerId,
           reason: input.reason,
           note: input.note ?? null,
+          issueCategory: input.issueCategory ?? null,
+          issueTicket: input.issueTicket ?? null,
+          requestedResolution: input.requestedResolution ?? null,
+          customerEvidence: input.customerEvidence ?? [],
           photoKeys,
         });
 
@@ -304,7 +311,12 @@ export function createReturnRequestsService(
       return {
         items: await Promise.all(result.items.map(withPhotoUrls)),
         page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
+        summary: result.summary,
       };
+    },
+
+    async getSummary(scope, query): Promise<ReturnsSummaryResponse> {
+      return repo.getSummary(db, { scope: confineToAssignedWarehouses(scope), filters: query });
     },
 
     async getById(scope, id): Promise<ReturnRequestResponse> {
@@ -327,7 +339,7 @@ export function createReturnRequestsService(
       }
 
       await runTx(async (tx) => {
-        await repo.updateInspectionItems(tx, id, input.items);
+        await repo.updateInspectionItems(tx, id, input.items, input.inspectionNotes, input.inspectionPhotos);
         await repo.updateStatus(tx, id, 'INSPECTED');
         await repo.insertStatusHistory(tx, {
           returnRequestId: id,
@@ -548,11 +560,22 @@ function toResponse(
   return {
     id: row.id,
     orderId: row.orderId,
+    orderNumber: row.orderNumber ?? null,
     customerId: row.customerId,
+    customerName: row.customerName ?? null,
     warehouseId,
     status: row.status,
     reason: row.reason,
     note: row.note,
+    issueCategory: row.issueCategory ?? null,
+    issueTicket: row.issueTicket ?? null,
+    requestedResolution: row.requestedResolution ?? null,
+    customerEvidence: row.customerEvidence ?? [],
+    inspectionNotes: row.inspectionNotes ?? null,
+    inspectionPhotos: row.inspectionPhotos ?? [],
+    returnWindowEligible: row.returnWindowEligible ?? true,
+    projectedRefundAmount: row.projectedRefundAmount ?? null,
+    projectedRefundMethod: row.projectedRefundMethod ?? null,
     photos: row.photoKeys ?? [],
     items,
     createdAt: row.createdAt.toISOString(),
@@ -572,6 +595,7 @@ export interface ReturnRequestsService {
   /** BR-155h: GET /returns/me/{id}. */
   getOwn(scope: ResolvedScope, id: string): Promise<CustomerReturnResponse>;
   list(scope: ResolvedScope, query: ListReturnsQuery): Promise<ListReturnsResponse>;
+  getSummary(scope: ResolvedScope, query: ReturnsSummaryQuery): Promise<ReturnsSummaryResponse>;
   getById(scope: ResolvedScope, id: string): Promise<ReturnRequestResponse>;
   inspect(
     actor: Actor,

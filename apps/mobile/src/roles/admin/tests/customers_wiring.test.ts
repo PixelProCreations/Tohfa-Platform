@@ -104,8 +104,13 @@ describe('the customer list is the server search and summary', () => {
 });
 
 describe('hidden: what the API cannot do', () => {
-  it('no live route opens the order or purchase filter screens (grade, crop, date, sort)', () => {
-    expect(FLOW).not.toMatch(/navigate\('OrderFilters'|navigate\('PurchaseFilters'/);
+  it('the order and purchase lists open their design filter screens, but Apply sends no grade, crop, date or sort to the API', () => {
+    expect(FLOW).toMatch(/onOpenFilters=\{\(\) => navigate\('OrderFilters'\)\}/);
+    expect(FLOW).toMatch(/onOpenFilters=\{\(\) => navigate\('PurchaseFilters'\)\}/);
+    // Apply only closes the screen: no value reaches a request.
+    expect((FLOW.match(/onApplyFilters=\{\(\) => back\(\)\}/g) ?? []).length).toBe(2);
+    expect(FLOW).not.toMatch(/onApplyFilters=\{(?!\(\) => back\(\)\})/);
+    expect(DATA).not.toMatch(/\b(grade|crop|sort)\b\s*[:,}]/);
   });
 
   it('BR-92a: Customer Details shows the e-mail only through contactActions, and has no edit or suspend', () => {
@@ -113,6 +118,24 @@ describe('hidden: what the API cannot do', () => {
     expect(DETAILS).toMatch(/contact\.email \?/);
     expect(DETAILS).not.toMatch(/label="(Edit|Suspend)[^"]*"/);
     expect(DETAILS).not.toMatch(/onNavigateTo(Edit|Suspend|CustomerActions)/);
+  });
+});
+
+describe('the Tohfa Admin customers host', () => {
+  const MGMT_FLOW = read('roles/admin/screens/customers-management/CustomersManagementFlow.tsx');
+  const SA_SHELL = read('roles/admin/screens/dashboard/SuperAdminDashboardScreen.tsx');
+
+  it('is not pinned to one warehouse: an admin sees every warehouse', () => {
+    expect(MGMT_FLOW).toMatch(/const TOHFA_ADMIN_SCOPE: WarehouseScope = \{\};/);
+    expect(MGMT_FLOW).toMatch(/scope=\{TOHFA_ADMIN_SCOPE\}/);
+  });
+
+  // The Super Admin shell used to mount the bare hub and route its directory
+  // action at the warehouse CustomersFlow, which carries no Add Customer
+  // button — so a Super Admin could reach no create screen at all.
+  it('is the single host the Super Admin shell mounts for Customers', () => {
+    expect(SA_SHELL).toMatch(/activeSubScreen === 'customers'[\s\S]{0,120}<CustomersManagementFlow/);
+    expect(SA_SHELL).not.toMatch(/customers_directory/);
   });
 });
 

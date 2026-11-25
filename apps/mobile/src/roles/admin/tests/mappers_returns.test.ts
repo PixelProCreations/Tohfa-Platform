@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { ApiError, NetworkError } from '../../../shell/api/client';
 import { createIdempotencyKeyCache } from '../../../shell/api/idempotency';
 import { bodyFingerprint } from '../api/hookHelpers';
+import type { AdminOrderDetailDto } from '../api/orders';
 import type { ReturnHistoryEntryDto, ReturnRefundResultDto, ReturnRequestDto, ReturnStatus } from '../api/returns';
 import {
   CONDITION_FROM_API,
@@ -33,6 +34,7 @@ import {
   returnStatusView,
   returnWriteErrorKey,
   toRefundResult,
+  toReturnOrder,
   toReturnDetail,
   toReturnRow,
   toReturnTimeline,
@@ -420,5 +422,54 @@ describe('refundAmountPaise', () => {
 
   it('an amount that is not Money is null (the screen shows no figure rather than a wrong one)', () => {
     expect(refundAmountPaise({ amount: 'abc' })).toBeNull();
+  });
+});
+
+describe('toReturnOrder (the linked order on the return screens)', () => {
+  const ORDER: AdminOrderDetailDto = {
+    id: ORDER_ID,
+    orderNumber: 'TOH-2026-0084412',
+    channel: 'ONLINE',
+    status: 'DELIVERED',
+    fulfilmentType: 'DELIVERY',
+    paymentMethod: 'WALLET',
+    paymentStatus: 'PAID',
+    warehouse: { id: '11111111-1111-4111-8111-111111111111', name: 'Coonoor Warehouse' },
+    buyer: { kind: 'CUSTOMER', customerId: '55555555-5555-4555-8555-555555555555', customerCode: 'CUS-0042', name: 'Meena S.', mobileMasked: '******3210' },
+    items: [],
+    totals: { subtotal: '0.00' as never, deliveryFee: '0.00' as never, discount: '0.00' as never, gst: '0.00' as never, total: '0.00' as never },
+    invoice: null,
+    fulfilment: { deliveryDate: null, deliverySlot: null, otpRequired: false, otpVerifiedAt: null },
+    timeline: [],
+    placedAt: '2026-10-13T04:35:00Z',
+    packedAt: null,
+    completedAt: null,
+    cancelledAt: null,
+  };
+
+  it('carries the order number, buyer, masked mobile (BR-92), warehouse, date, channel and payment status as the server sent them', () => {
+    const view = toReturnOrder(ORDER, NOW);
+    expect(view.orderNumber).toBe('TOH-2026-0084412');
+    expect(view.buyerName).toBe('Meena S.');
+    expect(view.customerCode).toBe('CUS-0042');
+    expect(view.mobileMasked).toBe('******3210');
+    expect(view.warehouseName).toBe('Coonoor Warehouse');
+    expect(view.placedLabel).not.toBe('');
+    expect(view.channelLabel).not.toBe('—');
+    expect(view.paymentStatusLabel).not.toBe('');
+  });
+
+  it('a walk-in buyer has no customer code, and a channel the app does not know reads as the dash, never a guessed label', () => {
+    const walkIn = toReturnOrder({ ...ORDER, buyer: { ...ORDER.buyer, kind: 'WALK_IN', customerId: null, customerCode: null, mobileMasked: null } }, NOW);
+    expect(walkIn.customerCode).toBeNull();
+    expect(walkIn.mobileMasked).toBeNull();
+    const unknown = toReturnOrder({ ...ORDER, channel: 'SOMETHING_NEW' as never }, NOW);
+    expect(unknown.channelLabel).toBe('—');
+  });
+
+  it('BR-16: the view holds no farm identity even when the record carries one', () => {
+    const leaky = { ...ORDER, farmerId: '77777777-7777-4777-8777-777777777777', farmName: 'Green Acres Estate' } as unknown as AdminOrderDetailDto;
+    const json = JSON.stringify(toReturnOrder(leaky, NOW));
+    expect(json).not.toMatch(/77777777-7777|Green Acres/);
   });
 });

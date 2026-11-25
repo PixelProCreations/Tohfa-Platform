@@ -84,11 +84,19 @@ function renumber(scope: ScopedWhere, startIndex: number): ScopedWhere {
   };
 }
 
+export interface AllocationConfigFilter {
+  warehouseId?: string | null | undefined;
+  cropId?: string | null | undefined;
+  grade?: string | null | undefined;
+}
+
 export interface AllocationsRepo {
   getEffectivePercentages(
     db: Executor,
     effectiveDate: string,
     cropId?: string | null,
+    warehouseId?: string | null,
+    grade?: string | null,
   ): Promise<EffectivePercentage[]>;
   insertBatchAllocations(
     db: Executor,
@@ -98,6 +106,10 @@ export interface AllocationsRepo {
     db: Executor,
     input: UpdateAllocationConfigBody,
     setBy: string,
+  ): Promise<AllocationConfigView>;
+  getAllocationConfig(
+    db: Executor,
+    filter?: AllocationConfigFilter | string | null,
   ): Promise<AllocationConfigView>;
   listAllocations(
     db: Executor,
@@ -117,55 +129,49 @@ export const allocationsRepo: AllocationsRepo = {
     db: Executor,
     effectiveDate: string,
     cropId?: string | null,
+    warehouseId?: string | null,
+    grade?: string | null,
   ): Promise<EffectivePercentage[]> {
-    // 1. Try per-crop override first if cropId is provided
-    if (cropId) {
-      const cropRes = await db.query<{ channel: AllocationChannel; percentage: string }>(
+    const configsToTry = [
+      { warehouseId: warehouseId ?? null, cropId: cropId ?? null, grade: grade ?? null },
+      { warehouseId: warehouseId ?? null, cropId: cropId ?? null, grade: null },
+      { warehouseId: null, cropId: cropId ?? null, grade: grade ?? null },
+      { warehouseId: null, cropId: cropId ?? null, grade: null },
+      { warehouseId: warehouseId ?? null, cropId: null, grade: null },
+      { warehouseId: null, cropId: null, grade: null },
+    ];
+
+    for (const c of configsToTry) {
+      if (c.warehouseId !== null && !warehouseId) continue;
+      if (c.cropId !== null && !cropId) continue;
+      if (c.grade !== null && !grade) continue;
+
+      const res = await db.query<{ channel: AllocationChannel; percentage: string }>(
         `WITH latest_window AS (
            SELECT effective_from
              FROM allocation_config
-            WHERE crop_id = $1
-              AND effective_from <= $2::date
+            WHERE warehouse_id IS NOT DISTINCT FROM $1
+              AND crop_id IS NOT DISTINCT FROM $2
+              AND grade IS NOT DISTINCT FROM $3
+              AND effective_from <= $4::date
             ORDER BY effective_from DESC
             LIMIT 1
          )
          SELECT channel, percentage
            FROM allocation_config
-          WHERE crop_id = $1
+          WHERE warehouse_id IS NOT DISTINCT FROM $1
+            AND crop_id IS NOT DISTINCT FROM $2
+            AND grade IS NOT DISTINCT FROM $3
             AND effective_from = (SELECT effective_from FROM latest_window)`,
-        [cropId, effectiveDate],
+        [c.warehouseId, c.cropId, c.grade, effectiveDate],
       );
 
-      if (cropRes.rows.length === 4) {
-        return cropRes.rows.map((r) => ({
+      if (res.rows.length === 4) {
+        return res.rows.map((r) => ({
           channel: r.channel,
           percentage: Number(r.percentage),
         }));
       }
-    }
-
-    // 2. Fall back to default config (crop_id IS NULL)
-    const defaultRes = await db.query<{ channel: AllocationChannel; percentage: string }>(
-      `WITH latest_window AS (
-         SELECT effective_from
-           FROM allocation_config
-          WHERE crop_id IS NULL
-            AND effective_from <= $1::date
-          ORDER BY effective_from DESC
-          LIMIT 1
-       )
-       SELECT channel, percentage
-         FROM allocation_config
-        WHERE crop_id IS NULL
-          AND effective_from = (SELECT effective_from FROM latest_window)`,
-      [effectiveDate],
-    );
-
-    if (defaultRes.rows.length === 4) {
-      return defaultRes.rows.map((r) => ({
-        channel: r.channel,
-        percentage: Number(r.percentage),
-      }));
     }
 
     // Fallback if no window found in DB (safety seed values: 70/10/10/10)
@@ -216,45 +222,35 @@ export const allocationsRepo: AllocationsRepo = {
     setBy: string,
   ): Promise<AllocationConfigView> {
     try {
+      const warehouseId = input.warehouseId ?? null;
+      const cropId = input.cropId ?? null;
+      const grade = input.grade ?? null;
+
       for (const item of input.channels) {
-        if (input.cropId) {
-          await db.query(
-            `INSERT INTO allocation_config (
-               channel,
-               percentage,
-               effective_from,
-               crop_id,
-               set_by
-             ) VALUES ($1, $2, $3::date, $4, $5)
-             ON CONFLICT (channel, crop_id, effective_from) WHERE crop_id IS NOT NULL
-             DO UPDATE SET
-               percentage = EXCLUDED.percentage,
-               set_by = EXCLUDED.set_by,
-               updated_at = now()`,
-            [item.channel, item.percentage, input.effectiveFrom, input.cropId, setBy],
-          );
-        } else {
-          await db.query(
-            `INSERT INTO allocation_config (
-               channel,
-               percentage,
-               effective_from,
-               crop_id,
-               set_by
-             ) VALUES ($1, $2, $3::date, NULL, $4)
-             ON CONFLICT (channel, effective_from) WHERE crop_id IS NULL
-             DO UPDATE SET
-               percentage = EXCLUDED.percentage,
-               set_by = EXCLUDED.set_by,
-               updated_at = now()`,
-            [item.channel, item.percentage, input.effectiveFrom, setBy],
-          );
-        }
+        await db.query(
+          `INSERT INTO allocation_config (
+             channel,
+             percentage,
+             effective_from,
+             warehouse_id,
+             crop_id,
+             grade,
+             set_by
+           ) VALUES ($1, $2, $3::date, $4, $5, $6, $7)
+           ON CONFLICT (channel, effective_from, warehouse_id, crop_id, grade)
+           DO UPDATE SET
+             percentage = EXCLUDED.percentage,
+             set_by = EXCLUDED.set_by,
+             updated_at = now()`,
+          [item.channel, item.percentage, input.effectiveFrom, warehouseId, cropId, grade, setBy],
+        );
       }
 
       return {
         effectiveFrom: input.effectiveFrom,
-        cropId: input.cropId ?? null,
+        warehouseId,
+        cropId,
+        grade,
         channels: input.channels,
         setBy,
         setAt: new Date().toISOString(),
@@ -274,6 +270,97 @@ export const allocationsRepo: AllocationsRepo = {
       }
       throw err;
     }
+  },
+
+  async getAllocationConfig(
+    db: Executor,
+    filter?: AllocationConfigFilter | string | null,
+  ): Promise<AllocationConfigView> {
+    const f: AllocationConfigFilter =
+      typeof filter === 'string'
+        ? { cropId: filter }
+        : (filter ?? {});
+
+    const configsToTry = [
+      { warehouseId: f.warehouseId ?? null, cropId: f.cropId ?? null, grade: f.grade ?? null },
+      { warehouseId: f.warehouseId ?? null, cropId: f.cropId ?? null, grade: null },
+      { warehouseId: null, cropId: f.cropId ?? null, grade: f.grade ?? null },
+      { warehouseId: null, cropId: f.cropId ?? null, grade: null },
+      { warehouseId: f.warehouseId ?? null, cropId: null, grade: null },
+      { warehouseId: null, cropId: null, grade: null },
+    ];
+
+    for (const c of configsToTry) {
+      const res = await db.query<{
+        channel: AllocationChannel;
+        percentage: string;
+        effective_from: Date | string;
+        warehouse_id: string | null;
+        crop_id: string | null;
+        grade: string | null;
+        set_by: string | null;
+        created_at: Date | string | null;
+      }>(
+        `WITH latest_window AS (
+           SELECT effective_from
+             FROM allocation_config
+            WHERE warehouse_id IS NOT DISTINCT FROM $1
+              AND crop_id IS NOT DISTINCT FROM $2
+              AND grade IS NOT DISTINCT FROM $3
+              AND effective_from <= CURRENT_DATE
+            ORDER BY effective_from DESC
+            LIMIT 1
+         )
+         SELECT channel, percentage, effective_from, warehouse_id, crop_id, grade, set_by, created_at
+           FROM allocation_config
+          WHERE warehouse_id IS NOT DISTINCT FROM $1
+            AND crop_id IS NOT DISTINCT FROM $2
+            AND grade IS NOT DISTINCT FROM $3
+            AND effective_from = (SELECT effective_from FROM latest_window)
+          ORDER BY CASE channel
+            WHEN 'ONLINE' THEN 1
+            WHEN 'LIVE_MARKET' THEN 2
+            WHEN 'RESERVE' THEN 3
+            WHEN 'BUFFER' THEN 4
+            ELSE 5
+          END`,
+        [c.warehouseId, c.cropId, c.grade],
+      );
+
+      if (res.rows.length === 4) {
+        const first = res.rows[0]!;
+        const effectiveFrom = typeof first.effective_from === 'string'
+          ? (first.effective_from as string).slice(0, 10)
+          : new Date(first.effective_from).toISOString().slice(0, 10);
+        return {
+          effectiveFrom,
+          warehouseId: first.warehouse_id ?? null,
+          cropId: first.crop_id ?? null,
+          grade: first.grade ?? null,
+          channels: res.rows.map((r) => ({
+            channel: r.channel,
+            percentage: Number(r.percentage),
+          })),
+          setBy: first.set_by,
+          setAt: first.created_at ? new Date(first.created_at).toISOString() : undefined,
+        };
+      }
+    }
+
+    return {
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      warehouseId: f.warehouseId ?? null,
+      cropId: f.cropId ?? null,
+      grade: f.grade ?? null,
+      channels: [
+        { channel: 'ONLINE', percentage: 70 },
+        { channel: 'LIVE_MARKET', percentage: 10 },
+        { channel: 'RESERVE', percentage: 10 },
+        { channel: 'BUFFER', percentage: 10 },
+      ],
+      setBy: null,
+      setAt: undefined,
+    };
   },
 
   async listAllocations(

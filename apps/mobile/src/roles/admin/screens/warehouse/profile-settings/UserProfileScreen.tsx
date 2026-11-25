@@ -24,8 +24,8 @@
  * The saved language is the account's preference only; it does not switch the
  * app's display language here.
  *
- * Hidden, because GET /auth/me has no such field: the Admin ID, the Access
- * Level and the password-changed date.
+ * GET /auth/me has no Admin ID, Access Level or password-changed date. Those
+ * design elements are still shown, with an em-dash for the value.
  */
 import React, { useState } from 'react';
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -261,8 +261,10 @@ export function UserProfileScreen({
             <StatusBadge label={account.status} tone={account.statusTone} />
             {isMain ? <StatusBadge label={account.warehouseLabel} tone="brandSoft" /> : null}
           </View>
-          {isMain && account.lastLogin !== null ? (
-            <Text style={styles.loginLine}>{t('profile.lastLoginLine', { when: account.lastLogin })}</Text>
+          {isMain ? (
+            <Text style={styles.loginLine}>
+              {t('profile.adminLoginLine', { adminId: noValue, when: account.lastLogin ?? noValue })}
+            </Text>
           ) : null}
         </Card>
 
@@ -273,7 +275,10 @@ export function UserProfileScreen({
               { label: 'Full Name', value: account.fullName },
               { label: 'Role', value: account.roleLabel },
             ],
-            [{ label: isMain ? 'Warehouse Scope' : 'Warehouse', value: account.warehouseLabel }],
+            [
+              { label: isMain ? 'Warehouse Scope' : 'Warehouse', value: account.warehouseLabel },
+              { label: t('profile.adminId'), value: noValue },
+            ],
           ]}
         />
 
@@ -292,6 +297,10 @@ export function UserProfileScreen({
             <SectionTitle>ACCOUNT & ACCESS</SectionTitle>
             <InfoCard
               rows={[
+                [
+                  { label: t('profile.accessLevel'), value: noValue },
+                  { label: 'Warehouse Scope', value: account.warehouseLabel },
+                ],
                 [
                   { label: 'Created Date', value: account.createdDate ?? noValue },
                   { label: 'Last Login', value: account.lastLogin ?? noValue },
@@ -344,7 +353,7 @@ export function UserProfileScreen({
             <SectionTitle>SECURITY</SectionTitle>
             <MenuCard>
               {onChangePassword ? (
-                <MenuRow icon={<KeyIcon />} title="Change Password" subtitle="Update your password" onPress={onChangePassword} />
+                <MenuRow icon={<KeyIcon />} title="Change Password" subtitle={t('profile.passwordChanged', { when: noValue })} onPress={onChangePassword} />
               ) : null}
               <MenuRow icon={<LogoutIcon />} title="Sign Out" danger onPress={() => setConfirmSignOut(true)} />
             </MenuCard>

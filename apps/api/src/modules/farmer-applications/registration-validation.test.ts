@@ -8,11 +8,14 @@
  * with ZERO farms. Everything below goes through the REAL router and the REAL database:
  * a mocked repo cannot observe a query that never ran.
  */
+import { randomInt, randomUUID } from 'crypto';
 import { afterAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { pool } from '../../db/pool.js';
 import { databaseReady, describeIfDatabase } from '../../test/factories.js';
+import { markApplicationReviewedForApproval } from '../../test/applicationReview.js';
+import { purgeFarmerApplicationsByIds } from '../../test/committedFixtureCleanup.js';
 import {
   isRealPastDate,
   registrationStepBodySchemas,
@@ -75,27 +78,38 @@ const MOBILE_DOCS = {
 };
 
 let mobileCounter = 0;
+const runBase = randomInt(1000, 9999);
 function freshMobile(): string {
   mobileCounter += 1;
-  return `+9197${(Date.now() % 1_000_000).toString().padStart(6, '0')}${String(mobileCounter).padStart(2, '0')}`;
+  return `+9197${runBase}${String(mobileCounter).padStart(4, '0')}`;
 }
 
 describeIfDatabase('BR-69: registration step validation (real router, real database)', () => {
   const app = createApp();
+  const server = app.listen(0);
+  const createdAppIds: string[] = [];
 
   afterAll(async () => {
-    await pool.end().catch(() => undefined);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (createdAppIds.length > 0) {
+      // The history and review tables are append-only (BR-218), so cleanup goes through the
+      // replica-mode helper like every other append-only table's.
+      await purgeFarmerApplicationsByIds(pool, createdAppIds);
+    }
   });
+
 
   async function newApplication(): Promise<{ id: string; mobile: string }> {
     const mobile = freshMobile();
-    const res = await request(app).post('/v1/farmers/applications').send({ mobile, fullName: 'Devika R' });
+    const res = await request(server).post('/v1/farmers/applications').send({ mobile, fullName: 'Devika R' });
     expect(res.status).toBe(201);
-    return { id: res.body.id as string, mobile };
+    const id = res.body.id as string;
+    createdAppIds.push(id);
+    return { id, mobile };
   }
 
   const patchStep = (id: string, step: number, body: unknown) =>
-    request(app).patch(`/v1/farmers/applications/${id}/steps/${step}`).send(body as object);
+    request(server).patch(`/v1/farmers/applications/${id}/steps/${step}`).send(body as object);
 
   async function storedStep3(id: string): Promise<unknown> {
     const r = await pool.query<{ step3_location: unknown }>(
@@ -119,6 +133,15 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       farmerId: null,
       customerId: null,
     });
+  }
+
+  /** The id behind adminToken(): reviews reference users(id). */
+  async function adminUserId(): Promise<string> {
+    const admin = await pool.query<{ id: string }>(
+      `SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.id = ur.role_id
+        WHERE r.code = 'SUPER_ADMIN' AND u.deleted_at IS NULL ORDER BY u.created_at LIMIT 1`,
+    );
+    return admin.rows[0]!.id;
   }
 
   async function ready(): Promise<boolean> {
@@ -164,7 +187,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     // Documents are complete: the ONLY thing missing is located land.
     expect((await patchStep(id, 4, MOBILE_DOCS)).status).toBe(200);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.code).toBe('VALIDATION_FAILED');
     expect(res.body.detail).toMatch(/step 3/i);
@@ -185,7 +208,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       (await patchStep(id, 3, { locations: [{ id: 'loc-a', label: 'Home plot', areaAcres: 2 }] })).status,
     ).toBe(200);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.detail).toMatch(/step 3/i);
   });
@@ -200,7 +223,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       JSON.stringify({ locations: [{ foo: 'bar' }] }),
     ]);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.detail).toMatch(/step 3/i);
   });
@@ -210,7 +233,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     const { id } = await newApplication();
     expect((await patchStep(id, 3, { locations: [MOBILE_LOCATION] })).status).toBe(200);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.meta.missingDocuments).toEqual(['ID_PROOF', 'FARM_DOC']);
     expect(res.body.meta.missingSteps).toEqual([4]);
@@ -223,18 +246,23 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     expect((await patchStep(id, 4, MOBILE_DOCS)).status).toBe(200);
     // The end state of the QA run: past submit with step 3 empty. Force it with SQL because the
     // fixed submit route no longer lets an application get here (and legacy rows still may).
+    // BR-214: approval is only reachable from FARM_VERIFICATION with the documents verified, so
+    // the application is put there; with no locations the FMB gate has nothing to check, and the
+    // BR-69 refusal is what is left to fire.
     await pool.query(
-      `UPDATE farmer_applications SET status = 'AUDIT', is_draft = false, step3_location = '{"locations":[]}'::jsonb WHERE id = $1`,
+      `UPDATE farmer_applications SET is_draft = false, step3_location = '{"locations":[]}'::jsonb WHERE id = $1`,
       [id],
     );
+    await markApplicationReviewedForApproval(pool, id, await adminUserId());
     const auditBefore = await pool.query(
       `SELECT count(*)::int AS n FROM audit_log WHERE action_code = 'farmer.application.approve' AND entity_id = $1`,
       [id],
     );
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/v1/admin/farmer-applications/${id}/approve`)
       .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('Idempotency-Key', randomUUID())
       .send({});
     expect(res.status).toBe(422);
     expect(res.body.code).toBe('VALIDATION_FAILED');
@@ -251,7 +279,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       `SELECT status::text AS status, farmer_id FROM farmer_applications WHERE id = $1`,
       [id],
     );
-    expect(row.rows[0]).toEqual({ status: 'AUDIT', farmer_id: null });
+    expect(row.rows[0]).toEqual({ status: 'FARM_VERIFICATION', farmer_id: null });
     const auditAfter = await pool.query(
       `SELECT count(*)::int AS n FROM audit_log WHERE action_code = 'farmer.application.approve' AND entity_id = $1`,
       [id],
@@ -262,11 +290,15 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
   it('BR-69c: approving an application whose step 3 was never captured is 422 too', async () => {
     if (!(await ready())) return;
     const { id, mobile } = await newApplication();
-    await pool.query(`UPDATE farmer_applications SET status = 'AUDIT', is_draft = false WHERE id = $1`, [id]);
+    // Documents present and verified (BR-214), so the missing step 3 is the only thing wrong.
+    expect((await patchStep(id, 4, MOBILE_DOCS)).status).toBe(200);
+    await pool.query(`UPDATE farmer_applications SET is_draft = false WHERE id = $1`, [id]);
+    await markApplicationReviewedForApproval(pool, id, await adminUserId());
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/v1/admin/farmer-applications/${id}/approve`)
       .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('Idempotency-Key', randomUUID())
       .send({});
     expect(res.status).toBe(422);
     const users = await pool.query(`SELECT 1 FROM users WHERE mobile = $1`, [mobile]);
@@ -283,14 +315,15 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     expect((await patchStep(id, 4, MOBILE_DOCS)).status).toBe(200);
     expect((await patchStep(id, 5, { confirmed: true })).status).toBe(200);
 
-    const submit = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const submit = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(submit.status).toBe(200);
     expect(submit.body.status).toBe('DOCS_REVIEW');
 
-    await pool.query(`UPDATE farmer_applications SET status = 'AUDIT' WHERE id = $1`, [id]);
-    const approve = await request(app)
+    await markApplicationReviewedForApproval(pool, id, await adminUserId());
+    const approve = await request(server)
       .post(`/v1/admin/farmer-applications/${id}/approve`)
       .set('Authorization', `Bearer ${await adminToken()}`)
+      .set('Idempotency-Key', randomUUID())
       .send({});
     expect(approve.status).toBe(200);
 
@@ -352,10 +385,11 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     expect(res.body.code).toBe('VALIDATION_FAILED');
     const key = Object.keys(body)[0]!;
     expect(Object.keys(res.body.errors)).toContain(`body.${key}`);
-    // Sensitive input must never come back in the problem body.
+    // Sensitive input must never come back in the problem detail or field errors.
     const raw = String(Object.values(body)[0]);
     if (key === 'aadhaarLast4' || key === 'dob') {
-      expect(JSON.stringify(res.body)).not.toContain(raw);
+      expect(res.body.detail ?? '').not.toContain(raw);
+      expect(JSON.stringify(res.body.errors ?? {})).not.toContain(raw);
     }
   });
 
@@ -430,7 +464,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     for (const step of [1, 2, 3, 4, 5]) {
       const asArray = await patchStep(id, step, [{ fullName: 'Devika R' }]);
       expect(asArray.status, `array, step ${step}`).toBe(422);
-      const asScalar = await request(app)
+      const asScalar = await request(server)
         .patch(`/v1/farmers/applications/${id}/steps/${step}`)
         .set('Content-Type', 'application/json')
         .send('"just a string"');

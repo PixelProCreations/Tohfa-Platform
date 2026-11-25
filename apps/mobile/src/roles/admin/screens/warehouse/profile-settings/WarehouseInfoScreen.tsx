@@ -12,13 +12,14 @@
  * figure GET /warehouses/{id}/capacity (used kg, derived from ACTIVE batches)
  * and the location count the total of GET /warehouses/{id}/storage-locations.
  * A Sub admin reads only its own warehouse (scope.warehouseId; any other id is
- * 404). Read-only for Sub: warehouse.profile.edit is `none` for it, and there
- * is no edit control. Main picks a warehouse in the header selector; its
+ * 404). Read-only for Sub: warehouse.profile.edit is `none` for it, so the
+ * header pencil (the design's Edit control, `onEdit`) is drawn only with that
+ * code and never for Sub. Main picks a warehouse in the header selector; its
  * options are still the design's sample codes until the Main phase, which the
  * API does not know, so Main sees "not available" here for now.
  *
- * Hidden, because GET /warehouses/{id} has no such field: Region and Assigned
- * Admin. Not ported: three modal sheets (Operating / Contact / Documents) that
+ * GET /warehouses/{id} has no Region or Assigned Admin; the design's cells for
+ * them are still shown, with an em-dash. Not ported: three modal sheets (Operating / Contact / Documents) that
  * nothing could open (only the map sheet was reachable); the sections they
  * duplicated are the sub-screens. The fake bottom tab bar is the shared
  * WarehouseTabBar, shown when the host passes onTabChange.
@@ -26,6 +27,7 @@
 import React, { useState } from 'react';
 import { Alert, Linking, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
+import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
@@ -63,9 +65,36 @@ import {
 /** The sub-screens this profile opens (ProfileFlow routes). */
 export type WarehouseProfileChildRoute = 'StorageInfo' | 'OperatingInfo' | 'Contact' | 'Documents';
 
+/** Header edit action: the design's pencil (M15-S01), drawn on the brand header. */
+function PencilEditIcon() {
+  return (
+    <Svg width={EDIT_ICON} height={EDIT_ICON} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+        stroke={adminColors.onBrand}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+        stroke={adminColors.onBrand}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export interface WarehouseInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   /** Open a sub-screen. Without it the section list is not shown. */
   onOpen?: ((route: WarehouseProfileChildRoute) => void) | undefined;
+  /**
+   * Open Edit Warehouse Profile. The header pencil is drawn only with this AND
+   * warehouse.profile.edit (BR-80), and only once the warehouse has loaded.
+   */
+  onEdit?: (() => void) | undefined;
   /** The live warehouse (GET /warehouses/{id}); undefined until it loads. */
   profile?: WarehouseProfileView | undefined;
   /** GET /warehouses/{id}/capacity; undefined while loading or on failure (the field shows no value). */
@@ -87,6 +116,7 @@ export function WarehouseInfoScreen({
   onBack,
   onTabChange,
   onOpen,
+  onEdit,
   warehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
@@ -104,6 +134,8 @@ export function WarehouseInfoScreen({
 
   const headerWarehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const state = unavailable ? 'unavailable' : profile !== undefined ? 'ready' : queryViewState({ isLoading, error, itemCount: 0 });
+  // Fail closed: no code (or no `can` grants) means no control. The server refuses the PATCH anyway.
+  const showEdit = state === 'ready' && profile !== undefined && onEdit !== undefined && can('warehouse.profile.edit');
   const noValue = t('profile.noValue');
   const mapTarget = profile?.address ?? profile?.coordinates ?? null;
 
@@ -117,13 +149,27 @@ export function WarehouseInfoScreen({
 
   return (
     <WalletScreen
-      title="Warehouse Profile"
+      title={
+        <View style={styles.headerTitleWrap}>
+          <WarehouseBuildingIcon size={20} color={adminColors.onBrand} />
+          <Text style={styles.headerTitleText}>Warehouse Profile</Text>
+        </View>
+      }
       onBack={onBack}
       headerRight={
-        onRefresh ? (
-          <HeaderIconButton onPress={onRefresh} accessibilityLabel="Refresh profile">
-            <RefreshIcon />
-          </HeaderIconButton>
+        onRefresh || showEdit ? (
+          <View style={styles.headerActions}>
+            {onRefresh ? (
+              <HeaderIconButton onPress={onRefresh} accessibilityLabel="Refresh profile">
+                <RefreshIcon />
+              </HeaderIconButton>
+            ) : null}
+            {showEdit && onEdit ? (
+              <HeaderIconButton onPress={onEdit} accessibilityLabel={t('warehouseEdit.open')}>
+                <PencilEditIcon />
+              </HeaderIconButton>
+            ) : null}
+          </View>
         ) : undefined
       }
       headerExtra={
@@ -165,17 +211,17 @@ export function WarehouseInfoScreen({
                 { label: 'Status', value: profile.statusLabel },
                 { label: 'Warehouse Type', value: profile.kindLabel },
               ],
+              [
+                { label: t('profile.warehouse.region'), value: noValue },
+                { label: t('profile.warehouse.assignedSwa'), value: noValue },
+              ],
             ]}
           />
 
           <SectionTitle>Location</SectionTitle>
           <InfoCard rows={[[{ label: 'Location', value: profile.address ?? noValue }]]} />
-          {mapTarget !== null ? (
-            <>
-              <View style={warehouseProfileLayout.gap} />
-              <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open Map" onPress={() => setShowMap(true)} />
-            </>
-          ) : null}
+          <View style={warehouseProfileLayout.gap} />
+          <LinkCard icon={<MapFoldedIcon />} title="Map Preview" actionLabel="Open Map" onPress={() => setShowMap(true)} />
 
           <SectionTitle>Warehouse Overview</SectionTitle>
           <InfoCard
@@ -184,9 +230,16 @@ export function WarehouseInfoScreen({
                 { label: 'Storage Locations', value: locationCount === null ? noValue : String(locationCount) },
                 { label: 'Active', value: t(profile.isActive ? 'profile.yes' : 'profile.no') },
               ],
-              [{ label: 'Current Stock', value: capacity === undefined ? noValue : formatKg(capacity.usedGrams) }],
+              [
+                { label: t('profile.warehouse.assignedAdmin'), value: noValue },
+                { label: 'Current Stock', value: capacity === undefined ? noValue : formatKg(capacity.usedGrams) },
+              ],
             ]}
           />
+
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxText}>{t('profile.warehouse.stockNote')}</Text>
+          </View>
 
           {onOpen ? (
             <>
@@ -195,7 +248,7 @@ export function WarehouseInfoScreen({
                 <MenuRow icon={<StorageRackIcon />} title="Storage Information" onPress={() => onOpen('StorageInfo')} />
                 <MenuRow icon={<ClockIcon />} title="Operating Information" onPress={() => onOpen('OperatingInfo')} />
                 <MenuRow icon={<PhoneIcon />} title="Warehouse Contact" onPress={() => onOpen('Contact')} />
-                {/* Documents has no API yet (owner decision 2): the row is hidden, the screen stays. */}
+                {/* Shown only to a role holding the documents permission (BR-105). */}
                 {isAreaAvailable('warehouseDocuments', can) ? (
                   <MenuRow icon={<DocumentIcon />} title="Warehouse Documents" onPress={() => onOpen('Documents')} />
                 ) : null}
@@ -235,8 +288,22 @@ export function WarehouseInfoScreen({
 // Hero and map-sheet icon chip diameters: icon sizes, not spacing.
 const HERO_ICON = 56;
 const MAP_ICON_CHIP = 40;
+const EDIT_ICON = 20;
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  headerTitleWrap: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
+  headerTitleText: { ...adminType.title, color: adminColors.onBrand },
+  infoBox: {
+    backgroundColor: adminColors.info.bg,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xs,
+  },
+  infoBoxText: { ...adminType.caption, color: adminColors.info.text },
   hero: {
     alignItems: 'center',
     backgroundColor: adminColors.brand,

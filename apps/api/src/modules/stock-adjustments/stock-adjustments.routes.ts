@@ -9,9 +9,10 @@
  *    admin holds `none`, BR-37a). The service additionally refuses the adjustment's own creator.
  * Create and approve require an Idempotency-Key; the service enforces it before any write.
  */
-import { Router } from 'express';
+import express, { Router } from 'express';
 import { requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
+import { AppError } from '../../http/problem.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
@@ -85,6 +86,44 @@ export function createStockAdjustmentsRouter(service: StockAdjustmentsService = 
       const { id } = getValidated(req, 'params', adjustmentIdParams);
       const body = getValidated(req, 'body', rejectAdjustmentBody);
       res.json(await service.reject(scope, id, body));
+    }),
+  );
+
+  router.post(
+    '/:id/evidence',
+    requireAuth,
+    requirePermission('inventory.stock_adjustment.create'),
+    express.raw({ type: ['image/*', 'application/octet-stream'], limit: '10mb' }),
+    validate({ params: adjustmentIdParams }),
+    asyncHandler(async (req, res) => {
+      const scope = requireScope(req.scope);
+      const { id } = getValidated(req, 'params', adjustmentIdParams);
+
+      let evidenceInput: { url?: string; buffer?: Buffer; mimeType?: string } = {};
+      if (Buffer.isBuffer(req.body)) {
+        evidenceInput = {
+          buffer: req.body,
+          mimeType: (req.headers['content-type'] as string) || 'image/jpeg',
+        };
+      } else if (req.body && typeof req.body === 'object') {
+        const bodyObj = req.body as Record<string, unknown>;
+        if (typeof bodyObj['url'] === 'string') {
+          evidenceInput = { url: bodyObj['url'] };
+        } else if (typeof bodyObj['data'] === 'string' || typeof bodyObj['base64'] === 'string') {
+          const raw = (bodyObj['data'] || bodyObj['base64']) as string;
+          evidenceInput = { buffer: Buffer.from(raw, 'base64') };
+        }
+      }
+
+      if (!evidenceInput.url && !evidenceInput.buffer) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: 'Evidence image buffer or JSON url required',
+        });
+      }
+
+      const result = await service.addEvidence(scope, id, evidenceInput);
+      res.status(201).json(result);
     }),
   );
 

@@ -47,6 +47,9 @@ export const ErrorCode = {
   DUAL_APPROVAL_REQUIRED: 'DUAL_APPROVAL_REQUIRED',
   /** The approver of a payout is also its initiator. */
   SAME_ACTOR_APPROVAL: 'SAME_ACTOR_APPROVAL',
+  /** Taluk cannot be mapped to a known warehouse zone (BR-143 / BR-19). */
+  ZONE_NOT_RESOLVED: 'ZONE_NOT_RESOLVED',
+  ZONE_NOT_FOUND: 'ZONE_NOT_FOUND',
   /** Requested quantity is not physically available in the batch. */
   STOCK_UNAVAILABLE: 'STOCK_UNAVAILABLE',
   /** Requested quantity exceeds the channel's allocation percentage. */
@@ -135,6 +138,10 @@ export const ErrorCode = {
   WALLET_TRANSFER_LIMIT_EXCEEDED: 'WALLET_TRANSFER_LIMIT_EXCEEDED',
   /** A customer tried to send wallet money to themselves (BR-150). HTTP 422. */
   WALLET_TRANSFER_SELF: 'WALLET_TRANSFER_SELF',
+  /** A farmer application cannot advance or be approved: a required document (ID_PROOF, FARM_DOC) is missing or not VERIFIED, or a document is REJECTED (BR-214). HTTP 409; `meta.blockers` names each one. */
+  APPLICATION_DOCUMENTS_NOT_VERIFIED: 'APPLICATION_DOCUMENTS_NOT_VERIFIED',
+  /** A farmer application cannot be approved: a land location's FMB review is not VERIFIED (BR-214, BR-216). HTTP 409; `meta.blockers` names each one. */
+  APPLICATION_FMB_NOT_VERIFIED: 'APPLICATION_FMB_NOT_VERIFIED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

@@ -35,14 +35,6 @@ const allScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.SUPER_ADMIN,
 const subScope = (warehouseId: string) =>
   aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.SUB_WH_ADMIN, permission: 'inventory.stock_ledger.view_own', warehouseIds: [warehouseId] });
 
-// The pool is closed ONCE, after every describe in this file: a describe that closed it would leave
-// the next one unable to reach the database.
-afterAll(async () => {
-  if (process.env['DATABASE_URL'] === undefined) return;
-  const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-  await Promise.allSettled([closePool(), closeRedis()]);
-});
-
 describe('stock ledger detail service (stub repo) — BR-130', () => {
   it('BR-130c: a row the repo does not return (unknown, or outside the scope) is 404 NOT_FOUND with one detail text, never 403', async () => {
     const seen: string[] = [];
