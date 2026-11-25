@@ -12,6 +12,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
@@ -193,12 +194,12 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
             </TouchableOpacity>
           </View>
         ) : orders.length === 0 ? (
-          <View style={styles.ordersList} testID="orders-empty">
-            <Text style={styles.sectionTitle}>{t('customer.orders.history.emptyTitle')}</Text>
-            <TouchableOpacity onPress={() => onNavigate?.('Home')}>
-              <Text style={styles.viewDetailsText}>{t('customer.orders.history.startShopping')}</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            iconName="shopping_cart"
+            title={t('customer.orders.history.emptyTitle')}
+            action={{ label: t('customer.orders.history.startShopping'), onPress: () => onNavigate?.('Home') }}
+            testID="orders-empty"
+          />
         ) : (
           <>
             {upcoming.length > 0 && <Text style={styles.sectionTitle}>{t('customer.orders.history.recent')}</Text>}

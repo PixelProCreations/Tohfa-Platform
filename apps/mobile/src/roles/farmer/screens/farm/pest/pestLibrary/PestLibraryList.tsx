@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P } from '../../../../theme';
 import type { PestLibraryEntry } from '../../../../api/pest';
 import { CalendarIcon } from '../pestManagement/icons';
@@ -105,10 +105,12 @@ export function PestLibraryList({ entries, loading, error, onSelect }: Props): R
           );
         })
       ) : (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyTitle}>{pl('farmer.pestLibrary.empty.title')}</Text>
-          <Text style={styles.emptySubtitle}>{pl('farmer.pestLibrary.empty.subtitle')}</Text>
-        </View>
+        <EmptyState
+          variant="screen"
+          iconName="search"
+          title={pl('farmer.pestLibrary.empty.title')}
+          message={pl('farmer.pestLibrary.empty.subtitle')}
+        />
       )}
     </View>
   );

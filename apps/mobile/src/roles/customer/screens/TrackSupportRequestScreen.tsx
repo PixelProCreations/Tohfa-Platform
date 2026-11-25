@@ -13,6 +13,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { ApiError } from '../../../shell/api/client';
 import {
   customerColors,
@@ -251,7 +252,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
             <View style={styles.updatesTimeline}>
               <View style={styles.updatesGuideLine} />
               {messages.length === 0 ? (
-                <Text style={styles.updateMessage}>{t('customer.track.noUpdates')}</Text>
+                <EmptyState variant="compact" iconName="inbox" title={t('customer.track.noUpdates')} testID="track-updates-empty" />
               ) : (
                 messages.map((m) => (
                   <View key={m.id} style={styles.updateRow}>

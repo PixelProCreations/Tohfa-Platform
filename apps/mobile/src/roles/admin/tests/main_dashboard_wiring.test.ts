@@ -88,7 +88,7 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
 
   it('the alerts card and the empty states live inside a SectionGate, so "All Warehouses Normal" needs a successful alerts fetch', () => {
     const gate = MAIN.indexOf('<SectionGate sources={[alertsSrc, warehousesSrc]}>');
-    const normal = MAIN.indexOf('All Warehouses Normal');
+    const normal = MAIN.indexOf('mainDashboard.alerts.allNormal.title');
     expect(gate).toBeGreaterThan(-1);
     expect(normal).toBeGreaterThan(gate);
   });

@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
+import { t } from '../../../../i18n/farmer';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, authPalette as P, typography } from '../../theme';
 import { LEARNING_SEARCH_MAX_LENGTH } from './learningValidation';
@@ -337,10 +338,12 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
           ))}
 
           {filteredGroups.length === 0 && (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>No groups found</Text>
-              <Text style={styles.emptySub}>Try searching for "carrot", "pest", or "market".</Text>
-            </View>
+            <EmptyState
+              variant="screen"
+              iconName="search"
+              title={t('farmer.learning.groups.emptyTitle')}
+              message={t('farmer.learning.groups.emptyHint')}
+            />
           )}
         </View>
 
@@ -508,20 +511,6 @@ const styles = StyleSheet.create({
   },
 
   // Empty State
-  emptyState: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: typography.bodySmall,
-    color: P.greyMid1,
-  },
 
   // Modal
   modalOverlay: {

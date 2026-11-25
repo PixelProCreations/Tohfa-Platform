@@ -35,7 +35,7 @@ import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   BellRingIcon,
   HeaderIconButton,
@@ -366,7 +366,7 @@ export function ReceivingDashboardScreen({
         {mainView ? (
           <>
             <SectionTitle right={viewLink(t('receiving.dashboard.view'), onOpenActivity)}>{t('receiving.dashboard.activity')}</SectionTitle>
-            {activity.length === 0 ? <Text style={styles.cardMeta}>{t('receiving.empty.receipts')}</Text> : activity.map(recordRow)}
+            {activity.length === 0 ? <AdminEmptyState variant="compact" title={t('receiving.empty.receipts')} /> : activity.map(recordRow)}
 
             <SectionTitle right={viewLink(t('receiving.dashboard.view'), onOpenPendingQueue)}>{t('receiving.dashboard.queue')}</SectionTitle>
             <View style={styles.card}>
@@ -410,7 +410,7 @@ export function ReceivingDashboardScreen({
             <SectionTitle right={viewLink(t('receiving.dashboard.viewAll'), () => onOpenHistory('All'))}>
               {t('receiving.dashboard.recent')}
             </SectionTitle>
-            {activity.length === 0 ? <Text style={styles.cardMeta}>{t('receiving.empty.receipts')}</Text> : activity.map(recordRow)}
+            {activity.length === 0 ? <AdminEmptyState variant="compact" title={t('receiving.empty.receipts')} /> : activity.map(recordRow)}
           </>
         )}
 

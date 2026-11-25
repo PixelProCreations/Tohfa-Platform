@@ -19,6 +19,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { customerFonts, customerColors } from '../theme';
@@ -159,8 +160,13 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
                 </TouchableOpacity>
               </View>
             ) : items.length === 0 ? (
-              <View style={styles.noResultsWrap} testID="search-no-results">
-                <Text style={styles.noResultsText}>{t('customer.search.noMatch', { query: submitted })}</Text>
+              <View style={styles.noResultsWrap}>
+                <EmptyState
+                  variant="compact"
+                  iconName="search"
+                  title={t('customer.search.noMatch', { query: submitted })}
+                  testID="search-no-results"
+                />
                 {trendingProducts.length > 0 && <Text style={styles.noResultsSub}>{t('customer.search.tryTrending')}</Text>}
                 {trendingProducts.length > 0 && <View style={styles.gridWrap}>{trendingProducts.slice(0, 4).map(renderCard)}</View>}
               </View>

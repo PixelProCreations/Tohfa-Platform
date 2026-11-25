@@ -135,7 +135,6 @@ export const styles = StyleSheet.create({
   completeToggleCol: { alignItems: 'center', marginLeft: spacing.sm, gap: spacing.xs },
   completeToggleLabel: { fontSize: typography.caption, color: P.twGray400, textAlign: 'center' },
   emptyContainer: { paddingVertical: DIM.space40, alignItems: 'center' },
-  emptyText: { fontSize: typography.body, color: P.twGray400 },
 
   // Floating CTA
   floatingContainer: { position: 'absolute', bottom: DIM.fabBottom, right: spacing.lg, alignItems: 'flex-end' },

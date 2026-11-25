@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
-import { SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { SafeAreaView, appAlert, EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
@@ -281,7 +281,7 @@ export function CreateListingStep2Screen({
       <SafeAreaView style={styles.container}>
         {header}
         <View style={styles.centerFill}>
-          <Text style={styles.emptyText}>{t('farmer.listings.create.step2.missingCrop')}</Text>
+          <EmptyState variant="screen" iconName="eco" title={t('farmer.listings.create.step2.missingCrop')} />
         </View>
       </SafeAreaView>
     );
@@ -794,10 +794,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.grey600,
-    textAlign: 'center',
   },
 });

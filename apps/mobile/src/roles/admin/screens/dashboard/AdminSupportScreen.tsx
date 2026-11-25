@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -588,12 +590,7 @@ export function AdminSupportScreen({ onBack }: AdminSupportScreenProps) {
           })}
 
           {filteredTickets.length === 0 && (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>No matching tickets</Text>
-              <Text style={styles.emptySub}>
-                Try adjusting your search query or category filter.
-              </Text>
-            </View>
+            <AdminEmptyState variant="compact" title={t('adminSupport.empty.title')} subtitle={t('adminSupport.empty.message')} />
           )}
         </View>
 
@@ -918,21 +915,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: PALETTE.textPrimary,
-  },
-  emptyContainer: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: PALETTE.textPrimary,
-    marginBottom: 4,
-  },
-  emptySub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    textAlign: 'center',
   },
   hotlineCard: {
     backgroundColor: PALETTE.amberLight,

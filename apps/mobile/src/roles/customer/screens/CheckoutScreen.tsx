@@ -1,5 +1,6 @@
 /**
- * Wallet-only checkout. See the CheckoutScreen docblock below for the flow.
+ * Checkout: wallet or Razorpay (UPI / card / net banking). See the
+ * CheckoutScreen docblock below for the flow.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -16,13 +17,14 @@ import {
   Modal,
   Animated,
   Dimensions,
-  Easing,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError, NetworkError } from '../../../shell/api/client';
 import { t } from '../../../i18n/customer';
 import { tohfaMarketLogo } from '../assets/images';
+import { ProductImages } from '../assets/images/products';
+import { ChooseBankModal, POPULAR_BANKS } from './ChooseBankModal';
 import { ModalCloseCrossSvg } from './ProductModals';
 import {
   customerFonts,
@@ -30,15 +32,16 @@ import {
 } from '../theme';
 import { cartQueryKeys, reReserveCart, useCart } from '../api/cart';
 import {
-  checkoutFingerprint,
+  fetchOrder,
   isCheckoutInputComplete,
   isPickupFulfillment,
   orderIdempotencyKeys,
   useOrderQuote,
-  usePlaceOrder,
   type CheckoutInput,
   type Order,
+  type PaymentMethod,
 } from '../api/orders';
+import { outcomeForOrder, useCancelPendingOrder, useOrderPayment, type OrderPaymentOutcome } from '../api/orderPayment';
 import { useWalletBalance } from '../api/wallet';
 import { formatAddressLine, useAddresses } from '../api/addresses';
 import { usePickupPoints } from '../api/pickup';
@@ -130,7 +133,6 @@ const ConfettiParticle = ({ piece }: { piece: ConfettiPiece }) => {
       Animated.timing(anim, {
         toValue: 1,
         duration: piece.duration,
-        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
     }, piece.delay);
@@ -264,12 +266,104 @@ const CardHeaderSvg = () => (
   </Svg>
 );
 
+const PhoneSvg = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Rect x="5" y="2" width="14" height="20" rx="2" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} />
+    <Circle cx="12" cy="18" r="1" fill={customerColors.neutral.neutral600} />
+  </Svg>
+);
+
+const CreditCardSvg = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Rect x="2" y="5" width="20" height="14" rx="2" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} />
+    <Path d="M2 10h20" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} />
+    <Circle cx="6" cy="15" r="1" fill={customerColors.neutral.neutral600} />
+    <Circle cx="10" cy="15" r="1" fill={customerColors.neutral.neutral600} />
+  </Svg>
+);
+
+const CashSvg = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Rect x="2" y="6" width="20" height="12" rx="2" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} />
+    <Circle cx="12" cy="12" r="3" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} />
+    <Path d="M6 12h.01M18 12h.01" stroke={customerColors.neutral.neutral600} strokeWidth={2} strokeLinecap="round" />
+  </Svg>
+);
+
+const BankSvg = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Path d="M3 21h18M3 10h18M4 10V21M8 10V21M12 10V21M16 10V21M20 10V21M12 3L2 8h20L12 3z" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
 const WalletSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path d="M20 12V8H6a2 2 0 01-2-2V4a2 2 0 012-2h14v6" stroke={customerColors.neutral.neutral700} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Path d="M4 6v14a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" stroke={customerColors.neutral.neutral700} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-    <Circle cx="16" cy="14" r="1.5" fill={customerColors.neutral.neutral700} />
+    <Path d="M20 12V8H6a2 2 0 01-2-2V4a2 2 0 012-2h14v6" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M4 6v14a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" stroke={customerColors.neutral.neutral600} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="16" cy="14" r="1.5" fill={customerColors.neutral.neutral600} />
   </Svg>
+);
+
+const WalletGreenSvg = ({ size = 20 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M20 12V8H6a2 2 0 01-2-2V4a2 2 0 012-2h14v6" stroke="#15803D" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M4 6v14a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2z" stroke="#15803D" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx="16" cy="14" r="1.5" fill="#15803D" />
+  </Svg>
+);
+
+const CartSmallGreenSvg = () => (
+  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
+      stroke="#15803D"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle cx="9" cy="21" r="1.5" fill="#15803D" />
+    <Circle cx="18" cy="21" r="1.5" fill="#15803D" />
+  </Svg>
+);
+
+const OtherUpiIcon = () => (
+  <View style={styles.upiIconCircle}>
+    <Text style={styles.otherUpiText}>UPI</Text>
+  </View>
+);
+
+const GPayIcon = () => (
+  <View style={styles.upiIconCircle}>
+    <Svg width={24} height={24} viewBox="0 0 24 24">
+      <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#FFFFFF" />
+      <Path d="M17.5 12.2c0-.4-.04-.8-.1-1.2H12v2.3h3.1c-.13.7-.54 1.4-1.14 1.8v1.5h1.84c1.08-1 1.7-2.5 1.7-4.4z" fill="#4285F4" />
+      <Path d="M12 17.8c1.57 0 2.88-.52 3.84-1.4l-1.84-1.5c-.52.35-1.18.55-2 .55-1.53 0-2.83-1.03-3.3-2.42H6.8v1.5c1 1.98 3.03 3.27 5.2 3.27z" fill="#34A853" />
+      <Path d="M8.7 13.03c-.12-.35-.19-.73-.19-1.12 0-.39.07-.77.19-1.12V9.29H6.8c-.42.84-.66 1.79-.66 2.8 0 1.01.24 1.96.66 2.8l1.9-1.86z" fill="#FBBC05" />
+      <Path d="M12 6.18c.85 0 1.62.3 2.22.86l1.66-1.66C14.88 4.45 13.57 4 12 4 9.83 4 7.8 5.29 6.8 7.27l1.9 1.48c.47-1.39 1.77-2.42 3.3-2.42z" fill="#EA4335" />
+    </Svg>
+  </View>
+);
+
+const BhimIcon = () => (
+  <View style={styles.upiIconCircle}>
+    <Svg width={22} height={22} viewBox="0 0 24 24">
+      <Path d="M12 2L4 12l8 10 8-10L12 2z" fill="#FF9933" />
+      <Path d="M12 2L4 12h16L12 2z" fill="#138808" />
+      <Circle cx="12" cy="12" r="3" fill="#000080" />
+    </Svg>
+  </View>
+);
+
+const PaytmIcon = () => (
+  <View style={styles.upiIconCircle}>
+    <Text style={styles.paytmText}>paytm</Text>
+  </View>
+);
+
+const RadioCircle = ({ selected }: { selected: boolean }) => (
+  <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
+    {selected && <View style={styles.radioInnerDot} />}
+  </View>
 );
 
 const CartFloatingSvg = () => (
@@ -293,11 +387,17 @@ export interface CheckoutScreenProps {
   params?: Record<string, unknown>;
 }
 
-const SLOT_LABEL: Record<string, string> = {
-  MORNING_8_12: '8 AM - 12 PM',
-  AFTERNOON_12_4: '12 PM - 4 PM',
-  EVENING_4_8: '4 PM - 8 PM',
-};
+/** Resolved at render time (not module load) so it follows the active locale. */
+const SLOT_KEYS = {
+  MORNING_8_12: 'customer.checkout.slot.MORNING_8_12',
+  AFTERNOON_12_4: 'customer.checkout.slot.AFTERNOON_12_4',
+  EVENING_4_8: 'customer.checkout.slot.EVENING_4_8',
+} as const;
+
+function slotLabel(slot: string): string {
+  const key = SLOT_KEYS[slot as keyof typeof SLOT_KEYS];
+  return key ? t(key) : '';
+}
 
 function formatPlacedAt(iso: string | undefined): string {
   if (!iso) return '';
@@ -306,38 +406,89 @@ function formatPlacedAt(iso: string | undefined): string {
   return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
 }
 
+/** UI method -> docs/openapi.yaml `CheckoutRequest.paymentMethod`. */
+const METHOD_TO_API: Record<UiPaymentMethod, PaymentMethod> = {
+  upi: 'UPI',
+  card: 'CARD',
+  netbanking: 'NETBANKING',
+  wallets: 'WALLET',
+  cod: 'CASH',
+};
+type UiPaymentMethod = 'upi' | 'card' | 'cod' | 'netbanking' | 'wallets';
+
+/** What the payment notice under the method list says about the server order. */
+type PaymentNotice =
+  | { kind: 'pending'; order: Order }
+  | { kind: 'retryable'; order: Order; message: string }
+  | { kind: 'closed'; message: string };
+
+function methodLabel(order: Order | null): string {
+  if (order?.paymentMethodLabel) return order.paymentMethodLabel;
+  switch (order?.paymentMethod) {
+    case 'UPI':
+      return t('customer.checkout.screen.method.upi');
+    case 'CARD':
+      return t('customer.checkout.screen.method.card');
+    case 'NETBANKING':
+      return t('customer.checkout.screen.method.netbanking');
+    default:
+      return t('customer.checkout.screen.success.wallet');
+  }
+}
+
 /**
  * Pay & checkout (Figma 46:38924, wallet popup 46:40084, success 46:40202,
- * pickup code 46:40610). WALLET ONLY (BR-17): no UPI/card/COD/net banking here;
- * money is added from the wallet top-up (Razorpay) flow.
+ * pickup code 46:40610). BR-17 as amended 2026-11-20, BR-220..224.
+ *  - Methods: Wallet (confirmed at once), UPI / card / net banking (Razorpay
+ *    sheet; card, UPI and bank details are collected by Razorpay, never in-app).
+ *    Cash on delivery/shop is shown but disabled (server: PAYMENT_METHOD_DISABLED).
  *  - Totals: POST /orders/quote on entry and whenever the draft changes; the
  *    shown total is `quote.totalAmount`, the same pricing path as checkout.
- *  - Place: POST /orders with ONE Idempotency-Key per attempt (same payload ->
- *    same key, so a retry after a timeout or a top-up can never double-debit).
+ *  - Place: POST /orders with ONE Idempotency-Key per attempt (same payload incl.
+ *    method -> same key, so a retry after a timeout or a top-up can never
+ *    double-debit). Gateway orders start PENDING_PAYMENT; see api/orderPayment.
+ *  - Success modal ONLY for a server order whose status is CONFIRMED (BR-224).
+ *    Sheet closed / failed -> Retry payment (same gatewayOrderId) or Cancel
+ *    order; not settled in time -> "Confirming your payment".
  *  - Errors: 402 WALLET_INSUFFICIENT -> shortfall + Add money (Topup); 409
  *    STOCK_UNAVAILABLE / INSUFFICIENT_ALLOCATION -> back to cart; CART_LOCK_EXPIRED
- *    -> re-reserve + re-quote; SLOT_FULL -> back to the slot picker; 501 -> pickup only.
+ *    -> re-reserve + re-quote; SLOT_FULL -> back to the slot picker;
+ *    422 PAYMENT_METHOD_DISABLED -> pick another method; 501 -> pickup only.
  */
 export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGoBack }) => {
   const qc = useQueryClient();
   const { draft } = useCheckoutDraftState();
-  const input = draftToInput(draft);
-  const [order, setOrder] = useState<Order | null>(null);
-  // Once placed, the cart is converted: stop quoting it.
-  const quoteQuery = useOrderQuote(order ? null : input);
-  const quote = quoteQuery.data;
-  const wallet = useWalletBalance();
-  const cartQuery = useCart();
-  const addressesQuery = useAddresses(draft?.fulfillmentType === 'HOME_DELIVERY');
-  const pickupQuery = usePickupPoints();
-  const placeOrderM = usePlaceOrder();
 
+  /** The CONFIRMED order (drives the success / pickup modals). */
+  const [order, setOrder] = useState<Order | null>(null);
+  /** Server state of a gateway order that is not confirmed (yet). */
+  const [paymentNotice, setPaymentNotice] = useState<PaymentNotice | null>(null);
   const [showWalletModal, setShowWalletModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [shortfall, setShortfall] = useState<string | null>(null);
   const [networkRetry, setNetworkRetry] = useState(false);
+  const [selectedMethod, setSelectedMethod] = useState<UiPaymentMethod | null>(null);
+  // UPI app / bank choices are hints only: Razorpay's sheet is where the customer actually picks.
+  const [selectedUpiApp, setSelectedUpiApp] = useState<string | null>('GPay');
+  const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [showChooseBankModal, setShowChooseBankModal] = useState(false);
+  const [userTappedWallet, setUserTappedWallet] = useState(false);
+
+  const input = draftToInput(draft);
+  const isHomeDelivery = draft?.fulfillmentType === 'HOME_DELIVERY';
+
+  // Once an order exists server-side, the cart is converted: stop quoting it.
+  const quoteQuery = useOrderQuote(order || paymentNotice ? null : input);
+  const quote = quoteQuery.data;
+  const wallet = useWalletBalance();
+  const cartQuery = useCart();
+  const addressesQuery = useAddresses(isHomeDelivery);
+  const pickupQuery = usePickupPoints();
+  const paymentM = useOrderPayment();
+  const cancelM = useCancelPendingOrder();
+  const busy = paymentM.isPending || cancelM.isPending;
 
   const isPickup = draft?.fulfillmentType === 'WAREHOUSE_PICKUP';
   const address = addressesQuery.data?.find((a) => a.id === draft?.deliveryAddressId);
@@ -345,8 +496,26 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
   const quoteShortfall = quote && !quote.walletSufficient ? quote.shortfall : null;
   const effectiveShortfall = shortfall ?? quoteShortfall;
   const balanceLabel = quote ? formatRupees(quote.walletBalance) : wallet.label;
-  const total = quote?.totalAmount ?? null;
-  const ready = !!quote && !quote.lockExpired && quote.walletSufficient && !placeOrderM.isPending;
+  const noticeOrder = paymentNotice && paymentNotice.kind !== 'closed' ? paymentNotice.order : null;
+  const total = quote?.totalAmount ?? noticeOrder?.totalAmount ?? null;
+  const ready = !!quote && !quote.lockExpired && !busy && paymentNotice === null;
+  const isProceedActive =
+    ready && selectedMethod !== null && selectedMethod !== 'cod' && !(selectedMethod === 'wallets' && effectiveShortfall && !userTappedWallet);
+
+  useEffect(() => {
+    if (effectiveShortfall && selectedMethod === null) {
+      setSelectedMethod('wallets');
+    }
+  }, [effectiveShortfall]);
+
+  const handleProceedPress = () => {
+    if (!isProceedActive) return;
+    if (selectedMethod === 'wallets') {
+      setShowWalletModal(true);
+      return;
+    }
+    void handleConfirmPayment();
+  };
 
   // A quote that reports an expired lock: re-reserve (PUT cart) and re-quote (BR-22).
   useEffect(() => {
@@ -381,6 +550,18 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
     if (p.silent) return;
     const code = err instanceof ApiError ? (err.code as string) : '';
     if (code === 'IDEMPOTENCY_KEY_REUSED') orderIdempotencyKeys.reset();
+    // Cash on delivery/shop is switched off server-side (BR-223): never a 501 "no home delivery".
+    if (code === 'PAYMENT_METHOD_DISABLED') {
+      setShowWalletModal(false);
+      setSelectedMethod(null);
+      setErrorText(t('customer.checkout.screen.err.methodDisabled'));
+      return;
+    }
+    if (code === 'PAYMENT_GATEWAY_UNAVAILABLE') {
+      setShowWalletModal(false);
+      setErrorText(t('customer.checkout.screen.err.gatewayUnavailable'));
+      return;
+    }
     if (p.action === 'topup' || code === 'WALLET_INSUFFICIENT') {
       setShortfall(err instanceof ApiError ? (err.walletShortfall?.shortfall ?? null) : null);
       setErrorText(p.message);
@@ -423,19 +604,99 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
     setErrorText(p.message);
   };
 
+  /** Map a payment outcome to UI. Only a server-CONFIRMED order opens the success modal (BR-224). */
+  const applyOutcome = (outcome: OrderPaymentOutcome) => {
+    setShowWalletModal(false);
+    switch (outcome.status) {
+      case 'confirmed':
+        if (outcome.order.status !== 'CONFIRMED') return;
+        setPaymentNotice(null);
+        setOrder(outcome.order);
+        setShowSuccessModal(true);
+        return;
+      case 'pending':
+        setPaymentNotice({ kind: 'pending', order: outcome.order });
+        return;
+      case 'cancelled':
+        setPaymentNotice({ kind: 'retryable', order: outcome.order, message: t('customer.checkout.screen.pay.cancelled') });
+        return;
+      case 'failed':
+        setPaymentNotice({
+          kind: 'retryable',
+          order: outcome.order,
+          message:
+            outcome.reason === 'unavailable'
+              ? t('customer.checkout.screen.pay.unavailable')
+              : outcome.reason === 'verification'
+                ? t('customer.checkout.screen.pay.verifyFailed')
+                : t('customer.checkout.screen.pay.failed'),
+        });
+        return;
+      case 'expired':
+        setPaymentNotice({ kind: 'closed', message: t('customer.checkout.screen.pay.expired') });
+        return;
+    }
+  };
+
   const handleConfirmPayment = async () => {
-    if (!input || !isCheckoutInputComplete(input) || placeOrderM.isPending) return;
-    const key = orderIdempotencyKeys.keyFor(checkoutFingerprint(input));
+    if (!input || !isCheckoutInputComplete(input) || busy || selectedMethod === null) return;
+    const paymentMethod = METHOD_TO_API[selectedMethod];
+    if (paymentMethod === 'CASH') {
+      setErrorText(t('customer.checkout.screen.err.methodDisabled'));
+      return;
+    }
+    const checkout: CheckoutInput = { ...input, paymentMethod };
     setErrorText(null);
     setNetworkRetry(false);
     try {
-      const placed = await placeOrderM.mutateAsync({ input, idempotencyKey: key });
-      orderIdempotencyKeys.reset();
-      setOrder(placed);
-      setShowWalletModal(false);
-      setShowSuccessModal(true);
+      applyOutcome(await paymentM.mutateAsync({ checkout, merchantName: 'TOHFA' }));
     } catch (err) {
-      await handleError(err, input);
+      await handleError(err, checkout);
+    }
+  };
+
+  /** Reopen the Razorpay sheet for the same server order / gatewayOrderId. */
+  const handleRetryPayment = async () => {
+    if (paymentNotice?.kind !== 'retryable' || busy) return;
+    setErrorText(null);
+    try {
+      applyOutcome(await paymentM.mutateAsync({ retry: paymentNotice.order, merchantName: 'TOHFA' }));
+    } catch (err) {
+      setErrorText(mapProblem(err).message);
+    }
+  };
+
+  /** POST /orders/{id}/cancel; the server confirms instead if the payment was in fact captured. */
+  const handleCancelOrder = async () => {
+    if (paymentNotice?.kind !== 'retryable' || busy) return;
+    setErrorText(null);
+    try {
+      const res = await cancelM.mutateAsync(paymentNotice.order.id);
+      const out = outcomeForOrder(res);
+      if (out?.status === 'confirmed') applyOutcome(out);
+      else setPaymentNotice({ kind: 'closed', message: t('customer.checkout.screen.pay.orderCancelled') });
+    } catch (err) {
+      const code = err instanceof ApiError ? (err.code as string) : '';
+      if (code === 'ORDER_NOT_AWAITING_PAYMENT') {
+        await handleCheckStatus(paymentNotice.order);
+        return;
+      }
+      setErrorText(mapProblem(err).message);
+    }
+  };
+
+  /** Re-read GET /orders/{id}; never assumes success client-side. */
+  const handleCheckStatus = async (pendingOrder: Order) => {
+    try {
+      const fresh = await fetchOrder(pendingOrder.id);
+      const out = outcomeForOrder(fresh);
+      if (out === null) {
+        if (paymentNotice?.kind !== 'retryable') setPaymentNotice({ kind: 'pending', order: fresh });
+        return;
+      }
+      applyOutcome(out);
+    } catch (err) {
+      setErrorText(mapProblem(err).message);
     }
   };
 
@@ -508,7 +769,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 {!!address?.contactPhone && <Text style={styles.addressPhone}>{t('customer.checkout.screen.phone', { phone: address.contactPhone })}</Text>}
                 {!!draft?.deliveryDate && (
                   <Text style={styles.addressPhone} testID="checkout-slot">
-                    {draft.deliveryDate} · {draft.deliverySlot ? SLOT_LABEL[draft.deliverySlot] : ''}
+                    {draft.deliveryDate} · {draft.deliverySlot ? slotLabel(draft.deliverySlot) : ''}
                   </Text>
                 )}
               </>
@@ -519,90 +780,247 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         {/* ── 2. CART SUMMARY FLOATING DARK PILL ────────────────────────────── */}
         <TouchableOpacity activeOpacity={0.9} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.darkCartPill}>
           <View style={styles.darkCartLeft}>
-            <View style={styles.cartThumbnailCircle} />
+            <View style={styles.cartThumbnailCircle}>
+              <Image source={ProductImages.exoticCherryTomato} style={styles.cartThumbnailImage} resizeMode="contain" />
+            </View>
             <View style={styles.darkCartTexts}>
               <Text style={styles.darkCartTitle}>{quote ? t(quote.itemCount === 1 ? 'customer.checkout.screen.cartItem' : 'customer.checkout.screen.cartItems', { count: quote.itemCount }) : t('customer.checkout.screen.yourCart')}</Text>
               <Text style={styles.darkCartViewLink}>{t('customer.checkout.screen.viewCart')}</Text>
             </View>
           </View>
-          <Text style={styles.darkCartTotal}>{formatRupees(quote?.subtotal)}</Text>
+          <Text style={styles.darkCartTotal}>{formatRupees(total ?? quote?.subtotal)}</Text>
         </TouchableOpacity>
 
-        {/* ── 3. ORDER SUMMARY (POST /orders/quote) ─────────────────────────── */}
-        <View style={styles.paymentCard}>
-          <View style={styles.paymentCardHeader}>
-            <CardHeaderSvg />
-            <Text style={styles.paymentCardTitle}>{t('customer.checkout.screen.summary')}</Text>
-          </View>
-          {quoteQuery.isLoading ? (
-            <ActivityIndicator testID="quote-loading" style={{ margin: 16 }} />
-          ) : quote ? (
-            <View style={styles.orderItemsBlock}>
-              {quote.lines.map((l) => (
-                <View key={l.id} style={styles.orderItemRow}>
-                  <View>
-                    <Text style={styles.orderItemName}>{l.name}</Text>
-                    <Text style={styles.orderItemSub}>
-                      {formatKg(l.qtyKg)} × {t('customer.product.detail.perKg', { price: formatRupees(l.unitPrice) })}
-                    </Text>
-                  </View>
-                  <Text style={styles.orderItemPrice}>{formatRupees(l.lineTotal)}</Text>
-                </View>
-              ))}
-              <View style={styles.dottedDivider} />
-              {(
-                [
-                  ['items', quote.subtotal],
-                  ['delivery', quote.deliveryFee],
-                  ['handling', quote.handlingFee],
-                  ['gst', quote.gstAmount],
-                ] as const
-              ).map(([label, value]) => (
-                <View key={label} style={styles.orderItemRow}>
-                  <Text style={styles.orderItemSub}>{t(`customer.checkout.screen.${label}`)}</Text>
-                  <Text style={styles.orderItemPrice}>{formatRupees(value)}</Text>
-                </View>
-              ))}
-              <View style={styles.totalPaidRow}>
-                <Text style={styles.totalPaidLabel}>{t('customer.checkout.screen.toPay')}</Text>
-                <Text style={styles.totalPaidAmount} testID="checkout-total">
-                  {formatRupees(quote.totalAmount)}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <TouchableOpacity onPress={() => void quoteQuery.refetch()} testID="quote-retry">
-              <Text style={styles.orderItemSub}>{errorText ?? t('customer.checkout.screen.quoteRetry')}</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ── 4. PAYMENT METHOD: TOHFA WALLET ONLY (BR-17) ──────────────────── */}
+        {/* ── 3. PAYMENT METHOD (Screen 44) ─────────────────────────────────── */}
         <View style={styles.paymentCard}>
           <View style={styles.paymentCardHeader}>
             <CardHeaderSvg />
             <Text style={styles.paymentCardTitle}>{t('customer.checkout.screen.paymentMethod')}</Text>
           </View>
           <View style={styles.paymentList}>
-            <View style={[styles.methodRow, styles.methodRowSelected]} testID="wallet-method">
+            {/* OPTION 1: UPI */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setSelectedMethod('upi');
+                setUserTappedWallet(false);
+              }}
+              style={[styles.methodRow, selectedMethod === 'upi' && styles.methodRowSelected]}
+              testID="upi-method"
+            >
+              <View style={styles.methodLeft}>
+                <PhoneSvg />
+                <Text style={styles.methodLabel}>{t('customer.checkout.screen.method.upi')}</Text>
+              </View>
+              <RadioCircle selected={selectedMethod === 'upi'} />
+            </TouchableOpacity>
+
+            {selectedMethod === 'upi' && (
+              <View style={styles.subSectionBox}>
+                <Text style={[styles.subSectionTitle, { marginBottom: 12 }]}>{t('customer.checkout.upi.apps')}</Text>
+                <View style={styles.upiAppsRow}>
+                  <TouchableOpacity
+                    style={[styles.upiAppBtn, selectedUpiApp === 'Other' && styles.upiAppBtnSelected]}
+                    onPress={() => setSelectedUpiApp('Other')}
+                    activeOpacity={0.8}
+                  >
+                    <OtherUpiIcon />
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.other')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.upiAppBtn, selectedUpiApp === 'GPay' && styles.upiAppBtnSelected]}
+                    onPress={() => setSelectedUpiApp('GPay')}
+                    activeOpacity={0.8}
+                  >
+                    <GPayIcon />
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.gpay')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.upiAppBtn, selectedUpiApp === 'BHIM' && styles.upiAppBtnSelected]}
+                    onPress={() => setSelectedUpiApp('BHIM')}
+                    activeOpacity={0.8}
+                  >
+                    <BhimIcon />
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.bhim')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.upiAppBtn, selectedUpiApp === 'Paytm' && styles.upiAppBtnSelected]}
+                    onPress={() => setSelectedUpiApp('Paytm')}
+                    activeOpacity={0.8}
+                  >
+                    <PaytmIcon />
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.paytm')}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* OPTION 2: Credit/Debit Card */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setSelectedMethod('card');
+                setUserTappedWallet(false);
+              }}
+              style={[styles.methodRow, selectedMethod === 'card' && styles.methodRowSelected]}
+              testID="card-method"
+            >
+              <View style={styles.methodLeft}>
+                <CreditCardSvg />
+                <Text style={styles.methodLabel}>{t('customer.checkout.screen.method.card')}</Text>
+              </View>
+              <RadioCircle selected={selectedMethod === 'card'} />
+            </TouchableOpacity>
+
+            {selectedMethod === 'card' && (
+              // PCI: card number / expiry / CVV are entered in Razorpay's sheet, never in this app.
+              <View style={styles.subSectionBox} testID="card-hint">
+                <Text style={styles.paymentHintText}>{t('customer.checkout.screen.card.hint')}</Text>
+              </View>
+            )}
+
+            {/* OPTION 3: Cash on Delivery or Shop (disabled until the owner enables it, BR-223) */}
+            <TouchableOpacity
+              activeOpacity={1}
+              disabled
+              accessibilityState={{ disabled: true }}
+              style={[styles.methodRow, styles.methodRowDisabled]}
+              testID="cod-method"
+            >
+              <View style={styles.methodLeft}>
+                <CashSvg />
+                <Text style={styles.methodLabel}>{t('customer.checkout.screen.method.cod')}</Text>
+              </View>
+              <Text style={styles.methodUnavailableText}>{t('customer.checkout.screen.method.codUnavailable')}</Text>
+            </TouchableOpacity>
+
+            {/* OPTION 4: Net banking */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setSelectedMethod('netbanking');
+                setUserTappedWallet(false);
+              }}
+              style={[styles.methodRow, selectedMethod === 'netbanking' && styles.methodRowSelected]}
+              testID="netbanking-method"
+            >
+              <View style={styles.methodLeft}>
+                <BankSvg />
+                <Text style={styles.methodLabel}>{t('customer.checkout.screen.method.netbanking')}</Text>
+              </View>
+              <RadioCircle selected={selectedMethod === 'netbanking'} />
+            </TouchableOpacity>
+
+            {selectedMethod === 'netbanking' && (
+              <View style={styles.subSectionBox}>
+                <View style={styles.subSectionHeaderRow}>
+                  <Text style={styles.subSectionTitle}>{t('customer.checkout.netbanking.title')}</Text>
+                  <TouchableOpacity
+                    onPress={() => setShowChooseBankModal(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.otherBankLink}>{t('customer.checkout.netbanking.otherBank')}</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.popularBanksRow}>
+                  {POPULAR_BANKS.map((b) => {
+                    const isSelected = selectedBank === b.name || selectedBank === b.shortName;
+                    return (
+                      <TouchableOpacity
+                        key={b.id}
+                        style={[styles.popularBankCard, isSelected && styles.popularBankCardSelected]}
+                        onPress={() => setSelectedBank(b.name)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={styles.bankLogoCircle}>
+                          {b.renderLogo(26)}
+                        </View>
+                        <Text style={styles.popularBankName}>{b.shortName}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* OPTION 5: Wallets */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                setSelectedMethod('wallets');
+                setUserTappedWallet(true);
+              }}
+              style={[styles.methodRow, selectedMethod === 'wallets' && styles.methodRowSelected]}
+              testID="wallet-method"
+            >
               <View style={styles.methodLeft}>
                 <WalletSvg />
-                <Text style={styles.methodLabel}>{t('customer.checkout.screen.payWithWallet', { balance: balanceLabel })}</Text>
+                <Text style={styles.methodLabel}>{t('customer.checkout.screen.method.wallets')}</Text>
               </View>
-              <View style={[styles.radioCircle, styles.radioCircleSelected]}>
-                <View style={styles.radioInnerDot} />
+              <RadioCircle selected={selectedMethod === 'wallets'} />
+            </TouchableOpacity>
+
+            {/* Shortfall banner if Wallets is selected and balance is low */}
+            {selectedMethod === 'wallets' && !!effectiveShortfall && (
+              <View style={styles.walletBalanceAfterBanner} testID="checkout-shortfall">
+                <Text style={styles.walletBalanceAfterLabel}>
+                  {t('customer.checkout.screen.shortBy', { amount: formatRupees(effectiveShortfall) })}
+                </Text>
+                <TouchableOpacity onPress={goTopup} testID="checkout-add-money" style={styles.walletShortfallBtn} activeOpacity={0.85}>
+                  <Text style={styles.walletShortfallBtnText}>{t('customer.checkout.screen.addMoney')}</Text>
+                </TouchableOpacity>
               </View>
-            </View>
+            )}
           </View>
-          {!!effectiveShortfall && (
-            <View style={styles.walletBalanceAfterBanner} testID="checkout-shortfall">
-              <Text style={styles.walletBalanceAfterLabel}>{t('customer.checkout.screen.shortBy', { amount: formatRupees(effectiveShortfall) })}</Text>
-              <TouchableOpacity onPress={goTopup} testID="checkout-add-money" style={styles.walletConfirmBtn}>
-                <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.addMoney')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
+
+        {paymentNotice && (
+          <View style={styles.policyContainer} testID={`checkout-payment-${paymentNotice.kind}`}>
+            {paymentNotice.kind === 'pending' && (
+              <>
+                <Text style={styles.policyTitle}>{t('customer.checkout.screen.pay.confirming')}</Text>
+                <Text style={styles.policyText}>{t('customer.checkout.screen.pay.pendingBody')}</Text>
+                <TouchableOpacity onPress={() => void handleCheckStatus(paymentNotice.order)} disabled={busy} testID="checkout-check-status">
+                  <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.pay.checkStatus')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    checkoutDraftStore.setDraft(null);
+                    onNavigate?.('OrderTracking', { orderId: paymentNotice.order.id });
+                  }}
+                  testID="checkout-view-pending-order"
+                >
+                  <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.success.viewOrder')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+            {paymentNotice.kind === 'retryable' && (
+              <>
+                <Text style={styles.policyText}>{paymentNotice.message}</Text>
+                {busy ? (
+                  <ActivityIndicator color={customerColors.shared.success} />
+                ) : (
+                  <>
+                    <TouchableOpacity onPress={() => void handleRetryPayment()} testID="checkout-retry-payment">
+                      <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.retryPayment')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => void handleCancelOrder()} testID="checkout-cancel-order">
+                      <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.pay.cancelOrder')}</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            )}
+            {paymentNotice.kind === 'closed' && (
+              <>
+                <Text style={styles.policyText}>{paymentNotice.message}</Text>
+                <TouchableOpacity onPress={() => backToCart(null)} testID="checkout-back-to-cart">
+                  <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.goToCart')}</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
 
         {!!errorText && !effectiveShortfall && (
           <View style={styles.policyContainer} testID="checkout-error">
@@ -636,19 +1054,21 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
       <View style={styles.bottomBar}>
         <View style={styles.bottomPillContainer}>
           <Text style={styles.bottomPriceText}>{formatRupees(total)}</Text>
-          {effectiveShortfall ? (
+          {selectedMethod === 'wallets' && effectiveShortfall && !userTappedWallet ? (
             <TouchableOpacity activeOpacity={0.85} onPress={goTopup} style={[styles.proceedToPayBtn, styles.proceedToPayBtnActive]} testID="checkout-topup-cta">
               <Text style={[styles.proceedToPayBtnText, styles.proceedToPayBtnTextActive]}>{t('customer.checkout.screen.addMoney')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              activeOpacity={ready ? 0.85 : 1}
-              onPress={() => setShowWalletModal(true)}
-              disabled={!ready}
-              style={[styles.proceedToPayBtn, ready ? styles.proceedToPayBtnActive : styles.proceedToPayBtnDisabled]}
+              activeOpacity={isProceedActive ? 0.85 : 1}
+              onPress={handleProceedPress}
+              disabled={!isProceedActive}
+              style={[styles.proceedToPayBtn, isProceedActive ? styles.proceedToPayBtnActive : styles.proceedToPayBtnDisabled]}
               testID="checkout-proceed"
             >
-              <Text style={[styles.proceedToPayBtnText, ready ? styles.proceedToPayBtnTextActive : styles.proceedToPayBtnTextDisabled]}>{t('customer.checkout.screen.payPlace')}</Text>
+              <Text style={[styles.proceedToPayBtnText, isProceedActive ? styles.proceedToPayBtnTextActive : styles.proceedToPayBtnTextDisabled]}>
+                {t('customer.checkout.screen.proceed')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -657,23 +1077,41 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         </TouchableOpacity>
       </View>
 
-      {/* ═══ PAY WITH WALLET POPUP (46:40084): no OTP, the quote is the source ═══ */}
+      {/* ═══ PAY WITH WALLET POPUP (Screen 50b · Wallet pay popup) ═══ */}
       <Modal visible={showWalletModal} transparent animationType="fade" onRequestClose={() => setShowWalletModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.walletModalCard}>
             <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowWalletModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
               <ModalCloseCrossSvg size={13} color={customerColors.neutral.neutral900} />
             </TouchableOpacity>
+
+            {/* Header: Pay with Wallet */}
             <View style={styles.walletHeaderRow}>
-              <View style={styles.walletIconHeader}>
-                <WalletSvg />
-              </View>
+              <WalletGreenSvg size={22} />
               <Text style={styles.walletModalTitle}>{t('customer.checkout.screen.modal.title')}</Text>
             </View>
+
+            {/* Top Green Box: Order ID & Amount */}
+            <View style={styles.walletOrderBanner}>
+              <View style={styles.walletOrderBannerLeft}>
+                <View style={styles.walletOrderCartIcon}>
+                  <CartSmallGreenSvg />
+                </View>
+                <View>
+                  <Text style={styles.walletOrderId}>
+                    {t('customer.checkout.wallet.orderId', { id: order?.orderNumber ? order.orderNumber.replace(/[^0-9]/g, '').slice(-6) : (quote?.cartId ? quote.cartId.slice(-6).toUpperCase() : '123456') })}
+                  </Text>
+                  <Text style={styles.walletOrderLabel}>{t('customer.checkout.wallet.orderPayment')}</Text>
+                </View>
+              </View>
+              <Text style={styles.walletOrderPrice}>{formatRupees(total)}</Text>
+            </View>
+
+            {/* Summary Card */}
             <View style={styles.walletSummaryCard}>
               <View style={styles.walletBalanceRow}>
                 <View style={styles.walletBalanceLeft}>
-                  <WalletSvg />
+                  <WalletGreenSvg size={18} />
                   <Text style={styles.walletBalanceLabel}>{t('customer.checkout.screen.modal.balance')}</Text>
                 </View>
                 <Text style={styles.walletBalanceVal} testID="wallet-modal-balance">
@@ -685,18 +1123,23 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 <Text style={styles.walletAmountLabel}>{t('customer.checkout.screen.modal.amount')}</Text>
                 <Text style={styles.walletAmountVal}>{formatRupees(total)}</Text>
               </View>
-              {quote && (
-                <View style={styles.walletBalanceAfterBanner}>
-                  <Text style={styles.walletBalanceAfterLabel}>{t('customer.checkout.screen.modal.after')}</Text>
-                  <Text style={styles.walletBalanceAfterVal}>{formatRupees(subtractMoney(quote.walletBalance, quote.totalAmount))}</Text>
-                </View>
-              )}
+              <View style={styles.walletModalBalanceAfterBanner}>
+                <Text style={styles.walletModalBalanceAfterLabel}>{t('customer.checkout.screen.modal.after')}</Text>
+                <Text style={styles.walletModalBalanceAfterVal}>
+                  {quote
+                    ? formatRupees(subtractMoney(quote.walletBalance, quote.totalAmount))
+                    : formatRupees('1220.00')}
+                </Text>
+              </View>
             </View>
+
             {!!errorText && (
               <Text style={styles.walletOrderLabel} testID="wallet-modal-error">
                 {errorText}
               </Text>
             )}
+
+            {/* Action Buttons */}
             <View style={styles.walletActionRow}>
               <TouchableOpacity style={styles.walletCancelBtn} onPress={() => setShowWalletModal(false)} activeOpacity={0.7}>
                 <Text style={styles.walletCancelBtnText}>{t('customer.common.cancel')}</Text>
@@ -704,11 +1147,11 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <TouchableOpacity
                 style={styles.walletConfirmBtn}
                 onPress={() => void handleConfirmPayment()}
-                disabled={placeOrderM.isPending}
+                disabled={busy}
                 activeOpacity={0.85}
                 testID="wallet-confirm"
               >
-                {placeOrderM.isPending ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.modal.confirm')}</Text>}
+                {busy ? <ActivityIndicator color={customerColors.white} /> : <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.modal.confirm')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -716,7 +1159,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
       </Modal>
 
       {/* ═══ ORDER SUCCESS (46:40202) ═══ */}
-      <Modal visible={showSuccessModal && !!order} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
+      <Modal visible={showSuccessModal && order?.status === 'CONFIRMED'} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.successModalCard} testID="order-success">
             <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowSuccessModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
@@ -740,12 +1183,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 </View>
                 <View style={styles.orderMetaRow}>
                   <Text style={styles.orderMetaLabel}>{t('customer.checkout.screen.success.method')}</Text>
-                  <Text style={styles.orderMetaValBold}>{order?.paymentMethodLabel ?? t('customer.checkout.screen.success.wallet')}</Text>
+                  <Text style={styles.orderMetaValBold}>{methodLabel(order)}</Text>
                 </View>
                 <View style={styles.orderMetaRow}>
                   <Text style={styles.orderMetaLabel}>{orderIsPickup ? t('customer.checkout.screen.success.pickupLocation') : t('customer.checkout.screen.success.delivery')}</Text>
                   <Text style={styles.orderMetaValBold}>
-                    {orderIsPickup ? (orderPoint?.name ?? '') : `${order?.deliveryDate ?? ''} ${order?.deliverySlot ? SLOT_LABEL[order.deliverySlot] : ''}`}
+                    {orderIsPickup ? (orderPoint?.name ?? '') : `${order?.deliveryDate ?? ''} ${order?.deliverySlot ? slotLabel(order.deliverySlot) : ''}`}
                   </Text>
                 </View>
               </View>
@@ -769,7 +1212,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <Text style={styles.orderProgressHeading}>{t('customer.checkout.screen.success.progress')}</Text>
               <View style={styles.progressTracker}>
                 {[
-                  { title: t('customer.checkout.screen.step.payment'), sub: t('customer.checkout.screen.step.paymentSub'), state: 'done' },
+                  { title: t('customer.checkout.screen.step.payment'), sub: !order?.paymentMethod || order.paymentMethod === 'WALLET' ? t('customer.checkout.screen.step.paymentSub') : t('customer.checkout.screen.step.paymentSubOnline'), state: 'done' },
                   { title: t('customer.checkout.screen.step.confirmed'), sub: t('customer.checkout.screen.step.confirmedSub'), state: 'done' },
                   { title: t('customer.checkout.screen.step.preparing'), sub: t('customer.checkout.screen.step.preparingSub'), state: 'active' },
                   orderIsPickup
@@ -812,7 +1255,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               </View>
               <View style={styles.paidMethodBanner}>
                 <WalletSvg />
-                <Text style={styles.paidMethodText}>{t('customer.checkout.screen.success.paidVia', { method: order?.paymentMethodLabel ?? t('customer.checkout.screen.success.wallet') })}</Text>
+                <Text style={styles.paidMethodText}>{t('customer.checkout.screen.success.paidVia', { method: methodLabel(order) })}</Text>
               </View>
 
               {orderIsPickup && !!order?.pickupCode ? (
@@ -901,6 +1344,19 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
           <ConfettiOverlay />
         </View>
       </Modal>
+
+      {/* ═══ CHOOSE BANK MODAL (Screen 51) ═══ */}
+      <ChooseBankModal
+        visible={showChooseBankModal}
+        selectedBank={selectedBank}
+        onSelectBank={(b) => setSelectedBank(b)}
+        onProceed={(b) => {
+          setSelectedBank(b);
+          setShowChooseBankModal(false);
+          handleProceedPress();
+        }}
+        onClose={() => setShowChooseBankModal(false)}
+      />
     </View>
   );
 };
@@ -944,11 +1400,16 @@ const styles = StyleSheet.create({
   // ── 1. DELIVERY ADDRESS CARD ──────────────────────────────────────────────
   addressCard: {
     backgroundColor: customerColors.white,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: customerColors.neutral.neutral300,
-    padding: 14,
-    marginBottom: 14,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: customerColors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   addressCardHeader: {
     flexDirection: 'row',
@@ -1040,41 +1501,52 @@ const styles = StyleSheet.create({
   // ── 3. PAYMENT METHOD CARD ────────────────────────────────────────────────
   paymentCard: {
     backgroundColor: customerColors.white,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: customerColors.neutral.neutral300,
     overflow: 'hidden',
     marginBottom: 16,
+    shadowColor: customerColors.neutral.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   paymentCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     backgroundColor: customerColors.palette.amber.peachWash,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2E8E1', // TODO: extract to design token
   },
   paymentCardTitle: {
     fontFamily: customerFonts.editorial,
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: '600',
     color: customerColors.neutral.neutral900,
   },
   paymentList: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
   },
   methodRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: customerColors.neutral.neutral50,
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 8,
   },
   methodRowSelected: {
-    backgroundColor: customerColors.shared.primaryLight,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
   methodLeft: {
     flexDirection: 'row',
@@ -1304,53 +1776,42 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.primary,
   },
 
-  // Card details inputs (Image 2)
-  cardInputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: customerColors.neutral.neutral300,
-    paddingBottom: 4,
-    marginBottom: 12,
+  // Card: details are entered in Razorpay's sheet (PCI), only a hint here.
+  paymentHintText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: customerColors.neutral.neutral700,
   },
-  cardNumberInput: {
-    flex: 1,
-    fontSize: 13,
-    color: customerColors.neutral.neutral900,
-    paddingVertical: 2,
+  // Cash on delivery/shop: visible but not selectable (BR-223).
+  methodRowDisabled: {
+    opacity: 0.55,
   },
-  cardDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cardSmallInput: {
-    borderBottomWidth: 1,
-    borderBottomColor: customerColors.neutral.neutral300,
-    fontSize: 13,
-    color: customerColors.neutral.neutral900,
-    paddingVertical: 2,
+  methodUnavailableText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: customerColors.neutral.neutral600,
   },
 
   // ── 4. RETURN / REFUND POLICY ─────────────────────────────────────────────
   policyContainer: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     marginBottom: 20,
   },
   policyTitle: {
     fontFamily: customerFonts.editorial,
-    fontSize: 15,
+    fontSize: 16,
     color: customerColors.neutral.neutral900,
     marginBottom: 4,
   },
   policyText: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: customerColors.neutral.neutral600,
     lineHeight: 18,
     marginBottom: 6,
   },
   readPolicyLink: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
     color: customerColors.primary,
   },
@@ -1404,7 +1865,7 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.primary,
   },
   proceedToPayBtnDisabled: {
-    backgroundColor: customerColors.neutral.neutral400,
+    backgroundColor: '#D1D5DB',
   },
   proceedToPayBtnText: {
     fontSize: 13,
@@ -1414,7 +1875,7 @@ const styles = StyleSheet.create({
     color: customerColors.white,
   },
   proceedToPayBtnTextDisabled: {
-    color: customerColors.neutral.neutral500,
+    color: customerColors.white,
   },
   floatingCartCircle: {
     width: 48,
@@ -1579,58 +2040,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: customerColors.shared.primaryLight,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginTop: 8,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    marginTop: 4,
   },
   walletBalanceAfterLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     color: customerColors.legacy.greenDeeper,
+    flexShrink: 1,
   },
   walletBalanceAfterVal: {
     fontSize: 13,
     fontWeight: 'bold',
     color: customerColors.legacy.greenDeeper,
   },
-  walletOtpSection: {
-    marginBottom: 18,
-  },
-  walletOtpHeader: {
+  walletModalBalanceAfterBanner: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    backgroundColor: '#EAF7EE',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 8,
   },
-  walletOtpTitle: {
+  walletModalBalanceAfterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  walletModalBalanceAfterVal: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#111827',
+  },
+  walletShortfallBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 18,
+    backgroundColor: customerColors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  walletShortfallBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: customerColors.neutral.neutral900,
-  },
-  walletOtpSubtitle: {
-    fontSize: 11,
-    color: customerColors.neutral.neutral600,
-    lineHeight: 16,
-    marginBottom: 10,
-  },
-  walletOtpInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: customerColors.neutral.neutral300,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'android' ? 4 : 8,
-    backgroundColor: customerColors.white,
-  },
-  walletOtpInput: {
-    flex: 1,
-    fontSize: 14,
-    color: customerColors.neutral.neutral900,
-    marginLeft: 8,
-    paddingVertical: 2,
+    color: customerColors.white,
   },
   walletActionRow: {
     flexDirection: 'row',
@@ -1717,26 +2180,29 @@ const styles = StyleSheet.create({
     color: customerColors.neutral.neutral900,
   },
   orderItemsBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 14,
     marginBottom: 4,
   },
   orderItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 7,
   },
   orderItemName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: customerColors.neutral.neutral900,
   },
   orderItemSub: {
-    fontSize: 11,
+    fontSize: 12.5,
     color: customerColors.neutral.neutral600,
-    marginTop: 1,
+    marginTop: 2,
   },
   orderItemPrice: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: customerColors.neutral.neutral900,
   },
@@ -1818,8 +2284,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 6,
-    marginBottom: 10,
+    marginTop: 10,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: customerColors.neutral.neutral300,
+    marginBottom: 4,
   },
   totalPaidLabel: {
     fontSize: 16,
@@ -1827,7 +2296,7 @@ const styles = StyleSheet.create({
     color: customerColors.neutral.neutral900,
   },
   totalPaidAmount: {
-    fontSize: 22,
+    fontSize: 21,
     fontWeight: 'bold',
     color: customerColors.shared.success,
   },

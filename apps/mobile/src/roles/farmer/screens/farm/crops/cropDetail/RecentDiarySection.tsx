@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../../../../i18n/farmer';
-import { authPalette as P, radius, spacing, typography } from '../../../../theme';
+import { authPalette as P, radius, typography } from '../../../../theme';
 import type { DiaryEntrySummary } from '../../../../api/farmDiary';
 import { CompostIcon, SproutDiaryIcon } from './icons';
 import { formatActivityTitle, formatDiaryTimestamp, formatMinutesDuration } from './format';
@@ -79,7 +80,7 @@ export function RecentDiarySection({
               />
             ))
           ) : (
-            <Text style={styles.emptyText}>{t('farmer.crops.detail.diaryNone')}</Text>
+            <EmptyState iconName="menu_book" title={t('farmer.crops.detail.diaryNone')} variant="compact" />
           )
         ) : (
           <>
@@ -177,10 +178,5 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '700',
     color: P.twGreen700,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    paddingVertical: spacing.md,
   },
 });

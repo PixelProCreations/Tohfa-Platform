@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Path, Text as SvgText } from 'react-native-svg';
-import { ErrorState, Icon, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, ScreenStatusBar, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import {
   deriveFarmRatingView,
   getMyFarmRating,
@@ -238,11 +238,12 @@ export function FarmRatingsScreen({ onNavigateBack }: FarmRatingsScreenProps): R
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {!view.isRated ? (
-          <View style={styles.emptyStateCard}>
-            <Icon name="info" size={28} color={P.slate400} />
-            <Text style={styles.emptyStateTitle}>{t('farmer.profile.rating.notRatedTitle')}</Text>
-            <Text style={styles.emptyStateBody}>{t('farmer.profile.rating.notRatedBody')}</Text>
-          </View>
+          <EmptyState
+            variant="compact"
+            iconName="info"
+            title={t('farmer.profile.rating.notRatedTitle')}
+            message={t('farmer.profile.rating.notRatedBody')}
+          />
         ) : null}
 
         {/* Radar Chart */}
@@ -379,29 +380,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  emptyStateCard: {
-    backgroundColor: P.white,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: P.slate200,
-  },
-  emptyStateTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: 'bold',
-    color: P.darkGreyText,
-    marginTop: 10,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  emptyStateBody: {
-    fontSize: typography.body,
-    color: P.slate500,
-    textAlign: 'center',
-    lineHeight: 18,
-  },
 
   chartCard: {
     backgroundColor: P.white,

@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -163,6 +165,7 @@ export function ListingApprovalQueueScreen({
 
         {/* Listing Cards */}
         <View style={styles.listingList}>
+          {filteredListings.length === 0 ? <AdminEmptyState variant="compact" title={t('listingQueue.empty.title')} subtitle={t('listingQueue.empty.message')} /> : null}
           {filteredListings.map((listing) => (
             <View key={listing.id} style={styles.listingCard}>
               {/* Icon */}

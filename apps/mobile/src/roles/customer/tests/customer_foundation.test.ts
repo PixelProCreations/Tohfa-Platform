@@ -11,6 +11,7 @@ import { ApiError } from '../../../shell/api/client';
 import { __resetTokenCacheForTests, tokenStorage as sharedStore } from '../../../shell/storage/secureTokenStorage';
 import { openRazorpayCheckout } from '../../../shell/payments/razorpay';
 import { setLocale } from '../../../i18n/customer';
+import { __resetEntryRoleForTests, forgetEntryRole, readEntryRole } from '../../../shell/auth/entryRole';
 import {
   isValidCustomerMobile,
   isValidCustomerOtp,
@@ -84,6 +85,15 @@ describe('BR-153 passwordless customer login', () => {
     expect(customerStore).toBe(sharedStore);
     expect(client.getAccessToken()).toBe('acc');
     expect(result.route).toBe('CustomerMain');
+  });
+
+  it('BR-135: a customer sign-in remembers the customer entry, so a FARMER + CUSTOMER account reopens the customer side', async () => {
+    __resetEntryRoleForTests();
+    await forgetEntryRole();
+    vi.spyOn(client, 'request').mockResolvedValue(verifyResponse());
+    await verifyCustomerLoginOtp({ mobile: '9876543210', challengeId: 'ch', otp: '482915' });
+    __resetEntryRoleForTests(); // cold start
+    expect(await readEntryRole()).toBe('CUSTOMER');
   });
 
   it('routes new users and incomplete profiles to onboarding; absent flag goes home', () => {

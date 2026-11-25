@@ -18,6 +18,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import {
@@ -358,13 +359,12 @@ export const CustomerNotificationsScreen: React.FC<CustomerNotificationsScreenPr
         )}
 
         {showEmpty && (
-          <View style={styles.stateBox} testID="notifications-empty">
-            <View style={[styles.iconBox, { backgroundColor: customerColors.legacy.greenWash, marginBottom: 12 }]}>
-              <LeafSvg size={18} color={customerColors.primary} />
-            </View>
-            <Text style={styles.stateTitle}>{t('customer.notifications.emptyTitle')}</Text>
-            <Text style={styles.stateBody}>{t('customer.notifications.emptyBody')}</Text>
-          </View>
+          <EmptyState
+            iconName="notifications"
+            title={t('customer.notifications.emptyTitle')}
+            message={t('customer.notifications.emptyBody')}
+            testID="notifications-empty"
+          />
         )}
 
         {sections.map((section, sectionIndex) => (

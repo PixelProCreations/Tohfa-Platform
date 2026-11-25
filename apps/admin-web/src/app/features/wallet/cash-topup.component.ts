@@ -297,7 +297,7 @@ import { CashTopupService, type WalletTransactionResponse } from './cash-topup.s
               <button type="button" class="chip-btn" (click)="setAmount('5000.00')">₹5,000</button>
               <button type="button" class="chip-btn" (click)="setAmount('10000.00')">₹10,000 (Cap)</button>
             </div>
-            <div class="hint">Maximum INR 10,000.00 per cash transaction (BR-19).</div>
+            <div class="hint">Maximum INR 10,000.00 per cash transaction.</div>
             <div *ngIf="isFieldInvalid('amount')" class="error-text">
               Amount must be a positive number up to 10,000.00.
             </div>
@@ -313,7 +313,7 @@ import { CashTopupService, type WalletTransactionResponse } from './cash-topup.s
               formControlName="fiscalCashTag"
               placeholder="e.g. OOTY-2026-08-18-0042"
             />
-            <div class="hint">Physical receipt code recorded from the counter register (BR-18a).</div>
+            <div class="hint">Physical receipt code recorded from the counter register.</div>
             <div *ngIf="isFieldInvalid('fiscalCashTag')" class="error-text">
               Fiscal cash tag is mandatory (3-60 characters).
             </div>

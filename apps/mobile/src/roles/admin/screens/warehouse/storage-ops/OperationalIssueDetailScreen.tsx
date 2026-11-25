@@ -19,6 +19,7 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { adminErrorKey } from '../../../api/errors';
 import type { IssueStatusCode } from '../../../api/warehouseIssues';
 import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
@@ -194,7 +195,7 @@ export function OperationalIssueDetailScreen({ can, onBack, warehouse, issueId }
 
             <SectionTitle>{t('storageOps.issue.section.comments')}</SectionTitle>
             {detail.comments.length === 0 ? (
-              <Text style={styles.muted}>{t('storageOps.issue.noComments')}</Text>
+              <AdminEmptyState variant="compact" iconName={null} title={t('storageOps.issue.noComments')} />
             ) : (
               detail.comments.map((c) => {
                 const crow = toIssueCommentRow(c, now);

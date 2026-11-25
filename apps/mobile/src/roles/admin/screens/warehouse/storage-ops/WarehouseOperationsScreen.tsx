@@ -24,6 +24,7 @@ import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } fro
 
 import { OverviewDashboardCard, type OverviewCardIcon } from '../../../components';
 import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { BellRingIcon, HeaderIconButton, SectionTitle, WalletScreen, WarehouseTabBar, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { isAreaAvailable, type WarehouseArea } from '../availability';
@@ -220,7 +221,7 @@ export function WarehouseOperationsScreen({
               >
                 {t('storageOps.hub.recent')}
               </SectionTitle>
-              {recent.rows.length === 0 && !recent.isLoading ? <Text style={styles.meta}>{t('storageOps.activity.empty')}</Text> : null}
+              {recent.rows.length === 0 && !recent.isLoading ? <AdminEmptyState variant="compact" title={t('storageOps.activity.empty')} /> : null}
               {recent.rows.map((row) => (
                 <ActivityRowCard key={row.key} row={row} onPress={() => selectActivityLink(row)} />
               ))}

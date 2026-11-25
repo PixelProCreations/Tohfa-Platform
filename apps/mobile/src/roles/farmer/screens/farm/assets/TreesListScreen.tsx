@@ -183,8 +183,8 @@ export function TreesListScreen({
   onNavigateToPlantingDetail,
   onNavigateToEditPlanting,
 }: TreesListScreenProps): React.JSX.Element {
-  const insets = useSafeAreaInsets();
   const [plantings, setPlantings] = useState<TreePlantingItem[]>([]);
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'All plantings' | TreeStatus>('All plantings');
@@ -279,7 +279,11 @@ export function TreesListScreen({
             plantings.length === 0 ? (
               <EmptyState title={t('farmer.trees.emptyTitle')} message={t('farmer.trees.emptyMessage')} />
             ) : (
-              <EmptyState title={t('farmer.trees.noMatchTitle')} message={t('farmer.trees.noMatchMessage')} />
+              <EmptyState
+                iconName="search"
+                message={t('farmer.trees.noMatchMessage')}
+                title={t('farmer.trees.noMatchTitle')}
+              />
             )
           ) : (
           <View style={styles.plantingsListContainer}>

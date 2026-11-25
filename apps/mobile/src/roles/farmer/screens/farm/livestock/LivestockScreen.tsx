@@ -11,7 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import {
   listAnimals,
   type AnimalResponse,
@@ -368,6 +368,17 @@ export function LivestockScreen({
 
           {/* Animals List */}
           <View style={styles.animalsList}>
+            {filteredAnimals.length === 0 ? (
+              <EmptyState
+                variant="compact"
+                iconName={selectedSpecies === 'All species' ? 'inbox' : 'search'}
+                title={
+                  selectedSpecies === 'All species'
+                    ? t('farmer.livestock.empty.herd')
+                    : t('farmer.livestock.empty.noMatch')
+                }
+              />
+            ) : null}
             {filteredAnimals.map((item) => (
               <TouchableOpacity
                 key={item.id}

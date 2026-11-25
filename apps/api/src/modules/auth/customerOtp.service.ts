@@ -4,10 +4,12 @@ import { signTokenPair } from '../../auth/jwt.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
+import { isAllowedRoleSet } from '../../rbac/loadRbac.js';
 import { authRepo, type AuthRepo, type UserRow } from './auth.repo.js';
 import type { CustomerOtpSendBody, CustomerOtpVerifyBody, SendOtpBody } from './auth.schema.js';
 import { authService } from './auth.service.js';
 import { customerOtpRepo, type CustomerOtpRepo } from './customerOtp.repo.js';
+import { otpProvider as defaultOtpProvider, type OtpProvider } from './otp/index.js';
 import {
   PLACEHOLDER_CUSTOMER_NAME,
   profileCompleteness,
@@ -86,6 +88,8 @@ export interface CustomerOtpDeps {
   transaction: <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
   /** The BR-32 OTP issuer (`authService.sendOtp`): cooldown, 6 digits, 3 attempts, SMS. */
   sendOtp: (input: SendOtpBody) => Promise<unknown>;
+  /** BR-225: the one OTP provider every role's verify path uses. */
+  otpProvider: OtpProvider;
 }
 
 const defaultDeps: CustomerOtpDeps = {
@@ -94,16 +98,27 @@ const defaultDeps: CustomerOtpDeps = {
   db: pool,
   transaction: (fn) => withTransaction(fn),
   sendOtp: (input) => authService.sendOtp(input),
+  otpProvider: defaultOtpProvider,
 };
 
 export function createCustomerOtpService(overrides: Partial<CustomerOtpDeps> = {}): CustomerOtpService {
-  const { repo, customerRepo, db, transaction, sendOtp } = { ...defaultDeps, ...overrides };
+  const { repo, customerRepo, db, transaction, sendOtp, otpProvider } = { ...defaultDeps, ...overrides };
 
-  /** Refuses anything that is not a live customer account. */
+  /**
+   * Refuses anything that is not a live customer account (BR-153c).
+   *
+   * An account that holds CUSTOMER together with other roles of its BR-135 group (FARMER,
+   * FARMER_ADMIN) is a customer too: BR-135 lets one person be both, and this endpoint is the
+   * app's customer entry, so such an account signs in here as a customer. The session minted
+   * below carries CUSTOMER alone and no farmerId, so it never opens the farmer side. Every other
+   * account (no CUSTOMER role, or CUSTOMER beside a staff admin role) is still refused.
+   * A legacy CUSTOMER user with no role rows at all keeps signing in as before.
+   */
   async function assertCustomer(user: UserRow): Promise<void> {
-    if (user.user_type !== 'CUSTOMER') throw notCustomerSignIn();
-    const roles = await repo.getUserRoles(db, user.id);
-    if (roles.some((r) => r.role_code !== 'CUSTOMER')) throw notCustomerSignIn();
+    const roles = (await repo.getUserRoles(db, user.id)).map((r) => r.role_code);
+    const holdsCustomer =
+      roles.length === 0 ? user.user_type === 'CUSTOMER' : roles.includes('CUSTOMER') && isAllowedRoleSet(roles);
+    if (!holdsCustomer) throw notCustomerSignIn();
     if (user.status === 'DISABLED') {
       throw new AppError('FORBIDDEN', { detail: 'Account has been disabled.' });
     }
@@ -142,7 +157,9 @@ export function createCustomerOtpService(overrides: Partial<CustomerOtpDeps> = {
         throw new AppError('OTP_EXPIRED', { status: 400, detail: 'OTP challenge has expired.' });
       }
 
-      if (hashValue(input.otp) !== challenge.code_hash) {
+      // BR-225: the same provider check as /auth/otp/verify; BR-32 counting stays here.
+      const codeOk = await otpProvider.check({ mobile: challenge.mobile, code: input.otp, codeHash: challenge.code_hash });
+      if (!codeOk) {
         const attempts = challenge.attempts + 1;
         const lock = attempts >= challenge.max_attempts;
         await repo.incrementOtpAttempts(db, challenge.id, lock);

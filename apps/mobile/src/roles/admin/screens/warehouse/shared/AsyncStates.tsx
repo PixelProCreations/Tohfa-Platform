@@ -13,9 +13,15 @@
  */
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { buildThemeForRole, EmptyState, ThemeProvider } from '@tohfa/mobile-ui';
+import type { EmptyStateAction, EmptyStateVariant } from '@tohfa/mobile-ui';
+import { RoleCode } from '@tohfa/shared-types';
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+
+// All five admin roles resolve to the same admin orange in buildThemeForRole.
+const ADMIN_EMPTY_THEME = buildThemeForRole(RoleCode.MAIN_WH_ADMIN);
 
 export interface AdminLoadingStateProps {
   /** Defaults to the generic "Loading…". */
@@ -61,15 +67,35 @@ export function AdminErrorState({ error, onRetry, title, message, retryLabel, ch
 export interface AdminEmptyStateProps {
   /** Defaults to the generic "Nothing here yet". */
   title?: string | undefined;
+  /** Secondary line; passed to the shared EmptyState as `message`. */
   subtitle?: string | undefined;
+  /** `screen` (default) for a whole empty screen/list, `compact` inside a card/section. */
+  variant?: EmptyStateVariant | undefined;
+  /** Material Symbols name known to the icon font; `null` hides the icon. Default 'inbox'. */
+  iconName?: string | null | undefined;
+  testID?: string | undefined;
+  action?: EmptyStateAction | undefined;
 }
 
-export function AdminEmptyState({ title, subtitle }: AdminEmptyStateProps) {
+/**
+ * The admin areas' empty state. It only forwards to the shared EmptyState from
+ * @tohfa/mobile-ui (the one "nothing here" UI in the app). The ThemeProvider
+ * gives it the admin role's accent: admin screens are not wrapped in one, and
+ * without it the shared component would use the default farmer green (only
+ * visible on its optional action button; text and icon colours are neutrals).
+ */
+export function AdminEmptyState({ title, subtitle, variant, iconName, testID, action }: AdminEmptyStateProps) {
   return (
-    <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>{title ?? t('async.empty.title')}</Text>
-      {subtitle ? <Text style={styles.emptySubtitle}>{subtitle}</Text> : null}
-    </View>
+    <ThemeProvider theme={ADMIN_EMPTY_THEME}>
+      <EmptyState
+        title={title ?? t('async.empty.title')}
+        message={subtitle}
+        variant={variant}
+        iconName={iconName}
+        testID={testID}
+        action={action}
+      />
+    </ThemeProvider>
   );
 }
 
@@ -119,9 +145,6 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.xl,
     textAlign: 'center',
   },
-  empty: { alignItems: 'center', paddingVertical: adminSpacing.xxl, paddingHorizontal: adminSpacing.lg },
-  emptyTitle: { ...adminType.sectionHead, color: adminColors.ink, textAlign: 'center' },
-  emptySubtitle: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs, textAlign: 'center' },
   button: {
     alignSelf: 'stretch',
     height: ADMIN_BUTTON_HEIGHT,

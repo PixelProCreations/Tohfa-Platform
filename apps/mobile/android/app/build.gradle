@@ -77,12 +77,29 @@ android {
             // is not covered by .gitignore's `.cxx` rule, so it also showed up
             // as untracked in every `git status`.
             //
-            // Default to the conventional, gitignored app/.cxx, and let a
-            // Windows developer override it WITHOUT committing their path:
+            // Default to the conventional, gitignored app/.cxx on macOS/Linux.
+            //
+            // On Windows that default breaks the New Architecture C++ build:
+            // CMake embeds the *absolute* source path of out-of-tree sources
+            // (e.g. node_modules/@rnmapbox/maps/cpp/...) in each object
+            // directory under app/.cxx/<variant>/<hash>/<abi>, which from a
+            // normal clone exceeds 260 chars. The ninja bundled with SDK CMake
+            // 3.22.1 (1.10.x) is not long-path aware, so even with
+            // LongPathsEnabled=1 it fails with "mkdir(...): No such file or
+            // directory". So on Windows default to a short folder at the root
+            // of the project's drive (e.g. D:/.cxx-tohfa).
+            //
+            // Either default can be overridden WITHOUT committing a path:
             //   gradle.properties (not checked in) or -P on the command line
             //   tohfaCxxDir=C:/cxx
+            // (This must stay the single buildStagingDirectory assignment: a
+            // second externalNativeBuild block later in the file wins.)
+            def isWindows = org.gradle.internal.os.OperatingSystem.current().isWindows()
+            def defaultCxxDir = isWindows
+                ? new File(rootDir.toPath().getRoot().toFile(), ".cxx-tohfa").absolutePath
+                : "${projectDir}/.cxx"
             buildStagingDirectory file(
-                project.hasProperty("tohfaCxxDir") ? project.property("tohfaCxxDir") : "${projectDir}/.cxx"
+                project.hasProperty("tohfaCxxDir") ? project.property("tohfaCxxDir") : defaultCxxDir
             )
         }
     }
@@ -91,6 +108,9 @@ android {
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
+    // SMS User Consent API for OTP autofill (src/shell/otp, smsconsent module).
+    // No READ_SMS / RECEIVE_SMS permission is needed or added for it.
+    implementation("com.google.android.gms:play-services-auth-api-phone:18.1.0")
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

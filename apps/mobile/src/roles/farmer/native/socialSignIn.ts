@@ -17,24 +17,53 @@
  */
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { AccessToken, LoginManager } from 'react-native-fbsdk-next';
+import {
+  SocialSignInCancelledError,
+  SocialSignInError,
+  type SocialSignInFailure,
+} from '../../../shell/auth/socialSignInErrors';
 
-export type SocialProvider = 'GOOGLE' | 'FACEBOOK';
+// The error classes live in shell/ so describeError can map them; re-exported
+// here so LoginScreen keeps importing everything social from one place.
+export { SocialSignInCancelledError, SocialSignInError };
+export type { SocialProvider, SocialSignInFailure } from '../../../shell/auth/socialSignInErrors';
 
-/** The user closed the native sign-in sheet without completing it. Not an error. */
-export class SocialSignInCancelledError extends Error {
-  constructor(readonly provider: SocialProvider) {
-    super(`${provider} sign-in was cancelled.`);
-    this.name = 'SocialSignInCancelledError';
-  }
+/**
+ * Google Play services `CommonStatusCodes` that the RN library passes through
+ * as the rejection's string `code` but does not export as constants. Values
+ * are Google's (com.google.android.gms.common.api.CommonStatusCodes /
+ * GoogleSignInStatusCodes), not ours.
+ */
+const GOOGLE_DEVELOPER_ERROR = '10';
+const GOOGLE_NETWORK_ERROR = '7';
+
+/** Android application id; must match the Android OAuth client in Google Cloud Console. */
+const ANDROID_PACKAGE_NAME = 'in.tohfa.mobile';
+
+function classifyGoogleError(code: string | undefined): SocialSignInFailure {
+  if (code === GOOGLE_DEVELOPER_ERROR) return 'DEVELOPER_ERROR';
+  if (code === GOOGLE_NETWORK_ERROR) return 'NETWORK';
+  if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) return 'PLAY_SERVICES_UNAVAILABLE';
+  if (code === statusCodes.IN_PROGRESS) return 'IN_PROGRESS';
+  return 'FAILED';
 }
 
-/** The native SDK failed for a reason other than user cancellation. */
-export class SocialSignInError extends Error {
-  constructor(readonly provider: SocialProvider, cause: unknown) {
-    super(`${provider} sign-in failed.`);
-    this.name = 'SocialSignInError';
-    Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
-  }
+/**
+ * Dev-only: say exactly what failed and how to fix it. Without this the only
+ * trace of a DEVELOPER_ERROR was the generic banner -- nothing in logcat and
+ * nothing in the API log, because the request never left the device.
+ */
+function logGoogleFailureForDevelopers(err: SocialSignInError): void {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
+  const hint =
+    err.reason === 'DEVELOPER_ERROR' || err.reason === 'NO_ID_TOKEN'
+      ? ` Google rejected this app's OAuth configuration. In Google Cloud Console, in the SAME project as ` +
+        `GOOGLE_WEB_CLIENT_ID (socialSignIn.ts), create an OAuth client of type "Android" with package name ` +
+        `${ANDROID_PACKAGE_NAME} and the SHA-1 of the keystore that signed this build ` +
+        `(debug: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android). ` +
+        `webClientId must be the project's "Web application" client and equal GOOGLE_OAUTH_CLIENT_ID on the API.`
+      : '';
+  console.warn(`[socialSignIn] ${err.message}${hint}`, (err as { cause?: unknown }).cause);
 }
 
 // The Google Cloud Console *Web* application's OAuth client ID (not the
@@ -42,7 +71,7 @@ export class SocialSignInError extends Error {
 // carries an audience the API's Google token verifier (BR-39) can check.
 // Must stay identical to GOOGLE_OAUTH_CLIENT_ID in the backend's .env. See
 // docs/rules.md BR-39 and apps/api/src/modules/auth/oauth.providers.ts.
-const GOOGLE_WEB_CLIENT_ID = '854421044200-1a7k2p4ga5cald7hq9f1e5onm0sjcgl2.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '774057695382-thjo0go5h2nud20deepf234f2rilpoqt.apps.googleusercontent.com';
 
 let googleConfigured = false;
 
@@ -61,23 +90,35 @@ export async function signInWithGoogle(): Promise<string> {
   ensureGoogleConfigured();
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    // Always show the account chooser: without this a cached account is picked
+    // silently and the tap looks like nothing happened. Failure here is harmless.
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // ignore: nothing signed in, or the native module refused
+    }
     const result = await GoogleSignin.signIn();
     if (result.type !== 'success') {
       throw new SocialSignInCancelledError('GOOGLE');
     }
     if (!result.data.idToken) {
-      throw new SocialSignInError('GOOGLE', new Error('GoogleSignin returned no idToken'));
+      throw new SocialSignInError('GOOGLE', 'NO_ID_TOKEN', null, new Error('GoogleSignin returned no idToken'));
     }
     return result.data.idToken;
   } catch (error) {
-    if (error instanceof SocialSignInCancelledError || error instanceof SocialSignInError) {
+    if (error instanceof SocialSignInCancelledError) throw error;
+    if (error instanceof SocialSignInError) {
+      logGoogleFailureForDevelopers(error);
       throw error;
     }
-    const code = (error as { code?: string } | null)?.code;
-    if (code === statusCodes.SIGN_IN_CANCELLED) {
+    const code = (error as { code?: unknown } | null)?.code;
+    const nativeCode = typeof code === 'string' || typeof code === 'number' ? String(code) : undefined;
+    if (nativeCode === statusCodes.SIGN_IN_CANCELLED) {
       throw new SocialSignInCancelledError('GOOGLE');
     }
-    throw new SocialSignInError('GOOGLE', error);
+    const classified = new SocialSignInError('GOOGLE', classifyGoogleError(nativeCode), nativeCode ?? null, error);
+    logGoogleFailureForDevelopers(classified);
+    throw classified;
   }
 }
 
@@ -94,13 +135,13 @@ export async function signInWithFacebook(): Promise<string> {
     }
     const token = await AccessToken.getCurrentAccessToken();
     if (!token) {
-      throw new SocialSignInError('FACEBOOK', new Error('No AccessToken after Facebook login'));
+      throw new SocialSignInError('FACEBOOK', 'FAILED', null, new Error('No AccessToken after Facebook login'));
     }
     return token.accessToken;
   } catch (error) {
     if (error instanceof SocialSignInCancelledError || error instanceof SocialSignInError) {
       throw error;
     }
-    throw new SocialSignInError('FACEBOOK', error);
+    throw new SocialSignInError('FACEBOOK', 'FAILED', null, error);
   }
 }

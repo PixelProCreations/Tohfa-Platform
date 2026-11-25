@@ -20,6 +20,7 @@ import * as path from 'node:path';
 import renderer, { act, type ReactTestRendererJSON } from 'react-test-renderer';
 
 vi.mock('react-native', () => ({
+  Alert: { alert: () => undefined },
   BackHandler: { addEventListener: () => ({ remove: () => undefined }) },
   Platform: { OS: 'ios', select: (obj: Record<string, unknown>) => obj['ios'] ?? obj['default'] },
   RefreshControl: 'RefreshControl',

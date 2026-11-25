@@ -37,7 +37,10 @@ import {
   useMapPlaceSearch,
   type MapboxFeature,
 } from '../registration/mapControls';
+import { MapIconPill } from '../registration/MapIconPill';
 import type { FarmMapTarget } from './farmMapPreview';
+
+const MAP_PILL_ICON_SIZE = 20;
 
 /** Step 3's zoom-stepper touch padding: the 36px buttons get a 48px target without growing. */
 const ZOOM_HIT_SLOP = { top: 6, bottom: 6, left: 6, right: 6 };
@@ -183,76 +186,59 @@ export function FarmMapPanel({
           </View>
 
           <View style={mapUi.rightControls} pointerEvents="box-none">
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={mapUi.actionPill}
+            <MapIconPill
+              label={t('farmer.map.search')}
+              hint={t('farmer.map.searchPlaceholder')}
               onPress={search.open}
-              accessibilityRole="button"
               testID={`${testIDPrefix}-search-open`}
-            >
-              <SearchIcon size={14} color={colors.brandGreen} />
-              <Text style={mapUi.actionPillText}>{t('farmer.map.search')}</Text>
-            </TouchableOpacity>
+              renderIcon={(c) => <SearchIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+            />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={mapUi.actionPill}
+            <MapIconPill
+              label={t('farmer.map.locateMe')}
               onPress={() => void mapRef.current?.locateMe()}
-              accessibilityRole="button"
               testID={`${testIDPrefix}-locate-me`}
-            >
-              <CrosshairIcon size={14} color={colors.brandGreen} />
-              <Text style={mapUi.actionPillText}>{t('farmer.map.locateMe')}</Text>
-            </TouchableOpacity>
+              renderIcon={(c) => <CrosshairIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+            />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleToggleDraw}
-              style={[mapUi.actionPill, mode !== 'view' && mapUi.actionPillActive]}
-              accessibilityRole="button"
-              testID={`${testIDPrefix}-draw-toggle`}
-            >
-              <PenIcon size={14} color={mode !== 'view' ? colors.white : colors.brandGreen} />
-              <Text style={[mapUi.actionPillText, mode !== 'view' && mapUi.actionPillTextActive]}>
-                {mode === 'draw'
+            <MapIconPill
+              label={
+                mode === 'draw'
                   ? t('farmer.map.doneDrawing')
                   : mode === 'edit'
                     ? t('farmer.map.doneEditing')
                     : hasShape
                       ? t('farmer.map.editBoundary')
-                      : t('farmer.map.drawBoundary')}
-              </Text>
-            </TouchableOpacity>
+                      : t('farmer.map.drawBoundary')
+              }
+              onPress={handleToggleDraw}
+              tone={mode !== 'view' ? 'active' : 'default'}
+              testID={`${testIDPrefix}-draw-toggle`}
+              renderIcon={(c) => <PenIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+            />
 
             {/* Undo / Clear have no Step 3 counterpart on the map (Step 3 deletes from its bottom
-                card); kept as pills in the same style. */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={mapUi.actionPill}
+                card); kept as round buttons in the same style. */}
+            <MapIconPill
+              label={t('farmer.map.undo')}
               onPress={() => mapRef.current?.undo()}
-              accessibilityRole="button"
               testID={`${testIDPrefix}-undo`}
-            >
-              <Icon name="undo" size={14} color={colors.brandGreen} />
-              <Text style={mapUi.actionPillText}>{t('farmer.map.undo')}</Text>
-            </TouchableOpacity>
+              renderIcon={(c) => <Icon name="undo" size={MAP_PILL_ICON_SIZE} color={c} />}
+            />
 
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={mapUi.actionPill}
+            <MapIconPill
+              label={t('farmer.map.clear')}
               onPress={() => mapRef.current?.clear()}
-              accessibilityRole="button"
               testID={`${testIDPrefix}-clear`}
-            >
-              <Icon name="delete" size={14} color={P.red500} />
-              <Text style={mapUi.actionPillText}>{t('farmer.map.clear')}</Text>
-            </TouchableOpacity>
+              renderIcon={() => <Icon name="delete" size={MAP_PILL_ICON_SIZE} color={P.red500} />}
+            />
 
             {mode !== 'view' ? (
-              <View style={mapUi.editingBadge} pointerEvents="none">
-                <PenIcon size={13} color={P.black} />
-                <Text style={mapUi.editingText}>{t('farmer.map.editingBadge')}</Text>
-              </View>
+              <MapIconPill
+                label={t('farmer.map.editingBadge')}
+                tone="editing"
+                renderIcon={(c) => <PenIcon size={MAP_PILL_ICON_SIZE} color={c} />}
+              />
             ) : null}
           </View>
         </View>

@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { getFarms } from '../../../api/farms';
@@ -316,6 +317,9 @@ export function WorkforceScreen({
 
           {/* Workers List */}
           <View style={styles.workersList}>
+            {workers.length === 0 ? (
+              <EmptyState variant="compact" iconName="groups" title={t('farmer.workforce.staff.empty')} />
+            ) : null}
             {workers.map((item, idx) => {
               const payrollRow = payroll.find((p) => p.workerId === item.id);
               const avatar = AVATAR_PALETTE[idx % AVATAR_PALETTE.length]!;

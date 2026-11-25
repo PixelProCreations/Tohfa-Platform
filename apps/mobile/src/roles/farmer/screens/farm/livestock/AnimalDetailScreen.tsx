@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import {
@@ -737,7 +737,11 @@ export function AnimalDetailScreen({
               <Text style={styles.sectionHeaderTitle}>DAILY YIELD LOG</Text>
               {productionLogs.length === 0 ? (
                 <View style={styles.whiteCardContainer}>
-                  <Text style={styles.itemSubtitle}>No milk yield logged yet.</Text>
+                  <EmptyState
+                    variant="compact"
+                    iconName={null}
+                    title={t('farmer.livestock.detail.production.noMilkYield')}
+                  />
                 </View>
               ) : (
                 <View style={styles.whiteCardContainer}>
@@ -820,9 +824,12 @@ export function AnimalDetailScreen({
                     {t('farmer.livestock.detail.form.production.otherLoadFailed')}
                   </Text>
                 ) : otherProduce.length === 0 ? (
-                  <Text style={styles.itemSubtitle} testID="animalDetail.production.otherEmpty">
-                    {t('farmer.livestock.detail.form.production.otherEmpty')}
-                  </Text>
+                  <EmptyState
+                    variant="compact"
+                    iconName={null}
+                    title={t('farmer.livestock.detail.form.production.otherEmpty')}
+                    testID="animalDetail.production.otherEmpty"
+                  />
                 ) : (
                   otherProduce.map((log, idx) => (
                     <React.Fragment key={log.id}>

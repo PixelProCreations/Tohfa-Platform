@@ -197,7 +197,7 @@ export function StorageInfoScreen({
           ) : listState === 'error' ? (
             <AdminErrorState error={error} onRetry={onRetry} />
           ) : listState === 'empty' ? (
-            <AdminEmptyState title="No storage locations" subtitle="Try another filter or search." />
+            <AdminEmptyState title={t('profile.storage.empty.title')} subtitle={t('profile.storage.empty.subtitle')} />
           ) : (
             <>
               {locations.map((loc) => {

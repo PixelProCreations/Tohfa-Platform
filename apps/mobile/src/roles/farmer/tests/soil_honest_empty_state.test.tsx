@@ -33,7 +33,12 @@ vi.mock('react-native-svg', () => ({
   Rect: 'Rect',
 }));
 
-vi.mock('@tohfa/mobile-ui', () => ({ Icon: 'Icon', SafeAreaView: 'SafeAreaView' }));
+vi.mock('@tohfa/mobile-ui', () => ({
+  Icon: 'Icon',
+  SafeAreaView: 'SafeAreaView',
+  EmptyState: ({ title, message, testID }: { title: string; message?: string; testID?: string }) =>
+    React.createElement('Text', { testID }, message ? `${title} ${message}` : title),
+}));
 
 const farmsApi = vi.hoisted(() => ({
   getFarms: vi.fn(),

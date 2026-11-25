@@ -24,6 +24,10 @@ const CUSTOMER_FLOW_CASES: Array<[string, number, string, string]> = [
   ['OTP_LOCKED', 429, 'error.OTP_LOCKED', 'resend_otp'],
   ['OTP_RESEND_TOO_SOON', 429, 'error.OTP_RESEND_TOO_SOON', 'wait'],
   ['OTP_SMS_DELIVERY_FAILED', 502, 'error.OTP_SMS_DELIVERY_FAILED', 'retry'],
+  // BR-225: Twilio Verify outcomes.
+  ['OTP_PROVIDER_RATE_LIMITED', 429, 'error.OTP_PROVIDER_RATE_LIMITED', 'wait'],
+  ['OTP_DESTINATION_INVALID', 422, 'error.OTP_DESTINATION_INVALID', 'none'],
+  ['OTP_PROVIDER_UNAVAILABLE', 503, 'error.OTP_PROVIDER_UNAVAILABLE', 'retry'],
   ['VALIDATION_FAILED', 422, 'error.VALIDATION_FAILED', 'fix_fields'],
   ['EMAIL_NOT_CONFIGURED', 503, 'error.EMAIL_NOT_CONFIGURED', 'retry'],
   ['WALLET_TRANSFER_DISABLED', 403, 'error.WALLET_TRANSFER_DISABLED', 'none'],

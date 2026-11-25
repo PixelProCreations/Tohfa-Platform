@@ -35,7 +35,7 @@ export const LISTINGS_STRINGS = {
 
   // Badges & Indicators
   ROUTED_AWAY_BADGE: 'Routed Away (Self-Approval)',
-  ROUTED_AWAY_TOOLTIP: 'You own this listing (BR-29). Action buttons are disabled and this listing has been routed to another admin.',
+  ROUTED_AWAY_TOOLTIP: 'You own this listing. Action buttons are disabled and this listing has been routed to another admin.',
   LAPSED_BADGE: 'Lapsed (24h Expired)',
   NO_OFFER: 'No Active Offer',
   EMPTY_QUEUE: 'No produce listings match the selected filters.',
@@ -62,13 +62,13 @@ export const LISTINGS_STRINGS = {
 
   // Counter Modal
   COUNTER_TITLE: 'Send Counter-Offer to Farmer',
-  COUNTER_DESC: 'Negotiate price and quantity. The farmer will have 24 hours to accept, reject, or counter back (BR-10, BR-11).',
+  COUNTER_DESC: 'Negotiate price and quantity. The farmer will have 24 hours to accept, reject, or counter back.',
   LABEL_COUNTER_PRICE: 'Proposed Price per kg (INR)',
   LABEL_COUNTER_QTY: 'Proposed Quantity (kg)',
   LABEL_COUNTER_MSG: 'Reason / Message for Farmer',
   COUNTER_MSG_PLACEHOLDER: 'e.g. Demand is high for 150 kg; willing to take at INR 48.00/kg.',
-  ROUNDS_REMAINING: (used: number) => `Round ${used + 1} of 3 (Max 3 rounds allowed per BR-11)`,
-  ROUNDS_EXHAUSTED: 'All 3 counter rounds have been exhausted (BR-11). You must approve or reject this listing.',
+  ROUNDS_REMAINING: (used: number) => `Round ${used + 1} of 3 (Max 3 rounds allowed)`,
+  ROUNDS_EXHAUSTED: 'All 3 counter rounds have been exhausted. You must approve or reject this listing.',
 
   // Reject Modal
   REJECT_TITLE: 'Reject Produce Listing',
@@ -82,7 +82,7 @@ export const LISTINGS_STRINGS = {
   SUCCESS_COUNTERED: 'Counter-offer sent to farmer with 24-hour response clock.',
   SUCCESS_REJECTED: 'Listing rejected successfully.',
   ERROR_GENERIC: 'An error occurred while processing your request.',
-  ERROR_ROUTED_SELF: 'Action refused: As a Farmer Admin, you cannot act on your own listings (BR-29).',
-  ERROR_EXPIRED: 'This counter-offer has already expired (BR-10).',
-  ERROR_LIMIT_REACHED: 'Maximum 3 counter rounds reached for this listing (BR-11).',
+  ERROR_ROUTED_SELF: 'Action refused: As a Farmer Admin, you cannot act on your own listings.',
+  ERROR_EXPIRED: 'This counter-offer has already expired.',
+  ERROR_LIMIT_REACHED: 'Maximum 3 counter rounds reached for this listing.',
 } as const;

@@ -41,6 +41,8 @@ vi.mock('react-native-svg', () => ({ default: 'Svg', Circle: 'Circle', Path: 'Pa
 const mapAvailability = vi.hoisted(() => ({ available: true }));
 vi.mock('@tohfa/mobile-ui', () => ({
   ErrorState: 'ErrorState',
+  EmptyState: ({ title, message, testID }: { title: string; message?: string; testID?: string }) =>
+    React.createElement('Text', { testID }, message ? `${title} ${message}` : title),
   FARM_MAP_FALLBACK_CENTER: [76.6932, 11.4064],
   FarmBoundaryMap: 'FarmBoundaryMap',
   Icon: 'Icon',

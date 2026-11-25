@@ -32,6 +32,7 @@ vi.mock('react-native', () => ({
   StyleSheet: { create: (s: Record<string, unknown>) => s },
   Text: 'Text',
   TextInput: 'TextInput',
+  Pressable: 'Pressable',
   TouchableOpacity: 'TouchableOpacity',
   View: 'View',
 }));
@@ -45,6 +46,8 @@ vi.mock('react-native-svg', () => ({
 
 vi.mock('@tohfa/mobile-ui', () => ({
   FarmBoundaryMap: 'FarmBoundaryMap',
+  EmptyState: ({ title, message, testID }: { title: string; message?: string; testID?: string }) =>
+    React.createElement('Text', { testID }, message ? `${title} ${message}` : title),
   FARM_MAP_FALLBACK_CENTER: [76.7, 11.4],
   Icon: 'Icon',
   Skeleton: 'Skeleton',

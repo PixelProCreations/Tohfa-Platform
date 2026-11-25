@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
@@ -98,7 +98,7 @@ export function ListingDetailScreen({ listing, onBack }: ListingDetailScreenProp
       <SafeAreaView style={styles.container}>
         {header}
         <View style={styles.centerFill}>
-          <Text style={styles.emptyText}>{t('farmer.listings.detail.missing')}</Text>
+          <EmptyState variant="screen" iconName="search" title={t('farmer.listings.detail.missing')} />
         </View>
       </SafeAreaView>
     );
@@ -445,10 +445,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.grey500,
-    textAlign: 'center',
   },
 });

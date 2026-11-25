@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { ErrorState, Skeleton, ScreenStatusBar, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, ScreenStatusBar, appAlert } from '@tohfa/mobile-ui';
 import { t } from '../../../../../i18n/farmer';
 import { ApiError, extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
@@ -208,7 +208,7 @@ export function NewCropScreen({
       <SafeAreaView style={styles.safeArea}>
         <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.optionsErrorContainer}>
-          <Text style={styles.noPlotsText}>{t('farmer.crops.newCrop.noPlotsMessage')}</Text>
+          <EmptyState iconName="park" title={t('farmer.crops.newCrop.noPlotsMessage')} variant="screen" />
         </View>
       </SafeAreaView>
     );

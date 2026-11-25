@@ -9,6 +9,7 @@ import {
   Platform,
   TextInput,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import type { TextInputInstance } from 'react-native';
@@ -21,9 +22,17 @@ import {
   resolveRouteAfterAuth,
   fetchMe,
   isOtpVerifiedNoAccount,
+  logout,
 } from '../../api/auth';
+import { rememberEntryRole, rolesForEntry } from '../../../../shell/auth/entryRole';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 import { t } from '../../../../i18n/farmer';
+import {
+  OTP_CODE_LENGTH,
+  otpTextInputProps,
+  sanitizeOtpInput,
+  useOtpSmsAutofill,
+} from '../../../../shell/otp';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map
@@ -32,7 +41,12 @@ const authPalette = {
   background: themeAuthPalette.creamBg,
   primary: themeAuthPalette.otpInk,
   primaryLight: themeAuthPalette.lightGreen,
-  buttonBg: themeAuthPalette.sageButtonBg,
+  // The enabled Verify fill must be a solid brand green. It used to be
+  // `sageButtonBg` for every state, with only `opacity: 0.7` added when
+  // disabled, so a complete code (typed or SMS-autofilled) still looked
+  // disabled. Sage is now the disabled fill only.
+  buttonBg: themeAuthPalette.primary,
+  buttonBgDisabled: themeAuthPalette.sageButtonBg,
   text: themeAuthPalette.otpInk,
   textLight: themeAuthPalette.sageMutedText,
   inputBg: themeAuthPalette.white,
@@ -113,6 +127,18 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
     now,
   });
 
+  // Android: fill the boxes from the SMS once the user allows it on the
+  // system sheet. Farmer/admin login never auto-submitted, so this only
+  // fills; the user still taps Verify. Re-armed per challenge (resend).
+  useOtpSmsAutofill({
+    enabled: !otpState.isLocked,
+    armKey: activeChallengeId,
+    onCode: (smsCode) => {
+      setCode(smsCode);
+      setErrorMsg(null);
+    },
+  });
+
   async function handleVerify() {
     if (code.length < 6) {
       setErrorMsg('Please enter the complete 6-digit verification code.');
@@ -154,10 +180,23 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
         return;
       }
 
+      // BR-135: this OTP screen is reached only from the farmer/staff Login, so
+      // it is the farmer entry. `/auth/otp/verify` takes no roleCode and signs
+      // the session for every role held, so the entry narrows the roles the
+      // server returned: a FARMER + CUSTOMER account opens the farmer side
+      // (whatever order the roles came in) and a customer-only account is
+      // refused and signed out rather than opened as a customer.
+      const me = await fetchMe();
+      const entry = rolesForEntry('FARMER', me.roles);
+      if (!entry.ok) {
+        await logout().catch(() => undefined);
+        setErrorMsg(t('farmer.auth.login.notFarmerAccount'));
+        return;
+      }
+      await rememberEntryRole('FARMER');
       // BR-142: an account with no password yet is routed to Create Password
       // by resolveRouteAfterAuth (it reads `hasPassword` from /auth/me).
-      const me = await fetchMe();
-      const route = resolveRouteAfterAuth(me);
+      const route = resolveRouteAfterAuth({ ...me, roles: entry.roles });
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
       if (err instanceof ApiError) {
@@ -219,7 +258,9 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
     return boxes;
   };
 
-  const formatTimer = (seconds: number) => {
+  const canVerify = code.length === OTP_CODE_LENGTH && !otpState.isLocked;
+
+  const formatTimer =(seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `0${m}:${s < 10 ? '0' : ''}${s}`;
@@ -272,11 +313,8 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
               ref={inputRef}
               style={styles.hiddenInput}
               value={code}
-              onChangeText={(text) => {
-                if (text.length <= 6) setCode(text.replace(/[^0-9]/g, ''));
-              }}
-              keyboardType="number-pad"
-              maxLength={6}
+              onChangeText={(text) => setCode(sanitizeOtpInput(text, OTP_CODE_LENGTH))}
+              {...otpTextInputProps}
               autoFocus
             />
           </Pressable>
@@ -295,17 +333,26 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
             )}
           </View>
 
+          {/* Faded only when there is nothing valid to submit (incomplete
+              code, or BR-32 locked). While verifying it stays solid with a
+              spinner: busy, not unavailable. */}
           <TouchableOpacity
             style={[
               styles.verifyButton,
-              code.length < 6 && styles.verifyButtonDisabled,
+              !canVerify && styles.verifyButtonDisabled,
             ]}
+            testID="otp-verify"
             onPress={handleVerify}
-            disabled={code.length < 6 || loading}
+            disabled={!canVerify || loading}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.auth.otp.verify')}
+            accessibilityState={{ disabled: !canVerify || loading, busy: loading }}
           >
-            <Text style={styles.verifyButtonText}>
-              {loading ? 'Verifying...' : 'Verify'}
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="small" color={authPalette.inputBg} />
+            ) : (
+              <Text style={styles.verifyButtonText}>{t('farmer.auth.otp.verify')}</Text>
+            )}
           </TouchableOpacity>
 
           <View style={styles.supportContainer}>
@@ -317,18 +364,6 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
             </Text>
           </View>
 
-          <View style={styles.spacer} />
-
-          <View style={styles.languageContainer}>
-            <View style={styles.languageToggle}>
-              <View style={[styles.langOption, styles.langOptionActive]}>
-                <Text style={[styles.langText, styles.langTextActive]}>EN</Text>
-              </View>
-              <View style={styles.langOption}>
-                <Text style={styles.langText}>தமிழ்</Text>
-              </View>
-            </View>
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -474,7 +509,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   verifyButtonDisabled: {
-    opacity: 0.7,
+    backgroundColor: authPalette.buttonBgDisabled,
   },
   verifyButtonText: {
     color: authPalette.inputBg,
@@ -491,34 +526,6 @@ const styles = StyleSheet.create({
   supportLink: {
     fontWeight: '700',
     color: authPalette.focusBorder,
-  },
-  spacer: {
-    flex: 1,
-  },
-  languageContainer: {
-    marginTop: 20,
-    alignItems: 'center',
-  },
-  languageToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  langOption: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-  },
-  langOptionActive: {
-    backgroundColor: authPalette.successLight,
-  },
-  langText: {
-    fontSize: typography.body,
-    color: authPalette.textLight,
-    fontWeight: '600',
-  },
-  langTextActive: {
-    color: authPalette.primary,
   },
 });
 

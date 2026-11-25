@@ -10,7 +10,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView, EmptyState } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';
@@ -215,7 +216,7 @@ export function SoilTestRecordsScreen({
         <Text style={styles.sectionHeading}>Test history</Text>
 
         {records.length === 0 ? (
-          <Text style={styles.emptyText}>No soil test records yet.</Text>
+          <EmptyState variant="compact" iconName="science" title={t('farmer.profile.soil.noHistory')} />
         ) : (
         <View style={styles.recordsList}>
           {records.map((record) => (
@@ -343,12 +344,6 @@ const styles = StyleSheet.create({
     color: P.red600,
     fontSize: typography.body,
     fontWeight: '600',
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    paddingVertical: 24,
   },
   recordsList: {
     gap: 12,

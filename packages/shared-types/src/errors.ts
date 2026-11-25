@@ -72,6 +72,12 @@ export const ErrorCode = {
   OTP_RESEND_TOO_SOON: 'OTP_RESEND_TOO_SOON',
   /** The configured SMS provider rejected or failed to dispatch the OTP. */
   OTP_SMS_DELIVERY_FAILED: 'OTP_SMS_DELIVERY_FAILED',
+  /** The OTP provider (Twilio Verify) refused: too many sends or checks for this number (BR-225). HTTP 429. */
+  OTP_PROVIDER_RATE_LIMITED: 'OTP_PROVIDER_RATE_LIMITED',
+  /** The OTP provider cannot deliver an SMS to this number (invalid, landline or not a mobile) (BR-225). HTTP 422. */
+  OTP_DESTINATION_INVALID: 'OTP_DESTINATION_INVALID',
+  /** The OTP provider could not be reached to verify a code; nothing was consumed (BR-225). HTTP 503. */
+  OTP_PROVIDER_UNAVAILABLE: 'OTP_PROVIDER_UNAVAILABLE',
   /** No email transport is configured, so an email cannot be sent. */
   EMAIL_NOT_CONFIGURED: 'EMAIL_NOT_CONFIGURED',
   /** The email transport rejected or failed to deliver the message. */

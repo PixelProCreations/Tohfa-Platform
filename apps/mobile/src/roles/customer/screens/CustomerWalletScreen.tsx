@@ -13,6 +13,7 @@ import {
   StatusBar,
   RefreshControl,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { customerFonts, customerColors } from '../theme';
@@ -527,16 +528,16 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                   </TouchableOpacity>
                 </View>
               ) : transactions.length === 0 ? (
-                <View style={extra.centerBox}>
-                  <Text style={extra.stateText}>
-                    {filterCount > 0 ? t('customer.wallet.tx.emptyFiltered') : t('customer.wallet.tx.empty')}
-                  </Text>
-                  {filterCount > 0 ? (
-                    <TouchableOpacity onPress={() => setFilters(DEFAULT_TX_FILTERS)} accessibilityLabel={t('customer.wallet.filter.clear')}>
-                      <Text style={extra.bannerAction}>{t('customer.wallet.filter.clear')}</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
+                filterCount > 0 ? (
+                  <EmptyState
+                    variant="compact"
+                    iconName="search"
+                    title={t('customer.wallet.tx.emptyFiltered')}
+                    action={{ label: t('customer.wallet.filter.clear'), onPress: () => setFilters(DEFAULT_TX_FILTERS) }}
+                  />
+                ) : (
+                  <EmptyState variant="compact" iconName="account_balance_wallet" title={t('customer.wallet.tx.empty')} />
+                )
               ) : (
                 <>
                   {transactions.map((tx, i) => (

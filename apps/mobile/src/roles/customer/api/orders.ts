@@ -1,7 +1,10 @@
 /**
  * Customer orders (docs/openapi.yaml tag "Cart & Orders"):
  *   POST /orders/quote (read-only pricing, same path as checkout, BR-200),
- *   POST /orders (wallet-only checkout, Idempotency-Key required, BR-17),
+ *   POST /orders (Idempotency-Key required; WALLET confirms at once, UPI/CARD/NETBANKING
+ *   return PENDING_PAYMENT + a Razorpay `payment` block, CASH is 422 PAYMENT_METHOD_DISABLED;
+ *   BR-17 as amended, BR-220, BR-223), POST /orders/{id}/payment/verify (BR-221),
+ *   POST /orders/{id}/cancel (pending-payment orders only, BR-222),
  *   GET /orders (cursor paged OrderSummary), GET /orders/{id}, GET /orders/{id}/tracking,
  *   POST /orders/{id}/reorder (Idempotency-Key), GET /delivery-slots.
  *
@@ -45,7 +48,18 @@ export function isPickupFulfillment(f: string | null | undefined): boolean {
   return f === 'PICKUP' || f === 'WAREHOUSE_PICKUP';
 }
 
-/** docs/openapi.yaml `CheckoutRequest` (payment is WALLET only, BR-17). */
+/**
+ * docs/openapi.yaml `CheckoutRequest.paymentMethod`. CASH is part of the enum but
+ * the server rejects it with 422 PAYMENT_METHOD_DISABLED (BR-223).
+ */
+export type PaymentMethod = 'WALLET' | 'UPI' | 'CARD' | 'NETBANKING' | 'CASH';
+/** Methods paid through the Razorpay sheet (order starts PENDING_PAYMENT, BR-220). */
+export type GatewayPaymentMethod = 'UPI' | 'CARD' | 'NETBANKING';
+export function isGatewayMethod(m: PaymentMethod): m is GatewayPaymentMethod {
+  return m === 'UPI' || m === 'CARD' || m === 'NETBANKING';
+}
+
+/** docs/openapi.yaml `CheckoutRequest` (BR-17 as amended 2026-11-20). */
 export interface CheckoutInput {
   fulfillmentType: FulfillmentType;
   warehouseId: string;
@@ -53,7 +67,7 @@ export interface CheckoutInput {
   /** YYYY-MM-DD, today or later in Asia/Kolkata. */
   deliveryDate?: string | undefined;
   deliverySlot?: DeliverySlot | undefined;
-  paymentMethod: 'WALLET';
+  paymentMethod: PaymentMethod;
   notes?: string | undefined;
 }
 
@@ -126,9 +140,25 @@ export interface OrderSummary {
   itemCount?: number;
   thumbnails?: OrderThumbnail[];
   totalAmount: Money;
-  paymentStatus?: 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'FAILED';
+  paymentStatus?: OrderPaymentStatus;
   deliveryDate?: string | null;
   placedAt: string;
+}
+
+export type OrderPaymentStatus = 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'FAILED' | 'REFUND_DUE';
+
+/**
+ * Present on a PENDING_PAYMENT gateway order: everything the Razorpay sheet
+ * needs. `amount` is the server total (the client never sends an amount).
+ */
+export interface OrderGatewayPayment {
+  gateway: 'RAZORPAY';
+  gatewayOrderId: string;
+  razorpayKeyId: string;
+  amount: Money;
+  currency: 'INR';
+  /** ISO time after which the server cancels the order and releases stock. */
+  expiresAt: string;
 }
 
 export interface OrderLine {
@@ -167,6 +197,8 @@ export interface Order extends OrderSummary {
   invoiceId?: string | null;
   cancellationReason?: string | null;
   deliveredAt?: string | null;
+  /** Razorpay checkout data while the order awaits payment; null/absent otherwise. */
+  payment?: OrderGatewayPayment | null;
 }
 /** @deprecated old name. */
 export type OrderResponse = Order;
@@ -237,7 +269,7 @@ export function toCheckoutBody(input: CheckoutInput): Record<string, unknown> {
   const body: Record<string, unknown> = {
     fulfillmentType: input.fulfillmentType,
     warehouseId: input.warehouseId,
-    paymentMethod: 'WALLET',
+    paymentMethod: input.paymentMethod,
   };
   if (input.fulfillmentType === 'HOME_DELIVERY') {
     if (input.deliveryAddressId) body['deliveryAddressId'] = input.deliveryAddressId;
@@ -248,7 +280,7 @@ export function toCheckoutBody(input: CheckoutInput): Record<string, unknown> {
   return body;
 }
 
-/** Stable fingerprint of a checkout payload (same payload -> same Idempotency-Key). */
+/** Stable fingerprint of a checkout payload incl. the payment method (same payload -> same Idempotency-Key). */
 export function checkoutFingerprint(input: CheckoutInput): string {
   const b = toCheckoutBody(input);
   return Object.keys(b)
@@ -279,6 +311,28 @@ export function quoteCheckout(input: CheckoutInput, signal?: AbortSignal): Promi
 
 export function placeOrder(input: CheckoutInput, idempotencyKey: string): Promise<Order> {
   return api.post<Order>('/orders', toCheckoutBody(input), idempotencyKey, { timeoutMs: 20_000 });
+}
+
+/** Razorpay handler response, forwarded as-is for server-side verification (BR-221). */
+export interface VerifyOrderPaymentBody {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+}
+
+/**
+ * POST /orders/{id}/payment/verify. 200 -> the Order (CONFIRMED once captured);
+ * 202 PAYMENT_PENDING -> the body is not an Order (still `authorized`), so the
+ * caller polls GET /orders/{id}. Errors: 422 PAYMENT_SIGNATURE_INVALID,
+ * 409 PAYMENT_AMOUNT_MISMATCH / ORDER_PAYMENT_EXPIRED, 404 not own order.
+ */
+export function verifyOrderPayment(id: string, body: VerifyOrderPaymentBody): Promise<Order | { code?: string }> {
+  return api.post<Order | { code?: string }>(`/orders/${encodeURIComponent(id)}/payment/verify`, body, undefined, { timeoutMs: 20_000 });
+}
+
+/** POST /orders/{id}/cancel: only while PENDING_PAYMENT (else 409 ORDER_NOT_AWAITING_PAYMENT). */
+export function cancelPendingOrder(id: string, idempotencyKey: string): Promise<Order> {
+  return api.post<Order>(`/orders/${encodeURIComponent(id)}/cancel`, {}, idempotencyKey, { timeoutMs: 20_000 });
 }
 
 export function fetchOrders(params: { status?: OrderStatus; cursor?: string; limit?: number }, signal?: AbortSignal): Promise<Page<OrderSummary>> {

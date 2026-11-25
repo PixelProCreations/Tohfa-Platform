@@ -6,6 +6,7 @@
  */
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { authPalette as P } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { ConcentrateMeshIcon, LinkChainIcon, SproutFodderIcon } from './animalDetailIcons';
@@ -52,9 +53,12 @@ export function AnimalFeedSection({ animalId, styles }: AnimalFeedSectionProps):
         <SectionState list={feedPlanList} testID="animalDetail.feed.plan" styles={styles} />
       ) : reference === null ? (
         <View style={styles.whiteCardContainer}>
-          <Text style={styles.itemSubtitle} testID="animalDetail.feed.noPlan">
-            {t('farmer.livestock.detail.feed.noPlan')}
-          </Text>
+          <EmptyState
+            variant="compact"
+            iconName={null}
+            title={t('farmer.livestock.detail.feed.noPlan')}
+            testID="animalDetail.feed.noPlan"
+          />
         </View>
       ) : (
         <View style={styles.whiteCardContainer} testID="animalDetail.feed.reference">
@@ -108,9 +112,12 @@ export function AnimalFeedSection({ animalId, styles }: AnimalFeedSectionProps):
       ) : (
         <View style={styles.whiteCardContainer}>
           {feedLogList.items.length === 0 ? (
-            <Text style={styles.itemSubtitle} testID="animalDetail.feed.noLogs">
-              {t('farmer.livestock.detail.feed.noLogs')}
-            </Text>
+            <EmptyState
+              variant="compact"
+              iconName={null}
+              title={t('farmer.livestock.detail.feed.noLogs')}
+              testID="animalDetail.feed.noLogs"
+            />
           ) : (
             feedLogList.items.map((log, idx) => (
               <React.Fragment key={log.id}>

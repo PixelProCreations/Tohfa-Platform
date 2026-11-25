@@ -457,12 +457,6 @@ export const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     color: P.twGray500,
   },
-  treatmentHistoryEmpty: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    fontStyle: 'italic',
-    paddingVertical: 8,
-  },
   bottomBar: {
     position: 'absolute',
     bottom: 0,

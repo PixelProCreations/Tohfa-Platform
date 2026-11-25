@@ -525,7 +525,7 @@ export function SalesScreen({
                   </TouchableOpacity>
                 </View>
                 {summary.needsAttentionTotal === 0 ? (
-                  <Text style={styles.noteText}>{t('sales.hub.attention.none')}</Text>
+                  <AdminEmptyState variant="compact" iconName="check_circle" title={t('sales.hub.attention.none')} testID="sales-attention-empty" />
                 ) : (
                   <View style={styles.alertsContainer}>
                     {attentionRows

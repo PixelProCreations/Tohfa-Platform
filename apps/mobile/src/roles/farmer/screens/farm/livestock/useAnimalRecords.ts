@@ -107,6 +107,11 @@ export function useAnimal(animalId: string | undefined): AnimalState {
 export interface PagedRecords<T, R extends RecordsPage<T> = RecordsPage<T>> {
   state: LoadState;
   items: T[];
+  /**
+   * The page-one failure while `state` is 'error' (an ApiError carries the
+   * problem code),
+   * so a section can say why instead of a generic message. Null otherwise.
+   */
   error: unknown;
   /**
    * The latest page-one response as received, for fields the server sends
@@ -159,7 +164,12 @@ export function usePagedRecords<T, R extends RecordsPage<T> = RecordsPage<T>>(
   useEffect(() => {
     if (!active || !animalId) return undefined;
     const controller = new AbortController();
-    moreControllerRef.current?.abort();
+    // An aborted load-more skips its own `finally`, so clear its spinner here
+    // or `loadingMore` stays true and blocks every later loadMore().
+    if (moreControllerRef.current) {
+      moreControllerRef.current.abort();
+      moreControllerRef.current = null;
+    }
     setLoadingMore(false);
     if (!refreshingRef.current) setState('loading');
     fetchPage(animalId, undefined, controller.signal)

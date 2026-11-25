@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { authPalette as P, colors } from '../../../../theme';
 import { t } from '../../../../../../i18n/farmer';
@@ -141,9 +142,12 @@ export function ProductionTab({
         <SectionState list={productionList} testID="animalDetail.production.logs" />
       ) : productionList.items.length === 0 ? (
         <View style={styles.whiteCardContainer}>
-          <Text style={styles.itemSubtitle} testID="animalDetail.production.noLogs">
-            {t('farmer.livestock.detail.production.noLogs')}
-          </Text>
+          <EmptyState
+            variant="compact"
+            iconName={null}
+            title={t('farmer.livestock.detail.production.noLogs')}
+            testID="animalDetail.production.noLogs"
+          />
         </View>
       ) : (
         <View style={styles.whiteCardContainer}>

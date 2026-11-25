@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors } from '../../../../theme';
 import { t } from '../../../../../../i18n/farmer';
 import type { PestDetection } from '../../../../api/pest';
@@ -88,7 +88,11 @@ export function DetectionLogView({
         ) : detectionsError ? (
           <Text style={styles.loadErrorText}>{detectionsError}</Text>
         ) : filteredDetections.length === 0 ? (
-          <Text style={styles.treatmentHistoryEmpty}>{t('farmer.pestManagement.log.empty')}</Text>
+          <EmptyState
+            variant="screen"
+            iconName="warning"
+            title={t('farmer.pestManagement.log.empty')}
+          />
         ) : (
           <View style={styles.detectionsList}>
             {filteredDetections.map((item) => (

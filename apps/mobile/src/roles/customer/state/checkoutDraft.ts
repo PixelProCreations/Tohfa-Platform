@@ -56,7 +56,7 @@ export function useCheckoutDraftState(): DraftState {
   return useSyncExternalStore(checkoutDraftStore.subscribe, checkoutDraftStore.get, checkoutDraftStore.get);
 }
 
-/** The draft as a (possibly incomplete) checkout input; payment is always WALLET. */
+/** The draft as a (possibly incomplete) checkout input; quoted as WALLET, the screen sets the chosen method at checkout. */
 export function draftToInput(draft: CheckoutDraft | null): Partial<CheckoutInput> | null {
   if (!draft) return null;
   if (draft.fulfillmentType === 'WAREHOUSE_PICKUP') {

@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { customerFonts, customerColors } from '../theme';
 import { useToggleWishlist, useWishlist, type WishlistItem } from '../api/wishlist';
 import { CatalogNotice, ProductCard, quickAddQty, useCatalogAddToCart } from '../components/ProductCard';
@@ -130,20 +131,20 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
               <Text style={styles.browseButtonText}>{tr('customer.common.retry', 'Retry')}</Text>
             </TouchableOpacity>
           </View>
+        ) : items.length === 0 ? (
+          <EmptyState
+            iconName="star"
+            title={tr('customer.wishlist.empty', 'Your Wishlist is Empty')}
+            message={tr('customer.wishlist.emptyBody', 'Explore more and shortlist some items to find them easily anytime.')}
+            action={{ label: tr('customer.wishlist.explore', 'Explore Products'), onPress: () => onNavigate?.('Home') }}
+          />
         ) : filteredItems.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>{tr('customer.wishlist.empty', 'Your Wishlist is Empty')}</Text>
-            <Text style={styles.emptySubtitle}>
-              {tr('customer.wishlist.emptyBody', 'Explore more and shortlist some items to find them easily anytime.')}
-            </Text>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => onNavigate?.('Home')}
-              style={styles.browseButton}
-            >
-              <Text style={styles.browseButtonText}>{tr('customer.wishlist.explore', 'Explore Products')}</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            variant="compact"
+            iconName="search"
+            title={t('customer.wishlist.noMatch')}
+            testID="wishlist-no-match"
+          />
         ) : (
           <View style={styles.gridWrap}>
             {filteredItems.map(item => {

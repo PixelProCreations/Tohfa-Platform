@@ -15,6 +15,7 @@ import renderer, { act, type ReactTestRendererJSON } from 'react-test-renderer';
 const alertSpy = vi.hoisted(() => vi.fn());
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
+  Alert: { alert: alertSpy },
   BackHandler: { addEventListener: () => ({ remove: () => undefined }) },
   Modal: 'Modal',
   Platform: { OS: 'ios', select: (obj: Record<string, unknown>) => obj['ios'] ?? obj['default'] },

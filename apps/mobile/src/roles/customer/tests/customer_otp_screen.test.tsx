@@ -40,6 +40,7 @@ vi.mock('../api/auth', async (importOriginal) => ({
 import { CustomerOtpScreen } from '../screens/CustomerOtpScreen';
 import { sendCustomerLoginOtp, verifyCustomerLoginOtp, type CustomerLoginResult } from '../api/auth';
 import { ApiError, NetworkError } from '../../../shell/api/client';
+import { t } from '../../../i18n/customer';
 
 const sendMock = vi.mocked(sendCustomerLoginOtp);
 const verifyMock = vi.mocked(verifyCustomerLoginOtp);
@@ -263,6 +264,14 @@ describe('BR-153 CustomerOtpScreen', () => {
     });
     expect(byTestId('customer-otp-error')[0]?.props.children).toContain('20');
     expect(textOf(byTestId('customer-otp-timer')[0]!)).toContain('20s');
+  });
+
+  it('BR-135/BR-153c: a number with no customer role (403) is told to use the farmer login, never signed in', async () => {
+    verifyMock.mockRejectedValue(apiError(403, 'FORBIDDEN'));
+    const { byTestId, typeDigits, onNavigate } = await renderScreen();
+    await typeDigits('482913');
+    expect(byTestId('customer-otp-error')[0]?.props.children).toBe(t('customer.auth.otp.notCustomerAccount'));
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 
   it('BR-153: Edit returns to CustomerLogin', async () => {

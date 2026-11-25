@@ -2267,10 +2267,7 @@ export function SubWarehouseAdminDashboardScreen({
                 {openTasksQuery.isPending ? (
                   <AdminLoadingState label="Loading tasks..." />
                 ) : openTasks.length === 0 ? (
-                  <View style={styles.emptyTasksCard}>
-                    <Text style={styles.emptyTasksTitle}>All caught up!</Text>
-                    <Text style={styles.emptyTasksSub}>No pending tasks needing attention right now.</Text>
-                  </View>
+                  <AdminEmptyState variant="compact" iconName="check_circle" title={t('subDashboard.tasks.empty.title')} subtitle={t('subDashboard.tasks.empty.message')} />
                 ) : (
                   openTasks.map((task) => {
                     const title = formatTaskTitle(task);
@@ -3390,24 +3387,5 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: adminColors.onBrand,
-  },
-  emptyTasksCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 8,
-  },
-  emptyTasksTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.textInk,
-  },
-  emptyTasksSub: {
-    fontSize: 12,
-    color: PALETTE.textSecondary,
-    marginTop: 4,
   },
 });

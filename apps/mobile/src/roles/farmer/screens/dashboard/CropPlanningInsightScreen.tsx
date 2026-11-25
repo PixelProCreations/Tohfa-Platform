@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
-import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import {
@@ -356,10 +356,12 @@ export function CropPlanningInsightScreen({ onNavigateBack }: CropPlanningInsigh
         </View>
 
         {insights.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{t('farmer.crops.insight.emptyTitle')}</Text>
-            <Text style={styles.emptyBody}>{t('farmer.crops.insight.emptyBody')}</Text>
-          </View>
+          <EmptyState
+            iconName="calendar_month"
+            message={t('farmer.crops.insight.emptyBody')}
+            title={t('farmer.crops.insight.emptyTitle')}
+            variant="screen"
+          />
         ) : (
           <>
             {/* Filter Pills */}
@@ -379,7 +381,7 @@ export function CropPlanningInsightScreen({ onNavigateBack }: CropPlanningInsigh
             </View>
 
             {filteredCrops.length === 0 ? (
-              <Text style={styles.emptyBody}>{t('farmer.crops.insight.emptyFiltered')}</Text>
+              <EmptyState iconName="search" title={t('farmer.crops.insight.emptyFiltered')} variant="compact" />
             ) : (
               filteredCrops.map(renderCard)
             )}
@@ -643,22 +645,5 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     lineHeight: 19,
     color: P.twGray700,
-  },
-
-  // Empty
-  emptyState: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    gap: 6,
-  },
-  emptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: colors.textDark,
-  },
-  emptyBody: {
-    fontSize: typography.body,
-    color: colors.textSubtle,
-    textAlign: 'center',
   },
 });

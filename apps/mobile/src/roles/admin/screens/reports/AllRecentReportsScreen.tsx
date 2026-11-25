@@ -18,6 +18,8 @@ import {
   adminType,
 } from '../../theme';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -199,12 +201,7 @@ export function AllRecentReportsScreen({
         {/* List of Reports */}
         <View style={styles.listSection}>
           {filteredReports.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No matching reports</Text>
-              <Text style={styles.emptySub}>
-                Try adjusting your search query or category filter.
-              </Text>
-            </View>
+            <AdminEmptyState variant="compact" title={t('reports.recent.empty.title')} subtitle={t('reports.recent.empty.message')} />
           ) : (
             filteredReports.map((report) => (
               <TouchableOpacity
@@ -388,24 +385,6 @@ const styles = StyleSheet.create({
   fileSizeText: {
     ...adminType.caption,
     color: adminColors.muted,
-  },
-  emptyCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  emptyTitle: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    marginBottom: 4,
-  },
-  emptySub: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    textAlign: 'center',
   },
 });
 

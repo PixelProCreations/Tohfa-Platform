@@ -17,6 +17,7 @@ import {
   StatusBar,
   type ImageSourcePropType,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { ProductImages } from '../assets/images/products';
 import { t } from '../../../i18n/customer';
@@ -524,9 +525,12 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                   }}
                 >
                   {items.length === 0 ? (
-                    <Text style={styles.reviewBody} testID="reviews-empty">
-                      {t('customer.product.modal.reviewsEmpty')}
-                    </Text>
+                    <EmptyState
+                      variant="compact"
+                      iconName="star"
+                      title={t('customer.product.modal.reviewsEmpty')}
+                      testID="reviews-empty"
+                    />
                   ) : (
                     items.map((r) => (
                       <View key={r.id} style={styles.reviewItem}>

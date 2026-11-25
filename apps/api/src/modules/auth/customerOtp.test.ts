@@ -196,6 +196,42 @@ describe('BR-153 passwordless customer sign-in', () => {
     expect(w.customerRepo.ensureCustomerAndWallet).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['CUSTOMER user type with no role assignment', userRow(), [{ role_code: 'FARMER' }]],
+    ['FARMER user type with only the FARMER role', userRow({ user_type: 'FARMER' }), [{ role_code: 'FARMER' }]],
+    ['CUSTOMER role beside a staff admin role', userRow(), [{ role_code: 'CUSTOMER' }, { role_code: 'TOHFA_ADMIN' }]],
+  ])('BR-153c: an account not holding CUSTOMER inside a BR-135 group (%s) is refused', async (_label, user, roles) => {
+    const w = world({ users: [user], roles: roles as UserRoleRow[] });
+    await expectAppError(w.service.verify(verifyInput), 'FORBIDDEN');
+    expect(w.repo.createSession).not.toHaveBeenCalled();
+    expect(w.customerRepo.ensureCustomerAndWallet).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['FARMER + CUSTOMER (CUSTOMER user type)', userRow(), [{ role_code: 'CUSTOMER' }, { role_code: 'FARMER' }]],
+    ['FARMER + CUSTOMER (FARMER user type)', userRow({ user_type: 'FARMER' }), [{ role_code: 'FARMER' }, { role_code: 'CUSTOMER' }]],
+    ['FARMER_ADMIN + CUSTOMER', userRow(), [{ role_code: 'FARMER_ADMIN' }, { role_code: 'CUSTOMER' }]],
+  ])(
+    'BR-135/BR-153c: an account holding CUSTOMER together with its BR-135 group (%s) signs in as a customer only',
+    async (_label, user, roles) => {
+      const w = world({ users: [user], roles: roles as UserRoleRow[] });
+      const result = await w.service.verify(verifyInput);
+
+      expect(result.isNewUser).toBe(false);
+      expect(result.user.roles).toEqual([{ code: 'CUSTOMER' }]);
+      // The session is a customer session: the token carries CUSTOMER alone and no farmerId,
+      // so the customer entry never opens the farmer side of a dual-role account.
+      const payload = JSON.parse(Buffer.from(result.accessToken.split('.')[1]!, 'base64url').toString('utf8')) as {
+        roles: { code: string }[];
+        farmerId: string | null;
+      };
+      expect(payload.roles.map((r) => r.code)).toEqual(['CUSTOMER']);
+      expect(payload.farmerId).toBeNull();
+      expect(w.repo.createCustomerUser).not.toHaveBeenCalled();
+      expect(w.sessions).toHaveLength(1);
+    },
+  );
+
   it('BR-153d: three wrong OTPs lock the challenge; the correct OTP is then refused', async () => {
     const w = world();
     const wrong = { ...verifyInput, otp: '000000' };

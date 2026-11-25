@@ -28,10 +28,10 @@ import { getMyListings, type Listing } from '../../api/listings';
 import { listNotifications } from '../../api/notifications';
 import { listMyAudits, shortMonthKey, type FarmerAuditSummary } from '../../api/audits';
 import { listAllActiveFarmCrops, type ActiveFarmCropsResult } from '../../api/crops';
-import { ErrorState, Icon, ModalSafeArea, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, Icon, ModalSafeArea, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { getLocale, t, type TranslationKey } from '../../../../i18n/farmer';
 
-import { authPalette as P, colors, typography } from '../../theme';
+import { authPalette as P, colors, spacing, typography } from '../../theme';
 import farmerAvatar from '../../assets/farmer-kumar.jpg';
 import { getGreetingKey } from '../../utils/greeting';
 import { cropPhotoFor } from '../listings/cropImages';
@@ -194,6 +194,8 @@ interface DashboardScreenProps {
   onNavigateToProduceCalendar?: () => void;
   /** Same payload ActiveCropsScreen hands CropDetailScreen, which re-fetches the crop by its real id. */
   onNavigateToCropDetail?: (crop: CropItem) => void;
+  /** Opens the New Crop form; drives the Active Crops empty state's 'Add crop' action. */
+  onNavigateToNewCrop?: () => void;
   onNavigateToCounterOffer?: (listing?: Listing) => void;
   onNavigateToInventory?: () => void;
   onNavigateToAudits?: () => void;
@@ -218,6 +220,7 @@ export function DashboardScreen({
   onNavigateToLearningHub,
   onNavigateToProduceCalendar,
   onNavigateToCropDetail,
+  onNavigateToNewCrop,
   onNavigateToInventory,
   onNavigateToAudits,
 }: DashboardScreenProps): React.JSX.Element {
@@ -1052,6 +1055,30 @@ export function DashboardScreen({
               <Text style={styles.viewAllText}>{t('farmer.dashboard.crops.viewAll')} {'>'}</Text>
             </TouchableOpacity>
           </View>
+          {/* The empty state sits OUTSIDE the horizontal ScrollView: a compact
+              EmptyState stretches to its parent's width, which a horizontal
+              scroller does not constrain. */}
+          {cropsState.kind !== 'loading' &&
+          cropsState.kind !== 'error' &&
+          (cropPreview === null || cropPreview.shown.length === 0) ? (
+            <EmptyState
+              variant="compact"
+              iconName="eco"
+              title={t('farmer.crops.activeCrops.emptyTitle')}
+              message={t('farmer.dashboard.crops.emptyMessage')}
+              testID="dashboard.crops.empty"
+              style={styles.cropsEmptyState}
+              {...(onNavigateToNewCrop
+                ? {
+                    action: {
+                      label: t('farmer.dashboard.crops.emptyAction'),
+                      onPress: onNavigateToNewCrop,
+                      testID: 'dashboard.crops.addCrop',
+                    },
+                  }
+                : {})}
+            />
+          ) : (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -1105,10 +1132,9 @@ export function DashboardScreen({
                   </TouchableOpacity>
                 );
               })
-            ) : (
-              <Text style={styles.cropsStatusText}>{t('farmer.crops.activeCrops.emptyTitle')}</Text>
-            )}
+            ) : null}
           </ScrollView>
+          )}
 
           {/* Action Buttons */}
           <View style={styles.actionButtonsRow}>
@@ -1230,15 +1256,13 @@ export function DashboardScreen({
               </TouchableOpacity>
             )}
             ListEmptyComponent={
-              <View style={styles.searchEmptyContainer}>
-                <View style={styles.searchEmptyIconCircle}>
-                  <Icon name="search_off" size={36} color={P.twGray400} />
-                </View>
-                <Text style={styles.searchEmptyTitle}>{t('farmer.dashboard.search.emptyTitle')}</Text>
-                <Text style={styles.searchEmptySub}>
-                  {t('farmer.dashboard.search.emptySubtitle', { query: searchQuery })}
-                </Text>
-              </View>
+              <EmptyState
+                iconName="search"
+                message={t('farmer.dashboard.search.emptySubtitle', { query: searchQuery })}
+                testID="dashboard.search.empty"
+                title={t('farmer.dashboard.search.emptyTitle')}
+                variant="screen"
+              />
             }
           />
         </ModalSafeArea>
@@ -1586,6 +1610,9 @@ const styles = StyleSheet.create({
   cropsScroll: {
     marginHorizontal: -20,
   },
+  cropsEmptyState: {
+    marginVertical: spacing.xs,
+  },
   cropsScrollContent: {
     paddingHorizontal: 20,
     paddingVertical: 4,
@@ -1829,32 +1856,5 @@ const styles = StyleSheet.create({
   searchResultSubtitle: {
     fontSize: typography.body,
     color: P.twGray500,
-  },
-  searchEmptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 30,
-  },
-  searchEmptyIconCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: P.twGray100,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  searchEmptyTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.twGray800,
-    marginBottom: 8,
-  },
-  searchEmptySub: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    textAlign: 'center',
-    lineHeight: 20,
   },
 });

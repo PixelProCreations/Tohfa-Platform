@@ -13,10 +13,11 @@
  */
 // Design id: M10-S05C
 import React from 'react';
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
+import { AdminEmptyState } from '../shared/AsyncStates';
 import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import { RETURN_CODES } from './mappers';
@@ -74,7 +75,7 @@ export function RefundCompletedScreen({ can, reference, refund, timeline, onBack
         />
 
         <SectionTitle>{t('returns.detail.timeline')}</SectionTitle>
-        {timeline.length === 0 ? <Text style={styles.muted}>{t('returns.detail.timelineEmpty')}</Text> : <ReturnsTimeline items={timeline} />}
+        {timeline.length === 0 ? <AdminEmptyState variant="compact" iconName={null} title={t('returns.detail.timelineEmpty')} /> : <ReturnsTimeline items={timeline} />}
       </ScrollView>
     </ReturnsScreen>
   );

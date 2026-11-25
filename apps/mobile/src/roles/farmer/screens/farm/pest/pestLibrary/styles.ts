@@ -205,7 +205,6 @@ export const styles = StyleSheet.create({
     marginBottom: SP.xs,
   },
   emptySubtitle: { fontSize: typography.bodySmall, color: P.twGray400, textAlign: 'center' },
-  emptyCardText: { fontSize: typography.body, color: P.twGray500, fontStyle: 'italic' },
 
   // Crop picker modal
   modalOverlay: {

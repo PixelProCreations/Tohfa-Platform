@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authPalette as P } from '../../../../theme';
 import type { PestCategory, PestLibraryEntry, PestSeverity } from '../../../../api/pest';
@@ -99,7 +100,11 @@ export function PickerModals(props: PickerModalsProps): React.JSX.Element {
 
       <ModalShell visible={openModal === 'pest'} title={tr('pest.modalTitle')} onClose={onClose}>
         {props.pestOptions.length === 0 ? (
-          <Text style={styles.modalSubItemText}>{tr('pest.noneFound')}</Text>
+          <EmptyState
+            variant="compact"
+            iconName={null}
+            title={tr('pest.noneFound')}
+          />
         ) : (
           props.pestOptions.map((p) => (
             <OptionRow

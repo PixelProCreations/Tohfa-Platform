@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
@@ -175,19 +176,14 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
             </TouchableOpacity>
           </View>
         ) : tickets.length === 0 ? (
-          <View style={{ alignItems: 'center', marginTop: 40, gap: 12 }}>
-            <Text style={[styles.ticketBodyText, { textAlign: 'center' }]}>
-              {t('customer.support.empty')}
-            </Text>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('ContactSupport', { mode: 'create' })}
-              style={styles.newRequestButton}
-              accessibilityLabel={t('customer.support.newRequest')}
-            >
-              <Text style={styles.newRequestButtonText}>{t('customer.support.newRequestCta')}</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            iconName="help"
+            title={t('customer.support.empty')}
+            action={{
+              label: t('customer.support.newRequestCta'),
+              onPress: () => onNavigate?.('ContactSupport', { mode: 'create' }),
+            }}
+          />
         ) : (
           <View style={styles.ticketList}>
             {tickets.map((ticket) => (
@@ -404,17 +400,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: customerColors.body,
     fontFamily: customerFonts.regular,
-  },
-  newRequestButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: customerColors.primary,
-  },
-  newRequestButtonText: {
-    color: customerColors.white,
-    fontWeight: '700',
-    fontSize: 13,
   },
 });
 

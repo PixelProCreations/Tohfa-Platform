@@ -1,6 +1,7 @@
 /** Category browse (GET /catalog/categories). Tap -> ProductGrid for that category. */
 import React from 'react';
 import { ActivityIndicator, FlatList, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n/customer';
 import { useCategories, type Category } from '../api/catalog';
 import { customerColors } from '../theme';

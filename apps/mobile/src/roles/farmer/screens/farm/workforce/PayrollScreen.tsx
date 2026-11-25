@@ -8,7 +8,8 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { EmptyState, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
+import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';
@@ -399,7 +400,7 @@ export function PayrollScreen({ farmId, onBack, onNavigateToWorkerDetail }: Payr
               <Text style={styles.sectionHeader}>PER WORKER</Text>
 
               {rows.length === 0 ? (
-                <Text style={styles.emptyText}>No workers to pay this period.</Text>
+                <EmptyState variant="compact" iconName="account_balance_wallet" title={t('farmer.workforce.payroll.noWorkers')} />
               ) : (
                 <View style={styles.workersList}>
                   {rows.map((worker) => (
@@ -562,10 +563,6 @@ const styles = StyleSheet.create({
   loadErrorText: {
     fontSize: typography.body,
     color: P.twRed600,
-  },
-  emptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
   },
 
   // Total Payable Banner Card

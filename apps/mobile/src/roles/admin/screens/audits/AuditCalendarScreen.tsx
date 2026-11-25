@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../i18n';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -311,6 +313,7 @@ export function AuditCalendarScreen({
 
         {/* ─── Audit Cards Stack ─── */}
         <View style={styles.cardStack}>
+          {filtered.length === 0 ? <AdminEmptyState variant="compact" title={t('auditCalendar.empty.title')} subtitle={t('auditCalendar.empty.message')} /> : null}
           {filtered.map((entry) => (
             <AuditCardItem
               key={entry.id}

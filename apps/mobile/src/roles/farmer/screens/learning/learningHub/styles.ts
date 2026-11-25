@@ -267,22 +267,6 @@ export const styles = StyleSheet.create({
     color: P.greyMid1,
   },
 
-  // Empty State
-  emptyStateContainer: {
-    padding: SP.s30,
-    alignItems: 'center',
-  },
-  emptyStateTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: colors.textDark,
-    marginBottom: SP.sm,
-  },
-  emptyStateSubtitle: {
-    fontSize: typography.body,
-    color: P.greyMid1,
-    textAlign: 'center',
-  },
 
   // Tab Content Container
   tabContentContainer: {

@@ -12,6 +12,7 @@ import {
   Platform,
   Linking,
 } from 'react-native';
+import { EmptyState } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
@@ -781,12 +782,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             )}
 
             {catalogEmpty && (
-              <View style={styles.sectionWrap} testID="home-empty">
-                <Text style={styles.sectionEditorialTitle}>{t('customer.home.empty')}</Text>
-                <TouchableOpacity activeOpacity={0.85} onPress={() => void homeQuery.refetch()} style={styles.profileActionBtn}>
-                  <Text style={styles.profileActionText}>{t('customer.home.refresh')}</Text>
-                </TouchableOpacity>
-              </View>
+              <EmptyState
+                variant="compact"
+                iconName="eco"
+                title={t('customer.home.empty')}
+                action={{ label: t('customer.home.refresh'), onPress: () => void homeQuery.refetch() }}
+                testID="home-empty"
+              />
             )}
 
             {/* ── SECTION 5: "FOR YOU" CAROUSEL (featured) ───────────────────── */}
@@ -1094,6 +1096,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+
   bannerOverlay: {
     position: 'absolute',
     top: 0,

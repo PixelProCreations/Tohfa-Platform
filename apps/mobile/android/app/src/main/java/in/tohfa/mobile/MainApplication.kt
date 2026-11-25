@@ -6,6 +6,7 @@ import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
+import com.tohfa.mobile.smsconsent.SmsUserConsentPackage
 
 // Single app for every role now -- one JS entry (index.js), one
 // MainApplication. Role-based routing (which screens a signed-in user sees)
@@ -21,8 +22,9 @@ class MainApplication : Application(), ReactApplication {
       context = applicationContext,
       packageList =
         PackageList(this).packages.apply {
-          // Packages that cannot be autolinked yet can be added manually here, for example:
-          // add(MyReactNativePackage())
+          // App-local TurboModule (not a library, so not autolinked): Android
+          // SMS User Consent for OTP autofill, see src/shell/otp/.
+          add(SmsUserConsentPackage())
         },
     )
   }

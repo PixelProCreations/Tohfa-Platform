@@ -37,7 +37,7 @@ import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { formatAdminDate } from '../../../utils/datetime';
-import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   InfoCard,
   ScopeHeader,
@@ -164,7 +164,7 @@ export function ShipmentDetailScreen({
       <WalletScreen title={title} subtitle={s.code} onBack={onBack} headerExtra={<ScopeHeader scope={scope} label={destination || undefined} />}>
         <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} refreshControl={refresh}>
           <View style={styles.card}>
-            {events.length === 0 ? <Text style={styles.meta}>{t('receiving.detail.timelineEmpty')}</Text> : null}
+            {events.length === 0 ? <AdminEmptyState variant="compact" iconName={null} title={t('receiving.detail.timelineEmpty')} /> : null}
             {events.map((event, index) => (
               <View key={`${event.kind}-${event.at}-${index}`} style={[styles.timelineRow, index > 0 && styles.divider]}>
                 <View style={styles.flex}>

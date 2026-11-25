@@ -103,7 +103,10 @@ describe('LoginScreen: the demo shortcut is gone', () => {
 
   it('routes a password login from the roles the login response carried', () => {
     expect(LOGIN_SOURCE).toMatch(/resolveRouteAfterLogin\(outcome, me\)/);
-    expect(LOGIN_SOURCE).toMatch(/preferredRoleForSelection\(outcome\.availableRoles\)/);
+    // BR-135: the selection is made among the roles of the farmer/staff entry
+    // (CUSTOMER dropped), so a FARMER + CUSTOMER account completes as FARMER.
+    expect(LOGIN_SOURCE).toMatch(/rolesForEntry\('FARMER', outcome\.availableRoles\)/);
+    expect(LOGIN_SOURCE).toMatch(/preferredRoleForSelection\(entry\.roles\)/);
   });
 });
 

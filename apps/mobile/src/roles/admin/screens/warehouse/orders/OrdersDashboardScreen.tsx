@@ -31,7 +31,7 @@ import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '
 import { OverviewDashboardCard } from '../../../components';
 import { t, type TranslationKey } from '../../../i18n';
 import { ADMIN_NO_VALUE } from '../../../utils/noValue';
-import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { orderToneColors } from './statusTone';
 import type {
   OrderListRow,
@@ -647,12 +647,13 @@ export function OrdersDashboardScreen({
             ) : countsState === 'error' ? (
               <AdminErrorState error={error} onRetry={onRetry} />
             ) : counts !== null && counts.toPack + counts.toMarkReady + counts.awaitingPickup === 0 ? (
-              <View style={[styles.attentionCard, styles.brandLeftBorder]}>
-                <View style={styles.attentionContent}>
-                  <Text style={styles.attentionTitle}>{t('orders.attention.noneTitle')}</Text>
-                  <Text style={styles.attentionDesc}>{t('orders.attention.noneHint')}</Text>
-                </View>
-              </View>
+              <AdminEmptyState
+                variant="compact"
+                iconName="check_circle"
+                title={t('orders.attention.noneTitle')}
+                subtitle={t('orders.attention.noneHint')}
+                testID="orders-attention-empty"
+              />
             ) : (
               <>
                 {counts !== null && counts.toPack > 0 ? (

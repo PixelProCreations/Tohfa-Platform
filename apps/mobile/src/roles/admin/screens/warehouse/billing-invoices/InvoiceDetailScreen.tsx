@@ -44,7 +44,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import {
   ActionError,
@@ -216,7 +216,7 @@ export function InvoiceDetailScreen({
         <SectionTitle>{t('billing.detail.section.lines')}</SectionTitle>
         <Card>
           {record.lines.length === 0 ? (
-            <Text style={styles.itemMeta}>{t('billing.detail.noLines')}</Text>
+            <AdminEmptyState variant="compact" iconName={null} title={t('billing.detail.noLines')} />
           ) : (
             record.lines.map((item, index) => (
               <View key={item.key}>

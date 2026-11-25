@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, EmptyState } from '@tohfa/mobile-ui';
 import { QUARTERS_PER_FISCAL_YEAR, type FarmerAuditSummary } from '../../../api/audits';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P } from '../../../theme';
@@ -63,7 +63,7 @@ export function AuditsCard({
           onRetry={onRetry}
         />
       ) : auditItems.length === 0 ? (
-        <Text style={styles.certNoticeText}>{t('farmer.audits.empty.title')}</Text>
+        <EmptyState variant="compact" iconName={null} title={t('farmer.audits.empty.title')} />
       ) : (
         <>
           {/* Next Audit Banner */}
@@ -95,7 +95,7 @@ export function AuditsCard({
           {/* Past Audits List -- real COMPLETED audits only, most recent first. */}
           <View style={styles.auditList}>
             {pastAudits.length === 0 ? (
-              <Text style={styles.certNoticeText}>{t('farmer.profile.audits.noPastYet')}</Text>
+              <EmptyState variant="compact" iconName={null} title={t('farmer.profile.audits.noPastYet')} />
             ) : (
               pastAudits
                 .slice(0, 3)

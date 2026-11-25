@@ -351,7 +351,7 @@ export function CropNPKContributionScreen({
           </View>
 
           {contributingApplications.length === 0 ? (
-            <EmptyState title={t('farmer.npkContribution.empty')} />
+            <EmptyState title={t('farmer.npkContribution.empty')} variant="compact" />
           ) : null}
 
           <View style={styles.applicationsList}>

@@ -10,7 +10,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import type { WarehouseOption } from '../../../api/warehouseList';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
@@ -44,22 +44,6 @@ function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: num
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 6l6 6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function EmptyCartIcon({ size = 56, color = adminColors.border }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="21" r="1.5" stroke={color} strokeWidth="1.6" />
-      <Circle cx="19" cy="21" r="1.5" stroke={color} strokeWidth="1.6" />
-      <Path
-        d="M2.5 3h3.2l2.4 12.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6l1.8-8.2H6.5"
-        stroke={color}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
     </Svg>
   );
 }
@@ -241,10 +225,7 @@ export function NewSaleScreen({
         {/* ─── 4. Products ─── */}
         <Text style={styles.sectionHeading}>{t('sales.newSale.products')}</Text>
         {cart.length === 0 ? (
-          <View style={styles.emptyProductsContainer}>
-            <EmptyCartIcon size={52} color={adminColors.border} />
-            <Text style={styles.emptyProductsText}>{t('sales.newSale.noProducts')}</Text>
-          </View>
+          <AdminEmptyState variant="compact" iconName="shopping_cart" title={t('sales.newSale.noProducts')} />
         ) : (
           <>
             <View style={styles.card}>
@@ -435,16 +416,6 @@ const styles = StyleSheet.create({
   cartSummary: {
     ...adminType.rowTitle,
     color: adminColors.ink,
-  },
-  emptyProductsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 50,
-  },
-  emptyProductsText: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginTop: 12,
   },
   bottomBar: {
     paddingHorizontal: 16,

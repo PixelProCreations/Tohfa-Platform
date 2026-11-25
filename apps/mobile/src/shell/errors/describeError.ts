@@ -14,6 +14,7 @@
  * WALLET_INSUFFICIENT 402 on transfers vs 422 on checkout).
  */
 import { ApiError, NetworkError } from '../api/client';
+import { SocialSignInCancelledError, SocialSignInError } from '../auth/socialSignInErrors';
 
 export type ErrorAction =
   /** Show a retry button / let the user try the same thing again. */
@@ -42,7 +43,10 @@ export interface ErrorDescriptor {
   messageKey: string;
   params: Record<string, string | number>;
   action: ErrorAction;
-  /** Problem code, `NETWORK_OFFLINE`/`NETWORK_TIMEOUT` for transport failures, or null. */
+  /**
+   * Problem code, `NETWORK_OFFLINE`/`NETWORK_TIMEOUT` for transport failures,
+   * client-only `SOCIAL_SIGN_IN_*` for native Google/Facebook failures, or null.
+   */
   code: string | null;
   status: number | null;
   retryAfterSeconds: number | null;
@@ -65,6 +69,9 @@ const KEYED_CODES = new Set<string>([
   'OTP_LOCKED',
   'OTP_RESEND_TOO_SOON',
   'OTP_SMS_DELIVERY_FAILED',
+  'OTP_PROVIDER_RATE_LIMITED',
+  'OTP_DESTINATION_INVALID',
+  'OTP_PROVIDER_UNAVAILABLE',
   'VALIDATION_FAILED',
   'BAD_REQUEST',
   'EMAIL_NOT_CONFIGURED',
@@ -98,6 +105,8 @@ const ACTION_BY_CODE: Record<string, ErrorAction> = {
   OTP_LOCKED: 'resend_otp',
   OTP_RESEND_TOO_SOON: 'wait',
   OTP_SMS_DELIVERY_FAILED: 'retry',
+  OTP_PROVIDER_RATE_LIMITED: 'wait',
+  OTP_PROVIDER_UNAVAILABLE: 'retry',
   VALIDATION_FAILED: 'fix_fields',
   BAD_REQUEST: 'fix_fields',
   EMAIL_DELIVERY_FAILED: 'retry',
@@ -118,6 +127,27 @@ function base(partial: Partial<ErrorDescriptor> & Pick<ErrorDescriptor, 'message
   };
 }
 
+function describeSocialSignInError(err: SocialSignInError): ErrorDescriptor {
+  const code = `SOCIAL_SIGN_IN_${err.reason}`;
+  switch (err.reason) {
+    case 'IN_PROGRESS':
+      // A second tap while the sheet is already open: the first attempt is
+      // still running and will report its own outcome.
+      return base({ messageKey: 'error.generic', code, silent: true });
+    case 'NETWORK':
+      return base({ messageKey: 'error.NETWORK_OFFLINE', code: 'NETWORK_OFFLINE', action: 'retry' });
+    case 'PLAY_SERVICES_UNAVAILABLE':
+      return base({ messageKey: 'error.SOCIAL_SIGN_IN_PLAY_SERVICES', code });
+    case 'DEVELOPER_ERROR':
+    case 'NO_ID_TOKEN':
+      // App/console misconfiguration: retrying cannot succeed, so no Retry;
+      // the message points the user at mobile-number sign-in instead.
+      return base({ messageKey: 'error.SOCIAL_SIGN_IN_UNAVAILABLE', code });
+    case 'FAILED':
+      return base({ messageKey: 'error.SOCIAL_SIGN_IN_FAILED', code, action: 'retry' });
+  }
+}
+
 export function describeError(err: unknown): ErrorDescriptor {
   if (err instanceof NetworkError) {
     if (err.reason === 'aborted') {
@@ -128,6 +158,15 @@ export function describeError(err: unknown): ErrorDescriptor {
       code: err.reason === 'timeout' ? 'NETWORK_TIMEOUT' : 'NETWORK_OFFLINE',
       action: 'retry',
     });
+  }
+
+  // BR-39 native social sign-in failures never reach the API, so they carry no
+  // problem code; without these branches they fell through to error.generic.
+  if (err instanceof SocialSignInCancelledError) {
+    return base({ messageKey: 'error.generic', code: 'SOCIAL_SIGN_IN_CANCELLED', silent: true });
+  }
+  if (err instanceof SocialSignInError) {
+    return describeSocialSignInError(err);
   }
 
   if (!(err instanceof ApiError)) {

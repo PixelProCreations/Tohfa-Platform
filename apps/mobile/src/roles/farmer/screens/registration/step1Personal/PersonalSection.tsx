@@ -3,7 +3,7 @@ import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Icon, DatePicker } from '@tohfa/mobile-ui';
 import { t } from '../../../../../i18n/farmer';
 import { s1 } from './i18n';
-import { FieldError, RequiredLabel, type SectionProps } from './parts';
+import { FieldError, OptionPickerModal, RequiredLabel, type SectionProps } from './parts';
 
 import { FULL_NAME_MAX } from './validate';
 
@@ -91,28 +91,15 @@ export const PersonalSection: React.FC<SectionProps> = ({ form, styles, colors }
           </TouchableOpacity>
           <FieldError styles={styles} message={errors.gender} />
 
-          {state.showGenderMenu ? (
-            <View style={styles.dropdownMenu}>
-              {genderOptions.map((opt) => (
-                <TouchableOpacity
-                  key={opt.value}
-                  style={styles.dropdownOption}
-                  onPress={() => {
-                    setField({ gender: opt.value, showGenderMenu: false }, 'gender');
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.dropdownOptionText,
-                      opt.value === state.gender && styles.dropdownOptionTextSelected,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          ) : null}
+          <OptionPickerModal
+            styles={styles}
+            visible={state.showGenderMenu}
+            title={t('farmer.registration.step1.genderLabel')}
+            options={genderOptions}
+            selected={state.gender}
+            onSelect={(value) => setField({ gender: value, showGenderMenu: false }, 'gender')}
+            onClose={() => set({ showGenderMenu: false })}
+          />
         </View>
       </View>
     </>

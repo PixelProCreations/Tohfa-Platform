@@ -326,7 +326,7 @@ const POSITIONING_LABEL: Record<ParcelPositioning, string> = {
             <div class="val">{{ app()?.step1Personal?.gender ?? 'N/A' }}</div>
           </div>
           <div class="field">
-            <label>Aadhaar (BR-33 Masked)</label>
+            <label>Aadhaar (Masked)</label>
             <div class="val">{{ maskedAadhaar() }}</div>
           </div>
           <div class="field">
