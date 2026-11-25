@@ -11,7 +11,9 @@ import {
   Modal,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Polygon } from 'react-native-svg';
+import { t } from '../../../i18n/customer';
 import {
+  customerColors,
   customerFonts,
 } from '../theme';
 
@@ -605,7 +607,7 @@ export const VijayaBankLogo = ({ size = 32 }: { size?: number | undefined }) => 
   </Svg>
 );
 
-export const BankBuildingLogo = ({ size = 32, color = '#64748B' }: { size?: number | undefined; color?: string | undefined }) => (
+export const BankBuildingLogo = ({ size = 32, color = '#64748B' /* TODO: extract to design token */ }: { size?: number | undefined; color?: string | undefined }) => (
   <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
     <Circle cx="16" cy="16" r="15" fill="#F8FAFC" stroke="#E2E8F0" strokeWidth="1" />
     <Path d="M16 7L7 12v2h18v-2L16 7zm-7 8v8h2v-8H9zm5 0v8h2v-8h-2zm5 0v8h2v-8h-2zm-11 9v2h18v-2H7z" fill={color} />
@@ -724,7 +726,7 @@ export function ChooseBankScreen({
         <TouchableOpacity style={styles.backCircleBtn} onPress={onBack} activeOpacity={0.7}>
           <Text style={styles.backArrowText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Choose Bank</Text>
+        <Text style={styles.headerTitle}>{t('customer.checkout.bank.title')}</Text>
       </View>
 
       {/* ── SEARCH BAR WITH MAGNIFYING GLASS (Exact Image 6) ── */}
@@ -734,8 +736,8 @@ export function ChooseBankScreen({
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search..."
-            placeholderTextColor="#9CA3AF"
+            placeholder={t('customer.checkout.bank.search')}
+            placeholderTextColor={customerColors.neutral.neutral500}
           />
           <SearchIcon size={18} />
         </View>
@@ -776,7 +778,7 @@ export function ChooseBankScreen({
                     activeOpacity={0.85}
                     onPress={() => onProceed(item.name)}
                   >
-                    <Text style={styles.proceedButtonText}>Proceed to Pay</Text>
+                    <Text style={styles.proceedButtonText}>{t('customer.checkout.bank.proceed')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -830,7 +832,7 @@ export function ChooseBankModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   header: {
     flexDirection: 'row',
@@ -838,50 +840,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 16 : 14,
     paddingBottom: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: customerColors.neutral.neutral100,
   },
   backCircleBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: customerColors.neutral.neutral300,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 14,
   },
   backArrowText: {
     fontSize: 20,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   headerTitle: {
     fontFamily: customerFonts.editorial,
     fontSize: 22,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   searchWrapper: {
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     borderRadius: 24,
     paddingHorizontal: 16,
     height: 44,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: customerColors.white,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
     fontFamily: customerFonts.regular,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
     paddingVertical: 0,
   },
   bankListScroll: {
@@ -901,7 +903,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   bankRowSelected: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: customerColors.neutral.neutral50,
     borderRadius: 8,
     paddingHorizontal: 8,
   },
@@ -916,44 +918,44 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontFamily: customerFonts.regular,
-    color: '#1F2937',
+    color: customerColors.neutral.neutral900,
   },
   radioCircle: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: customerColors.neutral.neutral400,
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleActive: {
-    borderColor: '#15803D',
+    borderColor: customerColors.legacy.greenDeep,
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#15803D',
+    backgroundColor: customerColors.legacy.greenDeep,
   },
   proceedButtonWrapper: {
     paddingVertical: 8,
     paddingHorizontal: 4,
   },
   proceedButton: {
-    backgroundColor: '#1E7E34',
+    backgroundColor: customerColors.legacy.greenDark,
     paddingVertical: 13,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1E7E34',
+    shadowColor: customerColors.legacy.greenDark,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
   },
   proceedButtonText: {
-    color: '#FFFFFF',
+    color: customerColors.white,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.8,
@@ -961,6 +963,6 @@ const styles = StyleSheet.create({
   },
   bankDivider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: customerColors.neutral.neutral100,
   },
 });

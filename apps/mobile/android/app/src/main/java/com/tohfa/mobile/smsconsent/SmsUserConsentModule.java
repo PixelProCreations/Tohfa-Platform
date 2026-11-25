@@ -45,6 +45,8 @@ public class SmsUserConsentModule extends NativeTohfaSmsUserConsentSpec implemen
 
   @Nullable private Promise pending;
   @Nullable private BroadcastReceiver receiver;
+  private int armingGeneration = 0;
+  private int consentSheetGeneration = -1;
 
   public SmsUserConsentModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -67,7 +69,13 @@ public class SmsUserConsentModule extends NativeTohfaSmsUserConsentSpec implemen
       promise.resolve("");
       return;
     }
-    pending = promise;
+
+    final int generation;
+    synchronized (this) {
+      armingGeneration++;
+      generation = armingGeneration;
+      pending = promise;
+    }
 
     BroadcastReceiver smsReceiver = new BroadcastReceiver() {
       @Override
@@ -97,13 +105,18 @@ public class SmsUserConsentModule extends NativeTohfaSmsUserConsentSpec implemen
           return;
         }
         try {
+          synchronized (SmsUserConsentModule.this) {
+            consentSheetGeneration = generation;
+          }
           current.startActivityForResult(consentIntent, CONSENT_REQUEST_CODE);
         } catch (ActivityNotFoundException e) {
           finish("");
         }
       }
     };
-    receiver = smsReceiver;
+    synchronized (this) {
+      receiver = smsReceiver;
+    }
     try {
       ContextCompat.registerReceiver(
           getReactApplicationContext(),
@@ -130,6 +143,14 @@ public class SmsUserConsentModule extends NativeTohfaSmsUserConsentSpec implemen
   public void onActivityResult(Activity activity, int requestCode, int resultCode, @Nullable Intent data) {
     if (requestCode != CONSENT_REQUEST_CODE) {
       return;
+    }
+    // Ignore results from a superseded arming (user tapped Resend while the
+    // consent sheet was open — the old SMS belongs to the previous challenge).
+    synchronized (this) {
+      if (consentSheetGeneration != armingGeneration) {
+        return;
+      }
+      consentSheetGeneration = -1;
     }
     String message = "";
     if (resultCode == Activity.RESULT_OK && data != null) {
@@ -162,6 +183,7 @@ public class SmsUserConsentModule extends NativeTohfaSmsUserConsentSpec implemen
   }
 
   private synchronized void finish(String message) {
+    consentSheetGeneration = -1;
     BroadcastReceiver smsReceiver = receiver;
     receiver = null;
     if (smsReceiver != null) {

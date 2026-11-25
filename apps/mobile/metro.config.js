@@ -94,6 +94,7 @@ const config = {
       path.resolve(__dirname, 'node_modules'),
       path.resolve(monorepoRoot, 'node_modules'),
     ],
+    extraNodeModules: stubbedNativeModules,
     // Follow pnpm symlinks into the .pnpm virtual store
     unstable_enableSymlinks: true,
     // Watchman crashes here whenever macOS revokes its Full Disk Access grant

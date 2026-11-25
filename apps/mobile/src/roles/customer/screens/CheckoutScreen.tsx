@@ -10,7 +10,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
   Alert,
   Platform,
@@ -313,13 +312,6 @@ const WalletGreenSvg = ({ size = 20 }: { size?: number }) => (
   </Svg>
 );
 
-const LockSvg = ({ size = 16 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="#111827" strokeWidth={2} />
-    <Path d="M7 11V7a5 5 0 0110 0v4" stroke="#111827" strokeWidth={2} />
-  </Svg>
-);
-
 const CartSmallGreenSvg = () => (
   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
     <Path
@@ -331,25 +323,6 @@ const CartSmallGreenSvg = () => (
     />
     <Circle cx="9" cy="21" r="1.5" fill="#15803D" />
     <Circle cx="18" cy="21" r="1.5" fill="#15803D" />
-  </Svg>
-);
-
-const MobileDeviceSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Rect x="5" y="2" width="14" height="20" rx="2" stroke="#6B7280" strokeWidth={1.8} />
-    <Circle cx="12" cy="18" r="1" fill="#6B7280" />
-  </Svg>
-);
-
-const EyeHideSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"
-      stroke="#6B7280"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
   </Svg>
 );
 
@@ -414,11 +387,17 @@ export interface CheckoutScreenProps {
   params?: Record<string, unknown>;
 }
 
-const SLOT_LABEL: Record<string, string> = {
-  MORNING_8_12: '8 AM - 12 PM',
-  AFTERNOON_12_4: '12 PM - 4 PM',
-  EVENING_4_8: '4 PM - 8 PM',
-};
+/** Resolved at render time (not module load) so it follows the active locale. */
+const SLOT_KEYS = {
+  MORNING_8_12: 'customer.checkout.slot.MORNING_8_12',
+  AFTERNOON_12_4: 'customer.checkout.slot.AFTERNOON_12_4',
+  EVENING_4_8: 'customer.checkout.slot.EVENING_4_8',
+} as const;
+
+function slotLabel(slot: string): string {
+  const key = SLOT_KEYS[slot as keyof typeof SLOT_KEYS];
+  return key ? t(key) : '';
+}
 
 function formatPlacedAt(iso: string | undefined): string {
   if (!iso) return '';
@@ -495,8 +474,6 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
   const [selectedUpiApp, setSelectedUpiApp] = useState<string | null>('GPay');
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
   const [showChooseBankModal, setShowChooseBankModal] = useState(false);
-  const [walletOtp, setWalletOtp] = useState('');
-  const [showWalletOtp, setShowWalletOtp] = useState(false);
   const [userTappedWallet, setUserTappedWallet] = useState(false);
 
   const input = draftToInput(draft);
@@ -792,7 +769,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 {!!address?.contactPhone && <Text style={styles.addressPhone}>{t('customer.checkout.screen.phone', { phone: address.contactPhone })}</Text>}
                 {!!draft?.deliveryDate && (
                   <Text style={styles.addressPhone} testID="checkout-slot">
-                    {draft.deliveryDate} · {draft.deliverySlot ? SLOT_LABEL[draft.deliverySlot] : ''}
+                    {draft.deliveryDate} · {draft.deliverySlot ? slotLabel(draft.deliverySlot) : ''}
                   </Text>
                 )}
               </>
@@ -840,7 +817,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
 
             {selectedMethod === 'upi' && (
               <View style={styles.subSectionBox}>
-                <Text style={[styles.subSectionTitle, { marginBottom: 12 }]}>UPI Apps</Text>
+                <Text style={[styles.subSectionTitle, { marginBottom: 12 }]}>{t('customer.checkout.upi.apps')}</Text>
                 <View style={styles.upiAppsRow}>
                   <TouchableOpacity
                     style={[styles.upiAppBtn, selectedUpiApp === 'Other' && styles.upiAppBtnSelected]}
@@ -848,7 +825,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                     activeOpacity={0.8}
                   >
                     <OtherUpiIcon />
-                    <Text style={styles.upiAppLabel}>Other</Text>
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.other')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.upiAppBtn, selectedUpiApp === 'GPay' && styles.upiAppBtnSelected]}
@@ -856,7 +833,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                     activeOpacity={0.8}
                   >
                     <GPayIcon />
-                    <Text style={styles.upiAppLabel}>GPay</Text>
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.gpay')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.upiAppBtn, selectedUpiApp === 'BHIM' && styles.upiAppBtnSelected]}
@@ -864,7 +841,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                     activeOpacity={0.8}
                   >
                     <BhimIcon />
-                    <Text style={styles.upiAppLabel}>BHIM App</Text>
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.bhim')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.upiAppBtn, selectedUpiApp === 'Paytm' && styles.upiAppBtnSelected]}
@@ -872,7 +849,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                     activeOpacity={0.8}
                   >
                     <PaytmIcon />
-                    <Text style={styles.upiAppLabel}>Paytm</Text>
+                    <Text style={styles.upiAppLabel}>{t('customer.checkout.upi.paytm')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -937,12 +914,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
             {selectedMethod === 'netbanking' && (
               <View style={styles.subSectionBox}>
                 <View style={styles.subSectionHeaderRow}>
-                  <Text style={styles.subSectionTitle}>UPI Apps</Text>
+                  <Text style={styles.subSectionTitle}>{t('customer.checkout.netbanking.title')}</Text>
                   <TouchableOpacity
                     onPress={() => setShowChooseBankModal(true)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.otherBankLink}>Other Bank</Text>
+                    <Text style={styles.otherBankLink}>{t('customer.checkout.netbanking.otherBank')}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.popularBanksRow}>
@@ -1111,7 +1088,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
             {/* Header: Pay with Wallet */}
             <View style={styles.walletHeaderRow}>
               <WalletGreenSvg size={22} />
-              <Text style={styles.walletModalTitle}>Pay with Wallet</Text>
+              <Text style={styles.walletModalTitle}>{t('customer.checkout.screen.modal.title')}</Text>
             </View>
 
             {/* Top Green Box: Order ID & Amount */}
@@ -1122,9 +1099,9 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 </View>
                 <View>
                   <Text style={styles.walletOrderId}>
-                    Order ID: #TOH{order?.orderNumber ? order.orderNumber.replace(/[^0-9]/g, '').slice(-6) : (quote?.cartId ? quote.cartId.slice(-6).toUpperCase() : '123456')}
+                    {t('customer.checkout.wallet.orderId', { id: order?.orderNumber ? order.orderNumber.replace(/[^0-9]/g, '').slice(-6) : (quote?.cartId ? quote.cartId.slice(-6).toUpperCase() : '123456') })}
                   </Text>
-                  <Text style={styles.walletOrderLabel}>Order Payment</Text>
+                  <Text style={styles.walletOrderLabel}>{t('customer.checkout.wallet.orderPayment')}</Text>
                 </View>
               </View>
               <Text style={styles.walletOrderPrice}>{formatRupees(total)}</Text>
@@ -1135,7 +1112,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <View style={styles.walletBalanceRow}>
                 <View style={styles.walletBalanceLeft}>
                   <WalletGreenSvg size={18} />
-                  <Text style={styles.walletBalanceLabel}>TOHFA Wallet Balance</Text>
+                  <Text style={styles.walletBalanceLabel}>{t('customer.checkout.screen.modal.balance')}</Text>
                 </View>
                 <Text style={styles.walletBalanceVal} testID="wallet-modal-balance">
                   {balanceLabel}
@@ -1143,47 +1120,16 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               </View>
               <View style={styles.walletDivider} />
               <View style={styles.walletBalanceRow}>
-                <Text style={styles.walletAmountLabel}>Payment Amount</Text>
+                <Text style={styles.walletAmountLabel}>{t('customer.checkout.screen.modal.amount')}</Text>
                 <Text style={styles.walletAmountVal}>{formatRupees(total)}</Text>
               </View>
               <View style={styles.walletModalBalanceAfterBanner}>
-                <Text style={styles.walletModalBalanceAfterLabel}>Balance after Payment</Text>
+                <Text style={styles.walletModalBalanceAfterLabel}>{t('customer.checkout.screen.modal.after')}</Text>
                 <Text style={styles.walletModalBalanceAfterVal}>
                   {quote
                     ? formatRupees(subtractMoney(quote.walletBalance, quote.totalAmount))
                     : formatRupees('1220.00')}
                 </Text>
-              </View>
-            </View>
-
-            {/* OTP Section */}
-            <View style={styles.walletOtpSection}>
-              <View style={styles.walletOtpHeader}>
-                <LockSvg size={16} />
-                <Text style={styles.walletOtpTitle}>Enter OTP</Text>
-              </View>
-              <Text style={styles.walletOtpSubtitle}>
-                Enter the OTP sent to your registered mobile number to complete the payment.
-              </Text>
-              <View style={styles.walletOtpInputRowUnderline}>
-                <MobileDeviceSvg />
-                <TextInput
-                  style={styles.walletOtpInput}
-                  placeholder="Enter OTP"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="numeric"
-                  maxLength={6}
-                  secureTextEntry={!showWalletOtp}
-                  value={walletOtp}
-                  onChangeText={setWalletOtp}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowWalletOtp((prev) => !prev)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <EyeHideSvg />
-                </TouchableOpacity>
               </View>
             </View>
 
@@ -1242,7 +1188,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 <View style={styles.orderMetaRow}>
                   <Text style={styles.orderMetaLabel}>{orderIsPickup ? t('customer.checkout.screen.success.pickupLocation') : t('customer.checkout.screen.success.delivery')}</Text>
                   <Text style={styles.orderMetaValBold}>
-                    {orderIsPickup ? (orderPoint?.name ?? '') : `${order?.deliveryDate ?? ''} ${order?.deliverySlot ? SLOT_LABEL[order.deliverySlot] : ''}`}
+                    {orderIsPickup ? (orderPoint?.name ?? '') : `${order?.deliveryDate ?? ''} ${order?.deliverySlot ? slotLabel(order.deliverySlot) : ''}`}
                   </Text>
                 </View>
               </View>
@@ -1574,7 +1520,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F2E8E1',
+    borderBottomColor: '#F2E8E1', // TODO: extract to design token
   },
   paymentCardTitle: {
     fontFamily: customerFonts.editorial,
@@ -2148,51 +2094,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: customerColors.white,
-  },
-  walletOtpSection: {
-    marginBottom: 18,
-  },
-  walletOtpHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
-  },
-  walletOtpTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: customerColors.neutral.neutral900,
-  },
-  walletOtpSubtitle: {
-    fontSize: 11,
-    color: customerColors.neutral.neutral600,
-    lineHeight: 16,
-    marginBottom: 10,
-  },
-  walletOtpInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: customerColors.neutral.neutral300,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'android' ? 4 : 8,
-    backgroundColor: customerColors.white,
-  },
-  walletOtpInputRowUnderline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingBottom: 6,
-    paddingTop: 4,
-  },
-  walletOtpInput: {
-    flex: 1,
-    fontSize: 14,
-    color: customerColors.neutral.neutral900,
-    marginLeft: 8,
-    paddingVertical: 2,
   },
   walletActionRow: {
     flexDirection: 'row',

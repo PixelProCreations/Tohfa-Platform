@@ -324,7 +324,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     setLoading(true);
     setBanner(null);
 
-    const cMobile = rawMobile.startsWith('+') ? rawMobile : `${MOBILE_PREFIX}${rawMobile}`;
+    const cMobile = cleanMobile();
 
     try {
       const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
