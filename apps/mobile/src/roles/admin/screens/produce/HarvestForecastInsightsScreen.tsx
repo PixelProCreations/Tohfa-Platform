@@ -21,15 +21,19 @@ import {
   BackArrowIcon,
   DownloadIcon,
 } from './produceIcons';
+import { useProduceRecordCount } from '../../api/produceHooks';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 export interface ExportCropRecordsModalProps {
   visible: boolean;
+  rowCountText?: string;
   onClose: () => void;
   onDownloadCSV: () => void;
 }
 
 export function ExportCropRecordsModal({
   visible,
+  rowCountText,
   onClose,
   onDownloadCSV,
 }: ExportCropRecordsModalProps): React.JSX.Element {
@@ -43,7 +47,7 @@ export function ExportCropRecordsModal({
           <View style={styles.exportInfoBox}>
             <View style={styles.trendTableRow}>
               <Text style={styles.exportInfoLabel}>Rows</Text>
-              <Text style={styles.exportInfoValue}>43 crop records</Text>
+              <Text style={styles.exportInfoValue}>{rowCountText || ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.dottedDivider} />
             <View style={[styles.trendTableRow, { alignItems: 'flex-start', paddingTop: 8 }]}>
@@ -97,6 +101,10 @@ export function HarvestForecastInsightsScreen({
   const [activeTab, setActiveTab] = useState<'forecast' | 'insights'>('forecast');
   const [timeFilter, setTimeFilter] = useState('All');
   const [localExportVisible, setLocalExportVisible] = useState(false);
+
+  const { data: recordCountData } = useProduceRecordCount({});
+  const totalRecords = recordCountData?.page?.total;
+  const rowCountText = totalRecords !== undefined ? `${totalRecords} crop records` : ADMIN_NO_VALUE;
 
   const handleOpenExport = onOpenExportModal ?? (() => setLocalExportVisible(true));
   const handleCloseExport = () => setLocalExportVisible(false);
@@ -182,17 +190,17 @@ export function HarvestForecastInsightsScreen({
           <Text style={styles.forecastCardTitle}>Harvest Projection</Text>
           <View style={styles.trendTableRow}>
             <Text style={styles.trendRowLabel}>Expected volume</Text>
-            <Text style={styles.trendRowValue}>—</Text>
+            <Text style={styles.trendRowValue}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.dottedDivider} />
           <View style={styles.trendTableRow}>
             <Text style={styles.trendRowLabel}>Active crop types</Text>
-            <Text style={styles.trendRowValue}>—</Text>
+            <Text style={styles.trendRowValue}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.dottedDivider} />
           <View style={styles.trendTableRow}>
             <Text style={styles.trendRowLabel}>Forecast accuracy confidence</Text>
-            <Text style={styles.trendRowValue}>High</Text>
+            <Text style={styles.trendRowValue}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -210,6 +218,7 @@ export function HarvestForecastInsightsScreen({
 
       <ExportCropRecordsModal
         visible={localExportVisible}
+        rowCountText={rowCountText}
         onClose={handleCloseExport}
         onDownloadCSV={handleCloseExport}
       />

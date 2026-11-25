@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +19,8 @@ import {
 import type { Can } from '../../permissions/can';
 import { BackArrowIcon, PencilEditIcon } from './inputsIcons';
 import type { ApprovedInputItem } from './ApprovedInputsScreen';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { t } from '../../i18n';
 
 export interface InputDetailScreenProps {
   inputItem?: ApprovedInputItem | undefined;
@@ -31,144 +32,39 @@ export interface InputDetailScreenProps {
   can?: Can | undefined;
 }
 
+/**
+ * One approved input. There is no inputs endpoint (inputs.catalog.manage has
+ * no route), so every value comes from the item passed in or is the dash; the
+ * status is never defaulted; the registration id, documents and approval
+ * history have no source and are dashed; Deactivate / Terminate / Delete and
+ * the document links are drawn and disabled (R3).
+ */
 export function InputDetailScreen({
   inputItem,
   onBack,
   onEdit,
-  onDeactivate,
-  onTerminate,
-  onDelete,
   can,
 }: InputDetailScreenProps): React.JSX.Element {
   const isElevatedAdmin = can ? (can('admin.decision.override') || can('system.config.manage')) : false;
   const [activeTab, setActiveTab] = useState<'basic' | 'composition' | 'documents' | 'history'>('basic');
-  const [isDeactivated, setIsDeactivated] = useState(false);
 
-  const name = inputItem?.name || 'Neem Oil Concentrate';
-  const code = inputItem?.code || 'IN-0041';
-  const status = isDeactivated ? 'Inactive' : (inputItem?.status || 'Approved');
+  const name = inputItem?.name || ADMIN_NO_VALUE;
+  const code = inputItem?.code || ADMIN_NO_VALUE;
+  const status = inputItem?.status || ADMIN_NO_VALUE;
   const isApproved = status === 'Approved';
 
-  const category = inputItem?.category || 'Pest control';
-  const manufacturer = inputItem?.manufacturer || 'GreenGro Organics';
-  const registrationId =
-    inputItem?.code === 'IN-0041' || !inputItem?.code
-      ? 'NEEM-0041-TN'
-      : `${inputItem.code}-TN`;
+  const category = inputItem?.category || ADMIN_NO_VALUE;
+  const manufacturer = inputItem?.manufacturer || ADMIN_NO_VALUE;
+  // No registration id is stored anywhere; it is not derived from the code.
+  const registrationId = ADMIN_NO_VALUE;
 
-  const composition =
-    inputItem?.name === 'Neem Oil Concentrate' || !inputItem
-      ? 'Azadirachtin 1500 ppm'
-      : (inputItem.method || 'Organic botanical extract');
-
+  const composition = inputItem?.method || ADMIN_NO_VALUE;
   const applicableCrops = inputItem?.applicableCrops
     ? inputItem.applicableCrops.replace(/^Applicable:\s*/, '')
-    : 'Tomato, Cabbage';
+    : ADMIN_NO_VALUE;
 
-  const dosage =
-    inputItem?.name === 'Neem Oil Concentrate' || !inputItem
-      ? '5 mL per litre of water'
-      : (inputItem.usage || '5 mL per litre of water');
-
-  const applicationMethod =
-    inputItem?.name === 'Neem Oil Concentrate' || !inputItem
-      ? 'Foliar spray, every 10 days'
-      : (inputItem.frequency || 'Foliar spray, every 10 days');
-
-  const handleEdit = () => {
-    if (onEdit) {
-      onEdit();
-    } else {
-      Alert.alert('Edit Input', `Editing form for ${name} opened.`);
-    }
-  };
-
-  const handleDeactivate = () => {
-    if (onDeactivate) {
-      onDeactivate();
-    } else {
-      Alert.alert(
-        isDeactivated ? 'Activate Input' : 'Deactivate Input',
-        isDeactivated
-          ? `Are you sure you want to activate ${name}?`
-          : `Are you sure you want to deactivate ${name}? It will be marked as Inactive.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: isDeactivated ? 'Activate' : 'Deactivate',
-            style: isDeactivated ? 'default' : 'destructive',
-            onPress: () => setIsDeactivated(!isDeactivated),
-          },
-        ]
-      );
-    }
-  };
-
-  const handleSuperAdminDeactivate = () => {
-    if (onDeactivate) {
-      onDeactivate();
-      return;
-    }
-    Alert.alert(
-      'Deactivate account',
-      `Are you sure you want to deactivate the input account for ${name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: () => {
-            setIsDeactivated(true);
-            Alert.alert('Account Deactivated', `${name} account has been deactivated.`);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSuperAdminTerminate = () => {
-    if (onTerminate) {
-      onTerminate();
-      return;
-    }
-    Alert.alert(
-      'Terminate Input',
-      `Are you sure you want to permanently terminate ${name}? This action will archive all associated approvals.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Terminate',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Terminated', `${name} has been terminated.`);
-            onBack();
-          },
-        },
-      ]
-    );
-  };
-
-  const handleSuperAdminDelete = () => {
-    if (onDelete) {
-      onDelete();
-      return;
-    }
-    Alert.alert(
-      'Delete Information',
-      `Are you sure you want to permanently delete all information for ${name}? This action cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Permanently',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Deleted', `Information for ${name} has been permanently deleted.`);
-            onBack();
-          },
-        },
-      ]
-    );
-  };
+  const dosage = inputItem?.usage || ADMIN_NO_VALUE;
+  const applicationMethod = inputItem?.frequency || ADMIN_NO_VALUE;
 
   return (
     <View style={styles.root}>
@@ -196,8 +92,9 @@ export function InputDetailScreen({
           </View>
 
           <TouchableOpacity
-            style={styles.headerPencilBtn}
-            onPress={handleEdit}
+            style={[styles.headerPencilBtn, !onEdit && styles.actionUnavailable]}
+            onPress={onEdit}
+            disabled={!onEdit}
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel="Edit Input"
@@ -372,21 +269,21 @@ export function InputDetailScreen({
             <View style={styles.tableCard}>
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Safety Data Sheet (MSDS)</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening MSDS PDF')}>
+                <TouchableOpacity disabled style={styles.actionUnavailable} accessibilityRole="button" accessibilityState={{ disabled: true }}>
                   <Text style={styles.linkText}>View PDF</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.divider} />
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>NPOP Organic Certificate</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening Certificate PDF')}>
+                <TouchableOpacity disabled style={styles.actionUnavailable} accessibilityRole="button" accessibilityState={{ disabled: true }}>
                   <Text style={styles.linkText}>View PDF</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.divider} />
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Usage Label Spec</Text>
-                <TouchableOpacity onPress={() => Alert.alert('Document', 'Opening Label PDF')}>
+                <TouchableOpacity disabled style={styles.actionUnavailable} accessibilityRole="button" accessibilityState={{ disabled: true }}>
                   <Text style={styles.linkText}>View PDF</Text>
                 </TouchableOpacity>
               </View>
@@ -398,19 +295,10 @@ export function InputDetailScreen({
           <>
             <Text style={styles.sectionHeading}>Approval & History</Text>
             <View style={styles.tableCard}>
+              {/* No approval history endpoint exists. */}
               <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>11 Oct 2026</Text>
-                <Text style={styles.tableValue}>Approved by Priya Nair</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>08 Oct 2026</Text>
-                <Text style={styles.tableValue}>Submitted by GreenGro Organics</Text>
-              </View>
-              <View style={styles.divider} />
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>01 Oct 2026</Text>
-                <Text style={styles.tableValue}>Draft created by Agronomy team</Text>
+                <Text style={styles.tableLabel}>{ADMIN_NO_VALUE}</Text>
+                <Text style={styles.tableValue}>{ADMIN_NO_VALUE}</Text>
               </View>
             </View>
           </>
@@ -419,26 +307,33 @@ export function InputDetailScreen({
         {/* Elevated Actions for Super Admin */}
         {isElevatedAdmin && (
           <View style={styles.superAdminActionsWrap}>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.inputs.actionsUnavailable')}</Text>
             <TouchableOpacity
-              style={styles.deactivateAccountBtn}
-              onPress={handleSuperAdminDeactivate}
+              style={[styles.deactivateAccountBtn, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
             >
               <Text style={styles.deactivateAccountBtnText}>Deactivate account</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={handleSuperAdminTerminate}
+              style={[styles.outlineActionBtn, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
             >
               <Text style={styles.outlineActionBtnText}>Terminate</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={handleSuperAdminDelete}
+              style={[styles.outlineActionBtn, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
             >
               <Text style={styles.outlineActionBtnText}>Delete Information</Text>
             </TouchableOpacity>
@@ -452,21 +347,22 @@ export function InputDetailScreen({
       {!isElevatedAdmin && (
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.editBtn}
-            onPress={handleEdit}
+            style={[styles.editBtn, !onEdit && styles.actionUnavailable]}
+            onPress={onEdit}
+            disabled={!onEdit}
             activeOpacity={0.8}
           >
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.deactivateBtn}
-            onPress={handleDeactivate}
+            style={[styles.deactivateBtn, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
           >
-            <Text style={styles.deactivateBtnText}>
-              {isDeactivated ? 'Activate' : 'Deactivate'}
-            </Text>
+            <Text style={styles.deactivateBtnText}>Deactivate</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -671,5 +567,13 @@ const styles = StyleSheet.create({
   outlineActionBtnText: {
     ...adminType.rowTitle,
     color: adminColors.brand,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
 });

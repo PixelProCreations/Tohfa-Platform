@@ -1,3 +1,12 @@
+/**
+ * Farm FMB & Zones for one farmer, from GET /admin/farmers/{id}.
+ *
+ * The API carries no plot geometry: a land location has only a centroid and a
+ * `hasBoundary` flag, and a plot (a "zone" of the farm) has a name, area and
+ * soil/irrigation/sun fields. So the map draws no pins (none would be real)
+ * and says so; the zone list is the farmer's real plots; the FMB line reads
+ * the server's `hasBoundary`, never a blanket claim.
+ */
 import React from 'react';
 import {
   ScrollView,
@@ -7,23 +16,19 @@ import {
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { useFarmer } from '../../api/farmerHooks';
+import { t } from '../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
-
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  infoBannerBg: '#E8F1FC',
-  infoBannerText: '#1565C0',
-  mapBg: '#3F4F34',
-};
 
 interface Props {
   farmer: FarmerListItem;
@@ -31,9 +36,46 @@ interface Props {
 }
 
 export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
+  const detail = useFarmer(undefined, farmer.id);
+  const locations = detail.farmer?.landLocations ?? [];
+  const plots = locations.flatMap((loc) => loc.plots.map((plot) => ({ plot, location: loc })));
+
+  const farmTitle = [farmer.name, farmer.farmName].filter(Boolean).join(' · ');
+  const regionText = farmer.zone ? t('wiringFarmers.map.region', { zone: farmer.zone }) : ADMIN_NO_VALUE;
+
+  const boundaryCount = locations.filter((loc) => loc.hasBoundary).length;
+  const fmbText =
+    detail.farmer === undefined
+      ? ADMIN_NO_VALUE
+      : boundaryCount > 0
+        ? t('wiringFarmers.map.fmbRecorded', { count: boundaryCount, total: locations.length })
+        : t('wiringFarmers.map.fmbNone');
+
+  const renderZones = () => {
+    if (detail.isLoading) return <AdminLoadingState />;
+    if (detail.error) return <AdminErrorState error={detail.error} onRetry={detail.refresh} />;
+    if (plots.length === 0) return <AdminEmptyState title={t('wiringFarmers.map.noZones')} />;
+    return plots.map(({ plot, location }, idx) => (
+      <View key={plot.id} style={styles.zoneCard}>
+        <View style={styles.zoneBadge}>
+          <Text style={styles.zoneBadgeText}>{t('wiringFarmers.map.zoneBadge', { index: idx + 1 })}</Text>
+        </View>
+        <View style={styles.zoneInfo}>
+          <Text style={styles.zoneName}>{plot.name}</Text>
+          <Text style={styles.zoneSub}>
+            {t('wiringFarmers.map.zoneSub', {
+              location: location.name,
+              area: plot.areaAcres === null ? ADMIN_NO_VALUE : t('wiringFarmers.map.acres', { value: plot.areaAcres }),
+            })}
+          </Text>
+        </View>
+      </View>
+    ));
+  };
+
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       {/* Header with Back button */}
       <View style={styles.header}>
@@ -47,7 +89,7 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
             <Path
               d="M15 19L8 12L15 5"
-              stroke="#2B2523"
+              stroke={adminColors.ink}
               strokeWidth="2.4"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -62,107 +104,39 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
         showsVerticalScrollIndicator={false}
       >
         {/* Title & Subtitle */}
-        <Text style={styles.title}>Farm FMB & Zones</Text>
+        <Text style={styles.title}>{t('wiringFarmers.map.title')}</Text>
         <Text style={styles.subtitle}>
-          {[farmer.name, farmer.farmName].filter(Boolean).join(' · ')} · 6 zones marked
+          {farmTitle || ADMIN_NO_VALUE} · {regionText}
         </Text>
 
-        {/* Map Card */}
+        {/* Map Card: no geometry in the API, so an empty map, no pins. */}
         <View style={styles.mapCard}>
           <Svg width="100%" height={210} viewBox="0 0 340 210">
-            {/* Dark green satellite terrain base */}
-            <Path
-              d="M 0 0 L 340 0 L 340 210 L 0 210 Z"
-              fill={P.mapBg}
-            />
-
-            {/* Zone Pin 1 */}
-            <Circle cx={65} cy={55} r={16} fill="rgba(240, 86, 42, 0.35)" />
-            <Circle cx={65} cy={55} r={11} fill="#F0562A" />
-            <Path
-              d="M 65 49 C 63 53 61 56 61 57.5 C 61 59.7 62.8 61.5 65 61.5 C 67.2 61.5 69 59.7 69 57.5 C 69 56 67 53 65 49 Z"
-              fill="#FFFFFF"
-            />
-
-            {/* Zone Pin 2 */}
-            <Circle cx={132} cy={118} r={16} fill="rgba(240, 86, 42, 0.35)" />
-            <Circle cx={132} cy={118} r={11} fill="#F0562A" />
-            <Path
-              d="M 132 112 C 130 116 128 119 128 120.5 C 128 122.7 129.8 124.5 132 124.5 C 134.2 124.5 136 122.7 136 120.5 C 136 119 134 116 132 112 Z"
-              fill="#FFFFFF"
-            />
-
-            {/* Zone Pin 3 */}
-            <Circle cx={208} cy={82} r={16} fill="rgba(240, 86, 42, 0.35)" />
-            <Circle cx={208} cy={82} r={11} fill="#F0562A" />
-            <Path
-              d="M 208 76 C 206 80 204 83 204 84.5 C 204 86.7 205.8 88.5 208 88.5 C 210.2 88.5 212 86.7 212 84.5 C 212 83 210 80 208 76 Z"
-              fill="#FFFFFF"
-            />
-
-            {/* Water Source Pin (Blue) */}
-            <Circle cx={255} cy={148} r={17} fill="rgba(21, 101, 192, 0.35)" />
-            <Circle cx={255} cy={148} r={12} fill="#1565C0" />
-            <Path
-              d="M 255 142 C 253 146 251 149 251 150.5 C 251 152.7 252.8 154.5 255 154.5 C 257.2 154.5 259 152.7 259 150.5 C 259 149 257 146 255 142 Z"
-              fill="#FFFFFF"
-            />
+            <Path d="M 0 0 L 340 0 L 340 210 L 0 210 Z" fill={adminColors.brandDeep} />
           </Svg>
 
-          {/* Map Footer label */}
           <View style={styles.mapFooter}>
-            <Text style={styles.mapFooterText}>Satellite view · Leaflet.js + ESRI imagery</Text>
+            <Text style={styles.mapFooterText}>{t('wiringFarmers.map.noGeometry')}</Text>
           </View>
         </View>
 
         {/* Section Title */}
-        <Text style={styles.sectionTitle}>Marked zones (6)</Text>
+        <Text style={styles.sectionTitle}>{t('wiringFarmers.map.zonesTitle')}</Text>
 
-        {/* Zone Item Z1 */}
-        <View style={styles.zoneCard}>
-          <View style={styles.zoneBadge}>
-            <Text style={styles.zoneBadgeText}>Z1</Text>
-          </View>
-          <View style={styles.zoneInfo}>
-            <Text style={styles.zoneName}>North Slope — Carrots</Text>
-            <Text style={styles.zoneSub}>0.8 acres · Soil pH 6.4</Text>
-          </View>
-        </View>
+        {renderZones()}
 
-        {/* Zone Item Z2 */}
-        <View style={styles.zoneCard}>
-          <View style={styles.zoneBadge}>
-            <Text style={styles.zoneBadgeText}>Z2</Text>
-          </View>
-          <View style={styles.zoneInfo}>
-            <Text style={styles.zoneName}>Terrace Field — Cabbage</Text>
-            <Text style={styles.zoneSub}>0.6 acres · Soil pH 6.1</Text>
-          </View>
-        </View>
-
-        {/* Zone Item Z3 */}
-        <View style={styles.zoneCard}>
-          <View style={styles.zoneBadge}>
-            <Text style={styles.zoneBadgeText}>Z3</Text>
-          </View>
-          <View style={styles.zoneInfo}>
-            <Text style={styles.zoneName}>Lower Basin — Fallow</Text>
-            <Text style={styles.zoneSub}>0.5 acres · Cover cropping active</Text>
-          </View>
-        </View>
-
-        {/* Field Context Callout */}
+        {/* Field Context Callout: the server's hasBoundary flag. */}
         <View style={styles.contextBanner}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.contextIcon}>
             <Path
               d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-              stroke="#1565C0"
+              stroke={adminColors.brand}
               strokeWidth="2"
             />
           </Svg>
           <Text style={styles.contextText}>
-            <Text style={styles.contextTextBold}>Field context: </Text>
-            1 water source (borewell), TDS 180 ppm, natural boundary on north side (stream).
+            <Text style={styles.contextTextBold}>{t('wiringFarmers.map.fieldContext')}</Text>
+            {fmbText}
           </Text>
         </View>
 
@@ -175,55 +149,51 @@ export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 6,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xs,
   },
   backButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#EFE7DE',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-    cursor: 'pointer' as any,
+    ...adminShadow.sm,
   },
   container: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
   },
   title: {
+    ...adminType.title,
     fontSize: 26,
     fontWeight: '800',
-    color: P.titleBrown,
+    color: adminColors.brandDeep,
     marginBottom: 4,
     letterSpacing: -0.4,
   },
   subtitle: {
-    fontSize: 13.5,
+    ...adminType.caption,
     lineHeight: 19,
-    color: P.subtitle,
-    marginBottom: 16,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.md,
   },
   mapCard: {
-    backgroundColor: P.mapBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.lg,
     overflow: 'hidden',
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: adminSpacing.lg,
   },
   mapFooter: {
     position: 'absolute',
@@ -233,78 +203,74 @@ const styles = StyleSheet.create({
   },
   mapFooterText: {
     color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '500',
   },
   sectionTitle: {
-    fontSize: 16,
+    ...adminType.title,
     fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 12,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
   },
   zoneCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: P.cardBorder,
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   zoneBadge: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: '#FFF1EC',
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: adminSpacing.md,
   },
   zoneBadgeText: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '800',
-    color: P.orange,
+    color: adminColors.brand,
   },
   zoneInfo: {
     flex: 1,
   },
   zoneName: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '700',
-    color: P.ink,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   zoneSub: {
-    fontSize: 12,
-    color: P.subtitle,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   contextBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: P.infoBannerBg,
-    borderRadius: 16,
-    padding: 14,
-    marginTop: 4,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.xs,
   },
   contextIcon: {
-    marginRight: 10,
+    marginRight: adminSpacing.sm,
     marginTop: 1,
   },
   contextText: {
     flex: 1,
-    fontSize: 13,
+    ...adminType.caption,
     lineHeight: 18,
-    color: '#204060',
+    color: adminColors.ink,
   },
   contextTextBold: {
     fontWeight: '700',
-    color: P.infoBannerText,
+    color: adminColors.brandDeep,
   },
 });

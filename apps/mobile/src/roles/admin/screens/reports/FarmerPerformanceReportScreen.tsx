@@ -11,6 +11,10 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import { useFarmerList, useFarmerSummary } from '../../api/farmerHooks';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 const P = {
   bg: '#FAF8F5',
@@ -62,7 +66,7 @@ export interface FarmerRosterItem {
   zone: string;
   crop: string;
   yieldMT: string;
-  rating: number;
+  rating: number | null;
   status: string;
   cert: string;
   payout: string;
@@ -108,664 +112,60 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
   const timeframes: TimeframeFilter[] = ['This Month', 'Last Quarter', 'Year to Date'];
   const clusters: ClusterFilter[] = ['All Clusters', 'Ooty Central', 'Kotagiri', 'Coonoor', 'Gudalur'];
 
-  // ─── Dynamic Multi-Filter Data Resolution (15 Distinct Combinations) ────────
-  const PERFORMANCE_DATA_MATRIX: Record<ClusterFilter, Record<TimeframeFilter, FarmerPerformanceData>> = {
-    'All Clusters': {
-      'This Month': {
-        newApps: '42',
-        newAppsTrend: '↑ 18% vs last mo',
-        avgRating: '7.12',
-        avgRatingSub: '/10',
-        ratingTrend: '↑ 6% rating index',
-        approvedListings: '36',
-        approvedTrend: '↑ 12% live catalog',
-        activeFarmers: '184',
-        activeTrend: '↑ 9% retention',
-        payoutsDisbursed: '₹42.8L',
-        payoutsTrend: '99.4% on-time',
-        organicCert: '92.4%',
-        organicTrend: 'PGS & NPOP',
-        appTrendH1: '+18% MoM Gain',
-        appTrendData: [
-          { label: 'Week 1', value: 35, count: 8 },
-          { label: 'Week 2', value: 48, count: 11 },
-          { label: 'Week 3', value: 42, count: 9 },
-          { label: 'Week 4', value: 62, count: 14 },
-        ],
-        ratingTrendTag: 'Avg: 7.12 pts',
-        ratingTrendData: [
-          { label: 'W1', value: 65, rating: '6.8' },
-          { label: 'W2', value: 70, rating: '7.0' },
-          { label: 'W3', value: 72, rating: '7.2' },
-          { label: 'W4', value: 76, rating: '7.5' },
-        ],
-        totalYieldSubtitle: 'Total 165.6 MT aggregated across all 4 Nilgiris clusters this month',
-        cropBreakdown: [
-          { name: 'Carrots', volume: '84.2 MT', pct: 51, color: P.orange },
-          { name: 'Hill Potatoes', volume: '42.6 MT', pct: 26, color: '#D97706' },
-          { name: 'Specialty Tea Leaf', volume: '24.0 MT', pct: 15, color: P.greenBar },
-          { name: 'Beetroot & Exotic Greens', volume: '14.8 MT', pct: 8, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹38.6L',
-        escrowAmt: '₹3.2L',
-        holdAmt: '₹1.0L',
-        farmersList: [
-          { id: 'f-1', name: 'Vijay Anand', code: '#TOHFA-F-00234', zone: 'Kotagiri', crop: 'Carrots', yieldMT: '22.8 MT', rating: 8.9, status: 'Active', cert: 'PGS Verified', payout: '₹4,85,000' },
-          { id: 'f-2', name: 'R. Murugan', code: '#TOHFA-F-00142', zone: 'Ooty', crop: 'Nilgiris Carrots', yieldMT: '18.4 MT', rating: 8.5, status: 'Active', cert: 'PGS Verified', payout: '₹3,92,000' },
-          { id: 'f-3', name: 'S. Lakshmi', code: '#TOHFA-F-00098', zone: 'Coonoor', crop: 'Hill Tea & Greens', yieldMT: '14.2 MT', rating: 7.8, status: 'Active', cert: 'PGS Verified', payout: '₹2,64,000' },
-          { id: 'f-4', name: 'A. Prakash', code: '#TOHFA-F-00311', zone: 'Gudalur', crop: 'Spices & Ginger', yieldMT: '12.6 MT', rating: 7.5, status: 'Active', cert: 'PGS Verified', payout: '₹2,10,000' },
-          { id: 'f-5', name: 'K. Selvam', code: '#TOHFA-F-00189', zone: 'Kotagiri', crop: 'Potatoes', yieldMT: '11.0 MT', rating: 7.2, status: 'Pending', cert: 'NPOP Pending', payout: '₹1,45,000' },
-        ],
-      },
-      'Last Quarter': {
-        newApps: '128',
-        newAppsTrend: '↑ 24% QoQ',
-        avgRating: '7.45',
-        avgRatingSub: '/10',
-        ratingTrend: '↑ 8% rating index',
-        approvedListings: '98',
-        approvedTrend: '↑ 18% live catalog',
-        activeFarmers: '196',
-        activeTrend: '↑ 14% retention',
-        payoutsDisbursed: '₹1.24 Cr',
-        payoutsTrend: '99.6% on-time',
-        organicCert: '94.2%',
-        organicTrend: 'PGS & NPOP',
-        appTrendH1: '+42% Q2 Growth',
-        appTrendData: [
-          { label: 'Jul', value: 48, count: 36 },
-          { label: 'Aug', value: 58, count: 44 },
-          { label: 'Sep', value: 68, count: 48 },
-        ],
-        ratingTrendTag: 'Avg: 7.45 pts',
-        ratingTrendData: [
-          { label: 'Jul', value: 71, rating: '7.1' },
-          { label: 'Aug', value: 75, rating: '7.5' },
-          { label: 'Sep', value: 78, rating: '7.8' },
-        ],
-        totalYieldSubtitle: 'Total 468.4 MT aggregated across all 4 Nilgiris clusters in Q2',
-        cropBreakdown: [
-          { name: 'Carrots', volume: '240.0 MT', pct: 51, color: P.orange },
-          { name: 'Hill Potatoes', volume: '124.8 MT', pct: 27, color: '#D97706' },
-          { name: 'Specialty Tea Leaf', volume: '68.0 MT', pct: 15, color: P.greenBar },
-          { name: 'Beetroot & Exotic Greens', volume: '35.6 MT', pct: 7, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹1.12 Cr',
-        escrowAmt: '₹9.2L',
-        holdAmt: '₹2.8L',
-        farmersList: [
-          { id: 'f-1', name: 'Vijay Anand', code: '#TOHFA-F-00234', zone: 'Kotagiri', crop: 'Carrots', yieldMT: '64.2 MT', rating: 9.1, status: 'Active', cert: 'PGS Verified', payout: '₹14,20,000' },
-          { id: 'f-2', name: 'R. Murugan', code: '#TOHFA-F-00142', zone: 'Ooty', crop: 'Nilgiris Carrots', yieldMT: '52.6 MT', rating: 8.7, status: 'Active', cert: 'PGS Verified', payout: '₹11,40,000' },
-          { id: 'f-3', name: 'S. Lakshmi', code: '#TOHFA-F-00098', zone: 'Coonoor', crop: 'Hill Tea & Greens', yieldMT: '41.0 MT', rating: 8.0, status: 'Active', cert: 'PGS Verified', payout: '₹7,80,000' },
-          { id: 'f-4', name: 'A. Prakash', code: '#TOHFA-F-00311', zone: 'Gudalur', crop: 'Spices & Ginger', yieldMT: '36.4 MT', rating: 7.7, status: 'Active', cert: 'PGS Verified', payout: '₹6,15,000' },
-        ],
-      },
-      'Year to Date': {
-        newApps: '380',
-        newAppsTrend: '↑ 38% YoY',
-        avgRating: '7.82',
-        avgRatingSub: '/10',
-        ratingTrend: '↑ 12% rating index',
-        approvedListings: '284',
-        approvedTrend: '↑ 32% live catalog',
-        activeFarmers: '215',
-        activeTrend: '↑ 22% retention',
-        payoutsDisbursed: '₹3.82 Cr',
-        payoutsTrend: '99.8% on-time',
-        organicCert: '96.0%',
-        organicTrend: 'PGS & NPOP',
-        appTrendH1: '+58% Annual Gain',
-        appTrendData: [
-          { label: 'Q1', value: 52, count: 85 },
-          { label: 'Q2', value: 65, count: 115 },
-          { label: 'Q3', value: 74, count: 135 },
-          { label: 'Q4', value: 82, count: 145 },
-        ],
-        ratingTrendTag: 'Avg: 7.82 pts',
-        ratingTrendData: [
-          { label: 'Q1', value: 72, rating: '7.2' },
-          { label: 'Q2', value: 76, rating: '7.6' },
-          { label: 'Q3', value: 80, rating: '8.0' },
-          { label: 'Q4', value: 85, rating: '8.5' },
-        ],
-        totalYieldSubtitle: 'Total 1,420 MT aggregated across all 4 Nilgiris clusters YTD',
-        cropBreakdown: [
-          { name: 'Carrots', volume: '720.0 MT', pct: 51, color: P.orange },
-          { name: 'Hill Potatoes', volume: '380.0 MT', pct: 27, color: '#D97706' },
-          { name: 'Specialty Tea Leaf', volume: '210.0 MT', pct: 15, color: P.greenBar },
-          { name: 'Beetroot & Exotic Greens', volume: '110.0 MT', pct: 7, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹3.48 Cr',
-        escrowAmt: '₹26.0L',
-        holdAmt: '₹8.0L',
-        farmersList: [
-          { id: 'f-1', name: 'Vijay Anand', code: '#TOHFA-F-00234', zone: 'Kotagiri', crop: 'Carrots', yieldMT: '185.0 MT', rating: 9.3, status: 'Active', cert: 'PGS Verified', payout: '₹42,50,000' },
-          { id: 'f-2', name: 'R. Murugan', code: '#TOHFA-F-00142', zone: 'Ooty', crop: 'Nilgiris Carrots', yieldMT: '154.0 MT', rating: 8.9, status: 'Active', cert: 'PGS Verified', payout: '₹35,20,000' },
-          { id: 'f-3', name: 'S. Lakshmi', code: '#TOHFA-F-00098', zone: 'Coonoor', crop: 'Hill Tea & Greens', yieldMT: '118.0 MT', rating: 8.2, status: 'Active', cert: 'PGS Verified', payout: '₹23,40,000' },
-        ],
-      },
-    },
-    'Ooty Central': {
-      'This Month': {
-        newApps: '16',
-        newAppsTrend: '↑ 14% Highland',
-        avgRating: '8.24',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Top Nilgiris Tier',
-        approvedListings: '14',
-        approvedTrend: '↑ 10% Ooty Hub',
-        activeFarmers: '68',
-        activeTrend: '98% Retention',
-        payoutsDisbursed: '₹15.8L',
-        payoutsTrend: '100% on-time',
-        organicCert: '97.2%',
-        organicTrend: 'PGS Verified',
-        appTrendH1: '+14% MoM Ooty',
-        appTrendData: [
-          { label: 'Week 1', value: 25, count: 3 },
-          { label: 'Week 2', value: 45, count: 5 },
-          { label: 'Week 3', value: 35, count: 4 },
-          { label: 'Week 4', value: 40, count: 4 },
-        ],
-        ratingTrendTag: 'Avg: 8.24 pts',
-        ratingTrendData: [
-          { label: 'W1', value: 78, rating: '8.0' },
-          { label: 'W2', value: 82, rating: '8.2' },
-          { label: 'W3', value: 84, rating: '8.3' },
-          { label: 'W4', value: 86, rating: '8.5' },
-        ],
-        totalYieldSubtitle: 'Total 58.4 MT harvested from Ooty Central growers this month',
-        cropBreakdown: [
-          { name: 'Nilgiris Carrots', volume: '38.0 MT', pct: 65, color: P.orange },
-          { name: 'Hill Potatoes', volume: '14.0 MT', pct: 24, color: '#D97706' },
-          { name: 'Crisp Exotic Greens', volume: '6.4 MT', pct: 11, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹14.6L',
-        escrowAmt: '₹1.2L',
-        holdAmt: '₹0.0',
-        farmersList: [
-          { id: 'f-2', name: 'R. Murugan', code: '#TOHFA-F-00142', zone: 'Ooty', crop: 'Nilgiris Carrots', yieldMT: '18.4 MT', rating: 8.5, status: 'Active', cert: 'PGS Verified', payout: '₹3,92,000' },
-          { id: 'f-6', name: 'K. Ramanathan', code: '#TOHFA-F-00155', zone: 'Ooty', crop: 'Highland Potatoes', yieldMT: '14.2 MT', rating: 8.3, status: 'Active', cert: 'PGS Verified', payout: '₹2,85,000' },
-          { id: 'f-7', name: 'M. Sivakumar', code: '#TOHFA-F-00178', zone: 'Ooty', crop: 'Crisp Carrots', yieldMT: '11.8 MT', rating: 8.6, status: 'Active', cert: 'PGS Verified', payout: '₹2,42,000' },
-        ],
-      },
-      'Last Quarter': {
-        newApps: '46',
-        newAppsTrend: '↑ 22% Highland',
-        avgRating: '8.38',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Q2 Leader',
-        approvedListings: '39',
-        approvedTrend: '↑ 16% Ooty Hub',
-        activeFarmers: '74',
-        activeTrend: '99% Retention',
-        payoutsDisbursed: '₹46.5L',
-        payoutsTrend: '100% on-time',
-        organicCert: '98.1%',
-        organicTrend: 'PGS Verified',
-        appTrendH1: '+34% Q2 Surge',
-        appTrendData: [
-          { label: 'Jul', value: 38, count: 12 },
-          { label: 'Aug', value: 50, count: 16 },
-          { label: 'Sep', value: 56, count: 18 },
-        ],
-        ratingTrendTag: 'Avg: 8.38 pts',
-        ratingTrendData: [
-          { label: 'Jul', value: 81, rating: '8.2' },
-          { label: 'Aug', value: 84, rating: '8.4' },
-          { label: 'Sep', value: 87, rating: '8.6' },
-        ],
-        totalYieldSubtitle: 'Total 172.5 MT harvested from Ooty Central growers in Q2',
-        cropBreakdown: [
-          { name: 'Nilgiris Carrots', volume: '110.2 MT', pct: 64, color: P.orange },
-          { name: 'Hill Potatoes', volume: '42.8 MT', pct: 25, color: '#D97706' },
-          { name: 'Crisp Exotic Greens', volume: '19.5 MT', pct: 11, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹42.8L',
-        escrowAmt: '₹3.7L',
-        holdAmt: '₹0.0',
-        farmersList: [
-          { id: 'f-2', name: 'R. Murugan', code: '#TOHFA-F-00142', zone: 'Ooty', crop: 'Nilgiris Carrots', yieldMT: '52.6 MT', rating: 8.7, status: 'Active', cert: 'PGS Verified', payout: '₹11,40,000' },
-          { id: 'f-6', name: 'K. Ramanathan', code: '#TOHFA-F-00155', zone: 'Ooty', crop: 'Highland Potatoes', yieldMT: '41.5 MT', rating: 8.5, status: 'Active', cert: 'PGS Verified', payout: '₹8,90,000' },
-          { id: 'f-7', name: 'M. Sivakumar', code: '#TOHFA-F-00178', zone: 'Ooty', crop: 'Crisp Carrots', yieldMT: '34.2 MT', rating: 8.8, status: 'Active', cert: 'PGS Verified', payout: '₹7,45,000' },
-        ],
-      },
-      'Year to Date': {
-        newApps: '132',
-        newAppsTrend: '↑ 36% Annual',
-        avgRating: '8.52',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Nilgiris Excellence',
-        approvedListings: '118',
-        approvedTrend: '↑ 28% Ooty Hub',
-        activeFarmers: '82',
-        activeTrend: '100% Retention',
-        payoutsDisbursed: '₹1.42 Cr',
-        payoutsTrend: '100% on-time',
-        organicCert: '99.0%',
-        organicTrend: 'PGS Gold Verified',
-        appTrendH1: '+52% YTD Volume',
-        appTrendData: [
-          { label: 'Q1', value: 45, count: 28 },
-          { label: 'Q2', value: 58, count: 38 },
-          { label: 'Q3', value: 68, count: 44 },
-          { label: 'Q4', value: 72, count: 48 },
-        ],
-        ratingTrendTag: 'Avg: 8.52 pts',
-        ratingTrendData: [
-          { label: 'Q1', value: 80, rating: '8.1' },
-          { label: 'Q2', value: 83, rating: '8.3' },
-          { label: 'Q3', value: 86, rating: '8.6' },
-          { label: 'Q4', value: 89, rating: '8.9' },
-        ],
-        totalYieldSubtitle: 'Total 510 MT harvested from Ooty Central growers YTD',
-        cropBreakdown: [
-          { name: 'Nilgiris Carrots', volume: '325.0 MT', pct: 64, color: P.orange },
-          { name: 'Hill Potatoes', volume: '128.0 MT', pct: 25, color: '#D97706' },
-          { name: 'Crisp Exotic Greens', volume: '57.0 MT', pct: 11, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹1.32 Cr',
-        escrowAmt: '₹9.4L',
-        holdAmt: '₹0.6L',
-        farmersList: [
-          { id: 'f-2', name: 'R. Murugan', code: '#TOHFA-F-00142', zone: 'Ooty', crop: 'Nilgiris Carrots', yieldMT: '154.0 MT', rating: 8.9, status: 'Active', cert: 'PGS Verified', payout: '₹35,20,000' },
-          { id: 'f-6', name: 'K. Ramanathan', code: '#TOHFA-F-00155', zone: 'Ooty', crop: 'Highland Potatoes', yieldMT: '122.0 MT', rating: 8.7, status: 'Active', cert: 'PGS Verified', payout: '₹27,80,000' },
-          { id: 'f-7', name: 'M. Sivakumar', code: '#TOHFA-F-00178', zone: 'Ooty', crop: 'Crisp Carrots', yieldMT: '102.5 MT', rating: 8.9, status: 'Active', cert: 'PGS Verified', payout: '₹23,10,000' },
-        ],
-      },
-    },
-    'Kotagiri': {
-      'This Month': {
-        newApps: '14',
-        newAppsTrend: '↑ 20% Ridge Zone',
-        avgRating: '7.78',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Precision Quality',
-        approvedListings: '12',
-        approvedTrend: '↑ 15% Kotagiri',
-        activeFarmers: '52',
-        activeTrend: '96% Retention',
-        payoutsDisbursed: '₹12.4L',
-        payoutsTrend: '99.2% on-time',
-        organicCert: '93.5%',
-        organicTrend: 'PGS Audited',
-        appTrendH1: '+20% MoM Kotagiri',
-        appTrendData: [
-          { label: 'Week 1', value: 24, count: 3 },
-          { label: 'Week 2', value: 36, count: 4 },
-          { label: 'Week 3', value: 30, count: 3 },
-          { label: 'Week 4', value: 42, count: 4 },
-        ],
-        ratingTrendTag: 'Avg: 7.78 pts',
-        ratingTrendData: [
-          { label: 'W1', value: 72, rating: '7.4' },
-          { label: 'W2', value: 76, rating: '7.7' },
-          { label: 'W3', value: 78, rating: '7.8' },
-          { label: 'W4', value: 81, rating: '8.1' },
-        ],
-        totalYieldSubtitle: 'Total 46.2 MT harvested from Kotagiri Ridge growers this month',
-        cropBreakdown: [
-          { name: 'Carrots', volume: '26.0 MT', pct: 56, color: P.orange },
-          { name: 'Hill Potatoes', volume: '16.0 MT', pct: 35, color: '#D97706' },
-          { name: 'Salad Greens', volume: '4.2 MT', pct: 9, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹11.2L',
-        escrowAmt: '₹1.0L',
-        holdAmt: '₹0.2L',
-        farmersList: [
-          { id: 'f-1', name: 'Vijay Anand', code: '#TOHFA-F-00234', zone: 'Kotagiri', crop: 'Carrots', yieldMT: '22.8 MT', rating: 8.9, status: 'Active', cert: 'PGS Verified', payout: '₹4,85,000' },
-          { id: 'f-5', name: 'K. Selvam', code: '#TOHFA-F-00189', zone: 'Kotagiri', crop: 'Potatoes', yieldMT: '11.0 MT', rating: 7.2, status: 'Pending', cert: 'NPOP Pending', payout: '₹1,45,000' },
-          { id: 'f-8', name: 'B. Karthik', code: '#TOHFA-F-00210', zone: 'Kotagiri', crop: 'Organic Potatoes', yieldMT: '9.4 MT', rating: 7.6, status: 'Active', cert: 'PGS Verified', payout: '₹1,95,000' },
-        ],
-      },
-      'Last Quarter': {
-        newApps: '41',
-        newAppsTrend: '↑ 28% Ridge Zone',
-        avgRating: '7.92',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Quality Benchmark',
-        approvedListings: '35',
-        approvedTrend: '↑ 22% Kotagiri',
-        activeFarmers: '57',
-        activeTrend: '97% Retention',
-        payoutsDisbursed: '₹36.8L',
-        payoutsTrend: '99.5% on-time',
-        organicCert: '94.8%',
-        organicTrend: 'PGS Audited',
-        appTrendH1: '+42% Q2 Volume',
-        appTrendData: [
-          { label: 'Jul', value: 36, count: 11 },
-          { label: 'Aug', value: 45, count: 14 },
-          { label: 'Sep', value: 52, count: 16 },
-        ],
-        ratingTrendTag: 'Avg: 7.92 pts',
-        ratingTrendData: [
-          { label: 'Jul', value: 75, rating: '7.6' },
-          { label: 'Aug', value: 78, rating: '7.9' },
-          { label: 'Sep', value: 82, rating: '8.2' },
-        ],
-        totalYieldSubtitle: 'Total 134.0 MT harvested from Kotagiri Ridge growers in Q2',
-        cropBreakdown: [
-          { name: 'Carrots', volume: '75.0 MT', pct: 56, color: P.orange },
-          { name: 'Hill Potatoes', volume: '46.8 MT', pct: 35, color: '#D97706' },
-          { name: 'Salad Greens', volume: '12.2 MT', pct: 9, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹33.5L',
-        escrowAmt: '₹2.8L',
-        holdAmt: '₹0.5L',
-        farmersList: [
-          { id: 'f-1', name: 'Vijay Anand', code: '#TOHFA-F-00234', zone: 'Kotagiri', crop: 'Carrots', yieldMT: '64.2 MT', rating: 9.1, status: 'Active', cert: 'PGS Verified', payout: '₹14,20,000' },
-          { id: 'f-5', name: 'K. Selvam', code: '#TOHFA-F-00189', zone: 'Kotagiri', crop: 'Potatoes', yieldMT: '32.0 MT', rating: 7.5, status: 'Active', cert: 'PGS Verified', payout: '₹4,20,000' },
-          { id: 'f-8', name: 'B. Karthik', code: '#TOHFA-F-00210', zone: 'Kotagiri', crop: 'Organic Potatoes', yieldMT: '27.5 MT', rating: 7.9, status: 'Active', cert: 'PGS Verified', payout: '₹5,60,000' },
-        ],
-      },
-      'Year to Date': {
-        newApps: '118',
-        newAppsTrend: '↑ 39% Ridge Zone',
-        avgRating: '8.15',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Certified Leader',
-        approvedListings: '102',
-        approvedTrend: '↑ 34% Kotagiri',
-        activeFarmers: '63',
-        activeTrend: '98% Retention',
-        payoutsDisbursed: '₹1.12 Cr',
-        payoutsTrend: '99.7% on-time',
-        organicCert: '96.2%',
-        organicTrend: 'PGS Verified',
-        appTrendH1: '+61% YTD Expansion',
-        appTrendData: [
-          { label: 'Q1', value: 42, count: 24 },
-          { label: 'Q2', value: 54, count: 32 },
-          { label: 'Q3', value: 64, count: 38 },
-          { label: 'Q4', value: 70, count: 42 },
-        ],
-        ratingTrendTag: 'Avg: 8.15 pts',
-        ratingTrendData: [
-          { label: 'Q1', value: 76, rating: '7.8' },
-          { label: 'Q2', value: 79, rating: '8.0' },
-          { label: 'Q3', value: 82, rating: '8.3' },
-          { label: 'Q4', value: 86, rating: '8.6' },
-        ],
-        totalYieldSubtitle: 'Total 388 MT harvested from Kotagiri Ridge growers YTD',
-        cropBreakdown: [
-          { name: 'Carrots', volume: '217.0 MT', pct: 56, color: P.orange },
-          { name: 'Hill Potatoes', volume: '135.0 MT', pct: 35, color: '#D97706' },
-          { name: 'Salad Greens', volume: '36.0 MT', pct: 9, color: '#7E22CE' },
-        ],
-        disbursedAmt: '₹1.04 Cr',
-        escrowAmt: '₹6.8L',
-        holdAmt: '₹1.4L',
-        farmersList: [
-          { id: 'f-1', name: 'Vijay Anand', code: '#TOHFA-F-00234', zone: 'Kotagiri', crop: 'Carrots', yieldMT: '185.0 MT', rating: 9.3, status: 'Active', cert: 'PGS Verified', payout: '₹42,50,000' },
-          { id: 'f-5', name: 'K. Selvam', code: '#TOHFA-F-00189', zone: 'Kotagiri', crop: 'Potatoes', yieldMT: '94.0 MT', rating: 7.7, status: 'Active', cert: 'PGS Verified', payout: '₹12,40,000' },
-          { id: 'f-8', name: 'B. Karthik', code: '#TOHFA-F-00210', zone: 'Kotagiri', crop: 'Organic Potatoes', yieldMT: '82.0 MT', rating: 8.2, status: 'Active', cert: 'PGS Verified', payout: '₹16,80,000' },
-        ],
-      },
-    },
-    'Coonoor': {
-      'This Month': {
-        newApps: '8',
-        newAppsTrend: '↑ 14% Slopes',
-        avgRating: '7.54',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Tea Valley Hub',
-        approvedListings: '6',
-        approvedTrend: '↑ 8% Catalog',
-        activeFarmers: '44',
-        activeTrend: '92% Retention',
-        payoutsDisbursed: '₹9.2L',
-        payoutsTrend: '98.8% on-time',
-        organicCert: '90.5%',
-        organicTrend: 'Organic Tea SLA',
-        appTrendH1: '+12% MoM Coonoor',
-        appTrendData: [
-          { label: 'Week 1', value: 18, count: 2 },
-          { label: 'Week 2', value: 24, count: 2 },
-          { label: 'Week 3', value: 20, count: 2 },
-          { label: 'Week 4', value: 28, count: 2 },
-        ],
-        ratingTrendTag: 'Avg: 7.54 pts',
-        ratingTrendData: [
-          { label: 'W1', value: 70, rating: '7.2' },
-          { label: 'W2', value: 73, rating: '7.4' },
-          { label: 'W3', value: 75, rating: '7.6' },
-          { label: 'W4', value: 78, rating: '7.8' },
-        ],
-        totalYieldSubtitle: 'Total 34.8 MT harvested from Coonoor slopes this month',
-        cropBreakdown: [
-          { name: 'Specialty Tea Leaf', volume: '20.4 MT', pct: 59, color: P.greenBar },
-          { name: 'Hill Greens', volume: '8.4 MT', pct: 24, color: '#7E22CE' },
-          { name: 'Carrots & Beets', volume: '6.0 MT', pct: 17, color: P.orange },
-        ],
-        disbursedAmt: '₹8.4L',
-        escrowAmt: '₹0.6L',
-        holdAmt: '₹0.2L',
-        farmersList: [
-          { id: 'f-3', name: 'S. Lakshmi', code: '#TOHFA-F-00098', zone: 'Coonoor', crop: 'Hill Tea & Greens', yieldMT: '14.2 MT', rating: 7.8, status: 'Active', cert: 'PGS Verified', payout: '₹2,64,000' },
-          { id: 'f-9', name: 'N. Thangavel', code: '#TOHFA-F-00102', zone: 'Coonoor', crop: 'Specialty Tea Leaf', yieldMT: '10.4 MT', rating: 7.5, status: 'Active', cert: 'PGS Verified', payout: '₹1,98,000' },
-          { id: 'f-10', name: 'P. Geetha', code: '#TOHFA-F-00115', zone: 'Coonoor', crop: 'Organic Slopes Tea', yieldMT: '8.2 MT', rating: 7.4, status: 'Active', cert: 'PGS Verified', payout: '₹1,56,000' },
-        ],
-      },
-      'Last Quarter': {
-        newApps: '24',
-        newAppsTrend: '↑ 20% Slopes',
-        avgRating: '7.70',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Hill Tea Growth',
-        approvedListings: '19',
-        approvedTrend: '↑ 14% Catalog',
-        activeFarmers: '48',
-        activeTrend: '94% Retention',
-        payoutsDisbursed: '₹27.4L',
-        payoutsTrend: '99.0% on-time',
-        organicCert: '92.4%',
-        organicTrend: 'Organic Tea SLA',
-        appTrendH1: '+29% Q2 Volume',
-        appTrendData: [
-          { label: 'Jul', value: 24, count: 7 },
-          { label: 'Aug', value: 30, count: 8 },
-          { label: 'Sep', value: 35, count: 9 },
-        ],
-        ratingTrendTag: 'Avg: 7.70 pts',
-        ratingTrendData: [
-          { label: 'Jul', value: 72, rating: '7.4' },
-          { label: 'Aug', value: 76, rating: '7.7' },
-          { label: 'Sep', value: 80, rating: '8.0' },
-        ],
-        totalYieldSubtitle: 'Total 98.6 MT harvested from Coonoor slopes in Q2',
-        cropBreakdown: [
-          { name: 'Specialty Tea Leaf', volume: '58.2 MT', pct: 59, color: P.greenBar },
-          { name: 'Hill Greens', volume: '23.8 MT', pct: 24, color: '#7E22CE' },
-          { name: 'Carrots & Beets', volume: '16.6 MT', pct: 17, color: P.orange },
-        ],
-        disbursedAmt: '₹25.0L',
-        escrowAmt: '₹1.8L',
-        holdAmt: '₹0.6L',
-        farmersList: [
-          { id: 'f-3', name: 'S. Lakshmi', code: '#TOHFA-F-00098', zone: 'Coonoor', crop: 'Hill Tea & Greens', yieldMT: '41.0 MT', rating: 8.0, status: 'Active', cert: 'PGS Verified', payout: '₹7,80,000' },
-          { id: 'f-9', name: 'N. Thangavel', code: '#TOHFA-F-00102', zone: 'Coonoor', crop: 'Specialty Tea Leaf', yieldMT: '30.5 MT', rating: 7.8, status: 'Active', cert: 'PGS Verified', payout: '₹5,80,000' },
-          { id: 'f-10', name: 'P. Geetha', code: '#TOHFA-F-00115', zone: 'Coonoor', crop: 'Organic Slopes Tea', yieldMT: '24.2 MT', rating: 7.6, status: 'Active', cert: 'PGS Verified', payout: '₹4,60,000' },
-        ],
-      },
-      'Year to Date': {
-        newApps: '72',
-        newAppsTrend: '↑ 32% Slopes',
-        avgRating: '7.94',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Mountain Reserve',
-        approvedListings: '56',
-        approvedTrend: '↑ 25% Catalog',
-        activeFarmers: '52',
-        activeTrend: '96% Retention',
-        payoutsDisbursed: '₹82.6L',
-        payoutsTrend: '99.4% on-time',
-        organicCert: '94.6%',
-        organicTrend: 'Organic Certified',
-        appTrendH1: '+48% YTD Yield',
-        appTrendData: [
-          { label: 'Q1', value: 28, count: 15 },
-          { label: 'Q2', value: 36, count: 20 },
-          { label: 'Q3', value: 42, count: 22 },
-          { label: 'Q4', value: 46, count: 24 },
-        ],
-        ratingTrendTag: 'Avg: 7.94 pts',
-        ratingTrendData: [
-          { label: 'Q1', value: 74, rating: '7.5' },
-          { label: 'Q2', value: 77, rating: '7.8' },
-          { label: 'Q3', value: 81, rating: '8.1' },
-          { label: 'Q4', value: 84, rating: '8.4' },
-        ],
-        totalYieldSubtitle: 'Total 282 MT harvested from Coonoor slopes YTD',
-        cropBreakdown: [
-          { name: 'Specialty Tea Leaf', volume: '166.0 MT', pct: 59, color: P.greenBar },
-          { name: 'Hill Greens', volume: '68.0 MT', pct: 24, color: '#7E22CE' },
-          { name: 'Carrots & Beets', volume: '48.0 MT', pct: 17, color: P.orange },
-        ],
-        disbursedAmt: '₹76.5L',
-        escrowAmt: '₹4.6L',
-        holdAmt: '₹1.5L',
-        farmersList: [
-          { id: 'f-3', name: 'S. Lakshmi', code: '#TOHFA-F-00098', zone: 'Coonoor', crop: 'Hill Tea & Greens', yieldMT: '118.0 MT', rating: 8.2, status: 'Active', cert: 'PGS Verified', payout: '₹23,40,000' },
-          { id: 'f-9', name: 'N. Thangavel', code: '#TOHFA-F-00102', zone: 'Coonoor', crop: 'Specialty Tea Leaf', yieldMT: '86.0 MT', rating: 8.0, status: 'Active', cert: 'PGS Verified', payout: '₹17,20,000' },
-          { id: 'f-10', name: 'P. Geetha', code: '#TOHFA-F-00115', zone: 'Coonoor', crop: 'Organic Slopes Tea', yieldMT: '68.0 MT', rating: 7.9, status: 'Active', cert: 'PGS Verified', payout: '₹13,50,000' },
-        ],
-      },
-    },
-    'Gudalur': {
-      'This Month': {
-        newApps: '4',
-        newAppsTrend: '↑ 25% Spice Hub',
-        avgRating: '7.15',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Spices Growing',
-        approvedListings: '4',
-        approvedTrend: '↑ 33% Verified',
-        activeFarmers: '20',
-        activeTrend: '88% Retention',
-        payoutsDisbursed: '₹5.4L',
-        payoutsTrend: '99.0% on-time',
-        organicCert: '86.8%',
-        organicTrend: 'Transition PGS',
-        appTrendH1: '+10% MoM Gudalur',
-        appTrendData: [
-          { label: 'Week 1', value: 12, count: 1 },
-          { label: 'Week 2', value: 16, count: 1 },
-          { label: 'Week 3', value: 14, count: 1 },
-          { label: 'Week 4', value: 20, count: 1 },
-        ],
-        ratingTrendTag: 'Avg: 7.15 pts',
-        ratingTrendData: [
-          { label: 'W1', value: 65, rating: '6.8' },
-          { label: 'W2', value: 68, rating: '7.0' },
-          { label: 'W3', value: 70, rating: '7.2' },
-          { label: 'W4', value: 74, rating: '7.4' },
-        ],
-        totalYieldSubtitle: 'Total 22.0 MT harvested from Gudalur valley this month',
-        cropBreakdown: [
-          { name: 'Spices & Fresh Ginger', volume: '12.6 MT', pct: 57, color: P.greenBar },
-          { name: 'Black Pepper', volume: '6.0 MT', pct: 27, color: '#D97706' },
-          { name: 'Valley Tea Slopes', volume: '3.4 MT', pct: 16, color: P.orange },
-        ],
-        disbursedAmt: '₹5.0L',
-        escrowAmt: '₹0.3L',
-        holdAmt: '₹0.1L',
-        farmersList: [
-          { id: 'f-4', name: 'A. Prakash', code: '#TOHFA-F-00311', zone: 'Gudalur', crop: 'Spices & Ginger', yieldMT: '12.6 MT', rating: 7.5, status: 'Active', cert: 'PGS Verified', payout: '₹2,10,000' },
-          { id: 'f-11', name: 'D. Joseph', code: '#TOHFA-F-00325', zone: 'Gudalur', crop: 'Organic Pepper', yieldMT: '6.4 MT', rating: 7.1, status: 'Active', cert: 'PGS Verified', payout: '₹1,05,000' },
-          { id: 'f-12', name: 'R. Venu', code: '#TOHFA-F-00340', zone: 'Gudalur', crop: 'Fresh Cardamom', yieldMT: '4.2 MT', rating: 7.0, status: 'Active', cert: 'PGS Verified', payout: '₹82,000' },
-        ],
-      },
-      'Last Quarter': {
-        newApps: '12',
-        newAppsTrend: '↑ 30% Spice Hub',
-        avgRating: '7.32',
-        avgRatingSub: '/10',
-        ratingTrend: '★ Valley Expansion',
-        approvedListings: '11',
-        approvedTrend: '↑ 40% Verified',
-        activeFarmers: '23',
-        activeTrend: '91% Retention',
-        payoutsDisbursed: '₹16.2L',
-        payoutsTrend: '99.2% on-time',
-        organicCert: '89.5%',
-        organicTrend: 'Transition PGS',
-        appTrendH1: '+32% Q2 Expansion',
-        appTrendData: [
-          { label: 'Jul', value: 18, count: 3 },
-          { label: 'Aug', value: 24, count: 4 },
-          { label: 'Sep', value: 28, count: 5 },
-        ],
-        ratingTrendTag: 'Avg: 7.32 pts',
-        ratingTrendData: [
-          { label: 'Jul', value: 69, rating: '7.1' },
-          { label: 'Aug', value: 72, rating: '7.3' },
-          { label: 'Sep', value: 76, rating: '7.6' },
-        ],
-        totalYieldSubtitle: 'Total 64.8 MT harvested from Gudalur valley in Q2',
-        cropBreakdown: [
-          { name: 'Spices & Fresh Ginger', volume: '37.0 MT', pct: 57, color: P.greenBar },
-          { name: 'Black Pepper', volume: '17.5 MT', pct: 27, color: '#D97706' },
-          { name: 'Valley Tea Slopes', volume: '10.3 MT', pct: 16, color: P.orange },
-        ],
-        disbursedAmt: '₹15.1L',
-        escrowAmt: '₹0.9L',
-        holdAmt: '₹0.2L',
-        farmersList: [
-          { id: 'f-4', name: 'A. Prakash', code: '#TOHFA-F-00311', zone: 'Gudalur', crop: 'Spices & Ginger', yieldMT: '36.4 MT', rating: 7.7, status: 'Active', cert: 'PGS Verified', payout: '₹6,15,000' },
-          { id: 'f-11', name: 'D. Joseph', code: '#TOHFA-F-00325', zone: 'Gudalur', crop: 'Organic Pepper', yieldMT: '18.5 MT', rating: 7.3, status: 'Active', cert: 'PGS Verified', payout: '₹3,20,000' },
-          { id: 'f-12', name: 'R. Venu', code: '#TOHFA-F-00340', zone: 'Gudalur', crop: 'Fresh Cardamom', yieldMT: '12.0 MT', rating: 7.2, status: 'Active', cert: 'PGS Verified', payout: '₹2,45,000' },
-        ],
-      },
-      'Year to Date': {
-        newApps: '36',
-        newAppsTrend: '↑ 45% Spice Hub',
-        avgRating: '7.58',
-        avgRatingSub: '/10',
-        ratingTrend: '★ PGS Full Certified',
-        approvedListings: '32',
-        approvedTrend: '↑ 50% Verified',
-        activeFarmers: '27',
-        activeTrend: '93% Retention',
-        payoutsDisbursed: '₹48.5L',
-        payoutsTrend: '99.5% on-time',
-        organicCert: '92.2%',
-        organicTrend: 'PGS Verified',
-        appTrendH1: '+58% YTD Expansion',
-        appTrendData: [
-          { label: 'Q1', value: 20, count: 7 },
-          { label: 'Q2', value: 26, count: 9 },
-          { label: 'Q3', value: 32, count: 11 },
-          { label: 'Q4', value: 36, count: 13 },
-        ],
-        ratingTrendTag: 'Avg: 7.58 pts',
-        ratingTrendData: [
-          { label: 'Q1', value: 71, rating: '7.2' },
-          { label: 'Q2', value: 74, rating: '7.5' },
-          { label: 'Q3', value: 77, rating: '7.8' },
-          { label: 'Q4', value: 80, rating: '8.1' },
-        ],
-        totalYieldSubtitle: 'Total 192 MT harvested from Gudalur valley YTD',
-        cropBreakdown: [
-          { name: 'Spices & Fresh Ginger', volume: '110.0 MT', pct: 57, color: P.greenBar },
-          { name: 'Black Pepper', volume: '52.0 MT', pct: 27, color: '#D97706' },
-          { name: 'Valley Tea Slopes', volume: '30.0 MT', pct: 16, color: P.orange },
-        ],
-        disbursedAmt: '₹45.2L',
-        escrowAmt: '₹2.5L',
-        holdAmt: '₹0.8L',
-        farmersList: [
-          { id: 'f-4', name: 'A. Prakash', code: '#TOHFA-F-00311', zone: 'Gudalur', crop: 'Spices & Ginger', yieldMT: '108.0 MT', rating: 7.9, status: 'Active', cert: 'PGS Verified', payout: '₹18,40,000' },
-          { id: 'f-11', name: 'D. Joseph', code: '#TOHFA-F-00325', zone: 'Gudalur', crop: 'Organic Pepper', yieldMT: '54.0 MT', rating: 7.5, status: 'Active', cert: 'PGS Verified', payout: '₹9,40,000' },
-          { id: 'f-12', name: 'R. Venu', code: '#TOHFA-F-00340', zone: 'Gudalur', crop: 'Fresh Cardamom', yieldMT: '35.0 MT', rating: 7.4, status: 'Active', cert: 'PGS Verified', payout: '₹7,20,000' },
-        ],
-      },
-    },
+  const { items: farmers } = useFarmerList(undefined);
+  const { summary: farmerSummary } = useFarmerSummary(undefined);
+
+  const emptyData: FarmerPerformanceData = {
+    newApps: ADMIN_NO_VALUE,
+    newAppsTrend: ADMIN_NO_VALUE,
+    avgRating: ADMIN_NO_VALUE,
+    avgRatingSub: ADMIN_NO_VALUE,
+    ratingTrend: ADMIN_NO_VALUE,
+    approvedListings: ADMIN_NO_VALUE,
+    approvedTrend: ADMIN_NO_VALUE,
+    activeFarmers: ADMIN_NO_VALUE,
+    activeTrend: ADMIN_NO_VALUE,
+    payoutsDisbursed: ADMIN_NO_VALUE,
+    payoutsTrend: ADMIN_NO_VALUE,
+    organicCert: ADMIN_NO_VALUE,
+    organicTrend: ADMIN_NO_VALUE,
+    appTrendH1: ADMIN_NO_VALUE,
+    appTrendData: [],
+    ratingTrendTag: ADMIN_NO_VALUE,
+    ratingTrendData: [],
+    totalYieldSubtitle: ADMIN_NO_VALUE,
+    cropBreakdown: [],
+    disbursedAmt: ADMIN_NO_VALUE,
+    escrowAmt: ADMIN_NO_VALUE,
+    holdAmt: ADMIN_NO_VALUE,
+    farmersList: [],
   };
 
-  const currentData =
-    PERFORMANCE_DATA_MATRIX[selectedCluster]?.[selectedTimeframe] ??
-    PERFORMANCE_DATA_MATRIX['All Clusters']['This Month'];
+  const liveFarmersList: FarmerRosterItem[] = React.useMemo(() => {
+    if (!farmers || farmers.length === 0) return [];
+    const filtered = selectedCluster === 'All Clusters'
+      ? farmers
+      : farmers.filter((f) => (f.zoneName ?? '').toLowerCase().includes(selectedCluster.replace(' Central', '').toLowerCase()));
+    return filtered.map((f) => ({
+      id: f.id,
+      name: f.name,
+      code: f.farmerCode,
+      zone: f.zoneName || ADMIN_NO_VALUE,
+      crop: ADMIN_NO_VALUE,
+      yieldMT: ADMIN_NO_VALUE,
+      rating: f.overallRating ?? null,
+      status: f.status,
+      cert: ADMIN_NO_VALUE,
+      payout: ADMIN_NO_VALUE,
+    }));
+  }, [farmers, selectedCluster]);
+
+  const currentData: FarmerPerformanceData = {
+    ...emptyData,
+    newApps: farmerSummary ? String(farmerSummary.pendingApplications) : ADMIN_NO_VALUE,
+    activeFarmers: farmerSummary ? String(farmerSummary.activeFarmers) : ADMIN_NO_VALUE,
+    farmersList: liveFarmersList,
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -883,7 +283,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
 
           {/* 2. Avg Farm Rating */}
           <OverviewDashboardCard
-            value={`${currentData.avgRating}${currentData.avgRatingSub || ''}`}
+            value={currentData.avgRating}
             title="Average Farm Rating"
             subtitle={currentData.ratingTrend}
             icon="orders"
@@ -998,9 +398,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
           <View style={styles.cardHeaderRow}>
             <Text style={styles.cardHeaderTitle}>Payout Settlement Health</Text>
             <View style={styles.tagGreen}>
-              <Text style={styles.tagGreenText}>
-                {selectedCluster === 'Ooty Central' ? '100% On-Time' : '99.4% SLA'}
-              </Text>
+              <Text style={styles.tagGreenText}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -1029,17 +427,9 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
                 Filtered by {selectedCluster} · {selectedTimeframe}
               </Text>
             </View>
-            <TouchableOpacity
-              onPress={() =>
-                Alert.alert(
-                  'Full Roster',
-                  `Loading roster for ${selectedCluster} (${currentData.activeFarmers} Active Farmers)...`
-                )
-              }
-              activeOpacity={0.7}
-            >
+            <View style={{ opacity: 0.45 }}>
               <Text style={styles.viewAllText}>View All {currentData.activeFarmers}</Text>
-            </TouchableOpacity>
+            </View>
           </View>
 
           {/* Table Column Headers */}
@@ -1052,50 +442,59 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
           </View>
 
           {/* Table Rows */}
-          {currentData.farmersList.map((f) => (
-            <TouchableOpacity
-              key={f.id}
-              style={styles.tableRow}
-              onPress={() => setSelectedFarmerDetail(f)}
-              activeOpacity={0.7}
-            >
-              <View style={{ flex: 2 }}>
-                <Text style={styles.cellTextBold} numberOfLines={1}>{f.name}</Text>
-                <Text style={styles.cellTextCode}>{f.code}</Text>
-              </View>
-
-              <Text style={[styles.cellTextMuted, { flex: 1.2 }]} numberOfLines={1}>{f.zone}</Text>
-
-              <View style={{ flex: 1.2 }}>
-                <Text style={styles.cellTextProduce} numberOfLines={1}>{f.crop}</Text>
-                <Text style={styles.cellTextYield}>{f.yieldMT}</Text>
-              </View>
-
-              <View style={{ flex: 1, alignItems: 'center' }}>
-                <View style={styles.ratingBadge}>
-                  <Text style={styles.ratingBadgeText}>★ {f.rating}</Text>
+          {currentData.farmersList.length === 0 ? (
+            <AdminEmptyState
+              title="No farmers found"
+              subtitle={`No registered farmers in ${selectedCluster}.`}
+            />
+          ) : (
+            currentData.farmersList.map((f) => (
+              <TouchableOpacity
+                key={f.id}
+                style={styles.tableRow}
+                onPress={() => setSelectedFarmerDetail(f)}
+                activeOpacity={0.7}
+              >
+                <View style={{ flex: 2 }}>
+                  <Text style={styles.cellTextBold} numberOfLines={1}>{f.name}</Text>
+                  <Text style={styles.cellTextCode}>{f.code}</Text>
                 </View>
-              </View>
 
-              <View style={{ flex: 1.2, alignItems: 'flex-end' }}>
-                <View
-                  style={[
-                    styles.statusPill,
-                    f.status === 'Active' ? styles.statusPillActive : styles.statusPillPending,
-                  ]}
-                >
-                  <Text
+                <Text style={[styles.cellTextMuted, { flex: 1.2 }]} numberOfLines={1}>{f.zone}</Text>
+
+                <View style={{ flex: 1.2 }}>
+                  <Text style={styles.cellTextProduce} numberOfLines={1}>{f.crop}</Text>
+                  <Text style={styles.cellTextYield}>{f.yieldMT}</Text>
+                </View>
+
+                <View style={{ flex: 1, alignItems: 'center' }}>
+                  <View style={styles.ratingBadge}>
+                    <Text style={styles.ratingBadgeText}>
+                      {f.rating !== null ? String(f.rating) : ADMIN_NO_VALUE}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={{ flex: 1.2, alignItems: 'flex-end' }}>
+                  <View
                     style={[
-                      styles.statusPillText,
-                      f.status === 'Active' ? styles.statusPillTextActive : styles.statusPillTextPending,
+                      styles.statusPill,
+                      f.status.toLowerCase() === 'active' ? styles.statusPillActive : styles.statusPillPending,
                     ]}
                   >
-                    {f.status}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusPillText,
+                        f.status.toLowerCase() === 'active' ? styles.statusPillTextActive : styles.statusPillTextPending,
+                      ]}
+                    >
+                      {f.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         <View style={{ height: 60 }} />
@@ -1114,7 +513,9 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
               <View style={styles.tagGreen}>
                 <Text style={styles.tagGreenText}>{selectedFarmerDetail?.cert}</Text>
               </View>
-              <Text style={styles.modalRating}>★ {selectedFarmerDetail?.rating}/10</Text>
+              <Text style={styles.modalRating}>
+                ★ {selectedFarmerDetail?.rating != null ? `${selectedFarmerDetail.rating}/10` : ADMIN_NO_VALUE}
+              </Text>
             </View>
 
             <Text style={styles.modalTitle}>{selectedFarmerDetail?.name}</Text>
@@ -1158,25 +559,28 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Export Farmer Performance Report</Text>
             <Text style={styles.modalSub}>
-              Download {selectedCluster} report for {selectedTimeframe} ({currentData.activeFarmers} farmers).
+              {t('wiringReports.reports.exportUnavailable')}
             </Text>
             <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => {
-                setShowExportModal(false);
-                Alert.alert('Downloaded', `Farmer_Performance_${selectedCluster.replace(/\s+/g, '_')}_${selectedTimeframe.replace(/\s+/g, '_')}.pdf saved to files.`);
-              }}
+              style={[styles.modalBtn, { opacity: 0.45 }]}
+              disabled
+              accessibilityState={{ disabled: true }}
             >
               <Text style={styles.modalBtnText}>Download PDF Statement</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modalBtn, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#DDD', marginTop: 10 }]}
-              onPress={() => {
-                setShowExportModal(false);
-                Alert.alert('Exported', `Farmer_Performance_${selectedCluster.replace(/\s+/g, '_')}.xlsx saved to files.`);
-              }}
+              style={[styles.modalBtn, { backgroundColor: P.cardBg, borderWidth: 1, borderColor: P.cardBorder, marginTop: 10, opacity: 0.45 }]}
+              disabled
+              accessibilityState={{ disabled: true }}
             >
               <Text style={[styles.modalBtnText, { color: P.ink }]}>Export Excel (XLSX)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { marginTop: 10 }]}
+              onPress={() => setShowExportModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1187,15 +591,20 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Share Farmer Performance</Text>
-            <Text style={styles.modalSub}>Send {selectedCluster} report link to regional cluster officers and FPO leads.</Text>
+            <Text style={styles.modalSub}>{t('wiringReports.reports.exportUnavailable')}</Text>
             <TouchableOpacity
-              style={styles.modalBtn}
-              onPress={() => {
-                setShowShareModal(false);
-                Alert.alert('Shared', 'Report link copied to clipboard.');
-              }}
+              style={[styles.modalBtn, { opacity: 0.45 }]}
+              disabled
+              accessibilityState={{ disabled: true }}
             >
               <Text style={styles.modalBtnText}>Copy Link & Close</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { marginTop: 10 }]}
+              onPress={() => setShowShareModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnText}>Close</Text>
             </TouchableOpacity>
           </View>
         </View>

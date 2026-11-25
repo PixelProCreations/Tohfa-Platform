@@ -13,7 +13,6 @@ import { AdminFarmMapScreen } from './AdminFarmMapScreen';
 import { AdminRatingScorecardScreen } from './AdminRatingScorecardScreen';
 import { AdminEditRatingCategoriesScreen } from './AdminEditRatingCategoriesScreen';
 import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
-import { AdminAddFarmerScreen } from './AdminAddFarmerScreen';
 import { AdminComplianceTiersScreen } from '../certifications/AdminComplianceTiersScreen';
 import { AdminCertVerificationScreen } from '../certifications/AdminCertVerificationScreen';
 import { AuditDetailRecordScreen } from '../audits/AuditDetailRecordScreen';
@@ -22,6 +21,7 @@ import {
   type AuditHistoryRecord,
 } from '../audits/FarmerAuditHistoryScreen';
 import { AdminApplicationDetailScreen } from '../registration/AdminApplicationDetailScreen';
+import { AdminApplicationRejectScreen } from '../registration/AdminApplicationRejectScreen';
 import {
   SuperAdminVerificationComplianceScreen,
   type ComplianceFarmer,
@@ -38,6 +38,7 @@ export type FarmerManagementSubView =
   | 'records'
   | 'applications'
   | 'application_detail'
+  | 'application_reject'
   | 'farmer_detail'
   | 'map'
   | 'scorecard'
@@ -46,7 +47,6 @@ export type FarmerManagementSubView =
   | 'audit_record'
   | 'audit_history'
   | 'edit_farmer'
-  | 'add_farmer'
   | 'compliance_tiers'
   | 'payout_bank_details'
   | 'payout_detail';
@@ -95,7 +95,7 @@ export function FarmerManagementFlow({
     useState<FarmerManagementSubView>('compliance');
   const [selectedAuditRecord, setSelectedAuditRecord] = useState<AuditHistoryRecord | null>(null);
   const [selectedComplianceMeta, setSelectedComplianceMeta] = useState<ComplianceFarmer | null>(null);
-  const [selectedPayout, _setSelectedPayout] = useState<PayoutDetailItem | null>(null);
+  const [selectedPayout, setSelectedPayout] = useState<PayoutDetailItem | null>(null);
   const [allFarmersStatusFilter, _setAllFarmersStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [allFarmersShowFilter, setAllFarmersShowFilter] = useState(false);
 
@@ -181,7 +181,6 @@ export function FarmerManagementFlow({
           setFarmerDetailReturnView('records_list');
           setSubView('farmer_detail');
         }}
-        onAddRecord={() => setSubView('add_farmer')}
       />
     );
   }
@@ -304,16 +303,28 @@ export function FarmerManagementFlow({
       <AdminEditRatingCategoriesScreen
         farmer={selectedFarmer}
         onBack={() => setSubView('scorecard')}
-        onSave={() => setSubView('scorecard')}
       />
     );
   }
+
+  // The detail's Payout tab: both sub-views come back to the farmer on that tab.
+  const openPayoutDetail = (payout: PayoutDetailItem) => {
+    setSelectedPayout(payout);
+    setFarmerDetailInitialTab('Payout');
+    setSubView('payout_detail');
+  };
+  const openPayoutBankDetails = () => {
+    setFarmerDetailInitialTab('Payout');
+    setSubView('payout_bank_details');
+  };
 
   if (subView === 'payout_bank_details' && selectedFarmer) {
     return (
       <FarmerBankAccountDetailsScreen
         farmerName={selectedFarmer.name}
-        farmerId={selectedFarmer.code ?? selectedFarmer.id}
+        // The API takes the farmer's UUID; the TOHFA code is only displayed.
+        farmerId={selectedFarmer.id}
+        farmerCode={selectedFarmer.code}
         role={role}
         can={can}
         onBack={() => setSubView('farmer_detail')}
@@ -326,33 +337,12 @@ export function FarmerManagementFlow({
       <FarmerPayoutDetailScreen
         payout={selectedPayout ?? undefined}
         farmerName={selectedFarmer.name}
-        farmerId={selectedFarmer.code ?? selectedFarmer.id}
+        // The UUID addresses the API; "Farmer ID" shows the TOHFA code.
+        farmerId={selectedFarmer.id}
+        farmerCode={selectedFarmer.code}
         role={role}
+        can={can}
         onBack={() => setSubView('farmer_detail')}
-      />
-    );
-  }
-
-  if (subView === 'add_farmer') {
-    return (
-      <AdminAddFarmerScreen
-        onBack={() => setSubView('overview')}
-        onCreated={(f) => {
-          // Only what the server sent: a farmer just created has no rating yet, so the dash, not a starting score or tier.
-          setSelectedFarmer({
-            id: f.id,
-            code: f.tohfaFarmerId,
-            name: f.fullName,
-            initials: f.fullName.slice(0, 2).toUpperCase(),
-            location: f.address.village ?? ADMIN_NO_VALUE,
-            status: f.accountStatus,
-            rating: f.rating.overallRating,
-            ...(f.rating.ratingTier === null ? {} : { ratingTier: f.rating.ratingTier.label }),
-          });
-          setFarmerDetailInitialTab('Personal');
-          setFarmerDetailReturnView('overview');
-          setSubView('farmer_detail');
-        }}
       />
     );
   }
@@ -372,16 +362,29 @@ export function FarmerManagementFlow({
     return (
       <AdminApplicationDetailScreen
         applicationId={selectedApplication.id}
+        warehouseId={warehouseId}
         can={can}
         onBack={() => {
           setSelectedApplication(null);
           setSubView('applications');
         }}
-        onApprove={() => {
+        onApproved={() => {
           setSelectedApplication(null);
           setSubView('applications');
         }}
-        onReject={() => {
+        onReject={() => setSubView('application_reject')}
+      />
+    );
+  }
+
+  if (subView === 'application_reject' && selectedApplication) {
+    return (
+      <AdminApplicationRejectScreen
+        applicationId={selectedApplication.id}
+        warehouseId={warehouseId}
+        can={can}
+        onBack={() => setSubView('application_detail')}
+        onConfirmReject={() => {
           setSelectedApplication(null);
           setSubView('applications');
         }}
@@ -454,6 +457,8 @@ export function FarmerManagementFlow({
           setSubView('audit_history');
         }}
         onEdit={() => setSubView('edit_farmer')}
+        onOpenPayoutDetail={openPayoutDetail}
+        onOpenBankDetails={openPayoutBankDetails}
       />
     );
   }
@@ -473,8 +478,6 @@ export function FarmerManagementFlow({
       }}
       onOpenFarmRecords={() => setSubView('records_list')}
       onOpenVerificationCompliance={() => setSubView('compliance')}
-      onOpenApplications={() => setSubView('applications')}
-      onAddFarmer={() => setSubView('add_farmer')}
       onOpenApprovalInbox={onOpenApprovalInbox}
       // No farmer is chosen yet, and none is invented: the admin picks one from the live list.
       onOpenSubscriptionOverview={() => setSubView('all_farmers')}

@@ -235,8 +235,20 @@ describe('Farmer Detail view state', () => {
 });
 
 describe('Farmer Detail tabs', () => {
-  it('the design 9 tabs, in order', () => {
-    expect(FARMER_DETAIL_TABS).toEqual(['Personal', 'Farm & land', 'Soil', 'Product listing', 'KYC', 'Ratings', 'Subscription', 'Audit', 'History']);
+  it('the design tabs, in order (Farmer Records and Payout restored between Audit and History)', () => {
+    expect(FARMER_DETAIL_TABS).toEqual([
+      'Personal',
+      'Farm & land',
+      'Soil',
+      'Product listing',
+      'KYC',
+      'Ratings',
+      'Subscription',
+      'Audit',
+      'Farmer Records',
+      'Payout',
+      'History',
+    ]);
   });
 
   it("Dev's old tab names still land on the right tab (App.tsx keeps 'Overview'/'Farm')", () => {

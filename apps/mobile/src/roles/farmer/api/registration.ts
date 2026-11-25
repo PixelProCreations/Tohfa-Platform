@@ -18,7 +18,15 @@ export interface CreateFarmerApplicationPayload {
 export interface FarmerApplicationResponse {
   id: string;
   farmerId?: string;
-  status: 'DRAFT' | 'SUBMITTED' | 'DOCS_REVIEW' | 'FARM_VERIFICATION' | 'AUDIT' | 'APPROVED' | 'REJECTED';
+  status:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'INFO_REQUESTED'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'APPROVED'
+    | 'REJECTED';
   step: number;
   submittedAt?: string;
   createdAt: string;
@@ -112,7 +120,14 @@ export interface FullDraftResponse {
   mobile: string;
   fullName: string;
   preferredLocale?: 'en' | 'ta';
-  status: 'SUBMITTED' | 'DOCS_REVIEW' | 'FARM_VERIFICATION' | 'AUDIT' | 'APPROVED' | 'REJECTED';
+  status:
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'INFO_REQUESTED'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'APPROVED'
+    | 'REJECTED';
   /**
    * True while the farmer is still filling in the 5-step form; flips false the moment
    * `submitFarmerApplication` succeeds. This -- not `status` -- is the "still drafting vs.
@@ -159,6 +174,18 @@ export async function submitFarmerApplication(
     {
       method: 'POST',
       idempotencyKey,
+    },
+  );
+}
+
+/** BR-217: applicant resubmits an INFO_REQUESTED application after updating requested steps. */
+export async function resubmitFarmerApplication(
+  applicationId: string,
+): Promise<FarmerApplicationResponse> {
+  return await request<FarmerApplicationResponse>(
+    `/farmers/applications/${applicationId}/resubmit`,
+    {
+      method: 'POST',
     },
   );
 }

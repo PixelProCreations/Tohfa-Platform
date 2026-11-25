@@ -19,17 +19,45 @@ import {
   CheckCircleIcon,
   CurrentStageIcon,
 } from './produceIcons';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+
+export interface CropRecordData {
+  recordId?: string | undefined;
+  cropName?: string | undefined;
+  farmerName?: string | undefined;
+  farmerId?: string | undefined;
+  category?: string | undefined;
+  zone?: string | undefined;
+  plot?: string | undefined;
+  plantingDate?: string | undefined;
+  expectedHarvest?: string | undefined;
+  stage?: string | undefined;
+}
 
 export interface CropRecordDetailScreenProps {
+  recordId?: string | undefined;
+  record?: CropRecordData | undefined;
   onBack: () => void;
   onOpenFarmerProfile?: (() => void) | undefined;
 }
 
 export function CropRecordDetailScreen({
+  recordId,
+  record,
   onBack,
   onOpenFarmerProfile,
 }: CropRecordDetailScreenProps): React.JSX.Element {
   const [activePillTab, setActivePillTab] = useState('Overview');
+
+  const recId = record?.recordId || recordId || ADMIN_NO_VALUE;
+  const cropName = record?.cropName || ADMIN_NO_VALUE;
+  const farmerName = record?.farmerName || ADMIN_NO_VALUE;
+  const farmerId = record?.farmerId || ADMIN_NO_VALUE;
+  const category = record?.category || ADMIN_NO_VALUE;
+  const zonePlot = record?.zone && record?.plot ? `${record.zone} · ${record.plot}` : (record?.zone || record?.plot || ADMIN_NO_VALUE);
+  const plantingDate = record?.plantingDate || ADMIN_NO_VALUE;
+  const expectedHarvest = record?.expectedHarvest || ADMIN_NO_VALUE;
+  const stage = record?.stage || ADMIN_NO_VALUE;
 
   return (
     <View style={styles.root}>
@@ -41,10 +69,10 @@ export function CropRecordDetailScreen({
           <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={styles.backBtnTouch} accessibilityRole="button">
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tomato · CR-2026-0017</Text>
+          <Text style={styles.headerTitle}>{cropName} · {recId}</Text>
         </View>
         <Text style={styles.headerSubtitle}>
-          Ramesh Kumar Farm · Coonoor, plot 1
+          {farmerName} · {zonePlot}
         </Text>
       </View>
 
@@ -57,53 +85,53 @@ export function CropRecordDetailScreen({
         <View style={styles.detailCard}>
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Crop record</Text>
-            <Text style={styles.detailRowValue}>CR-2025-0001</Text>
+            <Text style={styles.detailRowValue}>{recId}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Farmer / farm</Text>
-            <Text style={styles.detailRowValue}>FMR-00124 · Ramesh Kumar</Text>
+            <Text style={styles.detailRowValue}>{farmerId !== ADMIN_NO_VALUE ? `${farmerId} · ${farmerName}` : farmerName}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Crops Category</Text>
-            <Text style={styles.detailRowValue}>Horticultural - Vegetables</Text>
+            <Text style={styles.detailRowValue}>{category}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Zone / plot</Text>
-            <Text style={styles.detailRowValue}>Coonoor · PLT-00124-1</Text>
+            <Text style={styles.detailRowValue}>{zonePlot}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Planting date</Text>
-            <Text style={styles.detailRowValue}>5 Mar 2025</Text>
+            <Text style={styles.detailRowValue}>{plantingDate}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Expected harvest</Text>
-            <Text style={styles.detailRowValue}>3 Jun 2025</Text>
+            <Text style={styles.detailRowValue}>{expectedHarvest}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Current stage</Text>
-            <Text style={styles.detailRowValue}>Harvest (7 of 7)</Text>
+            <Text style={styles.detailRowValue}>{stage}</Text>
           </View>
           <View style={styles.detailDivider} />
 
           <View style={styles.detailRow}>
             <Text style={styles.detailRowLabel}>Last updated</Text>
-            <Text style={styles.detailRowValue}>3 Jun 2025, 08:00 · Farmer entry</Text>
+            <Text style={styles.detailRowValue}>{ADMIN_NO_VALUE}</Text>
           </View>
 
           <Text style={styles.detailFootnote}>
-            Calculated: planting date plus 90 days (crop duration, rule to confirm)
+            Calculated: planting date plus estimated crop duration rule
           </Text>
 
           {onOpenFarmerProfile ? (

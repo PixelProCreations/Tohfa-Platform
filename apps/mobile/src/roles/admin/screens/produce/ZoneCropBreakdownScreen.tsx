@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -23,20 +23,96 @@ import {
   FilterSlidersIcon,
   Grid4Icon,
 } from './produceIcons';
+import { useProduceRecordList } from '../../api/produceHooks';
+import type { Can } from '../../permissions/can';
+import { formatAdminDay } from '../../utils/datetime';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 export interface ZoneCropBreakdownScreenProps {
+  can: Can;
   onBack: () => void;
   onOpenFilters: () => void;
   onSelectCropRecord: (recordId: string) => void;
 }
 
+const OPEN_STATUSES = ['GROWING', 'PLANNED'] as const;
+const STAGE_SEGMENTS = [0, 1, 2, 3, 4, 5, 6] as const;
+
+/**
+ * Zone & Crop Breakdown. The crop records are GET /admin/produce/records
+ * (open records: GROWING, PLANNED; produce.calendar.view_consolidated). The
+ * four headline figures have no server aggregate, so they are dashed, and the
+ * list carries no growth stage, so the 7-segment stage bar is drawn empty
+ * rather than at an invented stage.
+ */
 export function ZoneCropBreakdownScreen({
+  can,
   onBack,
   onOpenFilters,
   onSelectCropRecord,
 }: ZoneCropBreakdownScreenProps): React.JSX.Element {
   const [selectedCategory, setSelectedCategory] = useState('Horticultural');
   const [selectedSubCategory, setSelectedSubCategory] = useState('Vegetables');
+
+  const canView = can('produce.calendar.view_consolidated');
+  const records = useProduceRecordList({ statuses: OPEN_STATUSES }, { enabled: canView });
+  const firstZone = records.items.find((r) => r.zone !== null)?.zone ?? null;
+  // The zone panel lists the farms of the first zone among the loaded records (names only; the
+  // design's soil / sun / irrigation line is per plot and not on a record summary).
+  const zoneFarms = useMemo(() => {
+    if (firstZone === null) return [];
+    const seen = new Map<string, string>();
+    for (const r of records.items) if (r.zone?.id === firstZone.id) seen.set(r.farm.id, r.farm.name);
+    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+  }, [records.items, firstZone]);
+
+  const day = (iso: string | null) => (iso === null ? ADMIN_NO_VALUE : formatAdminDay(iso) || ADMIN_NO_VALUE);
+
+  const renderRecords = () => {
+    if (!canView) return <AdminEmptyState title={t('wiringFarmers.produce.notLoaded')} />;
+    if (records.isLoading) return <AdminLoadingState />;
+    if (records.error) return <AdminErrorState error={records.error} onRetry={records.refresh} />;
+    if (records.items.length === 0) return <AdminEmptyState title={t('wiringFarmers.produce.breakdown.empty')} />;
+    return records.items.map((r) => (
+      <TouchableOpacity
+        key={r.id}
+        style={styles.cropRecordCard}
+        onPress={() => onSelectCropRecord(r.id)}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+      >
+        <View style={styles.cropRecordTopRow}>
+          <Text style={styles.cropRecordName}>
+            {t('wiringFarmers.produce.breakdown.cardTitle', { crop: r.crop.name, farm: r.farm.name })}
+          </Text>
+          <View style={styles.growingBadge}>
+            <Text style={styles.growingBadgeText}>{t(`wiringFarmers.produce.status.${r.status}`)}</Text>
+          </View>
+        </View>
+        <Text style={styles.cropRecordSub}>
+          {t('wiringFarmers.produce.breakdown.cardSub', {
+            zone: r.zone?.name ?? ADMIN_NO_VALUE,
+            plot: r.plot.name,
+            planted: day(r.plantedOn),
+            stage: ADMIN_NO_VALUE,
+          })}
+        </Text>
+
+        {/* 7-Segment stage bar: the list sends no stage, so no segment is filled. */}
+        <View style={styles.progressBarRow}>
+          {STAGE_SEGMENTS.map((i) => (
+            <View key={i} style={[styles.progressSegment, styles.segmentGray]} />
+          ))}
+        </View>
+
+        <Text style={styles.cropRecordHarvest}>
+          {t('wiringFarmers.produce.breakdown.expectedHarvest', { date: day(r.expectedHarvestOn) })}
+        </Text>
+      </TouchableOpacity>
+    ));
+  };
 
   return (
     <View style={styles.root}>
@@ -64,38 +140,38 @@ export function ZoneCropBreakdownScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2x2 Metric Cards Grid */}
+        {/* 2x2 Metric Cards Grid: no server aggregate exists for any of the four. */}
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Farms with crop records"
             icon="orders"
             titlePosition="bottom"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Zones with active plans"
             icon="inventory"
             titlePosition="bottom"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Crops in growth stages"
             icon="receiving"
             titlePosition="bottom"
           />
           <OverviewDashboardCard
-            value="—"
-            subtitle="(2 excluded)"
+            value={ADMIN_NO_VALUE}
+            subtitle={t('wiringFarmers.produce.breakdown.excluded', { count: ADMIN_NO_VALUE })}
             title="Expected harvests in 30 days"
             icon="box"
             titlePosition="bottom"
           />
         </OverviewCardsGrid>
 
-        {/* Footnote */}
+        {/* Footnote: the exclusion count has no source. */}
         <Text style={styles.breakdownFootnote}>
-          2 open records excluded from the 30-day count: missing planting date or no duration rule for the crop.
+          {t('wiringFarmers.produce.breakdown.footnote', { count: ADMIN_NO_VALUE })}
         </Text>
 
         {/* ─── Crops category Section ─── */}
@@ -141,85 +217,33 @@ export function ZoneCropBreakdownScreen({
           })}
         </ScrollView>
 
-        {/* ─── Coonoor — zone panel Section ─── */}
-        <Text style={styles.breakdownSectionHeader}>Coonoor — zone panel</Text>
+        {/* ─── Zone panel Section ─── */}
+        <Text style={styles.breakdownSectionHeader}>
+          {t('wiringFarmers.produce.breakdown.zonePanel', { zone: firstZone?.name ?? ADMIN_NO_VALUE })}
+        </Text>
 
         <View style={styles.zonePanelCard}>
-          <View style={styles.zonePanelRow}>
-            <Text style={styles.zonePanelFarm}>Ramesh Kumar Farm</Text>
-            <Text style={styles.zonePanelDetail}>Red loam · Full sun · Drip</Text>
-          </View>
-          <View style={styles.zonePanelDivider} />
-          <View style={styles.zonePanelRow}>
-            <Text style={styles.zonePanelFarm}>Selvi Farm</Text>
-            <Text style={styles.zonePanelDetail}>Not recorded</Text>
-          </View>
+          {zoneFarms.map((farm, idx) => (
+            <React.Fragment key={farm.id}>
+              {idx > 0 && <View style={styles.zonePanelDivider} />}
+              <View style={styles.zonePanelRow}>
+                <Text style={styles.zonePanelFarm}>{farm.name}</Text>
+                <Text style={styles.zonePanelDetail}>{ADMIN_NO_VALUE}</Text>
+              </View>
+            </React.Fragment>
+          ))}
+          {zoneFarms.length === 0 && (
+            <View style={styles.zonePanelRow}>
+              <Text style={styles.zonePanelFarm}>{ADMIN_NO_VALUE}</Text>
+              <Text style={styles.zonePanelDetail}>{ADMIN_NO_VALUE}</Text>
+            </View>
+          )}
         </View>
 
         {/* ─── Crop records Section ─── */}
         <Text style={styles.breakdownSectionHeader}>Crop records</Text>
 
-        {/* Card 1: Tomato · Ramesh Kumar Farm */}
-        <TouchableOpacity
-          style={styles.cropRecordCard}
-          onPress={() => onSelectCropRecord('CR-2026-0017')}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <View style={styles.cropRecordTopRow}>
-            <Text style={styles.cropRecordName}>Tomato · Ramesh Kumar Farm</Text>
-            <View style={styles.growingBadge}>
-              <Text style={styles.growingBadgeText}>Growing</Text>
-            </View>
-          </View>
-          <Text style={styles.cropRecordSub}>
-            Coonoor, plot 1 · Planted 15 Jul 2026 · Stage 5 of 7 (Flowering)
-          </Text>
-
-          {/* 7-Segment Progress Bar: 4 completed green, 1 active orange, 2 upcoming gray */}
-          <View style={styles.progressBarRow}>
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentOrange]} />
-            <View style={[styles.progressSegment, styles.segmentGray]} />
-            <View style={[styles.progressSegment, styles.segmentGray]} />
-          </View>
-
-          <Text style={styles.cropRecordHarvest}>Expected harvest: 13 Oct 2026 (calculated)</Text>
-        </TouchableOpacity>
-
-        {/* Card 2: Carrot · Selvi */}
-        <TouchableOpacity
-          style={styles.cropRecordCard}
-          onPress={() => onSelectCropRecord('CR-2026-0018')}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <View style={styles.cropRecordTopRow}>
-            <Text style={styles.cropRecordName}>Carrot · Selvi</Text>
-            <View style={styles.growingBadge}>
-              <Text style={styles.growingBadgeText}>Growing</Text>
-            </View>
-          </View>
-          <Text style={styles.cropRecordSub}>
-            Coonoor, plot 2 · Planted 02 Jul 2026 · Stage 5 of 7 (Flowering)
-          </Text>
-
-          {/* 7-Segment Progress Bar */}
-          <View style={styles.progressBarRow}>
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentGreen]} />
-            <View style={[styles.progressSegment, styles.segmentOrange]} />
-            <View style={[styles.progressSegment, styles.segmentGray]} />
-            <View style={[styles.progressSegment, styles.segmentGray]} />
-          </View>
-
-          <Text style={styles.cropRecordHarvest}>Expected harvest: 10 Oct 2026 (calculated)</Text>
-        </TouchableOpacity>
+        {renderRecords()}
 
         <View style={{ height: 40 }} />
       </ScrollView>

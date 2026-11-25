@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +9,8 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Line, Path } from 'react-native-svg';
 import type { RecentDocItem } from './AdminReportsMainScreen';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   adminColors,
   adminOverlay,
@@ -66,12 +67,6 @@ export function RecentReportDetailScreen({
   onBack,
   onOpenLiveModule,
 }: RecentReportDetailScreenProps) {
-  const handleDownload = () => {
-    Alert.alert(
-      'Document Downloaded',
-      `"${doc.title}" (${doc.fileSize}) has been exported successfully and saved to your device.`
-    );
-  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -110,7 +105,9 @@ export function RecentReportDetailScreen({
               <Text style={styles.categoryBadgeText}>{doc.categoryBadge}</Text>
             </View>
             <View style={styles.formatPill}>
-              <Text style={styles.formatPillText}>{doc.fileFormat} · {doc.fileSize}</Text>
+              <Text style={styles.formatPillText}>
+                {doc.fileFormat}{doc.fileSize !== ADMIN_NO_VALUE ? ` · ${doc.fileSize}` : ''}
+              </Text>
             </View>
           </View>
 
@@ -166,15 +163,18 @@ export function RecentReportDetailScreen({
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            style={styles.downloadPrimaryBtn}
-            onPress={handleDownload}
+            style={[styles.downloadPrimaryBtn, { opacity: 0.45 }]}
+            disabled
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringReports.reports.downloadUnavailable')}
             activeOpacity={0.85}
           >
             <DownloadIcon size={20} color={adminColors.onBrand} />
             <Text style={styles.downloadPrimaryBtnText}>
-              Download {doc.fileFormat.includes('Excel') ? 'Spreadsheet' : 'Document'} ({doc.fileSize})
+              Download {doc.fileFormat.includes('Excel') ? 'Spreadsheet' : 'Document'}{doc.fileSize !== ADMIN_NO_VALUE ? ` (${doc.fileSize})` : ''}
             </Text>
           </TouchableOpacity>
+          <Text style={styles.specKey}>{t('wiringReports.reports.downloadUnavailable')}</Text>
 
           <TouchableOpacity
             style={styles.openLiveBtn}

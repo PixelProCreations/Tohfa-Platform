@@ -11,7 +11,7 @@
  * module and are deliberately not re-declared here.
  */
 import type { Page } from '../../../shell/api/pagination';
-import { adminGet } from './http';
+import { adminGet, adminPost } from './http';
 
 export const CERTIFICATION_TYPES = ['PGS', 'NPOP', 'OTHER'] as const;
 export type CertificationType = (typeof CERTIFICATION_TYPES)[number];
@@ -68,5 +68,23 @@ export function listCertifications(
       limit: params.limit,
     },
     signal,
+  );
+}
+
+export interface VerifyCertificationBody {
+  portalReference?: string | undefined;
+  note?: string | undefined;
+}
+
+/** POST /admin/certifications/{id}/verify (certification.mark_verified, Idempotency-Key required). */
+export function verifyCertification(
+  id: string,
+  body: VerifyCertificationBody,
+  idempotencyKey: string,
+): Promise<CertificationDto> {
+  return adminPost<CertificationDto>(
+    `/admin/certifications/${encodeURIComponent(id)}/verify`,
+    body,
+    { idempotencyKey },
   );
 }

@@ -9,10 +9,24 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
-import { adminColors, adminRadius, adminShadow } from '../../theme';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import { resolveAdminRoleCategory } from './FarmerBankAccountDetailsScreen';
+import type { Money } from '@tohfa/shared-types';
+import { adminErrorKey } from '../../api/errors';
+import type { PayoutDto } from '../../api/payouts';
+import { useApprovePayout } from '../../api/payoutsHooks';
+import { hasKey, t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { moneyText } from '../dashboard/saOverviewFormat';
 
-function BackArrowWhiteIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -20,24 +34,51 @@ function BackArrowWhiteIcon({ size = 20, color = '#FFFFFF' }: { size?: number; c
   );
 }
 
+/** docs/rbac.json code of POST /admin/payouts/{id}/approve. */
+const APPROVE_PAYOUT_CODE = 'payout.approve_above_10k';
+
+/** Both approvals are in: the payout has left for the gateway (api/payouts.ts). */
+const FULLY_APPROVED: readonly string[] = ['APPROVED', 'PROCESSING', 'PAID'];
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The payout's API status as words; a status the app does not know is shown as sent. */
+export function payoutStatusText(status: string | undefined): string {
+  if (status === undefined || status === '') return ADMIN_NO_VALUE;
+  const key = `wiringPayouts.payoutStatus.${status}`;
+  return hasKey(key) ? t(key) : status;
+}
+
+/** One payout as the API describes it (docs/openapi.yaml Payout / PayoutListItem). */
 export interface PayoutDetailItem {
+  /** Payout uuid. */
   id: string;
-  code: string; // e.g. "PY-0002"
-  amount: string; // e.g. "₹12,600.00"
+  /** The server's payoutNumber. */
+  code: string;
+  /** API decimal string. */
+  amount: Money;
+  /** openapi PayoutStatus. */
   status: string;
-  farmerId?: string;
-  farmerName?: string;
-  poNumber?: string;
-  produce?: string;
-  quantity?: string;
-  date?: string;
+  /** The server's flag (BR-31, BR-144); the screen never derives it from the amount. */
+  requiresDualApproval?: boolean | undefined;
+  farmerId?: string | undefined;
+  farmerName?: string | undefined;
+  poNumber?: string | undefined;
+  produce?: string | undefined;
+  quantity?: string | undefined;
+  date?: string | undefined;
 }
 
 export interface FarmerPayoutDetailScreenProps {
   payout?: PayoutDetailItem | undefined;
   farmerName?: string | undefined;
+  /** The farmer's UUID (API addressing only); never displayed. */
   farmerId?: string | undefined;
+  /** The farmer's TOHFA code (tohfaFarmerId), shown as "Farmer ID". */
+  farmerCode?: string | undefined;
   role?: string | undefined;
+  /** Permission check from /auth/me. Missing denies the approval (fail closed, root CLAUDE.md 2.1). */
+  can?: Can | undefined;
   onBack: () => void;
   onApprove?: (() => void) | undefined;
   onReject?: (() => void) | undefined;
@@ -45,67 +86,64 @@ export interface FarmerPayoutDetailScreenProps {
 
 export function FarmerPayoutDetailScreen({
   payout,
-  farmerName = 'Kumar',
-  farmerId = 'FMR-00098',
+  farmerName,
+  farmerCode,
   role,
+  can,
   onBack,
   onApprove,
-  onReject,
 }: FarmerPayoutDetailScreenProps): React.JSX.Element {
   const roleCategory = resolveAdminRoleCategory(role);
 
-  const isWarehouse = roleCategory === 'WAREHOUSE_ADMIN';
-  const isFarmerAdmin = roleCategory === 'FARMER_ADMIN';
-  const isWarehouseOrFA = isWarehouse || isFarmerAdmin;
+  const payoutCode = payout?.code ?? ADMIN_NO_VALUE;
+  const displayFarmerName = payout?.farmerName ?? farmerName ?? ADMIN_NO_VALUE;
+  // "Farmer ID" is the human code; a uuid (the payout's farmerId or the caller's) is never shown.
+  const displayFarmerId = farmerCode ?? ADMIN_NO_VALUE;
+  const amount = moneyText(payout?.amount);
+  const poCode = payout?.poNumber ?? ADMIN_NO_VALUE;
+  const produce = payout?.produce ?? ADMIN_NO_VALUE;
+  const quantity = payout?.quantity ?? ADMIN_NO_VALUE;
+  const date = payout?.date ?? ADMIN_NO_VALUE;
+  const calcRef = ADMIN_NO_VALUE;
 
-  const payoutCode = isWarehouseOrFA ? 'PY-0002' : (payout?.code || 'PY-0002');
-  const displayFarmerName = isWarehouseOrFA ? 'Kumar' : (payout?.farmerName || farmerName);
-  const displayFarmerId = isWarehouseOrFA ? 'FMR-00098' : (payout?.farmerId || farmerId);
-  const amount = isWarehouseOrFA ? '₹12,600.00' : (payout?.amount || '₹12,600.00');
-  const poCode = isWarehouseOrFA ? 'PO-0002' : (payout?.poNumber || 'PO-0002');
-  const produce = isWarehouseOrFA ? 'Beans' : (payout?.produce || 'Beans');
-  const quantity = isWarehouseOrFA ? '300 kg' : (payout?.quantity || '300 kg');
-  const date = isWarehouseOrFA ? '8 Oct 2026' : (payout?.date || '8 Oct 2026');
-  const calcRef = isWarehouseOrFA ? 'CALC-PAY-0002' : `CALC-${payoutCode}`;
+  const payoutId = payout !== undefined && UUID_RE.test(payout.id) ? payout.id : undefined;
+  const allowed = typeof can === 'function' && can(APPROVE_PAYOUT_CODE);
+  const approvePayout = useApprovePayout({ enabled: allowed });
 
-  const [currentApprovalStatus, setCurrentApprovalStatus] = useState<'Awaiting Super Admin Approval' | 'Approved' | 'Rejected' | 'Intimated'>(
-    'Awaiting Super Admin Approval'
-  );
+  // What the server answered to our approval; until then the status the payout came with.
+  const [result, setResult] = useState<PayoutDto | undefined>(undefined);
+  const approvalStatus = payoutStatusText(result?.status ?? payout?.status);
 
   const handleApprove = () => {
-    Alert.alert('Approve Payout', `Approve payout ${payoutCode} for ${amount}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Approve',
-        style: 'default',
-        onPress: () => {
-          setCurrentApprovalStatus('Approved');
-          onApprove?.();
-          Alert.alert('Success', `Payout ${payoutCode} has been approved.`);
+    if (payoutId === undefined || !allowed || approvePayout.isPending || result !== undefined) return;
+    Alert.alert(
+      t('wiringPayouts.payoutDetail.confirm.title'),
+      t('wiringPayouts.payoutDetail.confirm.body', { code: payoutCode, amount }),
+      [
+        { text: t('wiringPayouts.common.cancel'), style: 'cancel' },
+        {
+          text: t('wiringPayouts.payoutDetail.confirm.ok'),
+          style: 'default',
+          onPress: () => {
+            // Success is reported only from the server's answer (onSuccess); a failure keeps the key.
+            approvePayout.run(payoutId, {}, (answer) => {
+              setResult(answer);
+              const fully = FULLY_APPROVED.includes(answer.status);
+              onApprove?.();
+              Alert.alert(
+                t(fully ? 'wiringPayouts.payoutDetail.done.title' : 'wiringPayouts.payoutDetail.recorded.title'),
+                t(fully ? 'wiringPayouts.payoutDetail.done.body' : 'wiringPayouts.payoutDetail.recorded.body', {
+                  code: answer.payoutNumber,
+                }),
+              );
+            });
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
-  const handleReject = () => {
-    Alert.alert('Reject Payout', `Reject payout ${payoutCode}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reject',
-        style: 'destructive',
-        onPress: () => {
-          setCurrentApprovalStatus('Rejected');
-          onReject?.();
-          Alert.alert('Rejected', `Payout ${payoutCode} has been marked as rejected.`);
-        },
-      },
-    ]);
-  };
-
-  const handleIntimate = () => {
-    setCurrentApprovalStatus('Intimated');
-    Alert.alert('Intimated', `Intimation notice dispatched for ${payoutCode}.`);
-  };
+  const approveDisabled = payoutId === undefined || !allowed || approvePayout.isPending || result !== undefined;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -136,7 +174,7 @@ export function FarmerPayoutDetailScreen({
             <DataRow label="Farmer ID" value={displayFarmerId} />
             <DataRow label="Farmer name" value={displayFarmerName} />
             <DataRow label="Registered contact" value="Not shown here" valueStyle={styles.mutedText} />
-            <DataRow label="Verified payout account" value="•••• 0123" isLast />
+            <DataRow label="Verified payout account" value={ADMIN_NO_VALUE} isLast />
           </View>
         </View>
 
@@ -146,11 +184,11 @@ export function FarmerPayoutDetailScreen({
           <View style={styles.fieldsContainer}>
             <DataRow label="Purchase order" value={poCode} />
             <DataRow label="Purchase date" value={date} />
-            <DataRow label="Goods receipt" value="GR-0002" />
+            <DataRow label="Goods receipt" value={ADMIN_NO_VALUE} />
             <DataRow label="Produce" value={produce} />
             <DataRow label="Accepted quantity" value={quantity} />
-            <DataRow label="Accepted grade" value="Grade 1" />
-            <DataRow label="Unit price" value="₹42.00 per kg" />
+            <DataRow label="Accepted grade" value={ADMIN_NO_VALUE} />
+            <DataRow label="Unit price" value={ADMIN_NO_VALUE} />
             <DataRow label="Purchase value" value={amount} isLast />
           </View>
         </View>
@@ -160,7 +198,7 @@ export function FarmerPayoutDetailScreen({
           <Text style={styles.sectionHeader}>3 · Payout calculation</Text>
           <View style={styles.fieldsContainer}>
             <DataRow label="Accepted produce value" value={amount} />
-            <DataRow label="Approved adjustments" value="₹0.00" />
+            <DataRow label="Approved adjustments" value={ADMIN_NO_VALUE} />
             <DataRow label="Net payable amount" value={amount} isBold />
             <DataRow label="Currency" value="INR" />
             <DataRow label="Calculation reference" value={calcRef} isLast />
@@ -171,19 +209,17 @@ export function FarmerPayoutDetailScreen({
         <View style={styles.card}>
           <Text style={styles.sectionHeader}>4 · Approval history</Text>
           <View style={styles.fieldsContainer}>
-            <DataRow label="Requested by" value="Demo TOHFA Admin, 9 Oct 2026, 10:00" />
-            <DataRow label="Approval" value={currentApprovalStatus} isBold />
-            <DataRow label="Approver" value="—" />
-            <DataRow label="Rejection reason" value="—" />
-            <DataRow label="Processing reference" value="—" isLast />
+            <DataRow label="Requested by" value={ADMIN_NO_VALUE} />
+            <DataRow label="Approval" value={approvalStatus} isBold />
+            <DataRow label="Approver" value={ADMIN_NO_VALUE} />
+            <DataRow label="Rejection reason" value={ADMIN_NO_VALUE} />
+            <DataRow label="Processing reference" value={ADMIN_NO_VALUE} isLast />
           </View>
 
-          {/* Audit Note below fields */}
+          {/* Audit note (design): no payout audit trail is read here, so both lines are dashes. */}
           <View style={styles.auditNoteBlock}>
-            <Text style={styles.auditTimestamp}>9 Oct 2026, 10:00 · Demo TOHFA Admin</Text>
-            <Text style={styles.auditMessage}>
-              Payout requested and escalated to the Super Admin: {amount}
-            </Text>
+            <Text style={styles.auditTimestamp}>{ADMIN_NO_VALUE}</Text>
+            <Text style={styles.auditMessage}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -191,66 +227,95 @@ export function FarmerPayoutDetailScreen({
         <View style={styles.card}>
           <Text style={styles.sectionHeader}>5 · Payment information</Text>
           <View style={styles.fieldsContainer}>
-            <DataRow label="Payment method" value="Bank transfer (configured)" isBold />
-            <DataRow label="Provider reference" value="—" />
-            <DataRow label="Initiated" value="—" />
-            <DataRow label="Processed" value="—" />
-            <DataRow label="Failure reason" value="—" />
-            <DataRow label="Reconciliation status" value="Not applicable" isLast />
+            <DataRow label="Payment method" value={ADMIN_NO_VALUE} isBold />
+            <DataRow label="Provider reference" value={ADMIN_NO_VALUE} />
+            <DataRow label="Initiated" value={ADMIN_NO_VALUE} />
+            <DataRow label="Processed" value={ADMIN_NO_VALUE} />
+            <DataRow label="Failure reason" value={ADMIN_NO_VALUE} />
+            <DataRow label="Reconciliation status" value={ADMIN_NO_VALUE} isLast />
           </View>
         </View>
 
-        {/* TOHFA Admin Informational Callout (Screenshot 3) */}
-        {roleCategory === 'TOHFA_ADMIN' && (
+        {/* TOHFA Admin callout (design): shown only on the server's dual-approval flag (BR-31, R8). */}
+        {roleCategory === 'TOHFA_ADMIN' && payout?.requiresDualApproval === true && (
           <View style={styles.tohfaNoticeBox}>
-            <Text style={styles.tohfaNoticeText}>
-              This amount is above ₹10,000.00, so it needs a Super Admin who is not the requester.
+            <Text style={styles.tohfaNoticeText}>{t('wiringPayouts.payoutDetail.dualApproval')}</Text>
+          </View>
+        )}
+
+        {/* When FarmerManagementFlow passes no payoutId, no payout arrives and Approve/Reject/Intimate stay disabled. */}
+        {payoutId === undefined && (
+          <View style={styles.tohfaNoticeBox}>
+            <Text style={styles.tohfaNoticeText} testID="payoutDetail.noPayout">
+              {t('wiringPayouts.payoutDetail.noPayout')}
             </Text>
           </View>
         )}
 
-        {/* Bottom Spacing */}
+        {/* The real failure of the approval, worded by adminErrorKey; never a success. */}
+        {approvePayout.error ? (
+          <Text style={styles.errorText} testID="payoutDetail.error">
+            {t(adminErrorKey(approvePayout.error))}
+          </Text>
+        ) : null}
+
         <View style={{ height: 90 }} />
       </ScrollView>
 
       {/* Floating Bottom Action Bars with RBAC */}
-
-      {/* 1. Super Admin: Big Green Approval + Red Outline Reject (Screenshot 2) */}
       {roleCategory === 'SUPER_ADMIN' && (
         <View style={styles.bottomBar}>
+          {/* Approve — wired to POST /admin/payouts/{id}/approve */}
           <TouchableOpacity
-            style={styles.superAdminApproveBtn}
+            style={[styles.superAdminApproveBtn, approveDisabled && styles.actionUnavailable]}
             onPress={handleApprove}
             activeOpacity={0.8}
+            disabled={approveDisabled}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: approveDisabled, busy: approvePayout.isPending }}
+            testID="payoutDetail.approve"
           >
-            <Text style={styles.superAdminApproveText}>Approval</Text>
+            <Text style={styles.superAdminApproveText}>
+              {approvePayout.isPending ? t('wiringPayouts.payoutDetail.approving') : 'Approval'}
+            </Text>
           </TouchableOpacity>
 
+          {/* Reject — no endpoint; disabled per R3 */}
           <TouchableOpacity
-            style={styles.superAdminRejectBtn}
-            onPress={handleReject}
-            activeOpacity={0.8}
+            style={[styles.superAdminRejectBtn, styles.actionUnavailable]}
+            activeOpacity={1}
+            disabled
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutDetail.reject"
           >
             <Text style={styles.superAdminRejectText}>Reject</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* 2. TOHFA Admin: Intimate + Reject + Close (Screenshot 3) */}
       {roleCategory === 'TOHFA_ADMIN' && (
         <View style={styles.bottomBar}>
+          {/* Intimate — no endpoint; disabled per R3 */}
           <TouchableOpacity
-            style={styles.tripleBtn}
-            onPress={handleIntimate}
-            activeOpacity={0.7}
+            style={[styles.tripleBtn, styles.actionUnavailable]}
+            activeOpacity={1}
+            disabled
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutDetail.intimate"
           >
             <Text style={styles.tripleBtnText}>Intimate</Text>
           </TouchableOpacity>
 
+          {/* Reject — no endpoint; disabled per R3 */}
           <TouchableOpacity
-            style={[styles.tripleBtn, styles.tripleBtnReject]}
-            onPress={handleReject}
-            activeOpacity={0.7}
+            style={[styles.tripleBtn, styles.tripleBtnReject, styles.actionUnavailable]}
+            activeOpacity={1}
+            disabled
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutDetail.reject"
           >
             <Text style={styles.tripleBtnRejectText}>Reject</Text>
           </TouchableOpacity>
@@ -265,16 +330,16 @@ export function FarmerPayoutDetailScreen({
         </View>
       )}
 
-      {/* 3. Farmer Admin: Pure Read-Only (NO bottom buttons) (Screenshot 4) */}
-      {roleCategory === 'FARMER_ADMIN' && null}
-
-      {/* 4. Warehouse Admin (Main & Sub): Intimate + Close (Screenshot 5) */}
       {roleCategory === 'WAREHOUSE_ADMIN' && (
         <View style={styles.bottomBar}>
+          {/* Intimate — no endpoint; disabled per R3 */}
           <TouchableOpacity
-            style={styles.doubleBtn}
-            onPress={handleIntimate}
-            activeOpacity={0.7}
+            style={[styles.doubleBtn, styles.actionUnavailable]}
+            activeOpacity={1}
+            disabled
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutDetail.intimate"
           >
             <Text style={styles.doubleBtnText}>Intimate</Text>
           </TouchableOpacity>
@@ -325,51 +390,51 @@ function DataRow({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#D9480F',
+    backgroundColor: adminColors.brand,
   },
   header: {
     height: 54,
-    backgroundColor: '#D9480F',
+    backgroundColor: adminColors.brand,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: adminSpacing.md,
   },
   backButton: {
     width: 38,
     height: 38,
-    borderRadius: 19,
+    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: adminSpacing.xs,
   },
   headerTitle: {
-    fontSize: 18,
+    ...adminType.title,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
   container: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 24,
+    padding: adminSpacing.md,
+    paddingBottom: adminSpacing.xl,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: '#EFECE6',
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
     ...adminShadow.sm,
   },
   sectionHeader: {
-    fontSize: 14,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#8C501E',
-    marginBottom: 12,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
   },
   fieldsContainer: {
     // container
@@ -378,64 +443,74 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingVertical: 10,
+    paddingVertical: adminSpacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F2EB',
+    borderBottomColor: adminColors.border,
   },
   dataRowLast: {
     borderBottomWidth: 0,
     paddingBottom: 2,
   },
   dataLabel: {
-    fontSize: 13,
-    color: '#78716C',
+    ...adminType.caption,
+    color: adminColors.muted,
     fontWeight: '500',
     flex: 1,
-    paddingRight: 8,
+    paddingRight: adminSpacing.xs,
   },
   dataValue: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#1C1917',
+    color: adminColors.ink,
     textAlign: 'right',
     flex: 1.2,
   },
   dataValueBold: {
     fontWeight: '800',
-    color: '#1C1917',
+    color: adminColors.ink,
   },
   mutedText: {
-    color: '#A8A29E',
+    color: adminColors.muted,
     fontWeight: '400',
   },
   auditNoteBlock: {
     marginTop: 14,
-    paddingTop: 12,
+    paddingTop: adminSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F5F2EB',
+    borderTopColor: adminColors.border,
   },
   auditTimestamp: {
-    fontSize: 11,
-    color: '#A8A29E',
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 4,
   },
   auditMessage: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '700',
-    color: '#1C1917',
+    color: adminColors.ink,
     lineHeight: 18,
   },
+  errorText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    textAlign: 'center',
+    marginBottom: adminSpacing.md,
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
   tohfaNoticeBox: {
-    backgroundColor: '#FFF4EB',
-    borderRadius: 10,
-    padding: 14,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.sm,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: '#FFE0C2',
-    marginBottom: 16,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
   },
   tohfaNoticeText: {
-    fontSize: 12.5,
-    color: '#8C501E',
+    ...adminType.caption,
+    color: adminColors.brandDeep,
     fontWeight: '600',
     lineHeight: 18,
   },
@@ -444,81 +519,81 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#EFECE6',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 20,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: adminSpacing.sm,
     ...adminShadow.md,
   },
   superAdminApproveBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: '#00A86B',
-    borderRadius: 12,
+    backgroundColor: adminColors.success.text,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   superAdminApproveText: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   superAdminRejectBtn: {
     flex: 1,
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.4,
-    borderColor: '#E03131',
-    borderRadius: 12,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   superAdminRejectText: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '700',
-    color: '#E03131',
+    color: adminColors.danger.text,
   },
   tripleBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
     borderWidth: 1.2,
-    borderColor: '#D9D4CC',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tripleBtnText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#1C1917',
+    color: adminColors.ink,
   },
   tripleBtnReject: {
-    borderColor: '#F5C2C7',
+    borderColor: adminColors.danger.border,
   },
   tripleBtnRejectText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#E03131',
+    color: adminColors.danger.text,
   },
   doubleBtn: {
     flex: 1,
     height: 44,
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
     borderWidth: 1.2,
-    borderColor: '#D9D4CC',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   doubleBtnText: {
-    fontSize: 13,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#1C1917',
+    color: adminColors.ink,
   },
 });

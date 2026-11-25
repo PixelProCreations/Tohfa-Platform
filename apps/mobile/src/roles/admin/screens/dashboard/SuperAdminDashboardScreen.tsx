@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,11 +22,7 @@ import {
   OverviewDashboardCard,
   OverviewSectionHeader,
 } from '../../components/OverviewDashboardCard';
-import {
-  OverviewActionCard,
-  OverviewApprovalCard,
-  OverviewQueueCard,
-} from '../../components/OverviewSuperAdminCards';
+import { OverviewActionCard } from '../../components/OverviewSuperAdminCards';
 import {
   BellIcon,
   CalendarIcon,
@@ -55,6 +50,23 @@ import {
   ClipboardListIcon,
 } from '../../components/AdminIcons';
 import { t } from '../../i18n';
+import { useAdminQuery } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { getFarmerSummary } from '../../api/farmers';
+import { listCustomers } from '../../api/customers';
+import { listNotifications } from '../../api/notifications';
+import { useListingQueue } from '../../api/listingsHooks';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { exactCount } from './audit-schedule/scheduleFormat';
+import { tohfaDateStamp } from '../tohfa-home/tohfaHomeLogic';
+import {
+  greetingNameText,
+  lastUpdatedText,
+  saHomeKpiValues,
+  unreadBadgeText,
+  type MeStatus,
+  type SaHomeKpiValues,
+} from './superAdminHomeFigures';
 import type { WarehouseScope } from '../warehouse';
 import { SuperAdminMoreScreen } from './SuperAdminMoreScreen';
 import { FarmersFlow } from '../farmers/FarmersFlow';
@@ -150,9 +162,8 @@ export function SuperAdminDashboardScreen({
   const [activeTab, setActiveTab] = useState<SuperAdminTab>(initialTab);
   const [profileInitialScreen, setProfileInitialScreen] = useState<ProfileRoute>('Settings');
   const [user, setUser] = useState<UserMe | null>(null);
-  const [lastUpdated, setLastUpdated] = useState('10:45 · All details');
-  const [isMarketOpen, setIsMarketOpen] = useState(true);
-  const [selectedPayoutId, setSelectedPayoutId] = useState<string>('PAY-0002');
+  const [meStatus, setMeStatus] = useState<MeStatus>('loading');
+  const [selectedPayoutId, setSelectedPayoutId] = useState<string | undefined>(undefined);
   const [activeScheduleMenu, setActiveScheduleMenu] = useState<{
     id: string;
     title: string;
@@ -168,29 +179,16 @@ export function SuperAdminDashboardScreen({
     mode: 'open' | 'close';
   } | null>(null);
 
-  // Market schedule list (hardcoded for now as requested)
-  const [marketSchedules, setMarketSchedules] = useState<Array<{
+  // Market schedules: docs/openapi.yaml has no market open/close schedule
+  // endpoint (see ScheduleMarketOpenCloseScreen), so there is nothing to list.
+  // The design's two rows were fixtures and are not shown.
+  const marketSchedules: ReadonlyArray<{
     id: string;
     title: string;
     time: string;
     repeat: string;
     mode: 'open' | 'close';
-  }>>([
-    {
-      id: 'sch-1',
-      title: 'Auto Closes at 11:00 AM',
-      time: '11:00 AM',
-      repeat: 'Mon, Wed, Fri, Sun',
-      mode: 'close',
-    },
-    {
-      id: 'sch-2',
-      title: 'Auto Open at 06:00 AM',
-      time: '06:00 AM',
-      repeat: 'Mon, Wed, Fri, Sun',
-      mode: 'open',
-    },
-  ]);
+  }> = [];
 
   // Sub-screen navigation states
   const [activeSubScreen, setActiveSubScreen] = useState<
@@ -284,12 +282,18 @@ export function SuperAdminDashboardScreen({
 
   useEffect(() => {
     fetchMe()
-      .then((me) => setUser(me))
-      .catch(() => {});
+      .then((me) => {
+        setUser(me);
+        setMeStatus('ready');
+      })
+      .catch(() => setMeStatus('error'));
   }, []);
 
   const adminCan = useMemo(() => makeCan(user?.permissions), [user]);
   const activeCan = propsCan ?? adminCan;
+  // Home figures: gated on the same `can` the rest of the shell uses, so a
+  // code the admin lacks never fires a request the server would refuse.
+  const home = useSuperAdminHomeData(activeCan);
 
   const allWarehouses = useMemo<WarehouseScope>(
     () => ({ warehouseId: undefined, warehouseName: t('profile.scope.allWarehouses') }),
@@ -910,6 +914,8 @@ export function SuperAdminDashboardScreen({
         {/* Top Header */}
         {renderHeader(
           t('superAdminDashboard.title'),
+          tohfaDateStamp(new Date()),
+          home.unreadBadge,
           () => setActiveSubScreen('notifications'),
           () => {
             setProfileInitialScreen('UserProfile');
@@ -922,7 +928,7 @@ export function SuperAdminDashboardScreen({
           <View style={styles.greetingCard}>
             <View style={styles.greetingTopRow}>
               <Text style={styles.greetingTitle} numberOfLines={1}>
-                Good morning, {user?.fullName ? user.fullName.split(' ')[0] : 'Super Admin'}
+                {t('homeDashboards.sa.greeting', { name: greetingNameText(user?.fullName, meStatus) })}
               </Text>
               <View style={styles.roleBadgePill}>
                 <Text style={styles.roleBadgeText}>SUPER Admin</Text>
@@ -930,20 +936,16 @@ export function SuperAdminDashboardScreen({
             </View>
 
             <Text style={styles.greetingSubTitle}>Today’s operational summary</Text>
-            <Text style={styles.greetingDateStamp}>Mon, 13 Oct 2026 · IST</Text>
+            <Text style={styles.greetingDateStamp}>{tohfaDateStamp(new Date())}</Text>
 
             <View style={styles.greetingBottomRow}>
-              <Text style={styles.lastUpdatedText}>Last updated {lastUpdated}</Text>
+              <Text style={styles.lastUpdatedText}>{home.lastUpdated}</Text>
               <TouchableOpacity
                 style={styles.refreshButton}
-                onPress={() => {
-                  const now = new Date();
-                  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                  setLastUpdated(`${timeStr} · All details`);
-                }}
+                onPress={home.refresh}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Refresh operational summary"
+                accessibilityLabel={t('homeDashboards.sa.refresh')}
               >
                 <RefreshIcon size={16} color={adminColors.brandDeep} />
               </TouchableOpacity>
@@ -955,7 +957,7 @@ export function SuperAdminDashboardScreen({
             {[
               {
                 title: t('superAdminDashboard.kpi.totalFarmers'),
-                value: '214',
+                value: home.kpis.totalFarmers,
                 icon: <NavFarmersIcon size={20} color={adminColors.brand} />,
                 onPress: () => {
                   setFarmerInitialTab('farmers');
@@ -965,7 +967,7 @@ export function SuperAdminDashboardScreen({
               },
               {
                 title: t('superAdminDashboard.kpi.pendingApplications'),
-                value: '9',
+                value: home.kpis.pendingApplications,
                 icon: <ClipboardListIcon size={20} color={adminColors.warning.text} />,
                 tone: 'warning' as const,
                 onPress: () => {
@@ -976,7 +978,7 @@ export function SuperAdminDashboardScreen({
               },
               {
                 title: t('superAdminDashboard.kpi.activeFarmers'),
-                value: '196',
+                value: home.kpis.activeFarmers,
                 icon: <NavFarmersIcon size={20} color={adminColors.success.text} />,
                 tone: 'success' as const,
                 onPress: () => {
@@ -987,7 +989,7 @@ export function SuperAdminDashboardScreen({
               },
               {
                 title: t('superAdminDashboard.kpi.deactivatedFarmers'),
-                value: '9',
+                value: home.kpis.deactivatedFarmers,
                 icon: <TrashIcon size={20} color={adminColors.danger.text} />,
                 tone: 'danger' as const,
                 onPress: () => {
@@ -998,26 +1000,26 @@ export function SuperAdminDashboardScreen({
               },
               {
                 title: t('superAdminDashboard.kpi.pendingListings'),
-                value: '5',
+                value: home.kpis.pendingListings,
                 icon: <NavWarehouseIcon size={20} color={adminColors.warning.text} />,
                 tone: 'warning' as const,
                 onPress: () => setActiveSubScreen('approval_inbox'),
               },
               {
                 title: t('superAdminDashboard.kpi.activeAudits'),
-                value: '6',
+                value: home.kpis.activeAudits,
                 icon: <ClipboardListIcon size={20} color={adminColors.brand} />,
                 onPress: () => setActiveSubScreen('audit_management'),
               },
               {
                 title: t('superAdminDashboard.kpi.totalCustomers'),
-                value: '18',
+                value: home.kpis.totalCustomers,
                 icon: <StoreIcon size={20} color={adminColors.brand} />,
                 onPress: () => setActiveSubScreen('customers'),
               },
               {
                 title: t('superAdminDashboard.kpi.staffAndAdmins'),
-                value: '27',
+                value: home.kpis.staffAndAdmins,
                 icon: <UserAvatarIcon size={20} color={adminColors.brand} />,
                 onPress: () => setActiveSubScreen('manage_admins'),
               },
@@ -1046,24 +1048,24 @@ export function SuperAdminDashboardScreen({
                 </View>
               </View>
               <View style={styles.marketStatusBadge}>
-                <View style={[styles.marketStatusDot, !isMarketOpen && { backgroundColor: adminColors.danger.text }]} />
-                <Text style={[styles.marketStatusText, !isMarketOpen && { color: adminColors.danger.text }]}>
-                  {isMarketOpen ? t('superAdminDashboard.market.statusOpen') : t('superAdminDashboard.market.statusClosed')}
-                </Text>
+                {/* No endpoint reports whether the market is open: the dash, never "open". */}
+                <View style={styles.marketStatusDot} />
+                <Text style={styles.marketStatusText}>{ADMIN_NO_VALUE}</Text>
               </View>
             </View>
 
             {/* Action Buttons */}
             <View style={styles.marketActionsRow}>
+              {/* No endpoint opens or closes the market: drawn as designed, disabled. */}
               <TouchableOpacity
-                style={styles.closeMarketButton}
+                style={[styles.closeMarketButton, styles.actionUnavailable]}
                 activeOpacity={0.75}
-                onPress={() => setIsMarketOpen((prev) => !prev)}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
               >
                 <PauseCircleIcon size={16} color={adminColors.danger.text} />
-                <Text style={styles.closeMarketText}>
-                  {isMarketOpen ? t('superAdminDashboard.market.close') : 'Open Market'}
-                </Text>
+                <Text style={styles.closeMarketText}>{t('superAdminDashboard.market.close')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1079,6 +1081,9 @@ export function SuperAdminDashboardScreen({
             {/* Upcoming Schedule */}
             <View style={styles.scheduleSection}>
               <Text style={styles.scheduleSectionTitle}>{t('superAdminDashboard.market.upcoming')}</Text>
+              {marketSchedules.length === 0 ? (
+                <Text style={styles.scheduleItemTime}>{t('homeDashboards.sa.market.noSource')}</Text>
+              ) : null}
 
               {marketSchedules.map((schedule) => (
                 <View key={schedule.id} style={styles.scheduleItem}>
@@ -1158,35 +1163,11 @@ export function SuperAdminDashboardScreen({
 
           {/* ─── Work Queue ─── */}
           <OverviewSectionHeader title={t('superAdminDashboard.section.workQueue')} />
-          <View style={styles.workQueueList}>
-            <OverviewQueueCard
-              title="PAY-0002 · Kumar"
-              badgeLabel="Awaiting SA approval"
-              badgeStatus="INFO"
-              meta="₹18,000.00 · Requested 9 Oct 2026, 10:00"
-              viewDetailsLabel={t('superAdminDashboard.viewDetails')}
-              accentTone="danger"
-              onPress={() => {
-                setSelectedPayoutId('PAY-0002');
-                setActiveSubScreen('approval_payout_detail');
-              }}
-            />
-            <OverviewQueueCard
-              title="APP-2026-0101 · Sathish Kumar"
-              badgeLabel="Pending Review"
-              badgeStatus="PENDING"
-              meta="Submitted 5 Oct 2026"
-              viewDetailsLabel={t('superAdminDashboard.viewDetails')}
-              onPress={() => setActiveSubScreen('approval_inbox')}
-            />
-            <OverviewQueueCard
-              title="AUD-2026-0052 · Vijay"
-              badgeLabel="Past scheduled date"
-              badgeStatus="REJECTED"
-              meta="Due 8 Oct 2026"
-              viewDetailsLabel={t('superAdminDashboard.viewDetails')}
-              onPress={() => setActiveSubScreen('audit_management')}
-            />
+          {/* The design's three rows were fixtures (a payout, an application and
+              an audit). The live queue is the Work Queue screen; this preview
+              has no read of its own yet, so it says so. */}
+          <View style={styles.activityCard}>
+            <Text style={styles.activityTime}>{t('homeDashboards.sa.workQueue.notLoaded')}</Text>
           </View>
 
           {/* ─── Approval Inbox ─── */}
@@ -1195,42 +1176,16 @@ export function SuperAdminDashboardScreen({
             actionLabel="View All"
             onAction={() => setActiveSubScreen('approval_inbox')}
           />
-          <View style={styles.approvalInboxList}>
-            <OverviewApprovalCard
-              category="Farmer Payout (>₹10,000)"
-              title="PAY-0002 · Kumar · ₹18,000.00"
-              meta="Escalated by Demo TOHFA Admin · Waiting 4 days"
-              badgeLabel="Escalated"
-              statusTone="info"
-              onPress={() => {
-                setSelectedPayoutId('PAY-0002');
-                setActiveSubScreen('approval_payout_detail');
-              }}
-            />
-            <OverviewApprovalCard
-              category="Inter-Warehouse Transfer"
-              title="TR-0015 · Ooty → Coonoor · ₹42,000.00"
-              meta="Requested by Demo Main Warehouse Admin · Waiting 1 day"
-              badgeLabel="High value"
-              statusTone="info"
-              onPress={() => setActiveSubScreen('approval_inbox')}
-            />
-            <OverviewApprovalCard
-              category="Farmer Application"
-              title="APP-2026-0101 · Sathish Kumar"
-              meta="Submitted 5 Oct 2026 · Waiting 3 days"
-              badgeLabel="Pending Review"
-              statusTone="warning"
-              onPress={() => setActiveSubScreen('approval_inbox')}
-            />
+          {/* The design's rows were fixtures; the live list is the Approval Inbox. */}
+          <View style={styles.activityCard}>
+            <Text style={styles.activityTime}>{t('homeDashboards.sa.approvalInbox.notLoaded')}</Text>
           </View>
 
           {/* ─── Recent Activity ─── */}
           <OverviewSectionHeader title={t('superAdminDashboard.section.recentActivity')} />
           <View style={styles.activityCard}>
-            {renderActivityItem('Fair Price ceiling updated for Carrot Grade 1', 'Today, 10:45 AM')}
-            {renderActivityItem('Sub Warehouse Admin account created for Kotagiri', 'Yesterday, 04:20 PM')}
-            {renderActivityItem('Channel Allocation updated to Online 70% / Live 10%', '12 Oct 2026, 02:15 PM')}
+            {/* The design's three rows were fixtures; no activity feed is read here yet. */}
+            <Text style={styles.activityTime}>{t('homeDashboards.sa.activity.notLoaded')}</Text>
           </View>
         </View>
       </ScrollView>
@@ -1272,16 +1227,11 @@ export function SuperAdminDashboardScreen({
 
             <View style={styles.scheduleOptionDivider} />
 
+            {/* No endpoint cancels a schedule: disabled, never a local "cancelled". */}
             <TouchableOpacity
-              style={styles.scheduleOptionItem}
-              onPress={() => {
-                if (activeScheduleMenu) {
-                  const targetId = activeScheduleMenu.id;
-                  setMarketSchedules((prev) => prev.filter((s) => s.id !== targetId));
-                  Alert.alert(t('scheduleMarket.title'), t('scheduleMarket.cancelSuccess'));
-                }
-                setActiveScheduleMenu(null);
-              }}
+              style={[styles.scheduleOptionItem, styles.actionUnavailable]}
+              disabled
+              accessibilityState={{ disabled: true }}
               activeOpacity={0.7}
             >
               <TrashIcon size={18} color={adminColors.danger.text} />
@@ -1340,10 +1290,72 @@ export function SuperAdminDashboardScreen({
   );
 }
 
+// ─── Home figures ─────────────────────────────────────────────────────────────
+
+interface SuperAdminHomeData {
+  kpis: SaHomeKpiValues;
+  lastUpdated: string;
+  unreadBadge: string | null;
+  refresh: () => void;
+}
+
+/**
+ * The Home tab's reads (sources and codes: superAdminHomeFigures.ts). Each is
+ * enabled only when `can` grants its route's x-permission, so a role without
+ * it fires nothing and its card shows the dash. A read that has not succeeded
+ * (loading, failed, refused) contributes nothing: never a stale or default value.
+ */
+function useSuperAdminHomeData(can: Can): SuperAdminHomeData {
+  const summaryAllowed = can('farmer.profile.view_all');
+  const customersAllowed = can('customer.list.view');
+  const listingsAllowed = can('listing.queue.view_pending');
+  const unreadAllowed = can('notification.own.view');
+
+  // Same key as farmerHooks.useFarmerSummary(undefined), so the cache is shared.
+  const summary = useAdminQuery(['admin', 'farmers', 'summary', 'all'], (signal) => getFarmerSummary(signal), {
+    enabled: summaryAllowed,
+  });
+  // limit 1: only `summary.total` (the whole visible set) is read, never the page.
+  const customers = useAdminQuery(['admin', 'customers', 'homeTotal'], (signal) => listCustomers({ limit: 1 }, signal), {
+    enabled: customersAllowed,
+  });
+  const listings = useListingQueue(undefined, { enabled: listingsAllowed });
+  // Same key as notifications' useUnreadNotificationCount, so the bell and the list agree.
+  const unread = useAdminQuery(
+    adminKeys.scoped('notifications', undefined, { count: 'unread' }),
+    (signal) => listNotifications({ limit: 1, unreadOnly: true }, signal),
+    { enabled: unreadAllowed },
+  );
+
+  const summaryOk = summaryAllowed && summary.status === 'success';
+  const customersOk = customersAllowed && customers.status === 'success';
+  const kpis = saHomeKpiValues({
+    farmerSummary: summaryOk ? summary.data : undefined,
+    customerTotal: customersOk ? customers.data.summary.total : undefined,
+    pendingListings: listingsAllowed ? exactCount(listings) : null,
+  });
+  const updatedAt = [summaryOk ? summary.dataUpdatedAt : 0, customersOk ? customers.dataUpdatedAt : 0];
+
+  return {
+    kpis,
+    lastUpdated: lastUpdatedText(updatedAt),
+    unreadBadge: unreadAllowed && unread.status === 'success' ? unreadBadgeText(unread.data.unreadCount) : null,
+    // refetch() ignores `enabled`, so only the permitted reads are refetched.
+    refresh: () => {
+      if (summaryAllowed) void summary.refetch();
+      if (customersAllowed) void customers.refetch();
+      if (listingsAllowed) listings.refresh();
+      if (unreadAllowed) void unread.refetch();
+    },
+  };
+}
+
 // ─── Reusable Render Helpers ──────────────────────────────────────────────────
 
 function renderHeader(
   titleText: string,
+  dateStamp: string,
+  unreadBadge: string | null,
   onNavigateNotifications: () => void,
   onNavigateProfile: () => void,
 ) {
@@ -1355,7 +1367,7 @@ function renderHeader(
             <ShieldIcon size={20} color={adminColors.onBrand} />
             <Text style={styles.headerBrandText}>{titleText}</Text>
           </View>
-          <Text style={styles.headerDateText}>Mon, 13 Oct 2026 · IST</Text>
+          <Text style={styles.headerDateText}>{dateStamp}</Text>
         </View>
 
         <View style={styles.headerIconsRow}>
@@ -1366,9 +1378,12 @@ function renderHeader(
             accessibilityLabel="Notifications"
           >
             <BellIcon size={20} color={adminColors.onBrand} />
-            <View style={styles.notificationDot}>
-              <Text style={styles.notificationDotText}>4</Text>
-            </View>
+            {/* The server's unread total; no badge when nothing is unread or it is unknown. */}
+            {unreadBadge !== null ? (
+              <View style={styles.notificationDot}>
+                <Text style={styles.notificationDotText}>{unreadBadge}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1380,18 +1395,6 @@ function renderHeader(
             <UserAvatarIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-      </View>
-    </View>
-  );
-}
-
-function renderActivityItem(title: string, time: string) {
-  return (
-    <View key={title} style={styles.activityItemRow}>
-      <View style={styles.activityDot} />
-      <View style={styles.activityTextCol}>
-        <Text style={styles.activityTitle}>{title}</Text>
-        <Text style={styles.activityTime}>{time}</Text>
       </View>
     </View>
   );
@@ -1888,6 +1891,10 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     fontSize: 13,
     fontWeight: '600',
+  },
+  /** The designed control, kept visible, drawn as unavailable (screens/community pattern). */
+  actionUnavailable: {
+    opacity: 0.5,
   },
   activityTime: {
     color: adminColors.muted,

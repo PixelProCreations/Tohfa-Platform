@@ -8,32 +8,45 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { useAdminQuery } from '../../api/hooks';
+import { getSalesReport } from '../../api/reports';
+import { useSalesSummary } from '../warehouse/sales-direct/useSalesData';
+import { formatPaise } from '../../money/paise';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const SALES_PALETTE = {
-  primaryOrange: '#F0562A',
-  primaryOrangeLight: '#FFF1EB',
-  primaryOrangeBorder: '#FAD9CC',
-  pageBg: '#FAF7F2',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#1F1714',
-  textSecondary: '#786F68',
-  textMuted: '#9C938C',
-  borderSoft: '#EDE7DE',
-  borderActive: '#F0562A',
-  greenBg: '#E8F8EE',
-  greenText: '#1E824C',
-  blueBg: '#EBF3FA',
-  blueText: '#1D6399',
-  amberBg: '#FEF3C7',
-  amberText: '#B45309',
-  redBg: '#FDE8E8',
-  redText: '#D93838',
+  primaryOrange: adminColors.brand,
+  primaryOrangeLight: adminColors.brandTint,
+  primaryOrangeBorder: adminColors.border,
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textHeading: adminColors.ink,
+  textPrimary: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  borderSoft: adminColors.border,
+  borderActive: adminColors.brand,
+  greenBg: adminColors.success.bg,
+  greenText: adminColors.success.text,
+  blueBg: adminColors.info.bg,
+  blueText: adminColors.info.text,
+  amberBg: adminColors.warning.bg,
+  amberText: adminColors.warning.text,
+  redBg: adminColors.danger.bg,
+  redText: adminColors.danger.text,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-export function BackChevronIcon({ color = '#1F1714', size = 18 }: { color?: string; size?: number }) {
+export function BackChevronIcon({ color = adminColors.ink, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -47,7 +60,7 @@ export function BackChevronIcon({ color = '#1F1714', size = 18 }: { color?: stri
   );
 }
 
-function CreditCardIcon({ color = '#1E824C', size = 20 }: { color?: string; size?: number }) {
+function CreditCardIcon({ color = adminColors.success.text, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="5" width="20" height="14" rx="2.5" stroke={color} strokeWidth="2" />
@@ -58,7 +71,7 @@ function CreditCardIcon({ color = '#1E824C', size = 20 }: { color?: string; size
   );
 }
 
-export function ReceiptDocIcon({ color = SALES_PALETTE.primaryOrange, size = 20 }: { color?: string; size?: number }) {
+export function ReceiptDocIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -79,7 +92,7 @@ export function ReceiptDocIcon({ color = SALES_PALETTE.primaryOrange, size = 20 
   );
 }
 
-export function DeliveryTruckIcon({ color = SALES_PALETTE.primaryOrange, size = 22 }: { color?: string; size?: number }) {
+export function DeliveryTruckIcon({ color = adminColors.brand, size = 22 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="1" y="4" width="14" height="11" rx="1.5" stroke={color} strokeWidth="1.8" />
@@ -96,7 +109,7 @@ export function DeliveryTruckIcon({ color = SALES_PALETTE.primaryOrange, size = 
   );
 }
 
-export function ReturnUndoIcon({ color = SALES_PALETTE.primaryOrange, size = 20 }: { color?: string; size?: number }) {
+export function ReturnUndoIcon({ color = adminColors.brand, size = 20 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -117,7 +130,7 @@ export function ReturnUndoIcon({ color = SALES_PALETTE.primaryOrange, size = 20 
   );
 }
 
-export function ChevronRightIcon({ color = '#B5ACA4', size = 18 }: { color?: string; size?: number }) {
+export function ChevronRightIcon({ color = adminColors.muted, size = 18 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -138,15 +151,46 @@ export interface SalesChannelOverviewScreenProps {
   onOpenReturns?: () => void;
 }
 
+function currentMtdRange(): { from: string; to: string } {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return { from: `${y}-${m}-01`, to: `${y}-${m}-${d}` };
+}
+
 export function SalesChannelOverviewScreen({
   onBack,
   onSelectChannel,
   onOpenFulfillment,
   onOpenReturns,
 }: SalesChannelOverviewScreenProps) {
+  const mtd = React.useMemo(() => currentMtdRange(), []);
+  const { summary } = useSalesSummary(undefined, mtd);
+  const salesReport = useAdminQuery(
+    ['admin', 'reports', 'sales', 'channels-overview', mtd.from, mtd.to],
+    (signal) => getSalesReport(mtd, signal),
+  );
+
+  const reportCountFor = (channel: 'ONLINE' | 'MARKET' | 'HORECA' | 'B2B'): string => {
+    const row = salesReport.data?.byChannel?.find((c) => c.channel === channel);
+    return row !== undefined ? String(row.count) : ADMIN_NO_VALUE;
+  };
+
+  const totalOrders = summary ? String(summary.count) : ADMIN_NO_VALUE;
+  const totalRevenue = summary ? formatPaise(summary.revenuePaise) : ADMIN_NO_VALUE;
+
+  const onlineCount = reportCountFor('ONLINE');
+  const marketCount =
+    summary?.byChannel?.MARKET?.count !== undefined
+      ? String(summary.byChannel.MARKET.count)
+      : reportCountFor('MARKET');
+  const horecaCount = reportCountFor('HORECA');
+  const b2bCount = reportCountFor('B2B');
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}
@@ -159,8 +203,10 @@ export function SalesChannelOverviewScreen({
             onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
           >
-            <BackChevronIcon />
+            <BackChevronIcon color={adminColors.ink} />
           </TouchableOpacity>
         </View>
 
@@ -168,19 +214,20 @@ export function SalesChannelOverviewScreen({
         <View style={styles.titleBlock}>
           <Text style={styles.screenTitle}>Sales Channels</Text>
           <Text style={styles.screenSubtitle}>
-            Cross-channel order volume and value — this month
+            {t('wiringSales.channel.mtdSubtitle', { from: mtd.from, to: mtd.to })}
           </Text>
         </View>
 
         {/* 4 Channel Selector Cards */}
         <View style={styles.channelGrid}>
-          {/* Card 1: Online (Active / Highlighted) */}
+          {/* Card 1: Online */}
           <TouchableOpacity
             style={[styles.channelCard, styles.channelCardActive]}
             onPress={() => onSelectChannel?.('online')}
             activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            <Text style={[styles.channelNumber, styles.channelNumberActive]}>412</Text>
+            <Text style={[styles.channelNumber, styles.channelNumberActive]}>{onlineCount}</Text>
             <Text style={[styles.channelLabel, styles.channelLabelActive]}>Online</Text>
           </TouchableOpacity>
 
@@ -189,8 +236,9 @@ export function SalesChannelOverviewScreen({
             style={styles.channelCard}
             onPress={() => onSelectChannel?.('market')}
             activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            <Text style={styles.channelNumber}>58</Text>
+            <Text style={styles.channelNumber}>{marketCount}</Text>
             <Text style={styles.channelLabel}>Market</Text>
           </TouchableOpacity>
 
@@ -199,8 +247,9 @@ export function SalesChannelOverviewScreen({
             style={styles.channelCard}
             onPress={() => onSelectChannel?.('horeca')}
             activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            <Text style={styles.channelNumber}>19</Text>
+            <Text style={styles.channelNumber}>{horecaCount}</Text>
             <Text style={styles.channelLabel}>Horeca</Text>
           </TouchableOpacity>
 
@@ -209,8 +258,9 @@ export function SalesChannelOverviewScreen({
             style={styles.channelCard}
             onPress={() => onSelectChannel?.('b2b')}
             activeOpacity={0.8}
+            accessibilityRole="button"
           >
-            <Text style={styles.channelNumber}>7</Text>
+            <Text style={styles.channelNumber}>{b2bCount}</Text>
             <Text style={styles.channelLabel}>B2B</Text>
           </TouchableOpacity>
         </View>
@@ -220,18 +270,18 @@ export function SalesChannelOverviewScreen({
           {/* Total Revenue */}
           <View style={styles.metricCard}>
             <View style={styles.greenIconContainer}>
-              <CreditCardIcon color="#2E7D32" size={18} />
+              <CreditCardIcon color={adminColors.success.text} size={18} />
             </View>
-            <Text style={styles.metricValue}>₹18.4L</Text>
+            <Text style={styles.metricValue}>{totalRevenue}</Text>
             <Text style={styles.metricLabel}>Total Revenue (MTD)</Text>
           </View>
 
           {/* Total Orders */}
           <View style={styles.metricCard}>
             <View style={styles.orangeIconContainer}>
-              <ReceiptDocIcon color={SALES_PALETTE.primaryOrange} size={18} />
+              <ReceiptDocIcon color={adminColors.brand} size={18} />
             </View>
-            <Text style={styles.metricValue}>496</Text>
+            <Text style={styles.metricValue}>{totalOrders}</Text>
             <Text style={styles.metricLabel}>Total Orders</Text>
           </View>
         </View>
@@ -245,10 +295,11 @@ export function SalesChannelOverviewScreen({
             style={styles.quickAccessCard}
             onPress={onOpenFulfillment}
             activeOpacity={0.7}
+            accessibilityRole="button"
           >
             <View style={styles.quickAccessLeft}>
               <View style={styles.quickAccessIconBox}>
-                <DeliveryTruckIcon color={SALES_PALETTE.primaryOrange} size={20} />
+                <DeliveryTruckIcon color={adminColors.brand} size={20} />
               </View>
               <View style={styles.quickAccessTexts}>
                 <Text style={styles.quickAccessTitle}>Order Fulfillment Assignment</Text>
@@ -257,7 +308,7 @@ export function SalesChannelOverviewScreen({
                 </Text>
               </View>
             </View>
-            <ChevronRightIcon />
+            <ChevronRightIcon color={adminColors.muted} />
           </TouchableOpacity>
 
           {/* Item 2: Returns & Refunds */}
@@ -265,17 +316,18 @@ export function SalesChannelOverviewScreen({
             style={styles.quickAccessCard}
             onPress={onOpenReturns}
             activeOpacity={0.7}
+            accessibilityRole="button"
           >
             <View style={styles.quickAccessLeft}>
               <View style={styles.quickAccessIconBox}>
-                <ReturnUndoIcon color={SALES_PALETTE.primaryOrange} size={18} />
+                <ReturnUndoIcon color={adminColors.brand} size={18} />
               </View>
               <View style={styles.quickAccessTexts}>
                 <Text style={styles.quickAccessTitle}>Returns & Refunds</Text>
-                <Text style={styles.quickAccessSubtitle}>6 open RMA tickets</Text>
+                <Text style={styles.quickAccessSubtitle}>RMA tickets & refund status</Text>
               </View>
             </View>
-            <ChevronRightIcon />
+            <ChevronRightIcon color={adminColors.muted} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -286,195 +338,177 @@ export function SalesChannelOverviewScreen({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   container: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 40,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.xxl * 2,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.md,
   },
   backButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: SALES_PALETTE.cardBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   titleBlock: {
-    marginBottom: 20,
+    marginBottom: adminSpacing.md,
   },
   screenTitle: {
-    fontSize: 22,
+    ...adminType.title,
+    color: adminColors.ink,
     fontWeight: '700',
-    color: SALES_PALETTE.textHeading,
-    letterSpacing: -0.3,
     marginBottom: 4,
   },
   screenSubtitle: {
-    fontSize: 13,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 18,
   },
   channelGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    gap: 8,
+    marginBottom: adminSpacing.md,
+    gap: adminSpacing.xs,
   },
   channelCard: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.cardBg,
-    borderRadius: 16,
-    paddingVertical: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: SALES_PALETTE.borderSoft,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   channelCardActive: {
-    borderColor: SALES_PALETTE.primaryOrange,
-    backgroundColor: '#FFF8F5',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
   },
   channelNumber: {
+    ...adminType.body,
     fontSize: 18,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   channelNumberActive: {
-    color: SALES_PALETTE.primaryOrange,
+    color: adminColors.brand,
   },
   channelLabel: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: SALES_PALETTE.textSecondary,
+    color: adminColors.muted,
   },
   channelLabelActive: {
-    color: SALES_PALETTE.primaryOrange,
+    color: adminColors.brand,
     fontWeight: '600',
   },
   metricsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 28,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   metricCard: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   greenIconContainer: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: SALES_PALETTE.greenBg,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.success.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: adminSpacing.sm,
   },
   orangeIconContainer: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: SALES_PALETTE.primaryOrangeLight,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: adminSpacing.sm,
   },
   metricValue: {
+    ...adminType.title,
     fontSize: 20,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
-    letterSpacing: -0.3,
+    color: adminColors.ink,
     marginBottom: 4,
   },
   metricLabel: {
-    fontSize: 12,
-    color: SALES_PALETTE.textSecondary,
-    fontWeight: '400',
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   quickAccessSection: {
-    marginTop: 4,
+    marginTop: adminSpacing.xs,
   },
   sectionHeading: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: SALES_PALETTE.textHeading,
-    marginBottom: 12,
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
   },
   quickAccessCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: SALES_PALETTE.cardBg,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   quickAccessLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginRight: 10,
+    marginRight: adminSpacing.sm,
   },
   quickAccessIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: SALES_PALETTE.primaryOrangeLight,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: adminSpacing.md,
   },
   quickAccessTexts: {
     flex: 1,
   },
   quickAccessTitle: {
-    fontSize: 14,
+    ...adminType.body,
     fontWeight: '600',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
     marginBottom: 2,
   },
   quickAccessSubtitle: {
-    fontSize: 11,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
 });

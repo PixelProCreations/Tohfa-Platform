@@ -1,6 +1,18 @@
+/**
+ * Farmer Payout Dues (design: origin/Superadmin-main), fed by
+ * GET /admin/payout-dues (payout.dues.view). Read-only: there is no bulk payout
+ * endpoint, so Bulk-Process is disabled (brief 07 P1 #2), and a due is not a
+ * payout, so nothing here approves one.
+ *
+ * The header total and farmer count are the server's `totals` over every due
+ * (an unfiltered request), never a sum of one page (R4). Each aging chip asks
+ * the server for its bucket; "15+ days" asks for both D16_30 and D30_PLUS and
+ * shows the two lists together, so a due older than 30 days is never hidden.
+ * The aging words come from the server's ageBucket, not from local day limits.
+ * The dues carry no dual-approval flag, so no card claims one (R8, BR-31).
+ */
 import React, { useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,20 +22,15 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  chipBorder:    '#E8E2D8',
-  avatarBg:      '#FFF2EB',
-  avatarText:    '#E85226',
-  redOverdue:    '#DC2626',
-};
+import type { Money } from '@tohfa/shared-types';
+import { listPayoutDues, type PayoutDueAgeBucket, type PayoutDueDto } from '../../api/payoutDues';
+import { useAdminQuery } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { hasKey, t } from '../../i18n';
+import { adminColors, adminShadow, adminSpacing } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { countText, moneyText } from '../dashboard/saOverviewFormat';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function BackChevronIcon() {
@@ -31,7 +38,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -45,7 +52,7 @@ function CheckmarkIcon() {
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
         d="M20 6L9 17l-5-5"
-        stroke="#FFFFFF"
+        stroke={adminColors.card}
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -59,7 +66,7 @@ function PenIcon() {
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -70,111 +77,90 @@ function PenIcon() {
 
 type AgingFilter = 'All' | '0-7 days' | '8-15 days' | '15+ days';
 
-interface PayoutDueItem {
+/** One due as the cards draw it (also handed to the processing screen by roles/farmer/App.tsx). */
+export interface PayoutDueItem {
   id: string;
   initials: string;
   farmerName: string;
-  agingDays: number;
-  agingStatus: 'within window' | 'aging' | 'overdue';
-  amount: number;
-  requiresDualApproval: boolean;
+  /** Server ageDays; null when absent. */
+  agingDays: number | null;
+  /** The server bucket's words, or the dash. */
+  agingStatus: string;
+  overdue: boolean;
+  /** API decimal string. */
+  amount: Money;
   farmId: string;
   location: string;
 }
-
-const DUES_DATA: PayoutDueItem[] = [
-  {
-    id: 'pay-1',
-    initials: 'VA',
-    farmerName: 'Vijay Anand',
-    agingDays: 4,
-    agingStatus: 'within window',
-    amount: 8200,
-    requiresDualApproval: false,
-    farmId: '#TOHFA-F-00234',
-    location: 'Ooty',
-  },
-  {
-    id: 'pay-2',
-    initials: 'RS',
-    farmerName: 'Ramasamy S.',
-    agingDays: 12,
-    agingStatus: 'aging',
-    amount: 15400,
-    requiresDualApproval: true,
-    farmId: '#TOHFA-F-00189',
-    location: 'Coonoor',
-  },
-  {
-    id: 'pay-3',
-    initials: 'KM',
-    farmerName: 'Kavitha M.',
-    agingDays: 22,
-    agingStatus: 'overdue',
-    amount: 6750,
-    requiresDualApproval: false,
-    farmId: '#TOHFA-F-00302',
-    location: 'Kotagiri',
-  },
-  {
-    id: 'pay-4',
-    initials: 'PR',
-    farmerName: 'Praveen Raj',
-    agingDays: 2,
-    agingStatus: 'within window',
-    amount: 9400,
-    requiresDualApproval: false,
-    farmId: '#TOHFA-F-00411',
-    location: 'Gudalur',
-  },
-  {
-    id: 'pay-5',
-    initials: 'SB',
-    farmerName: 'Selvi B.',
-    agingDays: 16,
-    agingStatus: 'overdue',
-    amount: 4800,
-    requiresDualApproval: false,
-    farmId: '#TOHFA-F-00142',
-    location: 'Coonoor',
-  },
-];
 
 export interface FarmerPayoutDuesScreenProps {
   onBack: () => void;
   onNavigateToProcessing: (dueItem?: PayoutDueItem | undefined) => void;
 }
 
+/** The server buckets each chip asks for; undefined = every due. */
+export function agingBuckets(filter: AgingFilter): readonly PayoutDueAgeBucket[] | undefined {
+  if (filter === '0-7 days') return ['D0_7'];
+  if (filter === '8-15 days') return ['D8_15'];
+  if (filter === '15+ days') return ['D16_30', 'D30_PLUS'];
+  return undefined;
+}
+
+/** Page size per request (the API's maximum). */
+const DUES_PAGE_LIMIT = 100;
+
+export function toPayoutDueItem(dto: PayoutDueDto): PayoutDueItem {
+  const name = dto.farmerName && dto.farmerName.trim() !== '' ? dto.farmerName : ADMIN_NO_VALUE;
+  const initials =
+    name === ADMIN_NO_VALUE
+      ? ADMIN_NO_VALUE
+      : name
+          .split(/\s+/)
+          .filter((p) => p !== '')
+          .map((p) => p[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase();
+  const bucketKey = dto.ageBucket === undefined ? undefined : `wiringPayouts.payoutDues.bucket.${dto.ageBucket}`;
+  return {
+    id: dto.id,
+    initials,
+    farmerName: name,
+    agingDays: typeof dto.ageDays === 'number' ? dto.ageDays : null,
+    agingStatus: bucketKey !== undefined && hasKey(bucketKey) ? t(bucketKey) : ADMIN_NO_VALUE,
+    overdue: dto.ageBucket === 'D16_30' || dto.ageBucket === 'D30_PLUS',
+    amount: dto.amountDue,
+    farmId: dto.tohfaFarmerId ?? ADMIN_NO_VALUE,
+    location: ADMIN_NO_VALUE,
+  };
+}
+
 export function FarmerPayoutDuesScreen({
   onBack,
-  onNavigateToProcessing,
 }: FarmerPayoutDuesScreenProps) {
   const [activeFilter, setActiveFilter] = useState<AgingFilter>('All');
-  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
 
-  const filteredList = DUES_DATA.filter((item) => {
-    if (activeFilter === 'All') return true;
-    if (activeFilter === '0-7 days') return item.agingDays <= 7;
-    if (activeFilter === '8-15 days') return item.agingDays >= 8 && item.agingDays <= 15;
-    if (activeFilter === '15+ days') return item.agingDays > 15;
-    return true;
-  });
+  // Header: the server's totals over every due (limit 1: only `totals` is read).
+  const totalsQuery = useAdminQuery(adminKeys.scoped('payoutDues', undefined, { resource: 'totals' }), (signal) =>
+    listPayoutDues({ limit: 1 }, signal),
+  );
+  const totals = totalsQuery.data?.totals;
 
-  function handleBulkProcess() {
-    setIsProcessingBulk(true);
-    setTimeout(() => {
-      setIsProcessingBulk(false);
-      Alert.alert(
-        'Bulk Payouts Initiated',
-        'Direct bank transfers scheduled for 32 eligible farmer accounts under ₹10,000 via Tohfa Escrow.',
-        [{ text: 'OK' }]
+  const buckets = agingBuckets(activeFilter);
+  const listQuery = useAdminQuery(
+    adminKeys.scoped('payoutDues', undefined, { resource: 'list', buckets: buckets === undefined ? 'all' : buckets.join(',') }),
+    async (signal) => {
+      const pages = await Promise.all(
+        (buckets ?? [undefined]).map((ageBucket) => listPayoutDues({ ageBucket, limit: DUES_PAGE_LIMIT }, signal)),
       );
-    }, 800);
-  }
+      return pages.flatMap((page) => page.items);
+    },
+  );
+  const mappedList = (listQuery.data ?? []).map(toPayoutDueItem);
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       <ScrollView
         style={styles.scroll}
@@ -189,7 +175,7 @@ export function FarmerPayoutDuesScreen({
         {/* Heading Next */}
         <Text style={styles.screenTitle}>Farmer Payout Dues</Text>
         <Text style={styles.screenSub}>
-          ₹4.2L pending across 34 farmers · aged 7/15/30 days
+          {t('wiringPayouts.payoutDues.sub', { amount: moneyText(totals?.totalDue), farmers: countText(totals?.farmerCount) })}
         </Text>
 
         {/* Filter Chips */}
@@ -211,72 +197,70 @@ export function FarmerPayoutDuesScreen({
           })}
         </View>
 
-        {/* Farmer Dues List */}
-        <View style={styles.duesListCol}>
-          {filteredList.map((item) => {
-            const isOverdue = item.agingStatus === 'overdue';
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.dueCard}
-                onPress={() => {
-                  if (item.requiresDualApproval) {
-                    onNavigateToProcessing(item);
-                  }
-                }}
-                activeOpacity={item.requiresDualApproval ? 0.75 : 1}
-              >
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarText}>{item.initials}</Text>
-                </View>
+        {listQuery.isPending ? (
+          <AdminLoadingState label={t('wiringPayouts.payoutDues.loading')} />
+        ) : listQuery.error ? (
+          <AdminErrorState error={listQuery.error} onRetry={() => void listQuery.refetch()} />
+        ) : mappedList.length === 0 ? (
+          <AdminEmptyState title={t('wiringPayouts.payoutDues.empty.title')} subtitle={t('wiringPayouts.payoutDues.empty.subtitle')} />
+        ) : (
+          /* Farmer Dues List */
+          <View style={styles.duesListCol}>
+            {mappedList.map((item) => {
+              const isOverdue = item.overdue;
+              // A due is not a payout and carries no dual-approval flag, so a card opens nothing (R8).
+              return (
+                <TouchableOpacity key={item.id} style={styles.dueCard} activeOpacity={1} testID={`payoutDues.card.${item.id}`}>
+                  <View style={styles.avatarCircle}>
+                    <Text style={styles.avatarText}>{item.initials}</Text>
+                  </View>
 
-                <View style={styles.dueDetailsCol}>
-                  <Text style={styles.farmerName}>{item.farmerName}</Text>
-                  <Text style={[styles.agingText, isOverdue && styles.overdueText]}>
-                    {item.agingDays} days · {item.agingStatus}
-                  </Text>
-                </View>
+                  <View style={styles.dueDetailsCol}>
+                    <Text style={styles.farmerName}>{item.farmerName}</Text>
+                    <Text style={[styles.agingText, isOverdue && styles.overdueText]}>
+                      {t('wiringPayouts.payoutDues.aging', { days: countText(item.agingDays), status: item.agingStatus })}
+                    </Text>
+                  </View>
 
-                <Text style={styles.amountText}>
-                  ₹{item.amount.toLocaleString('en-IN')}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  <Text style={styles.amountText}>{moneyText(item.amount)}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Action Buttons */}
         <View style={styles.btnStack}>
-          {/* Primary Bulk Process */}
+          {/* Primary Bulk Process - Disabled per R3 (no backend endpoint) */}
           <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={handleBulkProcess}
-            activeOpacity={0.8}
-            disabled={isProcessingBulk}
+            style={[styles.primaryBtn, styles.actionUnavailable]}
+            activeOpacity={1}
+            disabled
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutDues.bulk"
           >
             <CheckmarkIcon />
             <Text style={styles.primaryBtnText}>
-              {isProcessingBulk ? 'Processing...' : 'Bulk-Process Payouts < ₹10K'}
+              Bulk-Process Payouts &lt; ₹10K
             </Text>
           </TouchableOpacity>
 
-          {/* Secondary Escalate Button */}
+          {/* Escalate (design): the dues carry no dual-approval flag and a due is not a payout, so it stays disabled (R3, R8). */}
           <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={() => {
-              const ramasamy = DUES_DATA.find((d) => d.amount > 10000);
-              onNavigateToProcessing(ramasamy);
-            }}
-            activeOpacity={0.75}
+            style={[styles.secondaryBtn, styles.actionUnavailable]}
+            disabled
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutDues.escalate"
           >
             <PenIcon />
-            <Text style={styles.secondaryBtnText}>
-              Escalate ₹15,400 Payout (&gt; ₹10K)
-            </Text>
+            <Text style={styles.secondaryBtnText}>{t('wiringPayouts.payoutDues.escalate', { amount: ADMIN_NO_VALUE })}</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -286,7 +270,7 @@ export function FarmerPayoutDuesScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   scroll: {
     flex: 1,
@@ -300,28 +284,24 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   screenTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: PALETTE.titleRust,
+    color: adminColors.brandDeep,
     letterSpacing: -0.3,
   },
   screenSub: {
     fontSize: 13,
     fontWeight: '400',
-    color: PALETTE.labelMuted,
+    color: adminColors.muted,
     marginTop: 4,
     marginBottom: 20,
   },
@@ -334,21 +314,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: PALETTE.chipBorder,
+    borderColor: adminColors.border,
   },
   filterChipActive: {
-    backgroundColor: PALETTE.orange,
-    borderColor: PALETTE.orange,
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   filterChipText: {
     fontSize: 12,
     fontWeight: '600',
-    color: PALETTE.labelMuted,
+    color: adminColors.muted,
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   duesListCol: {
@@ -356,25 +336,21 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   dueCard: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   avatarCircle: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: PALETTE.avatarBg,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,
@@ -382,7 +358,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 14,
     fontWeight: '700',
-    color: PALETTE.avatarText,
+    color: adminColors.brand,
   },
   dueDetailsCol: {
     flex: 1,
@@ -390,62 +366,58 @@ const styles = StyleSheet.create({
   farmerName: {
     fontSize: 14,
     fontWeight: '700',
-    color: PALETTE.ink,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   agingText: {
     fontSize: 12,
-    color: PALETTE.labelMuted,
+    color: adminColors.muted,
   },
   overdueText: {
-    color: PALETTE.redOverdue,
+    color: adminColors.danger.text,
   },
   amountText: {
     fontSize: 15,
     fontWeight: '800',
-    color: PALETTE.ink,
+    color: adminColors.ink,
   },
   btnStack: {
     gap: 12,
   },
   primaryBtn: {
-    backgroundColor: PALETTE.orange,
+    backgroundColor: adminColors.brand,
     borderRadius: 12,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: PALETTE.orange,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    elevation: 3,
+    ...adminShadow.md,
   },
   primaryBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   secondaryBtn: {
-    backgroundColor: PALETTE.cardBg,
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: PALETTE.border,
+    borderColor: adminColors.border,
     height: 50,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   secondaryBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: PALETTE.ink,
+    color: adminColors.ink,
+  },
+  /** The designed control, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
   },
 });

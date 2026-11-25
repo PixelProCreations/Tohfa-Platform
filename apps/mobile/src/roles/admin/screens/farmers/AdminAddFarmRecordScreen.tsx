@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -30,6 +29,7 @@ import {
 } from '../../components/AdminIcons';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 import type { EditFarmRecordData } from './AdminEditFarmRecordScreen';
+import { t } from '../../i18n';
 
 export type AddRecordTab = 'Diary' | 'Plant' | 'Crops' | 'Livestock' | 'Assets';
 
@@ -45,10 +45,10 @@ export interface AdminAddFarmRecordScreenProps {
 }
 
 const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
-  diaryPlot: ['Plot A', 'Plot B', 'Plot 1 (1.8 acre)', 'Plot 2 (1.2 acre)'],
+  diaryPlot: [],
   diaryCategory: ['Land prep', 'Sowing', 'Nutrient', 'Water', 'Weed'],
   diaryActivity: ['Ploughing', 'Bed Marking', 'Compost application', 'Hand weeding', 'Drip irrigation'],
-  diaryLinkedCrop: ['Tomato (Plot 1)', 'Beans (Plot 2)', 'Carrot (Plot 1)', 'Cabbage (Plot 2)'],
+  diaryLinkedCrop: [],
   plantType: ['Banana Tree', 'Coconut tree', 'Tomato', 'Beans', 'Carrot', 'Pepper'],
   plantVariant: ['Nendran', 'Grand Naine', 'Dwarf Green', 'Hybrid F1', 'Country'],
   plantArea: ['0.5', '1.0', '1.5', '2.0', '2.5'],
@@ -59,14 +59,14 @@ const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
   cropClassification: ['Root Crop', 'Fruiting Vegetable', 'Legume', 'Leafy Vegetable'],
   speciesVariety: ['Ooty Carrot', 'Nantes', 'Pusa Kesar', 'Roma'],
   suitableSeason: ['Kharif', 'Rabi', 'Zaid', 'All Seasons'],
-  suitableZone: ['Coonoor', 'Ooty', 'Kotagiri', 'Nilgiris'],
-  suitableSoil: ['Coonoor', 'Ooty', 'Loam', 'Black Clay', 'Forest Loam'],
+  suitableZone: [],
+  suitableSoil: ['Loam', 'Black Clay', 'Forest Loam'],
   gradeSupported: ['Grade (G1)', 'Grade (G2)', 'Grade (G3)', 'Not Mentions'],
   livestockType: ['Cattle', 'Poultry', 'Goat', 'Sheep'],
-  livestockId: ['COW-01', 'COW-02', 'GOAT-01', 'CHK-01'],
+  livestockId: [],
   livestockSpecies: ['Cow', 'Buffalo', 'Goat', 'Hen'],
   livestockGender: ['Female', 'Male'],
-  sourceFarm: ['Coonoor Dairy Farm', 'Ooty Livestock Co-op', 'Own Farm Born'],
+  sourceFarm: [],
   organicStatus: ['Certified Organic', 'In Conversion', 'Conventional'],
   feedPlan: ['Morning fodder + mineral mix', 'Twice daily silage', 'Free range + grain'],
   feedType: ['Green Napier Grass', 'Dry Hay', 'Silage', 'Concentrate Feed'],
@@ -78,7 +78,7 @@ const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
   qualityGrade: ['A+', 'A', 'B'],
   appearanceType: ['Normal', 'Rich Cream', 'Standard'],
   breedType: ['Jersey', 'HF Cross', 'Sahiwal', 'Gir', 'Malabari'],
-  sireBull: ['Sire-IND-01', 'Sire-JRS-04', 'AI Center Coonoor'],
+  sireBull: [],
   breedingMethod: ['Artificial Insemination', 'Natural Service'],
   breedColor: ['Brown & White', 'Black & White', 'Dark Red'],
   inseminationType: ['Fresh Semen', 'Frozen Straws', 'Sorted Semen'],
@@ -104,6 +104,16 @@ const DEFAULT_FIELD_OPTIONS: Record<string, string[]> = {
   assetSources: ['Added by Farmer', 'Purchased New', 'Co-op Grant', 'Leased'],
 };
 
+/**
+ * The design's Add / Edit farm record screen (Diary, Plant, Crops, Livestock in
+ * five steps, Assets). Every form, picker and stepper works as drawn; no admin
+ * write endpoint exists yet, so each Save is disabled with a note and nothing
+ * reports a save (R3). Option lists that are per-farmer data (plots, linked
+ * crops, livestock ids, source farms, sires, zones) start empty until an API
+ * supplies them; no field is prefilled with the design's sample values. The
+ * fields each form collects are listed in docs/antigravity/08a-farm-records-fields.md.
+ * `onSave` stays on the props for the day a write exists.
+ */
 export function AdminAddFarmRecordScreen({
   initialTab = 'Diary',
   farmerName = ADMIN_NO_VALUE,
@@ -112,7 +122,6 @@ export function AdminAddFarmRecordScreen({
   mode = 'add',
   initialRecord,
   onBack,
-  onSave,
 }: AdminAddFarmRecordScreenProps): React.JSX.Element {
   const isEditMode = mode === 'edit';
   const rawCropParts = (initialRecord?.subCategory ?? '')
@@ -143,44 +152,42 @@ export function AdminAddFarmRecordScreen({
   const [calendarTarget, setCalendarTarget] = useState<'diary' | 'acquired' | null>(null);
 
   // ─── DIARY FORM STATE ───
-  const [diaryDate, setDiaryDate] = useState(initialRecord?.date ?? '28-10-2026');
+  const [diaryDate, setDiaryDate] = useState(initialRecord?.date ?? '');
   const [diaryPlot, setDiaryPlot] = useState(isEditMode ? (initialRecord?.plot ?? '') : '');
-  const [diaryPlotTags, setDiaryPlotTags] = useState(['Plot A', 'Plot B']);
+  const [diaryPlotTags, setDiaryPlotTags] = useState<string[]>([]);
   const [diaryCategory, setDiaryCategory] = useState(
-    isEditMode ? (initialRecord?.category ?? 'Land prep') : 'Land prep',
+    isEditMode ? (initialRecord?.category ?? '') : '',
   );
-  const [diaryCategoryTags, setDiaryCategoryTags] = useState(['Sowing', 'Nutrient', 'Water', 'Weed']);
+  const [diaryCategoryTags, setDiaryCategoryTags] = useState<string[]>([]);
   const [diaryActivity, setDiaryActivity] = useState(
-    isEditMode ? (initialRecord?.subCategory ?? 'Ploughing') : 'Ploughing',
+    isEditMode ? (initialRecord?.subCategory ?? '') : '',
   );
-  const [diaryActivityTags, setDiaryActivityTags] = useState(['Bed Marking']);
-  const [timeSpent, setTimeSpent] = useState(isEditMode ? (initialRecord?.timeSpent ?? '0') : '0');
+  const [diaryActivityTags, setDiaryActivityTags] = useState<string[]>([]);
+  const [timeSpent, setTimeSpent] = useState(isEditMode ? (initialRecord?.timeSpent ?? '') : '');
   const [linkedCrop, setLinkedCrop] = useState(isEditMode ? (initialRecord?.linkedCrop ?? '') : '');
   const [diaryNotes, setDiaryNotes] = useState(
-    isEditMode ? (initialRecord?.notes ?? '') : 'Applied compost before the next rain.',
+    isEditMode ? (initialRecord?.notes ?? '') : '',
   );
-  const [workers, setWorkers] = useState([{ name: 'Worker 1', hours: '4', wage: '350' }]);
+  const [workers, setWorkers] = useState([{ name: '', hours: '', wage: '' }]);
 
   // ─── PLANT FORM STATE ───
   const [plantType, setPlantType] = useState(
-    isEditMode && initialRecord?.type === 'crop' ? (rawCropParts[0] ?? 'Tomato') : '',
+    isEditMode && initialRecord?.type === 'crop' ? (rawCropParts[0] ?? '') : '',
   );
-  const [plantTypeTags, setPlantTypeTags] = useState(['Banana Tree', 'Coconut tree']);
+  const [plantTypeTags, setPlantTypeTags] = useState<string[]>([]);
   const [plantVariant, setPlantVariant] = useState(
-    isEditMode && initialRecord?.type === 'crop' ? (rawCropParts[1] ?? 'Nantes') : '',
+    isEditMode && initialRecord?.type === 'crop' ? (rawCropParts[1] ?? '') : '',
   );
   const [plantArea, setPlantArea] = useState(
-    isEditMode && initialRecord?.type === 'crop' ? (rawPlotAreaMatch?.[1] ?? '1.0') : '',
+    isEditMode && initialRecord?.type === 'crop' ? (rawPlotAreaMatch?.[1] ?? '') : '',
   );
   const [plantGrade, setPlantGrade] = useState(
     isEditMode && initialRecord?.type === 'crop'
-      ? initialRecord.grade === 'Grade 1'
-        ? 'Grade (G1)'
-        : (initialRecord.grade ?? 'Grade (G1)')
+      ? (initialRecord.grade ?? '')
       : '',
   );
   const [plantExpectedHarvestDays, setPlantExpectedHarvestDays] = useState(
-    isEditMode && initialRecord?.type === 'crop' ? '90' : '',
+    '',
   );
   const [plantNotes, setPlantNotes] = useState(
     isEditMode && initialRecord?.type === 'crop' ? (initialRecord.notes ?? '') : '',
@@ -191,12 +198,12 @@ export function AdminAddFarmRecordScreen({
     isEditMode && initialRecord?.type === 'crop' ? (initialRecord.subCategory ?? '') : '',
   );
   const [cropCode, setCropCode] = useState(
-    isEditMode && initialRecord?.type === 'crop' ? (initialRecord.id ?? 'CAR003').toUpperCase() : 'CAR003',
+    '',
   );
   const [cropCategory, setCropCategory] = useState(
     isEditMode && initialRecord?.type === 'crop' ? (initialRecord.category ?? '') : '',
   );
-  const [cropCategoryTags, setCropCategoryTags] = useState(['Vegetable', 'Fruit', 'Spice', 'Others']);
+  const [cropCategoryTags, setCropCategoryTags] = useState<string[]>([]);
   const [localAltName, setLocalAltName] = useState('');
   const [cropDesc, setCropDesc] = useState(
     isEditMode && initialRecord?.type === 'crop' ? (initialRecord.notes ?? '') : '',
@@ -206,13 +213,13 @@ export function AdminAddFarmRecordScreen({
   const [cropClassification, setCropClassification] = useState('');
   const [speciesVariety, setSpeciesVariety] = useState('');
   const [suitableSeason, setSuitableSeason] = useState('');
-  const [suitableZone, setSuitableZone] = useState('Nilgiris');
-  const [suitableZoneTags, setSuitableZoneTags] = useState(['Coonoor', 'Ooty']);
-  const [suitableSoil, setSuitableSoil] = useState('Nilgiris');
-  const [suitableSoilTags, setSuitableSoilTags] = useState(['Coonoor', 'Ooty']);
+  const [suitableZone, setSuitableZone] = useState('');
+  const [suitableZoneTags, setSuitableZoneTags] = useState<string[]>([]);
+  const [suitableSoil, setSuitableSoil] = useState('');
+  const [suitableSoilTags, setSuitableSoilTags] = useState<string[]>([]);
   const [examHarvestDays, setExamHarvestDays] = useState('');
-  const [gradeSupported, setGradeSupported] = useState('Grade (G3)');
-  const [gradeTags, setGradeTags] = useState(['Grade (G2)', 'Grade (G1)', 'Not Mentions']);
+  const [gradeSupported, setGradeSupported] = useState('');
+  const [gradeTags, setGradeTags] = useState<string[]>([]);
   const [growthStages, setGrowthStages] = useState({
     seeding: '0',
     germination: '0',
@@ -232,31 +239,29 @@ export function AdminAddFarmRecordScreen({
   const [livestockStep, setLivestockStep] = useState<number>(1);
   const [livestockType, setLivestockType] = useState(
     isEditMode && initialRecord?.type === 'livestock'
-      ? initialRecord.category === 'Hen'
-        ? 'Poultry'
-        : 'Cattle'
+      ? (initialRecord.category ?? '')
       : '',
   );
   const [livestockId, setLivestockId] = useState(
     isEditMode && initialRecord?.type === 'livestock'
-      ? (initialLivestockSubParts[0] ?? 'COW-01')
+      ? (initialLivestockSubParts[0] ?? '')
       : '',
   );
   const [livestockSpecies, setLivestockSpecies] = useState(
-    isEditMode && initialRecord?.type === 'livestock' ? (initialRecord.category ?? 'Cow') : '',
+    isEditMode && initialRecord?.type === 'livestock' ? (initialRecord.category ?? '') : '',
   );
   const [livestockGender, setLivestockGender] = useState(
-    isEditMode && initialRecord?.type === 'livestock' ? 'Female' : '',
+    '',
   );
   const [sourceFarm, setSourceFarm] = useState(
-    isEditMode && initialRecord?.type === 'livestock' ? 'Own Farm Born' : '',
+    '',
   );
   const [organicStatus, setOrganicStatus] = useState(
-    isEditMode && initialRecord?.type === 'livestock' ? 'Certified Organic' : '',
+    '',
   );
   const [livestockTag, setLivestockTag] = useState(
     isEditMode && initialRecord?.type === 'livestock'
-      ? (initialLivestockSubParts[0] ?? 'COW-01')
+      ? (initialLivestockSubParts[0] ?? '')
       : '',
   );
   const [livestockName, setLivestockName] = useState(
@@ -264,8 +269,8 @@ export function AdminAddFarmRecordScreen({
   );
   const [acquiredOn, setAcquiredOn] = useState(
     isEditMode && initialRecord?.type === 'livestock'
-      ? (initialRecord.date ?? '28-10-2026')
-      : '28-10-2026',
+      ? (initialRecord.date ?? '')
+      : '',
   );
   const [livestockNotes, setLivestockNotes] = useState(
     isEditMode && initialRecord?.type === 'livestock' ? (initialRecord.notes ?? '') : '',
@@ -289,7 +294,7 @@ export function AdminAddFarmRecordScreen({
 
   // Step 4 Breeding Record (Images 1 & 2)
   const [breedType, setBreedType] = useState(
-    isEditMode && initialRecord?.type === 'livestock' ? (initialRecord.breed ?? 'Jersey') : '',
+    isEditMode && initialRecord?.type === 'livestock' ? (initialRecord.breed ?? '') : '',
   );
   const [sireBull, setSireBull] = useState('');
   const [breedingMethod, setBreedingMethod] = useState('');
@@ -321,24 +326,22 @@ export function AdminAddFarmRecordScreen({
   // Assets Form State (Image 5)
   const [assetsType, setAssetsType] = useState(
     isEditMode && initialRecord?.type === 'asset'
-      ? rawAssetParts.toLowerCase().includes('tiller')
-        ? 'Power Tiller'
-        : (rawAssetParts || 'Sprayer')
+      ? rawAssetParts
       : '',
   );
   const [assetCategory, setAssetCategory] = useState(
     isEditMode && initialRecord?.type === 'asset' ? (initialRecord.category ?? '') : '',
   );
   const [assetSources, setAssetSources] = useState(
-    isEditMode && initialRecord?.type === 'asset' ? 'Added by Farmer' : '',
+    '',
   );
   const [purchaseDate, setPurchaseDate] = useState(
     isEditMode && initialRecord?.type === 'asset'
-      ? (initialRecord.date ?? '28-10-2026')
-      : '28-10-2026',
+      ? (initialRecord.date ?? '')
+      : '',
   );
   const [serviceEveryDays, setServiceEveryDays] = useState(
-    isEditMode && initialRecord?.type === 'asset' ? (initialRecord.serviceInterval ?? '180') : '180',
+    isEditMode && initialRecord?.type === 'asset' ? (initialRecord.serviceInterval ?? '') : '',
   );
   const [assetNotes, setAssetNotes] = useState(
     isEditMode && initialRecord?.type === 'asset' ? (initialRecord.notes ?? '') : '',
@@ -616,7 +619,7 @@ export function AdminAddFarmRecordScreen({
                   onPress={() =>
                     setWorkers((prev) => [
                       ...prev,
-                      { name: `Worker ${prev.length + 1}`, hours: '4', wage: '350' },
+                      { name: '', hours: '', wage: '' },
                     ])
                   }
                 >
@@ -627,7 +630,9 @@ export function AdminAddFarmRecordScreen({
               {workers.map((w, idx) => (
                 <View key={idx} style={styles.workerRow}>
                   <View style={{ flex: 1.2 }}>
-                    <Text style={styles.tableHeaderSmall}>{w.name}</Text>
+                    <Text style={styles.tableHeaderSmall}>
+                      {w.name || t('wiringFarmers.records.form.workerN', { n: idx + 1 })}
+                    </Text>
                     <TextInput
                       style={styles.compactInput}
                       value={w.name}
@@ -669,19 +674,29 @@ export function AdminAddFarmRecordScreen({
 
               {/* Photos */}
               <Text style={styles.fieldLabel}>Photos (up to 5)</Text>
-              <TouchableOpacity style={styles.photoUploadDashed} activeOpacity={0.7}>
+              <TouchableOpacity
+                testID="farmrec.add.diary.photo"
+                style={styles.photoUploadDashed}
+                activeOpacity={0.7}
+                disabled
+                accessibilityState={{ disabled: true }}
+              >
                 <ImageIcon size={24} color={adminColors.muted} />
               </TouchableOpacity>
             </View>
 
             {/* Bottom Button */}
             <TouchableOpacity
-              style={styles.primarySolidBtn}
-              onPress={() => onSave?.('Diary', { diaryDate, diaryNotes })}
+              testID="farmrec.add.diary.save"
+              style={[styles.primarySolidBtn, styles.actionUnavailable]}
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
               activeOpacity={0.8}
             >
               <Text style={styles.primarySolidBtnText}>Save</Text>
             </TouchableOpacity>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         )}
 
@@ -756,12 +771,16 @@ export function AdminAddFarmRecordScreen({
             </View>
 
             <TouchableOpacity
-              style={styles.primarySolidBtn}
-              onPress={() => onSave?.('Plant', { plantTypeTags, plantNotes })}
+              testID="farmrec.add.plant.save"
+              style={[styles.primarySolidBtn, styles.actionUnavailable]}
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
               activeOpacity={0.8}
             >
               <Text style={styles.primarySolidBtnText}>Save Plant</Text>
             </TouchableOpacity>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         )}
 
@@ -792,8 +811,11 @@ export function AdminAddFarmRecordScreen({
                   onChangeText={setCropCode}
                 />
                 <TouchableOpacity
-                  style={styles.generateBtn}
-                  onPress={() => setCropCode(`CAR${Math.floor(100 + Math.random() * 900)}`)}
+                  testID="farmrec.add.crops.generateCode"
+                  style={[styles.generateBtn, styles.actionUnavailable]}
+                  disabled
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
                 >
                   <Text style={styles.generateBtnText}>Generate</Text>
                 </TouchableOpacity>
@@ -834,7 +856,7 @@ export function AdminAddFarmRecordScreen({
             <Text style={styles.subSectionTitle}>Upload Crop Image</Text>
             <View style={styles.dashedUploadBox}>
               <UploadIcon size={24} color={adminColors.brand} />
-              <TouchableOpacity style={styles.uploadInnerBtn}>
+              <TouchableOpacity style={styles.uploadInnerBtn} disabled accessibilityState={{ disabled: true }}>
                 <Text style={styles.uploadInnerBtnText}>Upload</Text>
               </TouchableOpacity>
             </View>
@@ -1013,12 +1035,12 @@ export function AdminAddFarmRecordScreen({
               />
 
               <View style={styles.uploadRow}>
-                <TouchableOpacity style={styles.uploadDashedBtn} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.uploadDashedBtn} activeOpacity={0.7} disabled accessibilityState={{ disabled: true }}>
                   <UploadIcon size={16} color={adminColors.brand} />
                   <Text style={styles.uploadDashedBtnText}>Upload Crop image</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.uploadDashedBtn} activeOpacity={0.7}>
+                <TouchableOpacity style={styles.uploadDashedBtn} activeOpacity={0.7} disabled accessibilityState={{ disabled: true }}>
                   <UploadIcon size={16} color={adminColors.brand} />
                   <Text style={styles.uploadDashedBtnText}>Upload Crop Document</Text>
                 </TouchableOpacity>
@@ -1027,8 +1049,11 @@ export function AdminAddFarmRecordScreen({
 
             <View style={styles.btnRow}>
               <TouchableOpacity
-                style={[styles.primarySolidBtn, { flex: 1 }]}
-                onPress={() => onSave?.('Crops', { cropName, cropCode, growthStages })}
+                testID="farmrec.add.crops.save"
+                style={[styles.primarySolidBtn, { flex: 1 }, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
               >
                 <Text style={styles.primarySolidBtnText}>Save Crop</Text>
               </TouchableOpacity>
@@ -1036,6 +1061,7 @@ export function AdminAddFarmRecordScreen({
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         )}
 
@@ -1614,21 +1640,16 @@ export function AdminAddFarmRecordScreen({
                     <Text style={styles.cancelBtnText}>Back</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.primarySolidBtn, { flex: 1 }]}
-                    onPress={() =>
-                      onSave?.('Livestock', {
-                        livestockType,
-                        livestockId,
-                        livestockName,
-                        livestockTag,
-                        breedType,
-                        healthStatus,
-                      })
-                    }
+                    testID="farmrec.add.livestock.save"
+                    style={[styles.primarySolidBtn, { flex: 1 }, styles.actionUnavailable]}
+                    disabled
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: true }}
                   >
                     <Text style={styles.primarySolidBtnText}>Save Livestock</Text>
                   </TouchableOpacity>
                 </View>
+                <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
               </View>
             )}
           </View>
@@ -1669,19 +1690,18 @@ export function AdminAddFarmRecordScreen({
             </View>
 
             <TouchableOpacity
-              style={styles.primarySolidBtn}
-              onPress={() => {
-                if (isEditMode) {
-                  Alert.alert('Saved', 'Asset record updated successfully.');
-                }
-                onSave?.('Assets', { assetsType, assetCategory, assetSources, purchaseDate, serviceEveryDays, assetNotes });
-              }}
+              testID="farmrec.add.assets.save"
+              style={[styles.primarySolidBtn, styles.actionUnavailable]}
+              disabled
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
               activeOpacity={0.8}
             >
               <Text style={styles.primarySolidBtnText}>
                 {isEditMode ? 'Save Changes' : 'Save Assets'}
               </Text>
             </TouchableOpacity>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         )}
       </ScrollView>
@@ -2308,6 +2328,15 @@ const styles = StyleSheet.create({
   pickerOptionRowTextActive: {
     color: adminColors.brandDeep,
     fontWeight: '700',
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.xs,
   },
 });
 

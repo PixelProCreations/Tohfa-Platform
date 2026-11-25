@@ -60,6 +60,7 @@ vi.mock('../../farmer/api/auth', () => ({
 vi.mock('../screens/tohfa-home/TohfaHomeScreen', () => ({ TohfaHomeScreen: h.stub('TohfaHomeScreen') }));
 vi.mock('../screens/operations', () => ({ WarehouseOverviewScreen: h.stub('WarehouseOverviewScreen') }));
 vi.mock('../screens/finance-hub', () => ({ FinanceHubScreen: h.stub('FinanceHubScreen') }));
+vi.mock('../screens/finance', () => ({ FinanceManagementFlow: h.stub('FinanceManagementFlow') }));
 vi.mock('../screens/more/AdminMoreMenuScreen', () => ({ AdminMoreMenuScreen: h.stub('AdminMoreMenuScreen') }));
 vi.mock('../screens/settings/TohfaAdminSettingsScreen', () => ({ TohfaAdminSettingsScreen: h.stub('TohfaAdminSettingsScreen') }));
 vi.mock('../screens/farmers/FarmersFlow', () => ({ FarmersFlow: h.stub('FarmersFlow') }));
@@ -89,6 +90,7 @@ import {
 import { TohfaHomeScreen } from '../screens/tohfa-home/TohfaHomeScreen';
 import { WarehouseOverviewScreen } from '../screens/operations';
 import { FinanceHubScreen as TohfaFinanceHubScreen } from '../screens/finance-hub';
+import { FinanceManagementFlow } from '../screens/finance';
 import { AdminMoreMenuScreen } from '../screens/more/AdminMoreMenuScreen';
 import { TohfaAdminSettingsScreen } from '../screens/settings/TohfaAdminSettingsScreen';
 import { FarmersFlow } from '../screens/farmers/FarmersFlow';
@@ -236,7 +238,7 @@ describe('tab bar', () => {
     none(tree, WorkQueueScreen);
     expectAdminCan(only(tree, WarehouseOverviewScreen).can);
     pressTab(tree, 'Finance');
-    expectAdminCan(only(tree, TohfaFinanceHubScreen).can);
+    expectAdminCan(only(tree, FinanceManagementFlow).can);
     pressTab(tree, 'More');
     expectAdminCan(only(tree, AdminMoreMenuScreen).can);
     pressTab(tree, 'Home');
@@ -316,7 +318,7 @@ describe('Home tab wiring', () => {
     only(tree, WarehouseOverviewScreen);
     pressTab(tree, 'Home');
     call(only(tree, TohfaHomeScreen).onOpenFinance);
-    only(tree, TohfaFinanceHubScreen);
+    only(tree, FinanceManagementFlow);
   });
 });
 
@@ -391,48 +393,24 @@ describe('Inventory tab wiring', () => {
 });
 
 describe('Finance tab wiring', () => {
-  const WIRED = ['onOpenSales', 'onOpenSalesIncome', 'onOpenExpenses', 'onOpenWallet', 'onOpenReturns', 'onOpenInvoices', 'onOpenTransactionHistory'];
-  const UNWIRED = ['onOpenDuesPayouts', 'onOpenReports', 'onOpenFilter', 'onExport'];
-
-  it('wires only the built destinations', async () => {
+  it('mounts FinanceManagementFlow with admin can and returns Home on back', async () => {
     const tree = await mount();
     pressTab(tree, 'Finance');
-    expect(definedKeys(only(tree, TohfaFinanceHubScreen), [...WIRED, ...UNWIRED])).toEqual(WIRED);
+    none(tree, TohfaFinanceHubScreen);
+    const flow = only(tree, FinanceManagementFlow);
+    expectAdminCan(flow.can);
+    call(flow.onBack);
+    only(tree, TohfaHomeScreen);
   });
 
-  it.each([
-    ['onOpenSales', SalesFlow, {}],
-    ['onOpenSalesIncome', FinanceFlow, { initialScreen: 'Revenue' }],
-    ['onOpenExpenses', FinanceFlow, { initialScreen: 'Expenses' }],
-    ['onOpenWallet', WalletFlow, {}],
-    ['onOpenReturns', ReturnsFlow, {}],
-    ['onOpenInvoices', BillingFlow, {}],
-    ['onOpenTransactionHistory', FinanceFlow, { initialScreen: 'FinanceHistory' }],
-  ] as const)('%s opens its flow (all warehouses, admin can) and back returns to Finance', async (cb, Flow, expected) => {
-    const tree = await mount();
-    pressTab(tree, 'Finance');
-    call(only(tree, TohfaFinanceHubScreen)[cb]);
-    const props = only(tree, Flow);
-    expect(props).toMatchObject({ ...expected, scope: ALL_WAREHOUSES });
-    expectAdminCan(props.can);
-    call(props.onBack);
-    only(tree, TohfaFinanceHubScreen);
-  });
-
-  it('onOpenInvoices opens the same BillingFlow Home opens; back lands on the Finance tab, not Home', async () => {
+  it('Home onOpenInvoices opens BillingFlow and returns to Home on back', async () => {
     const tree = await mount();
     call(only(tree, TohfaHomeScreen).onOpenInvoices);
     const fromHome = only(tree, BillingFlow);
+    expect(fromHome.scope).toEqual(ALL_WAREHOUSES);
+    expectAdminCan(fromHome.can);
     call(fromHome.onBack);
-    pressTab(tree, 'Finance');
-    call(only(tree, TohfaFinanceHubScreen).onOpenInvoices);
-    none(tree, TohfaFinanceHubScreen);
-    const fromFinance = only(tree, BillingFlow);
-    expect(fromFinance.scope).toEqual(fromHome.scope);
-    expectAdminCan(fromFinance.can);
-    call(fromFinance.onBack);
-    only(tree, TohfaFinanceHubScreen);
-    none(tree, TohfaHomeScreen);
+    only(tree, TohfaHomeScreen);
   });
 });
 
@@ -442,7 +420,21 @@ describe('More tab wiring', () => {
     const tree = await mount({ onSignOut });
     pressTab(tree, 'More');
     const more = only(tree, AdminMoreMenuScreen);
-    expect(Object.keys(more.handlers as object).sort()).toEqual(['audit', 'customers', 'farmers', 'notifications', 'pricing', 'produce', 'purchase_sales', 'reports', 'settings']);
+    expect(Object.keys(more.handlers as object).sort()).toEqual([
+      'allocation',
+      'audit',
+      'customers',
+      'farmers',
+      'inputs',
+      'notifications',
+      'pricing',
+      'produce',
+      'purchase_sales',
+      'reports',
+      'sales_orders',
+      'settings',
+      'staff',
+    ]);
     expect(more.canSwitchRole).toBe(false);
     call(more.onLogout);
     expect(onSignOut).toHaveBeenCalledTimes(1);
@@ -503,11 +495,11 @@ describe('More tab wiring', () => {
 describe('Android back', () => {
   it('sub-flow -> its tab; tab -> Home; Home -> not handled', async () => {
     const tree = await mount();
-    pressTab(tree, 'Finance');
-    call(only(tree, TohfaFinanceHubScreen).onOpenWallet);
-    only(tree, WalletFlow);
+    pressTab(tree, 'Inventory');
+    call(only(tree, WarehouseOverviewScreen).onOpenTransfers);
+    only(tree, TransfersFlow);
     expect(pressBack()).toBe(true);
-    only(tree, TohfaFinanceHubScreen);
+    only(tree, WarehouseOverviewScreen);
     expect(pressBack()).toBe(true);
     only(tree, TohfaHomeScreen);
     expect(pressBack()).toBe(false);

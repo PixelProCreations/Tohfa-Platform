@@ -17,6 +17,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -87,86 +88,12 @@ export interface RecentReportItem {
   actionKey: 'pl' | 'farmer' | 'warehouse';
 }
 
-const RECENT_REPORTS_DATA: RecentReportItem[] = [
-  {
-    id: 'rep-1',
-    title: 'P&L Report',
-    category: 'Financial',
-    period: 'September 2026 MTD',
-    typeDesc: 'Financial Statements & EBITDA',
-    fileFormat: 'PDF · 1.8 MB',
-    actionKey: 'pl',
-  },
-  {
-    id: 'rep-2',
-    title: 'Farmer Performance Summary',
-    category: 'Farmers',
-    period: 'Generated 2d ago',
-    typeDesc: 'Yields, Ratings & Disbursals',
-    fileFormat: 'Excel · 2.4 MB',
-    actionKey: 'farmer',
-  },
-  {
-    id: 'rep-3',
-    title: 'Warehouse Hub Operations Audit',
-    category: 'Operations',
-    period: 'Generated 3d ago',
-    typeDesc: 'Kotagiri & Ooty Hub Stock Reconciliations',
-    fileFormat: 'PDF · 1.6 MB',
-    actionKey: 'warehouse',
-  },
-  {
-    id: 'rep-4',
-    title: 'P&L Statement (August 2026)',
-    category: 'Financial',
-    period: 'Closed August 2026',
-    typeDesc: 'Consolidated Audited Monthly P&L',
-    fileFormat: 'PDF · 2.1 MB',
-    actionKey: 'pl',
-  },
-  {
-    id: 'rep-5',
-    title: 'Farmgate Procurement & Mandi Batches',
-    category: 'Operations',
-    period: 'Generated 4d ago',
-    typeDesc: 'Daily Lot Inflow & Weighment Log',
-    fileFormat: 'PDF · 1.2 MB',
-    actionKey: 'warehouse',
-  },
-  {
-    id: 'rep-6',
-    title: 'Quality Sorting & QC Rejection Audit',
-    category: 'Audits',
-    period: 'Generated 5d ago',
-    typeDesc: 'Grading Discard & Spoilage Analysis',
-    fileFormat: 'PDF · 1.9 MB',
-    actionKey: 'warehouse',
-  },
-  {
-    id: 'rep-7',
-    title: 'Farmer KYC & Verification Registry',
-    category: 'Farmers',
-    period: 'Generated 1w ago',
-    typeDesc: 'Compliance Tiers & Aadhaar Verification',
-    fileFormat: 'PDF · 3.1 MB',
-    actionKey: 'farmer',
-  },
-  {
-    id: 'rep-8',
-    title: 'Direct Farmer Payout Settlement Audit',
-    category: 'Financial',
-    period: 'Generated 1w ago',
-    typeDesc: 'Banking Settlement & Escrow Clearing',
-    fileFormat: 'PDF · 1.4 MB',
-    actionKey: 'pl',
-  },
-];
-
 export interface AllRecentReportsScreenProps {
   onBack: () => void;
   onOpenPLReport: () => void;
   onOpenFarmerPerformanceReport: () => void;
   onOpenWarehouseOpsReport: () => void;
+  reports?: RecentReportItem[] | undefined;
 }
 
 export function AllRecentReportsScreen({
@@ -174,12 +101,14 @@ export function AllRecentReportsScreen({
   onOpenPLReport,
   onOpenFarmerPerformanceReport,
   onOpenWarehouseOpsReport,
+  reports,
 }: AllRecentReportsScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<RecentReportCategory>('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const sourceReports = reports ?? [];
 
   const filteredReports = useMemo(() => {
-    return RECENT_REPORTS_DATA.filter((item) => {
+    return sourceReports.filter((item) => {
       const matchesCategory =
         selectedCategory === 'All' || item.category === selectedCategory;
       const q = searchQuery.trim().toLowerCase();
@@ -190,7 +119,7 @@ export function AllRecentReportsScreen({
         item.period.toLowerCase().includes(q);
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [sourceReports, selectedCategory, searchQuery]);
 
   function handleReportPress(actionKey: RecentReportItem['actionKey']) {
     if (actionKey === 'pl') {

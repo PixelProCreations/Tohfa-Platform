@@ -10,6 +10,12 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { FarmerListItem } from '../farmers/AdminAllFarmersScreen';
+import { verifyCertification } from '../../api/certifications';
+import { useCertificationList } from '../../api/certificationHooks';
+import { useAdminMutation } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 // Custom SVG Rosette Ribbon matching exact design reference
 function RosetteRibbonIcon({
@@ -105,7 +111,8 @@ const P = {
 };
 
 interface Props {
-  farmer: FarmerListItem;
+  farmer?: FarmerListItem | undefined;
+  certificationId?: string | undefined;
   onBack: () => void;
   onVerified?: () => void;
   onUnverified?: () => void;
@@ -113,22 +120,54 @@ interface Props {
 
 export const AdminCertVerificationScreen: React.FC<Props> = ({
   farmer,
+  certificationId,
   onBack,
   onVerified,
-  onUnverified,
 }) => {
-  const [npopStatus, setNpopStatus] = useState<'Pending' | 'Verified' | 'Unverified'>('Pending');
+  const certsQuery = useCertificationList(
+    undefined,
+    { farmerId: farmer?.id },
+    { enabled: Boolean(farmer?.id) && !certificationId },
+  );
+  const targetCert = certsQuery.items[0];
+  const resolvedCertId = certificationId ?? targetCert?.id;
+  const [verifiedSuccess, setVerifiedSuccess] = useState(false);
+  const [attemptKey] = useState(() =>
+    `cert-verify-${resolvedCertId ?? farmer?.id ?? 'none'}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  );
+
+  const verifyMutation = useAdminMutation({
+    mutationFn: () => verifyCertification(resolvedCertId ?? '', {}, attemptKey),
+    invalidates: [adminKeys.module('certifications')],
+  });
+
+  const canVerify = Boolean(resolvedCertId && !verifyMutation.isPending);
+  const npopStatus: 'Pending' | 'Verified' | 'Unverified' = verifiedSuccess
+    ? 'Verified'
+    : targetCert?.verificationStatus === 'VERIFIED'
+      ? 'Verified'
+      : targetCert?.verificationStatus === 'REJECTED'
+        ? 'Unverified'
+        : 'Pending';
 
   const handleMarkVerified = () => {
-    setNpopStatus('Verified');
-    Alert.alert('Success', 'Certification marked as Verified');
-    if (onVerified) onVerified();
-  };
-
-  const handleMarkUnverified = () => {
-    setNpopStatus('Unverified');
-    Alert.alert('Updated', 'Certification marked as Unverified');
-    if (onUnverified) onUnverified();
+    if (!canVerify) return;
+    verifyMutation.mutate(undefined, {
+      onSuccess: () => {
+        setVerifiedSuccess(true);
+        Alert.alert(
+          t('wiringReports.certs.verifySuccessTitle'),
+          t('wiringReports.certs.verifySuccessBody'),
+        );
+        onVerified?.();
+      },
+      onError: (err: unknown) => {
+        Alert.alert(
+          'Verification Failed',
+          err instanceof Error ? err.message : t('wiringReports.certs.verifyUnavailable'),
+        );
+      },
+    });
   };
 
   return (
@@ -164,7 +203,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
         {/* Title & Subtitle */}
         <Text style={styles.title}>Certification Verification</Text>
         <Text style={styles.subtitle}>
-          {farmer.name} · {farmer.code}
+          {(farmer?.name || ADMIN_NO_VALUE)} · {(farmer?.code || ADMIN_NO_VALUE)}
         </Text>
 
         {/* Card 1: PGS Organic */}
@@ -175,7 +214,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
               <Text style={styles.certTitle}>PGS Organic</Text>
             </View>
             <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedText}>Verified</Text>
+              <Text style={styles.verifiedText}>{targetCert?.verificationStatus ?? ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -186,7 +225,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
               <CalendarOutlineIcon size={20} color={P.iconColor} style={styles.certIcon} />
               <Text style={styles.certSubLabel}>Valid until</Text>
             </View>
-            <Text style={styles.certDateText}>Dec 2026</Text>
+            <Text style={styles.certDateText}>{targetCert?.expiresOn ?? ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -223,7 +262,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
               <CalendarOutlineIcon size={20} color={P.iconColor} style={styles.certIcon} />
               <Text style={styles.certSubLabel}>Submitted</Text>
             </View>
-            <Text style={styles.certDateText}>2 weeks ago</Text>
+            <Text style={styles.certDateText}>{targetCert?.createdAt ? targetCert.createdAt.slice(0, 10) : ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -237,19 +276,27 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
 
         {/* Button: Mark as Verified */}
         <TouchableOpacity
-          style={styles.markVerifiedBtn}
+          style={[styles.markVerifiedBtn, !canVerify && { opacity: 0.45 }]}
           activeOpacity={0.8}
-          onPress={handleMarkVerified}
+          disabled={!canVerify}
+          accessibilityState={{ disabled: !canVerify }}
+          accessibilityHint={!resolvedCertId ? t('wiringReports.certs.verifyUnavailable') : undefined}
+          onPress={canVerify ? handleMarkVerified : undefined}
         >
           <Icon name="check_circle" size={19} color={P.actionGreenText} style={{ marginRight: 8 }} />
           <Text style={styles.markVerifiedText}>Mark as Verified</Text>
         </TouchableOpacity>
+        {!resolvedCertId ? (
+          <Text style={styles.subtitle}>{t('wiringReports.certs.verifyUnavailable')}</Text>
+        ) : null}
 
-        {/* Button: Mark as Unverified */}
+        {/* Button: Mark as Unverified (disabled: no admin unverify endpoint) */}
         <TouchableOpacity
-          style={styles.markUnverifiedBtn}
+          style={[styles.markUnverifiedBtn, { opacity: 0.45 }]}
           activeOpacity={0.8}
-          onPress={handleMarkUnverified}
+          disabled
+          accessibilityState={{ disabled: true }}
+          accessibilityHint={t('wiringReports.certs.unverifyUnavailable')}
         >
           <Icon name="block" size={19} color={P.actionRedText} style={{ marginRight: 8 }} />
           <Text style={styles.markUnverifiedText}>Mark as Unverified</Text>

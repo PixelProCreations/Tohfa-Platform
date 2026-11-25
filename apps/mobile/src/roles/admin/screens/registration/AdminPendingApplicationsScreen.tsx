@@ -2,18 +2,19 @@
  * Pending Applications: the farmer application review queue
  * (GET /admin/farmer-applications, farmer.application.list_pending).
  *
- * Look: team design (tofhafarmfin-rbac) — back card, title, search, scrolling
- * filter chips with the custom scroll bar, avatar cards with a status badge.
- * Everything the design has is drawn. Where the API has no value the figure is
- * an em-dash:
+ * Look: team design (origin/Superadmin-main AdminPendingApplicationsScreen) —
+ * 44pt back card, large brown title, search, scrolling filter chips with the
+ * custom scroll bar, avatar cards with a status badge, dashed footer. Every
+ * size, gap and radius below is the design's own number, expressed through the
+ * admin tokens. Where the API has no value the figure is an em-dash:
  *   - The design's "All (9)", "Docs Complete (6)" and "Awaiting KYC (3)" chips
  *     are drawn with an em-dash count (the API has no totals). Docs Complete and
- *     Awaiting KYC have no data source, so they match nothing; Ooty / Kotagiri /
- *     Coonoor narrow the loaded rows by their location text (zone scoping
- *     proper is the server's job). The server's review statuses follow as
- *     extra chips.
+ *     Awaiting KYC have no data source, so they are drawn disabled
+ *     (DESIGN-ONLY). Ooty / Kotagiri / Coonoor narrow the loaded rows by their
+ *     location text (zone scoping proper is the server's job). The server's
+ *     review statuses (PENDING_FILTERS) follow as extra chips.
  *   - The title count and the "N more below" footer carry em-dashes; the real
- *     Load more stays beneath it.
+ *     Load more stays beneath the list.
  *   - The subtitle keeps the design's "oldest first" wording although the
  *     server lists newest first.
  *   - Drafts and decided applications are never listed (pendingRows).
@@ -25,6 +26,7 @@ import React, { useRef, useState } from 'react';
 import { Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { ScrollViewInstance } from 'react-native';
 import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { tokens } from '@tohfa/design-tokens';
 import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';
 import { useApplicationList } from '../../api/farmerHooks';
@@ -34,7 +36,7 @@ import type { Can } from '../../permissions/can';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 import { queryViewState } from '../warehouse/shared/queryViewState';
-import { BackButtonCard, partStyles, StatusBadge } from './applications/ApplicationParts';
+import { ChevronBackIcon } from './applications/ApplicationParts';
 import {
   applicationAccess,
   filterLabel,
@@ -47,6 +49,7 @@ import {
   statusTone,
   submittedLabel,
   toPendingApplicationItem,
+  type ApplicationTone,
   type PendingApplicationItem,
   type PendingFilter,
 } from './applications/applicationLogic';
@@ -65,10 +68,23 @@ export interface AdminPendingApplicationsScreenProps {
 
 const THUMB_SHARE = 0.65;
 
+/**
+ * One point. The design sets several values one or a few points off a token
+ * (15, 27, 9, 7, 46, ...); they are written as token ± steps of this so no
+ * bare number lands in a style.
+ */
+const PT = adminSpacing.xs / 4;
+
+/** The design's scroll-bar arrows are text glyphs, not icons. */
+const ARROW_LEFT = '◀';
+const ARROW_RIGHT = '▶';
+
 /** The design's own chips, drawn before the server's review statuses. */
 type DesignFilter = 'DOCS' | 'KYC' | 'OOTY' | 'KOTAGIRI' | 'COONOOR';
 type ScreenFilter = PendingFilter | DesignFilter;
 const DESIGN_FILTERS: readonly DesignFilter[] = ['DOCS', 'KYC', 'OOTY', 'KOTAGIRI', 'COONOOR'];
+/** Design chips with no data source at all: drawn, never selectable. */
+const UNAVAILABLE_FILTERS: ReadonlySet<ScreenFilter> = new Set<ScreenFilter>(['DOCS', 'KYC']);
 const ZONE_TEXT: Readonly<Partial<Record<DesignFilter, string>>> = { OOTY: 'ooty', KOTAGIRI: 'kotagiri', COONOOR: 'coonoor' };
 const SCREEN_FILTERS: readonly ScreenFilter[] = ['ALL', ...DESIGN_FILTERS, ...PENDING_FILTERS.filter((f) => f !== 'ALL')];
 
@@ -82,7 +98,7 @@ function screenFilterLabel(filter: ScreenFilter, noValue: string): string {
 
 function SearchIcon() {
   return (
-    <Svg width={adminSpacing.input} height={adminSpacing.input} viewBox="0 0 24 24" fill="none">
+    <Svg width={adminSpacing.input} height={adminSpacing.input} viewBox="0 0 24 24" fill="none" style={styles.searchIcon}>
       <Path
         d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
         stroke={adminColors.ink}
@@ -95,12 +111,28 @@ function SearchIcon() {
   );
 }
 
-function ScrollTriangle({ direction }: { direction: 'left' | 'right' }) {
-  const d = direction === 'left' ? 'M16 5L7 12L16 19Z' : 'M8 5L17 12L8 19Z';
+/** The design's back button: a 44pt white card, 1.5 stroke, chevron. */
+function BackCard({ onPress }: { onPress: () => void }) {
   return (
-    <Svg width={adminSpacing.smMd} height={adminSpacing.smMd} viewBox="0 0 24 24">
-      <Path d={d} fill={adminColors.muted} />
-    </Svg>
+    <TouchableOpacity
+      style={styles.backButton}
+      onPress={onPress}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={t('farmerApps.back')}
+      testID="farmerApps.back"
+    >
+      <ChevronBackIcon color={adminColors.ink} />
+    </TouchableOpacity>
+  );
+}
+
+/** The design's card badge: 12/700 on a soft tone, 12×6 padding, radius 14. */
+function CardBadge({ label, tone }: { label: string; tone: ApplicationTone }) {
+  return (
+    <View style={[styles.badge, { backgroundColor: adminColors[tone].bg }]}>
+      <Text style={[styles.badgeText, { color: adminColors[tone].text }]}>{label}</Text>
+    </View>
   );
 }
 
@@ -109,8 +141,8 @@ function ApplicationCard({ row, onPress }: { row: ApplicationRowView; onPress: (
   const submitted = submittedLabel(row.submittedAt);
   return (
     <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress} accessibilityRole="button" testID={`farmerApps.card.${row.id}`}>
-      <View style={partStyles.avatar}>
-        <Text style={partStyles.avatarText}>{row.initials}</Text>
+      <View style={styles.avatarCircle}>
+        <Text style={styles.avatarText}>{row.initials}</Text>
       </View>
       <View style={styles.cardInfo}>
         <Text style={styles.cardName}>{row.name === '' ? t('farmerApps.notAvailable') : row.name}</Text>
@@ -119,7 +151,7 @@ function ApplicationCard({ row, onPress }: { row: ApplicationRowView; onPress: (
           <Text style={styles.locationText}>{location === '' ? submitted : `${location} · ${submitted}`}</Text>
         </View>
       </View>
-      <StatusBadge label={statusLabel(row.status)} tone={statusTone(row.status)} />
+      <CardBadge label={statusLabel(row.status)} tone={statusTone(row.status)} />
     </TouchableOpacity>
   );
 }
@@ -145,12 +177,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
   const pending = pendingRows(list.items);
   const searched = searchApplications(pending, searchQuery);
   const zoneText = ZONE_TEXT[filter as DesignFilter];
-  const rows =
-    filter === 'DOCS' || filter === 'KYC'
-      ? []
-      : zoneText !== undefined
-        ? searched.filter((r) => rowLocation(r).toLowerCase().includes(zoneText))
-        : searched;
+  const rows = zoneText !== undefined ? searched.filter((r) => rowLocation(r).toLowerCase().includes(zoneText)) : searched;
   const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: pending.length });
 
   return (
@@ -158,7 +185,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
       <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
       <View style={styles.header}>
-        <BackButtonCard onPress={onBack} />
+        <BackCard onPress={onBack} />
       </View>
 
       <ScrollView
@@ -205,17 +232,34 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
             >
               {SCREEN_FILTERS.map((f) => {
                 const active = filter === f;
+                const pillStyle = [styles.filterPill, active ? styles.filterPillActive : styles.filterPillInactive];
+                const textStyle = [styles.filterPillText, active ? styles.filterPillTextActive : styles.filterPillTextInactive];
+                if (UNAVAILABLE_FILTERS.has(f)) {
+                  return (
+                    // DESIGN-ONLY: no endpoint yet (the API reports neither document completeness nor KYC state per application).
+                    <TouchableOpacity
+                      key={f}
+                      disabled
+                      style={[...pillStyle, styles.unavailable]}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: true, selected: false }}
+                      testID={`farmerApps.filter.${f}`}
+                    >
+                      <Text style={textStyle}>{screenFilterLabel(f, noValue)}</Text>
+                    </TouchableOpacity>
+                  );
+                }
                 return (
                   <TouchableOpacity
                     key={f}
                     onPress={() => setFilter(f)}
                     activeOpacity={0.8}
-                    style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}
+                    style={pillStyle}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                     testID={`farmerApps.filter.${f}`}
                   >
-                    <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextInactive]}>{screenFilterLabel(f, noValue)}</Text>
+                    <Text style={textStyle}>{screenFilterLabel(f, noValue)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -229,7 +273,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
                 accessibilityRole="button"
                 accessibilityLabel={t('farmerApps.list.scrollStart')}
               >
-                <ScrollTriangle direction="left" />
+                <Text style={styles.scrollArrow}>{ARROW_LEFT}</Text>
               </TouchableOpacity>
               <View style={styles.scrollTrack} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}>
                 <View
@@ -249,7 +293,7 @@ export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsSc
                 accessibilityRole="button"
                 accessibilityLabel={t('farmerApps.list.scrollEnd')}
               >
-                <ScrollTriangle direction="right" />
+                <Text style={styles.scrollArrow}>{ARROW_RIGHT}</Text>
               </TouchableOpacity>
             </View>
 
@@ -300,25 +344,43 @@ const styles = StyleSheet.create({
     paddingTop: adminSpacing.mdLg,
     paddingBottom: adminSpacing.xs,
   },
+  backButton: {
+    width: tokens.size.minTouchTarget,
+    height: tokens.size.minTouchTarget,
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+    // design shadowRadius 3: the token's blur taken as-is (rnShadow halves it).
+    shadowRadius: tokens.shadow.adminSm.blur,
+  },
   container: { flex: 1 },
   content: {
     paddingHorizontal: adminSpacing.input,
     paddingTop: adminSpacing.md,
   },
   title: {
-    ...adminType.title,
+    // design 27: no token.
+    fontSize: tokens.typeStyle.h1.size - PT,
+    fontWeight: '800',
     color: adminColors.brandDeep,
     marginBottom: adminSpacing.xsSm,
+    letterSpacing: -0.4,
   },
   subtitle: {
-    ...adminType.body,
+    // design 13.5 / 19: no token.
+    fontSize: adminType.body.fontSize + PT / 2,
+    lineHeight: adminType.body.lineHeight + PT,
     color: adminColors.muted,
-    marginBottom: adminSpacing.lg,
+    // design 18: no token.
+    marginBottom: adminSpacing.lg + adminSpacing.xs / 2,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.smMd,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
@@ -327,9 +389,11 @@ const styles = StyleSheet.create({
     height: ADMIN_BUTTON_HEIGHT,
     marginBottom: adminSpacing.mdLg,
   },
+  searchIcon: { marginRight: adminSpacing.smMd },
   searchInput: {
-    ...adminType.body,
     flex: 1,
+    // design 15: no token.
+    fontSize: tokens.typeStyle.body.size + PT,
     color: adminColors.ink,
     paddingVertical: 0,
   },
@@ -340,54 +404,93 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.xs,
     paddingRight: adminSpacing.md,
   },
-  pill: {
+  filterPill: {
     paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.full,
+    // design 9: no token.
+    paddingVertical: adminSpacing.sm + PT,
+    // design 22: no token.
+    borderRadius: adminSpacing.input + adminSpacing.xs / 2,
     borderWidth: 1,
   },
-  pillActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
-  pillInactive: { backgroundColor: adminColors.card, borderColor: adminColors.border },
-  pillText: { ...adminType.rowTitle },
-  pillTextActive: { color: adminColors.onBrand },
-  pillTextInactive: { color: adminColors.ink },
+  filterPillActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
+  filterPillInactive: { backgroundColor: adminColors.card, borderColor: adminColors.border },
+  filterPillText: {
+    fontSize: adminType.body.fontSize,
+    fontWeight: '600',
+  },
+  filterPillTextActive: { color: adminColors.onBrand },
+  filterPillTextInactive: { color: adminColors.ink },
+  /** A DESIGN-ONLY control: drawn as designed but visibly not available. */
+  unavailable: { opacity: 0.45 },
   scrollBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.xs,
     marginTop: adminSpacing.xsSm,
     marginBottom: adminSpacing.lg,
     paddingHorizontal: adminSpacing.xs,
   },
+  scrollArrow: {
+    // design 9: no token.
+    fontSize: adminType.caption.fontSize - PT,
+    color: adminColors.muted,
+    // design 5: no token.
+    marginHorizontal: adminSpacing.xs + PT,
+  },
   scrollTrack: {
     flex: 1,
-    height: adminSpacing.xsSm,
-    borderRadius: adminRadius.full,
+    // design 7: no token.
+    height: adminSpacing.xsSm + PT,
+    borderRadius: tokens.radius.xs,
+    position: 'relative',
     overflow: 'hidden',
   },
   scrollThumb: {
     position: 'absolute',
     top: 0,
-    height: adminSpacing.xsSm,
+    // design 7: no token.
+    height: adminSpacing.xsSm + PT,
     backgroundColor: adminColors.muted,
-    borderRadius: adminRadius.full,
+    borderRadius: tokens.radius.xs,
   },
   listSection: { gap: adminSpacing.md },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    // design 18: no token.
+    borderRadius: adminRadius.xl + adminSpacing.xs / 2,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.lg,
-    ...adminShadow.sm,
+    // design shadow 0 2 5 / 0.03, elevation 2: no token.
+    shadowColor: adminColors.shadow,
+    shadowOffset: { ...adminShadow.sm.shadowOffset, height: adminSpacing.xs / 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: adminSpacing.xs + PT,
+    elevation: 2,
   },
-  cardInfo: { flex: 1, marginRight: adminSpacing.sm },
+  avatarCircle: {
+    // design 46: no token.
+    width: ADMIN_BUTTON_HEIGHT - adminSpacing.xs / 2,
+    height: ADMIN_BUTTON_HEIGHT - adminSpacing.xs / 2,
+    borderRadius: (ADMIN_BUTTON_HEIGHT - adminSpacing.xs / 2) / 2,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: adminSpacing.mdLg,
+  },
+  avatarText: {
+    fontSize: tokens.typeStyle.body.size,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+  cardInfo: { flex: 1 },
   cardName: {
-    ...adminType.rowTitle,
+    // design 15: no token.
+    fontSize: tokens.typeStyle.body.size + PT,
+    fontWeight: '700',
     color: adminColors.ink,
     marginBottom: adminSpacing.xs,
   },
@@ -398,9 +501,18 @@ const styles = StyleSheet.create({
     marginRight: adminSpacing.xs,
   },
   locationText: {
-    ...adminType.rowMeta,
+    fontSize: tokens.typeStyle.small.size,
     color: adminColors.muted,
     flexShrink: 1,
+  },
+  badge: {
+    borderRadius: adminRadius.lg,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xsSm,
+  },
+  badgeText: {
+    fontSize: tokens.typeStyle.small.size,
+    fontWeight: '700',
   },
   loadMore: {
     marginTop: adminSpacing.lg,
@@ -415,16 +527,26 @@ const styles = StyleSheet.create({
   loadMoreText: { ...adminType.rowTitle, color: adminColors.ink },
   dashedFooter: {
     marginTop: adminSpacing.lg,
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: adminColors.border,
     borderStyle: 'dashed',
-    borderRadius: adminRadius.xl,
-    paddingVertical: adminSpacing.lg,
-    paddingHorizontal: adminSpacing.lg,
+    // design 24: no radius token.
+    borderRadius: adminSpacing.xl,
+    // design 18: no token.
+    paddingVertical: adminSpacing.lg + adminSpacing.xs / 2,
+    paddingHorizontal: adminSpacing.input,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: adminColors.card,
   },
-  dashedFooterText: { ...adminType.body, color: adminColors.muted, textAlign: 'center' },
-  bottomSpacer: { height: adminSpacing.largeSection },
+  dashedFooterText: {
+    fontSize: tokens.typeStyle.body.size,
+    lineHeight: tokens.typeStyle.body.lineHeight,
+    fontWeight: '400',
+    color: adminColors.muted,
+    textAlign: 'center',
+    letterSpacing: -0.1,
+  },
+  // design 36: no token.
+  bottomSpacer: { height: adminSpacing.xxl + adminSpacing.xs },
 });

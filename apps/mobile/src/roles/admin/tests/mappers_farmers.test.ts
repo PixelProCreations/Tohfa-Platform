@@ -503,8 +503,19 @@ describe('applications', () => {
       primaryCrops: ['Potato', 'Garlic'],
     });
     expect(view.locations).toEqual([
-      { id: 'loc-1', label: 'Home plot', areaAcres: 1.5, calculatedAreaAcres: null, village: 'Kotagiri', taluk: null, district: null, hasBoundary: false, gps: { lat: 11.42, lng: 76.86 } },
-      { id: 'loc-2', label: 'Hill plot', areaAcres: 1.1, calculatedAreaAcres: null, village: null, taluk: null, district: null, hasBoundary: true, gps: null },
+      { id: 'loc-1', label: 'Home plot', areaAcres: 1.5, calculatedAreaAcres: null, village: 'Kotagiri', taluk: null, district: null, hasBoundary: false, gps: { lat: 11.42, lng: 76.86 }, fmbRing: null },
+      {
+        id: 'loc-2',
+        label: 'Hill plot',
+        areaAcres: 1.1,
+        calculatedAreaAcres: null,
+        village: null,
+        taluk: null,
+        district: null,
+        hasBoundary: true,
+        gps: null,
+        fmbRing: [[76.8, 11.4], [76.81, 11.4], [76.81, 11.41], [76.8, 11.4]],
+      },
     ]);
     expect(view.documents).toEqual([
       { docType: 'ID_PROOF', docSubType: 'Aadhaar Card', fileName: 'aadhaar.pdf', fileUrl: 'https://storage.example/id.pdf' },

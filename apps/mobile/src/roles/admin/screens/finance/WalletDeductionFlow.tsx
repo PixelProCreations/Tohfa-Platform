@@ -25,23 +25,45 @@ import {
   BackArrowIcon,
   CheckmarkIcon,
   ChevronDownIcon,
-  HistoryClockIcon,
-  PlusIcon,
-  RupeeTagIcon,
 } from '../../components/AdminIcons';
 
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+
+import { fromPaise, type Money, type Paise } from '@tohfa/shared-types';
+import { DEDUCT_REASON_MAX_LENGTH, deductCustomerWallet, type WalletDeductRequest, type WalletTransactionDto } from '../../api/wallet';
+import { useIdempotencyKey } from '../../api/hooks';
+import { adminErrorKey } from '../../api/errors';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { formatPaise, parseRupeesToPaise, rupeesNumberToPaise } from '../../money/paise';
+import { moneyText } from '../dashboard/saOverviewFormat';
+
+/** docs/rbac.json code of POST /admin/wallets/{customerId}/deduct. */
+const WALLET_DEDUCT_CODE = 'wallet.manual_credit_debit';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface WalletDeductionFlowProps {
+  /**
+   * The customer whose wallet is debited. Without a real customer uuid there is
+   * nothing to debit and Confirm stays disabled (FinanceManagementFlow mounts
+   * this with none; there is no customer picker on purpose).
+   */
   customer?: {
     name?: string | undefined;
     id?: string | undefined;
     mobile?: string | undefined;
-    balance?: string | undefined;
+    /** The wallet balance as the API sent it (Money); a dash when absent. */
+    balance?: Money | undefined;
   } | undefined;
   role?: string | undefined;
+  /** Permission check from /auth/me. Missing denies the deduction (fail closed, root CLAUDE.md 2.1). */
+  can?: Can | undefined;
   onBack: () => void;
   onSuccess: () => void;
 }
 
+/** UI shortcuts only (rupees); the server validates every amount. */
 const PRESET_AMOUNTS = [500, 1000, 2000, 5000];
 
 const REASON_CATEGORIES = [
@@ -58,41 +80,97 @@ const REASON_CATEGORIES = [
 ];
 
 /**
+ * The `reason` sent to the deduct endpoint: "<TAG>: <category>[: <description>]",
+ * or the reason alone when the tag is blank. Both parts are trimmed.
+ */
+export function deductReasonText(tag: string, category: string, description: string): string {
+  const note = description.trim();
+  const reason = note === '' ? category : `${category}: ${note}`;
+  const cleanTag = tag.trim();
+  return cleanTag === '' ? reason : `${cleanTag}: ${reason}`;
+}
+
+/**
  * WalletDeductionFlow (M13-S06, M13-S07, M13-S08)
  *
  * Implements the 3-step Customer Wallet money deduction flow:
  * 1. Deduction Money (M13-S06)
  * 2. Fiscal Cash Tag Review (M13-S07)
  * 3. Deduction Confirmation (M13-S08)
+ *
+ * Confirm sends POST /admin/wallets/{customerId}/deduct. The amount is held in
+ * integer paise and leaves as a Money string (root CLAUDE.md 2.2). The
+ * Idempotency-Key is keyed on (customer, amount, reason) and reset only after a
+ * 2xx, so a retry after a failure replays the SAME key and money moves once
+ * (root CLAUDE.md 2.4). Success is shown only from the server's ledger row.
+ *
+ * The deduct endpoint takes `amount` and `reason` only, so (owner decision
+ * 2026-11-25) the fiscal cash tag is folded into the reason as
+ * "<TAG>: <category>[: <description>]" (deductReasonText). The combined text
+ * must fit the API's `reason` maxLength; a longer one blocks Confirm with an
+ * inline error instead of being cut short.
  */
 export function WalletDeductionFlow({
-  customer = {
-    name: 'Ravi Kumar',
-    id: 'CUS-001245',
-    mobile: '+91 XXXXX XXXXX',
-    balance: '₹4,500',
-  },
-  role = 'SUPER_ADMIN',
+  customer,
+  can,
   onBack,
   onSuccess,
 }: WalletDeductionFlowProps): React.JSX.Element {
   const [step, setStep] = useState<'amount' | 'fiscal_tag' | 'confirm'>('amount');
 
-  // Form State
-  const [deductAmount, setDeductAmount] = useState<number>(500);
+  // Form state: nothing pre-filled (brief 07 P1 #1).
+  const [amountPaise, setAmountPaise] = useState<Paise | null>(null);
   const [isCustomAmount, setIsCustomAmount] = useState<boolean>(false);
-  const [customAmountText, setCustomAmountText] = useState<string>('500');
+  const [customAmountText, setCustomAmountText] = useState<string>('');
   const [selectedReason, setSelectedReason] = useState<string>('Wallet Correction');
-  const [fiscalCashTag, setFiscalCashTag] = useState<string>('FC-20261013-002');
-  const [description, setDescription] = useState<string>(
-    'Deducting ₹500 due to Order refund adjustment.'
-  );
-  const [isConfirmedCheckbox, setIsConfirmedCheckbox] = useState<boolean>(true);
+  const [fiscalCashTag, setFiscalCashTag] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [isConfirmedCheckbox, setIsConfirmedCheckbox] = useState<boolean>(false);
   const [showReasonDropdown, setShowReasonDropdown] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submitError, setSubmitError] = useState<unknown>(null);
 
-  // Parse current balance
-  const currentNumeric = 4500;
-  const newBalanceNumeric = Math.max(0, currentNumeric - deductAmount);
+  const idempotency = useIdempotencyKey();
+
+  const customerId = customer?.id !== undefined && UUID_RE.test(customer.id) ? customer.id : undefined;
+  const customerName = customer?.name ?? ADMIN_NO_VALUE;
+  const customerIdText = customer?.id ?? ADMIN_NO_VALUE;
+  const balanceText = moneyText(customer?.balance);
+  const allowed = typeof can === 'function' && can(WALLET_DEDUCT_CODE);
+  const hasAmount = amountPaise !== null && amountPaise > 0;
+  const reasonText = deductReasonText(fiscalCashTag, selectedReason, description);
+  const reasonTooLong = reasonText.length > DEDUCT_REASON_MAX_LENGTH;
+  const canDeduct = allowed && customerId !== undefined && hasAmount && !reasonTooLong;
+
+  /** "₹500" / the dash; "-₹500" with `minus`. */
+  const amountText = (minus = false) => (hasAmount ? `${minus ? '-' : ''}${formatPaise(amountPaise)}` : ADMIN_NO_VALUE);
+  /** The big figure next to the ₹ symbol: "500.00", or the dash before an amount is picked. */
+  const bigAmountText = hasAmount ? fromPaise(amountPaise) : ADMIN_NO_VALUE;
+
+  const handleConfirmDeduction = async () => {
+    if (!canDeduct || isSubmitting || customerId === undefined || amountPaise === null) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    // The key covers the whole body, so a changed tag or reason is a new deduction with a new key.
+    const body: WalletDeductRequest = { amount: fromPaise(amountPaise), reason: reasonText };
+    const key = idempotency.keyFor({ customerId, ...body });
+    let tx: WalletTransactionDto;
+    try {
+      tx = await deductCustomerWallet(customerId, body, key);
+    } catch (err: unknown) {
+      // The key is kept on purpose: a retry of the same deduction replays it.
+      setSubmitError(err);
+      setIsSubmitting(false);
+      return;
+    }
+    idempotency.reset();
+    setIsSubmitting(false);
+    Alert.alert(
+      t('wiringPayouts.walletDeduct.done.title'),
+      t('wiringPayouts.walletDeduct.done.body', { amount: amountText(), balance: moneyText(tx.balanceAfter) }),
+      [{ text: t('wiringPayouts.walletDeduct.done.ok'), onPress: onSuccess }],
+    );
+  };
 
   // ─── STEP 2: Fiscal Cash Tag (M13-S07) ──────────────────────────────────────
   if (step === 'fiscal_tag') {
@@ -121,11 +199,11 @@ export function WalletDeductionFlow({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Customer</Text>
-                <Text style={styles.cardMetaValue}>{customer.name}</Text>
+                <Text style={styles.cardMetaValue}>{customerName}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Customer ID</Text>
-                <Text style={styles.cardMetaValue}>{customer.id}</Text>
+                <Text style={styles.cardMetaValue}>{customerIdText}</Text>
               </View>
             </View>
 
@@ -134,12 +212,12 @@ export function WalletDeductionFlow({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Current Balance</Text>
-                <Text style={styles.cardMetaValue}>₹{currentNumeric.toLocaleString()}</Text>
+                <Text style={styles.cardMetaValue}>{balanceText}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Deduction Amount</Text>
                 <Text style={styles.cardMetaValue}>
-                  ₹{deductAmount.toFixed(2)}
+                  {amountText()}
                 </Text>
               </View>
             </View>
@@ -150,7 +228,7 @@ export function WalletDeductionFlow({
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Expected New Balance</Text>
                 <Text style={styles.cardMetaValue}>
-                  ₹{newBalanceNumeric.toLocaleString()}
+                  {ADMIN_NO_VALUE}
                 </Text>
               </View>
             </View>
@@ -166,6 +244,7 @@ export function WalletDeductionFlow({
               style={styles.textInput}
               value={fiscalCashTag}
               onChangeText={setFiscalCashTag}
+              testID="walletDeduct.fiscalTagReview"
               placeholder="e.g. FC-20260925-0012"
               placeholderTextColor={adminColors.placeholder}
               autoCapitalize="characters"
@@ -187,6 +266,7 @@ export function WalletDeductionFlow({
               setStep('confirm');
             }}
             activeOpacity={0.8}
+            testID="walletDeduct.toConfirm"
           >
             <Text style={styles.primaryBtnText}>→ Review Deduction</Text>
           </TouchableOpacity>
@@ -219,8 +299,8 @@ export function WalletDeductionFlow({
           {/* Customer Card */}
           <Text style={styles.sectionTitle}>Customer</Text>
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{customer.name}</Text>
-            <Text style={styles.cardMeta}>{customer.id}</Text>
+            <Text style={styles.cardTitle}>{customerName}</Text>
+            <Text style={styles.cardMeta}>{customerIdText}</Text>
           </View>
 
           {/* Wallet Card */}
@@ -228,20 +308,20 @@ export function WalletDeductionFlow({
           <View style={styles.card}>
             <View style={styles.rowBetween}>
               <Text style={styles.fieldLabel}>Current Balance</Text>
-              <Text style={styles.fieldValue}>₹{currentNumeric.toLocaleString()}</Text>
+              <Text style={styles.fieldValue}>{balanceText}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.rowBetween}>
               <Text style={styles.fieldLabel}>Deduction</Text>
               <Text style={[styles.fieldValue, styles.dangerText]}>
-                -₹{deductAmount.toFixed(2)}
+                {amountText(true)}
               </Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.rowBetween}>
               <Text style={[styles.fieldLabel, styles.newBalanceLabel]}>New Balance</Text>
               <Text style={[styles.fieldValue, styles.newBalanceValue]}>
-                ₹{newBalanceNumeric.toLocaleString()}
+                {ADMIN_NO_VALUE}
               </Text>
             </View>
           </View>
@@ -258,14 +338,14 @@ export function WalletDeductionFlow({
               </View>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Fiscal Cash Tag</Text>
-                <Text style={styles.cardMetaValue}>{fiscalCashTag}</Text>
+                <Text style={styles.cardMetaValue}>{fiscalCashTag || ADMIN_NO_VALUE}</Text>
               </View>
             </View>
             <View style={styles.divider} />
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Fiscal Cash Tag</Text>
-                <Text style={styles.cardMetaValue}>{fiscalCashTag}</Text>
+                <Text style={styles.cardMetaValue}>{fiscalCashTag || ADMIN_NO_VALUE}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Reason Category</Text>
@@ -275,7 +355,7 @@ export function WalletDeductionFlow({
             <View style={styles.divider} />
             <View>
               <Text style={styles.cardMetaLabel}>Description</Text>
-              <Text style={styles.cardMetaValue}>{description}</Text>
+              <Text style={styles.cardMetaValue}>{description || ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -287,19 +367,18 @@ export function WalletDeductionFlow({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Processed By</Text>
-                <Text style={styles.cardMetaValue}>
-                  {role === 'SUPER_ADMIN' ? 'Super Admin' : 'Demo TOHFA Admin'}
-                </Text>
+                {/* The approving admin's name is not known here; the server records performedBy. */}
+                <Text style={styles.cardMetaValue}>{ADMIN_NO_VALUE}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Date</Text>
-                <Text style={styles.cardMetaValue}>25 Sep 2026</Text>
+                <Text style={styles.cardMetaValue}>{ADMIN_NO_VALUE}</Text>
               </View>
             </View>
             <View style={[styles.twoColRow, { marginTop: 12 }]}>
               <View style={styles.col}>
                 <Text style={styles.cardMetaLabel}>Time</Text>
-                <Text style={styles.cardMetaValue}>10:42 AM</Text>
+                <Text style={styles.cardMetaValue}>{ADMIN_NO_VALUE}</Text>
               </View>
               <View style={styles.col} />
             </View>
@@ -311,30 +390,42 @@ export function WalletDeductionFlow({
         {/* Bottom Confirm Buttons */}
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryBtn}
-            onPress={() => {
-              Alert.alert(
-                'Deduction Successful',
-                `₹${deductAmount.toFixed(2)} has been successfully debited from ${customer.name}'s wallet. Tag: ${fiscalCashTag}`,
-                [
-                  {
-                    text: 'Done',
-                    onPress: () => {
-                      onSuccess();
-                    },
-                  },
-                ]
-              );
-            }}
+            style={[styles.primaryBtn, (!canDeduct || isSubmitting) && styles.actionUnavailable]}
+            onPress={handleConfirmDeduction}
             activeOpacity={0.8}
+            disabled={!canDeduct || isSubmitting}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canDeduct || isSubmitting, busy: isSubmitting }}
+            testID="walletDeduct.confirm"
           >
-            <Text style={styles.primaryBtnText}>✓ Confirm Deduction</Text>
+            <Text style={styles.primaryBtnText}>
+              {isSubmitting ? t('wiringPayouts.walletDeduct.submitting') : '✓ Confirm Deduction'}
+            </Text>
           </TouchableOpacity>
+
+          {/* The real failure, worded by adminErrorKey; never a success. */}
+          {reasonTooLong ? (
+            <Text style={styles.errorText} testID="walletDeduct.reasonTooLong">
+              {t('wiringPayouts.walletDeduct.reasonTooLong', { max: DEDUCT_REASON_MAX_LENGTH, count: reasonText.length })}
+            </Text>
+          ) : null}
+          {submitError !== null ? (
+            <Text style={styles.errorText} testID="walletDeduct.error">
+              {t(adminErrorKey(submitError))}
+            </Text>
+          ) : null}
+          {customerId === undefined ? (
+            <Text style={styles.noteText} testID="walletDeduct.noCustomer">
+              {t('wiringPayouts.walletDeduct.noCustomer')}
+            </Text>
+          ) : null}
 
           <TouchableOpacity
             style={styles.cancelBtn}
             onPress={() => setStep('fiscal_tag')}
             activeOpacity={0.8}
+            disabled={isSubmitting}
+            testID="walletDeduct.backFromConfirm"
           >
             <Text style={styles.cancelBtnText}>Back</Text>
           </TouchableOpacity>
@@ -365,10 +456,10 @@ export function WalletDeductionFlow({
         >
           {/* Customer Profile Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{customer.name}</Text>
-            <Text style={styles.cardMeta}>{customer.id}</Text>
+            <Text style={styles.cardTitle}>{customerName}</Text>
+            <Text style={styles.cardMeta}>{customerIdText}</Text>
             <Text style={styles.currentBalanceText}>Current Wallet Balance</Text>
-            <Text style={styles.currentBalanceVal}>{customer.balance}</Text>
+            <Text style={styles.currentBalanceVal}>{balanceText}</Text>
           </View>
 
           {/* Deduct Amount Box */}
@@ -383,14 +474,13 @@ export function WalletDeductionFlow({
                 value={customAmountText}
                 onChangeText={(val) => {
                   setCustomAmountText(val);
-                  const parsed = parseFloat(val);
-                  if (!isNaN(parsed)) setDeductAmount(parsed);
+                  setAmountPaise(parseRupeesToPaise(val));
                 }}
                 keyboardType="numeric"
                 autoFocus
               />
             ) : (
-              <Text style={styles.amountBigText}>{deductAmount.toFixed(2)}</Text>
+              <Text style={styles.amountBigText}>{bigAmountText}</Text>
             )}
           </View>
 
@@ -401,19 +491,21 @@ export function WalletDeductionFlow({
           </View>
           <View style={styles.presetsGrid}>
             {PRESET_AMOUNTS.map((amt) => {
-              const isSelected = !isCustomAmount && deductAmount === amt;
+              const presetPaise = rupeesNumberToPaise(amt);
+              const isSelected = !isCustomAmount && amountPaise === presetPaise;
               return (
                 <TouchableOpacity
                   key={amt}
                   style={[styles.presetBtn, isSelected && styles.presetBtnActive]}
                   onPress={() => {
                     setIsCustomAmount(false);
-                    setDeductAmount(amt);
+                    setAmountPaise(presetPaise);
                   }}
+                  testID={`walletDeduct.preset.${amt}`}
                   activeOpacity={0.8}
                 >
                   <Text style={[styles.presetBtnText, isSelected && styles.presetBtnTextActive]}>
-                    ₹{amt}
+                    {formatPaise(presetPaise)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -424,6 +516,7 @@ export function WalletDeductionFlow({
             style={[styles.customPresetBtn, isCustomAmount && styles.presetBtnActive]}
             onPress={() => {
               setIsCustomAmount(true);
+              setAmountPaise(parseRupeesToPaise(customAmountText));
             }}
             activeOpacity={0.8}
           >
@@ -458,6 +551,7 @@ export function WalletDeductionFlow({
             style={styles.textInput}
             value={fiscalCashTag}
             onChangeText={setFiscalCashTag}
+            testID="walletDeduct.fiscalTag"
             placeholder="e.g. FC-20261013-002"
             placeholderTextColor={adminColors.placeholder}
           />
@@ -471,6 +565,7 @@ export function WalletDeductionFlow({
             style={styles.textArea}
             value={description}
             onChangeText={setDescription}
+            testID="walletDeduct.description"
             placeholder="Enter reason for deduction..."
             placeholderTextColor={adminColors.placeholder}
             multiline
@@ -482,6 +577,7 @@ export function WalletDeductionFlow({
           <TouchableOpacity
             style={styles.checkboxRow}
             onPress={() => setIsConfirmedCheckbox(!isConfirmedCheckbox)}
+            testID="walletDeduct.confirmCheckbox"
             activeOpacity={0.7}
           >
             <View
@@ -495,7 +591,7 @@ export function WalletDeductionFlow({
               )}
             </View>
             <Text style={styles.checkboxLabel}>
-              I confirm to deduct ₹{deductAmount.toFixed(2)} from this customer's wallet.
+              I confirm to deduct {amountText()} from this customer's wallet.
             </Text>
           </TouchableOpacity>
 
@@ -506,20 +602,20 @@ export function WalletDeductionFlow({
           <View style={styles.card}>
             <View style={styles.rowBetween}>
               <Text style={styles.fieldLabel}>Current Balance</Text>
-              <Text style={styles.fieldValue}>₹{currentNumeric.toLocaleString()}</Text>
+              <Text style={styles.fieldValue}>{balanceText}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.rowBetween}>
               <Text style={styles.fieldLabel}>Deduction</Text>
               <Text style={[styles.fieldValue, styles.dangerText]}>
-                -₹{deductAmount.toFixed(2)}
+                {amountText(true)}
               </Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.rowBetween}>
               <Text style={[styles.fieldLabel, styles.newBalanceLabel]}>New Balance</Text>
               <Text style={[styles.fieldValue, styles.newBalanceValue]}>
-                ₹{newBalanceNumeric.toLocaleString()}
+                {ADMIN_NO_VALUE}
               </Text>
             </View>
           </View>
@@ -552,6 +648,7 @@ export function WalletDeductionFlow({
             setStep('fiscal_tag');
           }}
           activeOpacity={0.8}
+          testID="walletDeduct.review"
         >
           <Text style={styles.primaryBtnText}>Review deduction</Text>
         </TouchableOpacity>
@@ -937,6 +1034,22 @@ const styles = StyleSheet.create({
   },
   disabledBtn: {
     opacity: 0.5,
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  errorText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    textAlign: 'center',
+    marginTop: adminSpacing.sm,
+  },
+  noteText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.sm,
   },
   modalOverlay: {
     flex: 1,

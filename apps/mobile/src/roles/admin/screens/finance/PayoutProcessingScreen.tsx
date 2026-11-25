@@ -16,7 +16,11 @@ import { useApprovePayout } from '../../api/payoutsHooks';
 import { t } from '../../i18n';
 import type { Can } from '../../permissions/can';
 import { adminColors, adminShadow } from '../../theme';
+import type { Money } from '@tohfa/shared-types';
+import { formatPaise, rupeesNumberToPaise } from '../../money/paise';
 import { moneyText } from '../dashboard/saOverviewFormat';
+
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 /** docs/rbac.json code of POST /admin/payouts/{id}/approve (SUPER_ADMIN only). */
 const APPROVE_PAYOUT_CODE = 'payout.approve_above_10k';
@@ -126,9 +130,23 @@ function ReturnIcon() {
   );
 }
 
+/** A rupee number through integer paise; the dash when it is not a 2-dp amount. */
+function rupeeNumberText(rupees: number): string {
+  try {
+    return formatPaise(rupeesNumberToPaise(rupees));
+  } catch {
+    return ADMIN_NO_VALUE;
+  }
+}
+
 export interface PayoutProcessingScreenProps {
   onBack: () => void;
-  payoutAmount?: number | undefined;
+  /**
+   * The amount as the API sent it (Money). A rupee number is still accepted for
+   * the legacy caller in roles/farmer/App.tsx and goes through integer paise.
+   * Absent: the dash, never ₹0.
+   */
+  payoutAmount?: Money | number | undefined;
   farmerName?: string | undefined;
   farmerId?: string | undefined;
   zone?: string | undefined;
@@ -145,10 +163,10 @@ export interface PayoutProcessingScreenProps {
 
 export function PayoutProcessingScreen({
   onBack,
-  payoutAmount = 15400,
-  farmerName = 'Ramasamy S.',
-  farmerId = '#TOHFA-F-00189',
-  zone = 'Coonoor',
+  payoutAmount,
+  farmerName = ADMIN_NO_VALUE,
+  farmerId = ADMIN_NO_VALUE,
+  zone = ADMIN_NO_VALUE,
   payoutId,
   can,
   onApprovedSuccess,
@@ -185,16 +203,7 @@ export function PayoutProcessingScreen({
     });
   }
 
-  function handleReturn() {
-    Alert.alert(
-      'Return for Review',
-      'The payout request will be returned to TOHFA Admin (Ganga Devi) for audit correction.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm Return', style: 'destructive', onPress: onBack },
-      ]
-    );
-  }
+  const amountText = typeof payoutAmount === 'number' ? rupeeNumberText(payoutAmount) : moneyText(payoutAmount);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -224,9 +233,7 @@ export function PayoutProcessingScreen({
           </View>
 
           {/* Amount */}
-          <Text style={styles.amountText}>
-            ₹{payoutAmount.toLocaleString('en-IN')}
-          </Text>
+          <Text style={styles.amountText}>{amountText}</Text>
 
           {/* Beneficiary Details */}
           <Text style={styles.farmerDetailText}>
@@ -239,8 +246,9 @@ export function PayoutProcessingScreen({
           <View style={styles.stepRow}>
             <GreenCheckCircle />
             <View style={styles.stepTextCol}>
-              <Text style={styles.stepTitle}>Initiated by Ganga Devi (TOHFA Admin)</Text>
-              <Text style={styles.stepSub}>Today, 9:14 AM</Text>
+              {/* Who initiated it and when are not passed to this screen. */}
+              <Text style={styles.stepTitle}>{t('wiringPayouts.payoutProcessing.initiatedBy', { who: ADMIN_NO_VALUE })}</Text>
+              <Text style={styles.stepSub}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -306,12 +314,14 @@ export function PayoutProcessingScreen({
             </Text>
           ) : null}
 
-          {/* Return for Review Button */}
+          {/* Return for Review: no payout return endpoint exists (api/payouts.ts), so it is disabled (R3). */}
           <TouchableOpacity
-            style={styles.returnBtn}
-            onPress={handleReturn}
-            activeOpacity={0.75}
-            disabled={recorded}
+            style={[styles.returnBtn, styles.actionUnavailable]}
+            disabled
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="payoutProcessing.return"
           >
             <ReturnIcon />
             <Text style={styles.returnBtnText}>Return for Review</Text>
@@ -459,6 +469,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: PALETTE.greenApproved,
+  },
+  /** The designed button, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
   },
   returnBtn: {
     backgroundColor: PALETTE.cardBg,

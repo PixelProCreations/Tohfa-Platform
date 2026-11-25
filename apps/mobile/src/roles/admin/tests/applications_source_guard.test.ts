@@ -5,15 +5,16 @@
  * caption, no demo fixtures, and no Request More Info entry. Checked on the
  * source because there is no full device renderer here.
  *
- * AdminApplicationApproveScreen and AdminApplicationRequestInfoScreen are the
- * legacy screens Phase 3 removes; they are not scanned.
+ * AdminApplicationApproveScreen and AdminApplicationRequestInfoScreen were
+ * re-ported from the design of record on 2026-11-25 (API-backed, no demo
+ * data), so they are scanned like every other file here.
  */
 import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const DIR = path.resolve(__dirname, '../screens/registration');
-const LEGACY = new Set(['AdminApplicationApproveScreen.tsx', 'AdminApplicationRequestInfoScreen.tsx', 'legacyDemoApplications.ts', 'index.ts']);
+const LEGACY = new Set(['legacyDemoApplications.ts', 'index.ts']);
 
 function walk(dir: string): string[] {
   const out: string[] = [];
@@ -40,6 +41,8 @@ describe('application review screens: source guard', () => {
     expect(names).toContain('AdminPendingApplicationsScreen.tsx');
     expect(names).toContain('AdminApplicationDetailScreen.tsx');
     expect(names).toContain('AdminApplicationRejectScreen.tsx');
+    expect(names).toContain('AdminApplicationApproveScreen.tsx');
+    expect(names).toContain('AdminApplicationRequestInfoScreen.tsx');
   });
 
   it('no raw colours and no numeric fontSize (admin theme tokens only)', () => {
@@ -60,9 +63,18 @@ describe('application review screens: source guard', () => {
   it('the review screen states no raw colour, spacing or radius literal', () => {
     const SCREEN = FILES.filter((f) => {
       const rel = relName(f);
-      return rel === 'AdminApplicationDetailScreen.tsx' || rel.startsWith('detail/') || rel === 'applications/ApplicationParts.tsx';
+      return (
+        rel === 'AdminApplicationDetailScreen.tsx' ||
+        rel === 'AdminApplicationApproveScreen.tsx' ||
+        rel === 'AdminApplicationRequestInfoScreen.tsx' ||
+        rel === 'AdminApplicationRejectScreen.tsx' ||
+        rel === 'designMetrics.ts' ||
+        rel.startsWith('detail/') ||
+        rel === 'applications/ApplicationParts.tsx' ||
+        rel === 'applications/DecisionScreenParts.tsx'
+      );
     });
-    expect(SCREEN.length).toBeGreaterThan(8);
+    expect(SCREEN.length).toBeGreaterThan(12);
     const found: string[] = [];
     const LITERAL = [
       // colour
@@ -95,14 +107,15 @@ describe('application review screens: source guard', () => {
     expect(offenders(/\bas any\b/)).toEqual([]);
   });
 
-  it('no spec caption, demo fixtures, Request More Info or cosmetic blocked banner', () => {
+  it('no spec caption, demo fixtures, legacy host callback or cosmetic blocked banner', () => {
     expect(offenders(/M3-S03/, false)).toEqual([]);
-    expect(offenders(/DEMO_PENDING_APPLICATIONS|Sathish|APP-2026|1\.8 acres/)).toEqual([]);
-    // The Request More Info section is drawn by the 2026-11-19 design, but it is
-    // layout only: nothing here may call the request-info client or the host's
-    // legacy callback until the owner decides the wiring.
-    expect(offenders(/useRequestApplicationInfo|RequestInfo|onRequestMoreInfo\s*\(/)).toEqual([]);
+    expect(offenders(/DEMO_PENDING_APPLICATIONS|Sathish|APP-2026|1\.8 acres|98XXX/)).toEqual([]);
+    expect(offenders(/onRequestMoreInfo\s*\(/)).toEqual([]);
     expect(offenders(/isBlocked|blockedAlert/)).toEqual([]);
+  });
+
+  it('no audit mode, screen or option is left in this flow (owner decision 2026-11-25)', () => {
+    expect(offenders(/ScheduleAudit|waiting_audit|schedule_form|modePill|Waiting Audit|Audit Completed/)).toEqual([]);
   });
 
   /**
@@ -149,14 +162,15 @@ describe('application review screens: source guard', () => {
     }
   });
 
-  it('every unwired design control is marked DESIGN-ONLY', () => {
+  it('every wired review control in detail/decision screens is gated by applicationAccess / can*', () => {
     const all = FILES.map(read).join('\n');
-    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.markVerified/);
-    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.saveProgress/);
-    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.updateTracking/);
-    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.sendMoreInfo/);
-    // The design's 02/03 header pills are signposts to screens nothing can reach.
-    expect(all).toMatch(/DESIGN-ONLY: no endpoint yet[\s\S]{0,400}farmerApps\.modePill/);
+    expect(offenders(/DESIGN-ONLY: no endpoint yet/, false)).toEqual(['AdminPendingApplicationsScreen.tsx']);
+    expect(all).toMatch(/access\.canVerifyDocument/);
+    expect(all).toMatch(/access\.canVerifyFmb/);
+    expect(all).toMatch(/access\.canAdvance/);
+    expect(all).toMatch(/access\.canAddNote/);
+    expect(all).toMatch(/access\.canRequestInfo/);
+    expect(all).toMatch(/access\.canDecide/);
   });
 
   /**
@@ -167,7 +181,7 @@ describe('application review screens: source guard', () => {
    */
   it('nothing newly drawn is interactive: no chip, pill or toggle carries an onPress', () => {
     const all = FILES.map(read).join('\n');
-    for (const testId of ['farmerApps.farmingTypeChip', 'farmerApps.modePill', 'farmerApps.otpBadge', 'farmerApps.stepBadge']) {
+    for (const testId of ['farmerApps.farmingTypeChip', 'farmerApps.otpBadge', 'farmerApps.stepBadge', 'farmerApps.declaration']) {
       const block = new RegExp(`testID="${testId.replace('.', '\\.')}"[\\s\\S]{0,400}?>`);
       const match = block.exec(all);
       expect(match, `${testId} is not drawn`).not.toBeNull();

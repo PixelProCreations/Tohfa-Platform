@@ -1,35 +1,90 @@
 /**
- * Shared look of the application screens (team design, tofhafarmfin-rbac),
- * drawn on the admin theme only: the brand header banner with a white back
- * arrow, the light back button card, status badges, label/value rows and the
- * numbered section heading.
+ * Shared pieces of the application screens, drawn exactly as the design of
+ * record (origin/Superadmin-main screens/registration/*) draws them: its SVG
+ * icons, the light screens' 44pt back card, the review screen's brand header,
+ * the numbered section heading with its "Step n of 5" badge, the card, and the
+ * label/value row. Styles live in ../detail/detailStyles.ts under the
+ * design's own names.
  */
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { tokens } from '@tohfa/design-tokens';
 import { t } from '../../../i18n';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminShadow } from '../../../theme';
+import { BOX, RAD, SP } from '../designMetrics';
+import { detailStyles } from '../detail/detailStyles';
 import type { ApplicationTone } from './applicationLogic';
 
-const ICON_SIZE = adminSpacing.input;
+// --- the design's icons -------------------------------------------------------
 
-export function BackArrowIcon({ color }: { color: string }) {
+export function BackArrowIcon({ color, size = SP.s20 }: { color: string; size?: number }) {
   return (
-    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-export function ChevronBackIcon({ color }: { color: string }) {
+export function ChevronBackIcon({ color, size = SP.s20 }: { color: string; size?: number }) {
   return (
-    <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M15 19L8 12L15 5" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-/** The light screens' (list, reject) back button: a white card with a chevron. */
+export function ChevronDownIcon({ color, size = SP.s16 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** The design's filled check circle (document cards, declaration, status sheet). */
+export function CheckCircleIcon({ color, size = SP.s20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill={color} />
+      <Path d="M8 12.5l2.5 2.5 5.5-5.5" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function MapPinIcon({ color, size = SP.s16 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+export function DocumentPdfIcon({ color, size = SP.s16 * 2 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// --- the light screens' back card ----------------------------------------------
+
+/** The design's 44pt white back card with a chevron (list, approve, reject, request info). */
 export function BackButtonCard({ onPress }: { onPress: () => void }) {
   return (
     <TouchableOpacity
@@ -45,23 +100,24 @@ export function BackButtonCard({ onPress }: { onPress: () => void }) {
   );
 }
 
+// --- the review screen's header ------------------------------------------------
+
 export interface HeaderBannerProps {
   title: string;
+  /** "APP-… · " — the application code, then the separator the design prints before the status. */
   subtitle: string;
   onBack: () => void;
-  /** Shown after the subtitle as a pill (Approved / Rejected), or as text. */
-  status?: { label: string; tone: ApplicationTone; pill: boolean } | undefined;
-  /** Drawn inside the banner under the title row (the design's 01/02/03 mode pills). */
-  children?: React.ReactNode | undefined;
+  /** Decided applications show a pill (the design's green Approved pill); pending ones plain text. */
+  status: { label: string; tone: ApplicationTone; pill: boolean };
 }
 
-/** The review screen's brand-orange header: back arrow, applicant name, "code · status". */
-export function HeaderBanner({ title, subtitle, onBack, status, children }: HeaderBannerProps) {
+/** The design's brand-orange header: back arrow, applicant name, "code · status". */
+export function HeaderBanner({ title, subtitle, onBack, status }: HeaderBannerProps) {
   return (
-    <View style={styles.banner}>
-      <View style={styles.bannerRow}>
+    <View style={detailStyles.headerBanner}>
+      <View style={detailStyles.headerRow}>
         <TouchableOpacity
-          style={styles.bannerBack}
+          style={detailStyles.backButton}
           onPress={onBack}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -70,250 +126,109 @@ export function HeaderBanner({ title, subtitle, onBack, status, children }: Head
         >
           <BackArrowIcon color={adminColors.onBrand} />
         </TouchableOpacity>
-        <View style={styles.bannerTitleBox}>
-          <Text style={styles.bannerTitle} numberOfLines={1}>
+        <View style={detailStyles.headerTitleBox}>
+          <Text style={detailStyles.headerTitle} numberOfLines={1}>
             {title}
           </Text>
-          <View style={styles.bannerSubtitleRow}>
-            <Text style={styles.bannerSubtitle}>{subtitle}</Text>
-            {status === undefined ? null : status.pill ? (
-              <StatusBadge label={status.label} tone={status.tone} />
+          <View style={detailStyles.headerSubtitleRow}>
+            <Text style={detailStyles.headerSubtitle}>{subtitle}</Text>
+            {status.pill ? (
+              <View style={[detailStyles.headerApprovedPill, status.tone === 'danger' ? detailStyles.headerRejectedPill : null]}>
+                <Text style={[detailStyles.headerApprovedPillText, status.tone === 'danger' ? detailStyles.headerRejectedPillText : null]}>
+                  {status.label}
+                </Text>
+              </View>
             ) : (
-              <Text style={styles.bannerSubtitle}>{status.label}</Text>
+              <Text style={detailStyles.headerSubtitle}>{status.label}</Text>
             )}
           </View>
         </View>
       </View>
-      {children}
     </View>
   );
 }
 
-export function StatusBadge({ label, tone }: { label: string; tone: ApplicationTone }) {
-  return (
-    <View style={[styles.badge, { backgroundColor: adminColors[tone].bg }]}>
-      <Text style={[styles.badgeText, { color: adminColors[tone].text }]}>{label}</Text>
-    </View>
-  );
-}
+// --- headings, cards and rows ---------------------------------------------------
 
+/** A heading with no step badge (06, 07): the design sets it with no margin of its own. */
 export function SectionHeading({ label }: { label: string }) {
   return (
-    <Text style={styles.sectionHeading} accessibilityRole="header">
+    <Text style={detailStyles.sectionHeading} accessibilityRole="header">
       {label}
     </Text>
   );
 }
 
-/**
- * The 2026-11-19 design's section heading with its "Step n of 5" badge on the
- * right. `state` is the application's own progress through that step
- * (detail/reviewFacts.ts), so the badge reports data rather than decoration.
- */
-export function StepHeader({ label, step, total, state }: { label: string; step: number; total: number; state: 'done' | 'current' | 'pending' }) {
-  const tone = state === 'done' ? styles.stepBadgeDone : state === 'current' ? styles.stepBadgeCurrent : null;
-  const textTone = state === 'done' ? styles.stepBadgeDoneText : state === 'current' ? styles.stepBadgeCurrentText : null;
+/** "01 · Personal Details" with its "Step 1 of 5" badge on the right. */
+export function StepHeader({ label, step, total }: { label: string; step: number; total: number }) {
   return (
-    <View style={styles.stepHeaderRow}>
-      <Text style={styles.stepHeading} accessibilityRole="header">
+    <View style={detailStyles.stepHeaderRow}>
+      <Text style={detailStyles.sectionHeading} accessibilityRole="header">
         {label}
       </Text>
-      <View style={[styles.stepBadge, tone]} testID="farmerApps.stepBadge">
-        <Text style={[styles.stepBadgeText, textTone]}>{t('farmerApps.step', { n: step, total })}</Text>
+      <View style={detailStyles.stepBadge} testID="farmerApps.stepBadge">
+        <Text style={detailStyles.stepBadgeText}>{t('farmerApps.step', { n: step, total })}</Text>
       </View>
     </View>
   );
 }
 
 export function Card({ children }: { children: React.ReactNode }) {
-  return <View style={styles.card}>{children}</View>;
+  return <View style={detailStyles.card}>{children}</View>;
 }
 
 export interface InfoRowProps {
   label: string;
   value: string;
+  /** The design's bold value (names, numbers it wants to stand out). */
+  bold?: boolean | undefined;
+  /** A long value (the address) takes the remaining width, right-aligned. */
+  wide?: boolean | undefined;
   last?: boolean | undefined;
-  valueTone?: ApplicationTone | undefined;
   /** The design's small grey line under a label (for example the Aadhaar's "Used to verify identity with TOHFA"). */
   hint?: string | undefined;
   /** Drawn after the value, for the design's inline badges. */
   valueSuffix?: React.ReactNode | undefined;
+  testID?: string | undefined;
 }
 
-export function InfoRow({ label, value, last = false, valueTone, hint, valueSuffix }: InfoRowProps) {
+export function InfoRow({ label, value, bold = false, wide = false, last = false, hint, valueSuffix, testID }: InfoRowProps) {
+  const valueStyle = [bold ? detailStyles.valueBold : detailStyles.value, wide ? detailStyles.valueWide : null];
   return (
-    <View style={[styles.row, last ? styles.rowLast : null]}>
-      <View style={styles.labelBox}>
-        <Text style={styles.label}>{label}</Text>
-        {hint === undefined ? null : <Text style={styles.labelHint}>{hint}</Text>}
-      </View>
-      <View style={styles.valueBox}>
-        <Text style={[styles.value, valueTone === undefined ? null : { color: adminColors[valueTone].text }]}>{value}</Text>
-        {valueSuffix}
-      </View>
+    <View style={[detailStyles.row, last ? detailStyles.rowLast : null]} testID={testID}>
+      {hint === undefined ? (
+        <Text style={detailStyles.label}>{label}</Text>
+      ) : (
+        <View style={detailStyles.labelBox}>
+          <Text style={detailStyles.label}>{label}</Text>
+          <Text style={detailStyles.captionSub}>{hint}</Text>
+        </View>
+      )}
+      {valueSuffix === undefined ? (
+        <Text style={valueStyle}>{value}</Text>
+      ) : (
+        <View style={detailStyles.inlineBadgeRow}>
+          <Text style={valueStyle}>{value}</Text>
+          {valueSuffix}
+        </View>
+      )}
     </View>
   );
 }
 
-export const partStyles = StyleSheet.create({
-  avatar: {
-    width: ADMIN_BUTTON_HEIGHT,
-    height: ADMIN_BUTTON_HEIGHT,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: adminSpacing.mdLg,
-  },
-  avatarText: {
-    ...adminType.rowTitle,
-    color: adminColors.brandDeep,
-  },
-  errorBox: {
-    backgroundColor: adminColors.danger.bg,
-    borderWidth: 1,
-    borderColor: adminColors.danger.border,
-    borderRadius: adminRadius.md,
-    padding: adminSpacing.md,
-  },
-  errorText: {
-    ...adminType.body,
-    color: adminColors.danger.text,
-  },
-});
-
 const styles = StyleSheet.create({
   backCard: {
-    width: ADMIN_BUTTON_HEIGHT,
-    height: ADMIN_BUTTON_HEIGHT,
-    borderRadius: adminRadius.lg,
+    width: BOX.backCard,
+    height: BOX.backCard,
+    borderRadius: RAD.r14,
     backgroundColor: adminColors.card,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     ...adminShadow.sm,
-  },
-  banner: {
-    backgroundColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.smMd,
-  },
-  bannerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-  },
-  bannerBack: {
-    padding: adminSpacing.xs,
-    marginRight: adminSpacing.xs,
-  },
-  bannerTitleBox: { flex: 1 },
-  bannerTitle: {
-    ...adminType.title,
-    color: adminColors.onBrand,
-  },
-  bannerSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    marginTop: adminSpacing.xs,
-  },
-  bannerSubtitle: {
-    // The design sets 12/500 here; adminType.body (13/400) is the nearest step.
-    ...adminType.body,
-    color: adminColors.onBrand,
-  },
-  badge: {
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.full,
-  },
-  badgeText: {
-    ...adminType.caption,
-  },
-  sectionHeading: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginTop: adminSpacing.lg,
-    marginBottom: adminSpacing.xs,
-  },
-  /** The same heading inside a StepHeader row, whose own margins position it. */
-  stepHeading: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-  },
-  card: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.smMd,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    marginBottom: adminSpacing.sm,
-    ...adminShadow.sm,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: adminSpacing.md,
-    paddingVertical: adminSpacing.smMd,
-    borderBottomWidth: 1,
-    // The design's in-card hairline is lighter than the card's own stroke.
-    borderBottomColor: adminColors.dashboard.divider,
-  },
-  rowLast: {
-    borderBottomWidth: 0,
-  },
-  stepHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: adminSpacing.sm,
-    marginTop: adminSpacing.lg,
-    marginBottom: adminSpacing.xs,
-  },
-  /** The design's "Step n of 5": small orange type on a soft brand pill, no stroke. */
-  stepBadge: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.full,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
-  },
-  stepBadgeDone: {
-    backgroundColor: adminColors.success.bg,
-  },
-  stepBadgeCurrent: {
-    backgroundColor: adminColors.brandTint,
-  },
-  stepBadgeText: {
-    ...adminType.caption,
-    color: adminColors.brand,
-  },
-  stepBadgeDoneText: { color: adminColors.success.text },
-  stepBadgeCurrentText: { color: adminColors.brand },
-  labelBox: { flexShrink: 1 },
-  labelHint: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginTop: adminSpacing.xs,
-  },
-  valueBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-    flexShrink: 1,
-  },
-  label: {
-    ...adminType.body,
-    color: adminColors.muted,
-  },
-  value: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    flexShrink: 1,
-    textAlign: 'right',
+    // design: 0 1 3 black 4% shadow, elevation 2 — the adminSm token with its blur unhalved.
+    shadowRadius: tokens.shadow.adminSm.blur,
+    elevation: 2,
   },
 });

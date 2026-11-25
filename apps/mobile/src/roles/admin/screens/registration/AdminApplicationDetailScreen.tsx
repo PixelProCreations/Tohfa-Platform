@@ -1,39 +1,48 @@
 /**
- * Application Review: one farmer application, sections 01-05, with the
- * Approve / Reject bar (GET /admin/farmer-applications/{id},
- * farmer.application.view; POST .../approve).
+ * Application Review: one farmer application (GET /admin/farmer-applications/{id},
+ * farmer.application.view), drawn as the design of record draws it
+ * (origin/Superadmin-main screens/registration/AdminApplicationDetailScreen.tsx):
+ * brand header, sections 01-07, sticky Approve / Reject bar. The design's
+ * single file is split into ./detail/* sections; its styles are ported style by
+ * style into ./detail/detailStyles.ts.
  *
- * Look and flow: team design (tofhafarmfin-rbac AdminApplicationDetailScreen),
- * split into ./detail/*. Against the design:
+ * Against the design:
  *   - Data comes from the application id through useApplication; nothing from
- *     the host's item but its `id`, and never the design's demo values. Fields
- *     the API cannot supply show the "not available" dash.
- *   - Approve replaces the old separate Approve screen with the design's
- *     in-place Approved state, but only after the server agreed; the
- *     Idempotency-Key is then released (finish()). No approval notes (the
- *     design has none). Approve asks for confirmation first (owner request,
- *     like Reject): only the pop-up's Approve button calls the server.
- *   - Reject keeps the design's confirmation, then hands over to the Reject
- *     screen; this screen never claims "Application Rejected" itself.
- *   - Request More Info is dropped (owner decision); `onRequestMoreInfo` is
- *     still accepted so the current host compiles, and is never called.
- *   - No cosmetic "approval blocked" banner (BR-69 is the server's), no role
- *     names, no visible design spec caption.
+ *     the host's item but its `id`, and never the design's demo values. Values
+ *     the API does not supply render ADMIN_NO_VALUE.
+ *   - No audit: the design's two audit modes (waiting for, and scheduling,
+ *     an audit), their 01/02/03 pill bar and its audit form screen are not
+ *     ported (owner decision 2026-11-25 — audit work is a separate flow).
+ *   - Approve opens the Approve Application screen (approval notes + Confirm &
+ *     Onboard Farmer); only its Confirm calls the server. Once the server
+ *     agreed, this screen shows its Approved state and tells the host
+ *     (onApproved). Reject keeps the design's confirmation, then hands over to
+ *     the host's Reject screen; this screen never claims a rejection itself.
+ *   - Section 06's "Send Request for Information" opens the Request More Info
+ *     screen, as the design's host did.
+ *   - The Approve and Request More Info screens are held here (sub-views), so
+ *     the hosts (FarmersFlow, FarmerManagementFlow) need no new route.
+ *   - Controls whose backend is being built now (document / FMB verify, stage
+ *     change, review notes, request send, approval note) are drawn as designed
+ *     and disabled, each with a stable testID.
  *
  * Access fails closed: without farmer.application.view (or with no `can`)
  * nothing is fetched. Approve/Reject need approve AND reject (see
  * applicationLogic.ts).
  */
 import React, { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, View } from 'react-native';
 import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { FarmerApplicationDto } from '../../api/farmerApplications';
-import { useApplication, useApproveApplication } from '../../api/farmerHooks';
+import { useApplication } from '../../api/farmerHooks';
 import { t } from '../../i18n';
 import type { Can } from '../../permissions/can';
-import { adminColors, adminSpacing } from '../../theme';
+import { adminColors } from '../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { AdminApplicationApproveScreen } from './AdminApplicationApproveScreen';
+import { AdminApplicationRequestInfoScreen } from './AdminApplicationRequestInfoScreen';
 import { BackButtonCard, HeaderBanner } from './applications/ApplicationParts';
+import { decisionStyles } from './applications/DecisionScreenParts';
 import {
   applicationAccess,
   isNotFound,
@@ -43,10 +52,11 @@ import {
   type PendingApplicationItem,
 } from './applications/applicationLogic';
 import { ActionBar } from './detail/ActionBar';
-import { detailStyles } from './detail/detailStyles';
 import { ApplicantSection } from './detail/ApplicantSection';
 import { DecisionSection, type DecisionState } from './detail/DecisionSection';
+import { detailStyles } from './detail/detailStyles';
 import { DocumentsSection } from './detail/DocumentsSection';
+import { gateBlockerSummary } from './detail/documentReview';
 import { FarmingSection } from './detail/FarmingSection';
 import { FarmSection } from './detail/FarmSection';
 import { MoreInfoSection } from './detail/MoreInfoSection';
@@ -67,54 +77,21 @@ export interface AdminApplicationDetailScreenProps {
   /** After the server approved; the screen already shows its Approved state. */
   onApproved?: ((result: FarmerApplicationDto) => void) | undefined;
   /**
-   * @deprecated Ignored. The host used it to open the old Approve screen, which
-   * the design replaced with the in-place Approved state. Phase 3 drops it.
+   * @deprecated Ignored: Approve opens this screen's own Approve Application
+   * view. A host (FarmerManagementFlow) still passes it; it is never called.
    */
   onApprove?: (() => void) | undefined;
-  /** @deprecated Ignored: Request More Info was dropped (owner decision). Phase 3 drops it. */
+  /** @deprecated Ignored: section 06 opens this screen's own Request More Info view. */
   onRequestMoreInfo?: (() => void) | undefined;
 }
 
-/**
- * The design's 01/02/03 header pills. Only the first is a real place: nothing
- * in this app can move an application into farm verification or an audit (an
- * audit needs a farmerId, which a pending application has none of), so 02 and
- * 03 are drawn as disabled signposts with the reason under them, and their
- * screens are not built here.
- */
-function ModePills() {
-  const pills: { key: string; label: string; active: boolean }[] = [
-    { key: 'requestInfo', label: t('farmerApps.pill.requestInfo'), active: true },
-    { key: 'waitingAudit', label: t('farmerApps.pill.waitingAudit'), active: false },
-    { key: 'scheduleAudit', label: t('farmerApps.pill.scheduleAudit'), active: false },
-  ];
-  return (
-    <>
-      <View style={detailStyles.modePillBar}>
-        {pills.map((pill) => (
-          // DESIGN-ONLY: no endpoint yet (nothing moves an application into verification or an audit).
-          <TouchableOpacity
-            key={pill.key}
-            style={[detailStyles.modePill, pill.active ? detailStyles.modePillActive : detailStyles.unavailable]}
-            testID="farmerApps.modePill"
-            disabled
-            accessibilityRole="button"
-            accessibilityState={{ disabled: true, selected: pill.active }}
-            accessibilityHint={pill.active ? undefined : t('farmerApps.pill.unavailable')}
-          >
-            <Text style={[detailStyles.modePillText, pill.active ? detailStyles.modePillTextActive : null]}>{pill.label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </>
-  );
-}
+type SubView = 'review' | 'approve' | 'requestInfo';
 
 function LightShell({ onBack, children }: { onBack: () => void; children: React.ReactNode }) {
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={decisionStyles.root}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
-      <View style={styles.lightHeader}>
+      <View style={decisionStyles.header}>
         <BackButtonCard onPress={onBack} />
       </View>
       {children}
@@ -134,8 +111,8 @@ export const AdminApplicationDetailScreen: React.FC<AdminApplicationDetailScreen
   const access = applicationAccess(can);
   const id = applicationId ?? application?.id;
   const live = useApplication(warehouseId, access.canView ? id : undefined);
-  const approve = useApproveApplication(access.canView && access.canDecide ? id : undefined);
   const [approvedResult, setApprovedResult] = useState<FarmerApplicationDto | null>(null);
+  const [subView, setSubView] = useState<SubView>('review');
 
   if (!access.canView) {
     return (
@@ -165,26 +142,40 @@ export const AdminApplicationDetailScreen: React.FC<AdminApplicationDetailScreen
   const state: DecisionState =
     approvedResult !== null || app.status === 'APPROVED' ? 'approved' : app.status === 'REJECTED' ? 'rejected' : 'pending';
   const status = state === 'approved' ? 'APPROVED' : app.status;
-  const decidedAt = approvedResult?.decidedAt ?? app.decidedAt;
+  const canRequestNow = access.canRequestInfo && (status === 'DOCS_REVIEW' || status === 'FARM_VERIFICATION');
+  const approveGateReason = gateBlockerSummary(app.reviewGates?.approval, {
+    requireFarmVerificationStage: app.reviewGates !== undefined || status !== 'FARM_VERIFICATION',
+    status,
+  });
 
-  const runApprove = () => {
-    if (!access.canDecide || approve.isPending) return;
-    approve.run({}, (result) => {
-      setApprovedResult(result);
-      // The decision is done: the next one gets a fresh Idempotency-Key.
-      approve.finish();
-      // The host's "Application Approved" toast: only now, after the server agreed.
-      onApproved?.(result);
-    });
-  };
+  if (subView === 'approve' && state === 'pending') {
+    return (
+      <AdminApplicationApproveScreen
+        applicationId={id}
+        can={can}
+        warehouseId={warehouseId}
+        onBack={() => setSubView('review')}
+        onApproved={(result) => {
+          setApprovedResult(result);
+          setSubView('review');
+          // The host's "Application Approved" toast: only now, after the server agreed.
+          onApproved?.(result);
+        }}
+      />
+    );
+  }
 
-  const handleApprove = () => {
-    if (!access.canDecide || approve.isPending) return;
-    Alert.alert(t('farmerApps.approveConfirm.title'), t('farmerApps.approveConfirm.message', { name: orDash(app.applicant.name) }), [
-      { text: t('farmerApps.approveConfirm.cancel'), style: 'cancel' },
-      { text: t('farmerApps.approveConfirm.confirm'), onPress: runApprove },
-    ]);
-  };
+  if (subView === 'requestInfo') {
+    return (
+      <AdminApplicationRequestInfoScreen
+        applicationId={id}
+        can={can}
+        warehouseId={warehouseId}
+        onBack={() => setSubView('review')}
+        onSent={() => setSubView('review')}
+      />
+    );
+  }
 
   const handleReject = () => {
     if (!access.canDecide) return;
@@ -195,64 +186,39 @@ export const AdminApplicationDetailScreen: React.FC<AdminApplicationDetailScreen
   };
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={detailStyles.root}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <HeaderBanner
         title={orDash(app.applicant.name)}
-        subtitle={`${orDash(app.applicationCode)} · `}
+        subtitle={t('farmerApps.detail.codeSeparator', { code: orDash(app.applicationCode) })}
         onBack={onBack}
         status={{ label: statusLabel(status), tone: statusTone(status), pill: state !== 'pending' }}
-      >
-        <ModePills />
-      </HeaderBanner>
+      />
 
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={state === 'pending' ? styles.contentWithBar : styles.content}
+        style={detailStyles.scroll}
+        contentContainerStyle={detailStyles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={live.isRefreshing} onRefresh={live.refresh} tintColor={adminColors.brand} />}
       >
-        {/* The design's order: 01 personal, 02 farm details, 03 location, 04 documents, 05 tracking. */}
-        <ApplicantSection app={app} status={status} decidedAt={decidedAt ?? null} />
-        <FarmingSection app={app} approved={state === 'approved'} />
-        <FarmSection app={app} />
-        <DocumentsSection app={app} reviewing={state === 'pending'} />
-        <TrackingSection app={app} status={status} />
-        {/* Layout only: the request-information controls are drawn disabled (owner decision). */}
-        <MoreInfoSection app={app} />
-        <DecisionSection app={app} state={state} />
+        <ApplicantSection app={app} />
+        <FarmingSection app={app} />
+        <FarmSection app={app} applicationId={id} canVerifyFmb={access.canVerifyFmb} />
+        <DocumentsSection app={app} applicationId={id} canVerifyDocument={access.canVerifyDocument} />
+        <TrackingSection app={app} status={status} applicationId={id} canAdvance={access.canAdvance} />
+        <MoreInfoSection app={app} onOpenRequestInfo={canRequestNow ? () => setSubView('requestInfo') : undefined} />
+        <DecisionSection app={app} state={state} applicationId={id} canAddNote={access.canAddNote} />
+        <View style={detailStyles.bottomSpacer} />
       </ScrollView>
 
       {state === 'pending' ? (
         <ActionBar
           canDecide={access.canDecide}
-          isApproving={approve.isPending}
-          approveError={approve.error}
-          onApprove={handleApprove}
+          approveBlockedReason={approveGateReason}
+          onApprove={() => setSubView('approve')}
           onReject={handleReject}
         />
       ) : null}
     </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: adminColors.canvas },
-  lightHeader: {
-    paddingHorizontal: adminSpacing.input,
-    paddingTop: adminSpacing.mdLg,
-    paddingBottom: adminSpacing.xs,
-  },
-  scroll: { flex: 1, backgroundColor: adminColors.canvas },
-  content: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xxxl,
-  },
-  contentWithBar: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.md,
-    // Room for the sticky action bar (and its error line).
-    paddingBottom: adminSpacing.pageMargin + adminSpacing.largeSection,
-  },
-});

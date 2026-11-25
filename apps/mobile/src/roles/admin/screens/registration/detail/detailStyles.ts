@@ -1,169 +1,315 @@
 /**
- * Styles shared by the application review sections (team design
- * AdminApplicationDetailScreen, redesigned 2026-11-19), on admin theme tokens
- * only.
+ * The application review screen's stylesheet, ported from the design of
+ * record (origin/Superadmin-main screens/registration/AdminApplicationDetailScreen.tsx)
+ * style by style, under the design's own style names, so a reviewer can diff
+ * the two files side by side.
  *
- * This is the design's VISUAL TREATMENT, not its stylesheet: the design file
- * carries raw hex and raw spacing numbers, and none of them are copied. Every
- * value below is the nearest token in ../../theme. Where the design asked for
- * something the token set has no answer for, the closest token is used and the
- * gap is noted inline with the design's own value, so the owner can decide
- * whether a token should be added:
+ * Sizes are the design's exact numbers, through tokens (../designMetrics.ts
+ * for the ones the token scale has no step for). The design's raw colours map
+ * to the admin theme the same way the rest of the port maps them:
  *
- *   #FAF8F5 / #F8F6F2 soft fills   -> adminColors.warehouse.warmCanvas (#FBF8F2)
- *                                     and adminColors.dashboard.overviewCanvas
- *   #F5F0EA hairline divider       -> adminColors.dashboard.divider (#F2ECE5)
- *   #F3E8DF / #F5EBE1 / #FFF7ED    -> adminColors.brandTint (#FDF3F0)
+ *   #FAF8F5 / #F8F6F2 soft fills   -> adminColors.warehouse.warmCanvas / dashboard.overviewCanvas
+ *   #F5F0EA hairline divider       -> adminColors.dashboard.divider
+ *   #F3E8DF / #F5EBE1 / #FFF7ED    -> adminColors.brandTint
  *   #2E7D32 / #E8F5E9 green        -> adminColors.success.{text,bg}
  *   #B45309 / #FEF3C7 amber        -> adminColors.warning.{text,bg}
- *   #E5E7EB tracker grey           -> adminColors.dashboard.track (#EBE5DC)
- *   #2E4A28 dark map panel         -> adminColors.success.text (#173404)
- *   radius 4 / 6                   -> adminRadius.xs (8; the smallest admin radius)
- *   height 38 / 150, fontSize 15   -> no token; see the comments at each use
+ *   #F0FDF4 / #DCFCE7 / #166534    -> adminColors.success.{bg,bg,text}
+ *   #F59E0B / #EAB308 boundary     -> adminColors.platform.warning
+ *   #E5E7EB tracker grey           -> adminColors.dashboard.track
+ *   #2E4A28 dark map panel         -> adminColors.success.text
+ *   65% black map labels          -> adminOverlay.scrim (45%)
+ *   50% black sheet backdrop      -> adminOverlay.scrim (45%)
+ *   18% white pill overlay        -> adminOverlay.headerPill
  */
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { BOX, FS, LH, RAD, SP } from '../designMetrics';
 
-/** The design's warm off-white behind inputs, dropdowns, pills and soft boxes. */
 const SOFT_SURFACE = adminColors.warehouse.warmCanvas;
-/** The design's hairline between rows inside a card (lighter than adminColors.border). */
 const HAIRLINE = adminColors.dashboard.divider;
-/** The design's inactive tracker grey (dot fill and connector). */
 const TRACK = adminColors.dashboard.track;
+const GREEN = adminColors.success.text;
+const AMBER = adminColors.warning.text;
+
+const stageDot = {
+  width: SP.s20,
+  height: SP.s20,
+  borderRadius: SP.s10,
+  alignItems: 'center',
+  justifyContent: 'center',
+} as const;
 
 export const detailStyles = StyleSheet.create({
-  docCard: {
+  root: { flex: 1, backgroundColor: adminColors.canvas },
+  scroll: { flex: 1, backgroundColor: adminColors.canvas },
+  scrollContent: {
+    paddingHorizontal: SP.s16,
+    paddingTop: SP.s12,
+    paddingBottom: SP.s96,
+  },
+  bottomSpacer: { height: SP.s96 },
+
+  // --- header ---------------------------------------------------------------
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: SP.s16,
+    paddingTop: SP.s8,
+    paddingBottom: SP.s10,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: SP.s8 },
+  backButton: { padding: SP.s4, marginRight: SP.s4 },
+  headerTitleBox: { flexShrink: 1 },
+  headerTitle: {
+    ...adminType.title,
+    fontSize: FS.s18,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  headerSubtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: SP.s2 },
+  headerSubtitle: { fontSize: FS.s12, fontWeight: '500', color: adminColors.onBrand },
+  headerApprovedPill: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: SP.s8,
+    paddingVertical: SP.s2,
+    borderRadius: adminRadius.full,
+  },
+  headerApprovedPillText: { fontSize: FS.s10, fontWeight: '700', color: GREEN },
+  headerRejectedPill: { backgroundColor: adminColors.danger.bg },
+  headerRejectedPillText: { color: adminColors.danger.text },
+
+  // --- section headings -----------------------------------------------------
+  stepHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SP.s16,
+    marginBottom: SP.s4,
+  },
+  sectionHeading: {
+    ...adminType.sectionHead,
+    fontSize: FS.s13_5,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  stepBadge: {
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: SP.s8,
+    paddingVertical: SP.s2,
+    borderRadius: adminRadius.full,
+  },
+  stepBadgeText: { fontSize: FS.s10_5, fontWeight: '700', color: adminColors.brand },
+
+  // --- cards and rows ---------------------------------------------------------
+  card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
+    borderRadius: RAD.r14,
+    paddingHorizontal: SP.s16,
+    paddingVertical: SP.s10,
     borderWidth: 1,
     borderColor: adminColors.border,
+    marginBottom: SP.s8,
     ...adminShadow.sm,
   },
-  docList: { gap: adminSpacing.sm },
+  cardNoPadding: {
+    backgroundColor: adminColors.card,
+    borderRadius: RAD.r14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    overflow: 'hidden',
+    marginBottom: SP.s8,
+    ...adminShadow.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SP.s10,
+    borderBottomWidth: 1,
+    borderBottomColor: HAIRLINE,
+  },
+  rowLast: { borderBottomWidth: 0 },
+  columnBox: { paddingVertical: SP.s10, borderBottomWidth: 1, borderBottomColor: HAIRLINE },
+  labelBox: { flex: 1 },
+  label: { fontSize: FS.s12_5, color: adminColors.muted },
+  captionSub: { fontSize: FS.s10_5, color: adminColors.muted, marginTop: SP.s1 },
+  value: { fontSize: FS.s13, color: adminColors.ink },
+  valueBold: { fontSize: FS.s13, fontWeight: '700', color: adminColors.ink },
+  valueWide: { flex: 1, textAlign: 'right' },
+  inlineBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: SP.s6 },
+  badgeVerifiedMini: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: SP.s6,
+    paddingVertical: SP.s1_5,
+    borderRadius: RAD.r4,
+  },
+  badgeVerifiedMiniText: { fontSize: FS.s10, fontWeight: '700', color: GREEN },
+  /** The same mini badge when nothing reports the fact: neutral, carrying the dash. */
+  badgeUnknownMini: { backgroundColor: SOFT_SURFACE },
+  badgeUnknownMiniText: { color: adminColors.muted },
+
+  // --- 02 farm details ----------------------------------------------------------
+  farmingChipsRow: { flexDirection: 'row', gap: SP.s8, marginTop: SP.s8 },
+  farmingTypeChip: {
+    flex: 1,
+    backgroundColor: adminColors.dashboard.overviewCanvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: RAD.r8,
+    paddingVertical: SP.s7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  farmingTypeChipActive: { backgroundColor: adminColors.success.bg, borderColor: GREEN },
+  farmingTypeChipText: { fontSize: FS.s11_5, fontWeight: '600', color: adminColors.muted },
+  farmingTypeChipTextActive: { color: GREEN, fontWeight: '800' },
+  areaDiffBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: SOFT_SURFACE,
+    borderRadius: RAD.r10,
+    paddingHorizontal: SP.s12,
+    paddingVertical: SP.s9,
+    marginVertical: SP.s6,
+  },
+  areaDiffTitle: { fontSize: FS.s12, fontWeight: '700', color: adminColors.ink },
+  areaDiffSub: { fontSize: FS.s10_5, color: adminColors.muted, marginTop: SP.s1 },
+  areaDiffPill: {
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: SP.s8,
+    paddingVertical: SP.s4,
+    borderRadius: RAD.r6,
+  },
+  areaDiffPillText: { fontSize: FS.s11_5, fontWeight: '800', color: adminColors.brand },
+
+  // --- 03 map card ----------------------------------------------------------------
+  satelliteContainer: { position: 'relative', height: BOX.map, backgroundColor: GREEN },
+  mapFill: { flex: 1 },
+  mapEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  mapEmptyText: { fontSize: FS.s11, fontWeight: '700', color: adminColors.onBrand },
+  zoneTagOverlay: { position: 'absolute', bottom: SP.s8, left: SP.s8, flexDirection: 'row', gap: SP.s6 },
+  zoneBadge: {
+    backgroundColor: adminOverlay.scrim,
+    paddingHorizontal: SP.s7,
+    paddingVertical: SP.s2_5,
+    borderRadius: RAD.r4,
+  },
+  zoneBadgeText: { color: adminColors.onBrand, fontSize: FS.s10, fontWeight: '700' },
+  gpsCoordPill: {
+    position: 'absolute',
+    top: SP.s8,
+    left: SP.s8,
+    backgroundColor: adminOverlay.scrim,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SP.s4,
+    paddingHorizontal: SP.s8,
+    paddingVertical: SP.s3,
+    borderRadius: RAD.r12,
+  },
+  gpsCoordText: { color: adminColors.onBrand, fontSize: FS.s11, fontWeight: '700' },
+  mapSummaryCard: { padding: SP.s12, backgroundColor: adminColors.card },
+  mapSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SP.s8,
+  },
+  mapSummaryTitleBox: { flexShrink: 1 },
+  mapSummaryTitle: { fontSize: FS.s14, fontWeight: '800', color: adminColors.ink },
+  mapSummarySub: { fontSize: FS.s11_5, color: adminColors.muted, marginTop: SP.s2 },
+  totalAreaBadge: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: SP.s10,
+    paddingVertical: SP.s4,
+    borderRadius: RAD.r6,
+  },
+  totalAreaBadgeText: { color: GREEN, fontWeight: '800', fontSize: FS.s12 },
+  zonesInfoRow: {
+    flexDirection: 'row',
+    backgroundColor: SOFT_SURFACE,
+    borderRadius: RAD.r10,
+    padding: SP.s8,
+    marginVertical: SP.s8,
+    justifyContent: 'space-between',
+  },
+  zoneStatBox: { flex: 1, alignItems: 'center' },
+  zoneStatLabel: { fontSize: FS.s9_5, fontWeight: '700', color: adminColors.muted, marginBottom: SP.s2 },
+  zoneStatValue: { fontSize: FS.s11_5, fontWeight: '700', color: adminColors.ink },
+  fmbStatusProvided: { color: GREEN, fontWeight: '800' },
+  fmbStatusPending: { color: AMBER, fontWeight: '800' },
+  zonesListContainer: { marginTop: SP.s4, borderTopWidth: 1, borderTopColor: HAIRLINE },
+  zoneListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SP.s6,
+    borderBottomWidth: 1,
+    borderBottomColor: HAIRLINE,
+  },
+  zoneNameText: { fontSize: FS.s12, fontWeight: '700', color: adminColors.ink, width: BOX.zoneName },
+  zoneCropText: { fontSize: FS.s12, color: adminColors.muted, flex: 1 },
+  zoneStatusText: { fontSize: FS.s11, fontWeight: '700', color: GREEN },
+  zoneStatusMissing: { color: AMBER },
+
+  // --- 04 documents ---------------------------------------------------------------
+  docActionCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: RAD.r14,
+    padding: SP.s12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: SP.s8,
+    ...adminShadow.sm,
+  },
   docHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: adminSpacing.sm,
+    marginBottom: SP.s8,
   },
-  docTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  docSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
-  docButtonsRow: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.sm },
-  /** The design's outlined "Preview": a neutral stroke and ink label, not a brand one. */
-  outlineBtn: {
-    flex: 1,
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    // The design fixes these buttons at 38pt tall; no size token is that value,
-    // so the height comes from the label plus adminSpacing.smMd padding.
-    borderRadius: adminRadius.sm,
-    paddingVertical: adminSpacing.smMd,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outlineBtnText: { ...adminType.rowTitle, color: adminColors.ink },
-  filledBtn: {
-    flex: 1,
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.sm,
-    paddingVertical: adminSpacing.smMd,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  filledBtnText: { ...adminType.rowTitle, color: adminColors.onBrand },
-  /** A DESIGN-ONLY control: drawn as designed but visibly not available. */
-  unavailable: { opacity: 0.45 },
-  caption: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
-  section: { gap: adminSpacing.md },
-  infoBox: {
-    backgroundColor: adminColors.info.bg,
-    borderWidth: 1,
-    borderColor: adminColors.info.border,
-    borderRadius: adminRadius.xs,
-    padding: adminSpacing.sm,
-    marginBottom: adminSpacing.sm,
-  },
-  infoText: { ...adminType.rowMeta, color: adminColors.info.text },
-  fieldLabel: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xsSm },
-  notesInput: {
-    ...adminType.body,
-    backgroundColor: SOFT_SURFACE,
-    borderRadius: adminRadius.sm,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    color: adminColors.ink,
-    minHeight: adminSpacing.modalGap,
-    textAlignVertical: 'top',
-  },
-  notesBox: {
-    backgroundColor: SOFT_SURFACE,
-    borderRadius: adminRadius.sm,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-  },
-  notesText: { ...adminType.body, color: adminColors.ink },
-  saveProgressBtn: {
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.brand,
-    borderRadius: adminRadius.sm,
-    paddingVertical: adminSpacing.smMd,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveProgressText: { ...adminType.rowTitle, color: adminColors.brand },
-  reqCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-  },
-  reqTitle: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xsSm },
-  historyEmpty: { ...adminType.rowMeta, color: adminColors.muted },
-  rejectedTitle: { ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.xsSm },
-
-  // --- the 2026-11-19 design's document cards, tracker and chips -----------
-  /** The review-stage line above the document cards. */
-  stageLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.sm,
-  },
-  stageLineLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  stageLineValue: { ...adminType.rowTitle, color: adminColors.ink },
-  /** The design's small square status pills: radius 4, which adminRadius has no step for. */
+  docIconTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SP.s8, flex: 1 },
+  docTitleBox: { flexShrink: 1 },
+  docTitle: { fontSize: FS.s13, fontWeight: '700', color: adminColors.ink },
+  docSub: { fontSize: FS.s11, color: adminColors.muted, marginTop: SP.s1 },
   badgeVerified: {
     backgroundColor: adminColors.success.bg,
-    borderRadius: adminRadius.xs,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
+    paddingHorizontal: SP.s8,
+    paddingVertical: SP.s2_5,
+    borderRadius: RAD.r4,
   },
-  badgeVerifiedText: { ...adminType.caption, color: adminColors.success.text },
+  badgeVerifiedText: { fontSize: FS.s10_5, fontWeight: '700', color: GREEN },
   badgePending: {
     backgroundColor: adminColors.warning.bg,
-    borderRadius: adminRadius.xs,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
+    paddingHorizontal: SP.s8,
+    paddingVertical: SP.s2_5,
+    borderRadius: RAD.r4,
   },
-  badgePendingText: { ...adminType.caption, color: adminColors.warning.text },
-  /** No verification data at all: the badge stays drawn and reads as the dash. */
-  badgeUnknown: {
-    backgroundColor: SOFT_SURFACE,
-    borderWidth: 1,
+  badgePendingText: { fontSize: FS.s10_5, fontWeight: '700', color: AMBER },
+  docButtonsRow: { flexDirection: 'row', gap: SP.s8, marginTop: SP.s4 },
+  previewBtn: {
+    flex: 1,
+    height: BOX.docButton,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.xs,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
+    borderRadius: RAD.r10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  badgeUnknownText: { ...adminType.caption, color: adminColors.muted },
+  previewBtnText: { fontSize: FS.s12_5, fontWeight: '700', color: adminColors.ink },
+  markVerifiedBtn: {
+    flex: 1,
+    height: BOX.docButton,
+    backgroundColor: adminColors.brand,
+    borderRadius: RAD.r10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markVerifiedBtnText: { fontSize: FS.s12_5, fontWeight: '700', color: adminColors.onBrand },
+
+  // --- 05 tracking --------------------------------------------------------------
+  statusDropdownSection: { paddingVertical: SP.s10, borderBottomWidth: 1, borderBottomColor: HAIRLINE },
   dropdownTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -171,167 +317,293 @@ export const detailStyles = StyleSheet.create({
     backgroundColor: SOFT_SURFACE,
     borderWidth: 1,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.sm,
-    paddingVertical: adminSpacing.smMd,
-    paddingHorizontal: adminSpacing.md,
-    marginTop: adminSpacing.xsSm,
+    borderRadius: RAD.r10,
+    paddingHorizontal: SP.s12,
+    paddingVertical: SP.s10,
+    marginTop: SP.s6,
   },
-  dropdownLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  dropdownValue: { ...adminType.body, color: adminColors.ink },
-  tracker: { marginTop: adminSpacing.sm, paddingLeft: adminSpacing.xs },
-  stageItem: { flexDirection: 'row', alignItems: 'flex-start', gap: adminSpacing.md },
-  /** The indicator column: a 20pt dot and, between stages, the connector below it. */
-  stageIndicator: { alignItems: 'center', width: adminSpacing.input },
-  stageDot: {
-    width: adminSpacing.input,
-    height: adminSpacing.input,
-    borderRadius: adminRadius.full,
-    backgroundColor: TRACK,
+  dropdownTriggerText: { fontSize: FS.s13, fontWeight: '700', color: adminColors.ink },
+  termsAgreementBox: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: SP.s8,
+    backgroundColor: adminColors.success.bg,
+    borderWidth: 1,
+    borderColor: adminColors.success.bg,
+    borderRadius: RAD.r8,
+    padding: SP.s8,
+    marginTop: SP.s10,
   },
-  stageDotDone: { backgroundColor: adminColors.success.text },
-  stageDotCurrent: { backgroundColor: adminColors.brand },
-  /** Decoration only: the vertical rule joining one stage dot to the next. */
-  stageConnector: {
-    width: adminSpacing.xs / 2,
-    height: adminSpacing.xl,
-    backgroundColor: TRACK,
-    marginVertical: adminSpacing.xs / 2,
-  },
-  stageBody: { flex: 1, paddingBottom: adminSpacing.mdLg },
-  stageTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  stageSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  /** No declaration is recorded: the same box, neutral, carrying the dash. */
+  termsUnknownBox: { backgroundColor: SOFT_SURFACE, borderColor: adminColors.border },
+  termsAgreementText: { flex: 1, fontSize: FS.s11, color: GREEN, lineHeight: LH.l15 },
+  termsUnknownText: { color: adminColors.muted },
+  fieldLabel: { fontSize: FS.s12, fontWeight: '700', color: adminColors.ink, marginBottom: SP.s6 },
+  trackerLabel: { marginTop: SP.s12 },
+  lifecycleTracker: { marginTop: SP.s8, paddingLeft: SP.s4 },
+  stageItem: { flexDirection: 'row', gap: SP.s12 },
+  stageIndicatorCol: { alignItems: 'center', width: SP.s22 },
+  stageDotActive: { ...stageDot, backgroundColor: GREEN },
+  stageDotInProgress: { ...stageDot, backgroundColor: adminColors.brand },
+  stageDotWarning: { ...stageDot, backgroundColor: AMBER },
+  stageDotPending: { ...stageDot, backgroundColor: TRACK },
+  stageDotText: { fontSize: FS.s10, fontWeight: '800', color: adminColors.onBrand },
+  stageLine: { width: SP.s2, height: SP.s22, backgroundColor: TRACK, marginVertical: SP.s2 },
+  stageContent: { flex: 1, paddingBottom: SP.s14 },
+  stageTitle: { fontSize: FS.s12_5, fontWeight: '700', color: adminColors.ink },
+  stageSub: { fontSize: FS.s11, color: adminColors.muted, marginTop: SP.s1 },
 
-  // --- the request-more-information chips (rounded pills) ------------------
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.xsSm },
-  chip: {
+  // --- 06 request more information ------------------------------------------------
+  reqSubHead: { fontSize: FS.s12, fontWeight: '700', color: adminColors.ink, marginBottom: SP.s6 },
+  reqSubHeadSpaced: { marginTop: SP.s12 },
+  chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s6 },
+  chipPill: {
     backgroundColor: SOFT_SURFACE,
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.full,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.smMd,
+    paddingHorizontal: SP.s10,
+    paddingVertical: SP.s5,
   },
-  chipText: { ...adminType.rowMeta, color: adminColors.muted },
-  chipSelected: {
-    backgroundColor: adminColors.brandTint,
-    borderColor: adminColors.brand,
-  },
-  chipSelectedText: { color: adminColors.brand },
-
-  // --- 02 · the Type of Farming chips (a four-up row of soft rectangles) ---
-  farmingChipRow: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.sm },
-  farmingChip: {
-    flex: 1,
-    backgroundColor: adminColors.dashboard.overviewCanvas,
+  chipPillText: { fontSize: FS.s11, fontWeight: '600', color: adminColors.muted },
+  messageInput: {
+    backgroundColor: SOFT_SURFACE,
     borderWidth: 1,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.xs,
-    paddingVertical: adminSpacing.xsSm,
+    borderRadius: RAD.r10,
+    padding: SP.s12,
+    fontSize: FS.s12,
+    color: adminColors.ink,
+    minHeight: BOX.messageMin,
+    textAlignVertical: 'top',
+    marginBottom: SP.s12,
+  },
+  sendRequestBtn: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    borderRadius: RAD.r10,
+    paddingVertical: SP.s10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /** The applicant's stored farming type: the design tints it green, not brand. */
-  farmingChipSelected: {
-    backgroundColor: adminColors.success.bg,
-    borderColor: adminColors.success.border,
-  },
-  farmingChipText: { ...adminType.rowMeta, color: adminColors.muted, textAlign: 'center' },
-  farmingChipTextSelected: { ...adminType.caption, color: adminColors.success.text },
-  chipBlock: {
-    paddingVertical: adminSpacing.smMd,
-    borderBottomWidth: 1,
-    borderBottomColor: HAIRLINE,
-  },
+  sendRequestBtnText: { fontSize: FS.s12_5, fontWeight: '700', color: adminColors.ink },
 
-  // --- 02 · the land-area variance box ------------------------------------
-  varianceBox: {
-    flexDirection: 'row',
+  // --- 07 decision & notes ----------------------------------------------------------
+  decisionSection: {
+    backgroundColor: adminColors.card,
+    borderRadius: RAD.r14,
+    padding: SP.s12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: SP.s12,
+    ...adminShadow.sm,
+  },
+  notesInput: {
+    backgroundColor: SOFT_SURFACE,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: RAD.r10,
+    padding: SP.s12,
+    fontSize: FS.s12,
+    color: adminColors.ink,
+    minHeight: BOX.notesMin,
+    textAlignVertical: 'top',
+    marginBottom: SP.s12,
+  },
+  saveProgressBtn: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.brand,
+    borderRadius: RAD.r10,
+    paddingVertical: SP.s10,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: adminSpacing.md,
+    justifyContent: 'center',
+  },
+  saveProgressBtnText: { fontSize: FS.s13, fontWeight: '700', color: adminColors.brand },
+  rejectedReasonRow: { marginBottom: SP.s12 },
+
+  // --- sticky action bar ------------------------------------------------------------
+  bottomActionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: SP.s16,
+    paddingTop: SP.s10,
+    paddingBottom: Platform.OS === 'ios' ? SP.s28 : SP.s20,
+    gap: SP.s8,
+    ...adminShadow.lg,
+  },
+  bottomActionRow: { flexDirection: 'row', gap: SP.s12 },
+  orangeApproveBtn: {
+    flex: 1,
+    height: BOX.button,
+    backgroundColor: adminColors.brand,
+    borderRadius: RAD.r14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  orangeApproveBtnText: { fontSize: FS.s15, fontWeight: '800', color: adminColors.onBrand },
+  rejectOutlineBtn: {
+    flex: 1,
+    height: BOX.button,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    borderRadius: RAD.r14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectOutlineBtnText: { fontSize: FS.s15, fontWeight: '800', color: AMBER },
+  readOnlyBox: {
     backgroundColor: adminColors.warning.bg,
     borderWidth: 1,
     borderColor: adminColors.warning.border,
-    borderRadius: adminRadius.sm,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.smMd,
-    marginTop: adminSpacing.xsSm,
-    marginBottom: adminSpacing.sm,
+    borderRadius: RAD.r12,
+    paddingVertical: SP.s10,
+    paddingHorizontal: SP.s12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  varianceBoxOk: {
-    backgroundColor: adminColors.success.bg,
-    borderColor: adminColors.success.border,
+  readOnlyText: { fontSize: FS.s13, color: AMBER, textAlign: 'center' },
+  errorBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    borderRadius: RAD.r12,
+    padding: SP.s12,
   },
-  varianceTextBox: { flex: 1 },
-  varianceTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  varianceSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
-  variancePill: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.xs,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
-  },
-  variancePillText: { ...adminType.caption, color: adminColors.brand },
+  errorText: { fontSize: FS.s13, color: adminColors.danger.text },
 
-  // --- 03 · the boundary map card the API cannot fill ----------------------
-  mapCard: {
+  // --- bottom sheets (status picker, document preview) --------------------------------
+  modalBackdrop: { flex: 1, backgroundColor: adminOverlay.scrim, justifyContent: 'flex-end' },
+  bottomSheet: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    padding: adminSpacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? adminSpacing.xl + adminSpacing.md : adminSpacing.xl,
+    ...adminShadow.lg,
+  },
+  bottomSheetTitle: {
+    fontSize: FS.s16,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginBottom: SP.s12,
+  },
+  statusOptionsList: { gap: SP.s6 },
+  statusOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SP.s12,
+    paddingHorizontal: SP.s14,
+    borderRadius: RAD.r10,
+    backgroundColor: SOFT_SURFACE,
     borderWidth: 1,
     borderColor: adminColors.border,
-    overflow: 'hidden',
-    marginBottom: adminSpacing.sm,
-    ...adminShadow.sm,
   },
-  mapHeader: {
-    paddingHorizontal: adminSpacing.md,
-    paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.sm,
-  },
-  mapTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  /**
-   * The design's satellite panel: 150pt of dark green imagery. No imagery is
-   * available and no size token is 150, so the panel is drawn at
-   * modalGap + pageMargin (144) in the deepest green the theme has, and the
-   * dash sits in it rather than the picture.
-   */
-  mapBody: {
-    height: adminSpacing.modalGap + adminSpacing.pageMargin,
-    backgroundColor: adminColors.success.text,
+  statusOptionItemSelected: { backgroundColor: adminColors.brandTint, borderColor: adminColors.brand },
+  statusOptionText: { fontSize: FS.s13_5, fontWeight: '600', color: adminColors.ink },
+  statusOptionTextSelected: { fontWeight: '800', color: adminColors.brand },
+  docPreviewFileBox: {
+    backgroundColor: SOFT_SURFACE,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: RAD.r12,
+    padding: SP.s16,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: SP.s16,
   },
-  mapDash: { ...adminType.sectionHead, color: adminColors.onBrand },
-  mapFooter: {
-    paddingHorizontal: adminSpacing.md,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.md,
-  },
-
-  // --- the header's 01/02/03 mode pills (a segmented bar on the orange) ----
-  modePillBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: adminOverlay.headerPill,
-    borderRadius: adminRadius.full,
-    padding: adminSpacing.xs,
-    marginTop: adminSpacing.sm,
-  },
-  modePill: {
+  docPreviewFileName: { fontSize: FS.s14, fontWeight: '800', color: adminColors.ink, marginTop: SP.s8 },
+  docPreviewFileSub: { fontSize: FS.s12, color: adminColors.muted, marginTop: SP.s2 },
+  modalButtonsRow: { flexDirection: 'row', gap: SP.s12 },
+  modalMarkVerifiedBtn: {
     flex: 1,
+    height: BOX.sheetButton,
+    backgroundColor: adminColors.brand,
+    borderRadius: RAD.r12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: adminRadius.full,
-    paddingVertical: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
   },
-  modePillActive: {
+  modalMarkVerifiedBtnText: { fontSize: FS.s14, fontWeight: '700', color: adminColors.onBrand },
+  modalCloseBtn: {
+    flex: 1,
+    height: BOX.sheetButton,
     backgroundColor: adminColors.card,
-    ...adminShadow.sm,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    borderRadius: RAD.r12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modePillText: { ...adminType.caption, color: adminColors.onBrand },
-  modePillTextActive: { color: adminColors.brand },
-  modePillNote: { ...adminType.caption, color: adminOverlay.headerSubtitle, marginTop: adminSpacing.xs },
+  modalCloseBtnText: { fontSize: FS.s14, fontWeight: '700', color: adminColors.ink },
+
+  /** A control whose gate/permission prevents tapping right now. */
+  actionUnavailable: { opacity: 0.5 },
+
+  // --- interactive review wiring (BR-214..BR-218) -----------------------------------
+  badgeRejected: { backgroundColor: adminColors.danger.bg, paddingHorizontal: SP.s8, paddingVertical: SP.s4, borderRadius: RAD.r6 },
+  badgeRejectedText: { fontSize: FS.s10_5, fontWeight: '700', color: adminColors.danger.text },
+  docRejectReasonText: { fontSize: FS.s11, color: adminColors.danger.text, marginTop: SP.s4 },
+  docRejectBtn: {
+    height: BOX.docButton,
+    paddingHorizontal: SP.s12,
+    backgroundColor: adminColors.danger.bg,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    borderRadius: RAD.r8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docRejectBtnText: { fontSize: FS.s12, fontWeight: '700', color: adminColors.danger.text },
+  fmbStatusRejected: { color: adminColors.danger.text },
+  locationRowWrap: { flex: 1 },
+  locationActionsRow: { flexDirection: 'row', gap: SP.s6, marginTop: SP.s6 },
+  locationActionBtn: {
+    paddingHorizontal: SP.s10,
+    paddingVertical: SP.s4,
+    borderRadius: RAD.r6,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationActionBtnText: { fontSize: FS.s11, fontWeight: '700', color: adminColors.onBrand },
+  locationRejectBtn: {
+    paddingHorizontal: SP.s10,
+    paddingVertical: SP.s4,
+    borderRadius: RAD.r6,
+    backgroundColor: adminColors.danger.bg,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationRejectBtnText: { fontSize: FS.s11, fontWeight: '700', color: adminColors.danger.text },
+  advanceBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: RAD.r10,
+    paddingVertical: SP.s10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SP.s10,
+  },
+  advanceBtnText: { fontSize: FS.s13, fontWeight: '700', color: adminColors.onBrand },
+  gateWarningText: { fontSize: FS.s11_5, color: AMBER, marginTop: SP.s6 },
+  inlineSuccessText: { fontSize: FS.s11_5, color: GREEN, fontWeight: '600', marginTop: SP.s6 },
+  inlineErrorText: { fontSize: FS.s11_5, color: adminColors.danger.text, fontWeight: '600', marginTop: SP.s6 },
+  historyList: { marginTop: SP.s14, borderTopWidth: 1, borderTopColor: HAIRLINE, paddingTop: SP.s12, gap: SP.s8 },
+  historyHeading: { fontSize: FS.s12_5, fontWeight: '700', color: adminColors.ink },
+  historyItem: { backgroundColor: SOFT_SURFACE, borderRadius: RAD.r8, padding: SP.s10, borderWidth: 1, borderColor: adminColors.border },
+  historyMetaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SP.s2 },
+  historyTitle: { fontSize: FS.s11_5, fontWeight: '700', color: adminColors.brandDeep },
+  historyDate: { fontSize: FS.s10_5, color: adminColors.muted },
+  historyNote: { fontSize: FS.s12, color: adminColors.ink },
+  historyEmptyText: { fontSize: FS.s12, color: adminColors.muted, marginTop: SP.s8 },
 });

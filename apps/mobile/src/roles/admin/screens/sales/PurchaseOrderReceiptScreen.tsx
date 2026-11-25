@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,8 +8,10 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -36,11 +37,11 @@ export function PurchaseOrderReceiptScreen({
   onBack,
 }: PurchaseOrderReceiptScreenProps) {
   const qualityChecks = [
-    { id: '1', title: '1. Appearance', result: 'Pass', notes: '—', evidence: '—' },
-    { id: '2', title: '2. Size Uniformity', result: 'Pass', notes: '—', evidence: '—' },
-    { id: '3', title: '3. Moisture', result: 'Pass', notes: '—', evidence: '—' },
-    { id: '4', title: '4. Damage / Pest', result: 'Pass', notes: '—', evidence: '—' },
-    { id: '5', title: '5. Freshness', result: 'Pass', notes: '—', evidence: '—' },
+    { id: '1', title: '1. Appearance', result: ADMIN_NO_VALUE, notes: ADMIN_NO_VALUE, evidence: ADMIN_NO_VALUE },
+    { id: '2', title: '2. Size Uniformity', result: ADMIN_NO_VALUE, notes: ADMIN_NO_VALUE, evidence: ADMIN_NO_VALUE },
+    { id: '3', title: '3. Moisture', result: ADMIN_NO_VALUE, notes: ADMIN_NO_VALUE, evidence: ADMIN_NO_VALUE },
+    { id: '4', title: '4. Damage / Pest', result: ADMIN_NO_VALUE, notes: ADMIN_NO_VALUE, evidence: ADMIN_NO_VALUE },
+    { id: '5', title: '5. Freshness', result: ADMIN_NO_VALUE, notes: ADMIN_NO_VALUE, evidence: ADMIN_NO_VALUE },
   ];
 
   return (
@@ -82,9 +83,7 @@ export function PurchaseOrderReceiptScreen({
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Farmer</Text>
-            <Text style={styles.detailValueBold}>
-              {order.farmerName} (FMR-00098)
-            </Text>
+            <Text style={styles.detailValueBold}>{order.farmerName}</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -127,9 +126,7 @@ export function PurchaseOrderReceiptScreen({
 
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Listing negotiation</Text>
-            <Text style={styles.detailValueBold}>
-              No counter-offer (original price ₹{order.unitPrice.toFixed(2)}/kg)
-            </Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -138,12 +135,14 @@ export function PurchaseOrderReceiptScreen({
         <View style={styles.card}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Goods receipt ID</Text>
-            <Text style={styles.detailValueBold}>GR-0008</Text>
+            <Text style={styles.detailValueBold}>
+              {order.goodsReceiptId ?? ADMIN_NO_VALUE}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Received</Text>
-            <Text style={styles.detailValueBold}>2 Oct 2026, 11:00</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -164,18 +163,18 @@ export function PurchaseOrderReceiptScreen({
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Receipt notes</Text>
             <Text style={[styles.detailValueBold, { color: adminColors.muted, fontWeight: '500' }]}>
-              (placeholder)
+              {ADMIN_NO_VALUE}
             </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Receipt photos</Text>
-            <Text style={styles.detailValueBold}>receipt-GR-0008.jpg</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
 
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Recorded by</Text>
-            <Text style={styles.detailValueBold}>Ooty Warehouse Admin</Text>
+            <Text style={styles.detailValueBold}>{order.warehouse || ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -204,7 +203,7 @@ export function PurchaseOrderReceiptScreen({
         <View style={styles.card}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Outcome</Text>
-            <Text style={styles.detailValueBold}>Accepted</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Gross quantity</Text>
@@ -212,38 +211,38 @@ export function PurchaseOrderReceiptScreen({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Accepted quantity</Text>
-            <Text style={styles.detailValueBold}>{order.quantityKg} kg</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Rejected quantity</Text>
-            <Text style={styles.detailValueBold}>0 kg</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Unaccounted</Text>
-            <Text style={styles.detailValueBold}>0 kg</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Rejection reason</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Decision notes</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Decision by</Text>
-            <Text style={styles.detailValueBold}>Demo Warehouse Admin</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Decision date</Text>
-            <Text style={styles.detailValueBold}>2 Oct 2026, 14:00</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
         {/* Inventory Queue Banner */}
         <View style={styles.infoBanner}>
           <Text style={styles.infoBannerText}>
-            Queued for Inventory & Warehouse (HO-0005).
+            {order.poNumber}
           </Text>
         </View>
 
@@ -252,22 +251,27 @@ export function PurchaseOrderReceiptScreen({
         <View style={styles.card}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Listing negotiation</Text>
-            <Text style={styles.detailValueBold}>No counter-offer</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Goods receipt</Text>
-            <Text style={styles.detailValueBold}>GR-0008 · PO {order.poNumber}</Text>
+            <Text style={styles.detailValueBold}>
+              {order.goodsReceiptId ? `${order.goodsReceiptId} · PO ${order.poNumber}` : ADMIN_NO_VALUE}
+            </Text>
           </View>
         </View>
 
-        {/* Intimate Payout CTA Button (Image 5) */}
+        {/* Intimate Payout CTA Button (disabled: no endpoint) */}
         <TouchableOpacity
-          style={styles.payoutButton}
-          onPress={() => Alert.alert('Intimate Payout', `Payout initiated for PO ${order.poNumber} (GR-0008).`)}
+          style={[styles.payoutButton, { opacity: 0.45 }]}
+          disabled
+          accessibilityState={{ disabled: true }}
+          accessibilityHint={t('wiringSales.poReceipt.intimateUnavailable')}
           activeOpacity={0.8}
         >
           <Text style={styles.payoutButtonText}>Intimate Payout</Text>
         </TouchableOpacity>
+        <Text style={[styles.detailLabel, { marginTop: 8 }]}>{t('wiringSales.poReceipt.intimateUnavailable')}</Text>
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>

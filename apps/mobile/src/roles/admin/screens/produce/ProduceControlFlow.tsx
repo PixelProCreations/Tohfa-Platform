@@ -112,6 +112,7 @@ export function ProduceControlFlow({ can, initialScreen = 'calendar', onBack }: 
     return (
       <>
         <ZoneCropBreakdownScreen
+          can={can}
           onBack={backToCalendar}
           onOpenFilters={() => setShowFiltersModal(true)}
           onSelectCropRecord={(recordId) => {
@@ -175,6 +176,7 @@ export function ProduceControlFlow({ can, initialScreen = 'calendar', onBack }: 
     return (
       <>
         <CropHistoryRecordsScreen
+          can={can}
           onBack={backToCalendar}
           onOpenFilters={() => setShowFiltersModal(true)}
           onSelectCropRecord={(recordId) => {

@@ -33,6 +33,13 @@ import {
   type ProduceFilters,
   type UpdateCropMasterBody,
 } from './produce';
+import {
+  listProduceRecords,
+  produceRecordListKey,
+  type ProduceRecordListFilters,
+  type ProduceRecordListPage,
+  type ProduceRecordSummaryDto,
+} from './w5ProduceRecords';
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from './hooks';
 import { adminKeys } from './queryKeys';
 
@@ -46,6 +53,27 @@ function keepEvent(dto: ProduceCalendarEventDto): ProduceCalendarEventDto {
 
 export function useProduceRecordCount(filters: ProduceFilters, options: ProduceHookOptions = {}) {
   return useAdminQuery(produceKeys.recordCount(filters), (signal) => countProduceRecords(filters, signal), options);
+}
+
+function keepRecord(dto: ProduceRecordSummaryDto): ProduceRecordSummaryDto {
+  return dto;
+}
+
+/**
+ * The crop records themselves (GET /admin/produce/records), cursor paged. The
+ * server's count of every match is `firstPage.page.total` (includeTotal=true);
+ * `items.length` is only what has been loaded so far.
+ */
+export function useProduceRecordList(
+  filters: ProduceRecordListFilters,
+  options: ProduceHookOptions = {},
+): CursorList<ProduceRecordSummaryDto, ProduceRecordListPage> {
+  return useCursorList<ProduceRecordSummaryDto, ProduceRecordSummaryDto, ProduceRecordListPage>(
+    produceRecordListKey(filters),
+    (cursor, signal) => listProduceRecords(filters, cursor, signal),
+    keepRecord,
+    options,
+  );
 }
 
 export function useProduceCalendar(month: string, filters: ProduceFilters, options: ProduceHookOptions = {}) {

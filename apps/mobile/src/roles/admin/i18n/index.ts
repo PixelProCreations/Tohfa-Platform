@@ -88,6 +88,14 @@ import ordersLiveEn from './ordersLive.en.json';
 import communityEn from './community.en.json';
 // Zone Management screens catalogue.
 import zonesEn from './zones.en.json';
+// Admin wiring honesty pass (brief 07): one catalogue per work stream so parallel work never edits the same JSON.
+import wiringFinanceEn from './wiringFinance.en.json';
+import wiringPayoutsEn from './wiringPayouts.en.json';
+import wiringSalesEn from './wiringSales.en.json';
+import wiringReportsEn from './wiringReports.en.json';
+import wiringFarmersEn from './wiringFarmers.en.json';
+// Admin role home dashboards catalogue.
+import homeDashboardsEn from './homeDashboards.en.json';
 
 export const en = {
   ...errorsEn,
@@ -125,6 +133,12 @@ export const en = {
   ...ordersLiveEn,
   ...communityEn,
   ...zonesEn,
+  ...wiringFinanceEn,
+  ...wiringPayoutsEn,
+  ...wiringSalesEn,
+  ...wiringReportsEn,
+  ...wiringFarmersEn,
+  ...homeDashboardsEn,
 };
 const ta: Record<string, string> = {
   ...errorsTa,

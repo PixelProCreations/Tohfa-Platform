@@ -1,16 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Alert,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../i18n';
 import {
   adminColors,
   adminOverlay,
@@ -20,6 +18,7 @@ import {
   adminType,
 } from '../../theme';
 import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -44,42 +43,15 @@ export function PurchaseOrderPayoutScreen({
   order,
   onBack,
 }: PurchaseOrderPayoutScreenProps) {
-  const [showIntimateModal, setShowIntimateModal] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
-  const initialStatus =
-    (order as any).payoutStatus === 'Failed'
-      ? 'Failed'
-      : (order as any).payoutStatus === 'Paid'
-      ? 'Paid'
-      : 'Awaiting Super Admin Approval';
-  const [payoutStatus, setPayoutStatus] = useState<string>(initialStatus);
-
-  const payoutId = (order as any).payoutId || (order.id === '1' ? 'PY-0005' : order.id === '2' ? 'PY-0004' : 'PY-0002');
-  const goodsReceiptId = (order as any).goodsReceiptId || 'GR-0002';
-  const farmerId = (order as any).farmerId || 'FMR-00098';
+  const extra = order as PurchaseOrderRecord & { payoutStatus?: string; payoutId?: string };
+  const payoutStatus = extra.payoutStatus ?? ADMIN_NO_VALUE;
+  const payoutId = extra.payoutId ?? ADMIN_NO_VALUE;
+  const goodsReceiptId = order.goodsReceiptId ?? ADMIN_NO_VALUE;
+  const farmerId = ADMIN_NO_VALUE;
   const formattedAmount = `₹${order.totalPrice.toLocaleString('en-IN', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
-
-  const handleConfirmIntimate = () => {
-    setShowIntimateModal(false);
-    setPayoutStatus('Intimated · Processing');
-    Alert.alert(
-      'Payout Intimated',
-      `Payout ${payoutId} for ${order.farmerName} (${formattedAmount}) has been intimated to the finance department.`
-    );
-  };
-
-  const handleConfirmReject = () => {
-    setShowRejectModal(false);
-    setPayoutStatus('Rejected');
-    Alert.alert(
-      'Payout Rejected',
-      `Payout ${payoutId} has been rejected.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`
-    );
-  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -118,11 +90,11 @@ export function PurchaseOrderPayoutScreen({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Registered contact</Text>
-            <Text style={styles.detailValueBold}>Not shown here</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Verified payout account</Text>
-            <Text style={styles.detailValueBold}>•••• 0123</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -172,7 +144,7 @@ export function PurchaseOrderPayoutScreen({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Approved adjustments</Text>
-            <Text style={styles.detailValueBold}>₹0.00</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Net payable amount</Text>
@@ -184,7 +156,7 @@ export function PurchaseOrderPayoutScreen({
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Calculation reference</Text>
-            <Text style={styles.detailValueBold}>CALC-{payoutId}</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -193,38 +165,28 @@ export function PurchaseOrderPayoutScreen({
         <View style={styles.card}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Requested by</Text>
-            <Text style={styles.detailValueBold}>Demo TOHFA Admin, 9 Oct 2026, 10:00</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Approval</Text>
-            <Text
-              style={[
-                styles.detailValueBold,
-                payoutStatus === 'Rejected' && { color: adminColors.danger.text },
-                payoutStatus.includes('Intimated') && { color: adminColors.success.text },
-              ]}
-            >
-              {payoutStatus}
-            </Text>
+            <Text style={styles.detailValueBold}>{payoutStatus}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Approver</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Rejection reason</Text>
-            <Text style={styles.detailValueBold}>{rejectionReason || '—'}</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Processing reference</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
         <View style={styles.historySubBlock}>
-          <Text style={styles.historySubMeta}>9 Oct 2026, 10:00 · Demo TOHFA Admin</Text>
-          <Text style={styles.historySubTitle}>
-            Payout requested and escalated to the Super Admin: {formattedAmount}
-          </Text>
+          <Text style={styles.historySubMeta}>{ADMIN_NO_VALUE}</Text>
+          <Text style={styles.historySubTitle}>{ADMIN_NO_VALUE}</Text>
         </View>
 
         {/* ── 5. Payment Information ── */}
@@ -232,54 +194,49 @@ export function PurchaseOrderPayoutScreen({
         <View style={styles.card}>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Payment method</Text>
-            <Text style={styles.detailValueBold}>Bank transfer (configured)</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Provider reference</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Initiated</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Processed</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Failure reason</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Reconciliation status</Text>
-            <Text style={styles.detailValueBold}>Not applicable</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
-        </View>
-
-        {/* Super Admin Notice Banner */}
-        <View style={styles.thresholdNoticeBanner}>
-          <Text style={styles.thresholdNoticeText}>
-            This amount is above ₹10,000.00, so it needs a Super Admin who is not the requester.
-          </Text>
         </View>
 
         {/* ── Action Buttons Row ── */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setShowIntimateModal(true)}
-            activeOpacity={0.8}
+            style={[styles.actionButton, { opacity: 0.45 }]}
+            disabled
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringSales.poPayout.intimateUnavailable')}
             accessibilityLabel="Intimate"
           >
             <Text style={styles.actionButtonText}>Intimate</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => setShowRejectModal(true)}
-            activeOpacity={0.8}
+            style={[styles.actionButton, { opacity: 0.45 }]}
+            disabled
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            accessibilityHint={t('wiringSales.poPayout.rejectUnavailable')}
             accessibilityLabel="Reject"
           >
             <Text style={styles.actionButtonText}>Reject</Text>
@@ -295,137 +252,10 @@ export function PurchaseOrderPayoutScreen({
             <Text style={styles.actionButtonText}>Close</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.historySubMeta}>{t('wiringSales.poPayout.intimateUnavailable')}</Text>
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
-
-      {/* ── 6. Intimate Payout Modal (Image 4) ── */}
-      <Modal
-        visible={showIntimateModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowIntimateModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowIntimateModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalSheet}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={styles.modalTitle}>Intimate this payout?</Text>
-
-            <View style={styles.modalCard}>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Payout</Text>
-                <Text style={styles.modalValueBold}>
-                  {payoutId} · PO {order.poNumber}
-                </Text>
-              </View>
-
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Farmer</Text>
-                <Text style={styles.modalValueBold}>{order.farmerName}</Text>
-              </View>
-
-              <View style={[styles.modalRow, styles.detailRowLast]}>
-                <Text style={styles.modalLabel}>Amount</Text>
-                <Text style={styles.modalValueBold}>{formattedAmount}</Text>
-              </View>
-            </View>
-
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                style={styles.modalPrimaryBtn}
-                onPress={handleConfirmIntimate}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalPrimaryBtnText}>Intimate</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalSecondaryBtn}
-                onPress={() => setShowIntimateModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* ── 7. Reject Payout Modal (Matching Image 4 design) ── */}
-      <Modal
-        visible={showRejectModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowRejectModal(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowRejectModal(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalSheet}
-            activeOpacity={1}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={styles.modalTitle}>Reject this payout?</Text>
-
-            <View style={styles.modalCard}>
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Payout</Text>
-                <Text style={styles.modalValueBold}>
-                  {payoutId} · PO {order.poNumber}
-                </Text>
-              </View>
-
-              <View style={styles.modalRow}>
-                <Text style={styles.modalLabel}>Farmer</Text>
-                <Text style={styles.modalValueBold}>{order.farmerName}</Text>
-              </View>
-
-              <View style={[styles.modalRow, styles.detailRowLast]}>
-                <Text style={styles.modalLabel}>Amount</Text>
-                <Text style={styles.modalValueBold}>{formattedAmount}</Text>
-              </View>
-            </View>
-
-            {/* Optional Rejection Reason */}
-            <Text style={styles.modalInputLabel}>Reason for Rejection</Text>
-            <TextInput
-              style={styles.modalReasonInput}
-              value={rejectionReason}
-              onChangeText={setRejectionReason}
-              placeholder="Enter reason for rejecting payout..."
-              placeholderTextColor={adminColors.placeholder}
-            />
-
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                style={styles.modalDangerBtn}
-                onPress={handleConfirmReject}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalDangerBtnText}>Reject</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.modalSecondaryBtn}
-                onPress={() => setShowRejectModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   SafeAreaView,
@@ -13,8 +13,10 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-import { PreviewReportsScreen } from './PreviewReportsScreen';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import { ReportsScreen } from '../warehouse/reports';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 
 export interface ReportsExportScreenProps {
   onBack: () => void;
@@ -22,86 +24,17 @@ export interface ReportsExportScreenProps {
   can?: (code: string) => boolean;
 }
 
-interface ExportRecord {
-  id: string;
-  code: string;
-  title: string;
-  category: string;
-  status: 'Ready' | 'Failed' | 'Processing';
-  period: string;
-  warehouses: string;
-  format: string;
-  requestedBy: string;
-  requestedDate: string;
-  completedDate: string;
-  downloadUrl?: string;
-}
-
-const SAMPLE_EXPORTS: ExportRecord[] = [
-  {
-    id: 'exp-0003',
-    code: 'EXP-REQ-0003',
-    title: 'Expenses export',
-    category: 'Expenses',
-    status: 'Ready',
-    period: '1 Oct 2026 to 14 Oct 2026',
-    warehouses: 'All warehouses',
-    format: 'XLSX',
-    requestedBy: 'Demo Super Admin',
-    requestedDate: '14 Oct 2026, 10:00',
-    completedDate: '14 Oct 2026, 10:00',
-  },
-  {
-    id: 'exp-0002',
-    code: 'EXP-REQ-0002',
-    title: 'Payouts (demo)',
-    category: 'Farmer Purchase & Payouts',
-    status: 'Failed',
-    period: '14 Sep 2026 to 14 Oct 2026',
-    warehouses: 'All warehouses',
-    format: 'XLSX',
-    requestedBy: 'Demo TOHFA Admin',
-    requestedDate: '11 Oct 2026, 09:00',
-    completedDate: '—',
-  },
-  {
-    id: 'exp-0001',
-    code: 'EXP-REQ-0001',
-    title: 'Expenses, last month (demo)',
-    category: 'Expenses',
-    status: 'Ready',
-    period: '14 Sep 2026 to 13 Oct 2026',
-    warehouses: 'Ooty',
-    format: 'CSV',
-    requestedBy: 'Demo Main Warehouse Admin',
-    requestedDate: '10 Oct 2026, 10:00',
-    completedDate: '10 Oct 2026, 10:01',
-  },
-];
-
+/**
+ * Reports & Export. GET /admin/exports/* returns the CSV directly; the server
+ * keeps no list of past export requests, so there is no history to show here
+ * (brief 07 P4: the sample requests were demo data and are gone). The create
+ * action opens the live reports hub.
+ */
 export function ReportsExportScreen({ onBack, onNavigateToExport, can }: ReportsExportScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentView, setCurrentView] = useState<'list' | 'create' | 'preview'>('list');
-  const [selectedPreviewReport, setSelectedPreviewReport] = useState<{
-    reportName: string;
-    category: string;
-    period: string;
-    warehouse: string;
-    format: string;
-  } | null>(null);
+  const [currentView, setCurrentView] = useState<'list' | 'create'>('list');
 
-  const filteredExports = useMemo(() => {
-    if (!searchQuery.trim()) return SAMPLE_EXPORTS;
-    const q = searchQuery.toLowerCase();
-    return SAMPLE_EXPORTS.filter(
-      (exp) =>
-        exp.code.toLowerCase().includes(q) ||
-        exp.title.toLowerCase().includes(q) ||
-        exp.category.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
-
-  const handleDownloadClick = (exp?: ExportRecord) => {
+  const handleDownloadClick = () => {
     // RBAC check: must have report.export.file permission
     if (can && !can('report.export.file')) {
       Alert.alert(
@@ -117,43 +50,11 @@ export function ReportsExportScreen({ onBack, onNavigateToExport, can }: Reports
     }
   };
 
-  const handleViewDetails = (exp: ExportRecord) => {
-    // RBAC check: view permission
-    if (can && !can('report.export.file') && !can('finance.pnl.view')) {
-      Alert.alert(
-        'Access Restricted',
-        'Your role lacks permission to view finance reports.'
-      );
-      return;
-    }
-    setSelectedPreviewReport({
-      reportName: exp.title,
-      category: exp.category,
-      period: exp.period,
-      warehouse: exp.warehouses,
-      format: exp.format,
-    });
-    setCurrentView('preview');
-  };
-
-  if (currentView === 'preview') {
-    return (
-      <PreviewReportsScreen
-        onBack={() => {
-          setCurrentView('list');
-          setSelectedPreviewReport(null);
-        }}
-        reportData={selectedPreviewReport}
-        onDownload={() => handleDownloadClick()}
-      />
-    );
-  }
-
   if (currentView === 'create') {
     return (
       <ReportsScreen
-        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
-        can={can || ((() => true) as any)}
+        scope={{ warehouseId: undefined, warehouseName: undefined }}
+        can={can ?? (() => false)}
         onBack={() => setCurrentView('list')}
       />
     );
@@ -240,68 +141,13 @@ export function ReportsExportScreen({ onBack, onNavigateToExport, can }: Reports
           </TouchableOpacity>
         </View>
 
-        {/* Count */}
-        <Text style={styles.countText}>{filteredExports.length} export requests</Text>
+        {/* Count: the server keeps no export history to count. */}
+        <Text style={styles.countText}>{t('wiringFinance.reportsExport.count', { count: ADMIN_NO_VALUE })}</Text>
 
-        {/* List of Exports */}
-        <View style={styles.cardsList}>
-          {filteredExports.map((exp) => {
-            const isReady = exp.status === 'Ready';
-            return (
-              <View key={exp.id} style={styles.exportCard}>
-                {/* Top Row: Title + Status Badge */}
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>{exp.title}</Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      isReady ? styles.statusReadyBadge : styles.statusFailedBadge,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusBadgeText,
-                        isReady ? styles.statusReadyText : styles.statusFailedText,
-                      ]}
-                    >
-                      {exp.status}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Subtitle Lines */}
-                <Text style={styles.categoryText}>{exp.category}</Text>
-                <Text style={styles.metaText}>
-                  Period {exp.period} · {exp.warehouses} · {exp.format}
-                </Text>
-                <Text style={styles.metaText}>
-                  Requested by {exp.requestedBy}, {exp.requestedDate} · Completed {exp.completedDate}
-                </Text>
-
-                {/* Actions Row */}
-                <View style={styles.cardActionsRow}>
-                  <TouchableOpacity
-                    onPress={() => handleViewDetails(exp)}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={styles.actionLinkText}>View Details</Text>
-                  </TouchableOpacity>
-
-                  {isReady && (
-                    <TouchableOpacity
-                      onPress={() => handleDownloadClick(exp)}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Text style={styles.actionLinkText}>Download</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+        <AdminEmptyState
+          title={t('wiringFinance.reportsExport.emptyTitle')}
+          subtitle={t('wiringFinance.reportsExport.emptySubtitle')}
+        />
       </ScrollView>
     </SafeAreaView>
   );

@@ -38,6 +38,10 @@ function code(relative: string): string {
 }
 
 describe('shouldLoadWarehousePermissions', () => {
+  it('is true for the admin Returns & Refunds route, whose refund/reject buttons are gated on warehouseCan', () => {
+    expect(shouldLoadWarehousePermissions('SalesReturnsRefunds')).toBe(true);
+  });
+
   it('is true for the Sub shell (AdminMain + SUB_WH_ADMIN)', () => {
     expect(shouldLoadWarehousePermissions('AdminMain', { adminRole: 'SUB_WH_ADMIN' })).toBe(true);
   });

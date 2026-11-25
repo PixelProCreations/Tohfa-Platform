@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../theme';
 import { ChevronDownIcon } from './produceIcons';
+import { t } from '../../i18n';
 
 export interface ProduceControlFiltersModalProps {
   visible: boolean;
@@ -25,6 +26,12 @@ export interface ProduceControlFiltersModalProps {
   onChangeGrowthStage: (v: string) => void;
 }
 
+/**
+ * The five filter dropdowns used to toggle between "All" and an invented
+ * value (a made-up farmer number, a fixed zone, crop, season and stage) and
+ * were never sent to any request. No picker source is wired here yet, so they
+ * stay drawn and disabled (R3) with a note; Apply / Reset only close.
+ */
 export function ProduceControlFiltersModal({
   visible,
   onClose,
@@ -49,10 +56,11 @@ export function ProduceControlFiltersModal({
           {/* 1. Farmer / farm */}
           <Text style={styles.filterFieldLabel}>Farmer / farm</Text>
           <TouchableOpacity
-            style={styles.filterDropdown}
-            onPress={() => onChangeFarmer(selectedFarmer === 'All' ? 'Ramesh Kumar' : 'All')}
+            style={[styles.filterDropdown, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
           >
             <Text style={styles.filterDropdownValue}>{selectedFarmer}</Text>
             <ChevronDownIcon size={16} color={adminColors.muted} />
@@ -61,10 +69,11 @@ export function ProduceControlFiltersModal({
           {/* 2. Zone */}
           <Text style={styles.filterFieldLabel}>Zone</Text>
           <TouchableOpacity
-            style={styles.filterDropdown}
-            onPress={() => onChangeZone(selectedZone === 'All' ? 'Coonoor' : 'All')}
+            style={[styles.filterDropdown, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
           >
             <Text style={styles.filterDropdownValue}>{selectedZone}</Text>
             <ChevronDownIcon size={16} color={adminColors.muted} />
@@ -73,10 +82,11 @@ export function ProduceControlFiltersModal({
           {/* 3. Crop */}
           <Text style={styles.filterFieldLabel}>Crop</Text>
           <TouchableOpacity
-            style={styles.filterDropdown}
-            onPress={() => onChangeCrop(selectedCrop === 'All' ? 'Tomato' : 'All')}
+            style={[styles.filterDropdown, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
           >
             <Text style={styles.filterDropdownValue}>{selectedCrop}</Text>
             <ChevronDownIcon size={16} color={adminColors.muted} />
@@ -85,10 +95,11 @@ export function ProduceControlFiltersModal({
           {/* 4. Season */}
           <Text style={styles.filterFieldLabel}>Season</Text>
           <TouchableOpacity
-            style={styles.filterDropdown}
-            onPress={() => onChangeSeason(selectedSeason === 'All' ? 'Kharif' : 'All')}
+            style={[styles.filterDropdown, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
           >
             <Text style={styles.filterDropdownValue}>{selectedSeason}</Text>
             <ChevronDownIcon size={16} color={adminColors.muted} />
@@ -97,14 +108,17 @@ export function ProduceControlFiltersModal({
           {/* 5. Growth stage */}
           <Text style={styles.filterFieldLabel}>Growth stage</Text>
           <TouchableOpacity
-            style={styles.filterDropdown}
-            onPress={() => onChangeGrowthStage(selectedGrowthStage === 'All' ? 'Flowering' : 'All')}
+            style={[styles.filterDropdown, styles.actionUnavailable]}
+            disabled
             activeOpacity={0.7}
             accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
           >
             <Text style={styles.filterDropdownValue}>{selectedGrowthStage}</Text>
             <ChevronDownIcon size={16} color={adminColors.muted} />
           </TouchableOpacity>
+
+          <Text style={styles.unavailableNote}>{t('wiringFarmers.produce.filtersUnavailable')}</Text>
 
           {/* Bottom Buttons Row: [Apply]  [Reset] */}
           <View style={styles.filterButtonsRow}>
@@ -207,5 +221,13 @@ const styles = StyleSheet.create({
   filterResetBtnText: {
     ...adminType.rowTitle,
     color: adminColors.ink,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
   },
 });

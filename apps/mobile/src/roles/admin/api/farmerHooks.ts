@@ -16,17 +16,24 @@
  */
 import { useMemo } from 'react';
 import {
+  addFarmerApplicationNote,
+  advanceFarmerApplication,
   approveFarmerApplication,
   getFarmerApplication,
   listFarmerApplications,
   rejectFarmerApplication,
   requestFarmerApplicationInfo,
+  reviewFarmerApplicationDocument,
+  reviewFarmerApplicationFmb,
+  type AddApplicationNoteBody,
+  type AdvanceApplicationBody,
   type ApplicationListFilterStatus,
   type ApproveApplicationBody,
   type FarmerApplicationDto,
   type FarmerApplicationPage,
   type RejectApplicationBody,
   type RequestInfoApplicationBody,
+  type ReviewDecision,
 } from './farmerApplications';
 import {
   toApplicationDetail,
@@ -360,9 +367,55 @@ export function useRejectApplication(applicationId: string | undefined): LiveDec
   return useDecision(applicationId, rejectFarmerApplication);
 }
 
-/** farmer.application.request_info. The design dropped the button; the client stays available. */
+/** farmer.application.request_info. */
 export function useRequestApplicationInfo(applicationId: string | undefined): LiveDecision<RequestInfoApplicationBody> {
   return useDecision(applicationId, requestFarmerApplicationInfo);
+}
+
+/** farmer.application.advance (DOCS_REVIEW -> FARM_VERIFICATION). */
+export function useAdvanceApplication(applicationId: string | undefined): LiveDecision<AdvanceApplicationBody> {
+  return useDecision(applicationId, advanceFarmerApplication);
+}
+
+export interface ReviewDocumentVariables {
+  documentKey: string;
+  decision: ReviewDecision;
+  reason?: string;
+}
+
+/** farmer.application.verify_document. */
+export function useReviewApplicationDocument(applicationId: string | undefined): LiveDecision<ReviewDocumentVariables> {
+  return useDecision(applicationId, (id, vars, idempotencyKey) =>
+    reviewFarmerApplicationDocument(
+      id,
+      vars.documentKey,
+      { decision: vars.decision, ...(vars.reason !== undefined ? { reason: vars.reason } : {}) },
+      idempotencyKey,
+    ),
+  );
+}
+
+export interface ReviewFmbVariables {
+  locationId: string;
+  decision: ReviewDecision;
+  reason?: string;
+}
+
+/** farmer.application.verify_fmb. */
+export function useReviewApplicationFmb(applicationId: string | undefined): LiveDecision<ReviewFmbVariables> {
+  return useDecision(applicationId, (id, vars, idempotencyKey) =>
+    reviewFarmerApplicationFmb(
+      id,
+      vars.locationId,
+      { decision: vars.decision, ...(vars.reason !== undefined ? { reason: vars.reason } : {}) },
+      idempotencyKey,
+    ),
+  );
+}
+
+/** farmer.application.add_note. */
+export function useAddApplicationNote(applicationId: string | undefined): LiveDecision<AddApplicationNoteBody> {
+  return useDecision(applicationId, addFarmerApplicationNote);
 }
 
 export interface LiveFarmerSummary extends LiveQueryState {

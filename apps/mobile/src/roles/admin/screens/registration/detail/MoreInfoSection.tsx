@@ -1,75 +1,108 @@
 /**
- * 06 · Request more information, from the 2026-11-19 design.
+ * 06 · Request More Information, drawn as the design draws it: "What is
+ * missing?" chips, "Message to the applicant", and the outlined "Send Request
+ * for Information" button.
  *
- * Layout only. The endpoint exists, but wiring it is the owner's separate
- * decision, so every control here is drawn as designed and disabled, with the
- * reason on screen — nothing in this section issues a request.
+ * As in the design, that button opens the Request More Info screen
+ * (AdminApplicationRequestInfoScreen), whose own Send is the request. Opening
+ * it calls no API; it needs farmer.application.request_info.
  *
- * What is real: the chips come from `missingCategories(app)`, so the form can
- * never offer to ask for something the applicant already supplied, and the
- * design's own fixed five-option chip list is not reproduced at all — it names
- * documents this application has no field for. When the server has recorded an
- * request, its own message is shown instead of a blank box.
+ * The inline chips and message box are drawn but disabled: nothing typed here
+ * could be sent (the request endpoint is being wired separately), and none is
+ * pre-selected — the design's two selected chips and its message were demo
+ * values. When the server has already recorded a request, its message is
+ * shown in the box, read-only.
  */
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import type { InfoRequestItem } from '../../../api/farmerApplications';
 import type { ApplicationDetailView } from '../../../api/farmerTypes';
-import { t } from '../../../i18n';
+import { t, type TranslationKey } from '../../../i18n';
+import { adminColors } from '../../../theme';
 import { Card, SectionHeading } from '../applications/ApplicationParts';
-import { notAvailable } from '../applications/applicationLogic';
 import { detailStyles } from './detailStyles';
-import { missingCategories } from './documentReview';
 
-/** The same category naming the documents section uses. */
-function chipLabel(key: string): string {
-  if (key === 'FMB_SKETCH') return t('farmerApps.doc.category.FMB_SKETCH');
-  if (key === 'BANK_DETAILS') return t('farmerApps.doc.category.BANK_DETAILS');
-  if (key === 'ID_PROOF') return t('farmerApps.doc.type.ID_PROOF');
-  if (key === 'FARM_DOC') return t('farmerApps.doc.type.FARM_DOC');
-  if (key === 'CERTIFICATE') return t('farmerApps.doc.type.CERTIFICATE');
-  return t('farmerApps.doc.type.unknown');
+/** The design's "What is missing?" options, in its order. */
+export const MISSING_OPTIONS: readonly { key: string; apiItem: InfoRequestItem; labelKey: TranslationKey }[] = [
+  { key: 'identityProof', apiItem: 'AADHAAR', labelKey: 'farmerApps.moreInfo.option.identityProof' },
+  { key: 'fmbSketch', apiItem: 'FMB_SKETCH', labelKey: 'farmerApps.moreInfo.option.fmbSketch' },
+  { key: 'landProof', apiItem: 'PATTA_CHITTA', labelKey: 'farmerApps.moreInfo.option.landProof' },
+  { key: 'bankDetails', apiItem: 'BANK_DETAILS', labelKey: 'farmerApps.moreInfo.option.bankDetails' },
+  { key: 'other', apiItem: 'OTHER', labelKey: 'farmerApps.moreInfo.option.other' },
+];
+
+export interface MoreInfoSectionProps {
+  app: ApplicationDetailView;
+  /** Opens the Request More Info screen; undefined = the admin may not request information or stage disallows. */
+  onOpenRequestInfo: (() => void) | undefined;
 }
 
-export function MoreInfoSection({ app }: { app: ApplicationDetailView }) {
-  const missing = missingCategories(app);
-  const alreadyAsked = app.infoRequest !== null && app.infoRequest.trim() !== '';
+export function MoreInfoSection({ app, onOpenRequestInfo }: MoreInfoSectionProps) {
+  const sent =
+    (app.infoRequestDetail?.message ?? null) !== null && app.infoRequestDetail!.message!.trim() !== ''
+      ? app.infoRequestDetail!.message!
+      : app.infoRequest !== null && app.infoRequest.trim() !== ''
+        ? app.infoRequest
+        : undefined;
+  const requestedItems = new Set(app.infoRequestDetail?.items ?? []);
+  const canOpen = onOpenRequestInfo !== undefined;
+  const isWaiting = app.status === 'INFO_REQUESTED';
 
   return (
     <>
       <SectionHeading label={t('farmerApps.section.moreInfo')} />
       <Card>
-        <Text style={detailStyles.fieldLabel}>{t('farmerApps.moreInfo.missingHead')}</Text>
-        {missing.length === 0 ? (
-          <Text style={detailStyles.docSub}>{t('farmerApps.moreInfo.nothingMissing')}</Text>
-        ) : (
-          <View style={detailStyles.chipRow}>
-            {missing.map((category) => (
-              // DESIGN-ONLY: no endpoint yet, so the chips report what is missing and do not select.
-              <View key={category.key} style={detailStyles.chip}>
-                <Text style={detailStyles.chipText}>{chipLabel(category.key)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {isWaiting && requestedItems.size > 0 ? (
+          <Text style={detailStyles.gateWarningText}>
+            {t('farmerApps.moreInfo.openRequest', { items: [...requestedItems].join(', ') })}
+          </Text>
+        ) : null}
 
-        <Text style={detailStyles.fieldLabel}>{t('farmerApps.moreInfo.messageHead')}</Text>
-        <View style={detailStyles.notesBox}>
-          <Text style={detailStyles.notesText}>{alreadyAsked ? app.infoRequest : notAvailable()}</Text>
+        <Text style={detailStyles.reqSubHead}>{t('farmerApps.moreInfo.missingHead')}</Text>
+        <View style={detailStyles.chipsContainer}>
+          {MISSING_OPTIONS.map((option) => {
+            const highlighted = requestedItems.has(option.apiItem);
+            return (
+              <TouchableOpacity
+                key={option.key}
+                style={[detailStyles.chipPill, highlighted ? detailStyles.statusOptionItemSelected : detailStyles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true, selected: highlighted }}
+                testID={`farmerApps.moreInfo.chip.${option.key}`}
+              >
+                <Text style={[detailStyles.chipPillText, highlighted ? detailStyles.statusOptionTextSelected : null]}>
+                  {t(option.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-        {alreadyAsked ? <Text style={detailStyles.caption}>{t('farmerApps.moreInfo.sentHead')}</Text> : null}
 
-        {/* DESIGN-ONLY: no endpoint yet (requesting information is not wired from this screen). */}
-        <TouchableOpacity
-          style={[detailStyles.filledBtn, detailStyles.unavailable]}
-          disabled
-          accessibilityRole="button"
+        <Text style={[detailStyles.reqSubHead, detailStyles.reqSubHeadSpaced]}>{t('farmerApps.moreInfo.messageHead')}</Text>
+        <TextInput
+          style={[detailStyles.messageInput, sent === undefined ? detailStyles.actionUnavailable : null]}
+          editable={false}
+          multiline
+          value={sent}
+          placeholder={t('farmerApps.moreInfo.messagePlaceholder')}
+          placeholderTextColor={adminColors.muted}
           accessibilityState={{ disabled: true }}
-          accessibilityHint={t('farmerApps.moreInfo.unavailable')}
-          testID="farmerApps.sendMoreInfo"
+          accessibilityHint={sent === undefined ? undefined : t('farmerApps.moreInfo.sentHead')}
+          testID="farmerApps.moreInfo.message"
+        />
+
+        <TouchableOpacity
+          style={[detailStyles.sendRequestBtn, canOpen ? null : detailStyles.actionUnavailable]}
+          onPress={onOpenRequestInfo}
+          disabled={!canOpen}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canOpen }}
+          testID="farmerApps.openRequestInfo"
         >
-          <Text style={detailStyles.filledBtnText}>{t('farmerApps.moreInfo.send')}</Text>
+          <Text style={detailStyles.sendRequestBtnText}>{t('farmerApps.moreInfo.send')}</Text>
         </TouchableOpacity>
-        <Text style={detailStyles.caption}>{t('farmerApps.moreInfo.unavailable')}</Text>
       </Card>
     </>
   );

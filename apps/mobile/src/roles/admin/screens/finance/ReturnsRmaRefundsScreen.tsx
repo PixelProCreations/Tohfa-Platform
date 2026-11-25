@@ -1,3 +1,11 @@
+/**
+ * Accounts & Finance > Returns, RMA & Refunds. The design's list (HEAD port of
+ * origin/Superadmin-main), fed by the live returns queue (GET /admin/returns).
+ * Every one of the six docs/openapi.yaml ReturnStatus values has its own label
+ * (financeReturnView): APPROVED is "Approved", never "Refunded"; only REFUNDED
+ * is. A tap opens ReturnsRmaDetailScreen with the return's id, which reads
+ * GET /admin/returns/{id} itself (useReturn) instead of rebuilding it here.
+ */
 import React, { useState, useMemo } from 'react';
 import {
   SafeAreaView,
@@ -11,7 +19,12 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors, adminShadow, adminSpacing, adminType } from '../../theme';
-import { ReturnsRmaDetailScreen, type ReturnsRmaDetailData } from './ReturnsRmaDetailScreen';
+import { financeReturnView, ReturnsRmaDetailScreen } from './ReturnsRmaDetailScreen';
+import { useReturnList } from '../warehouse/returns-rma/useReturnsData';
+import type { ReturnRowView } from '../warehouse/returns-rma/types';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { t } from '../../i18n';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -49,166 +62,10 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
   );
 }
 
-export interface ReturnListItem {
-  id: string;
-  title: string;
-  status: 'Pending review' | 'Approved - Refunded' | 'Rejected';
-  subtitle: string;
-  subtitle2?: string;
-  actionText: string;
-  detail: ReturnsRmaDetailData;
-}
+export { financeReturnView };
 
-const RETURNS_LIST_DATA: ReturnListItem[] = [
-  {
-    id: 'rma-2',
-    title: 'RMA-0002 · SO-0008',
-    status: 'Pending review',
-    subtitle: 'Demo Market Buyer 2 · Beans · 3 kg requested',
-    actionText: 'Review',
-    detail: {
-      id: 'rma-2',
-      rmaNumber: 'RMA-0002',
-      salesOrder: 'SO-0008',
-      invoice: 'INV-2026-0001',
-      customer: 'Demo Market Buyer 2',
-      purchaseDate: '2 Oct 2026, 08:30',
-      originalItems: 'Beans 10 kg',
-      paymentReference: 'PAY-7008',
-      productAndQty: 'Beans · 3 kg',
-      reason: 'Produce damaged in transit',
-      evidence: 'Photo attached',
-      requestedDate: '3 Oct 2026, 10:00',
-      reviewStatus: 'Pending',
-      approvedQuantity: 'Pending review',
-      decisionReason: 'Awaiting manager sign-off.',
-      reviewer: 'Pending assignment',
-      refundStatus: 'Not initiated',
-      refundReference: '—',
-      refundAmount: '₹150.00',
-      originalPayment: 'PAY-7008',
-      initiatedDate: '—',
-      completedDate: '—',
-      failureReason: '—',
-      history: [
-        { meta: '3 Oct 2026, 10:00 · Demo Market Buyer 2', title: 'Return requested: 3 kg' },
-      ],
-    },
-  },
-  {
-    id: 'rma-4',
-    title: 'RMA-0004 · SO-0010',
-    status: 'Approved - Refunded',
-    subtitle: 'Demo Restaurant · Carrot · 5 kg approved',
-    subtitle2: 'RF-8002 · ₹250.00 · Completed',
-    actionText: 'Details',
-    detail: {
-      id: 'rma-4',
-      rmaNumber: 'RMA-0004',
-      salesOrder: 'SO-0010',
-      invoice: 'INV-2026-0002',
-      customer: 'Demo Restaurant (H-3002)',
-      purchaseDate: '4 Oct 2026, 10:00',
-      originalItems: 'Carrot 25 kg',
-      paymentReference: 'PAY-7111',
-      productAndQty: 'Carrot · 5 kg',
-      reason: 'Demo recorded reason (placeholder).',
-      evidence: 'None provided',
-      requestedDate: '8 Oct 2026, 09:00',
-      reviewStatus: 'Approved',
-      approvedQuantity: '5 kg',
-      decisionReason: 'Return accepted (demo).',
-      reviewer: 'Demo TOHFA Admin, 9 Oct 2026, 11:00',
-      refundStatus: 'Completed',
-      refundReference: 'RF-8002',
-      refundAmount: '₹250.00',
-      originalPayment: 'PAY-7111',
-      initiatedDate: '10 Oct 2026, 10:00',
-      completedDate: '11 Oct 2026, 10:00',
-      failureReason: '—',
-      history: [
-        { meta: '11 Oct 2026, 10:00 · System', title: 'Refund confirmed: Payment service confirmation' },
-        { meta: '10 Oct 2026, 10:00 · Demo TOHFA Admin', title: 'Refund initiated: ₹250.00' },
-        { meta: '9 Oct 2026, 11:00 · Demo TOHFA Admin', title: 'Return approved: Return accepted (demo).' },
-        { meta: '8 Oct 2026, 09:00 · Demo Restaurant', title: 'Return requested: 5 kg' },
-      ],
-    },
-  },
-  {
-    id: 'rma-3',
-    title: 'RMA-0003 · SO-0009',
-    status: 'Rejected',
-    subtitle: 'Demo Customer D · Cabbage · 5 kg requested',
-    subtitle2: 'Outside the evidence provided (demo)',
-    actionText: 'Details',
-    detail: {
-      id: 'rma-3',
-      rmaNumber: 'RMA-0003',
-      salesOrder: 'SO-0009',
-      invoice: 'INV-2026-0003',
-      customer: 'Demo Customer D (C-1004)',
-      purchaseDate: '5 Oct 2026, 11:00',
-      originalItems: 'Cabbage 10 kg',
-      paymentReference: 'PAY-7009',
-      productAndQty: 'Cabbage · 5 kg',
-      reason: 'Customer dispute on freshness',
-      evidence: 'None provided',
-      requestedDate: '6 Oct 2026, 14:00',
-      reviewStatus: 'Rejected',
-      approvedQuantity: '0 kg',
-      decisionReason: 'Outside the evidence provided (demo).',
-      reviewer: 'Demo TOHFA Admin, 7 Oct 2026, 09:30',
-      refundStatus: 'Rejected',
-      refundReference: '—',
-      refundAmount: '₹0.00',
-      originalPayment: 'PAY-7009',
-      initiatedDate: '—',
-      completedDate: '—',
-      failureReason: 'Claim rejected by quality review',
-      history: [
-        { meta: '7 Oct 2026, 09:30 · Demo TOHFA Admin', title: 'Return rejected: Outside the evidence provided.' },
-        { meta: '6 Oct 2026, 14:00 · Demo Customer D', title: 'Return requested: 5 kg' },
-      ],
-    },
-  },
-  {
-    id: 'rma-1',
-    title: 'RMA-0001 · SO-0002',
-    status: 'Approved - Refunded',
-    subtitle: 'Demo Customer B · Potato · 2 kg approved',
-    subtitle2: 'RF-8001 · ₹60.00 · Completed',
-    actionText: 'Details',
-    detail: {
-      id: 'rma-1',
-      rmaNumber: 'RMA-0001',
-      salesOrder: 'SO-0002',
-      invoice: 'INV-2026-0001',
-      customer: 'Demo Customer B (C-1002)',
-      purchaseDate: '1 Oct 2026, 10:00',
-      originalItems: 'Potato 5 kg',
-      paymentReference: 'PAY-7002',
-      productAndQty: 'Potato · 2 kg',
-      reason: 'Underweight delivery',
-      evidence: 'Scale photo verified',
-      requestedDate: '2 Oct 2026, 09:00',
-      reviewStatus: 'Approved',
-      approvedQuantity: '2 kg',
-      decisionReason: 'Verified with delivery weight receipt.',
-      reviewer: 'Demo TOHFA Admin, 2 Oct 2026, 12:00',
-      refundStatus: 'Completed',
-      refundReference: 'RF-8001',
-      refundAmount: '₹60.00',
-      originalPayment: 'PAY-7002',
-      initiatedDate: '2 Oct 2026, 14:00',
-      completedDate: '3 Oct 2026, 10:00',
-      failureReason: '—',
-      history: [
-        { meta: '3 Oct 2026, 10:00 · System', title: 'Refund completed: ₹60.00' },
-        { meta: '2 Oct 2026, 12:00 · Demo TOHFA Admin', title: 'Return approved: Verified with scale photo.' },
-      ],
-    },
-  },
-];
+/** Kept for the finance barrel (screens/finance/index.ts): one row of the live queue. */
+export type ReturnListItem = ReturnRowView;
 
 export interface ReturnsRmaRefundsScreenProps {
   can?: ((permission: string) => boolean) | undefined;
@@ -217,29 +74,29 @@ export interface ReturnsRmaRefundsScreenProps {
 
 export function ReturnsRmaRefundsScreen({ can, onBack }: ReturnsRmaRefundsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRma, setSelectedRma] = useState<ReturnsRmaDetailData | null>(null);
+  const [selectedReturnId, setSelectedReturnId] = useState<string | null>(null);
+
+  const list = useReturnList(undefined, undefined);
 
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return RETURNS_LIST_DATA;
+    if (!searchQuery.trim()) return list.items;
     const q = searchQuery.toLowerCase().trim();
-    return RETURNS_LIST_DATA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.subtitle.toLowerCase().includes(q) ||
-        (item.subtitle2 && item.subtitle2.toLowerCase().includes(q)) ||
-        item.status.toLowerCase().includes(q)
+    return list.items.filter(
+      (item: ReturnRowView) =>
+        item.reference.toLowerCase().includes(q) ||
+        item.reason.toLowerCase().includes(q) ||
+        item.created.toLowerCase().includes(q) ||
+        t(financeReturnView(item.status).labelKey).toLowerCase().includes(q),
     );
-  }, [searchQuery]);
+  }, [list.items, searchQuery]);
 
-  // When a record is tapped, redirect to ReturnsRmaDetailScreen
-  if (selectedRma) {
-    return (
-      <ReturnsRmaDetailScreen
-        rma={selectedRma}
-        can={can}
-        onBack={() => setSelectedRma(null)}
-      />
-    );
+  // R4: counts of loaded rows are totals only once every page is in.
+  const complete = !list.hasMore;
+  const countText = complete ? String(list.items.length) : ADMIN_NO_VALUE;
+  const pendingText = complete ? String(list.items.filter((r) => r.status === 'PENDING').length) : ADMIN_NO_VALUE;
+
+  if (selectedReturnId !== null) {
+    return <ReturnsRmaDetailScreen returnId={selectedReturnId} can={can} onBack={() => setSelectedReturnId(null)} />;
   }
 
   return (
@@ -289,64 +146,60 @@ export function ReturnsRmaRefundsScreen({ can, onBack }: ReturnsRmaRefundsScreen
         </View>
 
         {/* ── Counter Line ── */}
-        <Text style={styles.counterText}>4 returns · 1 pending review</Text>
+        <Text style={styles.counterText}>{t('wiringPayouts.returns.counter', { count: countText, pending: pendingText })}</Text>
 
         {/* ── Cards List ── */}
-        {filteredItems.map((item) => {
-          const isPending = item.status === 'Pending review';
-          const isApproved = item.status === 'Approved - Refunded';
-
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.returnCard}
-              onPress={() => setSelectedRma(item.detail)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isPending
-                      ? styles.badgeAmber
-                      : isApproved
-                      ? styles.badgeGreen
-                      : styles.badgeRed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      isPending
-                        ? styles.badgeTextAmber
-                        : isApproved
-                        ? styles.badgeTextGreen
-                        : styles.badgeTextRed,
-                    ]}
-                  >
-                    {item.status}
-                  </Text>
-                </View>
-              </View>
-
-              <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-              {item.subtitle2 ? (
-                <Text style={styles.cardSubtitle2}>{item.subtitle2}</Text>
-              ) : null}
-
-              {/* Action Text */}
+        {list.isLoading ? (
+          <AdminLoadingState label={t('wiringPayouts.returns.loading')} />
+        ) : list.error && list.items.length === 0 ? (
+          <AdminErrorState error={list.error} onRetry={list.refresh} />
+        ) : filteredItems.length === 0 ? (
+          <AdminEmptyState
+            title={t('wiringPayouts.returns.empty.title')}
+            subtitle={t(searchQuery ? 'wiringPayouts.returns.empty.search' : 'wiringPayouts.returns.empty.subtitle')}
+          />
+        ) : (
+          filteredItems.map((item) => {
+            const view = financeReturnView(item.status);
+            return (
               <TouchableOpacity
-                style={styles.actionBtn}
-                onPress={() => setSelectedRma(item.detail)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                key={item.id}
+                style={styles.returnCard}
+                onPress={() => setSelectedReturnId(item.id)}
+                activeOpacity={0.8}
+                testID={`returnsRma.open.${item.id}`}
               >
-                <Text style={styles.actionBtnText}>{item.actionText}</Text>
+                <View style={styles.cardHeaderRow}>
+                  {/* The order is only a uuid on the summary, so the title carries the return reference alone (R9). */}
+                  <Text style={styles.cardTitle}>{item.reference}</Text>
+                  <View style={[styles.statusBadge, view.tone === 'amber' ? styles.badgeAmber : view.tone === 'green' ? styles.badgeGreen : styles.badgeRed]}>
+                    <Text
+                      style={[styles.badgeText, view.tone === 'amber' ? styles.badgeTextAmber : view.tone === 'green' ? styles.badgeTextGreen : styles.badgeTextRed]}
+                      testID={`returnsRma.status.${item.id}`}
+                    >
+                      {t(view.labelKey)}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.cardSubtitle}>{item.reason || ADMIN_NO_VALUE}</Text>
+                <Text style={styles.cardSubtitle2}>{item.created || ADMIN_NO_VALUE}</Text>
+
+                {/* Action Text */}
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => setSelectedReturnId(item.id)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                >
+                  <Text style={styles.actionBtnText}>
+                    {t(view.closed ? 'wiringPayouts.returns.action.details' : 'wiringPayouts.returns.action.review')}
+                  </Text>
+                </TouchableOpacity>
               </TouchableOpacity>
-            </TouchableOpacity>
-          );
-        })}
+            );
+          })
+        )}
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>

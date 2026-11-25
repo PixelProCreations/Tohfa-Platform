@@ -1,5 +1,5 @@
 /**
- * Farmer Detail: every decision the 9-tab screen makes, as pure functions so
+ * Farmer Detail: every decision the tabbed screen makes, as pure functions so
  * plain-Node vitest covers them (../../../tests/farmerDetail_model.test.ts).
  * The components in this folder only draw what these return.
  *
@@ -148,7 +148,12 @@ export function farmerDetailViewState(input: {
   return 'loading';
 }
 
-/** The design's 9 tabs, in order. */
+/**
+ * The design's tabs, in its order (origin/Superadmin-main AdminFarmerDetailScreen).
+ * 'Farmer Records' (design tab 10) and 'Payout' (tab 11) sit between Audit and
+ * History. The design's 'Compliance' tab (between Subscription and Audit) is
+ * not drawn here: callers asking for it land on KYC (normalizeDetailTab).
+ */
 export const FARMER_DETAIL_TABS = [
   'Personal',
   'Farm & land',
@@ -158,29 +163,40 @@ export const FARMER_DETAIL_TABS = [
   'Ratings',
   'Subscription',
   'Audit',
+  'Farmer Records',
+  'Payout',
   'History',
 ] as const;
 
 export type FarmerDetailTab = (typeof FARMER_DETAIL_TABS)[number];
 
-/** Every tab name a caller may pass: the 9 design tabs plus Dev's 'Overview' and 'Farm' (App.tsx keeps them). */
-export type FarmerDetailTabType =
-  | FarmerDetailTab
-  | 'Overview'
-  | 'Farm'
-  | 'Verification & Compliance'
-  | 'Farmer Records';
+/** Every tab name a caller may pass: the design tabs plus Dev's 'Overview' and 'Farm' (App.tsx keeps them). */
+export type FarmerDetailTabType = FarmerDetailTab | 'Overview' | 'Farm' | 'Verification & Compliance';
 
 export function normalizeDetailTab(tab: FarmerDetailTabType | undefined): FarmerDetailTab {
   if (tab === undefined || tab === 'Overview') return 'Personal';
   if (tab === 'Farm') return 'Farm & land';
   if (tab === 'Verification & Compliance') return 'KYC';
-  if (tab === 'Farmer Records') return 'Audit';
   return tab;
 }
 
+/** One catalogue key per tab; the two restored tabs' labels live in wiringFarmers.en.json. */
+const DETAIL_TAB_LABEL_KEYS: Record<FarmerDetailTab, TranslationKey> = {
+  Personal: 'farmerDetail.tab.Personal',
+  'Farm & land': 'farmerDetail.tab.Farm & land',
+  Soil: 'farmerDetail.tab.Soil',
+  'Product listing': 'farmerDetail.tab.Product listing',
+  KYC: 'farmerDetail.tab.KYC',
+  Ratings: 'farmerDetail.tab.Ratings',
+  Subscription: 'farmerDetail.tab.Subscription',
+  Audit: 'farmerDetail.tab.Audit',
+  'Farmer Records': 'wiringFarmers.detailTab.farmerRecords',
+  Payout: 'wiringFarmers.detailTab.payout',
+  History: 'farmerDetail.tab.History',
+};
+
 export function detailTabLabel(tab: FarmerDetailTab): string {
-  return t(`farmerDetail.tab.${tab}`);
+  return t(DETAIL_TAB_LABEL_KEYS[tab]);
 }
 
 // ---------------------------------------------------------------------------

@@ -1,74 +1,104 @@
 /**
- * 05 · Application tracking & lifecycle, from the 2026-11-19 design.
+ * 05 · Application Tracking & Lifecycle (step 5 of 5), drawn as the design
+ * draws it: Application ID, Submitted On, the Update Tracking Status picker,
+ * the farmer's declaration line, and the Application Progression Tracker.
  *
- * The design let the reviewer pick a "tracking status" from a dropdown and
- * then re-drew the whole tracker from that local choice. Nothing moves an
- * application between statuses except /approve, /reject and /request-info, so
- * here the tracker only reports what the server says: the stages come from the
- * application's own status, and the dropdown is drawn but disabled.
+ * Audit is not part of this flow (owner decision 2026-11-25): the tracker has
+ * no "Audit Completed" stage and the picker offers no audit option (see
+ * TRACKING_STATUS_OPTIONS).
  *
- * Each stage's line is its state (complete / in progress / pending) rather
- * than the design's "Field audit report submitted" wording: no audit report,
- * visit date or verifier is in the application response, so claiming one would
- * be inventing it. The documents stage is the one exception — its line is the
- * real review stage (documents requested / under review), which the server's
- * `infoRequest` does tell us.
+ * The picker is drawn but disabled: moving an application between stages is
+ * the endpoint being built now (testID farmerApps.updateTracking; its sheet is
+ * already here, listing the non-audit options, for when it is wired). The
+ * tracker only reports the server's status (documentReview.lifecycleStages).
+ *
+ * The declaration line is green only when the application records the
+ * farmer's declaration; it never does yet, so the box is drawn neutral with
+ * the dash.
  */
-import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Text, TouchableOpacity, View } from 'react-native';
 import type { ApplicationStatus } from '../../../api/farmerApplications';
+import { useAdvanceApplication } from '../../../api/farmerHooks';
 import type { ApplicationDetailView } from '../../../api/farmerTypes';
 import { t, type TranslationKey } from '../../../i18n';
-import { Card, InfoRow, StepHeader } from '../applications/ApplicationParts';
-import { dayOrDash, notAvailable, orDash, statusLabel } from '../applications/applicationLogic';
-import { detailStyles } from './detailStyles';
-import { APPLICATION_STEP_COUNT, stepState } from './reviewFacts';
+import { adminColors } from '../../../theme';
+import { ADMIN_NO_VALUE } from '../../../utils/noValue';
 import {
-  decisionLineKey,
-  documentReviewStage,
+  Card,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  InfoRow,
+  StepHeader,
+} from '../applications/ApplicationParts';
+import { applicationErrorKey, dayOrDash, orDash } from '../applications/applicationLogic';
+import { SP } from '../designMetrics';
+import { detailStyles } from './detailStyles';
+import {
+  gateBlockerSummary,
   lifecycleStages,
+  TRACKING_STATUS_OPTIONS,
+  trackingOptionFor,
+  type LifecycleDot,
   type LifecycleStageKey,
-  type LifecycleStageState,
 } from './documentReview';
+import { APPLICATION_STEP_COUNT } from './reviewFacts';
 
 const STAGE_TITLE: Record<LifecycleStageKey, TranslationKey> = {
   submitted: 'farmerApps.tracking.stage.submitted',
   docsReview: 'farmerApps.tracking.stage.docsReview',
   farmVerification: 'farmerApps.tracking.stage.farmVerification',
-  audit: 'farmerApps.tracking.stage.audit',
   decision: 'farmerApps.tracking.stage.decision',
 };
 
-const STAGE_STATE: Record<LifecycleStageState, TranslationKey> = {
-  done: 'farmerApps.tracking.stageState.done',
-  current: 'farmerApps.tracking.stageState.current',
-  pending: 'farmerApps.tracking.stageState.pending',
+const DOT_STYLE: Record<LifecycleDot, object> = {
+  done: detailStyles.stageDotActive,
+  inProgress: detailStyles.stageDotInProgress,
+  warning: detailStyles.stageDotWarning,
+  pending: detailStyles.stageDotPending,
 };
 
-const DOC_STAGE_LINE: Record<ReturnType<typeof documentReviewStage>, TranslationKey | null> = {
-  requested: 'farmerApps.doc.reviewStage.requested',
-  allVerified: 'farmerApps.doc.reviewStage.allVerified',
-  underReview: 'farmerApps.doc.reviewStage.underReview',
-  unknown: null,
-};
+/** The design ticks a finished or sent-back stage and numbers the rest. */
+function dotText(dot: LifecycleDot, n: number): string {
+  return dot === 'done' || dot === 'warning' ? t('farmerApps.tracking.tick') : String(n);
+}
 
 export interface TrackingSectionProps {
   app: ApplicationDetailView;
   /** The status to report (APPROVED as soon as this screen's approval succeeded). */
   status: ApplicationStatus;
+  applicationId?: string | undefined;
+  canAdvance?: boolean | undefined;
 }
 
-export function TrackingSection({ app, status }: TrackingSectionProps) {
-  const stages = lifecycleStages(app, status);
+export function TrackingSection({ app, status, applicationId, canAdvance = false }: TrackingSectionProps) {
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [movedSuccess, setMovedSuccess] = useState(false);
+  const advance = useAdvanceApplication(canAdvance ? (applicationId ?? app.id) : undefined);
 
-  function stageLine(key: LifecycleStageKey, state: LifecycleStageState): string {
-    if (key === 'decision') return t(decisionLineKey(status));
-    if (key === 'docsReview') {
-      const line = DOC_STAGE_LINE[documentReviewStage(app)];
-      if (line !== null) return t(line);
-    }
-    if (key === 'submitted') return dayOrDash(app.submittedAt);
-    return t(STAGE_STATE[state]);
+  const stages = lifecycleStages(app, status);
+  const current = trackingOptionFor(status);
+  const declared = app.declaration !== null && app.declaration !== undefined;
+  const docsGate = app.reviewGates?.farmVerification;
+  const blockerReason = status === 'DOCS_REVIEW' ? gateBlockerSummary(docsGate) : null;
+  const isDocsReview = status === 'DOCS_REVIEW';
+  const gateMet = docsGate === undefined || docsGate === null || docsGate.met;
+  const canMoveToFarm = Boolean(canAdvance && isDocsReview && gateMet && !advance.isPending);
+
+  const handleMoveToFarmVerification = () => {
+    if (!canMoveToFarm) return;
+    setMovedSuccess(false);
+    advance.run({ toStatus: 'FARM_VERIFICATION' }, () => {
+      advance.finish();
+      setMovedSuccess(true);
+      setSheetOpen(false);
+    });
+  };
+
+  function stageLine(key: LifecycleStageKey, lineKey: TranslationKey | null): string {
+    if (key === 'submitted')
+      return t('farmerApps.tracking.line.submitted', { date: dayOrDash(app.submittedAt) });
+    return lineKey === null ? ADMIN_NO_VALUE : t(lineKey);
   }
 
   return (
@@ -77,52 +107,151 @@ export function TrackingSection({ app, status }: TrackingSectionProps) {
         label={t('farmerApps.section.tracking')}
         step={5}
         total={APPLICATION_STEP_COUNT}
-        state={stepState(app, 5)}
       />
       <Card>
-        {/* The server sends no human application code today; a bare uuid is not one. */}
-        <InfoRow label={t('farmerApps.tracking.applicationId')} value={orDash(app.applicationCode)} />
+        <InfoRow
+          label={t('farmerApps.tracking.applicationId')}
+          value={orDash(app.applicationCode)}
+          bold
+        />
         <InfoRow label={t('farmerApps.tracking.submittedOn')} value={dayOrDash(app.submittedAt)} />
-        <InfoRow label={t('farmerApps.tracking.currentStatus')} value={statusLabel(status)} />
-        {/* The design's "farmer confirmed the terms" line: the API sends no declaration. */}
-        <InfoRow label={t('farmerApps.tracking.declaration')} value={notAvailable()} last />
+
+        <View style={detailStyles.statusDropdownSection}>
+          <Text style={detailStyles.label}>{t('farmerApps.tracking.updateStatus')}</Text>
+          <TouchableOpacity
+            style={[detailStyles.dropdownTrigger, canAdvance && isDocsReview ? null : detailStyles.actionUnavailable]}
+            onPress={canAdvance && isDocsReview ? () => setSheetOpen(true) : undefined}
+            disabled={!(canAdvance && isDocsReview)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !(canAdvance && isDocsReview) }}
+            accessibilityHint={!canAdvance ? t('farmerApps.tracking.moveDenied') : undefined}
+            testID="farmerApps.updateTracking"
+          >
+            <Text style={detailStyles.dropdownTriggerText}>
+              {current === null ? ADMIN_NO_VALUE : t(current)}
+            </Text>
+            <ChevronDownIcon size={SP.s16} color={adminColors.ink} />
+          </TouchableOpacity>
+
+          {isDocsReview ? (
+            <TouchableOpacity
+              style={[detailStyles.advanceBtn, canMoveToFarm ? null : detailStyles.actionUnavailable]}
+              onPress={canMoveToFarm ? handleMoveToFarmVerification : undefined}
+              disabled={!canMoveToFarm}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !canMoveToFarm, busy: advance.isPending }}
+              accessibilityHint={!canAdvance ? t('farmerApps.tracking.moveDenied') : blockerReason ?? undefined}
+              testID="farmerApps.advanceToFarmVerification"
+            >
+              <Text style={detailStyles.advanceBtnText}>
+                {advance.isPending ? t('farmerApps.tracking.moving') : t('farmerApps.tracking.moveToFarmVerification')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {blockerReason !== null ? (
+            <Text style={detailStyles.gateWarningText} testID="farmerApps.advanceGateReason">
+              {blockerReason}
+            </Text>
+          ) : null}
+          {movedSuccess ? <Text style={detailStyles.inlineSuccessText}>{t('farmerApps.tracking.movedSuccess')}</Text> : null}
+          {advance.error !== null && advance.error !== undefined ? (
+            <Text style={detailStyles.inlineErrorText}>{t(applicationErrorKey(advance.error))}</Text>
+          ) : null}
+        </View>
+
+        <View
+          style={[detailStyles.termsAgreementBox, declared ? null : detailStyles.termsUnknownBox]}
+          testID="farmerApps.declaration"
+        >
+          <CheckCircleIcon
+            size={SP.s16}
+            color={declared ? adminColors.success.text : adminColors.muted}
+          />
+          <Text
+            style={[
+              detailStyles.termsAgreementText,
+              declared ? null : detailStyles.termsUnknownText,
+            ]}
+          >
+            {declared
+              ? t('farmerApps.tracking.declarationAgreed')
+              : t('farmerApps.tracking.declarationUnknown', { value: ADMIN_NO_VALUE })}
+          </Text>
+        </View>
+
+        <Text style={[detailStyles.fieldLabel, detailStyles.trackerLabel]}>
+          {t('farmerApps.tracking.progress')}
+        </Text>
+        <View style={detailStyles.lifecycleTracker}>
+          {stages.map(({ key, number, dot, lineKey }, index) => (
+            <View key={key} style={detailStyles.stageItem} testID={`farmerApps.stage.${key}`}>
+              <View style={detailStyles.stageIndicatorCol}>
+                <View style={DOT_STYLE[dot]}>
+                  <Text style={detailStyles.stageDotText}>{dotText(dot, number)}</Text>
+                </View>
+                {index === stages.length - 1 ? null : <View style={detailStyles.stageLine} />}
+              </View>
+              <View style={detailStyles.stageContent}>
+                <Text style={detailStyles.stageTitle}>{t(STAGE_TITLE[key])}</Text>
+                <Text style={detailStyles.stageSub}>{stageLine(key, lineKey)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </Card>
 
-      {/* DESIGN-ONLY: no endpoint yet (nothing moves an application between tracking statuses). */}
-      <TouchableOpacity
-        style={[detailStyles.dropdownTrigger, detailStyles.unavailable]}
-        disabled
-        accessibilityRole="button"
-        accessibilityState={{ disabled: true }}
-        accessibilityHint={t('farmerApps.tracking.updateUnavailable')}
-        testID="farmerApps.updateTracking"
-      >
-        <Text style={detailStyles.dropdownLabel}>{t('farmerApps.tracking.updateStatus')}</Text>
-        <Text style={detailStyles.dropdownValue}>{statusLabel(status)}</Text>
-      </TouchableOpacity>
-      <Text style={detailStyles.caption}>{t('farmerApps.tracking.updateUnavailable')}</Text>
-
-      <Text style={detailStyles.fieldLabel}>{t('farmerApps.tracking.progress')}</Text>
-      <View style={detailStyles.tracker}>
-        {stages.map(({ key, state }, index) => (
-          <View key={key} style={detailStyles.stageItem}>
-            <View style={detailStyles.stageIndicator}>
-              <View
-                style={[
-                  detailStyles.stageDot,
-                  state === 'done' ? detailStyles.stageDotDone : state === 'current' ? detailStyles.stageDotCurrent : null,
-                ]}
-              />
-              {/* Decoration only: the design's rule joining one stage to the next. */}
-              {index === stages.length - 1 ? null : <View style={detailStyles.stageConnector} />}
+      {/* The design's status picker. Unreachable while the trigger above is disabled. */}
+      {!sheetOpen ? null : (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setSheetOpen(false)}>
+          <TouchableOpacity
+            style={detailStyles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSheetOpen(false)}
+          >
+            <View style={detailStyles.bottomSheet}>
+              <Text style={detailStyles.bottomSheetTitle}>
+                {t('farmerApps.tracking.updateStatus')}
+              </Text>
+              <View style={detailStyles.statusOptionsList}>
+                {TRACKING_STATUS_OPTIONS.map((option) => {
+                  const selected = option.labelKey === current;
+                  const selectable = option.status === 'FARM_VERIFICATION' && canMoveToFarm;
+                  return (
+                    <TouchableOpacity
+                      key={option.status}
+                      style={[
+                        detailStyles.statusOptionItem,
+                        selected ? detailStyles.statusOptionItemSelected : null,
+                        selectable || selected ? null : detailStyles.actionUnavailable,
+                      ]}
+                      onPress={selectable ? handleMoveToFarmVerification : undefined}
+                      disabled={!selectable}
+                      accessibilityRole="button"
+                      accessibilityState={{ disabled: !selectable }}
+                      testID={`farmerApps.trackingOption.${option.status}`}
+                    >
+                      <Text
+                        style={[
+                          detailStyles.statusOptionText,
+                          selected ? detailStyles.statusOptionTextSelected : null,
+                        ]}
+                      >
+                        {t(option.labelKey)}
+                      </Text>
+                      {selected ? (
+                        <CheckCircleIcon size={SP.s16} color={adminColors.brand} />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-            <View style={detailStyles.stageBody}>
-              <Text style={detailStyles.stageTitle}>{t(STAGE_TITLE[key])}</Text>
-              <Text style={detailStyles.stageSub}>{stageLine(key, state)}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </>
   );
 }

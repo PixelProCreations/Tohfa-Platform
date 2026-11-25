@@ -8,9 +8,18 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import {
-  BackChevronIcon,
-  SALES_PALETTE,
-} from './SalesChannelOverviewScreen';
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { BackChevronIcon, SALES_PALETTE } from './SalesChannelOverviewScreen';
+import { useChannelOrders } from '../warehouse/sales-direct/useSalesData';
+import { AdminEmptyState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { formatPaise } from '../../money/paise';
 
 export interface HorecaAccount {
   id: string;
@@ -20,46 +29,26 @@ export interface HorecaAccount {
   nextDelivery: string;
 }
 
-const HORECA_ACCOUNTS: HorecaAccount[] = [
-  {
-    id: 'horeca-1',
-    name: 'Savoy Heritage Hotel — Ooty',
-    gstin: 'GSTIN: 33AACH1234K1Z1',
-    recurringOrder: '120kg mixed veg / week',
-    nextDelivery: 'Sep 12, 2026',
-  },
-  {
-    id: 'horeca-2',
-    name: 'Green Valley Restaurant — Coonoor',
-    gstin: 'GSTIN: 33AACG5678L1Z2',
-    recurringOrder: '45kg mixed veg / week',
-    nextDelivery: 'Sep 13, 2026',
-  },
-  {
-    id: 'horeca-3',
-    name: 'Sterling Fern Hill Resort — Ooty',
-    gstin: 'GSTIN: 33AAAC8912K1Z9',
-    recurringOrder: '200kg premium organic / week',
-    nextDelivery: 'Sep 14, 2026',
-  },
-  {
-    id: 'horeca-4',
-    name: 'Hilltop Cafe & Bakery — Kotagiri',
-    gstin: 'GSTIN: 33AADCH7812L1Z3',
-    recurringOrder: '30kg salad greens / week',
-    nextDelivery: 'Sep 15, 2026',
-  },
-];
-
 export interface SalesHorecaOrdersScreenProps {
   onBack?: () => void;
   onSelectAccount?: (acc: HorecaAccount) => void;
+  accounts?: HorecaAccount[];
 }
 
-export function SalesHorecaOrdersScreen({ onBack, onSelectAccount }: SalesHorecaOrdersScreenProps) {
+export function SalesHorecaOrdersScreen({ onBack, onSelectAccount, accounts }: SalesHorecaOrdersScreenProps) {
+  const { items, isLoading } = useChannelOrders('HORECA');
+
+  const displayAccounts: HorecaAccount[] = accounts ?? items.map((r) => ({
+    id: r.id,
+    name: r.businessName ?? ADMIN_NO_VALUE,
+    gstin: ADMIN_NO_VALUE,
+    recurringOrder: ADMIN_NO_VALUE,
+    nextDelivery: ADMIN_NO_VALUE,
+  }));
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -68,8 +57,10 @@ export function SalesHorecaOrdersScreen({ onBack, onSelectAccount }: SalesHoreca
             onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
           >
-            <BackChevronIcon />
+            <BackChevronIcon color={adminColors.ink} />
           </TouchableOpacity>
         </View>
 
@@ -77,48 +68,55 @@ export function SalesHorecaOrdersScreen({ onBack, onSelectAccount }: SalesHoreca
         <View style={styles.titleBlock}>
           <Text style={styles.screenTitle}>Horeca Orders</Text>
           <Text style={styles.screenSubtitle}>
-            Hotel / Restaurant / Catering · 19 active accounts
+            {t('wiringSales.horeca.subtitle', { shown: displayAccounts.length })}
           </Text>
         </View>
 
         {/* List of Horeca Accounts */}
-        <FlatList
-          data={HORECA_ACCOUNTS}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.horecaCard}
-              onPress={() => onSelectAccount?.(item)}
-              activeOpacity={0.7}
-            >
-              {/* Badge */}
-              <View style={styles.badgeWrapper}>
-                <View style={styles.horecaBadge}>
-                  <Text style={styles.horecaBadgeText}>Horeca</Text>
-                </View>
-              </View>
-
-              {/* Title & GSTIN */}
-              <Text style={styles.hotelName}>{item.name}</Text>
-              <Text style={styles.gstinText}>{item.gstin}</Text>
-
-              {/* Info 2-Column Grid */}
-              <View style={styles.infoRow}>
-                <View style={styles.infoCol}>
-                  <Text style={styles.infoLabel}>Recurring order</Text>
-                  <Text style={styles.infoValue}>{item.recurringOrder}</Text>
+        {isLoading && displayAccounts.length === 0 ? (
+          <AdminLoadingState label="Loading HoReCa orders..." />
+        ) : displayAccounts.length === 0 ? (
+          <AdminEmptyState title="No HoReCa Orders" subtitle="No HoReCa accounts or orders found." />
+        ) : (
+          <FlatList
+            data={displayAccounts}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.horecaCard}
+                onPress={() => onSelectAccount?.(item)}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+              >
+                {/* Badge */}
+                <View style={styles.badgeWrapper}>
+                  <View style={styles.horecaBadge}>
+                    <Text style={styles.horecaBadgeText}>Horeca</Text>
+                  </View>
                 </View>
 
-                <View style={styles.infoColRight}>
-                  <Text style={styles.infoLabel}>Next delivery</Text>
-                  <Text style={styles.infoValue}>{item.nextDelivery}</Text>
+                {/* Title & GSTIN */}
+                <Text style={styles.hotelName}>{item.name}</Text>
+                <Text style={styles.gstinText}>{item.gstin}</Text>
+
+                {/* Info 2-Column Grid */}
+                <View style={styles.infoRow}>
+                  <View style={styles.infoCol}>
+                    <Text style={styles.infoLabel}>Recurring order</Text>
+                    <Text style={styles.infoValue}>{item.recurringOrder}</Text>
+                  </View>
+
+                  <View style={styles.infoColRight}>
+                    <Text style={styles.infoLabel}>Delivery date</Text>
+                    <Text style={styles.infoValue}>{item.nextDelivery}</Text>
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
+              </TouchableOpacity>
+            )}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -127,97 +125,88 @@ export function SalesHorecaOrdersScreen({ onBack, onSelectAccount }: SalesHoreca
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   container: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.md,
   },
   backButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: SALES_PALETTE.cardBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   titleBlock: {
-    marginBottom: 20,
+    marginBottom: adminSpacing.md,
   },
   screenTitle: {
-    fontSize: 22,
+    ...adminType.title,
+    color: adminColors.ink,
     fontWeight: '700',
-    color: SALES_PALETTE.textHeading,
-    letterSpacing: -0.3,
     marginBottom: 4,
   },
   screenSubtitle: {
-    fontSize: 13,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 18,
   },
   listContent: {
-    paddingBottom: 32,
+    paddingBottom: adminSpacing.xxl * 2,
   },
   horecaCard: {
-    backgroundColor: SALES_PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   badgeWrapper: {
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
   horecaBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: SALES_PALETTE.primaryOrangeLight,
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: adminSpacing.xs,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
   },
   horecaBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#8B2C0D',
+    color: adminColors.brand,
   },
   hotelName: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   gstinText: {
-    fontSize: 11,
-    color: SALES_PALETTE.textSecondary,
-    marginBottom: 14,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.md,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 10,
+    paddingTop: adminSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: '#F5F0E8',
+    borderTopColor: adminColors.border,
   },
   infoCol: {
     flex: 1,
@@ -227,13 +216,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   infoLabel: {
-    fontSize: 11,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     marginBottom: 2,
   },
   infoValue: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
   },
 });

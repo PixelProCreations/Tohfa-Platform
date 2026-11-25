@@ -30,6 +30,37 @@ import { TransactionHistoryScreen } from './TransactionHistoryScreen';
 import { WalletDeductionFlow } from './WalletDeductionFlow';
 import { PayoutTransactionsListScreen } from './PayoutTransactionsListScreen';
 import { PayoutBatchListScreen } from './PayoutBatchListScreen';
+import { useAdminQuery } from '../../api/hooks';
+import {
+  getFinanceRevenueReport,
+  getFinanceExpenseReport,
+  listFinanceRevenue,
+  type FinanceRevenueItemDto,
+} from '../../api/finance';
+import { listPayoutDues } from '../../api/payoutDues';
+import { listAllWarehouses } from '../../api/warehouseList';
+import { t } from '../../i18n';
+import { formatAdminDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { countText, moneyText } from '../dashboard/saOverviewFormat';
+import { istToday } from '../warehouse/finance-expenses/mappers';
+import { addDays, type ReportRange } from '../warehouse/finance-expenses/reportRanges';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+
+/** The header's range choices. Only those whose label fixes a span are wired; see the filter modal. */
+type FlowRangeKey = 'last7' | 'last30';
+
+/** "Last 7 Days" and "Last 30 Days" each include today (IST). */
+function flowRange(key: FlowRangeKey, today: string): ReportRange {
+  return { from: addDays(today, key === 'last7' ? -6 : -29), to: today };
+}
+
+/** Badge colours for a revenue row's payment status. */
+function paymentTone(status: string): { bg: string; text: string } {
+  if (status === 'PAID') return adminColors.success;
+  if (status === 'FAILED') return adminColors.danger;
+  return adminColors.warning;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -242,6 +273,9 @@ export interface FinanceManagementFlowProps {
   onSubScreenChange?: ((subScreen: FinanceSubScreen) => void) | undefined;
 }
 
+/** Recent transactions shown on the overview. */
+const RECENT_COUNT = 3;
+
 export function FinanceManagementFlow({
   role = 'SUPER_ADMIN',
   can = () => true,
@@ -253,7 +287,31 @@ export function FinanceManagementFlow({
 }: FinanceManagementFlowProps) {
   const [subScreen, setSubScreenState] = useState<FinanceSubScreen>(initialSubScreen);
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
-  const [showExportToast, setShowExportToast] = useState<boolean>(false);
+  // The header states the range ("Last 30 Days"), so the reports are asked for exactly that
+  // (BR-63 reports need real YYYY-MM-DD dates; a blank date is a 422).
+  const [rangeKey, setRangeKey] = useState<FlowRangeKey>('last30');
+  const range = flowRange(rangeKey, istToday());
+
+  const { data: revReport } = useAdminQuery(['admin', 'finance', 'revenue-report', range.from, range.to], (signal) =>
+    getFinanceRevenueReport(range, signal),
+  );
+  const { data: expReport } = useAdminQuery(['admin', 'finance', 'expense-report', range.from, range.to], (signal) =>
+    getFinanceExpenseReport(range, signal),
+  );
+  const recentQuery = useAdminQuery(['admin', 'finance', 'revenue-recent', RECENT_COUNT], (signal) =>
+    listFinanceRevenue({ limit: RECENT_COUNT }, signal),
+  );
+  // Payout dues totals cover every due, whatever page is asked for; one row is enough.
+  const { data: duesData } = useAdminQuery(['admin', 'payout-dues', 'totals'], (signal) => listPayoutDues({ limit: 1 }, signal));
+  const warehousesQuery = useAdminQuery(['admin', 'warehouses', 'all'], (signal) => listAllWarehouses({}, signal));
+
+  const salesTotalText = moneyText(revReport?.summary.total);
+  const expTotalText = moneyText(expReport?.summary.total);
+  const duesTotalText = moneyText(duesData?.totals.totalDue);
+  // Revenue is completed PAID orders (BR-63), so its count is the collected count.
+  const collectedCountText = countText(revReport?.summary.count);
+  const warehouses = warehousesQuery.data ?? [];
+  const recent = recentQuery.data?.items ?? [];
 
   const setSubScreen = (newSub: FinanceSubScreen) => {
     setSubScreenState(newSub);
@@ -289,7 +347,7 @@ export function FinanceManagementFlow({
   if (subScreen === 'customerWallet') {
     return (
       <WalletFlow
-        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+        scope={{ warehouseId: undefined, warehouseName: t('wiringFinance.allWarehouses') }}
         can={can}
         initialScreen="CustomerWallet"
         onBack={() => setSubScreen('overview')}
@@ -316,13 +374,13 @@ export function FinanceManagementFlow({
   }
 
   if (subScreen === 'salesIncome') {
-    return <SalesIncomeRevenueScreen onBack={() => setSubScreen('overview')} />;
+    return <SalesIncomeRevenueScreen can={can} onBack={() => setSubScreen('overview')} />;
   }
 
   if (subScreen === 'expenses') {
     return (
       <FinanceFlow
-        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+        scope={{ warehouseId: undefined, warehouseName: t('wiringFinance.allWarehouses') }}
         can={can}
         initialScreen="Expenses"
         onBack={() => setSubScreen('overview')}
@@ -331,7 +389,7 @@ export function FinanceManagementFlow({
   }
 
   if (subScreen === 'invoicesGst') {
-    return <InvoicesGstBillingScreen onBack={() => setSubScreen('overview')} />;
+    return <InvoicesGstBillingScreen can={can} onBack={() => setSubScreen('overview')} />;
   }
 
   if (subScreen === 'reviewReturns') {
@@ -400,81 +458,75 @@ export function FinanceManagementFlow({
               >
                 <FilterSlidersIcon size={18} color={adminColors.onBrand} />
               </TouchableOpacity>
+              {/* No finance-overview export under /admin/exports/*, so drawn unavailable (R3). */}
               <TouchableOpacity
-                style={styles.headerPillBtn}
-                onPress={() => {
-                  setShowExportToast(true);
-                  setTimeout(() => setShowExportToast(false), 2500);
-                }}
-                activeOpacity={0.8}
+                style={[styles.headerPillBtn, styles.actionUnavailable]}
+                disabled
+                activeOpacity={1}
                 accessibilityRole="button"
                 accessibilityLabel="Download finance report"
+                accessibilityState={{ disabled: true }}
+                testID="finance.flow.export"
               >
                 <DownloadWhiteIcon size={18} color={adminColors.onBrand} />
               </TouchableOpacity>
             </View>
           </View>
-          <Text style={styles.headerSubtitle}>Last 30 Days</Text>
+          <Text style={styles.headerSubtitle}>{t(`wiringFinance.flow.range.${rangeKey}`)}</Text>
         </View>
-
-        {showExportToast && (
-          <View style={styles.toast}>
-            <Text style={styles.toastText}>✓ Finance report export initiated</Text>
-          </View>
-        )}
 
         {/* 2. Subheader */}
         <View style={styles.subheaderRow}>
-          <Text style={styles.lastUpdated}>Last updated 14 Oct 2026, 06:00</Text>
+          <Text style={styles.lastUpdated}>{t('wiringFinance.flow.lastUpdated', { when: ADMIN_NO_VALUE })}</Text>
         </View>
 
-        {/* 3. 8 KPI Cards (with honest em-dash for unbacked metrics) */}
+        {/* 3. 8 KPI Cards: a live value only under the label that means it, the dash elsewhere (R5) */}
         <OverviewCardsGrid style={{ paddingHorizontal: adminSpacing.md, rowGap: 10 }}>
           <OverviewDashboardCard
             title="Sales"
-            value="—"
+            value={salesTotalText}
             icon="sales"
             onPress={() => setSubScreen('salesIncome')}
           />
           <OverviewDashboardCard
             title="Farmer Purchase Value"
-            value="—"
+            value={ADMIN_NO_VALUE}
             icon="truck"
             onPress={() => setSubScreen('purchaseSales')}
           />
           <OverviewDashboardCard
             title="Outstanding Dues"
-            value="—"
+            value={duesTotalText}
             icon="orders"
             onPress={() => setSubScreen('duesPayouts')}
           />
           <OverviewDashboardCard
             title="Expenses"
-            value="—"
+            value={expTotalText}
             icon="cash"
             onPress={() => setSubScreen('expenses')}
           />
           <OverviewDashboardCard
             title="Wallet Liability"
-            value="—"
+            value={ADMIN_NO_VALUE}
             icon="cash"
             onPress={() => setSubScreen('customerWallet')}
           />
           <OverviewDashboardCard
             title="Pending Payouts"
-            value="—"
+            value={ADMIN_NO_VALUE}
             icon="cash"
             onPress={() => setSubScreen('duesPayouts')}
           />
           <OverviewDashboardCard
             title="Refunds"
-            value="—"
+            value={ADMIN_NO_VALUE}
             icon="alert"
             onPress={() => setSubScreen('reviewReturns')}
           />
           <OverviewDashboardCard
             title="Net Financial Summary"
-            value="—"
+            value={ADMIN_NO_VALUE}
             icon="inventory"
             onPress={() => setSubScreen('profitLoss')}
           />
@@ -483,112 +535,127 @@ export function FinanceManagementFlow({
         {/* Helper Note directly on canvas */}
         <View style={styles.noteBox}>
           <Text style={styles.noteText}>
-            No profit figure is calculated: expenses can&apos;t simply be subtracted from sales until the formula is finance-owner approved.
+            No profit figure is calculated: expenses can't simply be subtracted from sales until the formula is finance-owner approved.
           </Text>
         </View>
 
-        {/* 4. Daily Bars (Revenue, Expense & Purchase) */}
+        {/* 4. Daily Bars (Revenue, Expense & Purchase). The reports give a period total, not a day's
+            figure, and there is no purchase total: every value is dashed and every bar is empty. */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>Revenue, expense & purchase (daily)</Text>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>Revenue</Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '85%', backgroundColor: adminColors.success.text }]} />
+              <View style={[styles.progressBarFill, { width: 0, backgroundColor: adminColors.success.text }]} />
             </View>
-            <Text style={styles.progressValue}>₹2,14,600</Text>
+            <Text style={styles.progressValue}>{ADMIN_NO_VALUE}</Text>
           </View>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>Purchase</Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '55%', backgroundColor: adminColors.brand }]} />
+              <View style={[styles.progressBarFill, { width: 0, backgroundColor: adminColors.brand }]} />
             </View>
-            <Text style={styles.progressValue}>₹1,38,900</Text>
+            <Text style={styles.progressValue}>{ADMIN_NO_VALUE}</Text>
           </View>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>Expense</Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '15%', backgroundColor: adminColors.warning.text }]} />
+              <View style={[styles.progressBarFill, { width: 0, backgroundColor: adminColors.warning.text }]} />
             </View>
-            <Text style={styles.progressValue}>₹18,200</Text>
+            <Text style={styles.progressValue}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
-        {/* 5. Payment Status */}
+        {/* 5. Payment Status. Revenue holds PAID orders only, so its count is "Collected"; pending and
+            failed have no source. A bar width would be a ratio computed here, so the bars stay empty. */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>Payment status (statuses the records carry)</Text>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>Collected</Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '82%', backgroundColor: adminColors.success.text }]} />
+              <View style={[styles.progressBarFill, { width: 0, backgroundColor: adminColors.success.text }]} />
             </View>
-            <Text style={styles.progressValue}>18</Text>
+            <Text style={styles.progressValue}>{collectedCountText}</Text>
           </View>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>Pending</Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '23%', backgroundColor: adminColors.warning.text }]} />
+              <View style={[styles.progressBarFill, { width: 0, backgroundColor: adminColors.warning.text }]} />
             </View>
-            <Text style={styles.progressValue}>5</Text>
+            <Text style={styles.progressValue}>{ADMIN_NO_VALUE}</Text>
           </View>
 
           <View style={styles.progressRow}>
             <Text style={styles.progressLabel}>Failed</Text>
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: '6%', backgroundColor: adminColors.danger.text }]} />
+              <View style={[styles.progressBarFill, { width: 0, backgroundColor: adminColors.danger.text }]} />
             </View>
-            <Text style={styles.progressValue}>1</Text>
+            <Text style={styles.progressValue}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
-        {/* 6. By Warehouse */}
+        {/* 6. By Warehouse: every warehouse the server lists; the finance reports take no warehouse, so no per-warehouse figure. */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>By warehouse</Text>
-          <View style={styles.warehouseCard}>
-            <View style={styles.warehouseRow}>
-              <Text style={styles.warehouseName}>Main Warehouse, Ooty</Text>
-              <Text style={styles.warehouseValue}>₹1,20,400.00</Text>
+          {warehousesQuery.isPending ? (
+            <AdminLoadingState />
+          ) : warehousesQuery.error ? (
+            <AdminErrorState error={warehousesQuery.error} onRetry={() => void warehousesQuery.refetch()} />
+          ) : warehouses.length === 0 ? (
+            <AdminEmptyState title={t('wiringFinance.warehouses.empty')} />
+          ) : (
+            <View style={styles.warehouseCard}>
+              {warehouses.map((wh, idx) => (
+                <React.Fragment key={wh.id}>
+                  {idx > 0 && <View style={styles.cardDivider} />}
+                  <View style={styles.warehouseRow}>
+                    <Text style={styles.warehouseName}>{wh.name}</Text>
+                    <Text style={styles.warehouseValue}>{ADMIN_NO_VALUE}</Text>
+                  </View>
+                </React.Fragment>
+              ))}
             </View>
-            <View style={styles.cardDivider} />
-            <View style={styles.warehouseRow}>
-              <Text style={styles.warehouseName}>Coonoor</Text>
-              <Text style={styles.warehouseValue}>₹58,200.00</Text>
-            </View>
-            <View style={styles.cardDivider} />
-            <View style={styles.warehouseRow}>
-              <Text style={styles.warehouseName}>Kotagiri / Gudalur</Text>
-              <Text style={styles.warehouseValue}>₹36,000.00</Text>
-            </View>
-          </View>
+          )}
         </View>
 
-        {/* 7. Recent Transactions */}
+        {/* 7. Recent Transactions: the newest completed paid orders. A revenue row has no order number,
+            so its UUID is never shown in that slot (R9). */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>Recent transactions</Text>
 
-          <View style={styles.txCard}>
-            <View style={styles.txHeaderRow}>
-              <Text style={styles.txTitle}>SO-0013 · Sale</Text>
-              <View style={[styles.statusBadge, { backgroundColor: adminColors.success.bg }]}>
-                <Text style={[styles.statusBadgeText, { color: adminColors.success.text }]}>Collected</Text>
-              </View>
-            </View>
-            <Text style={styles.txSubtext}>₹12,560.00 · Nilgiri Fresh Traders · 1 Oct 2026</Text>
-          </View>
-
-          <View style={styles.txCard}>
-            <View style={styles.txHeaderRow}>
-              <Text style={styles.txTitle}>PY-0005 · Payout</Text>
-              <View style={[styles.statusBadge, { backgroundColor: adminColors.danger.bg }]}>
-                <Text style={[styles.statusBadgeText, { color: adminColors.danger.text }]}>Failed</Text>
-              </View>
-            </View>
-            <Text style={styles.txSubtext}>₹3,300.00 · Kumar · 6 Oct 2026</Text>
-          </View>
+          {recentQuery.isPending ? (
+            <AdminLoadingState />
+          ) : recentQuery.error ? (
+            <AdminErrorState error={recentQuery.error} onRetry={() => void recentQuery.refetch()} />
+          ) : recent.length === 0 ? (
+            <AdminEmptyState title={t('wiringFinance.flow.recentEmpty')} />
+          ) : (
+            recent.map((item: FinanceRevenueItemDto) => {
+              const tone = paymentTone(item.paymentStatus);
+              return (
+                <View key={item.orderId} style={styles.txCard}>
+                  <View style={styles.txHeaderRow}>
+                    <Text style={styles.txTitle}>{t('wiringFinance.flow.txTitle', { number: ADMIN_NO_VALUE, channel: item.channel })}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: tone.text }]}>{item.paymentStatus}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.txSubtext}>
+                    {t('wiringFinance.flow.txSubtext', {
+                      amount: moneyText(item.totalAmount),
+                      method: item.paymentMethod,
+                      date: formatAdminDay(item.completedAt) || ADMIN_NO_VALUE,
+                    })}
+                  </Text>
+                </View>
+              );
+            })
+          )}
         </View>
 
         {/* 8. Go to Grid (Rendered cleanly with reusable OverviewActionCard) */}
@@ -680,15 +747,33 @@ export function FinanceManagementFlow({
             <Text style={styles.modalTitle}>Filter Accounts & Finance</Text>
             <Text style={styles.modalSubtitle}>Select date range to update reporting view:</Text>
             <View style={styles.modalOptions}>
-              {['Last 7 Days', 'Last 30 Days', 'This Quarter', 'FY 2026-27'].map((range) => (
+              {(['last7', 'last30'] as const).map((key) => (
                 <TouchableOpacity
-                  key={range}
+                  key={key}
                   style={styles.modalOptionBtn}
-                  onPress={() => setShowFilterModal(false)}
+                  onPress={() => {
+                    setRangeKey(key);
+                    setShowFilterModal(false);
+                  }}
+                  testID={`finance.flow.range.${key}`}
                 >
-                  <Text style={styles.modalOptionText}>{range}</Text>
+                  <Text style={styles.modalOptionText}>{t(`wiringFinance.flow.range.${key}`)}</Text>
                 </TouchableOpacity>
               ))}
+              {/* Quarter and financial-year spans are the owner's call (calendar vs fiscal, which year):
+                  drawn, not selectable, never sent. */}
+              {(['This Quarter', 'FY 2026-27'] as const).map((label) => (
+                <TouchableOpacity
+                  key={label}
+                  style={[styles.modalOptionBtn, styles.actionUnavailable]}
+                  disabled
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
+                >
+                  <Text style={styles.modalOptionText}>{label}</Text>
+                </TouchableOpacity>
+              ))}
+              <Text style={styles.noteText}>{t('wiringFinance.flow.rangeUnavailable')}</Text>
             </View>
           </View>
         </View>
@@ -942,5 +1027,9 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '600',
     color: adminColors.ink,
+  },
+  /** The designed control, kept visible, drawn as unavailable (screens/community/ pattern). */
+  actionUnavailable: {
+    opacity: 0.5,
   },
 });

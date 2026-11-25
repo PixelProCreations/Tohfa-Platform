@@ -1,4 +1,21 @@
-import React, { useState } from 'react';
+/**
+ * A farmer's Payout tab: the payout destination on file and that farmer's
+ * payouts, both from the API.
+ *
+ *   - Payouts: GET /admin/payouts?farmerId= (payout.view), through
+ *     api/w5FarmerPayouts. A row carries only what openapi PayoutSummary has
+ *     (number, amount, status, requested date); there is no PO number on it,
+ *     so that slot is the dash. Tapping a row hands the real payout (its uuid)
+ *     to the payout detail screen.
+ *   - Payout account: GET /admin/farmers/{id}/bank-accounts
+ *     (farmer.bank_account.view). BR-53a: only the last four digits exist, so
+ *     the account number can never be unmasked; the eye toggle stays drawn but
+ *     disabled.
+ *
+ * Without the permission nothing is fetched and the list says "not loaded",
+ * never "no payouts".
+ */
+import React, { useMemo, useState } from 'react';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   StyleSheet,
@@ -7,26 +24,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { adminColors, adminRadius, adminShadow } from '../../theme';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { adminShadow } from '../../theme';
 import type { PayoutDetailItem } from './FarmerPayoutDetailScreen';
+import type { Can } from '../../permissions/can';
+import { useFarmerBankAccounts } from '../../api/farmerHooks';
+import { useFarmerPayoutList, type FarmerPayoutSummaryDto } from '../../api/w5FarmerPayouts';
+import { moneyText } from '../dashboard/saOverviewFormat';
+import { formatAdminDay } from '../../utils/datetime';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { t, type TranslationKey } from '../../i18n';
 
 function BankBuildingIcon({ size = 18, color = '#D9480F' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 21h18M3 10h18M5 10v11M19 10v11M9 10v11M15 10v11M12 3l9 7H3l9-7z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function HdfcLogoIcon({ size = 28 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <Rect width="32" height="32" rx="4" fill="#004C8F" />
-      <Rect x="4" y="4" width="24" height="24" rx="2" fill="#FFFFFF" />
-      <Rect x="12" y="6" width="8" height="20" fill="#ED1C24" />
-      <Rect x="6" y="12" width="20" height="8" fill="#ED1C24" />
-      <Rect x="12" y="12" width="8" height="8" fill="#004C8F" />
     </Svg>
   );
 }
@@ -66,134 +78,147 @@ function EyeToggleIcon({ size = 14, color = '#78716C' }: { size?: number; color?
 }
 
 export interface FarmerPayoutTabSectionProps {
-  farmerName?: string;
-  farmerId?: string;
+  farmerName?: string | undefined;
+  /** The farmer's UUID (never the TOHFA code): the API filters payouts by it. */
+  farmerId?: string | undefined;
+  can?: Can | undefined;
   onOpenBankDetails: () => void;
   onOpenPayoutDetail: (payout: PayoutDetailItem) => void;
 }
 
-export const DEMO_PAYOUT_ITEMS: PayoutDetailItem[] = [
-  {
-    id: 'pay-1',
-    code: 'PAY-0008',
-    amount: '₹10,800',
-    status: 'SA Approval Required',
-    date: '18 Nov 2026',
-    poNumber: 'PO-2026-0038',
-    produce: 'Beans',
-    quantity: '300 kg',
-  },
-  {
-    id: 'pay-2',
-    code: 'PAY-0008',
-    amount: '₹10,800',
-    status: 'Processing',
-    date: '18 Nov 2026',
-    poNumber: 'PO-2026-0038',
-    produce: 'Beans',
-    quantity: '300 kg',
-  },
-  {
-    id: 'pay-3',
-    code: 'PAY-0008',
-    amount: '₹10,800',
-    status: 'Settled',
-    date: '18 Nov 2026',
-    poNumber: 'PO-2026-0038',
-    produce: 'Carrot',
-    quantity: '250 kg',
-  },
-  {
-    id: 'pay-4',
-    code: 'PAY-0008',
-    amount: '₹10,800',
-    status: 'Settled',
-    date: '18 Nov 2026',
-    poNumber: 'PO-2026-0038',
-    produce: 'Cabbage',
-    quantity: '400 kg',
-  },
-  {
-    id: 'pay-5',
-    code: 'PAY-0008',
-    amount: '₹5,000',
-    status: 'Failed',
-    date: '18 Nov 2026',
-    poNumber: 'PO-2026-0038',
-    produce: 'Beetroot',
-    quantity: '150 kg',
-  },
-  {
-    id: 'pay-6',
-    code: 'PAY-0008',
-    amount: '₹5,000',
-    status: 'Rejected',
-    date: '18 Nov 2026',
-    poNumber: 'PO-2026-0038',
-    produce: 'Potato',
-    quantity: '180 kg',
-  },
-];
+/** A PayoutSummary row as the payout detail screen's item: real fields only. */
+export function toPayoutDetailItem(row: FarmerPayoutSummaryDto): PayoutDetailItem {
+  const day = formatAdminDay(row.requestedAt);
+  return {
+    id: row.id,
+    code: row.payoutNumber,
+    amount: row.amount,
+    status: row.status,
+    farmerId: row.farmerId,
+    farmerName: row.farmerName,
+    ...(day === '' ? {} : { date: day }),
+  };
+}
+
+const STATUS_LABEL_KEYS: Partial<Record<string, TranslationKey>> = {
+  REQUESTED: 'wiringFarmers.payouts.status.REQUESTED',
+  PENDING_APPROVAL: 'wiringFarmers.payouts.status.PENDING_APPROVAL',
+  APPROVED: 'wiringFarmers.payouts.status.APPROVED',
+  PROCESSING: 'wiringFarmers.payouts.status.PROCESSING',
+  PAID: 'wiringFarmers.payouts.status.PAID',
+  FAILED: 'wiringFarmers.payouts.status.FAILED',
+  REVERSED: 'wiringFarmers.payouts.status.REVERSED',
+};
 
 export function FarmerPayoutTabSection({
-  farmerName = ADMIN_NO_VALUE,
-  farmerId = ADMIN_NO_VALUE,
+  farmerName,
+  farmerId,
+  can,
   onOpenBankDetails,
   onOpenPayoutDetail,
 }: FarmerPayoutTabSectionProps): React.JSX.Element {
   const [searchQuery, setSearchQuery] = useState('');
-  const [accountNumberMasked, setAccountNumberMasked] = useState(true);
 
-  const filteredItems = DEMO_PAYOUT_ITEMS.filter((item) => {
-    if (!searchQuery.trim()) return true;
+  const canViewPayouts = can?.('payout.view') ?? false;
+  const canViewBank = can?.('farmer.bank_account.view') ?? false;
+  const payouts = useFarmerPayoutList(farmerId, { enabled: canViewPayouts });
+  const bank = useFarmerBankAccounts(undefined, farmerId, { enabled: canViewBank });
+
+  const account = useMemo(() => {
+    const list = bank.destinations ?? [];
+    return list.find((d) => d.isDefault) ?? list[0];
+  }, [bank.destinations]);
+
+  const items = useMemo(() => payouts.items.map(toPayoutDetailItem), [payouts.items]);
+  // Search narrows the rows already loaded; it is not a server search.
+  const filteredItems = items.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
-    return (
-      item.code.toLowerCase().includes(q) ||
-      item.amount.toLowerCase().includes(q) ||
-      item.status.toLowerCase().includes(q) ||
-      (item.poNumber && item.poNumber.toLowerCase().includes(q))
-    );
+    if (!q) return true;
+    return item.code.toLowerCase().includes(q) || item.status.toLowerCase().includes(q);
   });
 
+  const accountNumber =
+    account !== undefined && account.accountNumberLast4 !== null
+      ? t('wiringFarmers.payouts.accountMasked', { last4: account.accountNumberLast4 })
+      : account?.upiVpa ?? ADMIN_NO_VALUE;
+
   const renderStatusBadge = (status: string) => {
+    const key = STATUS_LABEL_KEYS[status];
+    const label = key === undefined ? status : t(key);
     switch (status) {
-      case 'SA Approval Required':
+      case 'PENDING_APPROVAL':
         return (
           <View style={styles.badgeSaApproval}>
-            <Text style={styles.badgeSaApprovalText}>SA Approval Required</Text>
+            <Text style={styles.badgeSaApprovalText}>{label}</Text>
           </View>
         );
-      case 'Processing':
+      case 'APPROVED':
+      case 'PROCESSING':
         return (
           <View style={styles.badgeProcessing}>
-            <Text style={styles.badgeProcessingText}>Processing</Text>
+            <Text style={styles.badgeProcessingText}>{label}</Text>
           </View>
         );
-      case 'Settled':
+      case 'PAID':
         return (
           <View style={styles.badgeSettled}>
-            <Text style={styles.badgeSettledText}>Settled</Text>
+            <Text style={styles.badgeSettledText}>{label}</Text>
           </View>
         );
-      case 'Failed':
+      case 'FAILED':
         return (
           <View style={styles.badgeFailed}>
-            <Text style={styles.badgeFailedText}>Failed</Text>
+            <Text style={styles.badgeFailedText}>{label}</Text>
           </View>
         );
-      case 'Rejected':
+      case 'REVERSED':
         return (
           <View style={styles.badgeRejected}>
-            <Text style={styles.badgeRejectedText}>Rejected</Text>
+            <Text style={styles.badgeRejectedText}>{label}</Text>
           </View>
         );
       default:
         return (
           <View style={styles.badgeDefault}>
-            <Text style={styles.badgeDefaultText}>{status}</Text>
+            <Text style={styles.badgeDefaultText}>{label}</Text>
           </View>
         );
     }
+  };
+
+  const renderList = () => {
+    if (farmerId === undefined || !canViewPayouts) {
+      return <AdminEmptyState title={t('wiringFarmers.payouts.notLoaded')} />;
+    }
+    if (payouts.isLoading) return <AdminLoadingState />;
+    if (payouts.error) return <AdminErrorState error={payouts.error} onRetry={payouts.refresh} />;
+    if (items.length === 0) return <AdminEmptyState title={t('wiringFarmers.payouts.empty')} />;
+    return filteredItems.map((item) => (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.payoutCard}
+        onPress={() => onOpenPayoutDetail(item)}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+      >
+        {/* Top Row: Code + Amount */}
+        <View style={styles.payoutCardTop}>
+          <Text style={styles.payoutCodeText}>{item.code}</Text>
+          <Text style={styles.payoutAmountText}>{moneyText(item.amount)}</Text>
+        </View>
+
+        {/* Bottom Row: Date/PO + Status Badge + Chevron. PayoutSummary carries no PO number. */}
+        <View style={styles.payoutCardBottom}>
+          <Text style={styles.payoutDatePoText}>
+            {t('wiringFarmers.payouts.dateAndPo', { date: item.date ?? ADMIN_NO_VALUE, po: ADMIN_NO_VALUE })}
+          </Text>
+          <View style={styles.statusAndChevron}>
+            {renderStatusBadge(item.status)}
+            <ChevronRightIcon size={18} color="#A8A29E" />
+          </View>
+        </View>
+      </TouchableOpacity>
+    ));
   };
 
   return (
@@ -208,39 +233,38 @@ export function FarmerPayoutTabSection({
         <View style={styles.payoutAccountHeader}>
           <View style={styles.payoutAccountHeaderLeft}>
             <BankBuildingIcon size={18} color="#D9480F" />
-            <Text style={styles.payoutAccountTitle}>Payout Account</Text>
+            <Text style={styles.payoutAccountTitle}>{t('wiringFarmers.payouts.accountTitle')}</Text>
           </View>
-          <View style={styles.verifiedGreenBadge}>
-            <Text style={styles.verifiedGreenBadgeText}>✓ Bank verified</Text>
-          </View>
+          {account?.isVerified === true ? (
+            <View style={styles.verifiedGreenBadge}>
+              <Text style={styles.verifiedGreenBadgeText}>{t('wiringFarmers.payouts.bankVerified')}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Card Body */}
         <View style={styles.bankInfoRow}>
           <View style={styles.bankLogoBox}>
-            <HdfcLogoIcon size={30} />
-            <Text style={styles.bankNameSmall}>HDFC Bank</Text>
+            <BankBuildingIcon size={30} color="#D9480F" />
+            <Text style={styles.bankNameSmall}>{account?.bankName ?? ADMIN_NO_VALUE}</Text>
           </View>
 
           <View style={styles.bankDetailsColumn}>
             <View style={styles.accountDetailRow}>
-              <Text style={styles.detailPropLabel}>Account Holder :</Text>
-              <Text style={styles.detailPropValue}>{farmerName}</Text>
+              <Text style={styles.detailPropLabel}>{t('wiringFarmers.payouts.accountHolder')}</Text>
+              <Text style={styles.detailPropValue}>{account?.accountHolderName ?? farmerName ?? ADMIN_NO_VALUE}</Text>
             </View>
 
             <View style={styles.accountDetailRow}>
-              <Text style={styles.detailPropLabel}>Account Number :</Text>
+              <Text style={styles.detailPropLabel}>{t('wiringFarmers.payouts.accountNumber')}</Text>
               <View style={styles.accountNumberMaskRow}>
-                <Text style={styles.detailPropValue}>
-                  {accountNumberMasked ? '******4821' : '501004821992'}
-                </Text>
+                <Text style={styles.detailPropValue}>{accountNumber}</Text>
+                {/* BR-53a: the full number is never sent, so there is nothing to unmask. */}
                 <TouchableOpacity
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    setAccountNumberMasked(!accountNumberMasked);
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={{ marginLeft: 6 }}
+                  disabled
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
+                  style={[{ marginLeft: 6 }, styles.actionUnavailable]}
                 >
                   <EyeToggleIcon size={13} color="#78716C" />
                 </TouchableOpacity>
@@ -248,8 +272,8 @@ export function FarmerPayoutTabSection({
             </View>
 
             <View style={styles.accountDetailRow}>
-              <Text style={styles.detailPropLabel}>IFSC Code       :</Text>
-              <Text style={styles.detailPropValue}>IDIB000C123</Text>
+              <Text style={styles.detailPropLabel}>{t('wiringFarmers.payouts.ifsc')}</Text>
+              <Text style={styles.detailPropValue}>{account?.ifsc ?? ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -265,45 +289,26 @@ export function FarmerPayoutTabSection({
           <SearchIcon size={16} color="#A8A29E" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder={t('wiringFarmers.payouts.searchPlaceholder')}
             placeholderTextColor="#A8A29E"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-        <TouchableOpacity style={styles.filterBtn} activeOpacity={0.7}>
+        {/* No filter is defined for this list yet: drawn, disabled. */}
+        <TouchableOpacity
+          style={[styles.filterBtn, styles.actionUnavailable]}
+          disabled
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+        >
           <FilterSlidersIcon size={18} color="#D9480F" />
         </TouchableOpacity>
       </View>
 
       {/* 3. Payout Transactions List */}
-      <View style={styles.payoutList}>
-        {filteredItems.map((item, idx) => (
-          <TouchableOpacity
-            key={`${item.id}-${idx}`}
-            style={styles.payoutCard}
-            onPress={() => onOpenPayoutDetail(item)}
-            activeOpacity={0.7}
-          >
-            {/* Top Row: Code + Amount */}
-            <View style={styles.payoutCardTop}>
-              <Text style={styles.payoutCodeText}>{item.code}</Text>
-              <Text style={styles.payoutAmountText}>{item.amount}</Text>
-            </View>
-
-            {/* Bottom Row: Date/PO + Status Badge + Chevron */}
-            <View style={styles.payoutCardBottom}>
-              <Text style={styles.payoutDatePoText}>
-                {item.date} | {item.poNumber}
-              </Text>
-              <View style={styles.statusAndChevron}>
-                {renderStatusBadge(item.status)}
-                <ChevronRightIcon size={18} color="#A8A29E" />
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <View style={styles.payoutList}>{renderList()}</View>
     </View>
   );
 }
@@ -534,5 +539,8 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#78716C',
+  },
+  actionUnavailable: {
+    opacity: 0.5,
   },
 });

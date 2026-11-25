@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   StyleSheet,
@@ -11,6 +11,10 @@ import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
 } from './SystemConfigScreen';
+import { useAdminQuery } from '../../api/hooks';
+import { listAuditLog } from '../../api/auditLog';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 export interface AuditLogItem {
   id: string;
@@ -22,54 +26,6 @@ export interface AuditLogItem {
   diffSummary: string;
 }
 
-const DEMO_AUDIT_LOGS: AuditLogItem[] = [
-  {
-    id: 'log-1',
-    action: 'Channel Allocation Policy Updated',
-    adminName: 'Rajesh Kumar (Super Admin)',
-    category: 'CONFIG',
-    timestamp: 'Today, 10:14 AM',
-    ipAddress: '157.48.210.4',
-    diffSummary: 'Online 70%, Mandi 10%, Horeca 10%, Buffer 10%',
-  },
-  {
-    id: 'log-2',
-    action: 'Dual-Approval Payout Authorized',
-    adminName: 'Rajesh Kumar (Super Admin)',
-    category: 'PAYOUT',
-    timestamp: 'Today, 09:30 AM',
-    ipAddress: '157.48.210.4',
-    diffSummary: 'Approved ₹15,400 to Ramasamy S. (#TOHFA-F-00189)',
-  },
-  {
-    id: 'log-3',
-    action: 'RazorpayX Webhook Endpoint Re-verified',
-    adminName: 'System Service Account',
-    category: 'CONFIG',
-    timestamp: 'Yesterday, 06:00 PM',
-    ipAddress: '10.0.4.12',
-    diffSummary: 'Automated 200 OK latency ping check (42ms)',
-  },
-  {
-    id: 'log-4',
-    action: 'Farmer KYC Approved',
-    adminName: 'Ganga Devi (Tohfa Admin)',
-    category: 'FARMER',
-    timestamp: 'Sep 23, 03:45 PM',
-    ipAddress: '157.48.112.8',
-    diffSummary: 'Approved Lakshmi R. (PGS-India Organic Tier 1)',
-  },
-  {
-    id: 'log-5',
-    action: 'Session Timeout Configured',
-    adminName: 'Rajesh Kumar (Super Admin)',
-    category: 'CONFIG',
-    timestamp: 'Sep 21, 11:20 AM',
-    ipAddress: '157.48.210.4',
-    diffSummary: 'Changed inactivity threshold from 15m to 30m',
-  },
-];
-
 export interface SystemAuditLogsScreenProps {
   onBack?: () => void;
 }
@@ -77,7 +33,44 @@ export interface SystemAuditLogsScreenProps {
 export function SystemAuditLogsScreen({ onBack }: SystemAuditLogsScreenProps) {
   const [activeFilter, setActiveFilter] = useState<'ALL' | 'CONFIG' | 'PAYOUT' | 'FARMER'>('ALL');
 
-  const filteredLogs = DEMO_AUDIT_LOGS.filter((log) => {
+  const auditQuery = useAdminQuery(
+    ['admin', 'auditLog', 'all'],
+    (signal) => listAuditLog({ limit: 50 }, signal),
+  );
+
+  const liveAuditLogs: AuditLogItem[] = useMemo(() => {
+    if (!auditQuery.data?.items || auditQuery.data.items.length === 0) {
+      return [];
+    }
+    return auditQuery.data.items.map((entry) => {
+      const adminName = entry.actorType === 'SYSTEM'
+        ? 'System Service Account'
+        : entry.actorRole
+        ? `Admin (${entry.actorRole})`
+        : 'Admin User';
+      const entity = (entry.entityType ?? '').toLowerCase();
+      const category: AuditLogItem['category'] =
+        entity.includes('config') ? 'CONFIG'
+        : entity.includes('payout') ? 'PAYOUT'
+        : entity.includes('farmer') || entity.includes('farm') || entity.includes('certification') ? 'FARMER'
+        : 'AUTH';
+      const diffSummary = entry.changedFields && entry.changedFields.length > 0
+        ? `Updated fields: ${entry.changedFields.join(', ')}`
+        : `Operation: ${entry.action} (${entry.outcome})`;
+
+      return {
+        id: entry.id,
+        action: entry.action,
+        adminName,
+        category,
+        timestamp: entry.at ? entry.at.slice(0, 16).replace('T', ' ') : ADMIN_NO_VALUE,
+        ipAddress: entry.ip ?? ADMIN_NO_VALUE,
+        diffSummary,
+      };
+    });
+  }, [auditQuery.data?.items]);
+
+  const filteredLogs = liveAuditLogs.filter((log) => {
     if (activeFilter === 'ALL') return true;
     return log.category === activeFilter;
   });
@@ -140,35 +133,46 @@ export function SystemAuditLogsScreen({ onBack }: SystemAuditLogsScreenProps) {
         </View>
 
         {/* Logs List */}
-        <FlatList
-          data={filteredLogs}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => {
-            const badge = getCategoryBadgeStyle(item.category);
-            return (
-              <View style={styles.logCard}>
-                <View style={styles.cardHeaderRow}>
-                  <View style={[styles.badge, { backgroundColor: badge.bg }]}>
-                    <Text style={[styles.badgeText, { color: badge.text }]}>
-                      {item.category}
-                    </Text>
+        {auditQuery.isPending ? (
+          <AdminLoadingState />
+        ) : auditQuery.error ? (
+          <AdminErrorState error={auditQuery.error} onRetry={() => void auditQuery.refetch()} />
+        ) : filteredLogs.length === 0 ? (
+          <AdminEmptyState
+            title="No audit logs found"
+            subtitle="No activity logs match the selected filter."
+          />
+        ) : (
+          <FlatList
+            data={filteredLogs}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => {
+              const badge = getCategoryBadgeStyle(item.category);
+              return (
+                <View style={styles.logCard}>
+                  <View style={styles.cardHeaderRow}>
+                    <View style={[styles.badge, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.badgeText, { color: badge.text }]}>
+                        {item.category}
+                      </Text>
+                    </View>
+                    <Text style={styles.timestampText}>{item.timestamp}</Text>
                   </View>
-                  <Text style={styles.timestampText}>{item.timestamp}</Text>
-                </View>
 
-                <Text style={styles.actionTitle}>{item.action}</Text>
-                <Text style={styles.diffText}>{item.diffSummary}</Text>
+                  <Text style={styles.actionTitle}>{item.action}</Text>
+                  <Text style={styles.diffText}>{item.diffSummary}</Text>
 
-                <View style={styles.footerRow}>
-                  <Text style={styles.adminUserText}>👤 {item.adminName}</Text>
-                  <Text style={styles.ipText}>{item.ipAddress}</Text>
+                  <View style={styles.footerRow}>
+                    <Text style={styles.adminUserText}>👤 {item.adminName}</Text>
+                    <Text style={styles.ipText}>{item.ipAddress}</Text>
+                  </View>
                 </View>
-              </View>
-            );
-          }}
-        />
+              );
+            }}
+          />
+        )}
       </View>
     </SafeAreaView>
   );

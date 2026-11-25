@@ -9,17 +9,29 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
+import { listExpenses, listFinanceRevenue, type ExpenseDto, type FinanceRevenueItemDto } from '../../api/finance';
+import { useAdminQuery } from '../../api/hooks';
+import { t } from '../../i18n';
+import { adminColors } from '../../theme';
+import { formatAdminDay, istDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { moneyText } from '../dashboard/saOverviewFormat';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+
+/** One page of each source: the recent entries, not the whole ledger. */
+const LEDGER_PAGE = 25;
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  creditGreen:   '#16A34A',
-  debitRed:      '#DC2626',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  creditGreen:   adminColors.success.text,
+  debitRed:      adminColors.danger.text,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -28,7 +40,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -42,7 +54,7 @@ function PlusIcon() {
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 5v14M5 12h14"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -53,52 +65,45 @@ function PlusIcon() {
 
 interface LedgerEntry {
   id: string;
-  date: string;
+  /** Sort key: the IST day the entry belongs to (YYYY-MM-DD). */
+  day: string;
+  dateText: string;
   description: string;
   accountHead: string;
   type: 'CREDIT' | 'DEBIT';
-  amount: number;
-  balance: number;
+  amountText: string;
 }
 
-const LEDGER_DATA: LedgerEntry[] = [
-  {
-    id: 'led-1',
-    date: '14 Sep 2026',
-    description: 'Online Customer Settlement Batch #902',
-    accountHead: 'Revenue / Escrow Clearing',
-    type: 'CREDIT',
-    amount: 124500,
-    balance: 1527800,
-  },
-  {
-    id: 'led-2',
-    date: '12 Sep 2026',
-    description: 'Farmer Payout Direct Disbursement Batch #44',
-    accountHead: 'Farmer Payable / Axis Bank',
-    type: 'DEBIT',
-    amount: 82000,
-    balance: 1403300,
-  },
-  {
-    id: 'led-3',
-    date: '10 Sep 2026',
-    description: 'Ooty Warehouse Solar Power Utility Bill',
-    accountHead: 'Operational Expense / Utilities',
-    type: 'DEBIT',
-    amount: 6850,
-    balance: 1485300,
-  },
-  {
-    id: 'led-4',
-    date: '08 Sep 2026',
-    description: 'Horeca B2B Advance Deposit — Taj Savoy',
-    accountHead: 'Customer Advances',
-    type: 'CREDIT',
-    amount: 50000,
-    balance: 1492150,
-  },
-];
+/**
+ * The recent entries: one page of revenue (completed paid orders, BR-63) and
+ * one page of recorded expenses (BR-62), newest first. There is no general
+ * ledger endpoint, so there is no running or closing balance to show (brief
+ * 07 R6): those figures are dashed rather than computed on the phone.
+ */
+function ledgerEntries(revenue: FinanceRevenueItemDto[], expenses: ExpenseDto[]): LedgerEntry[] {
+  const rows: LedgerEntry[] = [
+    ...revenue.map((r) => ({
+      id: `rev-${r.orderId}`,
+      day: istDay(new Date(r.completedAt)),
+      dateText: formatAdminDay(r.completedAt) || ADMIN_NO_VALUE,
+      // The revenue row carries no order number; its UUID is never shown in its place (R9).
+      description: t('wiringFinance.ledger.revenueEntry', { number: ADMIN_NO_VALUE, channel: r.channel }),
+      accountHead: ADMIN_NO_VALUE,
+      type: 'CREDIT' as const,
+      amountText: moneyText(r.totalAmount),
+    })),
+    ...expenses.map((e) => ({
+      id: `exp-${e.id}`,
+      day: e.expenseDate,
+      dateText: formatAdminDay(e.expenseDate) || ADMIN_NO_VALUE,
+      description: e.description ?? ADMIN_NO_VALUE,
+      accountHead: e.category,
+      type: 'DEBIT' as const,
+      amountText: moneyText(e.amount),
+    })),
+  ];
+  return rows.sort((a, b) => b.day.localeCompare(a.day));
+}
 
 export interface BasicAccountingLedgerScreenProps {
   onBack: () => void;
@@ -109,6 +114,21 @@ export function BasicAccountingLedgerScreen({
   onBack,
   onNavigateToAddEntry,
 }: BasicAccountingLedgerScreenProps) {
+  const expensesQuery = useAdminQuery(['admin', 'finance', 'ledger-expenses'], (signal) =>
+    listExpenses({ limit: LEDGER_PAGE }, signal),
+  );
+  const revenueQuery = useAdminQuery(['admin', 'finance', 'ledger-revenue'], (signal) =>
+    listFinanceRevenue({ limit: LEDGER_PAGE }, signal),
+  );
+
+  const isPending = expensesQuery.isPending || revenueQuery.isPending;
+  const error = expensesQuery.error ?? revenueQuery.error;
+  const entries = ledgerEntries(revenueQuery.data?.items ?? [], expensesQuery.data?.items ?? []);
+
+  // Server totals over every row (summary), never a sum of the page shown (R4).
+  const totalCredits = moneyText(revenueQuery.data?.summary.total);
+  const totalDebits = moneyText(expensesQuery.data?.summary.total);
+
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
@@ -125,53 +145,65 @@ export function BasicAccountingLedgerScreen({
 
         {/* Heading Next */}
         <Text style={styles.screenTitle}>Accounting Ledger</Text>
-        <Text style={styles.screenSub}>Platform General Ledger · September 2026</Text>
+        <Text style={styles.screenSub}>{t('wiringFinance.ledger.subtitle')}</Text>
 
-        {/* Balance Card */}
+        {/* Balance Card: no ledger endpoint gives a closing balance (R6). */}
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Current Closing Balance</Text>
-          <Text style={styles.balanceAmount}>₹15,27,800</Text>
+          <Text style={styles.balanceAmount}>{ADMIN_NO_VALUE}</Text>
           <View style={styles.balanceRow}>
-            <Text style={styles.balanceSub}>Total Credits: +₹1,74,500</Text>
+            <Text style={styles.balanceSub}>{t('wiringFinance.ledger.totalCredits', { amount: totalCredits })}</Text>
             <Text style={styles.balanceSub}>·</Text>
             <Text style={[styles.balanceSub, { color: PALETTE.debitRed }]}>
-              Total Debits: -₹88,850
+              {t('wiringFinance.ledger.totalDebits', { amount: totalDebits })}
             </Text>
           </View>
         </View>
 
         {/* Entries List */}
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
-        <View style={styles.entryStack}>
-          {LEDGER_DATA.map((entry) => {
-            const isCredit = entry.type === 'CREDIT';
-            return (
-              <View key={entry.id} style={styles.entryCard}>
-                <View style={styles.entryHeader}>
-                  <Text style={styles.entryDate}>{entry.date}</Text>
-                  <Text
-                    style={[
-                      styles.entryAmount,
-                      isCredit ? styles.creditText : styles.debitText,
-                    ]}
-                  >
-                    {isCredit ? '+' : '-'}₹{entry.amount.toLocaleString('en-IN')}
-                  </Text>
-                </View>
+        {isPending ? (
+          <AdminLoadingState />
+        ) : error ? (
+          <AdminErrorState
+            error={error}
+            onRetry={() => {
+              void expensesQuery.refetch();
+              void revenueQuery.refetch();
+            }}
+          />
+        ) : entries.length === 0 ? (
+          <AdminEmptyState title={t('wiringFinance.ledger.empty')} />
+        ) : (
+          <View style={styles.entryStack}>
+            {entries.map((entry) => {
+              const isCredit = entry.type === 'CREDIT';
+              return (
+                <View key={entry.id} style={styles.entryCard}>
+                  <View style={styles.entryHeader}>
+                    <Text style={styles.entryDate}>{entry.dateText}</Text>
+                    <Text
+                      style={[
+                        styles.entryAmount,
+                        isCredit ? styles.creditText : styles.debitText,
+                      ]}
+                    >
+                      {isCredit ? '+' : '-'}{entry.amountText}
+                    </Text>
+                  </View>
 
-                <Text style={styles.entryDesc}>{entry.description}</Text>
-                <Text style={styles.accountHead}>Head: {entry.accountHead}</Text>
+                  <Text style={styles.entryDesc}>{entry.description}</Text>
+                  <Text style={styles.accountHead}>Head: {entry.accountHead}</Text>
 
-                <View style={styles.runningBalRow}>
-                  <Text style={styles.runningBalLabel}>Running Balance:</Text>
-                  <Text style={styles.runningBalVal}>
-                    ₹{entry.balance.toLocaleString('en-IN')}
-                  </Text>
+                  <View style={styles.runningBalRow}>
+                    <Text style={styles.runningBalLabel}>Running Balance:</Text>
+                    <Text style={styles.runningBalVal}>{ADMIN_NO_VALUE}</Text>
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
 
         {/* Add Entry Button */}
         <TouchableOpacity
@@ -215,7 +247,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -346,6 +378,6 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 });

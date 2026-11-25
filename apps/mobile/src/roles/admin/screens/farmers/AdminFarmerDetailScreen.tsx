@@ -1,5 +1,5 @@
 /**
- * Farmer Detail (Farmers Management): the team design's 9-tab profile
+ * Farmer Detail (Farmers Management): the team design's tabbed profile
  * (tofhafarmfin-rbac AdminFarmerDetailScreen) on live data.
  *
  * This file is the shell: access, the queries, the active tab, the sub-views
@@ -19,6 +19,14 @@
  * the profile itself always comes from GET /admin/farmers/{id}. `onDisable` is
  * still accepted but never called: Disable/Deactivate are DESIGN-ONLY until an
  * endpoint exists.
+ *
+ * The design's "Farmer Records" and "Payout" tabs mount FarmRecordsSection
+ * and FarmerPayoutTabSection with the farmer's uuid and `can`; each gates its
+ * own reads (no code, no fetch, and the tab says "not loaded"). A payout row
+ * and the payout account card go to `onOpenPayoutDetail` / `onOpenBankDetails`
+ * when the host routes them (FarmerManagementFlow); without them they open
+ * inline, as the design does, so FarmersFlow's mount works unchanged. The
+ * payout screens get the uuid for the API and the farmer code for display.
  *
  * Dev behaviour kept: the Android BackHandler, the mobile-ui ScreenStatusBar /
  * SafeAreaView wrappers, the locked mobile and masked Aadhaar rows, the rating
@@ -40,6 +48,10 @@ import type { Can } from '../../permissions/can';
 import { adminColors } from '../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
+import { FarmerBankAccountDetailsScreen } from './FarmerBankAccountDetailsScreen';
+import { FarmerPayoutDetailScreen, type PayoutDetailItem } from './FarmerPayoutDetailScreen';
+import { FarmerPayoutTabSection } from './FarmerPayoutTabSection';
+import { FarmRecordsSection } from './FarmRecordsSection';
 import { AccountModals } from './detail/AccountModals';
 import { DetailTabBar, HeaderBanner, ProfileSummaryCard } from './detail/DetailHeader';
 import { EditRatingView } from './detail/EditRatingView';
@@ -91,7 +103,15 @@ export interface AdminFarmerDetailScreenProps {
   onTabChange?: ((tab: FarmerDetailTabType) => void) | undefined;
   /** Accepted for compatibility with the design's prop list; the Audit tab has no history link yet. */
   onNavigateAuditHistory?: (() => void) | undefined;
+  /** Payout tab row: the host opens the payout detail. Without it the detail opens inline (as in the design). */
+  onOpenPayoutDetail?: ((payout: PayoutDetailItem) => void) | undefined;
+  /** Payout tab account card: the host opens the bank details. Without it they open inline (as in the design). */
+  onOpenBankDetails?: (() => void) | undefined;
 }
+
+/** The design's in-screen payout sub-views, used only when the host does not route them. */
+type PayoutSubView = { kind: 'none' } | { kind: 'bank' } | { kind: 'payout'; payout: PayoutDetailItem };
+const NO_PAYOUT_SUBVIEW: PayoutSubView = { kind: 'none' };
 
 export function AdminFarmerDetailScreen({
   farmerId: farmerIdProp,
@@ -105,6 +125,8 @@ export function AdminFarmerDetailScreen({
   onOpenRatingScorecard,
   initialTab,
   onTabChange,
+  onOpenPayoutDetail,
+  onOpenBankDetails,
 }: AdminFarmerDetailScreenProps) {
   const farmerId = farmerIdProp ?? farmerRef?.id;
   const access = farmerDetailAccess(can);
@@ -121,6 +143,7 @@ export function AdminFarmerDetailScreen({
   const [editingRating, setEditingRating] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [designAction, dispatch] = useReducer(designActionReducer, DESIGN_ACTION_IDLE);
+  const [payoutSubView, setPayoutSubView] = useState<PayoutSubView>(NO_PAYOUT_SUBVIEW);
 
   useEffect(() => {
     setActiveTab(normalizeDetailTab(initialTab));
@@ -129,12 +152,13 @@ export function AdminFarmerDetailScreen({
   // Dev behaviour: the Android back button leaves the sub-view first, then the screen.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (editingRating) setEditingRating(false);
+      if (payoutSubView.kind !== 'none') setPayoutSubView(NO_PAYOUT_SUBVIEW);
+      else if (editingRating) setEditingRating(false);
       else onBack();
       return true;
     });
     return () => sub.remove();
-  }, [onBack, editingRating]);
+  }, [onBack, editingRating, payoutSubView]);
 
   const selectTab = (tab: FarmerDetailTab) => {
     setActiveTab(tab);
@@ -170,6 +194,32 @@ export function AdminFarmerDetailScreen({
         initialTab={activeTab}
         onBack={() => setEditingProfile(false)}
         onSaved={() => setEditingProfile(false)}
+      />
+    );
+  }
+
+  // The design's inline payout sub-views; Back returns to the Payout tab (activeTab is kept).
+  if (view === 'ready' && farmer !== undefined && payoutSubView.kind === 'bank') {
+    return (
+      <FarmerBankAccountDetailsScreen
+        farmerName={farmer.name}
+        farmerId={farmer.id}
+        farmerCode={farmer.farmerCode}
+        warehouseId={warehouseId}
+        can={can}
+        onBack={() => setPayoutSubView(NO_PAYOUT_SUBVIEW)}
+      />
+    );
+  }
+  if (view === 'ready' && farmer !== undefined && payoutSubView.kind === 'payout') {
+    return (
+      <FarmerPayoutDetailScreen
+        payout={payoutSubView.payout}
+        farmerName={farmer.name}
+        farmerId={farmer.id}
+        farmerCode={farmer.farmerCode}
+        can={can}
+        onBack={() => setPayoutSubView(NO_PAYOUT_SUBVIEW)}
       />
     );
   }
@@ -235,6 +285,18 @@ export function AdminFarmerDetailScreen({
           {activeTab === 'Ratings' ? <RatingsTab farmer={farmer} access={access} live={rating} /> : null}
           {activeTab === 'Subscription' ? <SubscriptionTab access={access} live={subscription} /> : null}
           {activeTab === 'Audit' ? <AuditTab farmer={farmer} /> : null}
+          {activeTab === 'Farmer Records' ? (
+            <FarmRecordsSection farmerId={farmer.id} can={can} farmerName={farmer.name} farmerCode={farmer.farmerCode} />
+          ) : null}
+          {activeTab === 'Payout' ? (
+            <FarmerPayoutTabSection
+              farmerName={farmer.name}
+              farmerId={farmer.id}
+              can={can}
+              onOpenBankDetails={onOpenBankDetails ?? (() => setPayoutSubView({ kind: 'bank' }))}
+              onOpenPayoutDetail={onOpenPayoutDetail ?? ((payout) => setPayoutSubView({ kind: 'payout', payout }))}
+            />
+          ) : null}
           {activeTab === 'History' ? <HistoryTab /> : null}
         </ScrollView>
       )}

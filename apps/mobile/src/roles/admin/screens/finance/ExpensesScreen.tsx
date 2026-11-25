@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,21 +9,35 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
+import { listExpenses } from '../../api/finance';
+import { useAdminQuery } from '../../api/hooks';
+import { listAllWarehouses } from '../../api/warehouseList';
+import { t, type TranslationKey } from '../../i18n';
+import { adminColors, adminType } from '../../theme';
+import { formatAdminDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { moneyText } from '../dashboard/saOverviewFormat';
+import { istToday } from '../warehouse/finance-expenses/mappers';
+import { reportRange } from '../warehouse/finance-expenses/reportRanges';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+
+const EXPENSES_PAGE = 50;
+
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  blueBox:       '#EBF5FF',
-  blueIcon:      '#1D6FB8',
-  pendingBg:     '#FFF3E0',
-  pendingText:   '#E65100',
-  approvedBg:    '#E8F5E9',
-  approvedText:  '#2E7D32',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  blueBox:       adminColors.info.bg,
+  blueIcon:      adminColors.info.text,
+  pendingBg:     adminColors.warning.bg,
+  pendingText:   adminColors.warning.text,
+  approvedBg:    adminColors.success.bg,
+  approvedText:  adminColors.success.text,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -33,7 +46,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -47,7 +60,7 @@ function PlusIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 5v14M5 12h14"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -103,7 +116,7 @@ function CheckmarkIcon() {
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
       <Path
         d="M20 6L9 17l-5-5"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -112,86 +125,51 @@ function CheckmarkIcon() {
   );
 }
 
-export interface ExpenseItem {
-  id: string;
-  iconType: 'truck' | 'lightning' | 'wrench';
-  title: string;
-  subtitle: string;
-  amount: number;
-  status: 'Pending' | 'Approved';
-}
+type ExpenseIconType = 'truck' | 'lightning' | 'wrench';
 
-const INITIAL_EXPENSES: ExpenseItem[] = [
-  {
-    id: 'exp-1',
-    iconType: 'truck',
-    title: 'Warehouse Maintenance — Ooty',
-    subtitle: 'Logged by Kannan V. · Sep 12',
-    amount: 4200,
-    status: 'Pending',
-  },
-  {
-    id: 'exp-2',
-    iconType: 'lightning',
-    title: 'Electricity — Coonoor',
-    subtitle: 'Logged by Meena R. · Sep 10',
-    amount: 6850,
-    status: 'Approved',
-  },
-  {
-    id: 'exp-3',
-    iconType: 'wrench',
-    title: 'Equipment Repair — Kotagiri',
-    subtitle: 'Logged by Deepa S. · Sep 8',
-    amount: 2100,
-    status: 'Pending',
-  },
-  {
-    id: 'exp-4',
-    iconType: 'truck',
-    title: 'Inter-warehouse Transport — Gudalur',
-    subtitle: 'Logged by Murugan T. · Sep 6',
-    amount: 3500,
-    status: 'Pending',
-  },
-];
+/**
+ * The design draws one of three icons per expense. The categories are the
+ * fixed seed list of migration 0047 (Transport, Loading, Unloading, Warehouse
+ * Operations, Maintenance, Utilities, Other); which icon each gets is a visual
+ * choice only, listed for the owner in the brief-07 W1 report.
+ */
+function iconFor(category: string): ExpenseIconType {
+  switch (category) {
+    case 'Transport':
+    case 'Loading':
+    case 'Unloading':
+      return 'truck';
+    case 'Utilities':
+      return 'lightning';
+    default:
+      return 'wrench';
+  }
+}
 
 export interface ExpensesScreenProps {
   onBack: () => void;
   onNavigateToAddExpense: () => void;
 }
 
+/**
+ * Expenses recorded this month (GET /admin/expenses, from the 1st to today:
+ * the subtitle says "this month"). BR-62: an expense is only recorded; there
+ * is no approve, reject or verify endpoint, so the designed "Approve Selected"
+ * control is drawn unavailable and nothing is selectable.
+ */
 export function ExpensesScreen({
   onBack,
   onNavigateToAddExpense,
 }: ExpensesScreenProps) {
-  const [expenses, setExpenses] = useState<ExpenseItem[]>(INITIAL_EXPENSES);
-  const [selectedIds, setSelectedIds] = useState<string[]>(['exp-1', 'exp-3']);
+  const range = reportRange('monthToDate', istToday());
+  const expensesQuery = useAdminQuery(['admin', 'finance', 'expenses-screen', range.from, range.to], (signal) =>
+    listExpenses({ from: range.from, to: range.to, limit: EXPENSES_PAGE }, signal),
+  );
+  const warehousesQuery = useAdminQuery(['admin', 'warehouses', 'all'], (signal) => listAllWarehouses({}, signal));
+  const warehouseName = (id: string | null) =>
+    (id === null ? undefined : warehousesQuery.data?.find((w) => w.id === id)?.name) ?? ADMIN_NO_VALUE;
 
-  function toggleSelect(id: string) {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter((item) => item !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
-  }
-
-  function handleApproveSelected() {
-    if (selectedIds.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one pending expense to approve.');
-      return;
-    }
-
-    setExpenses((prev) =>
-      prev.map((e) => (selectedIds.includes(e.id) ? { ...e, status: 'Approved' } : e))
-    );
-    setSelectedIds([]);
-    Alert.alert(
-      'Expenses Approved',
-      `Successfully approved ${selectedIds.length} operational expense vouchers.`,
-      [{ text: 'OK' }]
-    );
-  }
+  const expenses = expensesQuery.data?.items ?? [];
 
   return (
     <SafeAreaView style={styles.root}>
@@ -217,78 +195,75 @@ export function ExpensesScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Heading Next */}
+        {/* Heading Next: nothing awaits approval (BR-62), so the designed count is dashed. */}
         <Text style={styles.screenTitle}>Expenses</Text>
-        <Text style={styles.screenSub}>18 awaiting approval · this month</Text>
+        <Text style={styles.screenSub}>{t('wiringFinance.expenses.subtitle', { count: ADMIN_NO_VALUE })}</Text>
 
         {/* Expense Cards */}
-        <View style={styles.expenseList}>
-          {expenses.map((item) => {
-            const isSelected = selectedIds.includes(item.id);
-            const isApproved = item.status === 'Approved';
+        {expensesQuery.isPending ? (
+          <AdminLoadingState />
+        ) : expensesQuery.error ? (
+          <AdminErrorState error={expensesQuery.error} onRetry={() => void expensesQuery.refetch()} />
+        ) : expenses.length === 0 ? (
+          <AdminEmptyState title={t('wiringFinance.expenses.empty')} />
+        ) : (
+          <View style={styles.expenseList}>
+            {expenses.map((item) => {
+              const isRejected = item.status === 'REJECTED';
+              const icon = iconFor(item.category);
+              return (
+                <View key={item.id} style={styles.expenseCard}>
+                  {/* Left Icon Square */}
+                  <View style={styles.iconBox}>
+                    {icon === 'truck' && <TruckIcon />}
+                    {icon === 'lightning' && <LightningIcon />}
+                    {icon === 'wrench' && <WrenchIcon />}
+                  </View>
 
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[
-                  styles.expenseCard,
-                  isSelected && styles.expenseCardSelected,
-                ]}
-                onPress={() => {
-                  if (!isApproved) toggleSelect(item.id);
-                }}
-                activeOpacity={isApproved ? 1 : 0.75}
-              >
-                {/* Left Icon Square */}
-                <View style={styles.iconBox}>
-                  {item.iconType === 'truck' && <TruckIcon />}
-                  {item.iconType === 'lightning' && <LightningIcon />}
-                  {item.iconType === 'wrench' && <WrenchIcon />}
-                </View>
+                  {/* Details Col */}
+                  <View style={styles.detailsCol}>
+                    <Text style={styles.itemTitle}>
+                      {t('wiringFinance.expenses.title', { category: item.category, warehouse: warehouseName(item.warehouseId) })}
+                    </Text>
+                    {/* recordedBy is an admin id; the list carries no name for it. */}
+                    <Text style={styles.itemSub}>
+                      {t('wiringFinance.expenses.loggedBy', {
+                        name: ADMIN_NO_VALUE,
+                        date: formatAdminDay(item.expenseDate) || ADMIN_NO_VALUE,
+                      })}
+                    </Text>
 
-                {/* Details Col */}
-                <View style={styles.detailsCol}>
-                  <Text style={styles.itemTitle}>{item.title}</Text>
-                  <Text style={styles.itemSub}>{item.subtitle}</Text>
-
-                  {/* Status Pill */}
-                  <View style={styles.pillRow}>
-                    <View
-                      style={[
-                        styles.statusPill,
-                        isApproved ? styles.approvedPill : styles.pendingPill,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.statusPillText,
-                          isApproved ? styles.approvedPillText : styles.pendingPillText,
-                        ]}
-                      >
-                        {item.status}
-                      </Text>
+                    {/* Status Pill */}
+                    <View style={styles.pillRow}>
+                      <View style={[styles.statusPill, isRejected ? styles.pendingPill : styles.approvedPill]}>
+                        <Text style={[styles.statusPillText, isRejected ? styles.pendingPillText : styles.approvedPillText]}>
+                          {t(`wiringFinance.expenses.status.${item.status}` as TranslationKey)}
+                        </Text>
+                      </View>
                     </View>
                   </View>
+
+                  {/* Amount on Right */}
+                  <Text style={styles.amountText}>{moneyText(item.amount)}</Text>
                 </View>
+              );
+            })}
+          </View>
+        )}
 
-                {/* Amount on Right */}
-                <Text style={styles.amountText}>
-                  ₹{item.amount.toLocaleString('en-IN')}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Bottom Button: Approve Selected */}
+        {/* Bottom Button: BR-62 has no approval step and no endpoint, so drawn unavailable (R3). */}
         <TouchableOpacity
-          style={styles.approveBtn}
-          onPress={handleApproveSelected}
-          activeOpacity={0.8}
+          style={[styles.approveBtn, styles.actionUnavailable]}
+          disabled
+          activeOpacity={1}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+          testID="finance.expenses.approve"
         >
           <CheckmarkIcon />
           <Text style={styles.approveBtnText}>Approve Selected</Text>
         </TouchableOpacity>
+        <Text style={styles.unavailableNote}>{t('wiringFinance.expenses.approveUnavailable')}</Text>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -325,7 +300,7 @@ const styles = StyleSheet.create({
     borderColor: PALETTE.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -357,7 +332,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -365,7 +340,7 @@ const styles = StyleSheet.create({
   },
   expenseCardSelected: {
     borderColor: PALETTE.orange,
-    backgroundColor: '#FFFAF7',
+    backgroundColor: adminColors.brandTint,
   },
   iconBox: {
     width: 42,
@@ -441,6 +416,15 @@ const styles = StyleSheet.create({
   approveBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
+  },
+  /** The designed control, kept visible, drawn as unavailable (screens/community/ pattern). */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 8,
   },
 });

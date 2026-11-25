@@ -348,19 +348,40 @@ function hasBoundary(location: Json): boolean {
   return asObject(location['fmbPolygon']) !== null;
 }
 
+/**
+ * The outer ring of a stored `fmbPolygon` ({ type: 'Polygon', coordinates:
+ * [[[lng, lat], ...]] }), or null. Read defensively: a ring needs at least
+ * three finite [lng, lat] points, and any malformed point drops the ring
+ * rather than drawing a shape the applicant did not draw.
+ */
+function fmbRing(location: Json): [number, number][] | null {
+  const polygon = asObject(location['fmbPolygon']);
+  const rings = polygon?.['coordinates'];
+  if (!Array.isArray(rings) || !Array.isArray(rings[0])) return null;
+  const ring: [number, number][] = [];
+  for (const point of rings[0] as unknown[]) {
+    if (!Array.isArray(point)) return null;
+    const [lng, lat] = point as unknown[];
+    if (typeof lng !== 'number' || typeof lat !== 'number' || !Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+    ring.push([lng, lat]);
+  }
+  return ring.length >= 3 ? ring : null;
+}
+
 function toApplicationLocation(location: Json): ApplicationLocationView {
   const lat = num(location, 'latitude');
   const lng = num(location, 'longitude');
   return {
-    id: str(location, 'id'),
+    id: str(location, 'locationId') ?? str(location, 'id'),
     label: str(location, 'label'),
     areaAcres: num(location, 'areaAcres'),
     calculatedAreaAcres: num(location, 'calculatedAreaAcres'),
     village: str(location, 'village'),
     taluk: str(location, 'taluk'),
     district: str(location, 'district'),
-    hasBoundary: hasBoundary(location),
+    hasBoundary: typeof location['hasBoundary'] === 'boolean' ? location['hasBoundary'] : hasBoundary(location),
     gps: lat === null || lng === null ? null : { lat, lng },
+    fmbRing: fmbRing(location),
   };
 }
 
@@ -371,6 +392,13 @@ function toApplicationDocument(doc: Json): ApplicationDocumentView {
     fileName: str(doc, 'fileName'),
     fileUrl: str(doc, 'fileUrl'),
   };
+}
+
+function deriveDocumentVerification(dto: FarmerApplicationDto): 'verified' | 'rejected' | 'pending' | null {
+  if (!Array.isArray(dto.documents)) return null;
+  if (dto.documents.some((d) => d.review?.status === 'REJECTED')) return 'rejected';
+  if (dto.reviewGates?.farmVerification?.met) return 'verified';
+  return 'pending';
 }
 
 function applicantName(dto: FarmerApplicationDto, step1: Json | null): string {
@@ -453,16 +481,34 @@ export function toApplicationDetail(dto: FarmerApplicationDto): ApplicationDetai
       waterSource: str(step2, 'waterSource'),
       primaryCrops: strList(step2, 'primaryCrops'),
     },
-    locations: objList(asObject(dto.step3Location), 'locations').map(toApplicationLocation),
-    documents: objList(asObject(dto.step4Documents), 'documents').map(toApplicationDocument),
+    locations: Array.isArray(dto.locations)
+      ? dto.locations.map((loc) => ({
+          ...toApplicationLocation(loc as unknown as Json),
+          fmbReview: loc.fmbReview ?? null,
+        }))
+      : objList(asObject(dto.step3Location), 'locations').map(toApplicationLocation),
+    documents: Array.isArray(dto.documents)
+      ? dto.documents.map((doc) => ({
+          docType: doc.docType ?? null,
+          docSubType: doc.docSubType ?? null,
+          fileName: doc.fileName ?? null,
+          fileUrl: doc.fileUrl ?? null,
+          documentKey: doc.documentKey,
+          required: doc.required,
+          review: doc.review ?? null,
+        }))
+      : objList(asObject(dto.step4Documents), 'documents').map(toApplicationDocument),
     tohfaFarmerId: dto.tohfaFarmerId ?? null,
     decidedAt: dto.decidedAt ?? null,
     rejectionReason: dto.rejectionReason ?? null,
+    rejectionReasonCode: dto.rejectionReasonCode ?? null,
     infoRequest: dto.infoRequest ?? null,
+    infoRequestDetail: dto.infoRequestDetail ?? null,
     zoneId: dto.zoneId ?? null,
     applicationCode: dto.applicationCode ?? null,
-    reviewHistory: null,
-    documentVerification: null,
+    reviewHistory: Array.isArray(dto.reviewHistory) ? [...dto.reviewHistory] : null,
+    documentVerification: deriveDocumentVerification(dto),
     declaration: null,
+    reviewGates: dto.reviewGates ?? null,
   };
 }

@@ -12,6 +12,7 @@ import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
+  adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
@@ -128,24 +129,6 @@ function ShieldCheckIcon({ size = 22, color = adminColors.brand }: { size?: numb
         strokeLinejoin="round"
       />
       <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function UsersIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
-      <Path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function PlusIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -269,8 +252,6 @@ export interface AdminAllFarmersScreenProps {
   onNavigateAuditHistory?: (() => void) | undefined;
   onOpenFarmRecords?: (() => void) | undefined;
   onOpenVerificationCompliance?: (() => void) | undefined;
-  onOpenApplications?: (() => void) | undefined;
-  onAddFarmer?: (() => void) | undefined;
   onOpenApprovalInbox?: (() => void) | undefined;
   onOpenSubscriptionOverview?: (() => void) | undefined;
 }
@@ -292,8 +273,6 @@ export const AdminAllFarmersScreen: React.FC<AdminAllFarmersScreenProps> = ({
   onViewChange,
   onOpenFarmRecords,
   onOpenVerificationCompliance,
-  onOpenApplications,
-  onAddFarmer,
   onOpenApprovalInbox,
   onOpenSubscriptionOverview,
 }) => {
@@ -681,37 +660,10 @@ export const AdminAllFarmersScreen: React.FC<AdminAllFarmersScreenProps> = ({
                   <ShieldCheckIcon size={22} color={adminColors.brand} />
                 </View>
                 <Text style={styles.quickAccessLabel} numberOfLines={2}>
-                  Verification &amp; Compliance
+                  Verification & Compliance
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.quickAccessCard}
-                onPress={onOpenApplications ? onOpenApplications : () => handleCardPress('applications', 'All', 'All', 'Applications')}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-              >
-                <View style={styles.quickAccessIconWrap}>
-                  <UsersIcon size={22} color={adminColors.brand} />
-                </View>
-                <Text style={styles.quickAccessLabel} numberOfLines={2}>
-                  Farmer&apos;s &amp; Applications
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.quickAccessCard}
-                onPress={onAddFarmer}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-              >
-                <View style={styles.quickAccessIconWrap}>
-                  <PlusIcon size={22} color={adminColors.brand} />
-                </View>
-                <Text style={styles.quickAccessLabel} numberOfLines={2}>
-                  Add Farmer
-                </Text>
-              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1182,14 +1134,14 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: adminOverlay.headerText,
     marginTop: 1,
   },
   headerFilterBtn: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1237,14 +1189,14 @@ const styles = StyleSheet.create({
   zoneBarTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.platform.neutral100,
     borderRadius: 4,
     marginHorizontal: adminSpacing.sm,
     overflow: 'hidden',
   },
   zoneBarFill: {
     height: '100%',
-    backgroundColor: '#8B4513',
+    backgroundColor: adminColors.dashboard.brandBrown,
     borderRadius: 4,
   },
   zoneCount: {
@@ -1296,7 +1248,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#FFF1EE',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: adminSpacing.xs,
@@ -1312,17 +1264,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFF4EC',
+    backgroundColor: adminColors.brandTint,
     borderRadius: adminRadius.sm,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: 8,
     marginBottom: adminSpacing.sm,
     borderWidth: 1,
-    borderColor: '#FED7AA',
+    borderColor: adminColors.brandSoft.border,
   },
   activeFilterText: {
     fontSize: 12.5,
-    color: '#9A3412',
+    color: adminColors.brandDeep,
   },
   activeFilterBold: {
     fontWeight: '700',
@@ -1332,7 +1284,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 4,
-    backgroundColor: '#FFEDD5',
+    backgroundColor: adminColors.brandTint,
   },
   activeFilterClearText: {
     fontSize: 11.5,
@@ -1341,7 +1293,7 @@ const styles = StyleSheet.create({
   },
   tabToggleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#EDE5DB',
+    backgroundColor: adminColors.dashboard.track,
     borderRadius: adminRadius.md,
     padding: 3,
     marginBottom: adminSpacing.md,
@@ -1360,7 +1312,7 @@ const styles = StyleSheet.create({
   tabToggleText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6E6258',
+    color: adminColors.muted,
   },
   tabToggleTextActive: {
     color: adminColors.onBrand,
@@ -1441,37 +1393,37 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
   },
   statusPillActive: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   statusPillActiveText: {
-    color: '#166534',
+    color: adminColors.success.text,
     fontSize: 11,
     fontWeight: '700',
   },
   statusPillDisabled: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.platform.neutral100,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   statusPillDisabledText: {
-    color: '#6B7280',
+    color: adminColors.muted,
     fontSize: 11,
     fontWeight: '700',
   },
   expiredOutlinedPill: {
     borderWidth: 1,
-    borderColor: '#F87171',
-    backgroundColor: '#FEF2F2',
+    borderColor: adminColors.danger.border,
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
   },
   expiredOutlinedPillText: {
-    color: '#DC2626',
+    color: adminColors.danger.text,
     fontSize: 11,
     fontWeight: '600',
   },
@@ -1483,7 +1435,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FEEAE3',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1527,10 +1479,10 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   statusActiveText: {
-    color: '#16A34A',
+    color: adminColors.success.text,
   },
   statusPendingText: {
-    color: '#D97706',
+    color: adminColors.warning.text,
   },
   applicationCard: {
     backgroundColor: adminColors.card,
@@ -1584,26 +1536,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   statusBadgePending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   statusBadgeCorrection: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
   },
   statusBadgeApproved: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
   },
   statusBadgeText: {
     fontSize: 11.5,
     fontWeight: '700',
   },
   statusBadgeTextPending: {
-    color: '#D97706',
+    color: adminColors.warning.text,
   },
   statusBadgeTextCorrection: {
-    color: '#2563EB',
+    color: adminColors.info.text,
   },
   statusBadgeTextApproved: {
-    color: '#166534',
+    color: adminColors.success.text,
   },
   bottomNavContainer: {
     flexDirection: 'row',
@@ -1632,7 +1584,7 @@ const styles = StyleSheet.create({
   },
   filterModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: adminSpacing.xl,
@@ -1667,7 +1619,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: adminRadius.sm,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.platform.neutral100,
   },
   filterChipActive: {
     backgroundColor: adminColors.brand,

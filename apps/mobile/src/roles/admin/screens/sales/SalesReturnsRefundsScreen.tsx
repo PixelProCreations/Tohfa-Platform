@@ -1,20 +1,60 @@
+/**
+ * Sales > Returns & Refunds (design of record: origin/Superadmin-main). The
+ * layout is the design's; the tickets are the live returns queue
+ * (GET /admin/returns) and both enabled actions go through the API:
+ *
+ *   Wallet Refund  POST /admin/returns/{id}/refund/wallet  rma.refund.wallet_process (BR-61, BR-61d; Idempotency-Key)
+ *   Reject         POST /admin/returns/{id}/reject         rma.refund.approve       (BR-61)
+ *                  with the reason the admin types (1..300 characters, openapi
+ *                  ReturnRejectCreate) in a reason step reusing the listing
+ *                  Reject sheet's frame and styles.
+ *   Bank Refund    disabled: api/returns.ts deliberately does not wrap
+ *                  /refund/bank (owner decision, brief 07 P1 #6).
+ *
+ * BR-61: the wallet refund is offered only for an APPROVED return and reject
+ * only for PENDING / INSPECTED (returnActions); the server enforces the same
+ * machine. Success is shown only after a 2xx; a failure shows the error. The
+ * wallet refund's Idempotency-Key comes from useWalletRefund (keyed on the
+ * return), so a retry never credits twice (BR-61d).
+ *
+ * The return summary carries no customer name, order number or amount, so
+ * those slots are dashes, never a uuid or a ₹0.
+ */
 import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { adminColors, adminShadow } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { t, type TranslationKey } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { REJECT_REASON_MAX_LENGTH, type ReturnStatus } from '../../api/returns';
 import {
-  BackChevronIcon,
-  SALES_PALETTE,
-} from './SalesChannelOverviewScreen';
+  isReturnStatus,
+  returnActions,
+  returnRefundErrorKey,
+  returnWriteErrorKey,
+  validateRejectReason,
+} from '../warehouse/returns-rma/mappers';
+import { styles as sheetStyles } from '../listings/listingsStyles';
+import { useRejectReturn, useReturnList, useWalletRefund } from '../warehouse/returns-rma/useReturnsData';
+import type { ReturnRowView } from '../warehouse/returns-rma/types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { BackChevronIcon, SALES_PALETTE } from './SalesChannelOverviewScreen';
 
-function WalletBtnIcon({ color = '#1E824C', size = 15 }: { color?: string; size?: number }) {
+function WalletBtnIcon({ color = SALES_PALETTE.greenText, size = 15 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -27,7 +67,7 @@ function WalletBtnIcon({ color = '#1E824C', size = 15 }: { color?: string; size?
   );
 }
 
-function BankBtnIcon({ color = '#1D6399', size = 15 }: { color?: string; size?: number }) {
+function BankBtnIcon({ color = SALES_PALETTE.blueText, size = 15 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -41,7 +81,7 @@ function BankBtnIcon({ color = '#1D6399', size = 15 }: { color?: string; size?: 
   );
 }
 
-function RejectBtnIcon({ color = '#D93838', size = 15 }: { color?: string; size?: number }) {
+function RejectBtnIcon({ color = SALES_PALETTE.redText, size = 15 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -50,131 +90,118 @@ function RejectBtnIcon({ color = '#D93838', size = 15 }: { color?: string; size?
   );
 }
 
-export interface RmaTicket {
-  id: string;
-  ticketNumber: string;
-  issue: string;
-  customerName: string;
-  orderNumber: string;
-  amount: number;
-  secondaryActionType: 'bank' | 'reject';
-  status?: 'Open' | 'Refunded' | 'Rejected';
+/** How a return of `status` is drawn here (BR-61 actions before permissions). */
+export interface SalesReturnView {
+  /** Still needs an admin action: the action row, no pill. */
+  open: boolean;
+  /** APPROVED: the wallet refund may be sent. */
+  refundable: boolean;
+  /** PENDING / INSPECTED: may be rejected. */
+  rejectable: boolean;
+  /** The closed-state pill; null for an open return. */
+  pillKey: TranslationKey | null;
 }
 
-const INITIAL_RMA_TICKETS: RmaTicket[] = [
-  {
-    id: 'tkt-1',
-    ticketNumber: 'TKT-2026-00412',
-    issue: 'Item quality issue — wilted cabbage',
-    customerName: 'Anitha K.',
-    orderNumber: 'ORD-20260909-0088',
-    amount: 56,
-    secondaryActionType: 'bank',
-    status: 'Open',
-  },
-  {
-    id: 'tkt-2',
-    ticketNumber: 'TKT-2026-00409',
-    issue: 'Wrong item received',
-    customerName: 'Divya Ramesh',
-    orderNumber: 'ORD-20260908-0071',
-    amount: 42,
-    secondaryActionType: 'reject',
-    status: 'Open',
-  },
-  {
-    id: 'tkt-3',
-    ticketNumber: 'TKT-2026-00405',
-    issue: 'Missing item — Garlic 500g',
-    customerName: 'Kavitha S.',
-    orderNumber: 'ORD-20260907-0052',
-    amount: 65,
-    secondaryActionType: 'bank',
-    status: 'Open',
-  },
-  {
-    id: 'tkt-4',
-    ticketNumber: 'TKT-2026-00398',
-    issue: 'Packaging damaged during transit',
-    customerName: 'Suresh M.',
-    orderNumber: 'ORD-20260906-0033',
-    amount: 110,
-    secondaryActionType: 'bank',
-    status: 'Open',
-  },
-];
+const ALLOW_ALL = () => true;
+
+/** Every docs/openapi.yaml ReturnStatus, mapped (and anything else read as a closed "Unknown"). */
+export function salesReturnView(status: string): SalesReturnView {
+  const actions = returnActions(status, ALLOW_ALL);
+  const open = status === 'PENDING' || status === 'INSPECTED' || status === 'APPROVED';
+  const pills: Readonly<Record<Exclude<ReturnStatus, 'PENDING' | 'INSPECTED' | 'APPROVED'>, TranslationKey>> = {
+    REJECTED: 'wiringPayouts.returnPill.REJECTED',
+    REFUND_PENDING_BANK: 'wiringPayouts.returnPill.REFUND_PENDING_BANK',
+    REFUNDED: 'wiringPayouts.returnPill.REFUNDED',
+  };
+  const pillKey: TranslationKey | null = open
+    ? null
+    : isReturnStatus(status)
+      ? pills[status as keyof typeof pills]
+      : 'wiringPayouts.returnPill.unknown';
+  return { open, refundable: actions.refundWallet, rejectable: actions.reject, pillKey };
+}
 
 export interface SalesReturnsRefundsScreenProps {
   onBack?: () => void;
+  /** Permission check from /auth/me. Missing denies both writes (fail closed, root CLAUDE.md 2.1). */
+  can?: Can | undefined;
 }
 
-export function SalesReturnsRefundsScreen({ onBack }: SalesReturnsRefundsScreenProps) {
-  const [tickets, setTickets] = useState<RmaTicket[]>(INITIAL_RMA_TICKETS);
+export function SalesReturnsRefundsScreen({ onBack, can }: SalesReturnsRefundsScreenProps) {
+  const list = useReturnList(undefined, undefined);
+  const deny = () => false;
+  const check = typeof can === 'function' ? can : deny;
+  // The return the open confirm prompt (or the write in flight) is about.
+  const [target, setTarget] = useState<ReturnRowView | undefined>(undefined);
+  const walletRefund = useWalletRefund(target?.id);
+  const reject = useRejectReturn(target?.id);
 
-  const handleWalletRefund = (ticket: RmaTicket) => {
+  const handleWalletRefund = (ticket: ReturnRowView) => {
+    if (!returnActions(ticket.status, check).refundWallet) return;
+    setTarget(ticket);
     Alert.alert(
-      'Process Wallet Refund',
-      `Credit ₹${ticket.amount} instantly to ${ticket.customerName}'s Tohfa Wallet?`,
+      t('wiringPayouts.salesReturns.refund.confirm.title'),
+      t('wiringPayouts.salesReturns.refund.confirm.body', { ticket: ticket.reference }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('wiringPayouts.common.cancel'), style: 'cancel' },
         {
-          text: 'Confirm Refund',
+          text: t('wiringPayouts.salesReturns.refund.confirm.ok'),
           onPress: () => {
-            setTickets((prev) =>
-              prev.map((t) =>
-                t.id === ticket.id ? { ...t, status: 'Refunded' } : t
-              )
-            );
-            Alert.alert('Refund Processed', `₹${ticket.amount} credited to customer wallet.`);
+            reject.reset();
+            walletRefund.run(undefined, (result) => {
+              Alert.alert(
+                t('wiringPayouts.salesReturns.refund.done.title'),
+                t('wiringPayouts.salesReturns.refund.done.body', {
+                  amount: result.amountLabel ?? ADMIN_NO_VALUE,
+                  ticket: ticket.reference,
+                }),
+              );
+            });
           },
         },
-      ]
+      ],
     );
   };
 
-  const handleBankRefund = (ticket: RmaTicket) => {
-    Alert.alert(
-      'Process Bank Refund',
-      `Initiate bank reversal of ₹${ticket.amount} to ${ticket.customerName}'s source payment method?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm Bank Refund',
-          onPress: () => {
-            setTickets((prev) =>
-              prev.map((t) =>
-                t.id === ticket.id ? { ...t, status: 'Refunded' } : t
-              )
-            );
-            Alert.alert('Bank Refund Initiated', `Bank transfer of ₹${ticket.amount} initiated.`);
-          },
-        },
-      ]
-    );
+  // Reject asks for the reason the API requires (owner decision 2026-11-25): a reason step, not a fixed string.
+  const [rejecting, setRejecting] = useState<ReturnRowView | undefined>(undefined);
+  const [rejectReason, setRejectReason] = useState('');
+  const reasonCheck = validateRejectReason(rejectReason);
+
+  const handleReject = (ticket: ReturnRowView) => {
+    if (!returnActions(ticket.status, check).reject) return;
+    walletRefund.reset();
+    reject.reset();
+    setTarget(ticket);
+    setRejectReason('');
+    setRejecting(ticket);
   };
 
-  const handleReject = (ticket: RmaTicket) => {
-    Alert.alert(
-      'Reject RMA Ticket',
-      `Are you sure you want to reject ticket ${ticket.ticketNumber}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reject Ticket',
-          style: 'destructive',
-          onPress: () => {
-            setTickets((prev) =>
-              prev.map((t) =>
-                t.id === ticket.id ? { ...t, status: 'Rejected' } : t
-              )
-            );
-          },
-        },
-      ]
-    );
+  const closeRejectSheet = () => {
+    if (reject.isPending) return;
+    reject.reset();
+    setRejecting(undefined);
   };
 
-  const openTickets = tickets.filter((t) => t.status === 'Open');
+  const confirmReject = () => {
+    if (rejecting === undefined || !reasonCheck.ok || reject.isPending) return;
+    const ticket = rejecting;
+    reject.run(reasonCheck.reason, () => {
+      setRejecting(undefined);
+      Alert.alert(
+        t('wiringPayouts.salesReturns.reject.done.title'),
+        t('wiringPayouts.salesReturns.reject.done.body', { ticket: ticket.reference }),
+      );
+    });
+  };
+
+  // A failure is shown in place, worded for the action that failed.
+  // The refund's failure shows on the screen; the reject's shows in its reason step.
+  const refundFailure = walletRefund.error ? walletRefund.error : null;
+
+  const openCount = list.items.filter((r) => salesReturnView(r.status).open).length;
+  // R4: a count of loaded rows is the total only once every page is in.
+  const openCountText = list.hasMore ? ADMIN_NO_VALUE : String(openCount);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -196,88 +223,181 @@ export function SalesReturnsRefundsScreen({ onBack }: SalesReturnsRefundsScreenP
         <View style={styles.titleBlock}>
           <Text style={styles.screenTitle}>Returns & Refunds</Text>
           <Text style={styles.screenSubtitle}>
-            {openTickets.length} open RMA tickets
+            {t('wiringPayouts.salesReturns.subtitle', { count: openCountText })}
           </Text>
         </View>
 
+        {refundFailure !== null ? (
+          <Text style={styles.errorText} testID="salesReturns.error">
+            {t(returnRefundErrorKey(refundFailure))}
+          </Text>
+        ) : null}
+
         {/* Tickets List */}
-        <FlatList
-          data={tickets}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.ticketCard}>
-              <Text style={styles.ticketNumber}>{item.ticketNumber}</Text>
-              <Text style={styles.ticketIssue}>{item.issue}</Text>
-              <Text style={styles.ticketMeta}>
-                {item.customerName} · {item.orderNumber} · ₹{item.amount}
-              </Text>
+        {list.isLoading ? (
+          <AdminLoadingState label={t('wiringPayouts.returns.loading')} />
+        ) : list.error && list.items.length === 0 ? (
+          <AdminErrorState error={list.error} onRetry={list.refresh} />
+        ) : list.items.length === 0 ? (
+          <AdminEmptyState title={t('wiringPayouts.returns.empty.title')} subtitle={t('wiringPayouts.returns.empty.subtitle')} />
+        ) : (
+          <FlatList
+            data={list.items}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onEndReached={list.hasMore ? list.loadMore : undefined}
+            renderItem={({ item }) => {
+              const view = salesReturnView(item.status);
+              const allowed = returnActions(item.status, check);
+              const busy = target?.id === item.id && (walletRefund.isPending || reject.isPending);
+              const refundEnabled = allowed.refundWallet && !busy;
+              const rejectEnabled = allowed.reject && !busy;
+              return (
+                <View style={styles.ticketCard}>
+                  <Text style={styles.ticketNumber}>{item.reference}</Text>
+                  <Text style={styles.ticketIssue}>{item.reason || ADMIN_NO_VALUE}</Text>
+                  {/* Customer, order number and amount are not in the return summary. */}
+                  <Text style={styles.ticketMeta}>
+                    {ADMIN_NO_VALUE} · {ADMIN_NO_VALUE} · {ADMIN_NO_VALUE}
+                  </Text>
 
-              {item.status === 'Open' ? (
-                <View style={styles.actionsRow}>
-                  {/* Wallet Refund */}
-                  <TouchableOpacity
-                    style={styles.walletBtn}
-                    onPress={() => handleWalletRefund(item)}
-                    activeOpacity={0.7}
-                  >
-                    <WalletBtnIcon color="#1E824C" size={14} />
-                    <Text style={styles.walletBtnText}>Wallet Refund</Text>
-                  </TouchableOpacity>
+                  {view.open ? (
+                    <View style={styles.actionsRow}>
+                      {/* Wallet Refund: APPROVED only (BR-61). */}
+                      <TouchableOpacity
+                        style={[styles.walletBtn, !refundEnabled && styles.actionUnavailable]}
+                        onPress={refundEnabled ? () => handleWalletRefund(item) : undefined}
+                        activeOpacity={0.7}
+                        disabled={!refundEnabled}
+                        accessibilityRole="button"
+                        accessibilityState={{ disabled: !refundEnabled, busy }}
+                        testID={`salesReturns.walletRefund.${item.id}`}
+                      >
+                        <WalletBtnIcon color={SALES_PALETTE.greenText} size={14} />
+                        <Text style={styles.walletBtnText}>Wallet Refund</Text>
+                      </TouchableOpacity>
 
-                  {/* Secondary Action */}
-                  {item.secondaryActionType === 'bank' ? (
-                    <TouchableOpacity
-                      style={styles.bankBtn}
-                      onPress={() => handleBankRefund(item)}
-                      activeOpacity={0.7}
-                    >
-                      <BankBtnIcon color="#1D6399" size={14} />
-                      <Text style={styles.bankBtnText}>Bank Refund</Text>
-                    </TouchableOpacity>
+                      {view.rejectable ? (
+                        <TouchableOpacity
+                          style={[styles.rejectBtn, !rejectEnabled && styles.actionUnavailable]}
+                          onPress={rejectEnabled ? () => handleReject(item) : undefined}
+                          activeOpacity={0.7}
+                          disabled={!rejectEnabled}
+                          accessibilityRole="button"
+                          accessibilityState={{ disabled: !rejectEnabled, busy }}
+                          testID={`salesReturns.reject.${item.id}`}
+                        >
+                          <RejectBtnIcon color={SALES_PALETTE.redText} size={14} />
+                          <Text style={styles.rejectBtnText}>Reject</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        /* Bank Refund: no client wrapper by owner decision; disabled (R3). */
+                        <TouchableOpacity
+                          style={[styles.bankBtn, styles.actionUnavailable]}
+                          disabled
+                          activeOpacity={1}
+                          accessibilityRole="button"
+                          accessibilityState={{ disabled: true }}
+                          testID={`salesReturns.bankRefund.${item.id}`}
+                        >
+                          <BankBtnIcon color={SALES_PALETTE.blueText} size={14} />
+                          <Text style={styles.bankBtnText}>Bank Refund</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   ) : (
-                    <TouchableOpacity
-                      style={styles.rejectBtn}
-                      onPress={() => handleReject(item)}
-                      activeOpacity={0.7}
+                    <View
+                      style={[
+                        styles.statusPill,
+                        item.status === 'REFUNDED' ? styles.pillGreen : item.status === 'REJECTED' ? styles.pillRed : styles.pillAmber,
+                      ]}
+                      testID={`salesReturns.pill.${item.id}`}
                     >
-                      <RejectBtnIcon color="#D93838" size={14} />
-                      <Text style={styles.rejectBtnText}>Reject</Text>
-                    </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.statusPillText,
+                          item.status === 'REFUNDED' ? styles.pillTextGreen : item.status === 'REJECTED' ? styles.pillTextRed : styles.pillTextAmber,
+                        ]}
+                      >
+                        {view.pillKey === null ? ADMIN_NO_VALUE : t(view.pillKey)}
+                      </Text>
+                    </View>
                   )}
                 </View>
-              ) : (
-                <View
-                  style={[
-                    styles.statusPill,
-                    {
-                      backgroundColor:
-                        item.status === 'Refunded' ? '#DCFCE7' : '#FEE2E2',
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusPillText,
-                      {
-                        color:
-                          item.status === 'Refunded' ? '#15803D' : '#B91C1C',
-                      },
-                    ]}
-                  >
-                    {item.status === 'Refunded' ? '✓ Refunded' : '✕ Rejected'}
+              );
+            }}
+          />
+        )}
+      </View>
+
+      {/* Reject reason step: the listing Reject sheet's frame and styles (screens/listings). */}
+      {rejecting !== undefined ? (
+        <Modal visible transparent animationType="slide" onRequestClose={closeRejectSheet}>
+          <KeyboardAvoidingView style={sheetStyles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={sheetStyles.sheet}>
+              <ScrollView contentContainerStyle={sheetStyles.sheetBody} keyboardShouldPersistTaps="handled">
+                <View style={sheetStyles.sheetCard}>
+                  <Text style={sheetStyles.sheetTitle}>{t('wiringPayouts.salesReturns.reject.confirm.title')}</Text>
+                  <Text style={sheetStyles.sheetSubtitle}>
+                    {t('wiringPayouts.salesReturns.reject.sheet.subtitle', { ticket: rejecting.reference })}
+                  </Text>
+                  <Text style={sheetStyles.fieldLabel}>{t('wiringPayouts.salesReturns.reject.sheet.reasonLabel')}</Text>
+                  <TextInput
+                    style={sheetStyles.notesInput}
+                    multiline
+                    maxLength={REJECT_REASON_MAX_LENGTH}
+                    value={rejectReason}
+                    onChangeText={setRejectReason}
+                    placeholder={t('wiringPayouts.salesReturns.reject.sheet.reasonPlaceholder')}
+                    placeholderTextColor={adminColors.placeholder}
+                    editable={!reject.isPending}
+                    testID="salesReturns.rejectSheet.reason"
+                  />
+                  <Text style={sheetStyles.charCounter}>
+                    {t('wiringPayouts.salesReturns.reject.sheet.charCount', { count: rejectReason.length, max: REJECT_REASON_MAX_LENGTH })}
                   </Text>
                 </View>
-              )}
+                {reject.error ? (
+                  <View style={[sheetStyles.errorBanner, sheetStyles.sheetError]} testID="salesReturns.rejectSheet.error">
+                    <Text style={sheetStyles.errorText}>{t(returnWriteErrorKey(reject.error))}</Text>
+                  </View>
+                ) : null}
+              </ScrollView>
+              <View style={sheetStyles.footer}>
+                <TouchableOpacity
+                  style={sheetStyles.cancelBtn}
+                  onPress={closeRejectSheet}
+                  disabled={reject.isPending}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  testID="salesReturns.rejectSheet.cancel"
+                >
+                  <Text style={sheetStyles.cancelBtnText}>{t('wiringPayouts.common.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[sheetStyles.confirmBtn, (!reasonCheck.ok || reject.isPending) && sheetStyles.disabled]}
+                  onPress={confirmReject}
+                  disabled={!reasonCheck.ok || reject.isPending}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !reasonCheck.ok || reject.isPending, busy: reject.isPending }}
+                  testID="salesReturns.rejectSheet.confirm"
+                >
+                  <Text style={sheetStyles.confirmBtnText}>
+                    {reject.isPending ? t('wiringPayouts.salesReturns.reject.sheet.sending') : t('wiringPayouts.salesReturns.reject.confirm.ok')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
-        />
-      </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
 
+// Design styles (origin/Superadmin-main), its raw colours mapped to the admin tokens.
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -303,11 +423,7 @@ const styles = StyleSheet.create({
     borderColor: SALES_PALETTE.borderSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   titleBlock: {
     marginBottom: 20,
@@ -324,6 +440,11 @@ const styles = StyleSheet.create({
     color: SALES_PALETTE.textSecondary,
     lineHeight: 18,
   },
+  errorText: {
+    fontSize: 12,
+    color: SALES_PALETTE.redText,
+    marginBottom: 12,
+  },
   listContent: {
     paddingBottom: 32,
   },
@@ -334,16 +455,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: SALES_PALETTE.borderSoft,
     marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   ticketNumber: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#8B2C0D',
+    color: adminColors.brandDeep,
     marginBottom: 4,
   },
   ticketIssue: {
@@ -366,7 +483,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8F8EE',
+    backgroundColor: SALES_PALETTE.greenBg,
     borderRadius: 10,
     paddingVertical: 9,
     gap: 6,
@@ -374,14 +491,14 @@ const styles = StyleSheet.create({
   walletBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E824C',
+    color: SALES_PALETTE.greenText,
   },
   bankBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EBF3FA',
+    backgroundColor: SALES_PALETTE.blueBg,
     borderRadius: 10,
     paddingVertical: 9,
     gap: 6,
@@ -389,14 +506,14 @@ const styles = StyleSheet.create({
   bankBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1D6399',
+    color: SALES_PALETTE.blueText,
   },
   rejectBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FDE8E8',
+    backgroundColor: SALES_PALETTE.redBg,
     borderRadius: 10,
     paddingVertical: 9,
     gap: 6,
@@ -404,7 +521,11 @@ const styles = StyleSheet.create({
   rejectBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#D93838',
+    color: SALES_PALETTE.redText,
+  },
+  /** The designed control, kept visible, drawn as unavailable. */
+  actionUnavailable: {
+    opacity: 0.5,
   },
   statusPill: {
     alignSelf: 'flex-start',
@@ -413,8 +534,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 4,
   },
+  pillGreen: { backgroundColor: SALES_PALETTE.greenBg },
+  pillRed: { backgroundColor: SALES_PALETTE.redBg },
+  pillAmber: { backgroundColor: SALES_PALETTE.amberBg },
   statusPillText: {
     fontSize: 12,
     fontWeight: '700',
   },
+  pillTextGreen: { color: SALES_PALETTE.greenText },
+  pillTextRed: { color: SALES_PALETTE.redText },
+  pillTextAmber: { color: SALES_PALETTE.amberText },
 });

@@ -11,6 +11,13 @@ import {
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { useAdminQuery } from '../../api/hooks';
+import { listAdminAnnouncements } from '../../api/announcements';
+import { useCreateAdminAnnouncement } from '../../api/announcementsHooks';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { useWarehouseOptions } from '../warehouse/shared/useWarehouseOptions';
 
 const PALETTE = {
   pageBg:           adminColors.canvas,
@@ -52,62 +59,72 @@ export interface AnnouncementsScreenProps {
 
 export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
   const [isCreating, setIsCreating] = useState(false);
-  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([
-    {
-      id: 'a-1',
-      tag: 'System-wide · All Farmers',
-      scopeType: 'system',
-      title: 'Fair price ceilings updated for September',
-      desc: 'Carrots, Cabbage, and Beetroot ceilings have been revised — check the Marketing module for new rates.',
-      sender: 'Ganga Devi',
-      timeAgo: '2 days ago',
-      recipientsCount: '1,284 recipients',
-    },
-    {
-      id: 'a-2',
-      tag: 'Warehouse-specific · Kotagiri',
-      scopeType: 'warehouse',
-      title: 'Temporary receiving hours change',
-      desc: 'Kotagiri warehouse will close early (2 PM) this Friday for maintenance.',
-      sender: 'Prakash Babu',
-      timeAgo: '5 days ago',
-      recipientsCount: '3 staff',
-    },
-  ]);
+  const announcementsQuery = useAdminQuery(
+    ['admin', 'announcements', 'list'],
+    (signal) => listAdminAnnouncements({ limit: 20 }, signal),
+  );
+  const createAnnouncementMutation = useCreateAdminAnnouncement();
+  const { options: warehouseOptions } = useWarehouseOptions();
 
   // Form states
   const [formScope, setFormScope] = useState<'system' | 'warehouse'>('system');
-  const [formTarget, setFormTarget] = useState('All Farmers');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
 
-  const handleCreateAnnouncement = () => {
+  const effectiveWarehouseId =
+    selectedWarehouseId ?? warehouseOptions[0]?.warehouseId ?? undefined;
+  const canSelectWarehouse = warehouseOptions.length > 0;
+
+  const liveAnnouncements: AnnouncementItem[] = (announcementsQuery.data?.items ?? []).map((dto) => ({
+    id: dto.id,
+    tag: dto.target === 'SYSTEM_WIDE' ? 'System-wide' : `Warehouse · ${dto.warehouseId || ADMIN_NO_VALUE}`,
+    scopeType: dto.target === 'SYSTEM_WIDE' ? 'system' : 'warehouse',
+    title: dto.title,
+    desc: dto.body,
+    sender: dto.createdBy || ADMIN_NO_VALUE,
+    timeAgo: dto.createdAt ? dto.createdAt.slice(0, 10) : ADMIN_NO_VALUE,
+    recipientsCount: dto.target === 'SYSTEM_WIDE' ? 'Platform wide' : 'Warehouse staff',
+  }));
+
+  const announcements = liveAnnouncements;
+
+  const handleCreateAnnouncement = async () => {
     if (!formTitle.trim() || !formDesc.trim()) {
       Alert.alert('Incomplete Form', 'Please provide a title and announcement message.');
       return;
     }
+    if (formScope === 'warehouse' && !effectiveWarehouseId) {
+      Alert.alert(
+        t('wiringReports.announcements.broadcastFailedTitle'),
+        t('wiringReports.announcements.warehouseUnavailable'),
+      );
+      return;
+    }
 
-    const tagLabel =
-      formScope === 'system'
-        ? `System-wide · ${formTarget}`
-        : `Warehouse-specific · ${formTarget}`;
-
-    const newAnnouncement: AnnouncementItem = {
-      id: `a-${Date.now()}`,
-      tag: tagLabel,
-      scopeType: formScope,
-      title: formTitle.trim(),
-      desc: formDesc.trim(),
-      sender: 'Super Admin',
-      timeAgo: 'Just now',
-      recipientsCount: formScope === 'system' ? '1,420 recipients' : '18 staff',
-    };
-
-    setAnnouncements([newAnnouncement, ...announcements]);
-    setFormTitle('');
-    setFormDesc('');
-    setIsCreating(false);
-    Alert.alert('Announcement Broadcasted', 'The notification has been sent across selected recipients.');
+    try {
+      await createAnnouncementMutation.mutateAsync({
+        target: formScope === 'system' ? 'SYSTEM_WIDE' : 'WAREHOUSE',
+        ...(formScope === 'warehouse' && effectiveWarehouseId
+          ? { warehouseId: effectiveWarehouseId }
+          : {}),
+        title: formTitle.trim(),
+        body: formDesc.trim(),
+      });
+      void announcementsQuery.refetch();
+      setFormTitle('');
+      setFormDesc('');
+      setIsCreating(false);
+      Alert.alert(
+        t('wiringReports.announcements.broadcastSuccessTitle'),
+        t('wiringReports.announcements.broadcastSuccessBody'),
+      );
+    } catch (err: unknown) {
+      Alert.alert(
+        t('wiringReports.announcements.broadcastFailedTitle'),
+        err instanceof Error ? err.message : t('wiringReports.announcements.broadcastFailedTitle'),
+      );
+    }
   };
 
   // ─── FULL REDIRECT PAGE: NEW ANNOUNCEMENT ────────────────────────────────
@@ -157,7 +174,6 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
                   ]}
                   onPress={() => {
                     setFormScope('system');
-                    setFormTarget('All Farmers');
                   }}
                 >
                   <Text
@@ -174,10 +190,13 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
                   style={[
                     styles.scopeTab,
                     formScope === 'warehouse' && styles.scopeTabActive,
+                    !canSelectWarehouse && { opacity: 0.45 },
                   ]}
+                  disabled={!canSelectWarehouse}
+                  accessibilityState={{ disabled: !canSelectWarehouse }}
+                  accessibilityHint={!canSelectWarehouse ? t('wiringReports.announcements.warehouseUnavailable') : undefined}
                   onPress={() => {
                     setFormScope('warehouse');
-                    setFormTarget('Kotagiri');
                   }}
                 >
                   <Text
@@ -190,17 +209,44 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
                   </Text>
                 </TouchableOpacity>
               </View>
+              {!canSelectWarehouse ? (
+                <Text style={styles.pageSubtitle}>{t('wiringReports.announcements.warehouseUnavailable')}</Text>
+              ) : null}
             </View>
 
-            {/* Target Audience */}
+            {formScope === 'warehouse' && warehouseOptions.length > 0 ? (
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Warehouse</Text>
+                <View style={styles.scopeTabs}>
+                  {warehouseOptions.map((wh) => {
+                    const selected = effectiveWarehouseId === wh.warehouseId;
+                    return (
+                      <TouchableOpacity
+                        key={wh.warehouseId}
+                        style={[styles.scopeTab, selected && styles.scopeTabActive]}
+                        onPress={() => setSelectedWarehouseId(wh.warehouseId)}
+                      >
+                        <Text style={[styles.scopeTabText, selected && styles.scopeTabTextActive]}>
+                          {wh.warehouseName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+
+            {/* Target Audience (disabled — backend announcement contract has no audience field) */}
             <View style={styles.formGroup}>
               <Text style={styles.formLabel}>Audience Target</Text>
               <TextInput
-                style={styles.formInput}
-                value={formTarget}
-                onChangeText={setFormTarget}
-                placeholder={formScope === 'system' ? 'e.g. All Farmers, Customers' : 'e.g. Kotagiri, Ooty'}
+                style={[styles.formInput, { opacity: 0.5 }]}
+                value={ADMIN_NO_VALUE}
+                editable={false}
+                accessibilityState={{ disabled: true }}
+                accessibilityHint={t('wiringReports.announcements.audienceUnavailable')}
               />
+              <Text style={styles.pageSubtitle}>{t('wiringReports.announcements.audienceUnavailable')}</Text>
             </View>
 
             {/* Title */}
@@ -291,6 +337,13 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
         </View>
 
         {/* Announcement Cards List */}
+        {announcementsQuery.isPending ? (
+          <AdminLoadingState />
+        ) : announcementsQuery.error ? (
+          <AdminErrorState error={announcementsQuery.error} onRetry={announcementsQuery.refetch} />
+        ) : announcements.length === 0 ? (
+          <AdminEmptyState />
+        ) : (
         <View style={styles.cardsList}>
           {announcements.map((item) => {
             const isSystem = item.scopeType === 'system';
@@ -331,6 +384,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
             );
           })}
         </View>
+        )}
 
         {/* Bottom Primary Action Button: + New Announcement -> Redirects to Full Screen */}
         <TouchableOpacity

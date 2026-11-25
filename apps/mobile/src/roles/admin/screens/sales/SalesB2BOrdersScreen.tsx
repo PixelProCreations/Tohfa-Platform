@@ -9,11 +9,20 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import {
-  BackChevronIcon,
-  SALES_PALETTE,
-} from './SalesChannelOverviewScreen';
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { BackChevronIcon, SALES_PALETTE } from './SalesChannelOverviewScreen';
+import { useChannelOrders } from '../warehouse/sales-direct/useSalesData';
+import { AdminEmptyState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { formatPaise } from '../../money/paise';
 
-function DocInvoiceIcon({ color = '#1F1714', size = 16 }: { color?: string; size?: number }) {
+function DocInvoiceIcon({ color = adminColors.ink, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -43,42 +52,27 @@ export interface B2BAccount {
   gstStatus: string;
 }
 
-const B2B_ACCOUNTS: B2BAccount[] = [
-  {
-    id: 'b2b-1',
-    name: 'Nilgiris Fresh Distributors Pvt Ltd',
-    gstin: 'GSTIN: 33AABN9988M1Z5',
-    latestOrder: '800kg — Carrots, Cabbage',
-    orderValue: '₹28,400',
-    gstStatus: 'Generated',
-  },
-  {
-    id: 'b2b-2',
-    name: 'Coimbatore Organic Wholesale Mart',
-    gstin: 'GSTIN: 33AAEC4521M1Z8',
-    latestOrder: '1,200kg — Potatoes, Beetroot',
-    orderValue: '₹42,600',
-    gstStatus: 'Generated',
-  },
-  {
-    id: 'b2b-3',
-    name: 'Kochi Central Supermarkets',
-    gstin: 'GSTIN: 32AABCK9911P1Z4',
-    latestOrder: '2,500kg — Mixed Hill Vegetables',
-    orderValue: '₹89,200',
-    gstStatus: 'Generated',
-  },
-];
-
 export interface SalesB2BOrdersScreenProps {
   onBack?: () => void;
   onOpenInvoice?: (acc: B2BAccount) => void;
+  accounts?: B2BAccount[];
 }
 
-export function SalesB2BOrdersScreen({ onBack, onOpenInvoice }: SalesB2BOrdersScreenProps) {
+export function SalesB2BOrdersScreen({ onBack, onOpenInvoice, accounts }: SalesB2BOrdersScreenProps) {
+  const { items, isLoading } = useChannelOrders('B2B');
+
+  const displayAccounts: B2BAccount[] = accounts ?? items.map((r) => ({
+    id: r.id,
+    name: r.businessName ?? ADMIN_NO_VALUE,
+    gstin: ADMIN_NO_VALUE,
+    latestOrder: `${r.orderNumber} · ${formatPaise(r.totalPaise)}`,
+    orderValue: formatPaise(r.totalPaise),
+    gstStatus: ADMIN_NO_VALUE,
+  }));
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -87,66 +81,77 @@ export function SalesB2BOrdersScreen({ onBack, onOpenInvoice }: SalesB2BOrdersSc
             onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
           >
-            <BackChevronIcon />
+            <BackChevronIcon color={adminColors.ink} />
           </TouchableOpacity>
         </View>
 
         {/* Title Block */}
         <View style={styles.titleBlock}>
           <Text style={styles.screenTitle}>B2B Bulk Orders</Text>
-          <Text style={styles.screenSubtitle}>7 active business accounts</Text>
+          <Text style={styles.screenSubtitle}>
+            {t('wiringSales.b2b.subtitle', { shown: displayAccounts.length })}
+          </Text>
         </View>
 
         {/* List */}
-        <FlatList
-          data={B2B_ACCOUNTS}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.b2bCard}>
-              {/* Badge */}
-              <View style={styles.badgeWrapper}>
-                <View style={styles.b2bBadge}>
-                  <Text style={styles.b2bBadgeText}>B2B</Text>
+        {isLoading && displayAccounts.length === 0 ? (
+          <AdminLoadingState label="Loading B2B orders..." />
+        ) : displayAccounts.length === 0 ? (
+          <AdminEmptyState title="No B2B Orders" subtitle="No bulk B2B orders found in the system." />
+        ) : (
+          <FlatList
+            data={displayAccounts}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <View style={styles.b2bCard}>
+                {/* Badge */}
+                <View style={styles.badgeWrapper}>
+                  <View style={styles.b2bBadge}>
+                    <Text style={styles.b2bBadgeText}>B2B</Text>
+                  </View>
                 </View>
+
+                {/* Title & GSTIN */}
+                <Text style={styles.companyName}>{item.name}</Text>
+                <Text style={styles.gstinText}>{item.gstin}</Text>
+
+                {/* Order Info Rows */}
+                <View style={styles.infoTable}>
+                  <View style={styles.tableRow}>
+                    <Text style={styles.rowLabel}>Latest bulk order</Text>
+                    <Text style={styles.rowValue}>{item.latestOrder}</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.rowLabel}>Order value</Text>
+                    <Text style={styles.rowValueBold}>{item.orderValue}</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.rowLabel}>GST invoice</Text>
+                    <Text style={styles.rowValueSuccess}>{item.gstStatus}</Text>
+                  </View>
+                </View>
+
+                {/* View / Generate GST Invoice Button */}
+                <TouchableOpacity
+                  style={styles.invoiceBtn}
+                  onPress={() => onOpenInvoice?.(item)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                >
+                  <DocInvoiceIcon color={adminColors.ink} size={15} />
+                  <Text style={styles.invoiceBtnText}>View / Generate GST Invoice</Text>
+                </TouchableOpacity>
               </View>
-
-              {/* Title & GSTIN */}
-              <Text style={styles.companyName}>{item.name}</Text>
-              <Text style={styles.gstinText}>{item.gstin}</Text>
-
-              {/* Order Info Rows */}
-              <View style={styles.infoTable}>
-                <View style={styles.tableRow}>
-                  <Text style={styles.rowLabel}>Latest bulk order</Text>
-                  <Text style={styles.rowValue}>{item.latestOrder}</Text>
-                </View>
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.rowLabel}>Order value</Text>
-                  <Text style={styles.rowValueBold}>{item.orderValue}</Text>
-                </View>
-
-                <View style={styles.tableRow}>
-                  <Text style={styles.rowLabel}>GST invoice</Text>
-                  <Text style={styles.rowValueSuccess}>{item.gstStatus}</Text>
-                </View>
-              </View>
-
-              {/* View / Generate GST Invoice Button */}
-              <TouchableOpacity
-                style={styles.invoiceBtn}
-                onPress={() => onOpenInvoice?.(item)}
-                activeOpacity={0.7}
-              >
-                <DocInvoiceIcon color="#1F1714" size={15} />
-                <Text style={styles.invoiceBtnText}>View / Generate GST Invoice</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        />
+            )}
+          />
+        )}
       </View>
     </SafeAreaView>
   );
@@ -155,93 +160,84 @@ export function SalesB2BOrdersScreen({ onBack, onOpenInvoice }: SalesB2BOrdersSc
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   container: {
     flex: 1,
-    backgroundColor: SALES_PALETTE.pageBg,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: adminSpacing.md,
   },
   backButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: SALES_PALETTE.cardBg,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    ...adminShadow.sm,
   },
   titleBlock: {
-    marginBottom: 20,
+    marginBottom: adminSpacing.md,
   },
   screenTitle: {
-    fontSize: 22,
+    ...adminType.title,
+    color: adminColors.ink,
     fontWeight: '700',
-    color: SALES_PALETTE.textHeading,
-    letterSpacing: -0.3,
     marginBottom: 4,
   },
   screenSubtitle: {
-    fontSize: 13,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 18,
   },
   listContent: {
-    paddingBottom: 32,
+    paddingBottom: adminSpacing.xxl * 2,
   },
   b2bCard: {
-    backgroundColor: SALES_PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
-    marginBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   badgeWrapper: {
-    marginBottom: 10,
+    marginBottom: adminSpacing.sm,
   },
   b2bBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EBF3FA',
-    paddingHorizontal: 8,
+    backgroundColor: adminColors.info.bg,
+    paddingHorizontal: adminSpacing.xs,
     paddingVertical: 3,
-    borderRadius: 6,
+    borderRadius: adminRadius.xs,
   },
   b2bBadgeText: {
-    fontSize: 11,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#1D6399',
+    color: adminColors.info.text,
   },
   companyName: {
-    fontSize: 15,
+    ...adminType.body,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
     marginBottom: 3,
   },
   gstinText: {
-    fontSize: 11,
-    color: SALES_PALETTE.textSecondary,
-    marginBottom: 14,
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.md,
   },
   infoTable: {
-    marginBottom: 14,
+    marginBottom: adminSpacing.md,
   },
   tableRow: {
     flexDirection: 'row',
@@ -249,38 +245,39 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   rowLabel: {
-    fontSize: 12,
-    color: SALES_PALETTE.textSecondary,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   rowValue: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '500',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
   },
   rowValueBold: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '700',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
   },
   rowValueSuccess: {
-    fontSize: 12,
+    ...adminType.caption,
     fontWeight: '600',
-    color: '#1E824C',
+    color: adminColors.success.text,
   },
   invoiceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
-    borderColor: SALES_PALETTE.borderSoft,
-    backgroundColor: SALES_PALETTE.cardBg,
-    gap: 8,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    gap: adminSpacing.xs,
   },
   invoiceBtnText: {
+    ...adminType.body,
     fontSize: 13,
     fontWeight: '600',
-    color: SALES_PALETTE.textPrimary,
+    color: adminColors.ink,
   },
 });

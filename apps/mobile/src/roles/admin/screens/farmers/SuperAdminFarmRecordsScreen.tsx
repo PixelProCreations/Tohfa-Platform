@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -19,9 +18,6 @@ import {
 import {
   BackArrowWhiteIcon,
   ChevronDownIcon,
-  FilterSlidersIcon,
-  PlusIcon,
-  SearchIcon,
 } from '../../components/AdminIcons';
 import { AdminStatusBadge } from '../../components/AdminStatusBadge';
 import { type Can } from '../../permissions/can';
@@ -30,6 +26,7 @@ import type { FarmerListItem } from './AdminAllFarmersScreen';
 import { AdminAddFarmRecordScreen, type AddRecordTab } from './AdminAddFarmRecordScreen';
 import { AdminEditFarmRecordScreen, type EditFarmRecordData } from './AdminEditFarmRecordScreen';
 import { FarmRecordsSection } from './FarmRecordsSection';
+import { statusLabelKey } from './allFarmersMappers';
 
 export interface SuperAdminFarmRecordsScreenProps {
   can?: Can;
@@ -58,10 +55,9 @@ export function SuperAdminFarmRecordsScreen({
   farmer,
   onBack,
   onAddDiaryEntry,
-  onEditDiaryEntry,
+  onEditDiaryEntry: _onEditDiaryEntry,
   onSelectFarmer,
 }: SuperAdminFarmRecordsScreenProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<FarmRecordTab>('Diary');
   const [addRecordInitialTab, setAddRecordInitialTab] = useState<AddRecordTab | null>(null);
   const [editingRecordData, setEditingRecordData] = useState<EditFarmRecordData | null>(null);
 
@@ -155,11 +151,19 @@ export function SuperAdminFarmRecordsScreen({
               {activeFarmerCode} · {activeFarmerPhone}
             </Text>
           </View>
-          <AdminStatusBadge status="ACTIVE" label="Active" size="sm" />
+          {/* The selected farmer's real account status, not a fixed "Active". */}
+          {farmer === undefined ? (
+            <Text style={styles.farmerSummaryMeta}>{ADMIN_NO_VALUE}</Text>
+          ) : (
+            <AdminStatusBadge status={farmer.status} label={t(statusLabelKey(farmer.status))} size="sm" />
+          )}
         </TouchableOpacity>
 
         {/* Sub-Tabs: Diary, Plant & Crops, Livestock, Assets with Shared Cards */}
         <FarmRecordsSection
+          farmerId={farmer?.id}
+          can={can}
+          farmerName={activeFarmerName}
           onAddRecord={(tab) => {
             if (onAddDiaryEntry && tab === 'Diary') {
               onAddDiaryEntry();

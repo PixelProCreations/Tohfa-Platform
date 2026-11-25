@@ -38,6 +38,11 @@ const hooks = vi.hoisted(() => ({
   useApplicationList: vi.fn(),
   useApproveApplication: vi.fn(),
   useRejectApplication: vi.fn(),
+  useAdvanceApplication: vi.fn(),
+  useReviewApplicationDocument: vi.fn(),
+  useReviewApplicationFmb: vi.fn(),
+  useAddApplicationNote: vi.fn(),
+  useRequestApplicationInfo: vi.fn(),
 }));
 vi.mock('../api/farmerHooks', () => hooks);
 
@@ -177,6 +182,11 @@ beforeEach(() => {
   hooks.useApplication.mockImplementation(() => ({ ...live, refresh: vi.fn(), isRefreshing: false }));
   hooks.useApproveApplication.mockImplementation(() => decision());
   hooks.useRejectApplication.mockImplementation(() => decision());
+  hooks.useAdvanceApplication.mockImplementation(() => decision());
+  hooks.useReviewApplicationDocument.mockImplementation(() => decision());
+  hooks.useReviewApplicationFmb.mockImplementation(() => decision());
+  hooks.useAddApplicationNote.mockImplementation(() => decision());
+  hooks.useRequestApplicationInfo.mockImplementation(() => decision());
 });
 
 function texts(node: ReactTestRendererJSON | ReactTestRendererJSON[] | string | null): string[] {
@@ -323,14 +333,16 @@ describe('01 Personal details', () => {
 // ---------------------------------------------------------------------------
 
 describe('02 Farm details', () => {
-  it('shows the farm name, experience, number of farms, both areas and the water source', () => {
+  // Design of record (2026-11-25 port): areas print to two decimals, and section 02 has no
+  // water-source row (the design draws none), so it is no longer asserted here.
+  it('shows the farm name, experience, number of farms and both areas', () => {
     const text = allText(mount());
     expect(text).toContain('Selvam Farm');
     expect(text).toContain(t('farmerApps.years', { value: 6 }));
     expect(text).toContain(t('farmerApps.farms', { value: 2 }));
-    expect(text).toContain(t('farmerApps.acres', { value: 3.5 }));
+    expect(text).toContain(t('farmerApps.acres', { value: '3.50' }));
     expect(text).toContain(t('farmerApps.field.fmbArea'));
-    expect(text).toContain('Well');
+    expect(text).toContain(t('farmerApps.acres', { value: '3.30' }));
   });
 
   it('dashes every farm figure the API did not send and keeps the rows drawn', () => {
@@ -351,7 +363,6 @@ describe('02 Farm details', () => {
     expect(text).toContain(t('farmerApps.field.experience'));
     expect(text).toContain(t('farmerApps.field.numberOfFarms'));
     expect(text).toContain(t('farmerApps.field.statedTotalArea'));
-    expect(text).toContain(t('farmerApps.field.waterSource'));
     expect(texts(tree.toJSON()).filter((s) => s === DASH).length).toBeGreaterThanOrEqual(5);
   });
 
@@ -367,23 +378,32 @@ describe('02 Farm details', () => {
     expect(allText(tree)).toContain(t('farmerApps.farmingType.bioDynamic'));
   });
 
-  it('shows the area variance warning only when both areas exist and differ', () => {
-    expect(byTestId(mount(), 'farmerApps.areaVariance')).toHaveLength(1);
+  // The design always draws the Area Variance box (noValue.ts: an element is never removed for a
+  // missing number). What is protected is unchanged: a verdict only when both real areas exist and
+  // differ; otherwise the box carries the dash and states no verdict.
+  it('states an area variance verdict only when both areas exist and differ', () => {
+    const variance = (tree: renderer.ReactTestRenderer) => byTestId(tree, 'farmerApps.areaVariance');
+    expect(variance(mount())).toHaveLength(1);
     expect(allText(mount())).toContain(t('farmerApps.variance.needsSurveyor'));
 
-    // The two areas agree: no variance to report.
-    live.application = detail({ farming: { ...detail().farming, statedAreaAcres: 3.3 } });
-    expect(byTestId(mount(), 'farmerApps.areaVariance')).toHaveLength(0);
-
-    // No FMB area at all: the figure dashes and no variance is implied.
-    live.application = detail({ locations: detail().locations.map((l) => ({ ...l, calculatedAreaAcres: null })) });
-    const tree = mount();
-    expect(byTestId(tree, 'farmerApps.areaVariance')).toHaveLength(0);
-    expect(allText(tree)).not.toContain(t('farmerApps.variance.needsSurveyor'));
-
-    // No stated area either.
-    live.application = detail({ farming: { ...detail().farming, statedAreaAcres: null } });
-    expect(byTestId(mount(), 'farmerApps.areaVariance')).toHaveLength(0);
+    for (const app of [
+      // The two areas agree: no variance to report.
+      detail({ farming: { ...detail().farming, statedAreaAcres: 3.3 } }),
+      // No FMB area at all.
+      detail({ locations: detail().locations.map((l) => ({ ...l, calculatedAreaAcres: null })) }),
+      // No stated area either.
+      detail({ farming: { ...detail().farming, statedAreaAcres: null } }),
+    ]) {
+      live.application = app;
+      const tree = mount();
+      expect(variance(tree)).toHaveLength(1);
+      const boxTexts = variance(tree)[0]!
+        .findAll((n) => (n.type as unknown) === 'Text')
+        .map((n) => String(n.props['children']));
+      expect(boxTexts).not.toContain(t('farmerApps.variance.needsSurveyor'));
+      expect(boxTexts).not.toContain(t('farmerApps.variance.withinMargin', { percent: 5 }));
+      expect(boxTexts.filter((x) => x === DASH)).toHaveLength(2);
+    }
   });
 });
 
@@ -392,44 +412,48 @@ describe('02 Farm details', () => {
 // ---------------------------------------------------------------------------
 
 describe('03 Farm location & boundaries', () => {
-  it('draws one card per location with its place, area and FMB state', () => {
+  // Design of record (2026-11-25 port): one map card with a zone row per location, replacing the
+  // previous per-location cards. The facts asserted are the same: each location, its area, the
+  // real GPS, the dash where the API sent nothing, and the FMB state.
+  it('lists one zone row per location with its own label and area', () => {
     const tree = mount();
-    expect(byTestId(tree, 'farmerApps.locationCard')).toHaveLength(2);
+    expect(byTestId(tree, 'farmerApps.locationRow')).toHaveLength(2);
     const text = allText(tree);
     expect(text).toContain('North field');
     expect(text).toContain('South field');
-    expect(text).toContain('Ketti');
-    expect(text).toContain(t('farmerApps.fmb.provided'));
-    expect(text).toContain(t('farmerApps.fmb.missing'));
+    expect(text).toContain(t('farmerApps.location.areaBadge', { acres: '1.90' }));
+    expect(text).toContain(t('farmerApps.location.areaBadge', { acres: '1.40' }));
   });
 
-  it('shows the GPS coordinates we carry, and dashes them where the API sent none', () => {
-    const tree = mount();
-    expect(allText(tree)).toContain(t('farmerApps.gps', { lat: 11.3421, lng: 76.7891 }));
-    // The second location has no GPS: its row is still drawn, as the dash.
-    expect(allText(tree)).toContain(t('farmerApps.field.gps'));
-    expect(texts(tree.toJSON()).filter((s) => s === DASH).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('dashes the boundary map and the GPS accuracy, which the read view does not carry', () => {
+  it('shows the GPS coordinates we carry, and the dash for the accuracy nothing reports', () => {
     const text = allText(mount());
-    expect(text).toContain(t('farmerApps.location.mapUnavailable'));
+    expect(text).toContain(t('farmerApps.gps', { lat: 11.3421, lng: 76.7891 }));
+    expect(text).toContain(t('farmerApps.location.gpsLine', { gps: t('farmerApps.gps', { lat: 11.3421, lng: 76.7891 }), accuracy: DASH }));
     // The GPS-accuracy explanation was removed as noise (owner, 2026-11-24).
-    // The field itself must still be drawn and dashed rather than dropped.
     expect(text).not.toContain(t('farmerApps.location.gpsAccuracyUnavailable'));
   });
 
-  it('shows the farm-wide crops and dashes the per-parcel crop the design maps per zone', () => {
-    const text = allText(mount());
-    expect(text).toContain('Beans, Potato');
-    expect(text).toContain(t('farmerApps.location.cropsNotPerParcel'));
+  it('with no drawn ring, the map panel says so and draws no shape', () => {
+    const tree = mount();
+    expect(allText(tree)).toContain(t('farmerApps.location.noBoundary'));
+    expect(byTestId(tree, 'farmerApps.boundaryShape')).toHaveLength(0);
   });
 
-  it('summarises locations, FMB area and FMB status', () => {
+  it('farm-wide crops are not split across several locations: each zone row dashes its crop', () => {
     const text = allText(mount());
-    expect(text).toContain(t('farmerApps.location.zonesLabel'));
-    expect(text).toContain(t('farmerApps.location.fmbAreaLabel'));
-    expect(text).toContain(t('farmerApps.location.fmbCount', { drawn: 1, total: 2 }));
+    expect(text).not.toContain('Beans, Potato');
+    expect(text).toContain(t('farmerApps.location.zoneCrop', { crop: DASH, area: t('farmerApps.location.areaBadge', { acres: '1.90' }) }));
+    live.application = detail({ locations: [detail().locations[0]!] });
+    expect(allText(mount())).toContain('Beans, Potato');
+  });
+
+  it('summarises zones, the FMB area and the FMB status from the stored boundaries', () => {
+    const text = allText(mount());
+    expect(text).toContain(t('farmerApps.location.zonesStat'));
+    expect(text).toContain(t('farmerApps.location.fmbStatusStat'));
+    // One of two locations has a boundary: not "Provided".
+    expect(text).toContain(t('farmerApps.fmb.pending'));
+    expect(text).toContain(t('farmerApps.location.areaBadge', { acres: '3.30' }));
   });
 });
 
@@ -438,17 +462,15 @@ describe('03 Farm location & boundaries', () => {
 // ---------------------------------------------------------------------------
 
 describe('04 Documents', () => {
+  // The design's file line is "name · size"; the size is reported by nothing, so it is the dash
+  // (previously a separate caption explained it).
   it('shows each document file name and dashes the file size the API does not report', () => {
-    const text = allText(mount());
-    expect(text).toContain('id-front.jpg');
-    expect(text).toContain(t('farmerApps.doc.sizeUnavailable'));
+    expect(allText(mount())).toContain(t('farmerApps.doc.fileLine', { name: 'id-front.jpg', size: DASH }));
   });
 
   it('dashes the file name of a document that came without one', () => {
     live.application = detail({ documents: [{ docType: 'FARM_DOC', docSubType: null, fileName: null, fileUrl: null }] });
-    const tree = mount();
-    expect(allText(tree)).toContain(t('farmerApps.doc.fileLabel'));
-    expect(texts(tree.toJSON()).filter((s) => s === DASH).length).toBeGreaterThanOrEqual(1);
+    expect(allText(mount())).toContain(t('farmerApps.doc.fileLine', { name: DASH, size: DASH }));
   });
 });
 
@@ -458,18 +480,13 @@ describe('the designed step badges and header pills', () => {
     for (let n = 1; n <= 5; n += 1) expect(text).toContain(t('farmerApps.step', { n, total: 5 }));
   });
 
-  it('draws the three mode pills with 02 and 03 disabled and firing nothing', () => {
+  // Owner decision 2026-11-25: audit is a separate flow. The design's 01/02/03 mode pills were
+  // "Request Info / Waiting Audit / Schedule Audit"; with the audit modes gone there is nothing to
+  // switch between, so the pill bar is not drawn at all (previously: drawn, 02/03 disabled).
+  it('draws no audit mode pills and no audit wording', () => {
     const tree = mount();
-    const pills = byTestId(tree, 'farmerApps.modePill');
-    expect(pills).toHaveLength(3);
-    for (const pill of pills.slice(1)) {
-      expect(pill.props['disabled']).toBe(true);
-      expect(pill.props['onPress']).toBeUndefined();
-    }
-    // The explanatory note under the pills was removed as noise (owner,
-    // 2026-11-24). What this test protects is that 02 and 03 stay inert —
-    // asserted above — not that a paragraph explains why.
-    expect(allText(tree)).not.toContain(t('farmerApps.pill.unavailable'));
+    expect(byTestId(tree, 'farmerApps.modePill')).toHaveLength(0);
+    expect(allText(tree)).not.toMatch(/audit/i);
   });
 });
 

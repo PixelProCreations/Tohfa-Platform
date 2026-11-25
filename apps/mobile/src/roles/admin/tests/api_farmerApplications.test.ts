@@ -102,8 +102,8 @@ describe('application decision clients', () => {
     expect(lastCall().options).toMatchObject({ method: 'POST', body, idempotencyKey: KEY });
   });
 
-  it('request-info POSTs the message and steps with the Idempotency-Key', async () => {
-    const body = { message: 'Please re-upload the ID proof.', requiredSteps: [4] };
+  it('request-info POSTs items, message, and steps with the Idempotency-Key', async () => {
+    const body = { items: ['AADHAAR' as const], message: 'Please re-upload the ID proof.', requiredSteps: [4] };
     await requestFarmerApplicationInfo(APP, body, KEY);
     expect(lastCall().path).toBe(`/admin/farmer-applications/${APP}/request-info`);
     expect(lastCall().options).toMatchObject({ method: 'POST', body, idempotencyKey: KEY });

@@ -94,28 +94,37 @@ export const detailStyles = StyleSheet.create({
   // Tabs
   tabSection: { marginBottom: adminSpacing.md },
   tabsScrollContent: { flexDirection: 'row', gap: adminSpacing.sm, paddingBottom: adminSpacing.sm },
+  // Tab pills and slider, matched to the design's tab bar (Superadmin-main AdminFarmerDetailScreen
+  // tabButton / slider* styles) with the nearest admin tokens: grey pill border, 12.5/700 label in
+  // the design's dark warm grey, warm track with a mid-grey thumb, and a 2px inset on the slider row.
   tabButton: {
     backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: adminColors.warehouse.slateCardBorder,
     paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.sm,
     borderRadius: adminRadius.full,
   },
   tabButtonActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
-  tabButtonText: { ...adminType.rowTitle, color: adminColors.muted },
+  tabButtonText: { ...adminType.rowTitle, fontWeight: adminType.caption.fontWeight, color: adminColors.dashboard.chipText },
   tabButtonTextActive: { color: adminColors.onBrand },
-  sliderBarWrap: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm, marginTop: adminSpacing.xs / 2 },
+  sliderBarWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.xs / 2,
+    paddingHorizontal: adminSpacing.xs / 2,
+  },
   sliderArrowTouch: { padding: adminSpacing.xs / 2 },
-  sliderArrowText: { ...adminType.caption, color: adminColors.placeholder },
+  sliderArrowText: { ...adminType.caption, color: adminColors.dashboard.mutedWarm },
   sliderTrack: {
     flex: 1,
     height: adminSpacing.xsSm,
-    backgroundColor: adminColors.border,
+    backgroundColor: adminColors.dashboard.track,
     borderRadius: adminRadius.full,
     overflow: 'hidden',
   },
-  sliderThumb: { height: '100%', backgroundColor: adminColors.muted, borderRadius: adminRadius.full },
+  sliderThumb: { height: '100%', backgroundColor: adminColors.dashboard.subtextMuted, borderRadius: adminRadius.full },
 
   // Cards and table rows
   detailsCard: { ...card, paddingHorizontal: adminSpacing.lg, paddingVertical: adminSpacing.sm, marginBottom: adminSpacing.lg },

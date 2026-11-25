@@ -133,3 +133,62 @@ export function stepState(app: ApplicationDetailView, step: number): StepState {
   if (app.currentStep === step) return 'current';
   return 'pending';
 }
+
+// ---------------------------------------------------------------------------
+// The boundary map (03)
+// ---------------------------------------------------------------------------
+
+export type Ring = [number, number][];
+
+/** Every drawn FMB ring of the application, [lng, lat] pairs, in location order. */
+export function fmbRings(app: ApplicationDetailView): Ring[] {
+  return app.locations.map((l) => l.fmbRing ?? null).filter((r): r is Ring => r !== null && r.length >= 3);
+}
+
+/** A ring's vertex count with the closing point (if repeated) not counted twice: the design's "(5 pts)". */
+export function ringPointCount(ring: Ring): number {
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  const closed = first !== undefined && last !== undefined && ring.length > 1 && first[0] === last[0] && first[1] === last[1];
+  return closed ? ring.length - 1 : ring.length;
+}
+
+/** The mean of a ring's vertices, [lng, lat]: where a preview map is centred. */
+export function ringCenter(ring: Ring): [number, number] {
+  const n = ringPointCount(ring);
+  let lng = 0;
+  let lat = 0;
+  for (let i = 0; i < n; i += 1) {
+    lng += ring[i]![0];
+    lat += ring[i]![1];
+  }
+  return [lng / n, lat / n];
+}
+
+/**
+ * Projects rings into a width x height drawing box with `pad` on every side,
+ * keeping their real shape: longitude is scaled by cos(latitude) so a square
+ * plot stays square, and the whole set is fitted and centred. Pure, so the
+ * offline fallback draws the applicant's own boundary rather than a picture.
+ */
+export function projectRings(rings: readonly Ring[], width: number, height: number, pad: number): Ring[] {
+  const all = rings.flat();
+  if (all.length === 0) return [];
+  const meanLat = all.reduce((s, p) => s + p[1], 0) / all.length;
+  const kx = Math.cos((meanLat * Math.PI) / 180);
+  const xs = all.map((p) => p[0] * kx);
+  const ys = all.map((p) => p[1]);
+  const minX = Math.min(...xs);
+  const maxX = Math.max(...xs);
+  const minY = Math.min(...ys);
+  const maxY = Math.max(...ys);
+  const spanX = maxX - minX;
+  const spanY = maxY - minY;
+  const innerW = width - 2 * pad;
+  const innerH = height - 2 * pad;
+  const scale = spanX === 0 && spanY === 0 ? 0 : Math.min(spanX === 0 ? Infinity : innerW / spanX, spanY === 0 ? Infinity : innerH / spanY);
+  const offX = pad + (innerW - spanX * scale) / 2;
+  const offY = pad + (innerH - spanY * scale) / 2;
+  // Screen y grows downwards while latitude grows northwards.
+  return rings.map((ring) => ring.map(([lng, lat]) => [offX + (lng * kx - minX) * scale, offY + (maxY - lat) * scale] as [number, number]));
+}

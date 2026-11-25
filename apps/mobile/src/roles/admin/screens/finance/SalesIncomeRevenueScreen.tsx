@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,7 +11,32 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing, adminType } from '../../theme';
 import { OverviewDashboardCard } from '../../components/OverviewDashboardCard';
-import { SalesOrderDetailScreen, type SalesOrderRecord } from '../sales/SalesOrderDetailScreen';
+import { listFinanceRevenue, type FinanceRevenueItemDto } from '../../api/finance';
+import { useAdminQuery } from '../../api/hooks';
+import { listAllWarehouses } from '../../api/warehouseList';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { formatAdminDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { countText, moneyText } from '../dashboard/saOverviewFormat';
+import { RevenueDetailScreen } from '../warehouse/finance-expenses';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+
+const INCOME_PAGE = 50;
+
+/** The badge for an order's payment status; a status with no label shows as the server sent it. */
+function paymentStatusLabel(status: string): string {
+  switch (status) {
+    case 'PAID':
+      return t('wiringFinance.salesIncome.status.PAID');
+    case 'FAILED':
+      return t('wiringFinance.salesIncome.status.FAILED');
+    case 'PENDING':
+      return t('wiringFinance.salesIncome.status.PENDING');
+    default:
+      return status;
+  }
+}
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -52,171 +77,56 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
   );
 }
 
-export interface SalesIncomeItem {
-  id: string;
-  soNumber: string;
-  customerName: string;
-  status: 'Collected' | 'Refund failed' | 'Pending' | 'In fulfilment' | 'Completed';
-  line1: string;
-  line2: string;
-  orderRecord: SalesOrderRecord;
-}
-
-const SALES_INCOME_DATA: SalesIncomeItem[] = [
-  {
-    id: 'inc-1',
-    soNumber: 'SO-0013',
-    customerName: 'Nilgiri Fresh Traders',
-    status: 'Collected',
-    line1: 'B2B · ₹12,560.00 · Main Warehouse, Ooty · 1 Oct 2026',
-    line2: "Invoice INV-0001 · Tax ₹0.00 (invoicing system's amount)",
-    orderRecord: {
-      id: 'so-13',
-      soNumber: 'SO-0013',
-      customerName: 'Nilgiri Fresh Traders',
-      customerId: 'C-2001',
-      channel: 'B2B',
-      status: 'Completed',
-      itemCount: 4,
-      totalPrice: 12560,
-      paymentStatus: 'Paid',
-      warehouse: 'Main Warehouse, Ooty',
-      subMeta: 'WH-MAIN · Invoice Issued (INV-0001)',
-      dateTime: '1 Oct 2026, 09:30',
-      paymentRef: 'PAY-8001',
-      invoiceRef: 'INV-0001',
-      itemName: 'Potato',
-      itemGrade: 'Grade 1',
-      itemQty: 350,
-      itemUnitPrice: 35.88,
-      fulfilledQty: 350,
-      remainingQty: 0,
-      fulfilmentStatus: 'Completed',
-    },
-  },
-  {
-    id: 'inc-2',
-    soNumber: 'SO-0011',
-    customerName: 'Demo Customer E',
-    status: 'Refund failed',
-    line1: 'Online · ₹280.00 · Refund permission required to view detail',
-    line2: 'WH-MAIN · Delivery attempt failed (demo)',
-    orderRecord: {
-      id: 'so-11',
-      soNumber: 'SO-0011',
-      customerName: 'Demo Customer E',
-      customerId: 'C-1005',
-      channel: 'Online',
-      status: 'Issue',
-      itemCount: 1,
-      totalPrice: 280,
-      paymentStatus: 'Paid',
-      warehouse: 'Main Warehouse, Ooty',
-      subMeta: 'Delivery attempt failed (demo)',
-      dateTime: '11 Oct 2026, 10:00',
-      paymentRef: 'PAY-7012',
-      invoiceRef: '—',
-      itemName: 'Garlic',
-      itemGrade: 'Grade 1',
-      itemQty: 2,
-      itemUnitPrice: 140,
-      fulfilledQty: 0,
-      remainingQty: 2,
-      fulfilmentStatus: 'Issue',
-      exceptionNote: 'Delivery attempt failed (demo).',
-    },
-  },
-  {
-    id: 'inc-3',
-    soNumber: 'SO-0004',
-    customerName: 'Demo Hotel Pvt Ltd',
-    status: 'Collected',
-    line1: 'HORECA · ₹3,700.00 · Main Warehouse, Ooty · 8 Oct 2026',
-    line2: 'WH-MAIN · Invoice Draft',
-    orderRecord: {
-      id: 'so-4',
-      soNumber: 'SO-0004',
-      customerName: 'Demo Hotel Pvt Ltd',
-      customerId: 'C-1004',
-      channel: 'HORECA',
-      status: 'In fulfilment',
-      itemCount: 2,
-      totalPrice: 3700,
-      paymentStatus: 'Paid',
-      warehouse: 'Main Warehouse, Ooty',
-      subMeta: 'WH-MAIN · Invoice Draft',
-      dateTime: '8 Oct 2026, 11:30',
-      paymentRef: 'PAY-7004',
-      invoiceRef: 'INV-DRAFT-04',
-      itemName: 'Carrot',
-      itemGrade: 'Grade 1',
-      itemQty: 100,
-      itemUnitPrice: 37,
-      fulfilledQty: 50,
-      remainingQty: 50,
-      fulfilmentStatus: 'In fulfilment',
-    },
-  },
-  {
-    id: 'inc-4',
-    soNumber: 'SO-0005',
-    customerName: 'Demo Traders LLP',
-    status: 'Collected',
-    line1: 'B2B · ₹7,400.00 · Main Warehouse, Ooty · 7 Oct 2026',
-    line2: 'WH-MAIN · Invoice Issued (INV-2026-0001)',
-    orderRecord: {
-      id: 'so-5',
-      soNumber: 'SO-0005',
-      customerName: 'Demo Traders LLP',
-      customerId: 'C-1006',
-      channel: 'B2B',
-      status: 'Completed',
-      itemCount: 2,
-      totalPrice: 7400,
-      paymentStatus: 'Paid',
-      warehouse: 'Main Warehouse, Ooty',
-      subMeta: 'WH-MAIN · Invoice Issued (INV-2026-0001)',
-      dateTime: '7 Oct 2026, 14:00',
-      paymentRef: 'PAY-7005',
-      invoiceRef: 'INV-2026-0001',
-      itemName: 'Beans',
-      itemGrade: 'Grade 1',
-      itemQty: 150,
-      itemUnitPrice: 49.33,
-      fulfilledQty: 150,
-      remainingQty: 0,
-      fulfilmentStatus: 'Completed',
-    },
-  },
-];
-
 export interface SalesIncomeRevenueScreenProps {
   onBack: () => void;
+  /** The signed-in admin's permission check, handed to the live revenue detail. */
+  can?: Can | undefined;
 }
 
-export function SalesIncomeRevenueScreen({ onBack }: SalesIncomeRevenueScreenProps) {
+/**
+ * Sales income on GET /admin/finance/revenue (completed paid orders, BR-63).
+ * The KPI and counter figures are the list's own `summary` over every row
+ * (R4). The API gives gross sales only: discounts, refunds, pending, failed
+ * and net are dashed (R5), and so is "collected" while the revenue definition
+ * is an unconfirmed owner default. A revenue row has no buyer or order
+ * number, so those slots are dashed (R9). A row opens the live revenue detail
+ * by its real order id.
+ */
+export function SalesIncomeRevenueScreen({ onBack, can = () => false }: SalesIncomeRevenueScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<SalesOrderRecord | null>(null);
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
-  const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return SALES_INCOME_DATA;
-    const q = searchQuery.toLowerCase().trim();
-    return SALES_INCOME_DATA.filter(
-      (item) =>
-        item.soNumber.toLowerCase().includes(q) ||
-        item.customerName.toLowerCase().includes(q) ||
-        item.line1.toLowerCase().includes(q) ||
-        item.line2.toLowerCase().includes(q) ||
-        item.status.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+  const revenueQuery = useAdminQuery(['admin', 'finance', 'revenue-list', INCOME_PAGE], (signal) =>
+    listFinanceRevenue({ limit: INCOME_PAGE }, signal),
+  );
+  const warehousesQuery = useAdminQuery(['admin', 'warehouses', 'all'], (signal) => listAllWarehouses({}, signal));
+  const warehouseName = (id: string) => warehousesQuery.data?.find((w) => w.id === id)?.name ?? ADMIN_NO_VALUE;
 
-  // When a record is clicked, redirect to the 3rd screen (SalesOrderDetailScreen)
-  if (selectedOrder) {
+  const summary = revenueQuery.data?.summary;
+  const rows = (revenueQuery.data?.items ?? []).map((item: FinanceRevenueItemDto) => ({
+    item,
+    title: t('wiringFinance.salesIncome.title', { number: ADMIN_NO_VALUE, customer: ADMIN_NO_VALUE }),
+    status: paymentStatusLabel(item.paymentStatus),
+    line1: t('wiringFinance.salesIncome.line1', {
+      channel: item.channel,
+      amount: moneyText(item.totalAmount),
+      warehouse: warehouseName(item.warehouseId),
+      date: formatAdminDay(item.completedAt) || ADMIN_NO_VALUE,
+    }),
+    line2: t('wiringFinance.salesIncome.line2', { invoice: ADMIN_NO_VALUE, tax: moneyText(item.gstAmount) }),
+  }));
+  const query = searchQuery.toLowerCase().trim();
+  const filteredItems = query
+    ? rows.filter((row) => [row.title, row.status, row.line1, row.line2].some((v) => v.toLowerCase().includes(query)))
+    : rows;
+
+  if (openOrderId !== null) {
     return (
-      <SalesOrderDetailScreen
-        order={selectedOrder}
-        onBack={() => setSelectedOrder(null)}
+      <RevenueDetailScreen
+        scope={{ warehouseId: undefined, warehouseName: undefined }}
+        can={can}
+        orderId={openOrderId}
+        onBack={() => setOpenOrderId(null)}
       />
     );
   }
@@ -247,64 +157,15 @@ export function SalesIncomeRevenueScreen({ onBack }: SalesIncomeRevenueScreenPro
       >
         {/* ── Top KPI Grid: 7 Cards ── */}
         <View style={styles.kpiGrid}>
-          <OverviewDashboardCard
-            title="GROSS SALES VALUE"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-            
-            
-          />
-          <OverviewDashboardCard
-            title="DISCOUNTS"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-            
-            
-          />
-          <OverviewDashboardCard
-            title="REFUNDS"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-            
-            
-          />
-          <OverviewDashboardCard
-            title="COLLECTED"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-            
-            
-          />
-          <OverviewDashboardCard
-            title="PENDING"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-            
-            
-          />
-          <OverviewDashboardCard
-            title="FAILED"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-            
-            
-          />
+          <OverviewDashboardCard title="GROSS SALES VALUE" value={moneyText(summary?.total)} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="DISCOUNTS" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="REFUNDS" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="COLLECTED" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="PENDING" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="FAILED" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
 
-          {/* Full-width card: Net Sales Value */}
-          <OverviewDashboardCard
-            title="NET SALES VALUE"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCardFull}
-            
-            
-          />
+          {/* Full-width card: Net Sales Value. The API gives gross only (R5). */}
+          <OverviewDashboardCard title="NET SALES VALUE" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCardFull} />
         </View>
 
         {/* ── Search & Filter Bar ── */}
@@ -329,55 +190,51 @@ export function SalesIncomeRevenueScreen({ onBack }: SalesIncomeRevenueScreenPro
           </TouchableOpacity>
         </View>
 
-        {/* ── Counter Line ── */}
-        <Text style={styles.counterText}>24 sales · 4 channels</Text>
+        {/* ── Counter Line: the server's count and the channels it reports (R4) ── */}
+        <Text style={styles.counterText}>
+          {t('wiringFinance.salesIncome.counter', {
+            count: countText(summary?.count),
+            channels: summary === undefined ? ADMIN_NO_VALUE : String(summary.byChannel.length),
+          })}
+        </Text>
 
         {/* ── Records List ── */}
-        {filteredItems.map((item) => {
-          const isCollected = item.status === 'Collected' || item.status === 'Completed';
-          const isRefundFailed = item.status === 'Refund failed';
+        {revenueQuery.isPending ? (
+          <AdminLoadingState />
+        ) : revenueQuery.error ? (
+          <AdminErrorState error={revenueQuery.error} onRetry={() => void revenueQuery.refetch()} />
+        ) : filteredItems.length === 0 ? (
+          <AdminEmptyState title={t(query ? 'wiringFinance.salesIncome.noMatch' : 'wiringFinance.salesIncome.empty')} />
+        ) : (
+          filteredItems.map((row) => {
+            const isCollected = row.item.paymentStatus === 'PAID';
+            const isFailed = row.item.paymentStatus === 'FAILED';
 
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.recordCard}
-              onPress={() => setSelectedOrder(item.orderRecord)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.recordHeaderRow}>
-                <Text style={styles.recordTitle}>
-                  {item.soNumber} · {item.customerName}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isCollected
-                      ? styles.badgeGreen
-                      : isRefundFailed
-                      ? styles.badgeRed
-                      : styles.badgeGray,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.badgeText,
-                      isCollected
-                        ? styles.badgeTextGreen
-                        : isRefundFailed
-                        ? styles.badgeTextRed
-                        : styles.badgeTextGray,
-                    ]}
-                  >
-                    {item.status}
-                  </Text>
+            return (
+              <TouchableOpacity
+                key={row.item.orderId}
+                style={styles.recordCard}
+                onPress={() => setOpenOrderId(row.item.orderId)}
+                activeOpacity={0.8}
+                testID={`finance.salesIncome.row.${row.item.orderId}`}
+              >
+                <View style={styles.recordHeaderRow}>
+                  <Text style={styles.recordTitle}>{row.title}</Text>
+                  <View style={[styles.statusBadge, isCollected ? styles.badgeGreen : isFailed ? styles.badgeRed : styles.badgeGray]}>
+                    <Text
+                      style={[styles.badgeText, isCollected ? styles.badgeTextGreen : isFailed ? styles.badgeTextRed : styles.badgeTextGray]}
+                    >
+                      {row.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.recordLine1}>{item.line1}</Text>
-              {item.line2 ? <Text style={styles.recordLine2}>{item.line2}</Text> : null}
-            </TouchableOpacity>
-          );
-        })}
+                <Text style={styles.recordLine1}>{row.line1}</Text>
+                <Text style={styles.recordLine2}>{row.line2}</Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>

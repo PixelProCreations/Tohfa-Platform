@@ -15,8 +15,6 @@ export interface SuperAdminFarmersManagementScreenProps {
   onOpenApprovalInbox?: (() => void) | undefined;
   onOpenFarmRecords?: (() => void) | undefined;
   onOpenVerificationCompliance?: (() => void) | undefined;
-  onOpenApplications?: (() => void) | undefined;
-  onAddFarmer?: (() => void) | undefined;
 }
 
 export function SuperAdminFarmersManagementScreen({
@@ -29,8 +27,6 @@ export function SuperAdminFarmersManagementScreen({
   onOpenApprovalInbox,
   onOpenFarmRecords,
   onOpenVerificationCompliance,
-  onOpenApplications,
-  onAddFarmer,
 }: SuperAdminFarmersManagementScreenProps): React.JSX.Element {
   return (
     <AdminAllFarmersScreen
@@ -41,8 +37,6 @@ export function SuperAdminFarmersManagementScreen({
       onSelectFarmer={onSelectFarmer}
       onOpenFarmRecords={onOpenFarmRecords}
       onOpenVerificationCompliance={onOpenVerificationCompliance}
-      onOpenApplications={onOpenApplications}
-      onAddFarmer={onAddFarmer}
       onOpenApprovalInbox={onOpenApprovalInbox}
       onOpenSubscriptionOverview={onOpenSubscriptionOverview}
     />

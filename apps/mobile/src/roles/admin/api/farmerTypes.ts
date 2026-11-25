@@ -10,7 +10,15 @@
  * enum codes, numbers); labels and date formatting belong to the screen and
  * the i18n catalogue.
  */
-import type { ApplicationStatus } from './farmerApplications';
+import type {
+  ApplicationRejectReasonCode,
+  ApplicationReviewBlockerDto,
+  ApplicationReviewGateDto,
+  ApplicationReviewHistoryItemDto,
+  ApplicationReviewStateDto,
+  ApplicationStatus,
+  InfoRequestDetailDto,
+} from './farmerApplications';
 import type {
   AdminFarmerAccountStatus,
   AdminFarmerApplicationStatus,
@@ -289,6 +297,14 @@ export interface ApplicationLocationView {
   district: string | null;
   hasBoundary: boolean;
   gps: { lat: number; lng: number } | null;
+  /**
+   * The FMB boundary's outer ring as [lng, lat] pairs (GeoJSON order), from
+   * step 3's `fmbPolygon`; null when none was drawn or it is malformed.
+   * Optional so view objects built before it existed still type-check.
+   */
+  fmbRing?: [number, number][] | null | undefined;
+  /** BR-216: FMB review state from GET /admin/farmer-applications/{id}. */
+  fmbReview?: ApplicationReviewStateDto | null | undefined;
 }
 
 export interface ApplicationDocumentView {
@@ -296,9 +312,20 @@ export interface ApplicationDocumentView {
   docSubType: string | null;
   fileName: string | null;
   fileUrl: string | null;
+  /** BR-215: sha256(docType|fileUrl).slice(0,32) from GET /admin/farmer-applications/{id}. */
+  documentKey?: string | null | undefined;
+  required?: boolean | undefined;
+  review?: ApplicationReviewStateDto | null | undefined;
 }
 
-/** The application review screen (sections 01-05). */
+export interface ApplicationReviewGatesView {
+  farmVerification: ApplicationReviewGateDto;
+  approval: ApplicationReviewGateDto;
+}
+
+export type { ApplicationReviewBlockerDto, ApplicationReviewGateDto, ApplicationReviewHistoryItemDto, ApplicationReviewStateDto, InfoRequestDetailDto };
+
+/** The application review screen (sections 01-07). */
 export interface ApplicationDetailView {
   id: string;
   status: ApplicationStatus;
@@ -313,14 +340,16 @@ export interface ApplicationDetailView {
   farming: ApplicationFarmingView;
   locations: ApplicationLocationView[];
   documents: ApplicationDocumentView[];
-  /** In the spec, not sent by the server today. */
   tohfaFarmerId: string | null;
   decidedAt: string | null;
   rejectionReason: string | null;
+  rejectionReasonCode?: ApplicationRejectReasonCode | string | null | undefined;
   infoRequest: string | null;
+  infoRequestDetail?: InfoRequestDetailDto | null | undefined;
   zoneId: string | null;
   applicationCode: string | null;
-  reviewHistory: null;
-  documentVerification: null;
+  reviewHistory: ApplicationReviewHistoryItemDto[] | null;
+  documentVerification: 'verified' | 'rejected' | 'pending' | null;
   declaration: null;
+  reviewGates?: ApplicationReviewGatesView | null | undefined;
 }

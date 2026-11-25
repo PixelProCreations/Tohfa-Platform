@@ -9,6 +9,8 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { RecentReportDetailScreen } from './RecentReportDetailScreen';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
 import {
   adminColors,
   adminOverlay,
@@ -128,6 +130,7 @@ export interface AdminReportsMainScreenProps {
   onOpenSystemAlerts?: () => void;
   onOpenAnnouncements?: () => void;
   onOpenAllRecentReports?: () => void;
+  recentDocs?: RecentDocItem[] | undefined;
 }
 
 export interface RecentDocItem {
@@ -142,54 +145,6 @@ export interface RecentDocItem {
   actionType: 'pl' | 'farmer' | 'warehouse';
 }
 
-const RECENT_DOCS: RecentDocItem[] = [
-  {
-    id: 'doc-pl-aug',
-    title: 'Audited P&L Statement (Aug 2026)',
-    categoryBadge: 'Audited Financial',
-    badgeColor: adminColors.brandDeep,
-    dateStr: 'Generated 25 Sep 2026 · Closed Monthly Period',
-    fileFormat: 'PDF Document',
-    fileSize: '2.1 MB',
-    summaryMetrics: [
-      { label: 'Gross Revenue', value: '₹17.92L' },
-      { label: 'Net Profit', value: '₹6.84L' },
-      { label: 'EBITDA Margin', value: '38.2%' },
-    ],
-    actionType: 'pl',
-  },
-  {
-    id: 'doc-farmer-payout',
-    title: 'Farmer Mandi Parity & Payout Ledger',
-    categoryBadge: 'Banking Settlement',
-    badgeColor: adminColors.success.text,
-    dateStr: 'Generated Yesterday · 420 Farmers Disbursed',
-    fileFormat: 'Excel Spreadsheet',
-    fileSize: '1.4 MB',
-    summaryMetrics: [
-      { label: 'Total Disbursed', value: '₹8.20L' },
-      { label: 'Farmers Paid', value: '420' },
-      { label: 'Mandi Parity Uplift', value: '+8.4%' },
-    ],
-    actionType: 'farmer',
-  },
-  {
-    id: 'doc-warehouse-audit',
-    title: 'Kotagiri & Ooty Hub Cold-Chain Audit',
-    categoryBadge: 'Facility Compliance',
-    badgeColor: adminColors.brand,
-    dateStr: 'Generated 3d ago · FSSAI Certified Hubs',
-    fileFormat: 'PDF Document',
-    fileSize: '3.2 MB',
-    summaryMetrics: [
-      { label: 'Capacity Inspected', value: '225 MT' },
-      { label: 'Stock Turnover', value: '4.2x' },
-      { label: 'QC Compliance', value: '100% Pass' },
-    ],
-    actionType: 'warehouse',
-  },
-];
-
 export function AdminReportsMainScreen({
   onBack,
   onOpenPLReport,
@@ -201,8 +156,10 @@ export function AdminReportsMainScreen({
   onOpenSystemAlerts,
   onOpenAnnouncements,
   onOpenAllRecentReports,
+  recentDocs,
 }: AdminReportsMainScreenProps) {
   const [selectedRecentDoc, setSelectedRecentDoc] = useState<RecentDocItem | null>(null);
+  const docsList = recentDocs ?? [];
 
   if (selectedRecentDoc) {
     return (
@@ -401,35 +358,41 @@ export function AdminReportsMainScreen({
         </View>
 
         <View style={styles.listSection}>
-          {RECENT_DOCS.map((doc) => (
-            <TouchableOpacity
-              key={doc.id}
-              style={styles.recentCard}
-              onPress={() => setSelectedRecentDoc(doc)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.recentLeft}>
-                <View style={styles.recentDocIconSquare}>
-                  <DocumentTextIcon size={20} color={adminColors.brand} />
-                </View>
-                <View style={styles.recentTextCol}>
-                  <View style={styles.cardTitleRow}>
-                    <Text style={styles.recentTitle} numberOfLines={1}>{doc.title}</Text>
-                    <View style={styles.docFilePill}>
-                      <Text style={styles.docFilePillText}>{doc.fileSize}</Text>
+          {docsList.length === 0 ? (
+            <AdminEmptyState title="No recent reports" subtitle="Generated reports and exports will appear here." />
+          ) : (
+            docsList.map((doc) => (
+              <TouchableOpacity
+                key={doc.id}
+                style={styles.recentCard}
+                onPress={() => setSelectedRecentDoc(doc)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.recentLeft}>
+                  <View style={styles.recentDocIconSquare}>
+                    <DocumentTextIcon size={20} color={adminColors.brand} />
+                  </View>
+                  <View style={styles.recentTextCol}>
+                    <View style={styles.cardTitleRow}>
+                      <Text style={styles.recentTitle} numberOfLines={1}>{doc.title}</Text>
+                      {doc.fileSize !== ADMIN_NO_VALUE ? (
+                        <View style={styles.docFilePill}>
+                          <Text style={styles.docFilePillText}>{doc.fileSize}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.recentDate}>{doc.dateStr}</Text>
+                    <View style={styles.docTagRow}>
+                      <View style={styles.docCategoryBadge}>
+                        <Text style={styles.docCategoryBadgeText}>{doc.categoryBadge}</Text>
+                      </View>
                     </View>
                   </View>
-                  <Text style={styles.recentDate}>{doc.dateStr}</Text>
-                  <View style={styles.docTagRow}>
-                    <View style={styles.docCategoryBadge}>
-                      <Text style={styles.docCategoryBadgeText}>{doc.categoryBadge}</Text>
-                    </View>
-                  </View>
                 </View>
-              </View>
-              <ChevronRight />
-            </TouchableOpacity>
-          ))}
+                <ChevronRight />
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         {/* ─── 4. Bottom Cards: System Alerts & Announcements ───────────────── */}

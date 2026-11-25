@@ -6,8 +6,9 @@ import { BackButtonIcon } from '../../assets/icons/AssetIcons';
 import { validateCrossStepSubmission } from './validation';
 import { useRegistrationDraftStore } from '../../storage/registrationDraft';
 import type { FarmLocationData, RegistrationDraft } from '../../storage/registrationDraft';
-import { saveFarmerApplicationStep, submitFarmerApplication } from '../../api/registration';
+import { resubmitFarmerApplication, saveFarmerApplicationStep, submitFarmerApplication } from '../../api/registration';
 import { formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
 
 /**
  * Shown for any field the farmer has not filled in yet. This screen used to substitute
@@ -179,8 +180,9 @@ export const Step5Review: React.FC<Step5Props> = ({ draft, onSubmitSuccess, onBa
       // RegistrationFlowScreen's `updateStepAndAdvance`), so there is no legitimate
       // placeholder-id case left to special-case here; any failure is a real one and must
       // reach the farmer, not be logged and hidden.
-      const idempotencyKey = `sub-${draft.applicationId}-${Date.now()}`;
-      const res = await submitFarmerApplication(draft.applicationId, idempotencyKey);
+      const res = draft.isResubmit
+        ? await resubmitFarmerApplication(draft.applicationId)
+        : await submitFarmerApplication(draft.applicationId, `sub-${draft.applicationId}-${Date.now()}`);
       resetDraft();
       onSubmitSuccess(res.id);
     } catch (err) {
@@ -468,8 +470,10 @@ export const Step5Review: React.FC<Step5Props> = ({ draft, onSubmitSuccess, onBa
         <TouchableOpacity activeOpacity={0.85} style={[styles.footerBtn, styles.backButton, { borderColor: colors.brandGreen, backgroundColor: colors.white }]} onPress={onBack}>
           <Text style={[styles.footerBtnText, { color: colors.brandGreen }]}>Back</Text>
         </TouchableOpacity>
-        <TouchableOpacity activeOpacity={0.85} style={[styles.footerBtn, styles.nextButton, { backgroundColor: colors.brandGreen, opacity: submitting ? 0.7 : 1 }]} onPress={handleSubmit} disabled={submitting}>
-          <Text style={[styles.footerBtnText, { color: colors.white }]}>{submitting ? 'Submitting...' : 'Submit'}</Text>
+        <TouchableOpacity activeOpacity={0.85} style={[styles.footerBtn, styles.nextButton, { backgroundColor: colors.brandGreen, opacity: submitting ? 0.7 : 1 }]} onPress={handleSubmit} disabled={submitting} testID="farmer.registration.submitBtn">
+          <Text style={[styles.footerBtnText, { color: colors.white }]}>
+            {submitting ? 'Submitting...' : draft.isResubmit ? t('farmer.registration.resubmit') : 'Submit'}
+          </Text>
         </TouchableOpacity>
       </View>
 

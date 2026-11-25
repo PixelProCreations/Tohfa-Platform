@@ -47,6 +47,9 @@ export function shouldLoadWarehousePermissions(
   params?: Readonly<Record<string, unknown>> | null,
 ): boolean {
   if (isWarehouseAdminScreen(screen)) return true;
+  // The admin Returns & Refunds route gates wallet refund / reject on `warehouseCan`;
+  // without this fetch `can` denies everything and both buttons stay disabled.
+  if (screen === 'SalesReturnsRefunds') return true;
   const role = params?.['adminRole'];
   return screen === 'AdminMain' && typeof role === 'string' && WAREHOUSE_SHELL_ROLES.includes(role);
 }

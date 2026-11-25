@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +22,7 @@ import {
   ChevronDownIcon,
 } from '../../components/AdminIcons';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
+import { t } from '../../i18n';
 
 export interface WorkforceLine {
   id: string;
@@ -65,19 +65,25 @@ export interface AdminEditFarmRecordScreenProps {
   onSave?: ((updated: EditFarmRecordData) => void) | undefined;
 }
 
+/**
+ * Edit a farm record (diary entry, crop, livestock or asset). No admin write
+ * endpoint exists for any of them in docs/openapi.yaml (the farm-assets and
+ * livestock admin routes are GET only), so Save and the photo controls are
+ * drawn and disabled (R3): nothing here may report a save. `onSave` is kept on
+ * the props for the day a write exists.
+ */
 export function AdminEditFarmRecordScreen({
   record,
   onBack,
-  onSave,
 }: AdminEditFarmRecordScreenProps): React.JSX.Element {
-  const [date, setDate] = useState(record.date ?? '28 Oct 2026');
-  const [plot, setPlot] = useState(record.plot ?? 'Plot 1 (1.8 acre)');
-  const [category, setCategory] = useState(record.category ?? 'Nutrient');
-  const [subCategory, setSubCategory] = useState(record.subCategory ?? 'Compost application');
-  const [timeSpent, setTimeSpent] = useState(record.timeSpent ?? '90');
-  const [linkedCrop, setLinkedCrop] = useState(record.linkedCrop ?? 'Tomato (same plot)');
-  const [notes, setNotes] = useState(record.notes ?? 'Applied compost before the next rain.');
-  const [hasPhoto, setHasPhoto] = useState(record.hasPhoto ?? true);
+  const [date, setDate] = useState(record.date ?? '');
+  const [plot, setPlot] = useState(record.plot ?? '');
+  const [category, setCategory] = useState(record.category ?? '');
+  const [subCategory, setSubCategory] = useState(record.subCategory ?? '');
+  const [timeSpent, setTimeSpent] = useState(record.timeSpent ?? '');
+  const [linkedCrop, setLinkedCrop] = useState(record.linkedCrop ?? '');
+  const [notes, setNotes] = useState(record.notes ?? '');
+  const hasPhoto = record.hasPhoto ?? false;
   const [workforce, setWorkforce] = useState<WorkforceLine[]>(
     record.workforce && record.workforce.length > 0
       ? record.workforce
@@ -85,19 +91,19 @@ export function AdminEditFarmRecordScreen({
   );
 
   // Type-specific fields
-  const [growthStage, setGrowthStage] = useState(record.growthStage ?? 'Vegetative');
-  const [expectedHarvest, setExpectedHarvest] = useState(record.expectedHarvest ?? '27 Nov 2026');
-  const [seedSource, setSeedSource] = useState(record.seedSource ?? 'Own saved seed');
-  const [grade, setGrade] = useState(record.grade ?? 'Grade 1');
+  const [growthStage, setGrowthStage] = useState(record.growthStage ?? '');
+  const [expectedHarvest, setExpectedHarvest] = useState(record.expectedHarvest ?? '');
+  const [seedSource, setSeedSource] = useState(record.seedSource ?? '');
+  const [grade, setGrade] = useState(record.grade ?? '');
 
-  const [breed, setBreed] = useState(record.breed ?? 'Jersey');
+  const [breed, setBreed] = useState(record.breed ?? '');
   const [latestProduction, setLatestProduction] = useState(
-    record.latestProduction ?? '12 litres of milk, 27 Oct 2026'
+    record.latestProduction ?? ''
   );
 
-  const [serviceInterval, setServiceInterval] = useState(record.serviceInterval ?? '180 days');
-  const [lastService, setLastService] = useState(record.lastService ?? '11 Apr 2026');
-  const [nextServiceDue, setNextServiceDue] = useState(record.nextServiceDue ?? '8 Oct 2026');
+  const [serviceInterval, setServiceInterval] = useState(record.serviceInterval ?? '');
+  const [lastService, setLastService] = useState(record.lastService ?? '');
+  const [nextServiceDue, setNextServiceDue] = useState(record.nextServiceDue ?? '');
   const [calendarTarget, setCalendarTarget] = useState<
     'date' | 'expectedHarvest' | 'lastService' | 'nextServiceDue' | null
   >(null);
@@ -114,37 +120,6 @@ export function AdminEditFarmRecordScreen({
     setWorkforce((prev) =>
       prev.map((w) => (w.id === id ? { ...w, [field]: val } : w))
     );
-  };
-
-  const handleSave = () => {
-    if (!date.trim() || !plot.trim()) {
-      Alert.alert('Required', 'Please fill in all mandatory fields (*).');
-      return;
-    }
-    const updated: EditFarmRecordData = {
-      ...record,
-      date,
-      plot,
-      category,
-      subCategory,
-      timeSpent,
-      linkedCrop,
-      notes,
-      workforce,
-      hasPhoto,
-      growthStage,
-      expectedHarvest,
-      seedSource,
-      grade,
-      breed,
-      latestProduction,
-      serviceInterval,
-      lastService,
-      nextServiceDue,
-    };
-    onSave?.(updated);
-    Alert.alert('Saved', `${record.headerTitle} updated successfully.`);
-    onBack();
   };
 
   const dateLabel =
@@ -519,9 +494,11 @@ export function AdminEditFarmRecordScreen({
                   <Rect x={26} y={22} width={14} height={10} rx={2} fill={adminColors.brandSoft.bg} />
                 </Svg>
                 <TouchableOpacity
-                  style={styles.photoDeleteBadge}
-                  onPress={() => setHasPhoto(false)}
+                  style={[styles.photoDeleteBadge, styles.actionUnavailable]}
+                  disabled
                   activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: true }}
                 >
                   <Text style={styles.photoDeleteBadgeText}>✕</Text>
                 </TouchableOpacity>
@@ -530,12 +507,11 @@ export function AdminEditFarmRecordScreen({
 
             {/* Camera Upload Box */}
             <TouchableOpacity
-              style={styles.cameraUploadBox}
-              onPress={() => {
-                setHasPhoto(true);
-                Alert.alert('Photo', 'Photo attached from camera / gallery.');
-              }}
+              style={[styles.cameraUploadBox, styles.actionUnavailable]}
+              disabled
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: true }}
             >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Path
@@ -552,9 +528,16 @@ export function AdminEditFarmRecordScreen({
         </View>
 
         {/* Bottom Save Button (Matching Image 2) */}
-        <TouchableOpacity style={styles.saveSolidBtn} onPress={handleSave} activeOpacity={0.85}>
+        <TouchableOpacity
+          style={[styles.saveSolidBtn, styles.actionUnavailable]}
+          disabled
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
+        >
           <Text style={styles.saveSolidBtnText}>Save</Text>
         </TouchableOpacity>
+        <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
       </ScrollView>
 
       <AdminCalendarPickerModal
@@ -756,8 +739,8 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.lg,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: adminColors.brandSoft.border,
-    backgroundColor: adminColors.brandSoft.bg,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -774,5 +757,14 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: adminColors.onBrand,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.xs,
   },
 });

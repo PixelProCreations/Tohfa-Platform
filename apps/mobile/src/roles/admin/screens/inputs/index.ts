@@ -17,7 +17,6 @@ export {
   EditInputScreen,
   type ApprovedInputItem,
   type CatalogInputItem,
-  CATALOG_INPUTS,
 } from './ApprovedInputsScreen';
 
 export {
@@ -55,7 +54,6 @@ export {
   type FarmerPestIncidentsScreenProps,
   type IncidentItem,
   type PestIncidentItem,
-  SAMPLE_INCIDENTS,
 } from './FarmerPestIncidentsScreen';
 
 export {

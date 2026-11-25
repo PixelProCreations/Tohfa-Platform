@@ -23,6 +23,14 @@ import { t } from '../../i18n';
 import type { Can } from '../../permissions/can';
 import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
+import { usePurchaseOrderDetail } from '../../api/purchaseOrdersHooks';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import {
+  formatMoneyOrDash,
+  formatPricePerKgOrDash,
+  formatQtyOrDash,
+  produceLabel,
+} from '../purchase-orders/purchaseOrdersLogic';
 
 function TargetPlusIcon({ size = 16, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
@@ -144,7 +152,7 @@ function SalesPurchaseOrderDetail({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Farmer</Text>
-            <Text style={styles.detailValueBold}>{order.farmerName} (FMR-00098)</Text>
+            <Text style={styles.detailValueBold}>{order.farmerName}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Product, grade</Text>
@@ -158,11 +166,11 @@ function SalesPurchaseOrderDetail({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Original listing price</Text>
-            <Text style={styles.detailValueBold}>₹{order.unitPrice.toFixed(2)}/kg</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Accepted counter-offer</Text>
-            <Text style={styles.detailValueBold}>None</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Final agreed terms</Text>
@@ -246,9 +254,18 @@ function ProcurementPurchaseOrderDetail({
   const canViewListing = can ? can('produce.listing.review') : true;
   const canHandover = can ? (can('purchase.order.handover') || can('purchase.order.view')) : true;
 
-  const subtitleText = orderId
-    ? `${orderId} · ${t('purchaseOrderDetail.subtitle')}`
-    : `PO-2026-00124 · ${t('purchaseOrderDetail.subtitle')}`;
+  const { data } = usePurchaseOrderDetail(undefined, orderId, { enabled: Boolean(orderId) });
+
+  const poNumber = data?.poNumber ?? orderId ?? ADMIN_NO_VALUE;
+  const listingId = data?.listingId ?? ADMIN_NO_VALUE;
+  const farmerName = data?.farmerName ?? ADMIN_NO_VALUE;
+  const produce = produceLabel(data?.cropName, data?.grade);
+  const qty = data ? formatQtyOrDash(data.quantityKg) : ADMIN_NO_VALUE;
+  const price = data ? formatPricePerKgOrDash(data.pricePerKg) : ADMIN_NO_VALUE;
+  const total = data ? formatMoneyOrDash(data.totalAmount) : ADMIN_NO_VALUE;
+  const farmerCode = data?.tohfaFarmerId ?? ADMIN_NO_VALUE;
+
+  const subtitleText = `${poNumber} · ${t('purchaseOrderDetail.subtitle')}`;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -275,39 +292,39 @@ function ProcurementPurchaseOrderDetail({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.orderId')}</Text>
-              <Text style={styles.fieldValue}>{orderId ?? 'PO-2026-00124'}</Text>
+              <Text style={styles.fieldValue}>{poNumber}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.listingId')}</Text>
-              <Text style={styles.fieldValue}>LST-00452</Text>
+              <Text style={styles.fieldValue}>{listingId}</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, styles.fieldRowSpacing]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.farmer')}</Text>
-              <Text style={styles.fieldValue}>Ramesh Kumar</Text>
+              <Text style={styles.fieldValue}>{farmerName}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.produce')}</Text>
-              <Text style={styles.fieldValue}>Carrot, Grade 1</Text>
+              <Text style={styles.fieldValue}>{produce}</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, styles.fieldRowSpacing]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.quantity')}</Text>
-              <Text style={styles.fieldValue}>30 kg</Text>
+              <Text style={styles.fieldValue}>{qty}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.agreedPrice')}</Text>
-              <Text style={styles.fieldValue}>₹45/kg</Text>
+              <Text style={styles.fieldValue}>{price}</Text>
             </View>
           </View>
 
           <View style={styles.fieldRowSpacing}>
             <Text style={styles.fieldLabel}>{t('purchaseOrderDetail.label.totalAmount')}</Text>
-            <Text style={styles.fieldValue}>₹1,350</Text>
+            <Text style={styles.fieldValue}>{total}</Text>
           </View>
         </View>
 
@@ -316,11 +333,11 @@ function ProcurementPurchaseOrderDetail({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farmer ID</Text>
-              <Text style={styles.fieldValue}>FR-00241</Text>
+              <Text style={styles.fieldValue}>{farmerCode}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farm/Location</Text>
-              <Text style={styles.fieldValue}>Coonoor</Text>
+              <Text style={styles.fieldValue}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
         </View>
@@ -330,22 +347,22 @@ function ProcurementPurchaseOrderDetail({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Listed Quantity</Text>
-              <Text style={styles.fieldValue}>50 kg</Text>
+              <Text style={styles.fieldValue}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Agreed Quantity</Text>
-              <Text style={styles.fieldValue}>30 kg</Text>
+              <Text style={styles.fieldValue}>{qty}</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, styles.fieldRowSpacing]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Listed Price</Text>
-              <Text style={styles.fieldValue}>₹50/kg</Text>
+              <Text style={styles.fieldValue}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Agreed Price</Text>
-              <Text style={styles.fieldValue}>₹45/kg</Text>
+              <Text style={styles.fieldValue}>{price}</Text>
             </View>
           </View>
         </View>
@@ -399,32 +416,32 @@ function ProcurementPurchaseOrderDetail({
           <>
             <View style={styles.procurementCard}>
               <Text style={styles.termHeading}>ORIGINAL FARMER REQUEST</Text>
-              <Text style={styles.termBody}>Quantity: 50 kg · Price: ₹50/kg</Text>
+              <Text style={styles.termBody}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.procurementCard}>
               <Text style={styles.termHeading}>TOHFA COUNTER OFFER</Text>
-              <Text style={styles.termBody}>Quantity: 30 kg · Price: ₹45/kg</Text>
+              <Text style={styles.termBody}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={[styles.procurementCard, styles.finalTermsCard]}>
               <Text style={styles.termHeading}>FINAL AGREED TERMS</Text>
-              <Text style={styles.finalTermBody}>Quantity: 30 kg · Price: ₹45/kg · Total: ₹1,350</Text>
+              <Text style={styles.finalTermBody}>Quantity: {qty} · Price: {price} · Total: {total}</Text>
             </View>
           </>
         ) : (
           <View style={[styles.procurementCard, styles.finalTermsCard]}>
             <Text style={styles.termHeading}>DIRECT APPROVAL — NO COUNTER OFFER</Text>
-            <Text style={styles.finalTermBody}>Quantity: 50 kg · Price: ₹100/kg · Total: ₹5,000</Text>
+            <Text style={styles.finalTermBody}>Quantity: {qty} · Price: {price} · Total: {total}</Text>
           </View>
         )}
 
         <Text style={styles.sectionTitle}>{t('purchaseOrderDetail.section.timeline')}</Text>
         <View style={styles.timelineContainer}>
           {[
-            { title: 'Listing Created', time: '28 Sep · Farmer', icon: <TargetPlusIcon size={16} color={adminColors.brandDeep} /> },
-            { title: 'Listing Approved', time: '29 Sep · Farmer Admin', icon: <CheckCircleIcon size={16} color={adminColors.brandDeep} /> },
-            { title: 'Purchase Order Created', time: '29 Sep · System', icon: <ReceiptIcon size={16} color={adminColors.brandDeep} /> },
-            { title: 'Terms Confirmed', time: '29 Sep · Farmer Admin', icon: <CheckCircleIcon size={16} color={adminColors.brandDeep} /> },
-            { title: 'Awaiting Handover', time: '30 Sep · Current', icon: <HourglassIcon size={16} color={adminColors.brandDeep} /> },
+            { title: 'Listing Created', time: ADMIN_NO_VALUE, icon: <TargetPlusIcon size={16} color={adminColors.brandDeep} /> },
+            { title: 'Listing Approved', time: ADMIN_NO_VALUE, icon: <CheckCircleIcon size={16} color={adminColors.brandDeep} /> },
+            { title: 'Purchase Order Created', time: data?.issuedAt ? data.issuedAt.slice(0, 10) : ADMIN_NO_VALUE, icon: <ReceiptIcon size={16} color={adminColors.brandDeep} /> },
+            { title: 'Terms Confirmed', time: ADMIN_NO_VALUE, icon: <CheckCircleIcon size={16} color={adminColors.brandDeep} /> },
+            { title: 'Awaiting Handover', time: data?.status ?? ADMIN_NO_VALUE, icon: <HourglassIcon size={16} color={adminColors.brandDeep} /> },
           ].map((item, index, arr) => (
             <View key={item.title} style={styles.timelineRow}>
               <View style={styles.timelineIndicatorCol}>

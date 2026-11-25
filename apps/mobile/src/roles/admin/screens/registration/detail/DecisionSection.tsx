@@ -1,98 +1,138 @@
 /**
- * 05 · Decision.
- *
- * Pending: the design's red "Approval is blocked: identity proof unverified,
- * FMB sketch missing" / green "All requirements met" banner was cosmetic (it
- * never blocked anything, and the server enforces only BR-69, at least one
- * land location). It is replaced by a neutral "waiting for a decision" note;
- * a real gate needs a new BR and a server check (owner decision #3).
- *
- * Review notes, Save Progress, the requirement statuses and the review history
- * have no API (no notes or history endpoint, no per-document verification).
- * They are drawn as designed but visibly unavailable, and every value is the
- * "not available" dash.
- *
- * Rejected: shown only for an application the server reports as REJECTED.
+ * 07 · Decision & Notes, wired to POST /admin/farmer-applications/{id}/notes (BR-218),
+ * showing the structured `reviewHistory` (transitions + notes).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import type { ApplicationReviewHistoryItemDto } from '../../../api/farmerApplications';
+import { REVIEW_NOTE_MAX } from '../../../api/farmerApplications';
+import { useAddApplicationNote } from '../../../api/farmerHooks';
 import type { ApplicationDetailView } from '../../../api/farmerTypes';
 import { t } from '../../../i18n';
 import { adminColors } from '../../../theme';
-import { Card, InfoRow, SectionHeading } from '../applications/ApplicationParts';
-import { notAvailable, orDash } from '../applications/applicationLogic';
+import { InfoRow, SectionHeading } from '../applications/ApplicationParts';
+import { applicationErrorKey, dayOrDash, orDash, statusLabel } from '../applications/applicationLogic';
 import { detailStyles } from './detailStyles';
 
 export type DecisionState = 'pending' | 'approved' | 'rejected';
 
-function SaveProgressButton() {
-  // DESIGN-ONLY: no endpoint yet (review notes cannot be stored).
-  return (
-    <TouchableOpacity
-      style={[detailStyles.saveProgressBtn, detailStyles.unavailable]}
-      disabled
-      accessibilityRole="button"
-      accessibilityState={{ disabled: true }}
-      accessibilityHint={t('farmerApps.decision.reviewNotesUnavailable')}
-      testID="farmerApps.saveProgress"
-    >
-      <Text style={detailStyles.saveProgressText}>{t('farmerApps.decision.saveProgress')}</Text>
-    </TouchableOpacity>
-  );
+export interface DecisionSectionProps {
+  app: ApplicationDetailView;
+  state: DecisionState;
+  applicationId?: string | undefined;
+  canAddNote?: boolean | undefined;
 }
 
-const REQUIREMENTS = [
-  'farmerApps.decision.req.identity',
-  'farmerApps.decision.req.land',
-  'farmerApps.decision.req.bank',
-  'farmerApps.decision.req.farm',
-] as const;
+function historyTitle(entry: ApplicationReviewHistoryItemDto): string {
+  if (entry.eventType === 'NOTE') return t('farmerApps.decision.noteTag');
+  if (entry.fromStatus !== null) {
+    return t('farmerApps.decision.transitionLabel', {
+      from: statusLabel(entry.fromStatus),
+      to: statusLabel(entry.toStatus),
+    });
+  }
+  return t('farmerApps.decision.initialTransition', { to: statusLabel(entry.toStatus) });
+}
 
-export function DecisionSection({ app, state }: { app: ApplicationDetailView; state: DecisionState }) {
+export function DecisionSection({
+  app,
+  state,
+  applicationId,
+  canAddNote = false,
+}: DecisionSectionProps) {
+  const [noteText, setNoteText] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState(false);
+
+  const addNote = useAddApplicationNote(canAddNote ? (applicationId ?? app.id) : undefined);
+  const canWrite = Boolean(canAddNote && !app.isDraft && state === 'pending');
+  const canSave = canWrite && !addNote.isPending;
+  const history = app.reviewHistory ?? [];
+
+  const handleSaveNote = () => {
+    if (!canSave) return;
+    const trimmed = noteText.trim();
+    if (trimmed.length === 0) {
+      setValidationError(t('farmerApps.decision.noteEmpty'));
+      setSavedNotice(false);
+      return;
+    }
+    setValidationError(null);
+    setSavedNotice(false);
+    addNote.run({ note: trimmed }, () => {
+      addNote.finish();
+      setNoteText('');
+      setSavedNotice(true);
+    });
+  };
+
   return (
     <>
       <SectionHeading label={t('farmerApps.section.decision')} />
-      {state === 'rejected' ? (
-        <Card>
-          <Text style={detailStyles.rejectedTitle}>{t('farmerApps.decision.rejectedTitle')}</Text>
-          <InfoRow label={t('farmerApps.decision.rejectedReason')} value={orDash(app.rejectionReason)} last />
-        </Card>
-      ) : state === 'approved' ? (
-        <View style={detailStyles.section}>
-          <View style={detailStyles.reqCard}>
-            <Text style={detailStyles.reqTitle}>{t('farmerApps.decision.requirementsTitle')}</Text>
-            {REQUIREMENTS.map((key, index) => (
-              <InfoRow key={key} label={t(key)} value={notAvailable()} last={index === REQUIREMENTS.length - 1} />
-            ))}
+      <View style={detailStyles.decisionSection}>
+        {state === 'rejected' ? (
+          <View style={detailStyles.rejectedReasonRow}>
+            <InfoRow label={t('farmerApps.decision.rejectedReason')} value={orDash(app.rejectionReason)} wide last />
           </View>
-          <Text style={detailStyles.fieldLabel}>{t('farmerApps.decision.reviewNotes')}</Text>
-          <View style={detailStyles.notesBox}>
-            <Text style={detailStyles.notesText}>{notAvailable()}</Text>
-          </View>
-          <SaveProgressButton />
-          <Text style={detailStyles.caption}>{t('farmerApps.decision.reviewNotesUnavailable')}</Text>
-          <Text style={detailStyles.fieldLabel}>{t('farmerApps.decision.reviewHistory')}</Text>
-          <Text style={detailStyles.historyEmpty}>{t('farmerApps.decision.noHistory')}</Text>
+        ) : null}
+
+        <Text style={detailStyles.fieldLabel}>{t('farmerApps.decision.reviewNotes')}</Text>
+        <TextInput
+          style={[detailStyles.notesInput, canWrite ? null : detailStyles.actionUnavailable]}
+          editable={canWrite && !addNote.isPending}
+          multiline
+          maxLength={REVIEW_NOTE_MAX}
+          value={noteText}
+          onChangeText={(text) => {
+            setNoteText(text);
+            if (validationError !== null && text.trim().length > 0) setValidationError(null);
+            if (savedNotice) setSavedNotice(false);
+          }}
+          placeholder={t('farmerApps.decision.reviewNotesPlaceholder')}
+          placeholderTextColor={adminColors.muted}
+          accessibilityState={{ disabled: !canWrite }}
+          accessibilityHint={!canAddNote ? t('farmerApps.decision.noteDenied') : undefined}
+          testID="farmerApps.reviewNotes"
+        />
+
+        {validationError !== null ? <Text style={detailStyles.inlineErrorText}>{validationError}</Text> : null}
+        {savedNotice ? <Text style={detailStyles.inlineSuccessText}>{t('farmerApps.decision.noteSaved')}</Text> : null}
+        {addNote.error !== null && addNote.error !== undefined ? (
+          <Text style={detailStyles.inlineErrorText}>{t(applicationErrorKey(addNote.error))}</Text>
+        ) : null}
+
+        <TouchableOpacity
+          style={[detailStyles.saveProgressBtn, canSave ? null : detailStyles.actionUnavailable]}
+          onPress={canSave ? handleSaveNote : undefined}
+          disabled={!canSave}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canSave, busy: addNote.isPending }}
+          accessibilityHint={!canAddNote ? t('farmerApps.decision.noteDenied') : undefined}
+          testID="farmerApps.saveProgress"
+        >
+          <Text style={detailStyles.saveProgressBtnText}>
+            {addNote.isPending ? t('farmerApps.decision.savingNote') : t('farmerApps.decision.saveProgress')}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={detailStyles.historyList} testID="farmerApps.reviewHistory">
+          <Text style={detailStyles.historyHeading}>{t('farmerApps.decision.reviewHistory')}</Text>
+          {history.length === 0 ? (
+            <Text style={detailStyles.historyEmptyText}>{t('farmerApps.decision.noHistory')}</Text>
+          ) : (
+            history.map((entry, idx) => (
+              <View key={entry.id ?? `${entry.createdAt}-${idx}`} style={detailStyles.historyItem}>
+                <View style={detailStyles.historyMetaRow}>
+                  <Text style={detailStyles.historyTitle}>{historyTitle(entry)}</Text>
+                  <Text style={detailStyles.historyDate}>{dayOrDash(entry.createdAt)}</Text>
+                </View>
+                {entry.note ? <Text style={detailStyles.historyNote}>{entry.note}</Text> : null}
+              </View>
+            ))
+          )}
         </View>
-      ) : (
-        <View style={detailStyles.section}>
-          <View style={detailStyles.infoBox}>
-            <Text style={detailStyles.infoText}>{t('farmerApps.decision.awaiting')}</Text>
-          </View>
-          <Text style={detailStyles.fieldLabel}>{t('farmerApps.decision.reviewNotes')}</Text>
-          {/* DESIGN-ONLY: no endpoint yet; read-only so nothing typed here looks saved. */}
-          <TextInput
-            style={[detailStyles.notesInput, detailStyles.unavailable]}
-            editable={false}
-            multiline
-            placeholder={t('farmerApps.decision.reviewNotesUnavailable')}
-            placeholderTextColor={adminColors.placeholder}
-            testID="farmerApps.reviewNotes"
-          />
-          <SaveProgressButton />
-          <Text style={detailStyles.caption}>{t('farmerApps.decision.reviewNotesUnavailable')}</Text>
-        </View>
-      )}
+      </View>
     </>
   );
 }

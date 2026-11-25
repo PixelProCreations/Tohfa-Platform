@@ -15,6 +15,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 import {
   BackArrowIcon,
@@ -79,14 +80,14 @@ export function InputsPestHomeScreen({
         {/* 6 Metric Cards in 3x2 Grid */}
         <OverviewCardsGrid style={styles.kpiGrid}>
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Total Inputs"
             icon="inventory"
             titlePosition="bottom"
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Approved Inputs"
             icon="receiving"
             tone="success"
@@ -94,7 +95,7 @@ export function InputsPestHomeScreen({
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Pending Review"
             icon="orders"
             tone="warning"
@@ -102,7 +103,7 @@ export function InputsPestHomeScreen({
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Inactive / Expired"
             icon="alert"
             tone="danger"
@@ -110,14 +111,14 @@ export function InputsPestHomeScreen({
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Pest & Disease Records"
             icon="box"
             titlePosition="bottom"
             onPress={onNavigatePestLibrary}
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Application Guides"
             icon="clipboard"
             titlePosition="bottom"
@@ -138,34 +139,34 @@ export function InputsPestHomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Card 1: Neem Oil Concentrate */}
+        {/* Catalogue activity: no inputs endpoint exists, so the designed cards carry dashes. */}
         <TouchableOpacity
           style={styles.activityCard}
           onPress={onNavigateApprovedInputs}
           activeOpacity={0.8}
         >
           <View style={styles.cardTopRow}>
-            <Text style={styles.cardTitle}>Neem Oil Concentrate</Text>
+            <Text style={styles.cardTitle}>{ADMIN_NO_VALUE}</Text>
             <View style={styles.badgeApproved}>
-              <Text style={styles.badgeApprovedText}>Approved</Text>
+              <Text style={styles.badgeApprovedText}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
-          <Text style={styles.cardSubtitle}>Updated 11 Oct 2026 · Priya Nair</Text>
+          <Text style={styles.cardSubtitle}>{ADMIN_NO_VALUE}</Text>
         </TouchableOpacity>
 
-        {/* Card 2: Panchagavya Mix */}
+        
         <TouchableOpacity
           style={styles.activityCard}
           onPress={onNavigateApprovedInputs}
           activeOpacity={0.8}
         >
           <View style={styles.cardTopRow}>
-            <Text style={styles.cardTitle}>Panchagavya Mix</Text>
+            <Text style={styles.cardTitle}>{ADMIN_NO_VALUE}</Text>
             <View style={styles.badgePending}>
-              <Text style={styles.badgePendingText}>Pending Review</Text>
+              <Text style={styles.badgePendingText}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
-          <Text style={styles.cardSubtitle}>Submitted 10 Oct 2026 · Priya Nair</Text>
+          <Text style={styles.cardSubtitle}>{ADMIN_NO_VALUE}</Text>
         </TouchableOpacity>
 
         {/* Section 2: Pest & Disease Library */}
@@ -179,19 +180,19 @@ export function InputsPestHomeScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Card 1: Late Blight (Tomato) */}
+        {/* No library activity feed exists: dashed. */}
         <TouchableOpacity
           style={styles.activityCard}
           onPress={onNavigatePestLibrary ?? onNavigateApprovedInputs}
           activeOpacity={0.8}
         >
           <View style={styles.cardTopRow}>
-            <Text style={styles.cardTitle}>Late Blight (Tomato)</Text>
+            <Text style={styles.cardTitle}>{ADMIN_NO_VALUE}</Text>
             <View style={styles.badgePublished}>
-              <Text style={styles.badgePublishedText}>Published</Text>
+              <Text style={styles.badgePublishedText}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
-          <Text style={styles.cardSubtitle}>Updated 9 Oct 2026 · Agronomy team</Text>
+          <Text style={styles.cardSubtitle}>{ADMIN_NO_VALUE}</Text>
         </TouchableOpacity>
 
         {/* Section 3: Attention Required */}
@@ -199,17 +200,15 @@ export function InputsPestHomeScreen({
           <Text style={styles.sectionTitle}>Attention Required</Text>
         </View>
 
-        {/* Card 1: Bio-NPK Liquid */}
+        {/* No attention feed exists: dashed. */}
         <View style={styles.activityCard}>
           <View style={styles.cardTopRow}>
-            <Text style={styles.cardTitle}>Bio-NPK Liquid</Text>
+            <Text style={styles.cardTitle}>{ADMIN_NO_VALUE}</Text>
             <View style={styles.badgeDanger}>
-              <Text style={styles.badgeDangerText}>Missing composition data</Text>
+              <Text style={styles.badgeDangerText}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
-          <Text style={styles.cardSubtitle}>
-            Cannot be published until Composition & Usage is complete
-          </Text>
+          <Text style={styles.cardSubtitle}>{ADMIN_NO_VALUE}</Text>
         </View>
 
         {/* Section 4: Quick Actions (5 cards) */}

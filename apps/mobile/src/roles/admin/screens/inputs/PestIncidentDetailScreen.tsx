@@ -13,6 +13,7 @@ import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import type { IncidentItem } from './FarmerPestIncidentsScreen';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   BackArrowIcon,
   LockIcon,
@@ -37,32 +38,32 @@ export function PestIncidentDetailScreen({
   onBack,
 }: PestIncidentDetailScreenProps): React.JSX.Element {
   const displayId =
-    incident?.displayId ?? (incident?.id === 'PI-0101' ? 'PI-2026-0007' : (incident?.id ?? 'PI-2026-0007'));
+    incident?.displayId ?? (incident?.id ?? ADMIN_NO_VALUE);
 
-  const displayFarmer = incident?.farmer ?? 'Ramesh Kumar';
-  const displayCrop = incident?.crop ?? 'Tomato';
-  const displayReportId = incident?.displayReportId ?? 'INC-2026-0007';
-  const displayReportedTime = '13 Oct 2026, 08:30';
-  const displayPlot = 'PLT-00124-1';
-  const displayField = `${displayCrop} · Field 1`;
-  const displayGrowthStage = 'Not provided';
-  const displayFarmerDesc = 'Demo farmer report (placeholder).';
-  const displayPhotos = 'none uploaded';
+  const displayFarmer = incident?.farmer ?? ADMIN_NO_VALUE;
+  const displayCrop = incident?.crop ?? ADMIN_NO_VALUE;
+  const displayReportId = incident?.displayReportId ?? (incident?.id ?? ADMIN_NO_VALUE);
+  const displayReportedTime = incident?.reportedDate ?? ADMIN_NO_VALUE;
+  const displayPlot = incident?.plot ?? ADMIN_NO_VALUE;
+  const displayField = incident?.crop ? `${incident.crop} · ${incident.farmZone || ADMIN_NO_VALUE}` : ADMIN_NO_VALUE;
+  const displayGrowthStage = incident?.cropStage ?? ADMIN_NO_VALUE;
+  const displayFarmerDesc = incident?.farmerNotes ?? ADMIN_NO_VALUE;
+  const displayPhotos = incident?.photos ?? ADMIN_NO_VALUE;
 
   const [linkedPest, setLinkedPest] = useState<string>('Not linked');
   const [selectedPestDraft, setSelectedPestDraft] = useState<string>('');
   const [isPestDropdownOpen, setIsPestDropdownOpen] = useState(false);
 
-  const [identificationNotes, setIdentificationNotes] = useState<string>('—');
+  const [identificationNotes, setIdentificationNotes] = useState<string>(ADMIN_NO_VALUE);
   const [linkedTreatment, setLinkedTreatment] = useState<string>('None linked');
   const [selectedTreatmentDraft, setSelectedTreatmentDraft] = useState<string>('');
   const [isTreatmentDropdownOpen, setIsTreatmentDropdownOpen] = useState(false);
 
-  const [status] = useState<string>('Ongoing');
-  const [resolutionNotes, setResolutionNotes] = useState<string>('—');
+  const status = incident?.status ?? ADMIN_NO_VALUE;
+  const [resolutionNotes, setResolutionNotes] = useState<string>(ADMIN_NO_VALUE);
   const [historyList, setHistoryList] = useState<Array<{ date: string; author: string; note: string }>>([
     {
-      date: '13 Oct 2026, 08:30',
+      date: incident?.reportedDate ?? ADMIN_NO_VALUE,
       author: displayFarmer,
       note: 'Reported: Incident reported by the farmer',
     },
@@ -87,24 +88,12 @@ export function PestIncidentDetailScreen({
     'TG-012 · Copper Oxychloride 50 WP',
   ];
 
-  const handleOpenPestModal = () => {
-    setSelectedPestDraft(linkedPest !== 'Not linked' ? linkedPest : '');
-    setIsPestDropdownOpen(false);
-    setShowPestModal(true);
-  };
-
   const handleConfirmLinkPest = () => {
     if (selectedPestDraft) {
       setLinkedPest(selectedPestDraft);
       setIdentificationNotes(`Catalog confirmed: ${selectedPestDraft}`);
     }
     setShowPestModal(false);
-  };
-
-  const handleOpenTreatmentModal = () => {
-    setSelectedTreatmentDraft(linkedTreatment !== 'None linked' ? linkedTreatment : '');
-    setIsTreatmentDropdownOpen(false);
-    setShowTreatmentModal(true);
   };
 
   const handleConfirmLinkTreatment = () => {
@@ -116,7 +105,7 @@ export function PestIncidentDetailScreen({
 
   const handleSaveReviewNote = () => {
     if (!reviewNoteInput.trim()) return;
-    const now = '16 Oct 2026, 12:15';
+    const now = ADMIN_NO_VALUE;
     setResolutionNotes(reviewNoteInput.trim());
     setHistoryList((prev) => [
       ...prev,
@@ -219,10 +208,13 @@ export function PestIncidentDetailScreen({
           </View>
         </View>
 
+        {/* No endpoint records this on an incident: drawn, disabled. */}
         <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={handleOpenPestModal}
+          style={[styles.outlineActionBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
         >
           <Text style={styles.outlineActionBtnText}>Link Pest / Disease</Text>
         </TouchableOpacity>
@@ -239,10 +231,13 @@ export function PestIncidentDetailScreen({
           </Text>
         </View>
 
+        {/* No endpoint records this on an incident: drawn, disabled. */}
         <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={handleOpenTreatmentModal}
+          style={[styles.outlineActionBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
         >
           <Text style={styles.outlineActionBtnText}>Link Treatment Guide</Text>
         </TouchableOpacity>
@@ -266,10 +261,13 @@ export function PestIncidentDetailScreen({
           </View>
         </View>
 
+        {/* No endpoint records this on an incident: drawn, disabled. */}
         <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={() => setShowReviewModal(true)}
+          style={[styles.outlineActionBtn, styles.actionUnavailable]}
+          disabled
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
         >
           <Text style={styles.outlineActionBtnText}>Record Admin Review Note</Text>
         </TouchableOpacity>
@@ -826,5 +824,8 @@ const styles = StyleSheet.create({
   popupCancelBtnText: {
     ...adminType.rowTitle,
     color: adminColors.ink,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
   },
 });

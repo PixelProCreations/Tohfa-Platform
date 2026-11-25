@@ -45,6 +45,11 @@ const hooks = vi.hoisted(() => ({
   useApplicationList: vi.fn(),
   useApproveApplication: vi.fn(),
   useRejectApplication: vi.fn(),
+  useAdvanceApplication: vi.fn(),
+  useReviewApplicationDocument: vi.fn(),
+  useReviewApplicationFmb: vi.fn(),
+  useAddApplicationNote: vi.fn(),
+  useRequestApplicationInfo: vi.fn(),
 }));
 vi.mock('../api/farmerHooks', () => hooks);
 
@@ -64,6 +69,14 @@ const ALL_CODES = [
   'farmer.application.view',
   'farmer.application.approve',
   'farmer.application.reject',
+];
+const FULL_CODES = [
+  ...ALL_CODES,
+  'farmer.application.request_info',
+  'farmer.application.advance',
+  'farmer.application.verify_document',
+  'farmer.application.verify_fmb',
+  'farmer.application.add_note',
 ];
 const allow = (codes: readonly string[]) => (c: string) => codes.includes(c);
 const DASH = t('farmerApps.notAvailable');
@@ -92,7 +105,9 @@ const DESIGN_FIXTURES = [
   'Valid till 15 Mar 2027',
   'All requirements met. Ready for approval.',
   'Review in progress.',
-  'Identity proof re-upload',
+  // 'Identity proof re-upload' is no longer listed: it is one of the design's five "What is
+  // missing?" option labels (UI vocabulary, drawn unselected), not a demo value. The design's demo
+  // STATE — that chip pre-selected, and its pre-filled message below — still may not render.
   'Please re-upload a clear scan of your identity proof',
   'M3-S03',
   'Audit Scheduled',
@@ -190,6 +205,11 @@ beforeEach(() => {
   hooks.useApplication.mockImplementation(() => ({ ...live, refresh: vi.fn(), isRefreshing: false }));
   hooks.useApproveApplication.mockImplementation(() => approve);
   hooks.useRejectApplication.mockImplementation(() => reject);
+  hooks.useAdvanceApplication.mockImplementation(() => decision());
+  hooks.useReviewApplicationDocument.mockImplementation(() => decision());
+  hooks.useReviewApplicationFmb.mockImplementation(() => decision());
+  hooks.useAddApplicationNote.mockImplementation(() => decision());
+  hooks.useRequestApplicationInfo.mockImplementation(() => decision());
 });
 
 function texts(node: ReactTestRendererJSON | ReactTestRendererJSON[] | string | null): string[] {
@@ -206,6 +226,10 @@ function allText(tree: renderer.ReactTestRenderer): string {
 
 function byTestId(tree: renderer.ReactTestRenderer, id: string): ReactTestInstance[] {
   return tree.root.findAll((n) => typeof n.type === 'string' && n.props['testID'] === id);
+}
+
+function byTestIdPrefix(tree: renderer.ReactTestRenderer, prefix: string): ReactTestInstance[] {
+  return tree.root.findAll((n) => typeof n.type === 'string' && typeof n.props['testID'] === 'string' && (n.props['testID'] as string).startsWith(prefix));
 }
 
 function mount(props: Partial<React.ComponentProps<typeof AdminApplicationDetailScreen>> = {}): renderer.ReactTestRenderer {
@@ -289,18 +313,40 @@ describe('documentReviewStage: the designed stage lines, from real fields only',
   });
 });
 
+// Owner decision 2026-11-25: no audit stage. The tracker is Submitted -> Documents Under Review
+// (-> Documents Requested) -> Farm Verification -> Final Decision, drawn with the design's dots.
 describe('lifecycleStages: from the application status, not a local tracker', () => {
+  const dot = (stages: ReturnType<typeof lifecycleStages>, key: string) => stages.find((s) => s.key === key)!.dot;
+
+  it('has exactly four stages and none of them is an audit', () => {
+    expect(lifecycleStages(detail(), 'DOCS_REVIEW').map((s) => s.key)).toEqual(['submitted', 'docsReview', 'farmVerification', 'decision']);
+  });
+
   it('marks the decision stage done only once the server decided', () => {
-    const pending = lifecycleStages(detail(), 'DOCS_REVIEW');
-    expect(pending.find((s) => s.key === 'decision')!.state).toBe('pending');
-    const approved = lifecycleStages(detail({ status: 'APPROVED' }), 'APPROVED');
-    expect(approved.find((s) => s.key === 'decision')!.state).toBe('done');
+    expect(dot(lifecycleStages(detail(), 'DOCS_REVIEW'), 'decision')).toBe('pending');
+    expect(dot(lifecycleStages(detail({ status: 'APPROVED' }), 'APPROVED'), 'decision')).toBe('done');
   });
 
   it('marks the document stage done once the application moved past it', () => {
+    const stages = lifecycleStages(detail({ status: 'FARM_VERIFICATION' }), 'FARM_VERIFICATION');
+    expect(dot(stages, 'docsReview')).toBe('done');
+    expect(dot(stages, 'farmVerification')).toBe('inProgress');
+  });
+
+  it('reads a legacy AUDIT status as farm verification in progress, never as an audit', () => {
     const stages = lifecycleStages(detail({ status: 'AUDIT' }), 'AUDIT');
-    expect(stages.find((s) => s.key === 'docsReview')!.state).toBe('done');
-    expect(stages.find((s) => s.key === 'audit')!.state).toBe('current');
+    expect(dot(stages, 'docsReview')).toBe('done');
+    expect(dot(stages, 'farmVerification')).toBe('inProgress');
+  });
+
+  it('shows the documents stage amber when the server recorded an information request', () => {
+    expect(dot(lifecycleStages(detail({ infoRequest: 'Re-upload the land record.' }), 'DOCS_REVIEW'), 'docsReview')).toBe('warning');
+  });
+
+  it('claims no middle stage for a rejected application', () => {
+    const stages = lifecycleStages(detail({ status: 'REJECTED' }), 'REJECTED');
+    expect(stages.find((s) => s.key === 'docsReview')!.lineKey).toBeNull();
+    expect(stages.find((s) => s.key === 'farmVerification')!.lineKey).toBeNull();
   });
 });
 
@@ -309,23 +355,36 @@ describe('lifecycleStages: from the application status, not a local tracker', ()
 // ---------------------------------------------------------------------------
 
 describe('document review section: what renders', () => {
-  it('renders a card per supplied category, labelled from the real docType', () => {
+  // Design of record: three fixed cards (ID Proof, Farm Documents (Land Deed), Certification
+  // (Optional)) whose file line is the uploaded file's own name; the FMB sketch is in section 03 and
+  // bank details (never collected by an application) have no card.
+  it('fills the design document cards from the real uploads', () => {
     live.application = detail({
       documents: [doc(), doc({ docType: 'FARM_DOC', docSubType: 'Patta', fileName: 'patta.pdf' })],
     });
-    const text = allText(mount());
-    expect(text).toContain(t('farmerApps.doc.type.ID_PROOF'));
-    expect(text).toContain(t('farmerApps.doc.type.FARM_DOC'));
-    expect(text).toContain('Patta');
+    const tree = mount();
+    const text = allText(tree);
+    expect(text).toContain(t('farmerApps.doc.card.ID_PROOF'));
+    expect(text).toContain(t('farmerApps.doc.card.FARM_DOC'));
+    expect(text).toContain(t('farmerApps.doc.fileLine', { name: 'patta.pdf', size: DASH }));
+    expect(byTestId(tree, 'farmerApps.docCard.FARM_DOC')).toHaveLength(1);
   });
 
-  it('draws an absent category with the dash instead of hiding the gap', () => {
+  it('keeps a docType outside the three as its own card rather than discarding it', () => {
+    live.application = detail({ documents: [doc({ docType: 'OTHER', fileName: 'extra.pdf' })] });
+    const tree = mount();
+    expect(byTestId(tree, 'farmerApps.docCard.OTHER')).toHaveLength(1);
+    expect(allText(tree)).toContain(t('farmerApps.doc.fileLine', { name: 'extra.pdf', size: DASH }));
+  });
+
+  it('draws an absent category as not provided instead of hiding the gap', () => {
     live.application = detail({ documents: [doc()] });
-    const text = allText(mount());
-    expect(text).toContain(t('farmerApps.doc.type.FARM_DOC'));
+    const tree = mount();
+    expect(byTestId(tree, 'farmerApps.docCard.FARM_DOC')).toHaveLength(1);
+    const text = allText(tree);
+    expect(text).toContain(t('farmerApps.doc.card.FARM_DOC'));
     expect(text).toContain(t('farmerApps.doc.notSupplied'));
-    expect(text).toContain(t('farmerApps.doc.category.BANK_DETAILS'));
-    expect(text).toContain(DASH);
+    expect(text).toContain(t('farmerApps.doc.badge.notProvided'));
   });
 
   it('BR-33b: an identity proof shows the masked Aadhaar and never twelve digits', () => {
@@ -334,53 +393,88 @@ describe('document review section: what renders', () => {
     expect(text).not.toMatch(/\d{12}/);
   });
 
-  it('shows "Documents Under Review" while the review is open', () => {
-    expect(allText(mount())).toContain(t('farmerApps.doc.reviewStage.underReview'));
+  it('shows the documents stage "In progress" while the review is open', () => {
+    const text = allText(mount());
+    expect(text).toContain(t('farmerApps.tracking.stage.docsReview'));
+    expect(text).toContain(t('farmerApps.tracking.line.docsInProgress'));
   });
 
-  it('shows "Documents Requested" once the server recorded an information request', () => {
+  it('shows "Documents requested" once the server recorded an information request, with its message', () => {
     live.application = detail({ infoRequest: 'Re-upload the land record.' });
-    const text = allText(mount());
-    expect(text).toContain(t('farmerApps.doc.reviewStage.requested'));
-    expect(text).toContain('Re-upload the land record.');
+    const tree = mount();
+    expect(allText(tree)).toContain(t('farmerApps.tracking.line.docsRequested'));
+    expect(byTestId(tree, 'farmerApps.moreInfo.message')[0]!.props['value']).toBe('Re-upload the land record.');
   });
 
-  it('leaves every verification badge dashed, because nothing can report a verified document', () => {
-    const text = allText(mount());
+  it('shows pending/dashed verification badge for unreviewed documents and verified badge when server confirms', () => {
+    const tree = mount();
+    const text = allText(tree);
     expect(text).not.toContain(t('farmerApps.doc.badge.verified'));
-    expect(text).toContain(t('farmerApps.doc.verifyUnavailable'));
+    const card = byTestId(tree, 'farmerApps.docCard.ID_PROOF')[0]!;
+    const cardTexts = card.findAll((n) => (n.type as unknown) === 'Text').map((n) => String(n.props['children']));
+    expect(cardTexts).toContain(DASH);
+    expect(byTestIdPrefix(tree, 'farmerApps.markVerified.')[0]!.props['accessibilityHint']).toBe(t('farmerApps.doc.permissionDenied'));
+
+    live.application = detail({
+      documents: [doc({ documentKey: 'ID_PROOF:Aadhaar Card', review: { status: 'VERIFIED', reason: null, reviewedBy: 'u1', reviewedAt: '2026-11-20T00:00:00Z' } })],
+    });
+    expect(allText(mount())).toContain(t('farmerApps.doc.badge.verified'));
   });
 });
 
-describe('controls with no endpoint stay inert', () => {
-  it('Mark verified is disabled and pressing it runs no mutation', () => {
-    const tree = mount();
-    const buttons = byTestId(tree, 'farmerApps.markVerified');
-    expect(buttons.length).toBeGreaterThan(0);
-    for (const b of buttons) {
+describe('wired review controls enforce permissions and call actions when granted', () => {
+  it('Mark verified is enabled with verify_document and disabled without it', () => {
+    live.application = detail({
+      documents: [doc({ documentKey: 'ID_PROOF:Aadhaar Card' })],
+    });
+    const denied = mount();
+    const deniedButtons = byTestIdPrefix(denied, 'farmerApps.markVerified.');
+    expect(deniedButtons.length).toBeGreaterThan(0);
+    for (const b of deniedButtons) {
       expect(b.props['disabled']).toBe(true);
       expect(b.props['onPress']).toBeUndefined();
+      expect(b.props['accessibilityHint']).toBe(t('farmerApps.doc.permissionDenied'));
     }
-    expect(approve.run).not.toHaveBeenCalled();
-    expect(reject.run).not.toHaveBeenCalled();
+
+    const enabled = mount({ can: allow(FULL_CODES) });
+    const enabledButtons = byTestIdPrefix(enabled, 'farmerApps.markVerified.');
+    expect(enabledButtons[0]!.props['disabled']).toBe(false);
+    expect(typeof enabledButtons[0]!.props['onPress']).toBe('function');
   });
 
-  it('the request-for-information form is drawn but its send button is disabled and explains why', () => {
-    const tree = mount();
-    const send = byTestId(tree, 'farmerApps.sendMoreInfo');
-    expect(send).toHaveLength(1);
-    expect(send[0]!.props['disabled']).toBe(true);
-    expect(send[0]!.props['onPress']).toBeUndefined();
-    expect(allText(tree)).toContain(t('farmerApps.moreInfo.unavailable'));
-    expect(approve.run).not.toHaveBeenCalled();
+  it('Section 06 keeps summary chips read-only while gating Open Request Info on request_info', () => {
+    const denied = mount();
+    const deniedInputs = [...byTestIdPrefix(denied, 'farmerApps.moreInfo.chip.'), ...byTestId(denied, 'farmerApps.moreInfo.message')];
+    expect(deniedInputs).toHaveLength(6);
+    for (const c of deniedInputs) {
+      expect(c.props['onPress']).toBeUndefined();
+    }
+    expect(byTestId(denied, 'farmerApps.openRequestInfo')[0]!.props['disabled']).toBe(true);
+
+    const enabled = mount({ can: allow(FULL_CODES) });
+    expect(byTestId(enabled, 'farmerApps.openRequestInfo')[0]!.props['disabled']).toBe(false);
+    expect(typeof byTestId(enabled, 'farmerApps.openRequestInfo')[0]!.props['onPress']).toBe('function');
   });
 
-  it('the tracking-status control is drawn but cannot be changed from this screen', () => {
-    const tree = mount();
-    const control = byTestId(tree, 'farmerApps.updateTracking');
-    expect(control).toHaveLength(1);
-    expect(control[0]!.props['disabled']).toBe(true);
-    expect(allText(tree)).toContain(t('farmerApps.tracking.updateUnavailable'));
+  it('the tracking-status control enforces advance permission', () => {
+    const denied = mount();
+    const deniedControl = byTestId(denied, 'farmerApps.updateTracking');
+    expect(deniedControl).toHaveLength(1);
+    expect(deniedControl[0]!.props['disabled']).toBe(true);
+    expect(deniedControl[0]!.props['onPress']).toBeUndefined();
+    expect(deniedControl[0]!.props['accessibilityHint']).toBe(t('farmerApps.tracking.moveDenied'));
+
+    live.application = detail({
+      status: 'DOCS_REVIEW',
+      reviewGates: {
+        farmVerification: { met: true, blockers: [] },
+        approval: { met: false, blockers: [] },
+      },
+    });
+    const enabled = mount({ can: allow(FULL_CODES) });
+    const enabledControl = byTestId(enabled, 'farmerApps.updateTracking');
+    expect(enabledControl[0]!.props['disabled']).toBe(false);
+    expect(typeof enabledControl[0]!.props['onPress']).toBe('function');
   });
 
   it('the document preview opens from the real document and names no designed file', () => {
@@ -389,8 +483,9 @@ describe('controls with no endpoint stay inert', () => {
       (byTestId(tree, 'farmerApps.preview')[0]!.props['onPress'] as () => void)();
     });
     const text = allText(tree);
-    expect(text).toContain(t('farmerApps.doc.previewTitle'));
+    expect(text).toContain(t('farmerApps.doc.card.ID_PROOF'));
     expect(text).toContain('id.jpg');
+    expect(text).toContain(t('farmerApps.doc.fileMeta', { size: DASH, format: 'JPG' }));
   });
 });
 

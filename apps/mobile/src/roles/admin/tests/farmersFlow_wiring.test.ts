@@ -135,13 +135,22 @@ describe('farmers entry wiring: every entry is gated by farmer.profile.view_all'
 });
 
 describe('farmers entry wiring: removed screens and catalogue', () => {
-  it('the Approve and Request-info screens and the demo applications are gone', () => {
+  /**
+   * 2026-11-25: the legacy demo Approve / Request-info screens stay gone, but
+   * the brief ported the design of record's versions back, API-backed and
+   * reached from the review screen (not from App.tsx). What is still protected:
+   * no demo applications, and neither screen takes a host fixture item or
+   * imports a demo catalogue.
+   */
+  it('the demo applications are gone; the re-ported Approve / Request-info screens are API-backed', () => {
     const reg = 'roles/admin/screens/registration';
-    for (const f of ['AdminApplicationApproveScreen.tsx', 'AdminApplicationRequestInfoScreen.tsx', 'legacyDemoApplications.ts']) {
-      expect(exists(`${reg}/${f}`), f).toBe(false);
+    expect(exists(`${reg}/legacyDemoApplications.ts`)).toBe(false);
+    for (const f of ['AdminApplicationApproveScreen.tsx', 'AdminApplicationRequestInfoScreen.tsx']) {
+      const src = code(read(`${reg}/${f}`));
+      expect(src, f).toMatch(/useApplication\(/);
+      expect(src, f).not.toMatch(/DEMO_PENDING_APPLICATIONS|legacyDemoApplications|PendingApplicationItem/);
     }
-    const index = read(`${reg}/index.ts`);
-    expect(index).not.toMatch(/Approve|RequestInfo|DEMO_PENDING_APPLICATIONS/);
+    expect(read(`${reg}/index.ts`)).not.toMatch(/DEMO_PENDING_APPLICATIONS/);
   });
 
   it('DEMO_ALL_FARMERS is gone; only the legacy FarmerListItem type remains for the satellite screens', () => {

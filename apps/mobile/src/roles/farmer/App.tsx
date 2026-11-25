@@ -1546,7 +1546,7 @@ export default function App(): React.JSX.Element {
             }
           />
         ) : screen === 'SalesReturnsRefunds' ? (
-          <SalesReturnsRefundsScreen onBack={goBack} />
+          <SalesReturnsRefundsScreen onBack={goBack} can={warehouseCan} />
         ) : screen === 'FinancialDashboard' ? (
           <FinancialDashboardScreen
             onBack={goBack}

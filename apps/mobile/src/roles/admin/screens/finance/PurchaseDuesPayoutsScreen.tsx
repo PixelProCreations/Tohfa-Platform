@@ -1,3 +1,22 @@
+/**
+ * Accounts & Finance > Purchase Dues & Farmer Payouts (HEAD port of the
+ * origin/Superadmin-main design). Live from two reads:
+ *   GET /admin/payouts       payout.view       (cursor paged, no totals)
+ *   GET /admin/payout-dues   payout.dues.view  (totals cover every due)
+ *
+ * Honesty rules (brief 07):
+ *  - Each payout shows its own server status (APPROVED is "Approved", not
+ *    "Pending initiation"); a due is "Not yet a payout".
+ *  - KPI tiles: a count of loaded rows is shown only when the whole list is in
+ *    (R4); "(PERIOD)" tiles have no period to count over, and "Pending
+ *    initiation", "Unrequested dues" and "Overdue" have no server figure, so
+ *    they are dashes (R1, R5). farmerCount is a count of farmers, not of dues.
+ *  - No dual-authorization claim: the list rows carry no flag (R8, BR-31).
+ *  - No invented ids (`DUE-…`), quantities, prices or PO statuses (R9). The
+ *    drill-down to PurchaseOrderPayoutScreen needed exactly those invented
+ *    fields (PurchaseOrderRecord takes numbers and fixed statuses), so the
+ *    cards do not open it; see the W2 report.
+ */
 import React, { useState, useMemo } from 'react';
 import {
   SafeAreaView,
@@ -12,8 +31,15 @@ import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors, adminShadow, adminSpacing, adminType } from '../../theme';
 import { OverviewDashboardCard } from '../../components/OverviewDashboardCard';
-import { PurchaseOrderPayoutScreen } from '../sales/PurchaseOrderPayoutScreen';
-import type { PurchaseOrderRecord } from '../sales/PurchaseSalesOrdersScreen';
+import { listPayouts, type PayoutListItemDto } from '../../api/payouts';
+import { listPayoutDues, type PayoutDueDto } from '../../api/payoutDues';
+import { useAdminQuery } from '../../api/hooks';
+import { adminKeys } from '../../api/queryKeys';
+import { hasKey, t, type TranslationKey } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { formatAdminDate } from '../../utils/datetime';
+import { countText, moneyText } from '../dashboard/saOverviewFormat';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -54,285 +80,61 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
   );
 }
 
+type RecordTone = 'blue' | 'red' | 'green' | 'amber' | 'gray';
+
 export interface PayoutListItem {
   id: string;
   title: string;
-  status: 'Awaiting approval' | 'Failed' | 'Paid' | 'Not yet a payout' | 'Pending initiation';
+  statusLabel: string;
+  tone: RecordTone;
   line1: string;
-  line2?: string;
-  isAlert?: boolean;
-  orderRecord: PurchaseOrderRecord;
+  line2?: string | undefined;
 }
 
-const DUES_PAYOUTS_DATA: PayoutListItem[] = [
-  {
-    id: 'pay-1',
-    title: 'PY-0002 · Kumar Farm',
-    status: 'Awaiting approval',
-    line1: 'PO-0002 · 300 kg accepted · ₹18,000.00',
-    line2: 'Above ₹10,000: needs a Super Admin who is not the initiator',
-    isAlert: true,
-    orderRecord: {
-      id: 'po-kum-2',
-      poNumber: 'PO-0002',
-      payoutId: 'PY-0002',
-      farmerId: 'FMR-00098',
-      farmerName: 'Kumar',
-      produceName: 'Beans',
-      grade: 'Grade 1',
-      quantityKg: 300,
-      unitPrice: 42,
-      totalPrice: 12600,
-      warehouse: 'Main Warehouse, Ooty',
-      dateStr: '8 Oct 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Awaiting approval',
-      goodsReceiptId: 'GR-0002',
-      listingCode: 'LST-2902',
-    },
-  },
-  {
-    id: 'pay-2',
-    title: 'PY-0005 · Kumar village farming',
-    status: 'Failed',
-    line1: 'PO-0009 · 60 kg accepted · ₹3,300.00',
-    line2: 'Declined by the bank (demo) · No retry — not defined',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-kum-5',
-      poNumber: 'PO-0009',
-      payoutId: 'PY-0005',
-      farmerId: 'FMR-00098',
-      farmerName: 'Kumar',
-      produceName: 'Beans',
-      grade: 'Grade 2',
-      quantityKg: 60,
-      unitPrice: 55,
-      totalPrice: 3300,
-      warehouse: 'Main Warehouse, Ooty',
-      dateStr: '6 Oct 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Failed',
-      goodsReceiptId: 'GR-0009',
-      listingCode: 'LST-2909',
-    },
-  },
-  {
-    id: 'pay-3',
-    title: 'PY-0001 · Rajesh Farm',
-    status: 'Paid',
-    line1: 'PO-0009 · 60 kg accepted · ₹3,300.00',
-    line2: 'Declined by the bank (demo) · No retry — not defined',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-raj-1',
-      poNumber: 'PO-0009',
-      payoutId: 'PY-0001',
-      farmerId: 'FMR-00045',
-      farmerName: 'Rajesh',
-      produceName: 'Potato',
-      grade: 'Grade 1',
-      quantityKg: 60,
-      unitPrice: 55,
-      totalPrice: 3300,
-      warehouse: 'Main Warehouse, Ooty',
-      dateStr: '5 Oct 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Paid',
-      goodsReceiptId: 'GR-0001',
-      listingCode: 'LST-2901',
-    },
-  },
-  {
-    id: 'pay-4',
-    title: 'Unrequested due · Selvi',
-    status: 'Not yet a payout',
-    line1: 'GR-0003 · 120 kg accepted · ₹2,400.00',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-sel-4',
-      poNumber: 'PO-0012',
-      payoutId: 'PY-0010',
-      farmerId: 'FMR-00082',
-      farmerName: 'Selvi',
-      produceName: 'Carrot',
-      grade: 'Grade 2',
-      quantityKg: 120,
-      unitPrice: 20,
-      totalPrice: 2400,
-      warehouse: 'Sub Warehouse, Coonoor',
-      dateStr: '10 Oct 2026',
-      purchaseStatus: 'Open',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Not yet a payout',
-      goodsReceiptId: 'GR-0003',
-      listingCode: 'LST-2912',
-    },
-  },
-  {
-    id: 'pay-5',
-    title: 'PY-0003 · Vijay Farm',
-    status: 'Paid',
-    line1: 'PO-0003 · 200 kg accepted · ₹8,200.00',
-    line2: 'Processed via bank transfer · Completed',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-vij-3',
-      poNumber: 'PO-0003',
-      payoutId: 'PY-0003',
-      farmerId: 'FMR-00234',
-      farmerName: 'Vijay Anand',
-      produceName: 'Cabbage',
-      grade: 'Grade 1',
-      quantityKg: 200,
-      unitPrice: 41,
-      totalPrice: 8200,
-      warehouse: 'Main Warehouse, Ooty',
-      dateStr: '4 Oct 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Paid',
-      goodsReceiptId: 'GR-0003',
-      listingCode: 'LST-2903',
-    },
-  },
-  {
-    id: 'pay-6',
-    title: 'PY-0004 · Meena Farm',
-    status: 'Awaiting approval',
-    line1: 'PO-0008 · 90 kg accepted · ₹3,150.00',
-    line2: 'Awaiting dual authorization',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-mee-4',
-      poNumber: 'PO-0008',
-      payoutId: 'PY-0004',
-      farmerId: 'FMR-00055',
-      farmerName: 'Meena',
-      produceName: 'Carrot',
-      grade: 'Grade 2',
-      quantityKg: 90,
-      unitPrice: 35,
-      totalPrice: 3150,
-      warehouse: 'Sub Warehouse, Coonoor',
-      dateStr: '24 Sep 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Awaiting approval',
-      goodsReceiptId: 'GR-0004',
-      listingCode: 'LST-2908',
-    },
-  },
-  {
-    id: 'pay-7',
-    title: 'PY-0006 · Ramesh Farm',
-    status: 'Pending initiation',
-    line1: 'PO-0006 · 150 kg accepted · ₹4,500.00',
-    line2: 'Pending initiation by Accounts team',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-ram-6',
-      poNumber: 'PO-0006',
-      payoutId: 'PY-0006',
-      farmerId: 'FMR-00102',
-      farmerName: 'Ramesh',
-      produceName: 'Potato',
-      grade: 'Grade 2',
-      quantityKg: 150,
-      unitPrice: 30,
-      totalPrice: 4500,
-      warehouse: 'Main Warehouse, Ooty',
-      dateStr: '2 Oct 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Pending initiation',
-      goodsReceiptId: 'GR-0006',
-      listingCode: 'LST-2906',
-    },
-  },
-  {
-    id: 'pay-8',
-    title: 'PY-0007 · Praveen Raj',
-    status: 'Pending initiation',
-    line1: 'PO-0007 · 220 kg accepted · ₹7,700.00',
-    line2: 'Pending initiation by Accounts team',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-pra-7',
-      poNumber: 'PO-0007',
-      payoutId: 'PY-0007',
-      farmerId: 'FMR-00411',
-      farmerName: 'Praveen Raj',
-      produceName: 'Beans',
-      grade: 'Grade 1',
-      quantityKg: 220,
-      unitPrice: 35,
-      totalPrice: 7700,
-      warehouse: 'Sub Warehouse, Coonoor',
-      dateStr: '1 Oct 2026',
-      purchaseStatus: 'Closed',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Pending initiation',
-      goodsReceiptId: 'GR-0007',
-      listingCode: 'LST-2907',
-    },
-  },
-  {
-    id: 'pay-9',
-    title: 'Unrequested due · Anand',
-    status: 'Not yet a payout',
-    line1: 'GR-0004 · 80 kg accepted · ₹1,600.00',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-ana-9',
-      poNumber: 'PO-0014',
-      payoutId: 'PY-0014',
-      farmerId: 'FMR-00301',
-      farmerName: 'Anand',
-      produceName: 'Beetroot',
-      grade: 'Grade 2',
-      quantityKg: 80,
-      unitPrice: 20,
-      totalPrice: 1600,
-      warehouse: 'Main Warehouse, Ooty',
-      dateStr: '11 Oct 2026',
-      purchaseStatus: 'Open',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Not yet a payout',
-      goodsReceiptId: 'GR-0004',
-      listingCode: 'LST-2914',
-    },
-  },
-  {
-    id: 'pay-10',
-    title: 'Unrequested due · Murugan',
-    status: 'Not yet a payout',
-    line1: 'GR-0005 · 100 kg accepted · ₹2,000.00',
-    isAlert: false,
-    orderRecord: {
-      id: 'po-mur-10',
-      poNumber: 'PO-0015',
-      payoutId: 'PY-0015',
-      farmerId: 'FMR-00302',
-      farmerName: 'Murugan',
-      produceName: 'Cabbage',
-      grade: 'Grade 2',
-      quantityKg: 100,
-      unitPrice: 20,
-      totalPrice: 2000,
-      warehouse: 'Sub Warehouse, Coonoor',
-      dateStr: '12 Oct 2026',
-      purchaseStatus: 'Open',
-      receiptStatus: 'Completed',
-      payoutStatus: 'Not yet a payout',
-      goodsReceiptId: 'GR-0005',
-      listingCode: 'LST-2915',
-    },
-  },
-];
+/** Badge tone of each payout status (openapi PayoutStatus plus the list filter's REJECTED). */
+const PAYOUT_TONE: Readonly<Record<string, RecordTone>> = {
+  REQUESTED: 'blue',
+  PENDING_APPROVAL: 'blue',
+  APPROVED: 'gray',
+  PROCESSING: 'gray',
+  PAID: 'green',
+  FAILED: 'red',
+  REVERSED: 'red',
+  REJECTED: 'red',
+};
+
+/** A payout status as words; one the app does not know is shown as sent, never guessed. */
+export function payoutRecordStatus(status: string): { label: string; tone: RecordTone } {
+  const key = `wiringPayouts.payoutStatus.${status}`;
+  return { label: hasKey(key) ? t(key as TranslationKey) : status, tone: PAYOUT_TONE[status] ?? 'gray' };
+}
+
+export function toPayoutRecord(p: PayoutListItemDto, now: Date): PayoutListItem {
+  const view = payoutRecordStatus(p.status);
+  const requested = p.requestedAt ? formatAdminDate(p.requestedAt, now) : '';
+  return {
+    id: p.id,
+    title: `${p.payoutNumber} · ${p.farmerName || ADMIN_NO_VALUE}`,
+    statusLabel: view.label,
+    tone: view.tone,
+    line1: t('wiringPayouts.purchaseDues.payoutLine', { amount: moneyText(p.amount), date: requested || ADMIN_NO_VALUE }),
+  };
+}
+
+export function toDueRecord(d: PayoutDueDto): PayoutListItem {
+  return {
+    id: `due:${d.id}`,
+    title: t('wiringPayouts.purchaseDues.dueTitle', { name: d.farmerName || ADMIN_NO_VALUE }),
+    statusLabel: t('wiringPayouts.payoutStatus.notYet'),
+    tone: 'amber',
+    // The goods receipt is only a uuid here, so its slot is the dash (R9).
+    line1: t('wiringPayouts.purchaseDues.dueLine', { receipt: ADMIN_NO_VALUE, amount: moneyText(d.amountDue) }),
+    line2: typeof d.ageDays === 'number' ? t('wiringPayouts.purchaseDues.dueAge', { days: d.ageDays }) : undefined,
+  };
+}
+
+/** API maximum page size. */
+const PAGE_LIMIT = 100;
 
 export interface PurchaseDuesPayoutsScreenProps {
   onBack: () => void;
@@ -340,29 +142,46 @@ export interface PurchaseDuesPayoutsScreenProps {
 
 export function PurchaseDuesPayoutsScreen({ onBack }: PurchaseDuesPayoutsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPayoutOrder, setSelectedPayoutOrder] = useState<PurchaseOrderRecord | null>(null);
-  const [selectedCardId, setSelectedCardId] = useState<string>('pay-1');
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
+  const payoutsQuery = useAdminQuery(adminKeys.scoped('payouts', undefined, { resource: 'list' }), (signal) =>
+    listPayouts({ limit: PAGE_LIMIT }, signal),
+  );
+  const duesQuery = useAdminQuery(adminKeys.scoped('payoutDues', undefined, { resource: 'list', buckets: 'all' }), (signal) =>
+    listPayoutDues({ limit: PAGE_LIMIT }, signal),
+  );
+
+  const allItems: PayoutListItem[] = useMemo(() => {
+    const now = new Date();
+    return [...(payoutsQuery.data?.items ?? []).map((p) => toPayoutRecord(p, now)), ...(duesQuery.data?.items ?? []).map(toDueRecord)];
+  }, [payoutsQuery.data, duesQuery.data]);
 
   const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return DUES_PAYOUTS_DATA;
+    if (!searchQuery.trim()) return allItems;
     const q = searchQuery.toLowerCase().trim();
-    return DUES_PAYOUTS_DATA.filter(
+    return allItems.filter(
       (item) =>
         item.title.toLowerCase().includes(q) ||
         item.line1.toLowerCase().includes(q) ||
-        (item.line2 && item.line2.toLowerCase().includes(q)) ||
-        item.status.toLowerCase().includes(q)
+        (item.line2 !== undefined && item.line2.toLowerCase().includes(q)) ||
+        item.statusLabel.toLowerCase().includes(q),
     );
-  }, [searchQuery]);
+  }, [allItems, searchQuery]);
 
-  if (selectedPayoutOrder) {
-    return (
-      <PurchaseOrderPayoutScreen
-        order={selectedPayoutOrder}
-        onBack={() => setSelectedPayoutOrder(null)}
-      />
-    );
-  }
+  // R4: a count of loaded rows is a total only when the server said there is no more.
+  const payouts = payoutsQuery.data;
+  const payoutsComplete = payouts !== undefined && !payouts.hasMore;
+  const dues = duesQuery.data;
+  const duesComplete = dues !== undefined && !dues.page.hasMore;
+  const countWhere = (pred: (p: PayoutListItemDto) => boolean) =>
+    payoutsComplete ? countText(payouts.items.filter(pred).length) : ADMIN_NO_VALUE;
+  const awaitingText = countWhere((p) => p.status === 'REQUESTED' || p.status === 'PENDING_APPROVAL');
+  const failedText = countWhere((p) => p.status === 'FAILED');
+  const payoutCountText = payoutsComplete ? countText(payouts.items.length) : ADMIN_NO_VALUE;
+  const dueCountText = duesComplete ? countText(dues.items.length) : ADMIN_NO_VALUE;
+
+  const isPending = payoutsQuery.isPending || duesQuery.isPending;
+  const error = payoutsQuery.error ?? duesQuery.error;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -390,50 +209,16 @@ export function PurchaseDuesPayoutsScreen({ onBack }: PurchaseDuesPayoutsScreenP
       >
         {/* ── 6 KPI Cards in 2 columns ── */}
         <View style={styles.kpiGrid}>
-          <OverviewDashboardCard
-            title="TOTAL PAYOUTS (PERIOD)"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-          />
-          <OverviewDashboardCard
-            title="PENDING INITIATION"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-          />
-          <OverviewDashboardCard
-            title="AWAITING APPROVAL"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-          />
-          <OverviewDashboardCard
-            title="PAID (PERIOD)"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-          />
-          <OverviewDashboardCard
-            title="FAILED"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-          />
-          <OverviewDashboardCard
-            title="UNREQUESTED DUES"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCard}
-          />
+          {/* No period is set on this screen, so the (PERIOD) tiles have nothing to count over. */}
+          <OverviewDashboardCard title="TOTAL PAYOUTS (PERIOD)" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="PENDING INITIATION" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="AWAITING APPROVAL" value={awaitingText} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="PAID (PERIOD)" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="FAILED" value={failedText} titlePosition="top" style={styles.kpiCard} />
+          <OverviewDashboardCard title="UNREQUESTED DUES" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCard} />
 
           {/* Full-width card: Overdue */}
-          <OverviewDashboardCard
-            title="OVERDUE (PERIOD YOU SET)"
-            value="—"
-            titlePosition="top"
-            style={styles.kpiCardFull}
-          />
+          <OverviewDashboardCard title="OVERDUE (PERIOD YOU SET)" value={ADMIN_NO_VALUE} titlePosition="top" style={styles.kpiCardFull} />
         </View>
 
         {/* ── Search & Filter Bar ── */}
@@ -459,59 +244,66 @@ export function PurchaseDuesPayoutsScreen({ onBack }: PurchaseDuesPayoutsScreenP
         </View>
 
         {/* ── Counter Line ── */}
-        <Text style={styles.counterText}>8 payouts · 3 unrequested dues</Text>
+        <Text style={styles.counterText}>
+          {t('wiringPayouts.purchaseDues.counter', { payouts: payoutCountText, dues: dueCountText })}
+        </Text>
 
         {/* ── Records List ── */}
-        {filteredItems.map((item) => {
-          const isAwaiting = item.status === 'Awaiting approval';
-          const isFailed = item.status === 'Failed';
-          const isPaid = item.status === 'Paid';
-          const isNotYet = item.status === 'Not yet a payout';
-
-          return (
+        {isPending ? (
+          <AdminLoadingState label={t('wiringPayouts.purchaseDues.loading')} />
+        ) : error && allItems.length === 0 ? (
+          <AdminErrorState
+            error={error}
+            onRetry={() => {
+              void payoutsQuery.refetch();
+              void duesQuery.refetch();
+            }}
+          />
+        ) : filteredItems.length === 0 ? (
+          <AdminEmptyState
+            title={t('wiringPayouts.purchaseDues.empty.title')}
+            subtitle={t(searchQuery ? 'wiringPayouts.purchaseDues.empty.search' : 'wiringPayouts.purchaseDues.empty.subtitle')}
+          />
+        ) : (
+          filteredItems.map((item) => (
             <TouchableOpacity
               key={item.id}
-              style={[
-                styles.recordCard,
-                selectedCardId === item.id && styles.recordCardAlert,
-              ]}
-              onPress={() => {
-                setSelectedCardId(item.id);
-                setSelectedPayoutOrder(item.orderRecord);
-              }}
+              style={[styles.recordCard, selectedCardId === item.id && styles.recordCardAlert]}
+              onPress={() => setSelectedCardId(item.id)}
               activeOpacity={0.8}
+              testID={`purchaseDues.record.${item.id}`}
             >
               <View style={styles.recordHeaderRow}>
                 <Text style={styles.recordTitle}>{item.title}</Text>
                 <View
                   style={[
                     styles.statusBadge,
-                    isAwaiting
+                    item.tone === 'blue'
                       ? styles.badgeBlue
-                      : isFailed
-                      ? styles.badgeRed
-                      : isPaid
-                      ? styles.badgeGreen
-                      : isNotYet
-                      ? styles.badgeAmber
-                      : styles.badgeGray,
+                      : item.tone === 'red'
+                        ? styles.badgeRed
+                        : item.tone === 'green'
+                          ? styles.badgeGreen
+                          : item.tone === 'amber'
+                            ? styles.badgeAmber
+                            : styles.badgeGray,
                   ]}
                 >
                   <Text
                     style={[
                       styles.badgeText,
-                      isAwaiting
+                      item.tone === 'blue'
                         ? styles.badgeTextBlue
-                        : isFailed
-                        ? styles.badgeTextRed
-                        : isPaid
-                        ? styles.badgeTextGreen
-                        : isNotYet
-                        ? styles.badgeTextAmber
-                        : styles.badgeTextGray,
+                        : item.tone === 'red'
+                          ? styles.badgeTextRed
+                          : item.tone === 'green'
+                            ? styles.badgeTextGreen
+                            : item.tone === 'amber'
+                              ? styles.badgeTextAmber
+                              : styles.badgeTextGray,
                     ]}
                   >
-                    {item.status}
+                    {item.statusLabel}
                   </Text>
                 </View>
               </View>
@@ -519,8 +311,8 @@ export function PurchaseDuesPayoutsScreen({ onBack }: PurchaseDuesPayoutsScreenP
               <Text style={styles.recordLine1}>{item.line1}</Text>
               {item.line2 ? <Text style={styles.recordLine2}>{item.line2}</Text> : null}
             </TouchableOpacity>
-          );
-        })}
+          ))
+        )}
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>

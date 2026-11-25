@@ -14,6 +14,7 @@ import {
   applicationErrorKey,
   listStatusParam,
   maskAadhaar,
+  PENDING_FILTERS,
   PENDING_REVIEW_STATUSES,
   pendingRows,
   searchApplications,
@@ -58,7 +59,16 @@ const allow = (codes: readonly string[]) => (c: string) => codes.includes(c);
 
 describe('applicationAccess (fail closed, codes only)', () => {
   it('denies everything when no `can` is given', () => {
-    expect(applicationAccess(undefined)).toEqual({ canList: false, canView: false, canDecide: false });
+    expect(applicationAccess(undefined)).toEqual({
+      canList: false,
+      canView: false,
+      canDecide: false,
+      canRequestInfo: false,
+      canAdvance: false,
+      canVerifyDocument: false,
+      canVerifyFmb: false,
+      canAddNote: false,
+    });
   });
 
   it('a SUPER/TOHFA-like grant can list, view and decide', () => {
@@ -68,16 +78,54 @@ describe('applicationAccess (fail closed, codes only)', () => {
       'farmer.application.approve',
       'farmer.application.reject',
     ]);
-    expect(applicationAccess(can)).toEqual({ canList: true, canView: true, canDecide: true });
+    expect(applicationAccess(can)).toEqual({
+      canList: true,
+      canView: true,
+      canDecide: true,
+      canRequestInfo: false,
+      canAdvance: false,
+      canVerifyDocument: false,
+      canVerifyFmb: false,
+      canAddNote: false,
+    });
   });
 
   it('a Farmer-Admin-like grant (approve at view level, no reject) can view but not decide', () => {
     const can = allow(['farmer.application.list_pending', 'farmer.application.view', 'farmer.application.approve']);
-    expect(applicationAccess(can)).toEqual({ canList: true, canView: true, canDecide: false });
+    expect(applicationAccess(can)).toEqual({
+      canList: true,
+      canView: true,
+      canDecide: false,
+      canRequestInfo: false,
+      canAdvance: false,
+      canVerifyDocument: false,
+      canVerifyFmb: false,
+      canAddNote: false,
+    });
   });
 
   it('reject alone does not allow deciding either', () => {
     expect(applicationAccess(allow(['farmer.application.reject'])).canDecide).toBe(false);
+  });
+
+  it('opening Request More Info needs its own code, farmer.application.request_info', () => {
+    expect(applicationAccess(allow(['farmer.application.request_info'])).canRequestInfo).toBe(true);
+    expect(applicationAccess(allow(['farmer.application.approve', 'farmer.application.reject'])).canRequestInfo).toBe(false);
+  });
+
+  it('grants advance, verifyDocument, verifyFmb, and addNote only from their explicit codes', () => {
+    const can = allow([
+      'farmer.application.advance',
+      'farmer.application.verify_document',
+      'farmer.application.verify_fmb',
+      'farmer.application.add_note',
+    ]);
+    const a = applicationAccess(can);
+    expect(a.canAdvance).toBe(true);
+    expect(a.canVerifyDocument).toBe(true);
+    expect(a.canVerifyFmb).toBe(true);
+    expect(a.canAddNote).toBe(true);
+    expect(a.canDecide).toBe(false);
   });
 });
 
@@ -101,6 +149,11 @@ describe('pending list', () => {
     expect(PENDING_REVIEW_STATUSES).toEqual(['SUBMITTED', 'DOCS_REVIEW', 'FARM_VERIFICATION', 'AUDIT']);
     expect(listStatusParam('ALL')).toBeUndefined();
     expect(listStatusParam('DOCS_REVIEW')).toBe('DOCS_REVIEW');
+  });
+
+  it('offers no AUDIT filter chip (owner decision 2026-11-25), while an AUDIT row stays in "All"', () => {
+    expect(PENDING_FILTERS).toEqual(['ALL', 'SUBMITTED', 'DOCS_REVIEW', 'FARM_VERIFICATION']);
+    expect(PENDING_FILTERS).not.toContain('AUDIT');
   });
 
   it('search matches name, mobile and village; it never filters by zone or role', () => {

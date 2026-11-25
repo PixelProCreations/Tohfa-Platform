@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -24,6 +24,13 @@ import {
   FilterSlidersIcon,
   SearchIcon,
 } from './produceIcons';
+import { useProduceRecordList } from '../../api/produceHooks';
+import type { ProduceRecordSummaryDto } from '../../api/w5ProduceRecords';
+import type { Can } from '../../permissions/can';
+import { formatAdminDay } from '../../utils/datetime';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 export interface CompareCropCyclesModalProps {
   visible: boolean;
@@ -52,36 +59,36 @@ export function CompareCropCyclesModal({
           <View style={styles.compareTableBox}>
             <View style={styles.compareTableRow}>
               <View style={{ width: 85 }} />
-              <Text style={styles.compareColHeader}>CR-2026-0040</Text>
-              <Text style={styles.compareColHeader}>CR-2026-0031</Text>
+              <Text style={styles.compareColHeader}>Record A</Text>
+              <Text style={styles.compareColHeader}>Record B</Text>
             </View>
             <View style={styles.dottedDivider} />
 
             <View style={styles.compareTableRow}>
               <Text style={styles.compareRowLabel}>Crop</Text>
-              <Text style={styles.compareRowValue}>Potato</Text>
-              <Text style={styles.compareRowValue}>Cabbage</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.dottedDivider} />
 
             <View style={styles.compareTableRow}>
               <Text style={styles.compareRowLabel}>Season</Text>
-              <Text style={styles.compareRowValue}>Winter 2026</Text>
-              <Text style={styles.compareRowValue}>Winter 2026</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.dottedDivider} />
 
             <View style={styles.compareTableRow}>
               <Text style={styles.compareRowLabel}>Zone / plot</Text>
-              <Text style={styles.compareRowValue}>Kotagiri · PLT-00221-2</Text>
-              <Text style={styles.compareRowValue}>Gudalur · PLT-00127-2</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
             </View>
             <View style={styles.dottedDivider} />
 
             <View style={styles.compareTableRow}>
               <Text style={styles.compareRowLabel}>Quantity</Text>
-              <Text style={styles.compareRowValue}>5,225 KG</Text>
-              <Text style={styles.compareRowValue}>5,700 KG</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
+              <Text style={styles.compareRowValue}>{ADMIN_NO_VALUE}</Text>
             </View>
           </View>
 
@@ -94,7 +101,45 @@ export function CompareCropCyclesModal({
   );
 }
 
+export interface HistoryRecordItem {
+  id: string;
+  title: string;
+  badge: string;
+  farmerLine: string;
+  plotLine: string;
+  datesLine: string;
+  quantityLine: string;
+}
+
+/**
+ * One harvested crop record as a history card, from openapi CropRecordSummary
+ * only. The record has no human-readable code (its id is a UUID and is never
+ * shown), and neither season nor entry source is sent, so those are dashed.
+ */
+export function toHistoryRecordItem(r: ProduceRecordSummaryDto): HistoryRecordItem {
+  const day = (iso: string | null) => (iso === null ? ADMIN_NO_VALUE : formatAdminDay(iso) || ADMIN_NO_VALUE);
+  return {
+    id: r.id,
+    title: t('wiringFarmers.produce.history.title', { crop: r.crop.name, season: ADMIN_NO_VALUE }),
+    badge: t(`wiringFarmers.produce.status.${r.status}`),
+    farmerLine: t('wiringFarmers.produce.history.farmerLine', {
+      record: ADMIN_NO_VALUE,
+      code: r.farmer.tohfaFarmerId,
+      name: r.farmer.name,
+    }),
+    plotLine: t('wiringFarmers.produce.history.plotLine', { zone: r.zone?.name ?? ADMIN_NO_VALUE, plot: r.plot.name }),
+    datesLine: t('wiringFarmers.produce.history.datesLine', { planted: day(r.plantedOn), harvested: day(r.actualHarvestOn) }),
+    quantityLine: t('wiringFarmers.produce.history.quantityLine', {
+      quantity: r.actualYieldKg === null ? ADMIN_NO_VALUE : String(r.actualYieldKg),
+      source: ADMIN_NO_VALUE,
+    }),
+  };
+}
+
+const HARVESTED_ONLY = ['HARVESTED'] as const;
+
 export interface CropHistoryRecordsScreenProps {
+  can: Can;
   onBack: () => void;
   onOpenCompareModal?: () => void;
   onSelectCropRecord: (recordId: string) => void;
@@ -103,7 +148,13 @@ export interface CropHistoryRecordsScreenProps {
   onToggleCompare?: (recordId: string) => void;
 }
 
+/**
+ * Completed crop cycles: GET /admin/produce/records?status=HARVESTED
+ * (produce.calendar.view_consolidated). The counter is the server's
+ * `page.total`, never the length of a loaded page.
+ */
 export function CropHistoryRecordsScreen({
+  can,
   onBack,
   onOpenCompareModal,
   onSelectCropRecord,
@@ -125,35 +176,60 @@ export function CropHistoryRecordsScreen({
   const handleOpenCompare = onOpenCompareModal ?? (() => setCompareModalVisible(true));
   const handleCloseCompare = () => setCompareModalVisible(false);
 
-  const historyRecords = [
-    {
-      id: 'CR-2026-0040',
-      title: 'Potato · Winter 2026',
-      badge: 'Harvested',
-      farmerLine: 'CR-2026-0040 · FMR-00221 · Priya',
-      plotLine: 'Kotagiri · PLT-00221-2',
-      datesLine: 'Planted 17 Jun 2026 · Harvested 28 Sep 2026',
-      quantityLine: 'Quantity 5,225 KG · Source Farmer entry',
-    },
-    {
-      id: 'CR-2026-0031',
-      title: 'Cabbage · Winter 2026',
-      badge: 'Harvested',
-      farmerLine: 'CR-2026-0031 · FMR-00127 · Senthil',
-      plotLine: 'Gudalur · PLT-00127-2',
-      datesLine: 'Planted 30 Jun 2026 · Harvested 26 Sep 2026',
-      quantityLine: 'Quantity 5,700 KG · Source Farmer entry',
-    },
-    {
-      id: 'CR-2026-0024',
-      title: 'Carrot · Winter 2026',
-      badge: 'Harvested',
-      farmerLine: 'CR-2026-0024 · FMR-00146 · Sundar',
-      plotLine: 'Gudalur · PLT-00146-1',
-      datesLine: 'Planted 9 Jun 2026 · Harvested 20 Sep 2026',
-      quantityLine: 'Quantity 9,975 KG · Source Farmer entry',
-    },
-  ];
+  const canView = can('produce.calendar.view_consolidated');
+  const records = useProduceRecordList({ statuses: HARVESTED_ONLY, q: searchTxt }, { enabled: canView });
+  const historyRecords: HistoryRecordItem[] = useMemo(() => records.items.map(toHistoryRecordItem), [records.items]);
+  const total = records.firstPage?.page.total;
+
+  const renderList = () => {
+    if (!canView) return <AdminEmptyState title={t('wiringFarmers.produce.notLoaded')} />;
+    if (records.isLoading) return <AdminLoadingState />;
+    if (records.error) return <AdminErrorState error={records.error} onRetry={records.refresh} />;
+    if (historyRecords.length === 0) return <AdminEmptyState title={t('wiringFarmers.produce.history.empty')} />;
+    return historyRecords.map((item) => {
+      const isSelected = compareIds.includes(item.id);
+      return (
+        <View key={item.id} style={styles.historyCard}>
+          <View style={styles.historyCardTopRow}>
+            <Text style={styles.historyCardTitle}>{item.title}</Text>
+            <View style={styles.harvestedBadge}>
+              <Text style={styles.harvestedBadgeText}>{item.badge}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.historyCardMeta}>{item.farmerLine}</Text>
+          <Text style={styles.historyCardMeta}>{item.plotLine}</Text>
+          <Text style={styles.historyCardMeta}>{item.datesLine}</Text>
+          <Text style={styles.historyCardMeta}>{item.quantityLine}</Text>
+
+          <View style={styles.historyCardActionsRow}>
+            <TouchableOpacity
+              onPress={() => onSelectCropRecord(item.id)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.historyActionLink}>{t('wiringFarmers.produce.history.open')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => toggleCompare(item.id)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text
+                style={[
+                  styles.historyActionLink,
+                  isSelected && { color: adminColors.brand, fontWeight: '700' },
+                ]}
+              >
+                {isSelected ? t('wiringFarmers.produce.history.selected') : t('wiringFarmers.produce.history.select')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    });
+  };
 
   return (
     <View style={styles.root}>
@@ -165,17 +241,17 @@ export function CropHistoryRecordsScreen({
           <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={styles.backBtnTouch} accessibilityRole="button">
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Crop History & Records</Text>
+          <Text style={styles.headerTitle}>{t('wiringFarmers.produce.history.header')}</Text>
         </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
-        {/* Search Bar */}
+        {/* Search Bar: sent as the server's `q` (never blank). */}
         <View style={styles.searchBarContainer}>
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search common or scientific name"
+            placeholder={t('wiringFarmers.produce.history.search')}
             placeholderTextColor={adminColors.placeholder}
             value={searchTxt}
             onChangeText={setSearchTxt}
@@ -199,57 +275,16 @@ export function CropHistoryRecordsScreen({
         >
           <CompareIcon size={18} color={adminColors.brandDeep} />
           <Text style={styles.comparePillButtonText}>
-            Compare ({compareIds.length})
+            {t('wiringFarmers.produce.history.compare', { count: compareIds.length })}
           </Text>
         </TouchableOpacity>
 
-        {/* Subtitle count */}
-        <Text style={styles.historyCyclesCount}>16 completed 2025 cycles</Text>
+        {/* Subtitle count: the server total, or the dash. */}
+        <Text style={styles.historyCyclesCount}>
+          {total === undefined ? ADMIN_NO_VALUE : t('wiringFarmers.produce.history.count', { count: total })}
+        </Text>
 
-        {/* List of cards */}
-        {historyRecords.map((item) => {
-          const isSelected = compareIds.includes(item.id);
-          return (
-            <View key={item.id} style={styles.historyCard}>
-              <View style={styles.historyCardTopRow}>
-                <Text style={styles.historyCardTitle}>{item.title}</Text>
-                <View style={styles.harvestedBadge}>
-                  <Text style={styles.harvestedBadgeText}>{item.badge}</Text>
-                </View>
-              </View>
-
-              <Text style={styles.historyCardMeta}>{item.farmerLine}</Text>
-              <Text style={styles.historyCardMeta}>{item.plotLine}</Text>
-              <Text style={styles.historyCardMeta}>{item.datesLine}</Text>
-              <Text style={styles.historyCardMeta}>{item.quantityLine}</Text>
-
-              <View style={styles.historyCardActionsRow}>
-                <TouchableOpacity
-                  onPress={() => onSelectCropRecord(item.id)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.historyActionLink}>Open full record</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => toggleCompare(item.id)}
-                  activeOpacity={0.7}
-                  accessibilityRole="button"
-                >
-                  <Text
-                    style={[
-                      styles.historyActionLink,
-                      isSelected && { color: adminColors.brand, fontWeight: '700' },
-                    ]}
-                  >
-                    {isSelected ? 'Selected to compare ✓' : 'Select to compare'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
+        {renderList()}
       </ScrollView>
 
       <CompareCropCyclesModal

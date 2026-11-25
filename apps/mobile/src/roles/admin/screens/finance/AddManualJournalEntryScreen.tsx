@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -11,23 +10,25 @@ import {
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { t } from '../../i18n';
+import { adminColors, adminType } from '../../theme';
 import Svg, { Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:      '#8E3314',
-  orange:         '#E85226',
-  pageBg:         '#FAF8F5',
-  cardBg:         '#FFFFFF',
-  ink:            '#1A1412',
-  labelMuted:     '#6D6761',
-  border:         '#EDE8E0',
-  creditGreen:    '#16A34A',
-  creditGreenBg:  '#DCFCE7',
-  debitRed:       '#DC2626',
-  debitRedBg:     '#FEE2E2',
-  chipActiveBg:   '#FFF2EB',
-  chipActiveText: '#E85226',
+  titleRust:      adminColors.brandDeep,
+  orange:         adminColors.brand,
+  pageBg:         adminColors.canvas,
+  cardBg:         adminColors.card,
+  ink:            adminColors.ink,
+  labelMuted:     adminColors.muted,
+  border:         adminColors.border,
+  creditGreen:    adminColors.success.text,
+  creditGreenBg:  adminColors.success.bg,
+  debitRed:       adminColors.danger.text,
+  debitRedBg:     adminColors.danger.bg,
+  chipActiveBg:   adminColors.brandTint,
+  chipActiveText: adminColors.brand,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -36,7 +37,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -52,7 +53,7 @@ const ACCOUNT_HEADS = [
   'Customer Advances',
   'Logistics / Freight',
   'Warehouse Maintenance',
-];
+] as const;
 
 export interface AddManualJournalEntryScreenProps {
   onBack: () => void;
@@ -61,39 +62,17 @@ export interface AddManualJournalEntryScreenProps {
 
 export function AddManualJournalEntryScreen({
   onBack,
-  onSuccess,
 }: AddManualJournalEntryScreenProps) {
   const [entryType, setEntryType] = useState<'CREDIT' | 'DEBIT'>('CREDIT');
-  const [accountHead, setAccountHead] = useState(ACCOUNT_HEADS[0] ?? 'Revenue / Escrow Clearing');
+  const [accountHead, setAccountHead] = useState<string>(ACCOUNT_HEADS[0]);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [referenceNo, setReferenceNo] = useState('');
 
-  function handleSubmit() {
-    if (!amount.trim()) {
-      Alert.alert('Missing Field', 'Please enter the transaction amount.');
-      return;
-    }
-    if (!description.trim()) {
-      Alert.alert('Missing Field', 'Please enter a description / narration for this entry.');
-      return;
-    }
-
-    Alert.alert(
-      'Journal Entry Posted',
-      `${entryType === 'CREDIT' ? 'Credit' : 'Debit'} of ₹${Number(amount).toLocaleString('en-IN')} under ${accountHead} successfully recorded in the General Ledger.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onSuccess) onSuccess();
-            else onBack();
-          },
-        },
-      ]
-    );
-  }
-
+  // There is no journal or general-ledger write endpoint in docs/openapi.yaml,
+  // so nothing here may claim an entry was posted (brief 07 R3). The form stays
+  // as designed; Post is drawn unavailable with the reason under it, the same
+  // way screens/community/ draws a control the API cannot back.
   return (
     <SafeAreaView style={styles.root}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
@@ -188,7 +167,7 @@ export function AddManualJournalEntryScreen({
                 style={styles.textInput}
                 keyboardType="numeric"
                 placeholder="e.g. 25000"
-                placeholderTextColor="#A8A29E"
+                placeholderTextColor={adminColors.placeholder}
                 value={amount}
                 onChangeText={setAmount}
               />
@@ -199,7 +178,7 @@ export function AddManualJournalEntryScreen({
             <TextInput
               style={styles.textInputArea}
               placeholder="e.g. Settlement Batch adjustment for Coonoor warehouse invoice"
-              placeholderTextColor="#A8A29E"
+              placeholderTextColor={adminColors.placeholder}
               multiline
               numberOfLines={3}
               value={description}
@@ -212,7 +191,7 @@ export function AddManualJournalEntryScreen({
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. JRNL-2026-0924-01"
-                placeholderTextColor="#A8A29E"
+                placeholderTextColor={adminColors.placeholder}
                 value={referenceNo}
                 onChangeText={setReferenceNo}
                 autoCapitalize="characters"
@@ -220,10 +199,18 @@ export function AddManualJournalEntryScreen({
             </View>
           </View>
 
-          {/* Submit Button */}
-          <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit} activeOpacity={0.8}>
+          {/* Submit Button: no journal endpoint, so drawn unavailable (R3). */}
+          <TouchableOpacity
+            style={[styles.submitBtn, styles.actionUnavailable]}
+            disabled
+            activeOpacity={1}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: true }}
+            testID="finance.journal.submit"
+          >
             <Text style={styles.submitBtnText}>Post Journal Entry</Text>
           </TouchableOpacity>
+          <Text style={styles.unavailableNote}>{t('wiringFinance.journal.unavailable')}</Text>
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -256,7 +243,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -402,6 +389,15 @@ const styles = StyleSheet.create({
   submitBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
+  },
+  /** The designed control, kept visible, drawn as unavailable (screens/community/ pattern). */
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 8,
   },
 });

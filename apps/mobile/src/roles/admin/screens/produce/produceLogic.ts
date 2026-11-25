@@ -4,9 +4,10 @@
  * Node (tests/produce_logic.test.ts).
  */
 import type { CropMasterDto, PlatformEventListDto, ProduceCalendarDto } from '../../api/produce';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 /** The one placeholder for a value the backend does not supply yet. */
-export const PRODUCE_DASH = '—';
+export const PRODUCE_DASH = ADMIN_NO_VALUE;
 
 export interface YearMonth {
   year: number;

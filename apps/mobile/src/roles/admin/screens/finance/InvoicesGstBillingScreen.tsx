@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,8 +12,25 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing, adminType } from '../../theme';
-import { SalesInvoiceScreen } from '../sales/SalesInvoiceScreen';
+import { adminErrorKey } from '../../api/errors';
+import { useAdminQuery } from '../../api/hooks';
+import {
+  getInvoiceDownloadUrl,
+  getInvoiceSummary,
+  listInvoices,
+  type InvoiceDto,
+  type InvoiceStatus,
+} from '../../api/invoices';
+import { t, type TranslationKey } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { formatAdminDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { countText, moneyText } from '../dashboard/saOverviewFormat';
+import { LiveInvoiceDetail } from '../warehouse/billing-invoices';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 import { TransactionHistoryScreen } from './TransactionHistoryScreen';
+
+const INVOICE_PAGE = 50;
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -53,228 +71,94 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
   );
 }
 
-export interface InvoiceDetailData {
-  id: string;
-  invoiceNumber: string;
-  status: 'Issued' | 'Draft' | 'Cancelled';
-  dateStr: string;
-  soNumber: string;
-  recipient: string;
-  billingAddress: string;
-  gstin: string;
-  itemName: string;
-  itemGrade: string;
-  itemRate: string;
-  itemTotal: string;
-  taxableAmount: string;
-  taxText: string;
-  finalAmountText: string;
-  historyEvents: { date: string; title: string }[];
-  payoutInfo?: {
-    payoutId: string;
-    poNumber: string;
-    farmerName: string;
-    amount: string;
-  };
-}
+type InvoiceStatusLabel = 'Issued' | 'Draft' | 'Cancelled' | 'Credit noted';
 
-export interface BillingInvoiceItem {
-  id: string;
-  title: string;
-  status: 'Issued' | 'Draft' | 'Cancelled';
-  subtitle: string;
-  subtitle2?: string;
-  actions: string[];
-  isAlert?: boolean;
-  detail: InvoiceDetailData;
-}
+const STATUS_LABEL: Record<InvoiceStatus, InvoiceStatusLabel> = {
+  ISSUED: 'Issued',
+  DRAFT: 'Draft',
+  CANCELLED: 'Cancelled',
+  CREDIT_NOTED: 'Credit noted',
+};
 
-const INVOICES_DATA: BillingInvoiceItem[] = [
-  {
-    id: 'inv-1',
-    title: 'INV-2026-0001 · SO-0005',
-    status: 'Issued',
-    subtitle: 'Demo Traders LLP · B2B · ₹7,400.00 · 5 Oct 2026',
-    actions: ['Download', 'Details'],
-    detail: {
-      id: 'inv-1',
-      invoiceNumber: 'INV-2026-0001',
-      status: 'Issued',
-      dateStr: '5 Oct 2026',
-      soNumber: 'SO-0005',
-      recipient: 'Demo Traders LLP (C-1006)',
-      billingAddress: '42 Main Bazaar, Ooty',
-      gstin: '33AABCT1234D1Z5',
-      itemName: 'Beans',
-      itemGrade: 'Grade 1',
-      itemRate: '150 kg × ₹49.33/kg',
-      itemTotal: '₹7,400.00',
-      taxableAmount: '₹7,400.00',
-      taxText: 'Included: 5% GST (₹370.00)',
-      finalAmountText: '₹7,400.00',
-      historyEvents: [
-        { date: '5 Oct 2026, 15:30 · Demo TOHFA Admin', title: 'Invoice issued: INV-2026-0001' },
-        { date: '5 Oct 2026, 14:00 · Demo TOHFA Admin', title: 'Draft created' },
-      ],
-      payoutInfo: {
-        payoutId: 'PY-0001',
-        poNumber: 'PO-0005',
-        farmerName: 'Rajesh Farm',
-        amount: '₹7,400.00',
-      },
-    },
-  },
-  {
-    id: 'inv-2',
-    title: '— · SO-0004',
-    status: 'Draft',
-    subtitle: 'Demo Hotel Pvt Ltd · HORECA · ₹3,700.00',
-    actions: ['Details'],
-    detail: {
-      id: 'inv-2',
-      invoiceNumber: 'DRAFT-SO-0004',
-      status: 'Draft',
-      dateStr: '8 Oct 2026',
-      soNumber: 'SO-0004',
-      recipient: 'Demo Hotel Pvt Ltd (C-1004)',
-      billingAddress: 'Coonoor Club Road, Coonoor',
-      gstin: '33AAACH9876E1Z2',
-      itemName: 'Carrot',
-      itemGrade: 'Grade 1',
-      itemRate: '100 kg × ₹37.00/kg',
-      itemTotal: '₹3,700.00',
-      taxableAmount: '₹3,700.00',
-      taxText: 'Draft estimated tax: ₹185.00',
-      finalAmountText: '₹3,700.00',
-      historyEvents: [
-        { date: '8 Oct 2026, 11:30 · Demo TOHFA Admin', title: 'Draft created' },
-      ],
-      payoutInfo: {
-        payoutId: 'PY-0004',
-        poNumber: 'PO-0004',
-        farmerName: 'Meena Farm',
-        amount: '₹3,700.00',
-      },
-    },
-  },
-  {
-    id: 'inv-3',
-    title: 'INV-2026-0003 · SO-0009',
-    status: 'Cancelled',
-    subtitle: 'Demo Customer D · Online · ₹140.00',
-    subtitle2: 'Reason: Wrong billing details (demo)',
-    actions: ['History'],
-    isAlert: true,
-    detail: {
-      id: 'inv-3',
-      invoiceNumber: 'INV-2026-0003',
-      status: 'Cancelled',
-      dateStr: '7 Oct 2026',
-      soNumber: 'SO-0009',
-      recipient: 'Demo Customer D (C-1004)',
-      billingAddress: '—',
-      gstin: 'Not applicable',
-      itemName: 'Cabbage',
-      itemGrade: 'Grade 1',
-      itemRate: '5 kg × ₹28.00/kg',
-      itemTotal: '₹140.00',
-      taxableAmount: '₹140.00',
-      taxText: 'Not calculated: GST treatment not confirmed',
-      finalAmountText: 'Not final until tax is calculated',
-      historyEvents: [
-        { date: '13 Oct 2026, 12:00 · Demo TOHFA Admin', title: 'Invoice cancelled: Wrong billing details (demo).' },
-        { date: '7 Oct 2026, 12:00 · Demo TOHFA Admin', title: 'Invoice issued: INV-2026-0003' },
-        { date: '12 Oct 2026, 12:00 · Demo TOHFA Admin', title: 'Draft created' },
-      ],
-      payoutInfo: {
-        payoutId: 'PY-0005',
-        poNumber: 'PO-0009',
-        farmerName: 'Kumar',
-        amount: '₹3,300.00',
-      },
-    },
-  },
-  {
-    id: 'inv-4',
-    title: 'INV-2026-0002 · SO-0001',
-    status: 'Issued',
-    subtitle: 'Demo Customer A · Online · ₹350.00 · 3 Oct 2026',
-    actions: ['Download', 'Details'],
-    detail: {
-      id: 'inv-4',
-      invoiceNumber: 'INV-2026-0002',
-      status: 'Issued',
-      dateStr: '3 Oct 2026',
-      soNumber: 'SO-0001',
-      recipient: 'Demo Customer A (C-1001)',
-      billingAddress: 'Ooty Town',
-      gstin: 'Not applicable',
-      itemName: 'Potato',
-      itemGrade: 'Grade 1',
-      itemRate: '10 kg × ₹35.00/kg',
-      itemTotal: '₹350.00',
-      taxableAmount: '₹350.00',
-      taxText: 'Standard rate applied',
-      finalAmountText: '₹350.00',
-      historyEvents: [
-        { date: '3 Oct 2026, 10:00 · Demo TOHFA Admin', title: 'Invoice issued: INV-2026-0002' },
-        { date: '3 Oct 2026, 09:30 · Demo TOHFA Admin', title: 'Draft created' },
-      ],
-      payoutInfo: {
-        payoutId: 'PY-0002',
-        poNumber: 'PO-0001',
-        farmerName: 'Anand Farm',
-        amount: '₹350.00',
-      },
-    },
-  },
-];
+type InvoiceAction = 'Download' | 'Details' | 'History';
+
+/** The designed actions per status: an issued invoice has a PDF; a cancelled one shows its history. */
+function actionsFor(status: InvoiceStatus): InvoiceAction[] {
+  switch (status) {
+    case 'ISSUED':
+      return ['Download', 'Details'];
+    case 'CANCELLED':
+      return ['History'];
+    default:
+      return ['Details'];
+  }
+}
 
 export interface InvoicesGstBillingScreenProps {
   onBack: () => void;
+  /** The signed-in admin's permission check, handed to the live invoice and history screens. */
+  can?: Can | undefined;
 }
 
-export function InvoicesGstBillingScreen({ onBack }: InvoicesGstBillingScreenProps) {
+/**
+ * Invoices & GST billing on GET /invoices (the caller's scope, newest first)
+ * and GET /invoices/summary for the counter (R4: never one page's length).
+ * The list row carries no buyer and no order number, so those slots are
+ * dashed (R9: the order UUID is never shown in their place). Details opens
+ * the live invoice detail by its real id; Download opens the signed PDF URL.
+ */
+export function InvoicesGstBillingScreen({ onBack, can = () => false }: InvoicesGstBillingScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetailData | null>(null);
-  const [selectedCardId, setSelectedCardId] = useState<string>('inv-3');
+  const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
 
-  const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return INVOICES_DATA;
-    const q = searchQuery.toLowerCase().trim();
-    return INVOICES_DATA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.subtitle.toLowerCase().includes(q) ||
-        (item.subtitle2 && item.subtitle2.toLowerCase().includes(q)) ||
-        item.status.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+  const listQuery = useAdminQuery(['admin', 'invoices', 'list', INVOICE_PAGE], (signal) =>
+    listInvoices({ limit: INVOICE_PAGE }, signal),
+  );
+  const summaryQuery = useAdminQuery(['admin', 'invoices', 'summary'], (signal) => getInvoiceSummary({}, signal));
 
-  if (showHistory) {
-    return (
-      <TransactionHistoryScreen
-        onBack={() => setShowHistory(false)}
-      />
-    );
+  const rows = (listQuery.data?.items ?? []).map((dto: InvoiceDto) => ({
+    dto,
+    title: t('wiringFinance.invoices.title', { number: dto.invoiceNumber, order: ADMIN_NO_VALUE }),
+    status: STATUS_LABEL[dto.status],
+    subtitle: t('wiringFinance.invoices.subtitle', {
+      buyer: ADMIN_NO_VALUE,
+      type: t(`wiringFinance.invoices.type.${dto.invoiceType}` as TranslationKey),
+      amount: moneyText(dto.totalAmount),
+      date: formatAdminDay(dto.issueDate) || ADMIN_NO_VALUE,
+    }),
+    actions: actionsFor(dto.status),
+  }));
+  const query = searchQuery.toLowerCase().trim();
+  const filteredItems = query
+    ? rows.filter(
+        (item) =>
+          item.title.toLowerCase().includes(query) ||
+          item.subtitle.toLowerCase().includes(query) ||
+          item.status.toLowerCase().includes(query),
+      )
+    : rows;
+
+  async function handleDownload(invoiceId: string) {
+    try {
+      await Linking.openURL(await getInvoiceDownloadUrl(invoiceId));
+    } catch (error) {
+      Alert.alert(t('wiringFinance.invoices.downloadErrorTitle'), t(adminErrorKey(error)));
+    }
   }
 
-  // When a record is tapped, redirect to SalesInvoiceScreen
-  if (selectedInvoice) {
+  if (showHistory) {
+    return <TransactionHistoryScreen can={can} onBack={() => setShowHistory(false)} />;
+  }
+
+  // Details: the live invoice, read by its real id (GET /invoices/{id}).
+  if (openInvoiceId !== null) {
     return (
-      <SalesInvoiceScreen
-        orderNumber={selectedInvoice.soNumber}
-        customerName={selectedInvoice.recipient}
-        invoiceNumber={selectedInvoice.invoiceNumber}
-        items={[
-          {
-            description: `${selectedInvoice.itemName} (${selectedInvoice.itemGrade}) — ${selectedInvoice.itemRate}`,
-            amount: parseFloat(selectedInvoice.itemTotal.replace(/[^\d.]/g, '')) || 0,
-          },
-        ]}
-        total={parseFloat(selectedInvoice.finalAmountText.replace(/[^\d.]/g, '')) || 0}
-        onBack={() => setSelectedInvoice(null)}
+      <LiveInvoiceDetail
+        scope={{ warehouseId: undefined, warehouseName: undefined }}
+        can={can}
+        invoiceId={openInvoiceId}
+        onBack={() => setOpenInvoiceId(null)}
       />
     );
   }
@@ -297,6 +181,7 @@ export function InvoicesGstBillingScreen({ onBack }: InvoicesGstBillingScreenPro
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Invoices & GST Billing</Text>
       </View>
+
 
       <ScrollView
         style={styles.scroll}
@@ -325,91 +210,76 @@ export function InvoicesGstBillingScreen({ onBack }: InvoicesGstBillingScreenPro
           </TouchableOpacity>
         </View>
 
-        {/* ── Counter Line ── */}
-        <Text style={styles.counterText}>11 invoices · 3 warehouses</Text>
+
+        {/* ── Counter Line: the server's count over every invoice (R4); the list carries no warehouse. ── */}
+        <Text style={styles.counterText} testID="finance.invoices.counter">
+          {t('wiringFinance.invoices.counter', { count: countText(summaryQuery.data?.count), warehouses: ADMIN_NO_VALUE })}
+        </Text>
 
         {/* ── Invoices List ── */}
-        {filteredItems.map((item) => {
-          const isIssued = item.status === 'Issued';
-          const isCancelled = item.status === 'Cancelled';
-          const isDraft = item.status === 'Draft';
-
-          const isSelected = selectedCardId === item.id;
-          return (
-            <TouchableOpacity
-              key={item.id}
-              style={[
-                styles.invoiceCard,
-                isSelected && styles.invoiceCardAlert,
-              ]}
-              onPress={() => {
-                setSelectedCardId(item.id);
-                if (item.actions.includes('History') || item.id === 'inv-3') {
-                  setShowHistory(true);
-                } else {
-                  setSelectedInvoice(item.detail);
-                }
-              }}
-              activeOpacity={0.8}
-            >
-              <View style={styles.invoiceHeaderRow}>
-                <Text style={styles.invoiceTitle}>{item.title}</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isIssued
-                      ? styles.badgeGreen
-                      : isCancelled
-                      ? styles.badgeRed
-                      : isDraft
-                      ? styles.badgeGray
-                      : styles.badgeGray,
-                  ]}
-                >
-                  <Text
+        {listQuery.isPending ? (
+          <AdminLoadingState />
+        ) : listQuery.error ? (
+          <AdminErrorState error={listQuery.error} onRetry={() => void listQuery.refetch()} />
+        ) : filteredItems.length === 0 ? (
+          <AdminEmptyState title={t(query ? 'wiringFinance.invoices.noMatch' : 'wiringFinance.invoices.empty')} />
+        ) : (
+          filteredItems.map((item) => {
+            const isIssued = item.dto.status === 'ISSUED';
+            const isCancelled = item.dto.status === 'CANCELLED';
+            return (
+              <TouchableOpacity
+                key={item.dto.id}
+                style={styles.invoiceCard}
+                onPress={() => {
+                  if (item.actions.includes('History')) setShowHistory(true);
+                  else setOpenInvoiceId(item.dto.id);
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.invoiceHeaderRow}>
+                  <Text style={styles.invoiceTitle}>{item.title}</Text>
+                  <View
                     style={[
-                      styles.badgeText,
-                      isIssued
-                        ? styles.badgeTextGreen
-                        : isCancelled
-                        ? styles.badgeTextRed
-                        : styles.badgeTextGray,
+                      styles.statusBadge,
+                      isIssued ? styles.badgeGreen : isCancelled ? styles.badgeRed : styles.badgeGray,
                     ]}
                   >
-                    {item.status}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.badgeText,
+                        isIssued ? styles.badgeTextGreen : isCancelled ? styles.badgeTextRed : styles.badgeTextGray,
+                      ]}
+                    >
+                      {item.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.invoiceSubtitle}>{item.subtitle}</Text>
-              {item.subtitle2 ? (
-                <Text style={styles.invoiceSubtitle2}>{item.subtitle2}</Text>
-              ) : null}
+                <Text style={styles.invoiceSubtitle}>{item.subtitle}</Text>
 
-              {/* Action Buttons Row */}
-              <View style={styles.actionsRow}>
-                {item.actions.map((act) => (
-                  <TouchableOpacity
-                    key={act}
-                    onPress={() => {
-                      if (act === 'History') {
-                        setShowHistory(true);
-                      } else if (act === 'Download') {
-                        Alert.alert('Download', `Downloading invoice PDF for ${item.detail.invoiceNumber}.`);
-                      } else {
-                        setSelectedInvoice(item.detail);
-                      }
-                    }}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
-                  >
-                    <Text style={styles.actionBtnText}>{act}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+                {/* Action Buttons Row */}
+                <View style={styles.actionsRow}>
+                  {item.actions.map((act) => (
+                    <TouchableOpacity
+                      key={act}
+                      testID={`finance.invoices.${act.toLowerCase()}.${item.dto.id}`}
+                      onPress={() => {
+                        if (act === 'History') setShowHistory(true);
+                        else if (act === 'Download') void handleDownload(item.dto.id);
+                        else setOpenInvoiceId(item.dto.id);
+                      }}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+                    >
+                      <Text style={styles.actionBtnText}>{act}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        )}
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>

@@ -195,6 +195,7 @@ export interface Step5ReviewData {
 export interface RegistrationDraft {
   applicationId: string;
   currentStep: number;
+  isResubmit?: boolean | undefined;
   step1?: Step1PersonalData | undefined;
   step2?: Step2FarmData | undefined;
   step3?: Step3LocationData | undefined;
@@ -259,14 +260,17 @@ interface RegistrationDraftStore {
    * `undefined` here rather than overwriting anything with an empty object, mirroring how
    * `RegistrationDraft.stepN` is `undefined` for a step never reached in the normal flow.
    */
-  restoreFullDraft: (serverDraft: {
-    applicationId: string;
-    currentStep: number;
-    step1Personal?: Record<string, unknown> | undefined;
-    step2FarmDetails?: Record<string, unknown> | undefined;
-    step3Location?: Record<string, unknown> | undefined;
-    step4Documents?: Record<string, unknown> | undefined;
-  }) => void;
+  restoreFullDraft: (
+    serverDraft: {
+      applicationId: string;
+      currentStep: number;
+      step1Personal?: Record<string, unknown> | undefined;
+      step2FarmDetails?: Record<string, unknown> | undefined;
+      step3Location?: Record<string, unknown> | undefined;
+      step4Documents?: Record<string, unknown> | undefined;
+    },
+    options?: { isResubmit?: boolean | undefined },
+  ) => void;
 }
 
 /** `{}` from the server means "this step was never saved" -- see `restoreFullDraft` above. */
@@ -297,11 +301,12 @@ export const useRegistrationDraftStore = create<RegistrationDraftStore>()(
       goBack: () =>
         set({ draft: { ...get().draft, currentStep: Math.max(1, get().draft.currentStep - 1) } }),
       reset: () => set({ draft: INITIAL_DRAFT }),
-      restoreFullDraft: (serverDraft) =>
+      restoreFullDraft: (serverDraft, options) =>
         set({
           draft: {
             applicationId: serverDraft.applicationId,
             currentStep: Math.min(5, Math.max(1, serverDraft.currentStep)),
+            ...(options?.isResubmit ? { isResubmit: true } : {}),
             step1: definedIfNonEmpty<Step1PersonalData>(serverDraft.step1Personal),
             step2: definedIfNonEmpty<Step2FarmData>(serverDraft.step2FarmDetails),
             step3: definedIfNonEmpty<Step3LocationData>(serverDraft.step3Location),

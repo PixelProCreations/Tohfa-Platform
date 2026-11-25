@@ -33,6 +33,11 @@ const hooks = vi.hoisted(() => ({
   useApplicationList: vi.fn(),
   useApproveApplication: vi.fn(),
   useRejectApplication: vi.fn(),
+  useAdvanceApplication: vi.fn(),
+  useReviewApplicationDocument: vi.fn(),
+  useReviewApplicationFmb: vi.fn(),
+  useAddApplicationNote: vi.fn(),
+  useRequestApplicationInfo: vi.fn(),
 }));
 vi.mock('../api/farmerHooks', () => hooks);
 
@@ -48,6 +53,11 @@ const ALL_CODES = [
   'farmer.application.view',
   'farmer.application.approve',
   'farmer.application.reject',
+  'farmer.application.request_info',
+  'farmer.application.advance',
+  'farmer.application.verify_document',
+  'farmer.application.verify_fmb',
+  'farmer.application.add_note',
 ];
 const allow = (codes: readonly string[]) => (c: string) => codes.includes(c);
 
@@ -157,6 +167,11 @@ interface DecisionState {
 let live: LiveState;
 let approve: DecisionState;
 let reject: DecisionState;
+let advance: DecisionState;
+let verifyDoc: DecisionState;
+let verifyFmb: DecisionState;
+let addNote: DecisionState;
+let requestInfo: DecisionState;
 
 function decision(): DecisionState {
   return { run: vi.fn(), finish: vi.fn(), reset: vi.fn(), isPending: false, error: null };
@@ -171,9 +186,19 @@ beforeEach(() => {
   live = { application: detail(), isLoading: false, error: null };
   approve = decision();
   reject = decision();
+  advance = decision();
+  verifyDoc = decision();
+  verifyFmb = decision();
+  addNote = decision();
+  requestInfo = decision();
   hooks.useApplication.mockImplementation(() => ({ ...live, refresh: vi.fn(), isRefreshing: false }));
   hooks.useApproveApplication.mockImplementation(() => approve);
   hooks.useRejectApplication.mockImplementation(() => reject);
+  hooks.useAdvanceApplication.mockImplementation(() => advance);
+  hooks.useReviewApplicationDocument.mockImplementation(() => verifyDoc);
+  hooks.useReviewApplicationFmb.mockImplementation(() => verifyFmb);
+  hooks.useAddApplicationNote.mockImplementation(() => addNote);
+  hooks.useRequestApplicationInfo.mockImplementation(() => requestInfo);
 });
 
 function texts(node: ReactTestRendererJSON | ReactTestRendererJSON[] | string | null): string[] {
@@ -192,6 +217,17 @@ function byTestId(tree: renderer.ReactTestRenderer, id: string): ReactTestInstan
   return tree.root.findAll((n) => typeof n.type === 'string' && n.props['testID'] === id);
 }
 
+/** Every host node whose testID starts with `prefix`. */
+function byTestIdPrefix(tree: renderer.ReactTestRenderer, prefix: string): ReactTestInstance[] {
+  return tree.root.findAll((n) => typeof n.type === 'string' && typeof n.props['testID'] === 'string' && (n.props['testID'] as string).startsWith(prefix));
+}
+
+function press(tree: renderer.ReactTestRenderer, id: string) {
+  act(() => {
+    (byTestId(tree, id)[0]!.props['onPress'] as () => void)();
+  });
+}
+
 function mount(props: Partial<React.ComponentProps<typeof AdminApplicationDetailScreen>> = {}): renderer.ReactTestRenderer {
   let tree!: renderer.ReactTestRenderer;
   act(() => {
@@ -207,13 +243,14 @@ function alertButtons(n = 0): { text: string; style?: string; onPress?: () => vo
   return vi.mocked(Alert.alert).mock.calls[n]![2] as { text: string; style?: string; onPress?: () => void }[];
 }
 
-/** Press Approve in the action bar, then the confirmation's Approve button. */
+/**
+ * Press Approve in the action bar, then Confirm & Onboard Farmer on the
+ * Approve Application screen it opens (the design's approval screen replaced
+ * the confirmation pop-up, 2026-11-25).
+ */
 function pressApproveAndConfirm(tree: renderer.ReactTestRenderer) {
-  act(() => {
-    (byTestId(tree, 'farmerApps.approve')[0]!.props['onPress'] as () => void)();
-  });
-  const confirm = alertButtons().find((b) => b.text === t('farmerApps.approveConfirm.confirm'))!;
-  act(() => confirm.onPress?.());
+  press(tree, 'farmerApps.approve');
+  press(tree, 'farmerApps.approve.confirm');
 }
 
 function rerender(tree: renderer.ReactTestRenderer, props: Partial<React.ComponentProps<typeof AdminApplicationDetailScreen>> = {}) {
@@ -254,9 +291,9 @@ describe('AdminApplicationDetailScreen: data comes from the API', () => {
     live.application = detail({ status: 'APPROVED', isDecided: true });
     const tree = mount();
     const dash = t('farmerApps.notAvailable');
-    // Zone, Application ID, Approved date, Declaration and the requirement statuses.
+    // Application ID, OTP badge, GPS / accuracy, file size, zone status... The design of record has
+    // no review-history block, so its "no history" line is no longer drawn or asserted.
     expect(texts(tree.toJSON()).filter((s) => s === dash).length).toBeGreaterThanOrEqual(5);
-    expect(allText(tree)).toContain(t('farmerApps.decision.noHistory'));
   });
 
   it('shows loading, then the mapped error with Retry, then not-found for a 404', () => {
@@ -325,35 +362,103 @@ describe('AdminApplicationDetailScreen: access (fail closed)', () => {
 });
 
 /**
- * The 2026-11-19 design brings a "Request more information" section back onto
- * this screen, so the old "renders nothing of it" assertion no longer states
- * the requirement. What still has to hold — and is what that assertion was
- * protecting — is that nothing here reaches the server: the section is layout
- * only until the owner decides the wiring, so its control is disabled and the
- * host's legacy callback is still never called.
+ * Section 06 as the design of record draws it (2026-11-25): its inline chips
+ * and message box are drawn but disabled, and its "Send Request for
+ * Information" button opens the Request More Info screen (the design's own
+ * navigation), whose Send is disabled until the request endpoint is wired.
+ * What this protected before still holds: nothing reaches the server and the
+ * host's legacy callback is never called.
  */
-describe('AdminApplicationDetailScreen: Request More Info is drawn but inert', () => {
-  it('draws the section disabled, calls no host callback and no mutation', () => {
+function readyForApprove(over: Partial<ApplicationDetailView> = {}): ApplicationDetailView {
+  return detail({
+    status: 'FARM_VERIFICATION',
+    reviewGates: {
+      farmVerification: { met: true, blockers: [] },
+      approval: { met: true, blockers: [] },
+    },
+    ...over,
+  });
+}
+
+describe('AdminApplicationDetailScreen: Request More Info (wired)', () => {
+  it('draws Section 06 inline chips and message read-only, while enabling Open Request Info in DOCS_REVIEW', () => {
+    live.application = detail({ status: 'DOCS_REVIEW' });
+    const tree = mount();
+    const chips = byTestIdPrefix(tree, 'farmerApps.moreInfo.chip.');
+    expect(chips).toHaveLength(5);
+    for (const c of [...chips, ...byTestId(tree, 'farmerApps.moreInfo.message')]) {
+      expect(c.props['onPress']).toBeUndefined();
+      expect(c.props['accessibilityState']).toMatchObject({ disabled: true });
+    }
+    expect(byTestId(tree, 'farmerApps.moreInfo.message')[0]!.props['editable']).toBe(false);
+
+    const open = byTestId(tree, 'farmerApps.openRequestInfo')[0]!;
+    expect(open.props['disabled']).toBe(false);
+    expect(typeof open.props['onPress']).toBe('function');
+  });
+
+  it('opens the Request More Info screen, sends via requestInfo hook, and never calls the legacy callback', () => {
+    live.application = detail({ status: 'DOCS_REVIEW' });
     const onRequestMoreInfo = vi.fn();
     const tree = mount({ onRequestMoreInfo });
-    const send = byTestId(tree, 'farmerApps.sendMoreInfo');
-    expect(send).toHaveLength(1);
-    expect(send[0]!.props['disabled']).toBe(true);
-    expect(send[0]!.props['onPress']).toBeUndefined();
-    expect(allText(tree)).toContain(t('farmerApps.moreInfo.unavailable'));
+    press(tree, 'farmerApps.openRequestInfo');
+    expect(allText(tree)).toContain(t('farmerApps.requestInfo.title'));
+
+    press(tree, 'farmerApps.requestInfo.item.aadhaar');
+    act(() => {
+      (byTestId(tree, 'farmerApps.requestInfo.message')[0]!.props['onChangeText'] as (s: string) => void)(
+        'Please re-upload Aadhaar photo.',
+      );
+    });
+    press(tree, 'farmerApps.requestInfo.send');
+
+    expect(requestInfo.run).toHaveBeenCalledTimes(1);
+    expect(requestInfo.run.mock.calls[0]![0]).toEqual({
+      items: ['AADHAAR'],
+      message: 'Please re-upload Aadhaar photo.',
+      requiredSteps: [4],
+    });
     expect(onRequestMoreInfo).not.toHaveBeenCalled();
     expect(approve.run).not.toHaveBeenCalled();
     expect(reject.run).not.toHaveBeenCalled();
+
+    press(tree, 'farmerApps.back');
+    expect(byTestId(tree, 'farmerApps.openRequestInfo')).toHaveLength(1);
+  });
+
+  it('without farmer.application.request_info the open button stays disabled and opens nothing', () => {
+    live.application = detail({ status: 'DOCS_REVIEW' });
+    const tree = mount({
+      can: allow(['farmer.application.list_pending', 'farmer.application.view', 'farmer.application.approve', 'farmer.application.reject']),
+    });
+    const open = byTestId(tree, 'farmerApps.openRequestInfo');
+    expect(open).toHaveLength(1);
+    expect(open[0]!.props['disabled']).toBe(true);
+    expect(open[0]!.props['onPress']).toBeUndefined();
   });
 });
 
-describe('AdminApplicationDetailScreen: Approve (in-place Approved state)', () => {
+describe('AdminApplicationDetailScreen: Approve (Approve Application screen, then the Approved state)', () => {
+  it('blocks Approve while in DOCS_REVIEW or when reviewGates.approval is not met', () => {
+    live.application = detail({
+      status: 'DOCS_REVIEW',
+      reviewGates: {
+        farmVerification: { met: false, blockers: [{ kind: 'DOCUMENT_PENDING', documentKey: 'ID_PROOF:Aadhaar' }] },
+        approval: { met: false, blockers: [{ kind: 'DOCUMENT_PENDING', documentKey: 'ID_PROOF:Aadhaar' }] },
+      },
+    });
+    const tree = mount();
+    const approveBtn = byTestId(tree, 'farmerApps.approve')[0]!;
+    expect(approveBtn.props['disabled']).toBe(true);
+    expect(approveBtn.props['onPress']).toBeUndefined();
+  });
+
   it('Approve calls the hook once, shows Approved only after success, and releases the idempotency key', () => {
+    live.application = readyForApprove();
     const onApproved = vi.fn();
     const tree = mount({ onApproved });
     expect(allText(tree)).not.toContain(t('farmerApps.status.APPROVED'));
 
-    // Approve now goes through the confirmation pop-up (owner request): press its confirm.
     pressApproveAndConfirm(tree);
     expect(approve.run).toHaveBeenCalledTimes(1);
     expect(approve.run.mock.calls[0]![0]).toEqual({});
@@ -372,6 +477,7 @@ describe('AdminApplicationDetailScreen: Approve (in-place Approved state)', () =
   });
 
   it('BR-69: an approval refused for zero farm locations shows the mapped message and no Approved state', () => {
+    live.application = readyForApprove();
     const tree = mount();
     pressApproveAndConfirm(tree);
     expect(approve.run).toHaveBeenCalledTimes(1);
@@ -382,40 +488,34 @@ describe('AdminApplicationDetailScreen: Approve (in-place Approved state)', () =
     expect(text).not.toContain(t('farmerApps.status.APPROVED'));
     // The key is kept so a retry replays the same decision.
     expect(approve.finish).not.toHaveBeenCalled();
-    expect(byTestId(tree, 'farmerApps.approve')).toHaveLength(1);
+    expect(byTestId(tree, 'farmerApps.approve.confirm')).toHaveLength(1);
   });
 
-  it('Approve asks for confirmation first: no approval call until the confirm button is pressed', () => {
+  // The confirmation step is now the design's Approve Application screen (it replaced the pop-up).
+  it('Approve asks for confirmation first: no approval call until Confirm & Onboard Farmer is pressed', () => {
+    live.application = readyForApprove();
     const onApproved = vi.fn();
     const tree = mount({ onApproved });
-    act(() => {
-      (byTestId(tree, 'farmerApps.approve')[0]!.props['onPress'] as () => void)();
-    });
-    expect(Alert.alert).toHaveBeenCalledTimes(1);
-    const [title, message] = vi.mocked(Alert.alert).mock.calls[0]!;
-    expect(title).toBe(t('farmerApps.approveConfirm.title'));
-    expect(message).toBe(t('farmerApps.approveConfirm.message', { name: 'Revathi Selvam' }));
+    press(tree, 'farmerApps.approve');
+    const text = allText(tree);
+    expect(text).toContain(t('farmerApps.approve.title'));
+    expect(text).toContain(t('farmerApps.approve.subtitle', { name: 'Revathi Selvam' }));
+    expect(Alert.alert).not.toHaveBeenCalled();
     expect(approve.run).not.toHaveBeenCalled();
     expect(onApproved).not.toHaveBeenCalled();
-    expect(allText(tree)).not.toContain(t('farmerApps.status.APPROVED'));
 
-    const confirm = alertButtons().find((b) => b.text === t('farmerApps.approveConfirm.confirm'))!;
-    expect(confirm.style).not.toBe('cancel');
-    act(() => confirm.onPress?.());
+    press(tree, 'farmerApps.approve.confirm');
     expect(approve.run).toHaveBeenCalledTimes(1);
     // Still only after the server answers.
     expect(onApproved).not.toHaveBeenCalled();
   });
 
-  it('Cancel on the approve confirmation does nothing', () => {
+  it('Back from the Approve Application screen does nothing', () => {
+    live.application = readyForApprove();
     const onApproved = vi.fn();
     const tree = mount({ onApproved });
-    act(() => {
-      (byTestId(tree, 'farmerApps.approve')[0]!.props['onPress'] as () => void)();
-    });
-    const cancel = alertButtons().find((b) => b.text === t('farmerApps.approveConfirm.cancel'))!;
-    expect(cancel.style).toBe('cancel');
-    act(() => cancel.onPress?.());
+    press(tree, 'farmerApps.approve');
+    press(tree, 'farmerApps.back');
     expect(approve.run).not.toHaveBeenCalled();
     expect(approve.finish).not.toHaveBeenCalled();
     expect(onApproved).not.toHaveBeenCalled();
@@ -423,6 +523,7 @@ describe('AdminApplicationDetailScreen: Approve (in-place Approved state)', () =
   });
 
   it('a failed approval never reports success to the host (no onApproved, so no toast)', () => {
+    live.application = readyForApprove();
     const onApproved = vi.fn();
     const tree = mount({ onApproved });
     pressApproveAndConfirm(tree);
@@ -434,14 +535,19 @@ describe('AdminApplicationDetailScreen: Approve (in-place Approved state)', () =
   });
 
   it('a 403 from the server is shown through the admin error mapping', () => {
+    live.application = readyForApprove();
     approve.error = problem('FORBIDDEN', 403);
-    expect(allText(mount())).toContain(t('admin.error.FORBIDDEN'));
+    const tree = mount();
+    press(tree, 'farmerApps.approve');
+    expect(allText(tree)).toContain(t('admin.error.FORBIDDEN'));
   });
 
   it('while the approval is in flight the button cannot be pressed again', () => {
+    live.application = readyForApprove();
     approve.isPending = true;
     const tree = mount();
-    const button = byTestId(tree, 'farmerApps.approve')[0]!;
+    press(tree, 'farmerApps.approve');
+    const button = byTestId(tree, 'farmerApps.approve.confirm')[0]!;
     expect(button.props['disabled']).toBe(true);
     expect(allText(tree)).toContain(t('farmerApps.action.approving'));
   });
@@ -473,24 +579,45 @@ describe('AdminApplicationDetailScreen: Reject', () => {
     expect(reject.run).not.toHaveBeenCalled();
   });
 
+  // The design has no "Application rejected" card; the rejected state reads in the header pill,
+  // the tracker's final stage, and the server's reason in section 07.
   it('a REJECTED application from the server shows the rejected state', () => {
-    live.application = detail({ status: 'REJECTED', isDecided: true });
+    live.application = detail({ status: 'REJECTED', isDecided: true, rejectionReason: 'Land records did not match.' });
     const tree = mount();
-    expect(allText(tree)).toContain(t('farmerApps.decision.rejectedTitle'));
+    const text = allText(tree);
+    expect(text).toContain(t('farmerApps.status.REJECTED'));
+    expect(text).toContain(t('farmerApps.tracking.decision.rejected'));
+    expect(text).toContain('Land records did not match.');
     expect(byTestId(tree, 'farmerApps.reject')).toHaveLength(0);
   });
 });
 
-describe('AdminApplicationDetailScreen: DESIGN-ONLY controls are visibly unavailable', () => {
-  it('Mark verified and Save Progress are disabled and do nothing', () => {
-    const tree = mount();
-    const controls = [...byTestId(tree, 'farmerApps.markVerified'), ...byTestId(tree, 'farmerApps.saveProgress')];
-    expect(controls.length).toBeGreaterThanOrEqual(2);
-    for (const c of controls) {
-      expect(c.props['disabled']).toBe(true);
-      expect(c.props['onPress']).toBeUndefined();
-    }
-    expect(allText(tree)).toContain(t('farmerApps.doc.verifyUnavailable'));
-    expect(allText(tree)).toContain(t('farmerApps.decision.reviewNotesUnavailable'));
+describe('AdminApplicationDetailScreen: Review controls are wired and permission-gated', () => {
+  it('enables Mark verified and Save Progress when granted verify_document and add_note, and disables without them', () => {
+    live.application = detail({
+      status: 'DOCS_REVIEW',
+      documents: [{ documentKey: 'ID_PROOF:Aadhaar', docType: 'ID_PROOF', docSubType: 'Aadhaar', fileName: 'aadhaar-revathi.jpg', fileUrl: 'https://files.example/a.jpg' }],
+    });
+    const enabledTree = mount();
+    const verify = byTestIdPrefix(enabledTree, 'farmerApps.markVerified.');
+    const save = byTestId(enabledTree, 'farmerApps.saveProgress');
+    expect(verify.length).toBeGreaterThanOrEqual(1);
+    expect(save).toHaveLength(1);
+    expect(verify[0]!.props['disabled']).toBe(false);
+    expect(typeof verify[0]!.props['onPress']).toBe('function');
+    expect(save[0]!.props['disabled']).toBe(false);
+    expect(typeof save[0]!.props['onPress']).toBe('function');
+
+    const deniedTree = mount({
+      can: allow(['farmer.application.list_pending', 'farmer.application.view']),
+    });
+    const verifyDenied = byTestIdPrefix(deniedTree, 'farmerApps.markVerified.');
+    const saveDenied = byTestId(deniedTree, 'farmerApps.saveProgress');
+    expect(verifyDenied[0]!.props['disabled']).toBe(true);
+    expect(verifyDenied[0]!.props['onPress']).toBeUndefined();
+    expect(verifyDenied[0]!.props['accessibilityHint']).toBe(t('farmerApps.doc.permissionDenied'));
+    expect(saveDenied[0]!.props['disabled']).toBe(true);
+    expect(saveDenied[0]!.props['onPress']).toBeUndefined();
+    expect(saveDenied[0]!.props['accessibilityHint']).toBe(t('farmerApps.decision.noteDenied'));
   });
 });

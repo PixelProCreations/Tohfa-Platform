@@ -1,6 +1,6 @@
 /**
  * The farmer detail's orange header banner, the profile summary card and the
- * scrolling 9-tab bar with its slider (team design), on live data.
+ * scrolling tab bar with its slider (team design), on live data.
  *
  * Badges are API values only: account status (Disabled is never shown as
  * Pending), KYC status, the certification summary, Dev's rating capsule

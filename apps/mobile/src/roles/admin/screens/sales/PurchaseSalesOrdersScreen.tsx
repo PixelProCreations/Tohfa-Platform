@@ -26,6 +26,11 @@ import { PurchaseOrderReceiptScreen } from './PurchaseOrderReceiptScreen';
 import { PurchaseOrderPayoutScreen } from './PurchaseOrderPayoutScreen';
 import { SalesOrderDetailScreen, type SalesOrderRecord } from './SalesOrderDetailScreen';
 import { SalesInvoiceScreen } from './SalesInvoiceScreen';
+import { t } from '../../i18n';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { usePurchaseOrderList } from '../../api/purchaseOrdersHooks';
+import { useAdminQuery } from '../../api/hooks';
+import { listAdminOrders, type OrderSummaryDto } from '../../api/orders';
 
 export interface InvoiceDetailData {
   id: string;
@@ -154,113 +159,23 @@ function getFirstDayOfWeek(year: number, month: number) {
 import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
 export type { PurchaseOrderRecord };
 
-const PURCHASE_ORDERS_DATA: PurchaseOrderRecord[] = [
-  {
-    id: 'po-1',
-    poNumber: 'PO-0009',
-    listingCode: 'LST-2909',
-    farmerName: 'Kumar',
-    produceName: 'Beans',
-    grade: 'Grade 2',
-    quantityKg: 60,
-    unitPrice: 55,
-    totalPrice: 3300,
-    warehouse: 'Main Warehouse, Ooty',
-    dateStr: '30 Sep 2026',
-    purchaseStatus: 'Closed',
-    receiptStatus: 'Completed',
-  },
-  {
-    id: 'po-2',
-    poNumber: 'PO-0008',
-    listingCode: 'LST-2908',
-    farmerName: 'Meena',
-    produceName: 'Carrot',
-    grade: 'Grade 2',
-    quantityKg: 90,
-    unitPrice: 35,
-    totalPrice: 3150,
-    warehouse: 'Sub Warehouse, Coonoor',
-    dateStr: '24 Sep 2026',
-    purchaseStatus: 'Closed',
-    receiptStatus: 'Completed',
-  },
-  {
-    id: 'po-3',
-    poNumber: 'PO-0007',
-    listingCode: 'LST-2907',
-    farmerName: 'Ramesh Kumar',
-    produceName: 'Tomato',
-    grade: 'Grade 2',
-    quantityKg: 120,
-    unitPrice: 36,
-    totalPrice: 4320,
-    warehouse: 'Sub Warehouse, Coonoor',
-    dateStr: '8 Oct 2026',
-    purchaseStatus: 'Closed',
-    receiptStatus: 'Completed',
-  },
-  {
-    id: 'po-4',
-    poNumber: 'PO-0006',
-    listingCode: 'LST-2906',
-    farmerName: 'Senthil',
-    produceName: 'Garlic',
-    grade: 'Grade 1',
-    quantityKg: 80,
-    unitPrice: 110,
-    totalPrice: 8800,
-    warehouse: 'Main Warehouse, Ooty',
-    dateStr: '10 Oct 2026',
-    purchaseStatus: 'Receipt in progress',
-    receiptStatus: 'Partial',
-  },
-  {
-    id: 'po-5',
-    poNumber: 'PO-0005',
-    listingCode: 'LST-2905',
-    farmerName: 'Vijay',
-    produceName: 'Potato',
-    grade: 'Grade 1',
-    quantityKg: 250,
-    unitPrice: 25,
-    totalPrice: 6250,
-    warehouse: 'Sub Warehouse, Kotagiri',
-    dateStr: '12 Oct 2026',
-    purchaseStatus: 'Open',
-    receiptStatus: 'Not received',
-  },
-  {
-    id: 'po-6',
-    poNumber: 'PO-0004',
-    listingCode: 'LST-2904',
-    farmerName: 'Meena',
-    produceName: 'Carrot',
-    grade: 'Grade 1',
-    quantityKg: 100,
-    unitPrice: 40,
-    totalPrice: 4000,
-    warehouse: 'Main Warehouse, Ooty',
-    dateStr: '11 Oct 2026',
-    purchaseStatus: 'Receipt in progress',
-    receiptStatus: 'Partial',
-  },
-  {
-    id: 'po-7',
-    poNumber: 'PO-0003',
-    listingCode: 'LST-2903',
-    farmerName: 'Selvi',
-    produceName: 'Cabbage',
-    grade: 'Grade 1',
-    quantityKg: 150,
-    unitPrice: 20,
-    totalPrice: 3000,
-    warehouse: 'Sub Warehouse, Coonoor',
-    dateStr: '4 Oct 2026',
-    purchaseStatus: 'Closed',
-    receiptStatus: 'Completed',
-  },
-];
+const DEFAULT_EMPTY_PURCHASE_ORDER: PurchaseOrderRecord = {
+  id: '',
+  poNumber: ADMIN_NO_VALUE,
+  listingCode: ADMIN_NO_VALUE,
+  farmerName: ADMIN_NO_VALUE,
+  produceName: ADMIN_NO_VALUE,
+  grade: ADMIN_NO_VALUE,
+  quantityKg: 0,
+  unitPrice: 0,
+  totalPrice: 0,
+  warehouse: ADMIN_NO_VALUE,
+  dateStr: ADMIN_NO_VALUE,
+  purchaseStatus: 'Open',
+  receiptStatus: 'Not received',
+};
+
+const PURCHASE_ORDERS_DATA: PurchaseOrderRecord[] = [];
 
 // ─── Filter Options (Strictly matching user screenshots) ────────────────────
 
@@ -272,253 +187,30 @@ const RECEIPT_STATUS_OPTIONS = ['All', 'Purchase', 'Sales'];
 
 // ─── Sales Orders Data (11 orders matching user screenshots) ─────────────────
 
-const SALES_ORDERS_DATA: SalesOrderRecord[] = [
-  {
-    id: 'so-1',
-    soNumber: 'SO-0004',
-    customerName: 'Demo Hotel Pvt Ltd',
-    customerId: 'C-1004',
-    channel: 'HORECA',
-    status: 'In fulfilment',
-    itemCount: 2,
-    totalPrice: 3700.0,
-    paymentStatus: 'Paid',
-    warehouse: 'WH-MAIN',
-    subMeta: 'WH-MAIN · Invoice Draft',
-    dateTime: '11 Oct 2026, 09:15',
-    paymentRef: 'PAY-7004',
-    itemName: 'Tomato',
-    itemGrade: 'Grade 1',
-    itemQty: 100,
-    itemUnitPrice: 37.0,
-    fulfilledQty: 60,
-    remainingQty: 40,
-    fulfilmentStatus: 'In fulfilment',
-  },
-  {
-    id: 'so-2',
-    soNumber: 'SO-0011',
-    customerName: 'Demo Customer E',
-    customerId: 'C-1005',
-    channel: 'Online',
-    status: 'Issue',
-    itemCount: 1,
-    totalPrice: 280.0,
-    paymentStatus: 'Paid',
-    warehouse: 'Main Warehouse, Ooty',
-    subMeta: 'Delivery attempt failed (demo)',
-    dateTime: '11 Oct 2026, 10:00',
-    paymentRef: 'PAY-7012',
-    itemName: 'Garlic',
-    itemGrade: 'Grade 1',
-    itemQty: 2,
-    itemUnitPrice: 140.0,
-    fulfilledQty: 0,
-    remainingQty: 2,
-    fulfilmentStatus: 'Issue',
-    exceptionNote: 'Delivery attempt failed (demo).',
-  },
-  {
-    id: 'so-3',
-    soNumber: 'SO-0005',
-    customerName: 'Demo Traders LLP',
-    customerId: 'C-1002',
-    channel: 'B2B',
-    status: 'Completed',
-    itemCount: 2,
-    totalPrice: 7400.0,
-    paymentStatus: 'Paid',
-    warehouse: 'WH-MAIN',
-    subMeta: 'WH-MAIN · Invoice Issued (INV-2026-0001)',
-    dateTime: '10 Oct 2026, 14:30',
-    paymentRef: 'PAY-7005',
-    invoiceRef: 'INV-2026-0001',
-    itemName: 'Carrot',
-    itemGrade: 'Grade 2',
-    itemQty: 200,
-    itemUnitPrice: 37.0,
-    fulfilledQty: 200,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-  {
-    id: 'so-4',
-    soNumber: 'SO-0001',
-    customerName: 'Priya Sharma',
-    customerId: 'C-1001',
-    channel: 'Online',
-    status: 'Completed',
-    itemCount: 3,
-    totalPrice: 620.0,
-    paymentStatus: 'Paid',
-    warehouse: 'Main Warehouse, Ooty',
-    subMeta: 'Delivered successfully',
-    dateTime: '9 Oct 2026, 11:20',
-    paymentRef: 'PAY-7001',
-    itemName: 'Beans',
-    itemGrade: 'Grade 1',
-    itemQty: 5,
-    itemUnitPrice: 60.0,
-    fulfilledQty: 5,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-  {
-    id: 'so-5',
-    soNumber: 'SO-0002',
-    customerName: 'Rajesh Kannan',
-    customerId: 'C-1003',
-    channel: 'Online',
-    status: 'In fulfilment',
-    itemCount: 1,
-    totalPrice: 350.0,
-    paymentStatus: 'Paid',
-    warehouse: 'Sub Warehouse, Coonoor',
-    subMeta: 'Packed · Ready for dispatch',
-    dateTime: '11 Oct 2026, 08:45',
-    paymentRef: 'PAY-7002',
-    itemName: 'Potato',
-    itemGrade: 'Grade 1',
-    itemQty: 10,
-    itemUnitPrice: 35.0,
-    fulfilledQty: 10,
-    remainingQty: 0,
-    fulfilmentStatus: 'In fulfilment',
-  },
-  {
-    id: 'so-6',
-    soNumber: 'SO-0003',
-    customerName: 'Green Valley Veggies',
-    customerId: 'C-1006',
-    channel: 'Market',
-    status: 'Completed',
-    itemCount: 4,
-    totalPrice: 4200.0,
-    paymentStatus: 'Paid',
-    warehouse: 'Main Warehouse, Ooty',
-    subMeta: 'Cash collection reconciled',
-    dateTime: '8 Oct 2026, 07:30',
-    paymentRef: 'PAY-7003',
-    itemName: 'Cabbage',
-    itemGrade: 'Grade 1',
-    itemQty: 150,
-    itemUnitPrice: 28.0,
-    fulfilledQty: 150,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-  {
-    id: 'so-7',
-    soNumber: 'SO-0006',
-    customerName: 'Apex Organic Retails',
-    customerId: 'C-1007',
-    channel: 'B2B',
-    status: 'In fulfilment',
-    itemCount: 3,
-    totalPrice: 11200.0,
-    paymentStatus: 'Paid',
-    warehouse: 'WH-MAIN',
-    subMeta: 'WH-MAIN · Invoice Draft',
-    dateTime: '11 Oct 2026, 09:00',
-    paymentRef: 'PAY-7006',
-    itemName: 'Beans',
-    itemGrade: 'Grade 1',
-    itemQty: 160,
-    itemUnitPrice: 70.0,
-    fulfilledQty: 100,
-    remainingQty: 60,
-    fulfilmentStatus: 'In fulfilment',
-  },
-  {
-    id: 'so-8',
-    soNumber: 'SO-0007',
-    customerName: 'Grand Nilgiris Resort',
-    customerId: 'C-1008',
-    channel: 'HORECA',
-    status: 'Completed',
-    itemCount: 5,
-    totalPrice: 8900.0,
-    paymentStatus: 'Paid',
-    warehouse: 'WH-MAIN',
-    subMeta: 'Delivered · Invoice Settled',
-    dateTime: '7 Oct 2026, 06:15',
-    paymentRef: 'PAY-7007',
-    itemName: 'Tomato',
-    itemGrade: 'Grade 1',
-    itemQty: 200,
-    itemUnitPrice: 44.5,
-    fulfilledQty: 200,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-  {
-    id: 'so-9',
-    soNumber: 'SO-0008',
-    customerName: 'Kavitha S.',
-    customerId: 'C-1009',
-    channel: 'Online',
-    status: 'Completed',
-    itemCount: 2,
-    totalPrice: 480.0,
-    paymentStatus: 'Paid',
-    warehouse: 'Main Warehouse, Ooty',
-    subMeta: 'Delivered successfully',
-    dateTime: '6 Oct 2026, 15:40',
-    paymentRef: 'PAY-7008',
-    itemName: 'Carrot',
-    itemGrade: 'Grade 1',
-    itemQty: 8,
-    itemUnitPrice: 60.0,
-    fulfilledQty: 8,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-  {
-    id: 'so-10',
-    soNumber: 'SO-0009',
-    customerName: 'Ooty Farmers Market Booth 4',
-    customerId: 'C-1010',
-    channel: 'Market',
-    status: 'Completed',
-    itemCount: 2,
-    totalPrice: 3100.0,
-    paymentStatus: 'Paid',
-    warehouse: 'Sub Warehouse, Kotagiri',
-    subMeta: 'Market Day settlement',
-    dateTime: '5 Oct 2026, 12:00',
-    paymentRef: 'PAY-7009',
-    itemName: 'Potato',
-    itemGrade: 'Grade 2',
-    itemQty: 100,
-    itemUnitPrice: 31.0,
-    fulfilledQty: 100,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-  {
-    id: 'so-11',
-    soNumber: 'SO-0010',
-    customerName: 'Highland Supermarket',
-    customerId: 'C-1011',
-    channel: 'B2B',
-    status: 'Completed',
-    itemCount: 4,
-    totalPrice: 15400.0,
-    paymentStatus: 'Paid',
-    warehouse: 'WH-MAIN',
-    subMeta: 'WH-MAIN · Invoice Issued (INV-2026-0002)',
-    dateTime: '4 Oct 2026, 16:50',
-    paymentRef: 'PAY-7010',
-    invoiceRef: 'INV-2026-0002',
-    itemName: 'Garlic',
-    itemGrade: 'Grade 1',
-    itemQty: 110,
-    itemUnitPrice: 140.0,
-    fulfilledQty: 110,
-    remainingQty: 0,
-    fulfilmentStatus: 'Completed',
-  },
-];
+const DEFAULT_EMPTY_SALES_ORDER: SalesOrderRecord = {
+  id: '',
+  soNumber: ADMIN_NO_VALUE,
+  customerName: ADMIN_NO_VALUE,
+  customerId: ADMIN_NO_VALUE,
+  channel: 'Online',
+  status: 'Pending',
+  itemCount: 0,
+  totalPrice: 0,
+  paymentStatus: ADMIN_NO_VALUE,
+  warehouse: ADMIN_NO_VALUE,
+  subMeta: ADMIN_NO_VALUE,
+  dateTime: ADMIN_NO_VALUE,
+  paymentRef: ADMIN_NO_VALUE,
+  itemName: ADMIN_NO_VALUE,
+  itemGrade: ADMIN_NO_VALUE,
+  itemQty: 0,
+  itemUnitPrice: 0,
+  fulfilledQty: 0,
+  remainingQty: 0,
+  fulfilmentStatus: ADMIN_NO_VALUE,
+};
+
+const SALES_ORDERS_DATA: SalesOrderRecord[] = [];
 
 export interface PurchaseSalesOrdersScreenProps {
   onBack: () => void;
@@ -529,16 +221,93 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
   // Tabs: 'Purchase' | 'Sales'
   const [activeTab, setActiveTab] = useState<'Purchase' | 'Sales'>('Purchase');
 
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const poQuery = usePurchaseOrderList(undefined, {
+    q: searchQuery.trim() ? searchQuery.trim() : undefined,
+  });
+  const salesQuery = useAdminQuery(
+    ['admin', 'orders', 'sales-orders-list'],
+    (signal) => listAdminOrders({ limit: 50 }, signal)
+  );
+
+  const purchaseOrdersList: PurchaseOrderRecord[] = useMemo(() => {
+    if (!poQuery.items || poQuery.items.length === 0) return [];
+    return poQuery.items.map((row) => ({
+      id: row.id,
+      poNumber: row.poNumber,
+      listingCode: ADMIN_NO_VALUE,
+      farmerName: row.farmerName ?? ADMIN_NO_VALUE,
+      produceName: row.cropName ?? ADMIN_NO_VALUE,
+      grade: row.grade ? row.grade.replace('_', ' ') : ADMIN_NO_VALUE,
+      quantityKg: Number(row.quantityKg) || 0,
+      unitPrice: Number(row.pricePerKg) || 0,
+      totalPrice: Number(row.totalAmount) || 0,
+      warehouse: ADMIN_NO_VALUE,
+      dateStr: row.issuedAt ? row.issuedAt.slice(0, 10) : (row.expectedDeliveryDate ?? ADMIN_NO_VALUE),
+      purchaseStatus: row.status === 'RECEIVED' ? 'Closed' : row.status === 'PARTIALLY_RECEIVED' ? 'Receipt in progress' : 'Open',
+      receiptStatus: row.status === 'RECEIVED' ? 'Completed' : row.status === 'PARTIALLY_RECEIVED' ? 'Partial' : 'Not received',
+      farmerId: row.farmerId,
+    }));
+  }, [poQuery.items]);
+
+  const salesOrdersList: SalesOrderRecord[] = useMemo(() => {
+    const items = salesQuery.data?.items;
+    if (!items || items.length === 0) return [];
+    return items.map((item: OrderSummaryDto) => {
+      const channelMap: Record<string, 'Online' | 'Market' | 'B2B' | 'HORECA' | 'Direct'> = {
+        ONLINE: 'Online',
+        MARKET: 'Market',
+        B2B: 'B2B',
+        HORECA: 'HORECA',
+        DIRECT: 'Direct',
+      };
+      const statusMap: Record<string, 'In fulfilment' | 'Issue' | 'Completed' | 'Pending'> = {
+        CONFIRMED: 'In fulfilment',
+        PACKED: 'In fulfilment',
+        DISPATCHED: 'In fulfilment',
+        READY_FOR_PICKUP: 'In fulfilment',
+        DELIVERED: 'Completed',
+        PICKED_UP: 'Completed',
+        CANCELLED: 'Issue',
+      };
+      return {
+        id: item.id,
+        soNumber: item.orderNumber,
+        customerName: item.customerName ?? ADMIN_NO_VALUE,
+        customerId: ADMIN_NO_VALUE,
+        channel: channelMap[item.channel ?? ''] ?? 'Online',
+        status: statusMap[item.status] ?? 'Pending',
+        itemCount: item.itemCount ?? 0,
+        totalPrice: Number(item.totalAmount) || 0,
+        paymentStatus: item.paymentStatus
+          ? item.paymentStatus.charAt(0) + item.paymentStatus.slice(1).toLowerCase()
+          : ADMIN_NO_VALUE,
+        warehouse: ADMIN_NO_VALUE,
+        subMeta: item.fulfillmentType ?? ADMIN_NO_VALUE,
+        dateTime: item.deliveryDate ?? ADMIN_NO_VALUE,
+        paymentRef: ADMIN_NO_VALUE,
+        itemName: ADMIN_NO_VALUE,
+        itemGrade: ADMIN_NO_VALUE,
+        itemQty: item.itemCount ?? 0,
+        itemUnitPrice: 0,
+        fulfilledQty: 0,
+        remainingQty: 0,
+        fulfilmentStatus: item.status,
+      };
+    });
+  }, [salesQuery.data?.items]);
+
   // Subscreen navigation: 'list' | 'detail' | 'receipt' | 'payout' | 'salesDetail' | 'invoiceDetail'
   const [currentScreen, setCurrentScreen] = useState<'list' | 'detail' | 'receipt' | 'payout' | 'salesDetail' | 'invoiceDetail'>('list');
-  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrderRecord>(PURCHASE_ORDERS_DATA[0]!);
-  const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrderRecord>(SALES_ORDERS_DATA[1]!);
+  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrderRecord>(DEFAULT_EMPTY_PURCHASE_ORDER);
+  const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrderRecord>(DEFAULT_EMPTY_SALES_ORDER);
   const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDetailData | null>(null);
   const [selectedSalesChannel, setSelectedSalesChannel] = useState<'All' | 'Online' | 'Market' | 'B2B' | 'HORECA'>('All');
   const [receiptPreviousScreen, setReceiptPreviousScreen] = useState<'list' | 'detail'>('list');
 
   // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   // Filter form values
@@ -625,7 +394,7 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
 
   // Filtered orders list
   const filteredOrders = useMemo(() => {
-    return PURCHASE_ORDERS_DATA.filter((po) => {
+    return purchaseOrdersList.filter((po) => {
       // Search query check
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -669,21 +438,21 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
 
       return true;
     });
-  }, [searchQuery, appliedFilters]);
+  }, [searchQuery, appliedFilters, purchaseOrdersList]);
 
   // Filtered sales orders list
   const channelCounts = useMemo(() => {
     return {
-      all: SALES_ORDERS_DATA.length,
-      online: SALES_ORDERS_DATA.filter((s) => s.channel === 'Online').length,
-      market: SALES_ORDERS_DATA.filter((s) => s.channel === 'Market').length,
-      b2b: SALES_ORDERS_DATA.filter((s) => s.channel === 'B2B').length,
-      horeca: SALES_ORDERS_DATA.filter((s) => s.channel === 'HORECA').length,
+      all: salesOrdersList.length,
+      online: salesOrdersList.filter((s) => s.channel === 'Online').length,
+      market: salesOrdersList.filter((s) => s.channel === 'Market').length,
+      b2b: salesOrdersList.filter((s) => s.channel === 'B2B').length,
+      horeca: salesOrdersList.filter((s) => s.channel === 'HORECA').length,
     };
-  }, []);
+  }, [salesOrdersList]);
 
   const filteredSalesOrders = useMemo(() => {
-    return SALES_ORDERS_DATA.filter((so) => {
+    return salesOrdersList.filter((so) => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matches =
@@ -698,12 +467,16 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
       }
       return true;
     });
-  }, [searchQuery, selectedSalesChannel]);
+  }, [searchQuery, selectedSalesChannel, salesOrdersList]);
 
   // Action handlers
   const handleViewPO = (po: PurchaseOrderRecord) => {
-    setSelectedOrder(po);
-    setCurrentScreen('detail');
+    if (onNavigateOrder) {
+      onNavigateOrder(po.id);
+    } else {
+      setSelectedOrder(po);
+      setCurrentScreen('detail');
+    }
   };
 
   const handleOpenReceipt = (po: PurchaseOrderRecord) => {
@@ -728,29 +501,24 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
   };
 
   const handleViewInvoice = (so: SalesOrderRecord) => {
-    const invNumber = so.invoiceRef && so.invoiceRef !== '—' ? so.invoiceRef : `INV-${so.soNumber}`;
+    const invNumber = so.invoiceRef && so.invoiceRef !== ADMIN_NO_VALUE ? so.invoiceRef : ADMIN_NO_VALUE;
     const invData: InvoiceDetailData = {
-      id: `inv-${so.id}`,
+      id: ADMIN_NO_VALUE,
       invoiceNumber: invNumber,
       status: so.status === 'Completed' ? 'Issued' : 'Draft',
-      dateStr: so.dateTime ? so.dateTime.split(',')[0]! : '12 Oct 2026',
+      dateStr: so.dateTime !== ADMIN_NO_VALUE ? so.dateTime.split(',')[0]! : ADMIN_NO_VALUE,
       soNumber: so.soNumber,
-      recipient: `${so.customerName} (${so.customerId})`,
-      billingAddress: 'Main Warehouse, Ooty',
-      gstin: '33AABCT1234D1Z5',
+      recipient: so.customerName,
+      billingAddress: ADMIN_NO_VALUE,
+      gstin: ADMIN_NO_VALUE,
       itemName: so.itemName,
       itemGrade: so.itemGrade,
-      itemRate: `${so.itemQty} kg × ₹${so.itemUnitPrice.toFixed(2)}/kg`,
-      itemTotal: `₹${so.totalPrice.toFixed(2)}`,
-      taxableAmount: `₹${so.totalPrice.toFixed(2)}`,
-      taxText: 'Included: 5% GST',
+      itemRate: ADMIN_NO_VALUE,
+      itemTotal: ADMIN_NO_VALUE,
+      taxableAmount: ADMIN_NO_VALUE,
+      taxText: ADMIN_NO_VALUE,
       finalAmountText: `₹${so.totalPrice.toFixed(2)}`,
-      historyEvents: [
-        {
-          date: `${so.dateTime} · System`,
-          title: `Invoice ${so.status === 'Completed' ? 'issued' : 'draft'}: ${invNumber}`,
-        },
-      ],
+      historyEvents: [],
     };
     setSelectedInvoice(invData);
     setCurrentScreen('invoiceDetail');
@@ -799,13 +567,8 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         orderNumber={selectedInvoice.soNumber}
         customerName={selectedInvoice.recipient}
         invoiceNumber={selectedInvoice.invoiceNumber}
-        items={[
-          {
-            description: `${selectedInvoice.itemName} (${selectedInvoice.itemGrade}) — ${selectedInvoice.itemRate}`,
-            amount: parseFloat(selectedInvoice.itemTotal.replace(/[^\d.]/g, '')) || 0,
-          },
-        ]}
-        total={parseFloat(selectedInvoice.finalAmountText.replace(/[^\d.]/g, '')) || 0}
+        date={selectedInvoice.dateStr}
+        items={[]}
         onBack={() => setCurrentScreen('list')}
       />
     );
@@ -838,43 +601,43 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         {/* ── 2. Top Stats: 8 KPI Cards (Reusing OverviewDashboardCard) ── */}
         <OverviewCardsGrid style={[styles.kpiGrid, { marginBottom: 12 }]}>
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Purchase Orders"
             icon="orders"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Sales Orders"
             icon="sales"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Receipts Awaiting Inspection"
             icon="receiving"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Quality Issues / Rejected"
             icon="alert"
             tone="warning"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Orders Awaiting Fulfilment"
             icon="orders"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Invoices Pending Action"
             icon="cash"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Open Returns / RMA"
             icon="box"
           />
           <OverviewDashboardCard
-            value="—"
+            value={ADMIN_NO_VALUE}
             title="Farmer Payouts Pending"
             icon="cash"
           />
@@ -950,7 +713,7 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         {activeTab === 'Purchase' ? (
           <>
             <Text style={styles.counterText}>
-              {filteredOrders.length} of {PURCHASE_ORDERS_DATA.length} purchase orders
+              {t('wiringSales.orders.pageCount', { shown: filteredOrders.length })}
             </Text>
 
             {/* Purchase Orders Cards List */}
@@ -1060,7 +823,7 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         ) : (
           <>
             <Text style={styles.counterText}>
-              {filteredSalesOrders.length} orders
+              {t('wiringSales.orders.pageCount', { shown: filteredSalesOrders.length })}
             </Text>
 
             {/* Horizontal Channel Filter Pills */}

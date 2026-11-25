@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import {
   Alert,
@@ -29,8 +29,15 @@ import {
   UserPlusIcon,
 } from '../../components/AdminIcons';
 import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
-import type { AddRecordTab } from './AdminAddFarmRecordScreen';
-import type { EditFarmRecordData } from './AdminEditFarmRecordScreen';
+import { AdminAddFarmRecordScreen, type AddRecordTab } from './AdminAddFarmRecordScreen';
+import { AdminEditFarmRecordScreen, type EditFarmRecordData } from './AdminEditFarmRecordScreen';
+import type { Can } from '../../permissions/can';
+import { useProduceRecordList } from '../../api/produceHooks';
+import type { ProduceRecordStatus, ProduceRecordSummaryDto } from '../../api/w5ProduceRecords';
+import { useAdminFarmerAnimals, useAdminFarmerAssets, type AnimalDto, type FarmAssetDto } from '../../api/w5FarmRecords';
+import { formatAdminDay } from '../../utils/datetime';
+import { t } from '../../i18n';
+import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 export type FarmRecordSubTab = 'Diary' | 'Plant & Crops' | 'Livestock' | 'Assets';
 
@@ -56,8 +63,9 @@ interface CropRecordItem {
   seedSource: string;
   grade: string;
   harvestStatus: string;
-  status: 'Planned' | 'Growing' | 'Harvested';
-  stageIndex: number;
+  status: ProduceRecordStatus;
+  /** The record list carries no growth stage: null draws an empty stage bar. */
+  stageIndex: number | null;
   notes: string;
   hasPhoto: boolean;
 }
@@ -65,19 +73,20 @@ interface CropRecordItem {
 interface LivestockRecordItem {
   id: string;
   title: string;
-  species: 'Cow' | 'Hen';
+  species: string;
   tag: string;
   code: string;
   acquiredDate: string;
   breed: string;
-  productionLogs: number;
+  productionLogs: string;
   latestProduction: string;
   source: string;
   plot: string;
   subCategory: string;
   notes: string;
   productOptions: string[];
-  endedOutcome?: 'Sold' | 'Transferred' | 'Culled' | 'Deceased' | undefined;
+  /** The server's terminal lifecycle status, when the animal is no longer active. */
+  endedOutcome?: string | undefined;
 }
 
 interface AssetRecordItem {
@@ -92,7 +101,8 @@ interface AssetRecordItem {
   nextServiceDue: string;
   source?: string | undefined;
   serviceOverdue?: boolean | undefined;
-  status: 'Active' | 'Retired';
+  /** No lifecycle (active / retired) is sent for an asset. */
+  status: string;
   notes: string;
 }
 
@@ -112,7 +122,76 @@ function PencilMiniIcon({ size = 14, color = adminColors.onBrand }: { size?: num
   );
 }
 
+const dayOrDash = (iso: string | null): string => (iso === null ? ADMIN_NO_VALUE : formatAdminDay(iso) || ADMIN_NO_VALUE);
+
+/** A crop record (openapi CropRecordSummary) as a card; no field is invented. */
+function toCropItem(r: ProduceRecordSummaryDto): CropRecordItem {
+  return {
+    id: r.id,
+    title: r.crop.name,
+    shortName: r.crop.name,
+    code: ADMIN_NO_VALUE,
+    plotName: r.plot.name,
+    plotDetail: r.plot.name,
+    plantedDate: dayOrDash(r.plantedOn),
+    expectedHarvest: dayOrDash(r.expectedHarvestOn),
+    seedSource: ADMIN_NO_VALUE,
+    grade: ADMIN_NO_VALUE,
+    harvestStatus:
+      r.actualYieldKg === null
+        ? dayOrDash(r.actualHarvestOn)
+        : t('wiringFarmers.records.harvestKg', { kg: r.actualYieldKg, date: dayOrDash(r.actualHarvestOn) }),
+    status: r.status,
+    stageIndex: null,
+    notes: ADMIN_NO_VALUE,
+    hasPhoto: false,
+  };
+}
+
+/** An animal (openapi Animal) as a card. Production logs are not in the admin read. */
+function toLivestockItem(a: AnimalDto): LivestockRecordItem {
+  return {
+    id: a.id,
+    title: a.name ?? a.tag,
+    species: t(`wiringFarmers.records.species.${a.species}`),
+    tag: a.tag,
+    code: a.tag,
+    acquiredDate: dayOrDash(a.purchasedOn ?? a.dateOfBirth),
+    breed: a.breed ?? ADMIN_NO_VALUE,
+    productionLogs: ADMIN_NO_VALUE,
+    latestProduction: ADMIN_NO_VALUE,
+    source: t(`wiringFarmers.records.source.${a.source}`),
+    plot: ADMIN_NO_VALUE,
+    subCategory: a.breed ?? ADMIN_NO_VALUE,
+    notes: a.notes ?? ADMIN_NO_VALUE,
+    productOptions: [],
+    ...(a.lifecycleStatus === 'ACTIVE' ? {} : { endedOutcome: t(`wiringFarmers.records.lifecycle.${a.lifecycleStatus}`) }),
+  };
+}
+
+/** A farm asset (openapi FarmAsset) as a card. The asset has no code and no lifecycle status. */
+function toAssetItem(a: FarmAssetDto): AssetRecordItem {
+  return {
+    id: a.id,
+    name: a.name,
+    code: ADMIN_NO_VALUE,
+    category: t(`wiringFarmers.records.assetCategory.${a.category}`),
+    plot: ADMIN_NO_VALUE,
+    purchasedDate: dayOrDash(a.purchasedOn),
+    lastService: dayOrDash(a.lastServicedOn),
+    serviceInterval:
+      a.serviceIntervalDays === null ? ADMIN_NO_VALUE : t('wiringFarmers.records.days', { count: a.serviceIntervalDays }),
+    nextServiceDue: dayOrDash(a.nextServiceDueOn),
+    serviceOverdue: a.status === 'OVERDUE',
+    status: ADMIN_NO_VALUE,
+    notes: a.notes ?? ADMIN_NO_VALUE,
+  };
+}
+
 export interface FarmRecordsSectionProps {
+  /** The farmer's UUID; without it nothing is fetched and every tab says "not loaded". */
+  farmerId?: string | undefined;
+  can?: Can | undefined;
   farmerName?: string | undefined;
   farmerCode?: string | undefined;
   zone?: string | undefined;
@@ -121,106 +200,68 @@ export interface FarmRecordsSectionProps {
   onEditRecord?: (record: EditFarmRecordData) => void;
 }
 
+/**
+ * A farmer's farm records, read-only from the API:
+ *   - Plant & Crops: GET /admin/produce/records?farmerId= (produce.calendar.view_consolidated)
+ *   - Livestock:     GET /admin/farmers/{id}/livestock/animals (admin.livestock.view_all)
+ *   - Assets:        GET /admin/farmers/{id}/farm-assets (admin.assets.view_all)
+ *   - Diary:         no admin endpoint exists, so the tab says "not loaded", never "none".
+ * No admin write exists for any of them. The stage / harvest / production /
+ * end-of-life / service / retire sheets and the Add / Edit screens open exactly
+ * as the design draws them; only each one's final confirm is disabled (R3), with
+ * a "saving isn't available yet" note, and nothing reports a save.
+ */
 export function FarmRecordsSection({
+  farmerId,
+  can,
   farmerName = ADMIN_NO_VALUE,
   farmerCode = ADMIN_NO_VALUE,
-  zone = ADMIN_NO_VALUE,
+  zone: _zone,
   onAddRecord,
   onEditDiary,
   onEditRecord,
 }: FarmRecordsSectionProps): React.JSX.Element {
   const [activeSubTab, setActiveSubTab] = useState<FarmRecordSubTab>('Diary');
+  // The design's farmer detail opens Add / Edit as full screens. A host that routes
+  // them passes onAddRecord / onEditRecord; without one they open here, full screen.
+  const [ownAddTab, setOwnAddTab] = useState<AddRecordTab | null>(null);
+  const [ownEditRecord, setOwnEditRecord] = useState<EditFarmRecordData | null>(null);
+  const openAdd = (tab: AddRecordTab) => (onAddRecord ? onAddRecord(tab) : setOwnAddTab(tab));
+  const openEdit = (record: EditFarmRecordData) => {
+    if (onEditRecord) onEditRecord(record);
+    else if (record.type === 'diary' && onEditDiary) onEditDiary(record);
+    else setOwnEditRecord(record);
+  };
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCropId, setExpandedCropId] = useState<string | null>('crp-2');
+  const [expandedCropId, setExpandedCropId] = useState<string | null>(null);
 
-  const [crops, setCrops] = useState<CropRecordItem[]>([
-    {
-      id: 'crp-1',
-      title: 'Tomato',
-      shortName: 'Tomato',
-      code: 'CRP-0000',
-      plotName: `${zone}, plot 1`,
-      plotDetail: `${zone}, plot 1`,
-      plantedDate: '15 Jul 2026',
-      expectedHarvest: '13 Oct 2026',
-      seedSource: 'Nursery seedlings',
-      grade: 'Grade 1',
-      harvestStatus: 'Not harvested',
-      status: 'Planned',
-      stageIndex: 4,
-      notes: 'Planned tomato crop on Coonoor plot 1.',
-      hasPhoto: true,
-    },
-    {
-      id: 'crp-2',
-      title: 'Carrot · Nantes',
-      shortName: 'Carrot',
-      code: 'CRP-0001',
-      plotName: 'Plot A',
-      plotDetail: 'Plot A (1.0 acre)',
-      plantedDate: '18 Sep 2026',
-      expectedHarvest: '27 Nov 2026',
-      seedSource: 'Own saved seed',
-      grade: 'Grade 1',
-      harvestStatus: 'Not harvested',
-      status: 'Growing',
-      stageIndex: 2,
-      notes: 'Vegetative growth stage, own saved seed.',
-      hasPhoto: true,
-    },
-    {
-      id: 'crp-3',
-      title: 'Carrot',
-      shortName: 'Carrot',
-      code: 'CRP-0002',
-      plotName: `${zone}, plot 2`,
-      plotDetail: `${zone}, plot 2`,
-      plantedDate: '02 Jul 2026',
-      expectedHarvest: '10 Oct 2026',
-      seedSource: 'Own saved seed',
-      grade: 'Grade 1',
-      harvestStatus: 'Not harvested',
-      status: 'Growing',
-      stageIndex: 4,
-      notes: 'Carrot crop on Coonoor plot 2.',
-      hasPhoto: false,
-    },
-  ]);
+  const canCrops = can?.('produce.calendar.view_consolidated') ?? false;
+  const canLivestock = can?.('admin.livestock.view_all') ?? false;
+  const canAssets = can?.('admin.assets.view_all') ?? false;
+  const cropQuery = useProduceRecordList({ farmerId }, { enabled: farmerId !== undefined && canCrops });
+  const animalQuery = useAdminFarmerAnimals(farmerId, { enabled: canLivestock });
+  const assetQuery = useAdminFarmerAssets(farmerId, { enabled: canAssets });
 
-  const [livestockList, setLivestockList] = useState<LivestockRecordItem[]>([
-    {
-      id: 'anm-1',
-      title: 'Cow · COW-01 · Lakshmi',
-      species: 'Cow',
-      tag: 'COW-01',
-      code: 'ANM-0001',
-      acquiredDate: '23 Sep 2025',
-      breed: 'Jersey',
-      productionLogs: 2,
-      latestProduction: '12 litres of milk, 27 Oct 2026',
-      source: 'Added by the farmer',
-      plot: 'Main Barn / Shed 1',
-      subCategory: 'COW-01 · Lakshmi',
-      notes: 'Production logs: 2. Added by the farmer.',
-      productOptions: ['milk (litres)', 'curd (kg)', 'paneer (kg)'],
-    },
-    {
-      id: 'anm-2',
-      title: 'Hen · HEN-07',
-      species: 'Hen',
-      tag: 'HEN-07',
-      code: 'ANM-0002',
-      acquiredDate: '11 Apr 2026',
-      breed: 'Country',
-      productionLogs: 1,
-      latestProduction: '6 eggs of egg, 27 Oct 2026',
-      source: 'Added by the farmer',
-      plot: 'Poultry Coop',
-      subCategory: 'HEN-07',
-      notes: 'Production logs: 1. Added by the farmer.',
-      productOptions: ['eggs (pcs)', 'manure (kg)'],
-    },
-  ]);
+  const crops = useMemo(() => cropQuery.items.map(toCropItem), [cropQuery.items]);
+  const livestockList = useMemo(() => (animalQuery.animals ?? []).map(toLivestockItem), [animalQuery.animals]);
+  const assetsList = useMemo(() => assetQuery.items.map(toAssetItem), [assetQuery.items]);
+  // No admin diary endpoint exists.
+  const diaryList: EditFarmRecordData[] = [];
+
+  /** Loading / error / not-loaded for a tab; null when its rows can be drawn. */
+  const tabState = (q: { isLoading: boolean; error: unknown; refresh: () => void }, allowed: boolean) => {
+    if (farmerId === undefined || !allowed) {
+      return (
+        <View style={styles.emptyWrap}>
+          <Text style={styles.emptyTitle}>{t('wiringFarmers.records.notLoaded')}</Text>
+        </View>
+      );
+    }
+    if (q.isLoading) return <AdminLoadingState />;
+    if (q.error) return <AdminErrorState error={q.error} onRetry={q.refresh} />;
+    return null;
+  };
+  const cropTotal = cropQuery.firstPage?.page.total;
 
   // Modal state: Update growth stage
   const [stageModalCrop, setStageModalCrop] = useState<CropRecordItem | null>(null);
@@ -229,56 +270,26 @@ export function FarmRecordsSection({
 
   // Modal state: Record harvest
   const [harvestModalCrop, setHarvestModalCrop] = useState<CropRecordItem | null>(null);
-  const [harvestDateInput, setHarvestDateInput] = useState('28-10-2026');
+  const [harvestDateInput, setHarvestDateInput] = useState('');
   const [harvestQtyInput, setHarvestQtyInput] = useState('');
 
   // Modal state: Log production (Livestock)
   const [logProdAnimal, setLogProdAnimal] = useState<LivestockRecordItem | null>(null);
   const [selectedProdProduct, setSelectedProdProduct] = useState('milk (litres)');
   const [prodPickerOpen, setProdPickerOpen] = useState(false);
-  const [prodDateInput, setProdDateInput] = useState('28-10-2026');
+  const [prodDateInput, setProdDateInput] = useState('');
   const [prodQtyInput, setProdQtyInput] = useState('');
 
   // Modal state: End animal record (Livestock)
   const [endRecordAnimal, setEndRecordAnimal] = useState<LivestockRecordItem | null>(null);
   const [endOutcome, setEndOutcome] = useState<(typeof ANIMAL_END_OUTCOMES)[number]>('Sold');
   const [endOutcomePickerOpen, setEndOutcomePickerOpen] = useState(false);
-  const [endDateInput, setEndDateInput] = useState('28-10-2026');
+  const [endDateInput, setEndDateInput] = useState('');
   const [endReasonInput, setEndReasonInput] = useState('');
 
   // Assets state & modals
-  const [assetsList, setAssetsList] = useState<AssetRecordItem[]>([
-    {
-      id: 'ast-1',
-      name: 'Power tiller',
-      code: 'AST-0001',
-      category: 'Machinery',
-      plot: 'Machinery Shed',
-      purchasedDate: '27 Nov 2024',
-      lastService: '11 Apr 2026',
-      serviceInterval: '180 days',
-      nextServiceDue: '8 Oct 2026',
-      source: 'Added by the farmer',
-      serviceOverdue: true,
-      status: 'Active',
-      notes: 'Service overdue. Added by the farmer.',
-    },
-    {
-      id: 'ast-2',
-      name: 'Sprayer',
-      code: 'AST-0002',
-      category: 'Equipment',
-      plot: 'Equipment Locker',
-      purchasedDate: '1 Jan 2026',
-      lastService: '28 Sep 2026',
-      serviceInterval: '90 days',
-      nextServiceDue: '27 Dec 2026',
-      status: 'Active',
-      notes: 'Regular equipment maintenance.',
-    },
-  ]);
   const [serviceModalAsset, setServiceModalAsset] = useState<AssetRecordItem | null>(null);
-  const [serviceDateInput, setServiceDateInput] = useState('28-10-2026');
+  const [serviceDateInput, setServiceDateInput] = useState('');
   const [serviceNoteInput, setServiceNoteInput] = useState('');
   const [retireModalAsset, setRetireModalAsset] = useState<AssetRecordItem | null>(null);
   const [retireReasonInput, setRetireReasonInput] = useState('');
@@ -335,94 +346,37 @@ export function FarmRecordsSection({
       ═════════════════════════════════════════════════════ */}
       {activeSubTab === 'Diary' && (
         <View style={styles.tabContent}>
-          <Text style={styles.resultsCount}>2 diary</Text>
+          <Text style={styles.resultsCount}>{ADMIN_NO_VALUE}</Text>
 
-          {/* Card 1 */}
-          <View style={styles.recordCard}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardHeaderTitle}>Nutrient · Compost application</Text>
-              <View style={styles.onBehalfBadge}>
-                <Text style={styles.onBehalfBadgeText}>Added on behalf</Text>
-              </View>
+          {diaryList.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>{t('wiringFarmers.records.diaryUnavailable')}</Text>
             </View>
-            <Text style={styles.cardMetaText}>
-              26 Oct 2026 · Plot 2 (1.2 acre) · 90 minutes · Linked crop: Tomato
-            </Text>
-            <Text style={styles.cardMetaText}>Workforce: 2 workers, 4 hrs each · 2 photos</Text>
-            <Text style={styles.cardAddedByText}>Added by Demo Super Admin on behalf</Text>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={() => {
-                const data: EditFarmRecordData = {
-                  id: 'd1',
-                  type: 'diary',
-                  headerTitle: 'Edit Diary Entry',
-                  date: '26 Oct 2026',
-                  plot: 'Plot 2 (1.2 acre)',
-                  category: 'Nutrient',
-                  subCategory: 'Compost application',
-                  timeSpent: '90',
-                  linkedCrop: 'Tomato (same plot)',
-                  workforce: [
-                    { id: 'w1', name: 'Worker 1', hours: '4', wage: '350' },
-                    { id: 'w2', name: 'Worker 2', hours: '4', wage: '350' },
-                  ],
-                  notes: 'Applied compost before the next rain.',
-                  hasPhoto: true,
-                };
-                if (onEditRecord) onEditRecord(data);
-                else onEditDiary?.(data);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.outlineActionBtnText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Card 2 */}
-          <View style={styles.recordCard}>
-            <View style={styles.cardHeaderRow}>
-              <Text style={styles.cardHeaderTitle}>Weed · Hand weeding</Text>
-              <View style={styles.farmersOwnBadge}>
-                <Text style={styles.farmersOwnBadgeText}>Farmer's own</Text>
+          ) : (
+            diaryList.map((entry) => (
+              <View key={entry.id} style={styles.recordCard}>
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardHeaderTitle}>{entry.category} · {entry.subCategory}</Text>
+                </View>
+                <Text style={styles.cardMetaText}>
+                  {entry.date} · {entry.plot} · {entry.timeSpent} minutes
+                </Text>
+                <Text style={styles.cardAddedByText}>Added by {farmerName}</Text>
+                <TouchableOpacity
+                  style={styles.outlineActionBtn}
+                  onPress={() => openEdit(entry)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.outlineActionBtnText}>Edit</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-            <Text style={styles.cardMetaText}>
-              24 Oct 2026 · Plot 1 (1.8 acre) · 120 minutes · No linked crop
-            </Text>
-            <Text style={styles.cardMetaText}>No workforce logged · 0 photos</Text>
-            <Text style={styles.cardAddedByText}>Added by {farmerName}</Text>
-
-            <TouchableOpacity
-              style={styles.outlineActionBtn}
-              onPress={() => {
-                const data: EditFarmRecordData = {
-                  id: 'd2',
-                  type: 'diary',
-                  headerTitle: 'Edit Diary Entry',
-                  date: '24 Oct 2026',
-                  plot: 'Plot 1 (1.8 acre)',
-                  category: 'Weed',
-                  subCategory: 'Hand weeding',
-                  timeSpent: '120',
-                  linkedCrop: 'No linked crop',
-                  workforce: [],
-                  notes: 'Hand weeding along rows.',
-                  hasPhoto: false,
-                };
-                if (onEditRecord) onEditRecord(data);
-                else onEditDiary?.(data);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.outlineActionBtnText}>Edit</Text>
-            </TouchableOpacity>
-          </View>
+            ))
+          )}
 
           <TouchableOpacity
+            testID="farmrec.add.diary"
             style={styles.primarySolidBtn}
-            onPress={() => onAddRecord?.('Diary')}
+            onPress={() => openAdd('Diary')}
             activeOpacity={0.8}
           >
             <Text style={styles.primarySolidBtnText}>+ Add Diary Entry</Text>
@@ -435,36 +389,51 @@ export function FarmRecordsSection({
       ═════════════════════════════════════════════════════ */}
       {activeSubTab === 'Plant & Crops' && (
         <View style={styles.tabContent}>
-          <Text style={styles.resultsCount}>{crops.length} crops</Text>
+          <Text style={styles.resultsCount}>
+            {cropTotal === undefined ? ADMIN_NO_VALUE : t('wiringFarmers.records.cropCount', { count: cropTotal })}
+          </Text>
 
-          {crops.map((crop) => {
+          {tabState(cropQuery, canCrops) ?? (crops.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No crops registered</Text>
+              <Text style={styles.emptySubtitle}>Crop cycles recorded for this farm will appear here.</Text>
+            </View>
+          ) : (
+            crops.map((crop) => {
             const isExpanded = expandedCropId === crop.id;
-            const currentStageName = CROP_GROWTH_STAGES[crop.stageIndex] ?? 'Vegetative';
+            const stageIndex = crop.stageIndex;
+            const currentStageName =
+              stageIndex === null ? ADMIN_NO_VALUE : CROP_GROWTH_STAGES[stageIndex] ?? ADMIN_NO_VALUE;
+            const stageNumber = stageIndex === null ? ADMIN_NO_VALUE : String(stageIndex + 1);
             const badgeStyle =
-              crop.status === 'Planned' ? styles.blueBadge : styles.greenBadge;
+              crop.status === 'PLANNED' ? styles.blueBadge : styles.greenBadge;
             const badgeTextStyle =
-              crop.status === 'Planned' ? styles.blueBadgeText : styles.greenBadgeText;
+              crop.status === 'PLANNED' ? styles.blueBadgeText : styles.greenBadgeText;
 
+            // The design's sheets open as drawn; only their final confirm is disabled (R3).
             const handleOpenUpdateStage = () => {
-              const forward = CROP_GROWTH_STAGES.slice(crop.stageIndex + 1);
+              const forward = CROP_GROWTH_STAGES.slice((stageIndex ?? -1) + 1);
               if (forward.length === 0) {
-                Alert.alert('Final Stage', `${crop.shortName} is already at Harvest stage.`);
+                Alert.alert(
+                  t('wiringFarmers.records.guard.finalStage.title'),
+                  t('wiringFarmers.records.guard.finalStage.message', { crop: crop.shortName }),
+                );
                 return;
               }
-              setSelectedNextStage(forward[0] ?? 'Harvest');
+              setSelectedNextStage(forward[0] ?? '');
               setStagePickerOpen(false);
               setStageModalCrop(crop);
             };
 
             const handleOpenRecordHarvest = () => {
-              if (crop.status === 'Harvested') {
+              if (crop.status === 'HARVESTED') {
                 Alert.alert(
-                  'Closed Record',
-                  'This crop is already Harvested and cannot be edited afterwards.',
+                  t('wiringFarmers.records.guard.closed.title'),
+                  t('wiringFarmers.records.guard.closed.message'),
                 );
                 return;
               }
-              setHarvestDateInput('28-10-2026');
+              setHarvestDateInput('');
               setHarvestQtyInput('');
               setHarvestModalCrop(crop);
             };
@@ -481,17 +450,17 @@ export function FarmRecordsSection({
                     <Text style={styles.cardHeaderTitle}>{crop.title}</Text>
                   </View>
                   <View style={badgeStyle}>
-                    <Text style={badgeTextStyle}>{crop.status}</Text>
+                    <Text style={badgeTextStyle}>{t(`wiringFarmers.produce.status.${crop.status}`)}</Text>
                   </View>
                 </TouchableOpacity>
 
-                {crop.id === 'crp-2' ? (
+                {isExpanded ? (
                   <Text style={styles.cropPlotCode}>
                     {crop.code} · {crop.plotDetail}
                   </Text>
                 ) : (
                   <Text style={styles.cardMetaText}>
-                    {crop.plotName} · Planted {crop.plantedDate} · Stage {crop.stageIndex + 1} of 7 (
+                    {crop.plotName} · Planted {crop.plantedDate} · Stage {stageNumber} of 7 (
                     {currentStageName})
                   </Text>
                 )}
@@ -503,9 +472,9 @@ export function FarmRecordsSection({
                       key={idx}
                       style={[
                         styles.progressSevenSeg,
-                        idx < crop.stageIndex
+                        stageIndex !== null && idx < stageIndex
                           ? { backgroundColor: adminColors.success.text }
-                          : idx === crop.stageIndex
+                          : idx === stageIndex
                             ? { backgroundColor: adminColors.brand }
                             : { backgroundColor: adminColors.border },
                       ]}
@@ -513,7 +482,7 @@ export function FarmRecordsSection({
                   ))}
                 </View>
 
-                {crop.id !== 'crp-2' || !isExpanded ? (
+                {!isExpanded ? (
                   <Text style={styles.calcHarvestText}>
                     Expected harvest: {crop.expectedHarvest} (calculated)
                   </Text>
@@ -521,7 +490,7 @@ export function FarmRecordsSection({
 
                 {isExpanded && (
                   <>
-                    {crop.id === 'crp-2' ? (
+                    {isExpanded ? (
                       <View style={styles.infoTwoColGrid}>
                         <View style={styles.infoGridCol}>
                           <Text style={styles.infoLabel}>Growth stage</Text>
@@ -534,7 +503,8 @@ export function FarmRecordsSection({
                           <Text style={styles.infoValue}>{crop.grade}</Text>
 
                           <Text style={styles.infoLabel}>Source</Text>
-                          <Text style={styles.infoValue}>Added by the farmer</Text>
+                          {/* The crop record read carries no source. */}
+                          <Text style={styles.infoValue}>{ADMIN_NO_VALUE}</Text>
                         </View>
 
                         <View style={styles.infoGridCol}>
@@ -556,15 +526,15 @@ export function FarmRecordsSection({
 
                     <View style={[styles.threeBtnsRow, { marginTop: adminSpacing.sm }]}>
                       <TouchableOpacity
+                        testID="farmrec.crop.edit"
                         style={styles.outlineActionBtnFlex}
                         onPress={() => {
-                          onEditRecord?.({
+                          openEdit({
                             id: crop.id,
                             type: 'crop',
                             headerTitle: 'Edit Crop Type',
                             date: crop.plantedDate,
                             plot: crop.plotDetail,
-                            category: 'Vegetable',
                             subCategory: crop.title,
                             growthStage: currentStageName,
                             expectedHarvest: crop.expectedHarvest,
@@ -579,6 +549,7 @@ export function FarmRecordsSection({
                         <Text style={styles.outlineActionBtnText}>Edit</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
+                        testID="farmrec.crop.updateStage"
                         style={styles.outlineActionBtnFlex}
                         onPress={handleOpenUpdateStage}
                         activeOpacity={0.7}
@@ -586,6 +557,7 @@ export function FarmRecordsSection({
                         <Text style={styles.outlineActionBtnText}>Update stage</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
+                        testID="farmrec.crop.recordHarvest"
                         style={styles.outlineActionBtnFlex}
                         onPress={handleOpenRecordHarvest}
                         activeOpacity={0.7}
@@ -597,11 +569,12 @@ export function FarmRecordsSection({
                 )}
               </View>
             );
-          })}
+          })))}
 
           <TouchableOpacity
+            testID="farmrec.add.plant"
             style={styles.primarySolidBtn}
-            onPress={() => onAddRecord?.('Plant')}
+            onPress={() => openAdd('Plant')}
             activeOpacity={0.8}
           >
             <Text style={styles.primarySolidBtnText}>+ Plant a crop</Text>
@@ -614,9 +587,18 @@ export function FarmRecordsSection({
       ═════════════════════════════════════════════════════ */}
       {activeSubTab === 'Livestock' && (
         <View style={styles.tabContent}>
-          <Text style={styles.resultsCount}>{livestockList.length} livestock</Text>
+          {/* The herd read returns every animal, so its length is the farmer's real count. */}
+          <Text style={styles.resultsCount}>
+            {animalQuery.animals === undefined ? ADMIN_NO_VALUE : t('wiringFarmers.records.livestockCount', { count: livestockList.length })}
+          </Text>
 
-          {livestockList.map((animal) => {
+          {tabState(animalQuery, canLivestock) ?? (livestockList.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No livestock records</Text>
+              <Text style={styles.emptySubtitle}>Animals and production records will appear here.</Text>
+            </View>
+          ) : (
+            livestockList.map((animal) => {
             const isEnded = Boolean(animal.endedOutcome);
             return (
               <View key={animal.id} style={styles.recordCard}>
@@ -624,7 +606,7 @@ export function FarmRecordsSection({
                   <Text style={styles.cardHeaderTitle}>{animal.title}</Text>
                   <View style={isEnded ? styles.redBadge : styles.greenBadge}>
                     <Text style={isEnded ? styles.redBadgeText : styles.greenBadgeText}>
-                      {isEnded ? animal.endedOutcome : 'Active'}
+                      {isEnded ? animal.endedOutcome : t('wiringFarmers.records.lifecycle.ACTIVE')}
                     </Text>
                   </View>
                 </View>
@@ -651,18 +633,19 @@ export function FarmRecordsSection({
 
                 <View style={styles.threeBtnsRow}>
                   <TouchableOpacity
+                    testID="farmrec.livestock.logProduction"
                     style={styles.outlineActionBtnFlex}
                     onPress={() => {
                       if (isEnded) {
                         Alert.alert(
-                          'Record Ended',
-                          'This animal record has ended and no more production can be logged.',
+                          t('wiringFarmers.records.guard.ended.title'),
+                          t('wiringFarmers.records.guard.ended.noProduction'),
                         );
                         return;
                       }
-                      setSelectedProdProduct(animal.productOptions[0] ?? 'milk (litres)');
+                      setSelectedProdProduct(animal.productOptions[0] ?? '');
                       setProdPickerOpen(false);
-                      setProdDateInput('28-10-2026');
+                      setProdDateInput('');
                       setProdQtyInput('');
                       setLogProdAnimal(animal);
                     }}
@@ -671,9 +654,10 @@ export function FarmRecordsSection({
                     <Text style={styles.outlineActionBtnText}>Log production</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    testID="farmrec.livestock.edit"
                     style={styles.outlineActionBtnFlex}
                     onPress={() => {
-                      onEditRecord?.({
+                      openEdit({
                         id: animal.id,
                         type: 'livestock',
                         headerTitle: 'Edit Livestock',
@@ -692,15 +676,19 @@ export function FarmRecordsSection({
                     <Text style={styles.outlineActionBtnText}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    testID="farmrec.livestock.endRecord"
                     style={styles.dangerOutlineBtnFlex}
                     onPress={() => {
                       if (isEnded) {
-                        Alert.alert('Record Ended', `This record is already marked ${animal.endedOutcome}.`);
+                        Alert.alert(
+                          t('wiringFarmers.records.guard.ended.title'),
+                          t('wiringFarmers.records.guard.ended.already', { outcome: animal.endedOutcome ?? ADMIN_NO_VALUE }),
+                        );
                         return;
                       }
                       setEndOutcome('Sold');
                       setEndOutcomePickerOpen(false);
-                      setEndDateInput('28-10-2026');
+                      setEndDateInput('');
                       setEndReasonInput('');
                       setEndRecordAnimal(animal);
                     }}
@@ -711,11 +699,12 @@ export function FarmRecordsSection({
                 </View>
               </View>
             );
-          })}
+          })))}
 
           <TouchableOpacity
+            testID="farmrec.add.livestock"
             style={styles.primarySolidBtn}
-            onPress={() => onAddRecord?.('Livestock')}
+            onPress={() => openAdd('Livestock')}
             activeOpacity={0.8}
           >
             <Text style={styles.primarySolidBtnText}>+ Register animal</Text>
@@ -728,10 +717,21 @@ export function FarmRecordsSection({
       ═════════════════════════════════════════════════════ */}
       {activeSubTab === 'Assets' && (
         <View style={styles.tabContent}>
-          <Text style={styles.resultsCount}>{assetsList.length} assets</Text>
+          {/* Paged and with no server total: a count is shown only once every page is loaded. */}
+          <Text style={styles.resultsCount}>
+            {assetQuery.firstPage === undefined || assetQuery.hasMore
+              ? ADMIN_NO_VALUE
+              : t('wiringFarmers.records.assetCount', { count: assetsList.length })}
+          </Text>
 
-          {assetsList.map((asset) => {
-            const isRetired = asset.status === 'Retired';
+          {tabState(assetQuery, canAssets) ?? (assetsList.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No farm assets</Text>
+              <Text style={styles.emptySubtitle}>Equipment and machinery records will appear here.</Text>
+            </View>
+          ) : (
+            assetsList.map((asset) => {
+            const isRetired = false;
             return (
               <View key={asset.id} style={styles.recordCard}>
                 <View style={styles.cardHeaderRow}>
@@ -779,16 +779,10 @@ export function FarmRecordsSection({
 
                 <View style={styles.threeBtnsRow}>
                   <TouchableOpacity
+                    testID="farmrec.asset.recordService"
                     style={styles.outlineActionBtnFlex}
                     onPress={() => {
-                      if (isRetired) {
-                        Alert.alert(
-                          'Asset Retired',
-                          'The asset is kept in the history and can no longer be serviced.',
-                        );
-                        return;
-                      }
-                      setServiceDateInput('28-10-2026');
+                      setServiceDateInput('');
                       setServiceNoteInput('');
                       setServiceModalAsset(asset);
                     }}
@@ -797,16 +791,10 @@ export function FarmRecordsSection({
                     <Text style={styles.outlineActionBtnText}>Record service</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    testID="farmrec.asset.edit"
                     style={styles.outlineActionBtnFlex}
                     onPress={() => {
-                      if (isRetired) {
-                        Alert.alert(
-                          'Asset Retired',
-                          'The asset is kept in the history and can no longer be edited.',
-                        );
-                        return;
-                      }
-                      onEditRecord?.({
+                      openEdit({
                         id: asset.id,
                         type: 'asset',
                         headerTitle: 'Edit Asset',
@@ -826,12 +814,9 @@ export function FarmRecordsSection({
                     <Text style={styles.outlineActionBtnText}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
+                    testID="farmrec.asset.retire"
                     style={styles.dangerOutlineBtnFlex}
                     onPress={() => {
-                      if (isRetired) {
-                        Alert.alert('Already Retired', `${asset.name} is already retired.`);
-                        return;
-                      }
                       setRetireReasonInput('');
                       setRetireModalAsset(asset);
                     }}
@@ -842,11 +827,12 @@ export function FarmRecordsSection({
                 </View>
               </View>
             );
-          })}
+          })))}
 
           <TouchableOpacity
+            testID="farmrec.add.assets"
             style={styles.primarySolidBtn}
-            onPress={() => onAddRecord?.('Assets')}
+            onPress={() => openAdd('Assets')}
             activeOpacity={0.8}
           >
             <Text style={styles.primarySolidBtnText}>+ Register asset</Text>
@@ -892,7 +878,9 @@ export function FarmRecordsSection({
               <View style={styles.summaryPairCol}>
                 <Text style={styles.summaryPairLabel}>Now</Text>
                 <Text style={styles.summaryPairValue}>
-                  {stageModalCrop ? CROP_GROWTH_STAGES[stageModalCrop.stageIndex] : ''}
+                  {stageModalCrop !== null && stageModalCrop.stageIndex !== null
+                    ? CROP_GROWTH_STAGES[stageModalCrop.stageIndex] ?? ADMIN_NO_VALUE
+                    : ADMIN_NO_VALUE}
                 </Text>
               </View>
             </View>
@@ -909,7 +897,7 @@ export function FarmRecordsSection({
 
             {stagePickerOpen && stageModalCrop ? (
               <View style={styles.inlineDropdownMenu}>
-                {CROP_GROWTH_STAGES.slice(stageModalCrop.stageIndex + 1).map((stage) => {
+                {CROP_GROWTH_STAGES.slice((stageModalCrop.stageIndex ?? -1) + 1).map((stage) => {
                   const active = selectedNextStage === stage;
                   return (
                     <TouchableOpacity
@@ -951,37 +939,17 @@ export function FarmRecordsSection({
                 <Text style={styles.sheetCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sheetPrimaryBtn}
-                onPress={() => {
-                  if (!stageModalCrop) return;
-                  const nextIdx = CROP_GROWTH_STAGES.indexOf(
-                    selectedNextStage as (typeof CROP_GROWTH_STAGES)[number],
-                  );
-                  if (nextIdx <= stageModalCrop.stageIndex) {
-                    Alert.alert('Invalid Stage', 'A stage can only move forward.');
-                    return;
-                  }
-                  const targetId = stageModalCrop.id;
-                  const targetName = stageModalCrop.shortName;
-                  setCrops((prev) =>
-                    prev.map((item) =>
-                      item.id === targetId
-                        ? {
-                            ...item,
-                            stageIndex: nextIdx,
-                            status: nextIdx === CROP_GROWTH_STAGES.length - 1 ? 'Harvested' : 'Growing',
-                          }
-                        : item,
-                    ),
-                  );
-                  setStageModalCrop(null);
-                  Alert.alert('Stage Updated', `${targetName} moved forward to ${selectedNextStage}.`);
-                }}
+                testID="farmrec.stage.confirm"
+                style={[styles.sheetPrimaryBtn, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.sheetPrimaryBtnText}>Update</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         </View>
       </Modal>
@@ -1073,35 +1041,17 @@ export function FarmRecordsSection({
                 <Text style={styles.sheetCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sheetPrimaryBtn}
-                onPress={() => {
-                  const qty = parseInt(harvestQtyInput.trim(), 10);
-                  if (!harvestDateInput.trim() || !Number.isFinite(qty) || qty <= 0) {
-                    Alert.alert('Required', 'Please enter harvest date and whole kg quantity.');
-                    return;
-                  }
-                  if (!harvestModalCrop) return;
-                  const targetId = harvestModalCrop.id;
-                  setCrops((prev) =>
-                    prev.map((item) =>
-                      item.id === targetId
-                        ? {
-                            ...item,
-                            status: 'Harvested',
-                            stageIndex: CROP_GROWTH_STAGES.length - 1,
-                            harvestStatus: `${qty} kg (${harvestDateInput.trim()})`,
-                          }
-                        : item,
-                    ),
-                  );
-                  setHarvestModalCrop(null);
-                  Alert.alert('Harvest Recorded', `Recorded ${qty} kg on ${harvestDateInput.trim()}.`);
-                }}
+                testID="farmrec.harvest.confirm"
+                style={[styles.sheetPrimaryBtn, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.sheetPrimaryBtnText}>Record harvest</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         </View>
       </Modal>
@@ -1149,7 +1099,7 @@ export function FarmRecordsSection({
               onPress={() => setProdPickerOpen((prev) => !prev)}
               activeOpacity={0.75}
             >
-              <Text style={styles.sheetDropdownValue}>{selectedProdProduct}</Text>
+              <Text style={styles.sheetDropdownValue}>{selectedProdProduct || ADMIN_NO_VALUE}</Text>
               <ChevronDownIcon size={16} color={adminColors.ink} />
             </TouchableOpacity>
 
@@ -1226,37 +1176,17 @@ export function FarmRecordsSection({
                 <Text style={styles.sheetCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sheetPrimaryBtn}
-                onPress={() => {
-                  const qty = parseInt(prodQtyInput.trim(), 10);
-                  if (!prodDateInput.trim() || !Number.isFinite(qty) || qty <= 0) {
-                    Alert.alert('Required', 'Please enter a valid date and whole number quantity.');
-                    return;
-                  }
-                  if (!logProdAnimal) return;
-                  const targetId = logProdAnimal.id;
-                  setLivestockList((prev) =>
-                    prev.map((item) =>
-                      item.id === targetId
-                        ? {
-                            ...item,
-                            productionLogs: item.productionLogs + 1,
-                            latestProduction: `${qty} ${selectedProdProduct}, ${prodDateInput.trim()}`,
-                          }
-                        : item,
-                    ),
-                  );
-                  setLogProdAnimal(null);
-                  Alert.alert(
-                    'Production Logged',
-                    `Logged ${qty} ${selectedProdProduct} for ${logProdAnimal.tag}.`,
-                  );
-                }}
+                testID="farmrec.production.confirm"
+                style={[styles.sheetPrimaryBtn, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.sheetPrimaryBtnText}>Log</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         </View>
       </Modal>
@@ -1388,28 +1318,17 @@ export function FarmRecordsSection({
                 <Text style={styles.sheetCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sheetDangerOutlineBtn}
-                onPress={() => {
-                  if (!endDateInput.trim() || !endReasonInput.trim()) {
-                    Alert.alert('Required', 'Please enter a valid date and reason.');
-                    return;
-                  }
-                  if (!endRecordAnimal) return;
-                  const targetId = endRecordAnimal.id;
-                  const targetTag = endRecordAnimal.tag;
-                  setLivestockList((prev) =>
-                    prev.map((item) =>
-                      item.id === targetId ? { ...item, endedOutcome: endOutcome } : item,
-                    ),
-                  );
-                  setEndRecordAnimal(null);
-                  Alert.alert('Record Ended', `${targetTag} has been marked ${endOutcome}.`);
-                }}
+                testID="farmrec.endRecord.confirm"
+                style={[styles.sheetDangerOutlineBtn, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.sheetDangerOutlineBtnText}>End record</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         </View>
       </Modal>
@@ -1488,38 +1407,17 @@ export function FarmRecordsSection({
                 <Text style={styles.sheetCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sheetPrimaryBtn}
-                onPress={() => {
-                  if (!serviceDateInput.trim()) {
-                    Alert.alert('Required', 'Please enter a valid service date.');
-                    return;
-                  }
-                  if (!serviceModalAsset) return;
-                  const targetId = serviceModalAsset.id;
-                  const targetName = serviceModalAsset.name;
-                  setAssetsList((prev) =>
-                    prev.map((item) =>
-                      item.id === targetId
-                        ? {
-                            ...item,
-                            lastService: serviceDateInput.trim(),
-                            serviceOverdue: false,
-                            notes: serviceNoteInput.trim() || item.notes,
-                          }
-                        : item,
-                    ),
-                  );
-                  setServiceModalAsset(null);
-                  Alert.alert(
-                    'Service Recorded',
-                    `Recorded service for ${targetName} on ${serviceDateInput.trim()}.`,
-                  );
-                }}
+                testID="farmrec.service.confirm"
+                style={[styles.sheetPrimaryBtn, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.sheetPrimaryBtnText}>Record</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         </View>
       </Modal>
@@ -1580,35 +1478,17 @@ export function FarmRecordsSection({
                 <Text style={styles.sheetCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.sheetDangerOutlineBtn}
-                onPress={() => {
-                  if (!retireReasonInput.trim()) {
-                    Alert.alert('Required', 'Please enter a reason to retire this asset.');
-                    return;
-                  }
-                  if (!retireModalAsset) return;
-                  const targetId = retireModalAsset.id;
-                  const targetName = retireModalAsset.name;
-                  setAssetsList((prev) =>
-                    prev.map((item) =>
-                      item.id === targetId
-                        ? {
-                            ...item,
-                            status: 'Retired',
-                            serviceOverdue: false,
-                            notes: retireReasonInput.trim(),
-                          }
-                        : item,
-                    ),
-                  );
-                  setRetireModalAsset(null);
-                  Alert.alert('Asset Retired', `${targetName} has been retired.`);
-                }}
+                testID="farmrec.retire.confirm"
+                style={[styles.sheetDangerOutlineBtn, styles.actionUnavailable]}
+                disabled
+                accessibilityRole="button"
+                accessibilityState={{ disabled: true }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.sheetDangerOutlineBtnText}>Retire</Text>
               </TouchableOpacity>
             </View>
+            <Text style={styles.unavailableNote}>{t('wiringFarmers.records.saveUnavailable')}</Text>
           </View>
         </View>
       </Modal>
@@ -1632,6 +1512,41 @@ export function FarmRecordsSection({
         }}
         onClose={() => setCalendarTarget(null)}
       />
+
+      {/* The design's Add / Edit record screens, full screen, when no host routes them.
+          Routed as the design's farmer detail does: a diary entry opens the Edit screen;
+          a crop, animal or asset opens the Add screen in edit mode. Both screens' saves
+          are disabled until an admin write endpoint exists. */}
+      {ownAddTab !== null ? (
+        <Modal visible animationType="slide" onRequestClose={() => setOwnAddTab(null)}>
+          <AdminAddFarmRecordScreen
+            initialTab={ownAddTab}
+            farmerName={farmerName}
+            farmerId={farmerCode}
+            allowAddOptions={false}
+            onBack={() => setOwnAddTab(null)}
+          />
+        </Modal>
+      ) : null}
+      {ownEditRecord !== null ? (
+        <Modal visible animationType="slide" onRequestClose={() => setOwnEditRecord(null)}>
+          {ownEditRecord.type === 'diary' ? (
+            <AdminEditFarmRecordScreen record={ownEditRecord} onBack={() => setOwnEditRecord(null)} />
+          ) : (
+            <AdminAddFarmRecordScreen
+              initialTab={
+                ownEditRecord.type === 'crop' ? 'Plant' : ownEditRecord.type === 'livestock' ? 'Livestock' : 'Assets'
+              }
+              mode="edit"
+              initialRecord={ownEditRecord}
+              farmerName={farmerName}
+              farmerId={farmerCode}
+              allowAddOptions={false}
+              onBack={() => setOwnEditRecord(null)}
+            />
+          )}
+        </Modal>
+      ) : null}
     </View>
   );
 }
@@ -2165,5 +2080,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: adminColors.danger.text,
   },
+  emptyWrap: {
+    paddingVertical: adminSpacing.xl,
+    paddingHorizontal: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+  },
+  emptyTitle: {
+    ...adminType.rowTitle,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+  },
+  emptySubtitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.xs,
+  },
 });
-

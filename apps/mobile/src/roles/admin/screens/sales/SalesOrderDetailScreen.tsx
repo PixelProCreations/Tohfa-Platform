@@ -15,6 +15,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -35,7 +36,7 @@ export interface SalesOrderRecord {
   soNumber: string;
   customerName: string;
   customerId: string;
-  channel: 'Online' | 'Market' | 'B2B' | 'HORECA';
+  channel: 'Online' | 'Market' | 'B2B' | 'HORECA' | 'Direct';
   status: 'In fulfilment' | 'Issue' | 'Completed' | 'Pending';
   itemCount: number;
   totalPrice: number;
@@ -129,7 +130,7 @@ export function SalesOrderDetailScreen({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Invoice reference</Text>
-            <Text style={styles.detailValueBold}>{order.invoiceRef || '—'}</Text>
+            <Text style={styles.detailValueBold}>{order.invoiceRef || ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Payment reference</Text>
@@ -150,11 +151,11 @@ export function SalesOrderDetailScreen({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Contact</Text>
-            <Text style={styles.detailValueBold}>Demo contact (placeholder)</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Delivery or pickup reference</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 
@@ -203,7 +204,7 @@ export function SalesOrderDetailScreen({
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Refund reference</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
         <Text style={styles.itemFootnote}>
@@ -234,7 +235,7 @@ export function SalesOrderDetailScreen({
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Pickup or delivery</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Completed</Text>
@@ -297,7 +298,7 @@ export function SalesOrderDetailScreen({
           </View>
           <View style={[styles.detailRow, styles.detailRowLast]}>
             <Text style={styles.detailLabel}>Refund reference</Text>
-            <Text style={styles.detailValueBold}>—</Text>
+            <Text style={styles.detailValueBold}>{ADMIN_NO_VALUE}</Text>
           </View>
         </View>
 

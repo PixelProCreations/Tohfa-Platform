@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +16,15 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { t, type TranslationKey } from '../../i18n';
+import { formatKg } from '../../money/quantity';
+import type { ReturnStatus } from '../../api/returns';
+import { isReturnStatus, RETURN_ORDER_CODE } from '../warehouse/returns-rma/mappers';
+import { useReturn, useReturnOrder } from '../warehouse/returns-rma/useReturnsData';
+import type { ReturnDetailView } from '../warehouse/returns-rma/types';
+import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -64,112 +72,102 @@ function ImagePlaceholderIcon({ size = 32, color = adminColors.muted }: { size?:
   );
 }
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// ─── Status ───
 
-export interface ReturnsRmaDetailData {
-  id?: string;
-  rmaNumber?: string;
-  salesOrder?: string;
-  invoice?: string;
-  customer?: string;
-  customerPhone?: string;
-  customerCode?: string;
-  purchaseDate?: string;
-  originalItems?: string;
-  paymentReference?: string;
-  productAndQty?: string;
-  productName?: string;
-  productGrade?: string;
-  unitPrice?: string;
-  lineTotal?: string;
-  orderWarehouse?: string;
-  orderType?: string;
-  orderStatus?: string;
-  reason?: string;
-  evidence?: string;
-  requestedDate?: string;
-  reviewStatus?: 'Approved' | 'Pending' | 'Rejected' | string;
-  approvedQuantity?: string;
-  returnQuantity?: string;
-  requestedResolution?: string;
-  decisionReason?: string;
-  reviewer?: string;
-  refundStatus?: string;
-  refundReference?: string;
-  refundAmount?: string;
-  originalPayment?: string;
-  initiatedDate?: string;
-  completedDate?: string;
-  failureReason?: string;
-  ticketId?: string;
-  history?: { meta: string; title: string }[];
+type BadgeTone = 'amber' | 'green' | 'red';
+
+/** Label and badge tone of each docs/openapi.yaml ReturnStatus; anything else reads "Unknown". */
+const FINANCE_RETURN_VIEW: Readonly<Record<ReturnStatus, { labelKey: TranslationKey; tone: BadgeTone; closed: boolean }>> = {
+  PENDING: { labelKey: 'wiringPayouts.returnStatus.PENDING', tone: 'amber', closed: false },
+  INSPECTED: { labelKey: 'wiringPayouts.returnStatus.INSPECTED', tone: 'amber', closed: false },
+  APPROVED: { labelKey: 'wiringPayouts.returnStatus.APPROVED', tone: 'green', closed: false },
+  REJECTED: { labelKey: 'wiringPayouts.returnStatus.REJECTED', tone: 'red', closed: true },
+  REFUND_PENDING_BANK: { labelKey: 'wiringPayouts.returnStatus.REFUND_PENDING_BANK', tone: 'amber', closed: false },
+  REFUNDED: { labelKey: 'wiringPayouts.returnStatus.REFUNDED', tone: 'green', closed: true },
+};
+
+export function financeReturnView(status: string): { labelKey: TranslationKey; tone: BadgeTone; closed: boolean } {
+  return isReturnStatus(status)
+    ? FINANCE_RETURN_VIEW[status]
+    : { labelKey: 'wiringPayouts.returnStatus.unknown', tone: 'amber', closed: false };
 }
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+/** Kept for the finance barrel (screens/finance/index.ts): the detail is now the API's return. */
+export type ReturnsRmaDetailData = ReturnDetailView;
+
 export interface ReturnsRmaDetailScreenProps {
-  rma: ReturnsRmaDetailData;
+  /** The return uuid; the screen reads it with GET /admin/returns/{id} (useReturn). */
+  returnId: string;
   can?: Can | undefined;
   onBack: () => void;
 }
 
-export function ReturnsRmaDetailScreen({ rma, can, onBack }: ReturnsRmaDetailScreenProps) {
-  const [intimated, setIntimated] = useState(false);
+/**
+ * One return, read from the server (useReturn: the return plus its status
+ * history) and, when the caller may read orders, its order (useReturnOrder).
+ * Nothing is rebuilt from the list row and nothing is invented: a value the
+ * API does not carry (product, grade, unit price, line total, ticket id,
+ * requested resolution) is the dash.
+ */
+export function ReturnsRmaDetailScreen({ returnId, can, onBack }: ReturnsRmaDetailScreenProps) {
+  const live = useReturn(undefined, returnId);
+  const detail = live.detail;
+  const mayReadOrder = typeof can === 'function' && can(RETURN_ORDER_CODE);
+  const { order } = useReturnOrder(undefined, mayReadOrder ? detail?.orderId : undefined);
 
-  const rmaNumber = rma.rmaNumber || 'RMA-2026-00125';
-  const customerName = rma.customer || 'Ravi Kumar';
-  const customerCode = rma.customerCode || 'CUS-001245';
-  const customerPhone = rma.customerPhone || '+91 XXXXX XXXXX';
-  const orderId = rma.salesOrder || 'ORD-002145';
-  const orderDate = rma.purchaseDate || '24 Sep 2026';
-  const warehouse = rma.orderWarehouse || 'Coonoor Warehouse';
-  const orderType = rma.orderType || 'Online Order';
-  const paymentStatus = rma.orderStatus || 'Paid';
-  const productName = rma.productName || 'Tomato';
-  const productGrade = rma.productGrade || 'Grade 1';
-  const productQty = rma.productAndQty || '5 KG';
-  const unitPrice = rma.unitPrice || '₹100 / KG';
-  const lineTotal = rma.lineTotal || '₹500';
-  const reason = rma.reason || 'Damaged';
-  const reportedDate = rma.requestedDate || '25 Sep 2026';
-  const description = rma.evidence || 'Customer reported damaged produce after pickup.';
-  const ticketId = rma.ticketId || 'TKT-2026-00125';
-  const returnQuantity = rma.returnQuantity || rma.approvedQuantity || '2 KG';
-  const requestedResolution = rma.requestedResolution || 'Refund';
+  const rmaNumber = detail?.reference ?? ADMIN_NO_VALUE;
+  const statusLabel = detail === undefined ? ADMIN_NO_VALUE : t(financeReturnView(detail.status).labelKey);
+  const customerName = order?.buyerName || ADMIN_NO_VALUE;
+  const customerCode = order?.customerCode ?? ADMIN_NO_VALUE;
+  const customerPhone = order?.mobileMasked ?? ADMIN_NO_VALUE;
+  const orderId = order?.orderNumber || ADMIN_NO_VALUE;
+  const orderDate = order?.placedLabel || ADMIN_NO_VALUE;
+  const warehouse = order?.warehouseName || ADMIN_NO_VALUE;
+  const orderType = order?.channelLabel || ADMIN_NO_VALUE;
+  const paymentStatus = order?.paymentStatusLabel || ADMIN_NO_VALUE;
+  // The return items carry an order-item id only: no product name, grade or price.
+  const productName = ADMIN_NO_VALUE;
+  const productGrade = ADMIN_NO_VALUE;
+  const singleItem = detail !== undefined && detail.items.length === 1 ? detail.items[0] : undefined;
+  const productQty = singleItem === undefined ? ADMIN_NO_VALUE : formatKg(singleItem.requestedGrams);
+  const unitPrice = ADMIN_NO_VALUE;
+  const lineTotal = ADMIN_NO_VALUE;
+  const reason = detail?.reason || ADMIN_NO_VALUE;
+  const reportedDate = detail?.created || ADMIN_NO_VALUE;
+  const description = detail?.note ?? ADMIN_NO_VALUE;
+  const ticketId = ADMIN_NO_VALUE;
+  const returnQuantity = productQty;
+  const requestedResolution = ADMIN_NO_VALUE;
 
-  const handleIntimatePayout = () => {
-    // RBAC permission check for returns payout / refund processing
-    const hasPermission = can
-      ? can('rma.refund.approve') ||
-        can('rma.refund.wallet_process') ||
-        can('payout.farmer.initiate') ||
-        can('sales.return.review')
-      : true;
-
-    if (!hasPermission) {
-      Alert.alert(
-        'Permission Denied',
-        'You do not have permission (rma.refund.approve) to intimate payout for this return.'
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Intimate Payout',
-      `Confirm payout intimation of ₹200 for ${customerName} (${rmaNumber})?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: () => {
-            setIntimated(true);
-            Alert.alert(
-              'Payout Intimated',
-              `Payout intimation for ${rmaNumber} has been successfully recorded and sent to Accounts & Finance.`
-            );
-          },
-        },
-      ]
+  if (detail === undefined) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.headerBanner}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleWrap}>
+            <Text style={styles.headerTitle}>Return Detail</Text>
+          </View>
+        </View>
+        {live.error ? (
+          <AdminErrorState error={live.error} onRetry={live.refresh} />
+        ) : (
+          <AdminLoadingState label={t('wiringPayouts.returns.loading')} />
+        )}
+      </SafeAreaView>
     );
-  };
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -189,7 +187,7 @@ export function ReturnsRmaDetailScreen({ rma, can, onBack }: ReturnsRmaDetailScr
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>Return Detail</Text>
-          <Text style={styles.headerSubtitle}>{rmaNumber} • Under Review</Text>
+          <Text style={styles.headerSubtitle}>{rmaNumber} • {statusLabel}</Text>
         </View>
       </View>
 
@@ -323,67 +321,49 @@ export function ReturnsRmaDetailScreen({ rma, can, onBack }: ReturnsRmaDetailScr
         <View style={styles.card}>
           <Text style={styles.cardHeading}>Timeline</Text>
           <View style={styles.timelineWrap}>
-            {/* Step 1 */}
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineLeft}>
-                <View style={[styles.timelineDot, { backgroundColor: adminColors.success.text }]} />
-                <View style={styles.timelineLine} />
+            {/* The server's status trail (GET /admin/returns/{id}/history), oldest first. */}
+            {live.timeline.length === 0 ? (
+              <View style={[styles.timelineItem, { paddingBottom: 0 }]}>
+                <View style={styles.timelineLeft}>
+                  <View style={[styles.timelineDot, { backgroundColor: adminColors.warning.text }]} />
+                </View>
+                <View style={styles.timelineRight}>
+                  <Text style={styles.timelineTitle}>{t('wiringPayouts.returns.detail.noHistory')}</Text>
+                  <Text style={styles.timelineMeta}>{ADMIN_NO_VALUE}</Text>
+                </View>
               </View>
-              <View style={styles.timelineRight}>
-                <Text style={styles.timelineTitle}>Issue Reported</Text>
-                <Text style={styles.timelineMeta}>25 Sep 2026, 10:30 AM</Text>
-              </View>
-            </View>
-
-            {/* Step 2 */}
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineLeft}>
-                <View style={[styles.timelineDot, { backgroundColor: adminColors.success.text }]} />
-                <View style={styles.timelineLine} />
-              </View>
-              <View style={styles.timelineRight}>
-                <Text style={styles.timelineTitle}>RMA Created</Text>
-                <Text style={styles.timelineMeta}>25 Sep 2026, 10:30 AM</Text>
-              </View>
-            </View>
-
-            {/* Step 3 */}
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineLeft}>
-                <View style={[styles.timelineDot, { backgroundColor: adminColors.success.text }]} />
-                <View style={styles.timelineLine} />
-              </View>
-              <View style={styles.timelineRight}>
-                <Text style={styles.timelineTitle}>Assigned for Review</Text>
-                <Text style={styles.timelineMeta}>25 Sep 2026, 10:35 AM</Text>
-              </View>
-            </View>
-
-            {/* Step 4 */}
-            <View style={[styles.timelineItem, { paddingBottom: 0 }]}>
-              <View style={styles.timelineLeft}>
-                <View style={[styles.timelineDot, { backgroundColor: adminColors.warning.text }]} />
-              </View>
-              <View style={styles.timelineRight}>
-                <Text style={styles.timelineTitle}>Inspection Pending</Text>
-                <Text style={styles.timelineMeta}>25 Sep 2026, 10:40 AM</Text>
-              </View>
-            </View>
+            ) : (
+              live.timeline.map((entry, index) => {
+                const last = index === live.timeline.length - 1;
+                return (
+                  <View key={entry.id} style={[styles.timelineItem, last && { paddingBottom: 0 }]}>
+                    <View style={styles.timelineLeft}>
+                      <View style={[styles.timelineDot, { backgroundColor: last ? adminColors.warning.text : adminColors.success.text }]} />
+                      {last ? null : <View style={styles.timelineLine} />}
+                    </View>
+                    <View style={styles.timelineRight}>
+                      <Text style={styles.timelineTitle}>{entry.title}</Text>
+                      <Text style={styles.timelineMeta}>{entry.note ? `${entry.time} · ${entry.note}` : entry.time}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
         </View>
 
         {/* ── 9. Bottom Action Button ── */}
+        {/* Intimate Payout — no endpoint exists; disabled per R3 */}
         <View style={styles.actionWrap}>
           <TouchableOpacity
-            style={[styles.intimatePayoutBtn, intimated && styles.intimatePayoutBtnDone]}
-            onPress={handleIntimatePayout}
-            activeOpacity={0.8}
+            style={[styles.intimatePayoutBtn, styles.actionUnavailable]}
+            disabled
+            activeOpacity={1}
             accessibilityRole="button"
             accessibilityLabel="Intimate Payout"
+            accessibilityState={{ disabled: true }}
           >
-            <Text style={[styles.intimatePayoutBtnText, intimated && styles.intimatePayoutBtnTextDone]}>
-              {intimated ? 'Payout Intimated ✓' : 'Intimate Payout'}
-            </Text>
+            <Text style={styles.intimatePayoutBtnText}>Intimate Payout</Text>
           </TouchableOpacity>
         </View>
 
@@ -620,5 +600,8 @@ const styles = StyleSheet.create({
   },
   intimatePayoutBtnTextDone: {
     color: adminColors.success.text,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
   },
 });

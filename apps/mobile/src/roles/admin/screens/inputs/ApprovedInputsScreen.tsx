@@ -29,6 +29,9 @@ import {
   CalendarIcon,
   UploadTrayIcon,
 } from './inputsIcons';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
+import { t } from '../../i18n';
 
 // ─── Data Types ──────────────────────────────────────────────────────────────
 
@@ -55,191 +58,12 @@ export interface CatalogInputItem {
 
 export type ApprovedInputItem = CatalogInputItem;
 
-export const CATALOG_INPUTS: CatalogInputItem[] = [
-  {
-    id: 'IN-0041',
-    name: 'Neem Oil Concentrate',
-    code: 'IN-0041',
-    category: 'Pest control',
-    manufacturer: 'GreenGro Organics',
-    applicableCrops: 'Applicable: Tomato, Cabbage',
-    status: 'Approved',
-    updatedDate: '11 Oct 2026',
-    updatedBy: 'Priya Nair',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0055',
-    name: 'Panchagavya Mix',
-    code: 'IN-0055',
-    category: 'Soil input',
-    manufacturer: 'Farmer-prepared',
-    applicableCrops: 'Applicable: All crops',
-    status: 'Pending',
-    updatedDate: '10 Oct 2026',
-    updatedBy: 'Priya Nair',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0012',
-    name: 'Vermicompost Grade A',
-    code: 'IN-0012',
-    category: 'Soil input',
-    manufacturer: 'Local supplier',
-    applicableCrops: 'Applicable: All crops',
-    status: 'Inactive',
-    updatedDate: '2 Jun 2026',
-    updatedBy: 'Local supplier',
-    referenceNote: 'Referenced by 6 historical farmer records — preserved',
-    hasEdit: false,
-  },
-  {
-    id: 'IN-0023',
-    name: 'Trichoderma Viride',
-    code: 'IN-0023',
-    category: 'Bio-fungicide',
-    manufacturer: 'BioCrop Tech',
-    applicableCrops: 'Applicable: Potato, Tomato',
-    status: 'Approved',
-    updatedDate: '28 Sep 2026',
-    updatedBy: 'Agronomy team',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0034',
-    name: 'Pseudomonas Fluorescens',
-    code: 'IN-0034',
-    category: 'Bio-bactericide',
-    manufacturer: 'AgriCare Labs',
-    applicableCrops: 'Applicable: Cabbage, Carrot',
-    status: 'Approved',
-    updatedDate: '25 Sep 2026',
-    updatedBy: 'Agronomy team',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0045',
-    name: 'Bone Meal Organic',
-    code: 'IN-0045',
-    category: 'Phosphorus supplement',
-    manufacturer: 'EcoFertilizers',
-    applicableCrops: 'Applicable: Root crops',
-    status: 'Approved',
-    updatedDate: '18 Sep 2026',
-    updatedBy: 'Senthil K.',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0062',
-    name: 'Fish Amino Acid (FAA)',
-    code: 'IN-0062',
-    category: 'Growth promoter',
-    manufacturer: 'Farmer-prepared',
-    applicableCrops: 'Applicable: All vegetables',
-    status: 'Pending',
-    updatedDate: '15 Sep 2026',
-    updatedBy: 'Sundar M.',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0078',
-    name: 'Castor Cake Powder',
-    code: 'IN-0078',
-    category: 'Soil conditioner',
-    manufacturer: 'GreenGro Organics',
-    applicableCrops: 'Applicable: Tomato, Beans',
-    status: 'Approved',
-    updatedDate: '12 Sep 2026',
-    updatedBy: 'Priya Nair',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0089',
-    name: 'Beauveria Bassiana',
-    code: 'IN-0089',
-    category: 'Bio-insecticide',
-    manufacturer: 'BioCrop Tech',
-    applicableCrops: 'Applicable: Cabbage, Broccoli',
-    status: 'Approved',
-    updatedDate: '05 Sep 2026',
-    updatedBy: 'Agronomy team',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0091',
-    name: 'Agniastra Herbal Decoction',
-    code: 'IN-0091',
-    category: 'Pest repellent',
-    manufacturer: 'Farmer-prepared',
-    applicableCrops: 'Applicable: All crops',
-    status: 'Approved',
-    updatedDate: '01 Sep 2026',
-    updatedBy: 'Ramesh Kumar',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0103',
-    name: 'Karanj Seed Cake',
-    code: 'IN-0103',
-    category: 'Nematicide / fertilizer',
-    manufacturer: 'EcoFertilizers',
-    applicableCrops: 'Applicable: Potato, Carrot',
-    status: 'Approved',
-    updatedDate: '24 Aug 2026',
-    updatedBy: 'Priya Nair',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0115',
-    name: 'Jeevamrutha Concentrate',
-    code: 'IN-0115',
-    category: 'Soil micro-culture',
-    manufacturer: 'Farmer-prepared',
-    applicableCrops: 'Applicable: All crops',
-    status: 'Approved',
-    updatedDate: '18 Aug 2026',
-    updatedBy: 'Arun V.',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0128',
-    name: 'Metarhizium Anisopliae',
-    code: 'IN-0128',
-    category: 'Bio-pesticide',
-    manufacturer: 'AgriCare Labs',
-    applicableCrops: 'Applicable: Soil pests',
-    status: 'Approved',
-    updatedDate: '10 Aug 2026',
-    updatedBy: 'Agronomy team',
-    hasEdit: true,
-  },
-  {
-    id: 'IN-0136',
-    name: 'Rock Phosphate Meal',
-    code: 'IN-0136',
-    category: 'Mineral amendment',
-    manufacturer: 'Old Mineral Co.',
-    applicableCrops: 'Applicable: Field crops',
-    status: 'Inactive',
-    updatedDate: '15 Jul 2026',
-    updatedBy: 'Inventory team',
-    referenceNote: 'Discontinued due to formulation update — preserved',
-    hasEdit: false,
-  },
-  {
-    id: 'IN-0142',
-    name: 'Dashaparni Kashayam',
-    code: 'IN-0142',
-    category: 'Broad spectrum botanical',
-    manufacturer: 'Farmer-prepared',
-    applicableCrops: 'Applicable: All vegetables',
-    status: 'Approved',
-    updatedDate: '01 Jul 2026',
-    updatedBy: 'Meena S.',
-    hasEdit: true,
-  },
-];
-
+/**
+ * There is no approved-inputs endpoint: `inputs.catalog.manage` has no route
+ * in apps/api and docs/openapi.yaml has no catalogue read. So the catalogue
+ * shows the "not available" state (never fixture rows), and Add / Save are
+ * drawn and disabled.
+ */
 export interface ApprovedInputsScreenProps {
   onBack: () => void;
   onSelectInput?: (inputItem: CatalogInputItem) => void;
@@ -257,19 +81,8 @@ export function ApprovedInputsScreen({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Approved' | 'Pending' | 'Inactive'>('All');
   const [showFiltersModal, setShowFiltersModal] = useState(false);
 
-  const filteredInputs = CATALOG_INPUTS.filter((item) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesSearch =
-      !q ||
-      item.name.toLowerCase().includes(q) ||
-      item.code.toLowerCase().includes(q) ||
-      item.category.toLowerCase().includes(q) ||
-      item.manufacturer.toLowerCase().includes(q);
-
-    const matchesStatus = statusFilter === 'All' || item.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
+  // No source exists yet (see above); a list here would only ever be invented.
+  const filteredInputs: CatalogInputItem[] = [];
 
   return (
     <View style={styles.root}>
@@ -327,7 +140,11 @@ export function ApprovedInputsScreen({
         </View>
 
         {/* Records Count */}
-        <Text style={styles.recordsCount}>{filteredInputs.length} records</Text>
+        <Text style={styles.recordsCount}>{ADMIN_NO_VALUE}</Text>
+        <AdminEmptyState
+          title={t('wiringFarmers.inputs.catalog.unavailable')}
+          subtitle={t('wiringFarmers.inputs.catalog.unavailableSub')}
+        />
 
         {/* Input Cards List */}
         {filteredInputs.map((item) => {
@@ -489,7 +306,7 @@ export interface AddNewInputScreenProps {
 
 export function AddNewInputScreen({
   onBack,
-  onSave,
+  onSave: _onSave,
   initialItem,
   isEditing = false,
 }: AddNewInputScreenProps): React.JSX.Element {
@@ -523,62 +340,6 @@ export function AddNewInputScreen({
     setPickerModalOptions(options);
     setPickerOnSelect(() => onSelect);
     setShowPickerModal(true);
-  };
-
-  const handleSave = () => {
-    const trimmedName = inputName.trim() || 'New Agricultural Input';
-    const trimmedCategory = inputCategory.trim() || 'Pest control';
-    const trimmedManufacturer = manufacturer.trim() || 'Farmer-prepared';
-    const trimmedCode = registrationId.trim() || `IN-${Math.floor(1000 + Math.random() * 9000)}`;
-
-    if (isEditing && initialItem) {
-      initialItem.name = trimmedName;
-      initialItem.category = trimmedCategory;
-      initialItem.manufacturer = trimmedManufacturer;
-      initialItem.code = trimmedCode;
-      initialItem.applicableCrops = applicableCrops ? `Applicable: ${applicableCrops}` : initialItem.applicableCrops;
-      initialItem.updatedDate = 'Just now';
-      initialItem.updatedBy = 'Admin';
-      initialItem.method = composition || initialItem.method;
-      initialItem.usage = dosage ? `${dosage} ${unit || 'mL/L'}` : initialItem.usage;
-      initialItem.frequency = applicationMethod || frequency || initialItem.frequency;
-      initialItem.referenceNote = description || initialItem.referenceNote;
-
-      const idx = CATALOG_INPUTS.findIndex((i) => i.id === initialItem.id);
-      if (idx !== -1) {
-        CATALOG_INPUTS[idx] = { ...initialItem };
-      }
-      if (onSave) {
-        onSave(initialItem);
-      } else {
-        onBack();
-      }
-      return;
-    }
-
-    const newItem: CatalogInputItem = {
-      id: trimmedCode,
-      name: trimmedName,
-      code: trimmedCode,
-      category: trimmedCategory,
-      manufacturer: trimmedManufacturer,
-      applicableCrops: applicableCrops ? `Applicable: ${applicableCrops}` : 'Applicable: All crops',
-      status: 'Pending',
-      updatedDate: 'Just now',
-      updatedBy: 'Admin',
-      method: composition,
-      usage: dosage ? `${dosage} ${unit || 'mL/L'}` : undefined,
-      frequency: applicationMethod || undefined,
-      hasEdit: true,
-    };
-
-    CATALOG_INPUTS.unshift(newItem);
-
-    if (onSave) {
-      onSave(newItem);
-    } else {
-      onBack();
-    }
   };
 
   return (
@@ -878,13 +639,17 @@ export function AddNewInputScreen({
 
       {/* Pinned Bottom Save Button */}
       <View style={addStyles.bottomBar}>
+        {/* inputs.catalog.manage has no route: drawn, disabled. */}
         <TouchableOpacity
-          style={addStyles.saveBtn}
-          onPress={handleSave}
+          style={[addStyles.saveBtn, addStyles.actionUnavailable]}
+          disabled
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: true }}
         >
           <Text style={addStyles.saveBtnText}>{isEditing ? 'Save Changes' : 'Save'}</Text>
         </TouchableOpacity>
+        <Text style={addStyles.unavailableNote}>{t('wiringFarmers.inputs.saveUnavailable')}</Text>
       </View>
 
       {/* Picker Sheet Modal */}
@@ -1352,5 +1117,14 @@ const addStyles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '600',
     color: adminColors.ink,
+  },
+  actionUnavailable: {
+    opacity: 0.5,
+  },
+  unavailableNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.xs,
   },
 });

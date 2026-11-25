@@ -31,6 +31,11 @@ export const APPLICATION_CODES = {
   view: 'farmer.application.view',
   approve: 'farmer.application.approve',
   reject: 'farmer.application.reject',
+  requestInfo: 'farmer.application.request_info',
+  advance: 'farmer.application.advance',
+  verifyDocument: 'farmer.application.verify_document',
+  verifyFmb: 'farmer.application.verify_fmb',
+  addNote: 'farmer.application.add_note',
 } as const;
 
 export interface ApplicationAccess {
@@ -38,6 +43,11 @@ export interface ApplicationAccess {
   canView: boolean;
   /** Approve AND reject held (see the header). */
   canDecide: boolean;
+  canRequestInfo: boolean;
+  canAdvance: boolean;
+  canVerifyDocument: boolean;
+  canVerifyFmb: boolean;
+  canAddNote: boolean;
 }
 
 export function applicationAccess(can: Can | undefined): ApplicationAccess {
@@ -46,6 +56,11 @@ export function applicationAccess(can: Can | undefined): ApplicationAccess {
     canList: has(APPLICATION_CODES.listPending),
     canView: has(APPLICATION_CODES.view),
     canDecide: has(APPLICATION_CODES.approve) && has(APPLICATION_CODES.reject),
+    canRequestInfo: has(APPLICATION_CODES.requestInfo),
+    canAdvance: has(APPLICATION_CODES.advance),
+    canVerifyDocument: has(APPLICATION_CODES.verifyDocument),
+    canVerifyFmb: has(APPLICATION_CODES.verifyFmb),
+    canAddNote: has(APPLICATION_CODES.addNote),
   };
 }
 
@@ -62,7 +77,13 @@ export function applicationAccess(can: Can | undefined): ApplicationAccess {
 export const PENDING_REVIEW_STATUSES = ['SUBMITTED', 'DOCS_REVIEW', 'FARM_VERIFICATION', 'AUDIT'] as const satisfies readonly ApplicationListFilterStatus[];
 export type PendingReviewStatus = (typeof PENDING_REVIEW_STATUSES)[number];
 export type PendingFilter = 'ALL' | PendingReviewStatus;
-export const PENDING_FILTERS: readonly PendingFilter[] = ['ALL', ...PENDING_REVIEW_STATUSES];
+/**
+ * The status chips. AUDIT is not one of them: audit work is a separate flow
+ * (owner decision 2026-11-25), so this review flow offers no audit filter. An
+ * application the server still reports as AUDIT stays in "All" (pendingRows)
+ * rather than silently vanishing from the queue.
+ */
+export const PENDING_FILTERS: readonly PendingFilter[] = ['ALL', 'SUBMITTED', 'DOCS_REVIEW', 'FARM_VERIFICATION'];
 
 function isPendingStatus(status: ApplicationStatus): status is PendingReviewStatus {
   return (PENDING_REVIEW_STATUSES as readonly string[]).includes(status);

@@ -19,9 +19,9 @@
  *   notSupplied  this application collects the category, and nothing came
  *   unavailable  the application never carries the category at all
  */
-import type { ApplicationStatus } from '../../../api/farmerApplications';
+import type { ApplicationReviewBlockerDto, ApplicationReviewGateDto, ApplicationStatus } from '../../../api/farmerApplications';
 import type { ApplicationDetailView, ApplicationDocumentView } from '../../../api/farmerTypes';
-import type { TranslationKey } from '../../../i18n';
+import { t, type TranslationKey } from '../../../i18n';
 
 export type DocumentCategoryState = 'supplied' | 'notSupplied' | 'unavailable';
 
@@ -101,68 +101,121 @@ export function documentCategories(app: ApplicationDetailView): DocumentCategory
   return out;
 }
 
-export type DocumentVerificationState = 'verified' | 'pending' | 'unknown';
+export type DocumentVerificationState = 'verified' | 'rejected' | 'pending' | 'unknown';
 
 /**
- * Whether the documents are verified. Always `unknown` today:
- * `ApplicationDetailView.documentVerification` is null because the API has no
- * per-application document verification (the farmers module has one, for a
- * farmer that exists; an applicant is not one). The design's green "Verified"
- * badge therefore has nothing behind it, and the badge renders the dash.
+ * Whether the documents are verified (from server per-document review states).
  */
 export function documentVerificationState(app: ApplicationDetailView): DocumentVerificationState {
-  return app.documentVerification === null ? 'unknown' : 'verified';
+  if (app.documentVerification === 'verified') return 'verified';
+  if (app.documentVerification === 'rejected') return 'rejected';
+  if (app.documentVerification === 'pending') return 'pending';
+  return 'unknown';
 }
 
 export type DocumentReviewStage = 'requested' | 'allVerified' | 'underReview' | 'unknown';
 
 /** The design's stage-2 line, from the fields the API really sends. */
 export function documentReviewStage(app: ApplicationDetailView): DocumentReviewStage {
-  // `infoRequest` is the server's own record that documents were asked for.
-  if (app.infoRequest !== null && app.infoRequest.trim() !== '') return 'requested';
+  if (app.status === 'INFO_REQUESTED' || (app.infoRequest !== null && app.infoRequest.trim() !== '')) return 'requested';
   if (documentVerificationState(app) === 'verified') return 'allVerified';
   return app.documents.length === 0 ? 'unknown' : 'underReview';
 }
 
-export type LifecycleStageKey = 'submitted' | 'docsReview' | 'farmVerification' | 'audit' | 'decision';
-export type LifecycleStageState = 'done' | 'current' | 'pending';
-
-export interface LifecycleStageView {
-  key: LifecycleStageKey;
-  state: LifecycleStageState;
+function blockerCountText(count: number, oneKey: TranslationKey, otherKey: TranslationKey): string {
+  return count === 1 ? t(oneKey) : t(otherKey, { count });
 }
 
 /**
- * How far the application has moved, read off its status. The design drove
- * this from a local "tracking status" the reviewer could set from a dropdown;
- * no endpoint moves an application between these states, so here the tracker
- * only reports what the server says.
+ * Human-readable explanation of why an advance/approve gate is blocked (BR-214).
+ * Returns null when the gate is met (or when no blockers exist and stage allows).
  */
-const STATUS_STAGE: Record<ApplicationStatus, number> = {
-  DRAFT: 0,
-  SUBMITTED: 1,
-  DOCS_REVIEW: 2,
-  INFO_REQUESTED: 2,
-  FARM_VERIFICATION: 3,
-  AUDIT: 4,
-  APPROVED: 5,
-  REJECTED: 5,
-};
+export function gateBlockerSummary(
+  gate: ApplicationReviewGateDto | null | undefined,
+  opts: { requireFarmVerificationStage?: boolean; status?: ApplicationStatus } = {},
+): string | null {
+  if (opts.requireFarmVerificationStage && opts.status !== 'FARM_VERIFICATION') {
+    if (opts.status === 'DOCS_REVIEW') {
+      // If docs gate itself isn't met yet, name that too; otherwise instruct to advance.
+      const blockers = gate?.blockers ?? [];
+      const docSummary = formatBlockers(blockers.filter((b) => !b.kind.startsWith('FMB_')));
+      return docSummary ?? t('farmerApps.gate.mustAdvance');
+    }
+    return opts.status === undefined ? null : t('farmerApps.gate.stageNotReviewable', { status: t(`farmerApps.status.${opts.status}` satisfies TranslationKey) });
+  }
+  if (!gate || gate.met) return null;
+  return formatBlockers(gate.blockers);
+}
 
-const STAGE_INDEX: readonly { key: LifecycleStageKey; index: number }[] = [
-  { key: 'submitted', index: 1 },
-  { key: 'docsReview', index: 2 },
-  { key: 'farmVerification', index: 3 },
-  { key: 'audit', index: 4 },
-  { key: 'decision', index: 5 },
-];
+function formatBlockers(blockers: readonly ApplicationReviewBlockerDto[]): string | null {
+  if (blockers.length === 0) return null;
+  const missingDocs = blockers.filter((b) => b.kind === 'MISSING_DOCUMENT_TYPE').length;
+  const pendingDocs = blockers.filter((b) => b.kind === 'DOCUMENT_PENDING').length;
+  const rejectedDocs = blockers.filter((b) => b.kind === 'DOCUMENT_REJECTED').length;
+  const pendingFmb = blockers.filter((b) => b.kind === 'FMB_PENDING').length;
+  const rejectedFmb = blockers.filter((b) => b.kind === 'FMB_REJECTED').length;
+  const parts: string[] = [];
+  if (missingDocs > 0) parts.push(blockerCountText(missingDocs, 'farmerApps.gate.docsMissing.one', 'farmerApps.gate.docsMissing.other'));
+  if (rejectedDocs > 0) parts.push(blockerCountText(rejectedDocs, 'farmerApps.gate.docsRejected.one', 'farmerApps.gate.docsRejected.other'));
+  if (pendingDocs > 0) parts.push(blockerCountText(pendingDocs, 'farmerApps.gate.docsPending.one', 'farmerApps.gate.docsPending.other'));
+  if (rejectedFmb > 0) parts.push(blockerCountText(rejectedFmb, 'farmerApps.gate.fmbRejected.one', 'farmerApps.gate.fmbRejected.other'));
+  if (pendingFmb > 0) parts.push(blockerCountText(pendingFmb, 'farmerApps.gate.fmbPending.one', 'farmerApps.gate.fmbPending.other'));
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
 
+export type LifecycleStageKey = 'submitted' | 'docsReview' | 'farmVerification' | 'decision';
+/** The design's four dot styles: green tick, brand (in progress), amber (sent back), grey (not reached). */
+export type LifecycleDot = 'done' | 'inProgress' | 'warning' | 'pending';
+
+export interface LifecycleStageView {
+  key: LifecycleStageKey;
+  /** 1-based, printed in the dot when it is not ticked. */
+  number: number;
+  dot: LifecycleDot;
+  /** The line under the stage title; null = the "not available" dash. */
+  lineKey: TranslationKey | null;
+}
+
+/**
+ * The design's progression tracker, read off the server's own status. The
+ * design drove it from a local "tracking status" the reviewer could set; no
+ * endpoint persists such a choice yet, so here it only reports the server.
+ *
+ * There is no audit stage: audit work is a separate flow (owner decision
+ * 2026-11-25), so the review runs Submitted -> Documents Under Review
+ * (-> Documents Requested) -> Farm Verification -> Approved / Rejected. A
+ * legacy AUDIT status still reads as farm verification in progress, the last
+ * review stage it can honestly be said to have reached.
+ *
+ * A REJECTED application says nothing about which stages it passed before the
+ * rejection, so its middle stages are left grey with the dash.
+ */
 export function lifecycleStages(app: ApplicationDetailView, status: ApplicationStatus): LifecycleStageView[] {
-  const reached = STATUS_STAGE[status];
-  return STAGE_INDEX.map(({ key, index }) => ({
-    key,
-    state: reached > index ? 'done' : reached === index ? (index === 5 ? 'done' : 'current') : 'pending',
-  }));
+  const requested = status === 'INFO_REQUESTED' || (documentReviewStage(app) === 'requested' && (status === 'SUBMITTED' || status === 'DOCS_REVIEW'));
+  const pastDocs = status === 'FARM_VERIFICATION' || status === 'AUDIT' || status === 'APPROVED';
+  const rejected = status === 'REJECTED';
+
+  const docs: LifecycleStageView = requested
+    ? { key: 'docsReview', number: 2, dot: 'warning', lineKey: 'farmerApps.tracking.line.docsRequested' }
+    : pastDocs
+      ? { key: 'docsReview', number: 2, dot: 'done', lineKey: 'farmerApps.tracking.stageState.done' }
+      : status === 'DOCS_REVIEW'
+        ? { key: 'docsReview', number: 2, dot: 'inProgress', lineKey: 'farmerApps.tracking.line.docsInProgress' }
+        : { key: 'docsReview', number: 2, dot: 'pending', lineKey: rejected ? null : 'farmerApps.tracking.stageState.pending' };
+
+  const farm: LifecycleStageView =
+    status === 'FARM_VERIFICATION' || status === 'AUDIT'
+      ? { key: 'farmVerification', number: 3, dot: 'inProgress', lineKey: 'farmerApps.tracking.line.visitInProgress' }
+      : status === 'APPROVED'
+        ? { key: 'farmVerification', number: 3, dot: 'done', lineKey: 'farmerApps.tracking.stageState.done' }
+        : { key: 'farmVerification', number: 3, dot: 'pending', lineKey: rejected ? null : 'farmerApps.tracking.line.visitPending' };
+
+  return [
+    { key: 'submitted', number: 1, dot: 'done', lineKey: 'farmerApps.tracking.stageState.done' },
+    docs,
+    farm,
+    { key: 'decision', number: 4, dot: status === 'APPROVED' ? 'done' : 'pending', lineKey: decisionLineKey(status) },
+  ];
 }
 
 /** The final stage's line: "Approved by Admin" / "Application Rejected" / "Pending Admin Decision". */
@@ -170,6 +223,55 @@ export function decisionLineKey(status: ApplicationStatus): TranslationKey {
   if (status === 'APPROVED') return 'farmerApps.tracking.decision.approved';
   if (status === 'REJECTED') return 'farmerApps.tracking.decision.rejected';
   return 'farmerApps.tracking.decision.pending';
+}
+
+/**
+ * The options of the design's "Update Tracking Status" picker, minus its two
+ * audit entries (owner decision 2026-11-25), each tied to the API status it
+ * stands for. The picker is drawn but disabled until the stage-change endpoint
+ * is wired; this list is what it will offer.
+ */
+export const TRACKING_STATUS_OPTIONS: readonly { status: ApplicationStatus; labelKey: TranslationKey }[] = [
+  { status: 'SUBMITTED', labelKey: 'farmerApps.tracking.option.SUBMITTED' },
+  { status: 'DOCS_REVIEW', labelKey: 'farmerApps.tracking.option.DOCS_REVIEW' },
+  { status: 'INFO_REQUESTED', labelKey: 'farmerApps.tracking.option.INFO_REQUESTED' },
+  { status: 'FARM_VERIFICATION', labelKey: 'farmerApps.tracking.option.FARM_VERIFICATION' },
+  { status: 'APPROVED', labelKey: 'farmerApps.tracking.option.APPROVED' },
+  { status: 'REJECTED', labelKey: 'farmerApps.tracking.option.REJECTED' },
+];
+
+/** The picker's current value: the option for the server's status (a legacy AUDIT reads as farm verification). */
+export function trackingOptionFor(status: ApplicationStatus): TranslationKey | null {
+  const shown = status === 'AUDIT' ? 'FARM_VERIFICATION' : status;
+  return TRACKING_STATUS_OPTIONS.find((o) => o.status === shown)?.labelKey ?? null;
+}
+
+/**
+ * The design's three document cards, in its order: identity proof, land
+ * document, certification (optional). Each card carries what the applicant
+ * actually uploaded under that docType; any other docType the server sends
+ * gets a card of its own after them, so no upload is hidden.
+ */
+export const DESIGN_DOC_TYPES = ['ID_PROOF', 'FARM_DOC', 'CERTIFICATE'] as const;
+
+export interface DocumentCardView {
+  key: string;
+  documents: ApplicationDocumentView[];
+}
+
+export function documentCards(app: ApplicationDetailView): DocumentCardView[] {
+  const byType = new Map<string, ApplicationDocumentView[]>();
+  for (const document of app.documents) {
+    const key = document.docType ?? 'UNKNOWN';
+    const bucket = byType.get(key);
+    if (bucket === undefined) byType.set(key, [document]);
+    else bucket.push(document);
+  }
+  const cards: DocumentCardView[] = DESIGN_DOC_TYPES.map((key) => ({ key, documents: byType.get(key) ?? [] }));
+  for (const [key, documents] of byType) {
+    if (!(DESIGN_DOC_TYPES as readonly string[]).includes(key)) cards.push({ key, documents });
+  }
+  return cards;
 }
 
 /**

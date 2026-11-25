@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -11,12 +11,19 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import type { Can } from '../../permissions/can';
 import { adminColors, adminShadow, adminSpacing, adminType } from '../../theme';
-import { ExpenseDetailScreen } from '../warehouse/finance-expenses/ExpenseDetailScreen';
-import { EXPENSES_LIST, type ExpenseManagementRecord } from './fixtures';
-import { SalesOrderDetailScreen, type SalesOrderRecord } from '../sales/SalesOrderDetailScreen';
-import { PurchaseOrderPayoutScreen } from '../sales/PurchaseOrderPayoutScreen';
-import type { PurchaseOrderRecord } from '../sales/PurchaseSalesOrdersScreen';
-import { SalesInvoiceScreen } from '../sales/SalesInvoiceScreen';
+import { listExpenses, listFinanceRevenue, type ExpenseDto, type FinanceRevenueItemDto } from '../../api/finance';
+import { useAdminQuery } from '../../api/hooks';
+import { listInvoices, type InvoiceDto, type InvoiceStatus } from '../../api/invoices';
+import { t, type TranslationKey } from '../../i18n';
+import { formatAdminDay } from '../../utils/datetime';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { moneyText } from '../dashboard/saOverviewFormat';
+import { LiveInvoiceDetail } from '../warehouse/billing-invoices';
+import { ExpenseDetailScreen, RevenueDetailScreen } from '../warehouse/finance-expenses';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+
+/** One page of each source: the recent history, not every record. */
+const HISTORY_PAGE = 25;
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -59,6 +66,10 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
 
 export interface TransactionEventItem {
   id: string;
+  /** What the row opens: the live detail screen for this record, by its real id. */
+  target: { kind: 'invoice' | 'sale' | 'expense'; id: string };
+  /** Newest-first sort key, an ISO day or instant. */
+  sortKey: string;
   title: string;
   badge: string;
   badgeTone: 'default' | 'success' | 'danger' | 'warning';
@@ -66,280 +77,117 @@ export interface TransactionEventItem {
   line2: string;
   line3: string;
   line4: string;
-  actionLabel?: string;
 }
 
-const EVENTS_DATA: TransactionEventItem[] = [
-  {
-    id: 'evt-1',
-    title: 'Invoice · INV-0004',
-    badge: 'Cancelled',
-    badgeTone: 'danger',
-    line1: '13 Oct 2026, 12:00 · Sales',
-    line2: 'Demo Customer D (C-1004)',
-    line3: 'SO-0009 · Cancelled',
-    line4: 'Amount ₹140.00 · Updated by Demo TOHFA Admin',
-    actionLabel: 'View Details',
-  },
-  {
-    id: 'evt-3',
-    title: 'Sale · SO-0006',
-    badge: 'Confirmed',
-    badgeTone: 'success',
-    line1: '13 Oct 2026, 10:00 · Sales',
-    line2: 'Demo Wholesale Co (B-4002)',
-    line3: 'B2B · 1 item',
-    line4: 'Amount ₹3,000.00 · Updated by System',
-  },
-  {
-    id: 'evt-4',
-    title: 'Sale · SO-0002',
-    badge: 'Confirmed',
-    badgeTone: 'success',
-    line1: '13 Oct 2026, 10:00 · Sales',
-    line2: 'Demo Customer B (C-1002)',
-    line3: 'Online · 1 item',
-    line4: 'Amount ₹300.00 · Updated by System',
-  },
-  {
-    id: 'evt-5',
-    title: 'Payout · PY-0002',
-    badge: 'Pending',
-    badgeTone: 'warning',
-    line1: '12 Oct 2026, 16:30 · Payout',
-    line2: 'Kumar Farm (FMR-00098)',
-    line3: 'PO-0002 · Awaiting Super Admin',
-    line4: 'Amount ₹18,000.00 · Updated by Demo TOHFA Admin',
-  },
-  {
-    id: 'evt-6',
-    title: 'Expense · EXP-0007',
-    badge: 'Recorded',
-    badgeTone: 'success',
-    line1: '12 Oct 2026, 14:15 · Operations',
-    line2: 'Ooty Eco Packs',
-    line3: 'Packaging materials · Paid',
-    line4: 'Amount ₹3,200.00 · Updated by Main Warehouse Admin',
-  },
-];
-
-const DEFAULT_EXPENSE_RECORD: ExpenseManagementRecord = {
-  id: 'exp-2',
-  expenseCode: 'EXP-0002',
-  title: 'EXP-0002 · Internet & phone',
-  category: 'Operational category 2 (demo)',
-  dateStr: '8 Oct 2026',
-  description: 'Monthly broadband connectivity',
-  warehouse: 'Main Warehouse, Ooty',
-  reference: 'EXPREF-102',
-  payee: 'Nilgiri Telecom',
-  amount: 1800,
-  amountFormatted: '₹1,800.00',
-  paymentMethod: 'UPI',
-  paymentStatus: 'Paid on 8 Oct 2026',
-  paymentRef: 'EPAY-102',
-  createdBy: 'Demo Main Warehouse Admin, 8 Oct 2026, 14:00',
-  status: 'Paid',
-  statusBadge: 'Paid',
+const INVOICE_TONE: Record<InvoiceStatus, TransactionEventItem['badgeTone']> = {
+  ISSUED: 'success',
+  DRAFT: 'default',
+  CANCELLED: 'danger',
+  CREDIT_NOTED: 'warning',
 };
 
-const SAMPLE_SALES_RECORD: SalesOrderRecord = {
-  id: 'so-13',
-  soNumber: 'SO-0013',
-  customerName: 'Nilgiri Fresh Traders',
-  customerId: 'C-2001',
-  channel: 'B2B',
-  status: 'Completed',
-  itemCount: 4,
-  totalPrice: 12560,
-  paymentStatus: 'Paid',
-  warehouse: 'Main Warehouse, Ooty',
-  subMeta: 'WH-MAIN · Invoice Issued (INV-0001)',
-  dateTime: '1 Oct 2026, 09:30',
-  paymentRef: 'PAY-8001',
-  invoiceRef: 'INV-0001',
-  itemName: 'Potato',
-  itemGrade: 'Grade 1',
-  itemQty: 350,
-  itemUnitPrice: 35.88,
-  fulfilledQty: 350,
-  remainingQty: 0,
-  fulfilmentStatus: 'Completed',
-};
+const dayText = (iso: string) => formatAdminDay(iso) || ADMIN_NO_VALUE;
 
-const SAMPLE_PURCHASE_ORDER: PurchaseOrderRecord = {
-  id: 'po-2',
-  poNumber: 'PO-0002',
-  listingCode: 'LST-2902',
-  farmerName: 'Kumar Farm',
-  farmerId: 'FMR-00098',
-  produceName: 'Carrot',
-  grade: 'Grade 1',
-  quantityKg: 500,
-  unitPrice: 36,
-  totalPrice: 18000,
-  warehouse: 'Main Warehouse, Ooty',
-  dateStr: '12 Oct 2026',
-  purchaseStatus: 'Closed',
-  receiptStatus: 'Completed',
-  payoutStatus: 'Pending',
-};
+/**
+ * One page each of invoices, revenue and expenses, merged newest first. None
+ * of the three list rows carries a buyer, an order number or who changed it,
+ * so those slots are dashed (R9: an order UUID is never shown as a number).
+ */
+function historyEvents(invoices: InvoiceDto[], revenue: FinanceRevenueItemDto[], expenses: ExpenseDto[]): TransactionEventItem[] {
+  const events: TransactionEventItem[] = [
+    ...invoices.map((inv) => ({
+      id: `inv-${inv.id}`,
+      target: { kind: 'invoice' as const, id: inv.id },
+      sortKey: inv.issueDate,
+      title: t('wiringFinance.history.invoiceTitle', { number: inv.invoiceNumber }),
+      badge: t(`wiringFinance.history.invoiceStatus.${inv.status}` as TranslationKey),
+      badgeTone: INVOICE_TONE[inv.status],
+      line1: t('wiringFinance.history.when', {
+        date: dayText(inv.issueDate),
+        kind: t(`wiringFinance.invoices.type.${inv.invoiceType}` as TranslationKey),
+      }),
+      line2: ADMIN_NO_VALUE,
+      line3: t('wiringFinance.history.orderStatus', {
+        order: ADMIN_NO_VALUE,
+        status: t(`wiringFinance.history.invoiceStatus.${inv.status}` as TranslationKey),
+      }),
+      line4: t('wiringFinance.history.amountBy', { amount: moneyText(inv.totalAmount), by: ADMIN_NO_VALUE }),
+    })),
+    ...revenue.map((rev) => ({
+      id: `rev-${rev.orderId}`,
+      target: { kind: 'sale' as const, id: rev.orderId },
+      sortKey: rev.completedAt,
+      title: t('wiringFinance.history.saleTitle', { number: ADMIN_NO_VALUE }),
+      badge: rev.paymentStatus,
+      badgeTone: (rev.paymentStatus === 'PAID' ? 'success' : 'warning') as TransactionEventItem['badgeTone'],
+      line1: t('wiringFinance.history.when', { date: dayText(rev.completedAt), kind: rev.channel }),
+      line2: ADMIN_NO_VALUE,
+      line3: t('wiringFinance.history.payment', { method: rev.paymentMethod }),
+      line4: t('wiringFinance.history.amountBy', { amount: moneyText(rev.totalAmount), by: ADMIN_NO_VALUE }),
+    })),
+    ...expenses.map((exp) => ({
+      id: `exp-${exp.id}`,
+      target: { kind: 'expense' as const, id: exp.id },
+      sortKey: exp.expenseDate,
+      title: t('wiringFinance.history.expenseTitle', { category: exp.category }),
+      badge: t(`wiringFinance.expenses.status.${exp.status}` as TranslationKey),
+      badgeTone: (exp.status === 'REJECTED' ? 'danger' : 'default') as TransactionEventItem['badgeTone'],
+      line1: t('wiringFinance.history.when', { date: dayText(exp.expenseDate), kind: t('wiringFinance.history.expenseKind') }),
+      line2: exp.vendor ?? ADMIN_NO_VALUE,
+      line3: t('wiringFinance.history.payment', { method: exp.paymentMethod ?? ADMIN_NO_VALUE }),
+      line4: t('wiringFinance.history.amountBy', { amount: moneyText(exp.amount), by: ADMIN_NO_VALUE }),
+    })),
+  ];
+  return events.sort((a, b) => b.sortKey.localeCompare(a.sortKey));
+}
 
 export interface TransactionHistoryScreenProps {
   can?: Can | undefined;
   onBack: () => void;
 }
 
-export function TransactionHistoryScreen({ can, onBack }: TransactionHistoryScreenProps) {
+export function TransactionHistoryScreen({ can = () => false, onBack }: TransactionHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCardId, setSelectedCardId] = useState<string>('evt-1');
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+  const [openTarget, setOpenTarget] = useState<TransactionEventItem['target'] | null>(null);
 
-  // Redirection targets
-  const [selectedExpense, setSelectedExpense] = useState<ExpenseManagementRecord | null>(null);
-  const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrderRecord | null>(null);
-  const [selectedPayout, setSelectedPayout] = useState<PurchaseOrderRecord | null>(null);
-  const [selectedInvoice, setSelectedInvoice] = useState<{ soNumber: string; customerName: string; invoiceNumber: string; total: number } | null>(null);
+  const invoicesQuery = useAdminQuery(['admin', 'invoices', 'history', HISTORY_PAGE], (signal) =>
+    listInvoices({ limit: HISTORY_PAGE }, signal),
+  );
+  const revenueQuery = useAdminQuery(['admin', 'finance', 'history-revenue', HISTORY_PAGE], (signal) =>
+    listFinanceRevenue({ limit: HISTORY_PAGE }, signal),
+  );
+  const expensesQuery = useAdminQuery(['admin', 'finance', 'history-expenses', HISTORY_PAGE], (signal) =>
+    listExpenses({ limit: HISTORY_PAGE }, signal),
+  );
 
-  const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return EVENTS_DATA;
-    const q = searchQuery.toLowerCase().trim();
-    return EVENTS_DATA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.badge.toLowerCase().includes(q) ||
-        item.line1.toLowerCase().includes(q) ||
-        item.line2.toLowerCase().includes(q) ||
-        item.line3.toLowerCase().includes(q) ||
-        item.line4.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+  const isPending = invoicesQuery.isPending || revenueQuery.isPending || expensesQuery.isPending;
+  const error = invoicesQuery.error ?? revenueQuery.error ?? expensesQuery.error;
+  const events = historyEvents(invoicesQuery.data?.items ?? [], revenueQuery.data?.items ?? [], expensesQuery.data?.items ?? []);
+  const query = searchQuery.toLowerCase().trim();
+  const filteredItems = query
+    ? events.filter((item) =>
+        [item.title, item.badge, item.line1, item.line2, item.line3, item.line4].some((v) => v.toLowerCase().includes(query)),
+      )
+    : events;
 
-  const handleViewDetails = (item: TransactionEventItem) => {
-    const titleLower = item.title.toLowerCase();
-    const line3Lower = item.line3.toLowerCase();
+  // Drill-down: each row opens the live detail for its own record (R2).
+  const scope = { warehouseId: undefined, warehouseName: undefined };
+  const close = () => setOpenTarget(null);
+  if (openTarget?.kind === 'expense') {
+    return <ExpenseDetailScreen scope={scope} can={can} onBack={close} expenseId={openTarget.id} />;
+  }
+  if (openTarget?.kind === 'sale') {
+    return <RevenueDetailScreen scope={scope} can={can} onBack={close} orderId={openTarget.id} />;
+  }
+  if (openTarget?.kind === 'invoice') {
+    return <LiveInvoiceDetail scope={scope} can={can} onBack={close} invoiceId={openTarget.id} />;
+  }
 
-    if (titleLower.includes('expense') || titleLower.includes('exp-')) {
-      const match = EXPENSES_LIST.find((exp) => titleLower.includes(exp.expenseCode.toLowerCase()));
-      setSelectedExpense(match || DEFAULT_EXPENSE_RECORD);
-    } else if (titleLower.includes('payout') || titleLower.includes('py-') || line3Lower.includes('po-')) {
-      setSelectedPayout(SAMPLE_PURCHASE_ORDER);
-    } else if (titleLower.includes('so-0006') || line3Lower.includes('b-4002')) {
-      setSelectedSalesOrder({
-        id: 'so-6',
-        soNumber: 'SO-0006',
-        customerName: 'Demo Wholesale Co',
-        customerId: 'B-4002',
-        channel: 'B2B',
-        status: 'Completed',
-        itemCount: 1,
-        totalPrice: 3000,
-        paymentStatus: 'Paid',
-        warehouse: 'Main Warehouse, Ooty',
-        subMeta: 'WH-MAIN · Confirmed',
-        dateTime: '13 Oct 2026, 10:00',
-        paymentRef: 'PAY-7006',
-        invoiceRef: 'INV-0006',
-        itemName: 'Carrot',
-        itemGrade: 'Grade 1',
-        itemQty: 100,
-        itemUnitPrice: 30.0,
-        fulfilledQty: 100,
-        remainingQty: 0,
-        fulfilmentStatus: 'Completed',
-      });
-    } else if (titleLower.includes('so-0002') || line3Lower.includes('c-1002')) {
-      setSelectedSalesOrder({
-        id: 'so-2',
-        soNumber: 'SO-0002',
-        customerName: 'Demo Customer B',
-        customerId: 'C-1002',
-        channel: 'Online',
-        status: 'Completed',
-        itemCount: 1,
-        totalPrice: 300,
-        paymentStatus: 'Paid',
-        warehouse: 'Main Warehouse, Ooty',
-        subMeta: 'WH-MAIN · Confirmed',
-        dateTime: '13 Oct 2026, 10:00',
-        paymentRef: 'PAY-7002',
-        invoiceRef: 'INV-0002',
-        itemName: 'Potato',
-        itemGrade: 'Grade 1',
-        itemQty: 10,
-        itemUnitPrice: 30.0,
-        fulfilledQty: 10,
-        remainingQty: 0,
-        fulfilmentStatus: 'Completed',
-      });
-    } else if (item.id === 'evt-1' || titleLower.includes('inv-0004') || line3Lower.includes('so-0009')) {
-      setSelectedSalesOrder({
-        id: 'so-9',
-        soNumber: 'SO-0009',
-        customerName: 'Demo Customer D',
-        customerId: 'C-1004',
-        channel: 'Online',
-        status: 'Issue',
-        itemCount: 1,
-        totalPrice: 140,
-        paymentStatus: 'Cancelled',
-        warehouse: 'Main Warehouse, Ooty',
-        subMeta: 'WH-MAIN · Cancelled',
-        dateTime: '13 Oct 2026, 12:00',
-        paymentRef: 'PAY-7009',
-        invoiceRef: 'INV-0004',
-        itemName: 'Beetroot',
-        itemGrade: 'Grade 2',
-        itemQty: 5,
-        itemUnitPrice: 28.0,
-        fulfilledQty: 0,
-        remainingQty: 5,
-        fulfilmentStatus: 'Issue',
-      });
-    } else {
-      setSelectedSalesOrder(SAMPLE_SALES_RECORD);
-    }
+  const open = (item: TransactionEventItem) => {
+    setSelectedCardId(item.id);
+    setOpenTarget(item.target);
   };
-
-  if (selectedInvoice) {
-    return (
-      <SalesInvoiceScreen
-        orderNumber={selectedInvoice.soNumber}
-        customerName={selectedInvoice.customerName}
-        invoiceNumber={selectedInvoice.invoiceNumber}
-        total={selectedInvoice.total}
-        onBack={() => setSelectedInvoice(null)}
-      />
-    );
-  }
-
-  if (selectedExpense) {
-    return (
-      <ExpenseDetailScreen
-        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
-        can={can ?? (() => true)}
-        expenseId={selectedExpense.expenseCode}
-        onBack={() => setSelectedExpense(null)}
-      />
-    );
-  }
-
-  if (selectedSalesOrder) {
-    return (
-      <SalesOrderDetailScreen
-        order={selectedSalesOrder}
-        onBack={() => setSelectedSalesOrder(null)}
-      />
-    );
-  }
-
-  if (selectedPayout) {
-    return (
-      <PurchaseOrderPayoutScreen
-        order={selectedPayout}
-        onBack={() => setSelectedPayout(null)}
-      />
-    );
-  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -387,11 +235,26 @@ export function TransactionHistoryScreen({ can, onBack }: TransactionHistoryScre
           </TouchableOpacity>
         </View>
 
-        {/* ── Counter Line ── */}
-        <Text style={styles.counterText}>5 items · 3 warehouses</Text>
+        {/* ── Counter Line: three merged pages have no single server total, so the count is dashed (R4). ── */}
+        <Text style={styles.counterText}>
+          {t('wiringFinance.history.counter', { count: ADMIN_NO_VALUE, warehouses: ADMIN_NO_VALUE })}
+        </Text>
 
         {/* ── Events List ── */}
-        {filteredItems.map((item) => {
+        {isPending ? (
+          <AdminLoadingState />
+        ) : error ? (
+          <AdminErrorState
+            error={error}
+            onRetry={() => {
+              void invoicesQuery.refetch();
+              void revenueQuery.refetch();
+              void expensesQuery.refetch();
+            }}
+          />
+        ) : filteredItems.length === 0 ? (
+          <AdminEmptyState title={t(query ? 'wiringFinance.history.noMatch' : 'wiringFinance.history.empty')} />
+        ) : filteredItems.map((item) => {
           const isSuccess = item.badgeTone === 'success';
           const isDanger = item.badgeTone === 'danger';
           const isWarning = item.badgeTone === 'warning';
@@ -404,10 +267,7 @@ export function TransactionHistoryScreen({ can, onBack }: TransactionHistoryScre
                 styles.eventCard,
                 isSelected && styles.eventCardSelected,
               ]}
-              onPress={() => {
-                setSelectedCardId(item.id);
-                handleViewDetails(item);
-              }}
+              onPress={() => open(item)}
               activeOpacity={0.8}
             >
               <View style={styles.cardHeaderRow}>
@@ -449,14 +309,12 @@ export function TransactionHistoryScreen({ can, onBack }: TransactionHistoryScre
               {/* Action row with "View Details" button */}
               <View style={styles.actionsRow}>
                 <TouchableOpacity
-                  onPress={() => {
-                    setSelectedCardId(item.id);
-                    handleViewDetails(item);
-                  }}
+                  testID={`finance.history.view.${item.id}`}
+                  onPress={() => open(item)}
                   activeOpacity={0.7}
                   hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
                 >
-                  <Text style={styles.actionBtnText}>{item.actionLabel ?? 'View Details'}</Text>
+                  <Text style={styles.actionBtnText}>View Details</Text>
                 </TouchableOpacity>
               </View>
             </TouchableOpacity>

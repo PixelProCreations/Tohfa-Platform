@@ -7,18 +7,21 @@ import {
   View,
 } from 'react-native';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { t } from '../../i18n';
+import { adminColors } from '../../theme';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
 import Svg, { Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  chevron:       '#E85226',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chevron:       adminColors.brand,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -27,7 +30,7 @@ function BackChevronIcon() {
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M15 19l-7-7 7-7"
-        stroke="#1A1412"
+        stroke={adminColors.ink}
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -55,12 +58,12 @@ function DocIcon() {
     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
       <Path
         d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="#FFFFFF" strokeWidth="1.8" />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={adminColors.onBrand} strokeWidth="1.8" />
     </Svg>
   );
 }
@@ -103,8 +106,9 @@ export function GSTAccountingScreen({
             activeOpacity={0.75}
           >
             <View style={styles.cardTextCol}>
-              <Text style={styles.cardTitle}>GST Filing Report — Q2 2026</Text>
-              <Text style={styles.cardSub}>Covers Jul-Sep, all B2B/Horeca invoices</Text>
+              {/* The filing report applies no quarter (see GSTFilingReportDetailScreen), so the designed period is dashed. */}
+              <Text style={styles.cardTitle}>{t('wiringFinance.gstAccounting.reportTitle', { period: ADMIN_NO_VALUE })}</Text>
+              <Text style={styles.cardSub}>{t('wiringFinance.gstAccounting.reportSub', { months: ADMIN_NO_VALUE })}</Text>
             </View>
             <RightChevronIcon />
           </TouchableOpacity>
@@ -163,7 +167,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -196,7 +200,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -234,6 +238,6 @@ const styles = StyleSheet.create({
   generateBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 });

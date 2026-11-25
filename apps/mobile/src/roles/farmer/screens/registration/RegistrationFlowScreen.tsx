@@ -15,6 +15,7 @@ import {
   saveFarmerApplicationStep,
 } from '../../api/registration';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
 
 interface RegistrationFlowProps {
   onNavigate: (screen: 'ApplicationStatus' | 'Welcome', params?: Record<string, string | number | undefined>) => void;
@@ -167,6 +168,11 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
           <TouchableOpacity onPress={() => setApiError(null)}>
             <Icon name="close" size={16} color={authPalette.twAmber900} />
           </TouchableOpacity>
+        </View>
+      ) : draft.isResubmit ? (
+        <View style={[styles.apiBanner, { backgroundColor: authPalette.amber50, borderColor: authPalette.amber200 }]} testID="farmer.registration.resubmitBanner">
+          <Icon name="info" size={16} color={authPalette.twAmber900} />
+          <Text style={[styles.apiBannerText, { color: authPalette.twAmber900 }]}>{t('farmer.registration.resubmitBanner')}</Text>
         </View>
       ) : null}
       {/* Branding Spec Header */}

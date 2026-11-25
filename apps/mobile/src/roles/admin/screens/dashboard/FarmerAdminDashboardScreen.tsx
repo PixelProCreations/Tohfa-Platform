@@ -31,8 +31,23 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { adminColors, adminRadius, adminShadow, adminSpacing } from '../../theme';
-import { t } from '../../i18n';
+import { hasKey, t } from '../../i18n';
 import { makeCan } from '../../permissions/can';
+import { useListingQueue } from '../../api/listingsHooks';
+import type { ListingQueueRow } from '../../api/listings';
+import { ADMIN_NO_VALUE } from '../../utils/noValue';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { exactCount } from './audit-schedule/scheduleFormat';
+import { moneyText } from './saOverviewFormat';
+import {
+  countText,
+  farmerInitial,
+  farmerPendingText,
+  greetingNameText,
+  groupListingsByFarmer,
+  listingSummaryText,
+  type MeStatus,
+} from './superAdminHomeFigures';
 import { FarmersFlow } from '../farmers/FarmersFlow';
 import { FarmersPeopleGroupIcon } from '../farmers/flow/FarmersEntryIcons';
 import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
@@ -299,6 +314,20 @@ export interface FarmerAdminDashboardScreenProps {
   initialTab?: FarmerAdminTab | undefined;
 }
 
+// ─── Home figures ─────────────────────────────────────────────────────────────
+
+/** "Grade 1" from the listing's grade code; the dash for none or an unknown code. */
+function gradeText(grade: string | null): string {
+  if (grade === null) return ADMIN_NO_VALUE;
+  const key = `listingsAdmin.grade.${grade}`;
+  return hasKey(key) ? t(key) : ADMIN_NO_VALUE;
+}
+
+/** "40 KG" from the listing's decimal quantity string; the dash for none. */
+function qtyText(quantityKg: string | null): string {
+  return quantityKg === null ? ADMIN_NO_VALUE : t('homeDashboards.fa.listings.qty', { qty: quantityKg });
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function FarmerAdminDashboardScreen({
@@ -309,6 +338,7 @@ export function FarmerAdminDashboardScreen({
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
   const [subView, setSubView] = useState<'none' | 'notifications' | 'settings' | 'pricing' | 'inputs'>('none');
   const [user, setUser] = useState<UserMe | null>(null);
+  const [meStatus, setMeStatus] = useState<MeStatus>('loading');
   const [expandedFarmer, setExpandedFarmer] = useState<string | null>(null);
   const [modalItem, setModalItem] = useState<{
     title: string;
@@ -318,13 +348,26 @@ export function FarmerAdminDashboardScreen({
 
   useEffect(() => {
     fetchMe()
-      .then((me) => setUser(me))
-      .catch(() => {});
+      .then((me) => {
+        setUser(me);
+        setMeStatus('ready');
+      })
+      .catch(() => setMeStatus('error'));
   }, []);
 
-  const displayName = user?.fullName ?? 'Suresh';
+  // The /auth/me name, the loading text, or the dash: never a placeholder person.
+  const displayName = greetingNameText(user?.fullName, meStatus);
   // The signed-in admin's /auth/me permissions; empty (deny) until they arrive.
   const adminCan = useMemo(() => makeCan(user?.permissions), [user]);
+
+  // GET /admin/listings?status=PENDING_APPROVAL (listing.queue.view_pending).
+  // The list has no total: counts are exact only when the whole queue is
+  // loaded (exactCount), otherwise the dash. Not fetched without the code.
+  const listingsAllowed = adminCan('listing.queue.view_pending');
+  const listingQueue = useListingQueue(undefined, { enabled: listingsAllowed });
+  const pendingExact = listingsAllowed ? exactCount(listingQueue) : null;
+  const listingGroups = useMemo(() => groupListingsByFarmer(listingQueue.items), [listingQueue.items]);
+  const newestListing: ListingQueueRow | undefined = listingQueue.items[0];
 
   const handleSwitchToFarmerApp = () => {
     setModalItem(null);
@@ -419,7 +462,8 @@ export function FarmerAdminDashboardScreen({
             </View>
           </View>
 
-          <Text style={styles.headerSubtitle}>Nilgiris · Coonoor Zone</Text>
+          {/* The admin's zone: /auth/me carries none, so the dash, never a made-up zone. */}
+          <Text style={styles.headerSubtitle}>{ADMIN_NO_VALUE}</Text>
         </View>
       )}
 
@@ -435,7 +479,7 @@ export function FarmerAdminDashboardScreen({
           >
             {/* 1. Greeting */}
             <View style={styles.greetingSection}>
-              <Text style={styles.greetTitle}>Good morning, {displayName}</Text>
+              <Text style={styles.greetTitle}>{t('homeDashboards.fa.greeting', { name: displayName })}</Text>
               <Text style={styles.greetSub}>Here&apos;s your Farmer Admin activity for today.</Text>
             </View>
 
@@ -471,31 +515,31 @@ export function FarmerAdminDashboardScreen({
             <View style={{ marginBottom: 16 }}>
               <OverviewCardsGrid>
                 <OverviewDashboardCard
-                  value={t('tohfaHome.dash')}
+                  value={countText(pendingExact)}
                   title="Pending listings"
-                  subtitle="—"
+                  subtitle={ADMIN_NO_VALUE}
                   icon="orders"
                   tone="warning"
                   onPress={notAvailable}
                 />
                 <OverviewDashboardCard
-                  value={t('tohfaHome.dash')}
+                  value={ADMIN_NO_VALUE}
                   title="Today's reviews"
-                  subtitle="—"
+                  subtitle={ADMIN_NO_VALUE}
                   icon="box"
                   onPress={notAvailable}
                 />
                 <OverviewDashboardCard
-                  value={t('tohfaHome.dash')}
+                  value={ADMIN_NO_VALUE}
                   title="Pending audit support"
-                  subtitle="—"
+                  subtitle={ADMIN_NO_VALUE}
                   icon="pickup"
                   onPress={notAvailable}
                 />
                 <OverviewDashboardCard
-                  value={t('tohfaHome.dash')}
+                  value={ADMIN_NO_VALUE}
                   title="Open disputes"
-                  subtitle="—"
+                  subtitle={ADMIN_NO_VALUE}
                   icon="alert"
                   tone="danger"
                   onPress={notAvailable}
@@ -515,9 +559,19 @@ export function FarmerAdminDashboardScreen({
                   <TomatoProduceIcon size={20} color={adminColors.brand} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.attentionCardTitle}>Tomato — Grade 1</Text>
+                  {/* The newest pending listing from the queue; the dash until one is loaded. */}
+                  <Text style={styles.attentionCardTitle}>
+                    {t('homeDashboards.fa.attention.listingTitle', {
+                      crop: newestListing?.cropName ?? ADMIN_NO_VALUE,
+                      grade: gradeText(newestListing?.grade ?? null),
+                    })}
+                  </Text>
                   <Text style={styles.attentionCardMeta}>
-                    Farmer: Ramesh · Quantity: — · Listed Price: —
+                    {t('homeDashboards.fa.attention.listingMeta', {
+                      farmer: newestListing?.farmerName ?? ADMIN_NO_VALUE,
+                      qty: qtyText(newestListing?.quantityKg ?? null),
+                      price: moneyText(newestListing?.askingPrice),
+                    })}
                   </Text>
                   <Text style={styles.attentionActionLink}>Review Listing →</Text>
                 </View>
@@ -533,7 +587,7 @@ export function FarmerAdminDashboardScreen({
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Counter Offer Response</Text>
                   <Text style={styles.attentionCardMeta}>
-                    Farmer: — · Crop: — · Requires response
+                    {t('homeDashboards.fa.attention.counterMeta', { farmer: ADMIN_NO_VALUE, crop: ADMIN_NO_VALUE })}
                   </Text>
                   <Text style={styles.attentionActionLink}>View →</Text>
                 </View>
@@ -549,7 +603,7 @@ export function FarmerAdminDashboardScreen({
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Upcoming Farm Audit</Text>
                   <Text style={styles.attentionCardMeta}>
-                    Farmer: — · Zone: Coonoor · Date: —
+                    {t('homeDashboards.fa.attention.auditMeta', { farmer: ADMIN_NO_VALUE, zone: ADMIN_NO_VALUE, date: ADMIN_NO_VALUE })}
                   </Text>
                   <Text style={styles.attentionActionLink}>View Audit →</Text>
                 </View>
@@ -564,7 +618,9 @@ export function FarmerAdminDashboardScreen({
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Farmer Dispute</Text>
-                  <Text style={styles.attentionCardMeta}>Farmer vs Farmer · Status: —</Text>
+                  <Text style={styles.attentionCardMeta}>
+                    {t('homeDashboards.fa.attention.disputeMeta', { status: ADMIN_NO_VALUE })}
+                  </Text>
                   <Text style={styles.attentionActionLink}>View Dispute →</Text>
                 </View>
               </View>
@@ -574,59 +630,52 @@ export function FarmerAdminDashboardScreen({
             <View style={{ marginTop: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.sectionTitle}>Farmer Product Listings</Text>
             </View>
-            <Text style={styles.sectionSubMuted}>— pending · — farmers</Text>
+            <Text style={styles.sectionSubMuted}>{listingSummaryText(listingQueue.items, pendingExact)}</Text>
 
-            <View style={styles.accordionCard}>
-              <TouchableOpacity
-                style={styles.accordionHeader}
-                onPress={() => setExpandedFarmer(expandedFarmer === 'Ramesh' ? null : 'Ramesh')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.initialsCircle}>
-                  <Text style={styles.initialsText}>R</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.farmerName}>Ramesh</Text>
-                  <Text style={styles.farmerSub}>— pending listings</Text>
-                </View>
-                {expandedFarmer === 'Ramesh' ? <ChevronUp /> : <ChevronDown />}
-              </TouchableOpacity>
+            {/* One accordion per farmer with a pending listing, from the live
+                queue (the design's two farmers were fixtures). */}
+            {listingsAllowed && listingQueue.isLoading ? <AdminLoadingState /> : null}
+            {listingsAllowed && !listingQueue.isLoading && listingQueue.error ? (
+              <AdminErrorState error={listingQueue.error} onRetry={listingQueue.refresh} />
+            ) : null}
+            {pendingExact === 0 ? <AdminEmptyState title={t('homeDashboards.fa.listings.empty')} /> : null}
+            {listingGroups.map((group) => (
+              <View key={group.farmer} style={styles.accordionCard}>
+                <TouchableOpacity
+                  style={styles.accordionHeader}
+                  onPress={() => setExpandedFarmer(expandedFarmer === group.farmer ? null : group.farmer)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.initialsCircle}>
+                    <Text style={styles.initialsText}>{farmerInitial(group.farmer)}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.farmerName}>{group.farmer}</Text>
+                    <Text style={styles.farmerSub}>{farmerPendingText(group.rows.length, pendingExact !== null)}</Text>
+                  </View>
+                  {expandedFarmer === group.farmer ? <ChevronUp /> : <ChevronDown />}
+                </TouchableOpacity>
 
-              {expandedFarmer === 'Ramesh' && (
-                <View style={styles.accordionContent}>
-                  <TouchableOpacity style={styles.accordionItemRow} onPress={notAvailable} activeOpacity={0.7}>
-                    <Text style={styles.accordionCropName}>• Tomato — Grade 1 (—)</Text>
-                    <Text style={styles.accordionCropPrice}>—/KG</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.accordionCard}>
-              <TouchableOpacity
-                style={styles.accordionHeader}
-                onPress={() => setExpandedFarmer(expandedFarmer === 'Kumar' ? null : 'Kumar')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.initialsCircle}>
-                  <Text style={styles.initialsText}>K</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.farmerName}>Kumar</Text>
-                  <Text style={styles.farmerSub}>— pending listings</Text>
-                </View>
-                {expandedFarmer === 'Kumar' ? <ChevronUp /> : <ChevronDown />}
-              </TouchableOpacity>
-
-              {expandedFarmer === 'Kumar' && (
-                <View style={styles.accordionContent}>
-                  <TouchableOpacity style={styles.accordionItemRow} onPress={notAvailable} activeOpacity={0.7}>
-                    <Text style={styles.accordionCropName}>• Green Beans — Grade 1 (—)</Text>
-                    <Text style={styles.accordionCropPrice}>—/KG</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
+                {expandedFarmer === group.farmer && (
+                  <View style={styles.accordionContent}>
+                    {group.rows.map((row) => (
+                      <TouchableOpacity key={row.id} style={styles.accordionItemRow} onPress={notAvailable} activeOpacity={0.7}>
+                        <Text style={styles.accordionCropName}>
+                          {t('homeDashboards.fa.listings.line', {
+                            crop: row.cropName ?? ADMIN_NO_VALUE,
+                            grade: gradeText(row.grade),
+                            qty: qtyText(row.quantityKg),
+                          })}
+                        </Text>
+                        <Text style={styles.accordionCropPrice}>
+                          {t('homeDashboards.fa.listings.price', { price: moneyText(row.askingPrice) })}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
 
             <TouchableOpacity style={styles.bigOutlineBtn} onPress={notAvailable} activeOpacity={0.8}>
               <Text style={styles.bigOutlineBtnText}>View All Listings</Text>
@@ -640,13 +689,13 @@ export function FarmerAdminDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.activityCard} onPress={notAvailable} activeOpacity={0.8}>
+            {/* The design's row was a fixture; no Farmer Admin activity feed is read here yet. */}
+            <View style={styles.activityCard}>
               <CheckmarkCircleIcon size={22} color={adminColors.success.text} />
               <View style={{ flex: 1 }}>
-                <Text style={styles.activityTitle}>Listing approved</Text>
-                <Text style={styles.activityMeta}>— · —</Text>
+                <Text style={styles.activityMeta}>{t('homeDashboards.fa.activity.notLoaded')}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
 
             <TouchableOpacity style={styles.bigOutlineBtn} onPress={notAvailable} activeOpacity={0.8}>
               <Text style={styles.bigOutlineBtnText}>View Activity</Text>
