@@ -1,7 +1,9 @@
 /* Global styles for the TOHFA admin console.
-   Every colour, size and radius below comes from @tohfa/design-tokens via the
-   generated custom properties. NEVER write a hex value in this file. */
+   Based on TOHFA Admin Dashboard Desktop Design System (November 2026).
+   Warm neutrals, cream page, amber action color, flat & bordered cards. */
+
 @import './tokens.generated.css';
+@import './theme.css';
 
 *,
 *::before,
@@ -17,69 +19,98 @@ body {
 }
 
 body {
-  background: var(--tohfa-surface);
-  color: var(--tohfa-on-surface);
-  font-family: var(--tohfa-font-sans);
-  font-size: var(--tohfa-font-size-body);
-  line-height: var(--tohfa-line-height-body);
+  background: var(--tohfa-page);
+  color: var(--tohfa-ink);
+  font-family: var(--font);
+  font-size: var(--fs-body);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1,
 h2,
-h3 {
-  line-height: var(--tohfa-line-height-heading);
-  font-weight: var(--tohfa-font-weight-semibold);
-  margin: 0 0 var(--tohfa-space-md);
+h3,
+h4 {
+  font-family: var(--font);
+  font-weight: var(--fw-xbold);
+  color: var(--tohfa-ink);
+  margin: 0 0 var(--space-12);
 }
 
 h1 {
-  font-size: var(--tohfa-font-size-display);
+  font-size: var(--fs-hero);
+  line-height: 1.25;
 }
+
 h2 {
-  font-size: var(--tohfa-font-size-h1);
+  font-size: var(--fs-title);
+  line-height: 1.2;
 }
+
 h3 {
-  font-size: var(--tohfa-font-size-h2);
+  font-size: var(--fs-page);
+  line-height: 1.2;
+}
+
+h4 {
+  font-size: var(--fs-card);
+  line-height: 1.3;
 }
 
 a {
-  color: var(--tohfa-primary);
+  color: var(--tohfa-brown);
+  text-decoration: none;
+  font-weight: var(--fw-bold);
 }
 
-/* Interactive elements never go below the 44px minimum target. */
+a:hover {
+  color: var(--tohfa-brown-deep);
+  text-decoration: underline;
+}
+
+/* Interactive elements */
 button,
 [role='button'],
 input,
-select {
-  min-height: var(--tohfa-min-touch-target);
-  font-family: inherit;
-  font-size: var(--tohfa-font-size-body);
-  border-radius: var(--tohfa-radius-input);
+select,
+textarea {
+  font-family: var(--font);
+  font-size: var(--fs-cell);
 }
 
 button {
   border: none;
-  padding: 0 var(--tohfa-space-lg);
-  border-radius: var(--tohfa-radius-button);
-  background: var(--tohfa-primary);
+  padding: 10px 16px;
+  border-radius: var(--r-md);
+  background: var(--tohfa-amber);
   color: #fff;
-  font-weight: var(--tohfa-font-weight-medium);
+  font-weight: var(--fw-bold);
   cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+button:hover {
+  background: var(--tohfa-amber-hover);
 }
 
 button:active {
-  background: var(--tohfa-primary-pressed);
+  background: var(--tohfa-amber-active);
 }
 
 button:focus-visible,
-a:focus-visible {
-  outline: 3px solid var(--tohfa-accent);
-  outline-offset: 2px;
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--tohfa-focus-ring);
 }
 
+/* Flat & bordered card principle: white cards, 1px warm border, no shadow */
 .tohfa-card {
-  background: #fff;
-  border-radius: var(--tohfa-radius-card-max);
-  padding: var(--tohfa-space-xl);
+  background: var(--tohfa-surface);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-card);
+  padding: var(--space-18);
+  box-shadow: none;
 }
