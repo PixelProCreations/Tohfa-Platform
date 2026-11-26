@@ -23,9 +23,9 @@ export function permissionGuard(permissionCode: string): CanActivateFn {
     if (rbac.can(permissionCode)) return true;
 
     // If attempting to access default route but lack permission, forward to first accessible route
-    if (route.routeConfig?.path === 'farmer-applications') {
+    if (route.routeConfig?.path === 'dashboard' || route.routeConfig?.path === 'farmer-applications') {
       const target = rbac.firstAllowedPath(NAV);
-      if (target !== '/farmer-applications') {
+      if (target !== `/${route.routeConfig.path}`) {
         return router.createUrlTree([target]);
       }
     }

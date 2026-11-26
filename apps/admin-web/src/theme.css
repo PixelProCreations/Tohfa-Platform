@@ -1,0 +1,720 @@
+/**
+ * TOHFA Admin Dashboard — Design System Theme (Desktop 1440 × 900)
+ * Documented from the official Super Admin Dashboard design system (November 2026).
+ *
+ * Principles:
+ * 1. Flat and bordered: Cards are white with a 1px warm border (#E4E0D3), no card shadows.
+ * 2. Warm neutrals: Cream page (#F7F5EE) and warm border (#E4E0D3) instead of cool greys.
+ * 3. Amber is the action colour: Primary actions, active nav, selected tabs use amber #E48932.
+ *    Brown #8A4E15 carries links and accents.
+ * 4. Colour means status: Green, amber, red, blue are reserved for state/data. Never decorate.
+ * 5. Dense and scannable: Poppins typography, 12px body, uppercase 9.5px table headers, 800 numerals.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Noto+Sans+Tamil:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+:root {
+  /* ==========================================================================
+     02 · BRAND PALETTE (Pages 04, 20)
+     ========================================================================== */
+  --tohfa-amber: #E48932;              /* Primary actions, active nav, selected tab, avatar */
+  --tohfa-brown: #8A4E15;              /* Accent icons, links, role pill text, sidebar gradient end */
+  --tohfa-brown-deep: #5C3410;         /* Sidebar gradient start, link hover, dark canvas */
+  --tohfa-amber-tint: #FBEEDE;         /* Icon chips, role pill bg, form-section header, grade tags */
+  --tohfa-leaf: #8ED18C;               /* Logo glyph on sidebar only */
+
+  /* Supporting tints used on borders and chips (Page 04) */
+  --tohfa-amber-border: #F6D9B3;       /* Amber chip & badge border */
+  --tohfa-amber-border-alt1: #F0D3B0;  /* Alternate amber border */
+  --tohfa-amber-border-alt2: #E4C9A3;  /* Alternate amber border */
+  --tohfa-checkbox-border: #D6D1C4;    /* Default checkbox border */
+  --tohfa-strong-border: #C7BFA9;      /* Dashed / strong border */
+  --tohfa-neutral-chip-alt: #EAE6DA;   /* Neutral chip alternate fill */
+
+  /* Interaction states & contrast adjustments (Pages 05, 10, 19) */
+  --tohfa-amber-hover: #C97420;        /* Primary button hover */
+  --tohfa-amber-active: #A8610F;       /* High contrast active / accessible on light */
+  --tohfa-focus-ring: 0 0 0 3px rgba(228, 137, 50, 0.35); /* Focus ring */
+  --tohfa-disabled-bg: #F0EEE4;        /* Disabled button / control background */
+  --tohfa-disabled-fg: #9AA294;        /* Disabled text / icon */
+
+  /* ==========================================================================
+     02 · NEUTRALS AND SURFACES (Pages 04, 20)
+     ========================================================================== */
+  --tohfa-ink: #1D2420;                /* Primary text, headings, body text, table cells */
+  --tohfa-slate: #5C6B63;              /* Secondary text, labels, captions, subtitle */
+  --tohfa-muted: #9AA294;              /* Placeholders, table headers, disabled icons, chevrons */
+  --tohfa-border: #E4E0D3;             /* Card, input, header bottom border, divider-strong lines */
+  --tohfa-divider: #F0EEE4;            /* Row dividers, chart gridlines, neutral chip fill */
+  --tohfa-page: #F7F5EE;               /* Content page background, notification bell, mini panels */
+  --tohfa-canvas: #EDEAE0;             /* Presentation canvas behind desktop frames */
+  --tohfa-surface: #FFFFFF;            /* White surface: cards, header, dialogs, inputs */
+
+  /* ==========================================================================
+     02 · SEMANTIC STATUS FAMILIES (Pages 05, 13, 20)
+     [Foreground / Tint / Border]
+     ========================================================================== */
+  /* Success: Active, Verified, Approved, Paid, Healthy, Valid, Completed */
+  --ok: #1E8E5A;
+  --ok-bg: #E6F5ED;
+  --ok-bd: #BFE4CF;
+
+  /* Warning: Pending, Draft, In Progress, Expiring Soon, 1 discrepancy */
+  --warn: #C98A02;
+  --warn-bg: #FDF3DC;
+  --warn-bd: #F6D9B3;
+
+  /* Danger: Expired, Rejected, Blocked, Escalated */
+  --err: #B3261E;
+  --err-bg: #FDECEC;
+  --err-bd: #F3C1C1;
+
+  /* Info: Planned, Scheduled, Open, In Review, PO Created, Harvested */
+  --info: #2C6FB0;
+  --info-bg: #E4EDF5;
+  --info-bd: #D7E8F5;
+
+  /* Neutral Status: Not Started, Inactive, Archived, New, Not scored */
+  --neutral-status: #5C6B63;
+  --neutral-status-bg: #F0EEE4;
+  --neutral-status-bd: #E4E0D3;
+
+  /* Purple: Sales tag */
+  --purple: #6B4FA0;
+  --purple-bg: #F0E9FB;
+  --purple-bd: #DCD3F5;
+
+  /* ==========================================================================
+     02 · DATA AND ROLE PALETTE (Page 05)
+     ========================================================================== */
+  --tohfa-role-super-admin: #8A4E15;
+  --tohfa-role-tohfa-admin: #E48932;
+  --tohfa-role-farmer-admin: #2C6FB0;
+  --tohfa-role-main-wh-admin: #1E8E5A;
+  --tohfa-role-sub-wh-admin: #C98A02;
+  --tohfa-role-procurement: #2C6FB0;
+  --tohfa-role-sales: #E48932;
+
+  /* ==========================================================================
+     03 · TYPOGRAPHY — POPPINS (Pages 06, 20)
+     Stack: 'Poppins', 'Noto Sans Tamil', system-ui, sans-serif
+     Weights: 400 (regular), 500 (medium), 600 (semibold), 700 (bold), 800 (extrabold)
+     ========================================================================== */
+  --font: 'Poppins', 'Noto Sans Tamil', system-ui, -apple-system, sans-serif;
+  --font-family: var(--font);
+
+  /* Font Weights */
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semi: 600;
+  --fw-bold: 700;
+  --fw-xbold: 800;
+
+  /* Font Sizes & Line Heights (AS BUILT desktop scale) */
+  --fs-hero: 30px;                     /* Hero statement (lh 1.25) */
+  --fs-kpi: 24px;                      /* KPI cards, numerals, totals (lh 1.0) */
+  --fs-title-detail: 23px;             /* Detail page title (lh 1.2) */
+  --fs-title: 22px;                    /* Standard section/page title (lh 1.2) */
+  --fs-title-dialog: 21px;             /* Dialog heading (lh 1.2) */
+  --fs-title-login: 20px;              /* Login screen title (lh 1.2) */
+  --fs-page: 16px;                     /* Header greeting, page title (lh 1.2) */
+  --fs-section: 14.5px;                /* Form section header (lh 1.3) */
+  --fs-card: 14px;                     /* Card headers, content title (lh 1.3) */
+  --fs-button-l: 13.5px;               /* Large button, dialog actions (lh 1.3) */
+  --fs-body: 12.5px;                   /* Nav items, user name, list rows, messages (lh 1.5) */
+  --fs-cell: 12px;                     /* Table text, inputs, buttons (lh 1.4) */
+  --fs-input: 12px;                    /* Input values (lh 1.4) */
+  --fs-dense: 11.5px;                  /* Filters, sub-nav, dense rows, subtitles (lh 1.4) */
+  --fs-cap: 11px;                      /* Helper text, captions, card links (lh 1.4) */
+  --fs-label: 10.5px;                  /* KPI labels, badges L (lh 1.2) */
+  --fs-badge: 10px;                    /* Badges M (default), legend labels (lh 1.2) */
+  --fs-badge-s: 9.5px;                 /* Badges S (dense rows) (lh 1.2) */
+  --fs-table-header: 9.5px;            /* Uppercase column titles (+0.3px letter spacing) */
+
+  /* ==========================================================================
+     01 · SPACING SCALE (Pages 07, 20)
+     ========================================================================== */
+  --space-4: 4px;                      /* Icon-to-text micro gap */
+  --space-6: 6px;                      /* Chip gaps, legend dot gap */
+  --space-7: 7px;                      /* Form label-to-input gap */
+  --space-8: 8px;                      /* Tight stacks, row padding bottom */
+  --space-10: 10px;                    /* Button group gap, filter bar gap */
+  --space-11: 11px;                    /* Nav item gap & padding, table row vertical padding */
+  --space-12: 12px;                    /* KPI grid gap, action button gap */
+  --space-14: 14px;                    /* Card grid gap, filter bar margin bottom */
+  --space-15: 15px;                    /* Card interior padding */
+  --space-16: 16px;                    /* Card padding S, list cards padding */
+  --space-18: 18px;                    /* Card padding standard, KPI row margin bottom */
+  --space-20: 20px;                    /* Sidebar horizontal padding */
+  --space-24: 24px;                    /* Content top padding */
+  --space-28: 28px;                    /* Content sides padding, header padding sides */
+  --space-32: 32px;                    /* Content bottom padding */
+
+  /* ==========================================================================
+     01 · CORNER RADIUS SCALE (Pages 07, 20)
+     ========================================================================== */
+  --r-checkbox: 4px;                   /* Checkbox */
+  --r-xs: 6px;                         /* Badge S / M */
+  --r-badge-sm: 6px;                   /* Badge S / M */
+  --r-badge-lg: 7px;                   /* Badge L, pagination square button */
+  --r-sm: 8px;                         /* Small button, icon chip, sub-item */
+  --r-tab: 9px;                        /* Tab, filter, search input, logo tile */
+  --r-md: 10px;                        /* Primary button, input, pill, role pill */
+  --r-nav-item: 11px;                  /* Nav item, choice tile, accordion card */
+  --r-stat-mini: 12px;                 /* Mini stat tile */
+  --r-lg: 14px;                        /* Card container, section card */
+  --r-card: 14px;                      /* Standard card */
+  --r-xl: 16px;                        /* Dialog container standard */
+  --r-dialog: 16px;                    /* Standard dialog */
+  --r-dialog-wide: 18px;               /* Auth dialog, wide dialog */
+  --r-pill: 9999px;                    /* Full pill */
+  --r-circle: 50%;                     /* Avatars, status dots, round action icons */
+
+  /* ==========================================================================
+     01 · BORDERS AND ELEVATION (Pages 07, 16, 20)
+     ========================================================================== */
+  --border-card: 1px solid var(--tohfa-border);
+  --border-input: 1px solid var(--tohfa-border);
+  --border-divider: 1px solid var(--tohfa-divider);
+  --border-checkbox: 1.5px solid var(--tohfa-checkbox-border);
+  --border-dropzone: 1.5px dashed var(--tohfa-amber);
+  --border-stepper-done: 2.5px solid var(--ok);
+  --border-sidebar-divider: 1px solid rgba(255, 255, 255, 0.12);
+
+  /* Elevation: Cards have NO shadow. Shadows are reserved for dialogs. */
+  --shadow-card: none;
+  --shadow-dialog: 0 24px 60px rgba(0, 0, 0, 0.30);
+  --shadow-presentation: 0 20px 60px rgba(40, 30, 10, 0.18);
+
+  /* ==========================================================================
+     01 · LAYOUT AND APP SHELL (Pages 03, 20)
+     ========================================================================== */
+  --canvas-w: 1440px;
+  --canvas-h: 900px;
+  --sidebar-w: 244px;
+  --sidebar-bg: linear-gradient(180deg, var(--tohfa-brown-deep) 0%, var(--tohfa-brown) 100%);
+  --header-h: 72px;
+  --header-bg: var(--tohfa-surface);
+  --header-pad: 0 28px;
+  --content-pad: 24px 28px 32px;
+  --content-width: 1140px;             /* 1440 - 244 - (2 * 28) */
+
+  /* Grid layout templates (Page 03) */
+  --layout-kpi-cols: repeat(6, 1fr);
+  --layout-dashboard-row: 1.6fr 1fr;
+  --layout-profile-row: 2.2fr 1fr;
+  --layout-detail-row: 1.05fr 1.35fr;
+
+  /* ==========================================================================
+     04 · ICONOGRAPHY SIZES (Page 08)
+     Material Symbols Outlined
+     ========================================================================== */
+  --icon-row-action: 14px;
+  --icon-chevron: 15px;
+  --icon-filter: 15px;
+  --icon-btn: 16px;
+  --icon-kpi-chip: 16px;
+  --icon-input: 17px;
+  --icon-nav: 18px;
+  --icon-header-bell: 19px;
+  --icon-logo: 19px;
+  --icon-dialog-close: 20px;
+  --icon-dialog-hero: 32px;
+
+  /* ==========================================================================
+     BACKWARD-COMPATIBILITY MAPPINGS FOR EXISTING ADMIN APP VIEWS
+     Ensures seamless integration across all components and services.
+     ========================================================================== */
+  --tohfa-primary: var(--tohfa-amber);
+  --tohfa-primary-dark: var(--tohfa-brown);
+  --tohfa-primary-pressed: var(--tohfa-amber-hover);
+  --tohfa-primary-light: var(--tohfa-amber-tint);
+  --tohfa-primary-pale: var(--tohfa-page);
+  --tohfa-secondary: var(--tohfa-brown);
+  --tohfa-accent: var(--tohfa-brown);
+  --tohfa-accent-light: var(--tohfa-amber-tint);
+
+  --tohfa-danger: var(--err);
+  --tohfa-error: var(--err);
+  --tohfa-error-light: var(--err-bg);
+  --tohfa-success: var(--ok);
+  --tohfa-success-light: var(--ok-bg);
+  --tohfa-warning: var(--warn);
+  --tohfa-warning-light: var(--warn-bg);
+  --tohfa-info: var(--info);
+  --tohfa-info-light: var(--info-bg);
+
+  --tohfa-on-surface: var(--tohfa-ink);
+  --tohfa-on-surface-variant: var(--tohfa-slate);
+
+  --tohfa-font-sans: var(--font);
+  --tohfa-font-weight-regular: var(--fw-regular);
+  --tohfa-font-weight-medium: var(--fw-medium);
+  --tohfa-font-weight-semibold: var(--fw-semi);
+  --tohfa-font-weight-bold: var(--fw-bold);
+
+  --tohfa-font-size-display: var(--fs-hero);
+  --tohfa-font-size-h1: var(--fs-kpi);
+  --tohfa-font-size-h2: var(--fs-title);
+  --tohfa-font-size-h3: var(--fs-page);
+  --tohfa-font-size-body: var(--fs-body);
+  --tohfa-font-size-small: var(--fs-cell);
+  --tohfa-font-size-caption: var(--fs-cap);
+  --tohfa-font-size-table-header: var(--fs-table-header);
+
+  --tohfa-space-xs: var(--space-4);
+  --tohfa-space-sm: var(--space-8);
+  --tohfa-space-md: var(--space-12);
+  --tohfa-space-lg: var(--space-16);
+  --tohfa-space-xl: var(--space-24);
+  --tohfa-space-xxl: var(--space-32);
+
+  --tohfa-radius-xs: var(--r-checkbox);
+  --tohfa-radius-sm: var(--r-xs);
+  --tohfa-radius-md: var(--r-sm);
+  --tohfa-radius-lg: var(--r-card);
+  --tohfa-radius-xl: var(--r-dialog);
+  --tohfa-radius-full: var(--r-pill);
+  --tohfa-radius-button: var(--r-md);
+  --tohfa-radius-input: var(--r-md);
+  --tohfa-radius-card: var(--r-card);
+  --tohfa-radius-card-max: var(--r-card);
+}
+
+/* ==========================================================================
+   COMPONENT RECIPES & UTILITY PATTERNS (Pages 07, 09, 10–17, 20)
+   ========================================================================== */
+
+/* --- Material Symbols Outlined Helper --- */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+}
+
+/* --- Card Recipe (Flat & Bordered, no shadow) --- */
+.tohfa-card {
+  background: var(--tohfa-surface);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-card);
+  padding: var(--space-18);
+  box-shadow: none;
+}
+
+.tohfa-card-list {
+  background: var(--tohfa-surface);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-card);
+  padding: var(--space-16);
+  box-shadow: none;
+}
+
+/* --- Buttons (Page 10) --- */
+.tohfa-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  font-family: var(--font);
+  font-weight: var(--fw-bold);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.tohfa-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--tohfa-focus-ring);
+}
+
+.tohfa-btn:disabled {
+  background: var(--tohfa-disabled-bg) !important;
+  color: var(--tohfa-disabled-fg) !important;
+  border-color: var(--tohfa-disabled-bg) !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Primary Button M (12px / 700, padding 10 16, radius 10) */
+.tohfa-btn-primary {
+  background: var(--tohfa-amber);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 10px 16px;
+  font-size: var(--fs-cell);
+  line-height: 1.4;
+}
+.tohfa-btn-primary:hover:not(:disabled) {
+  background: var(--tohfa-amber-hover);
+}
+.tohfa-btn-primary:active:not(:disabled) {
+  background: var(--tohfa-amber-active);
+}
+
+/* Primary Button L (13.5px / 700, padding 13 26, radius 10) */
+.tohfa-btn-primary-l {
+  background: var(--tohfa-amber);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 13px 26px;
+  font-size: var(--fs-button-l);
+  line-height: 1.3;
+}
+.tohfa-btn-primary-l:hover:not(:disabled) {
+  background: var(--tohfa-amber-hover);
+}
+
+/* Secondary Button M (border 1px #E4E0D3, slate text, radius 10) */
+.tohfa-btn-secondary {
+  background: var(--tohfa-surface);
+  color: var(--tohfa-slate);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-md);
+  padding: 10px 16px;
+  font-size: var(--fs-cell);
+}
+.tohfa-btn-secondary:hover:not(:disabled) {
+  background: var(--tohfa-page);
+  color: var(--tohfa-ink);
+}
+
+/* Cancel Button L (border 1px #E4E0D3, ink text, radius 10) */
+.tohfa-btn-cancel {
+  background: var(--tohfa-surface);
+  color: var(--tohfa-ink);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-md);
+  padding: 12px 26px;
+  font-size: var(--fs-button-l);
+}
+.tohfa-btn-cancel:hover:not(:disabled) {
+  background: var(--tohfa-page);
+}
+
+/* Outline Amber Button (border 1px #E48932, brown text, radius 9) */
+.tohfa-btn-outline-amber {
+  background: transparent;
+  color: var(--tohfa-brown);
+  border: 1px solid var(--tohfa-amber);
+  border-radius: var(--r-tab);
+  padding: 8px 14px;
+  font-size: var(--fs-dense);
+}
+.tohfa-btn-outline-amber:hover:not(:disabled) {
+  background: var(--tohfa-amber-tint);
+}
+
+/* Danger Button S (bg #B3261E, radius 8-9, 11.5px / 700) */
+.tohfa-btn-danger-s {
+  background: var(--err);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  font-size: var(--fs-dense);
+}
+.tohfa-btn-danger-l {
+  background: var(--err);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-md);
+  padding: 12px 26px;
+  font-size: var(--fs-button-l);
+}
+
+/* Success Button S (bg #1E8E5A, radius 8, 11.5px / 700) */
+.tohfa-btn-success-s {
+  background: var(--ok);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 6px 12px;
+  font-size: var(--fs-dense);
+}
+
+/* --- Badges & Status Pills (Page 13) --- */
+.tohfa-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font);
+  font-weight: var(--fw-bold);
+  border-radius: var(--r-badge-sm);
+  padding: 3px 9px;
+  font-size: var(--fs-badge);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.tohfa-badge-lg {
+  font-size: var(--fs-label);
+  border-radius: var(--r-badge-lg);
+  padding: 3px 10px;
+}
+
+.tohfa-badge-sm {
+  font-size: var(--fs-badge-s);
+  border-radius: var(--r-badge-sm);
+  padding: 2px 8px;
+}
+
+.tohfa-badge-success {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border: 1px solid var(--ok-bd);
+}
+
+.tohfa-badge-warning {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-bd);
+}
+
+.tohfa-badge-danger {
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid var(--err-bd);
+}
+
+.tohfa-badge-info {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info-bd);
+}
+
+.tohfa-badge-neutral {
+  background: var(--neutral-status-bg);
+  color: var(--neutral-status);
+  border: 1px solid var(--neutral-status-bd);
+}
+
+.tohfa-badge-purple {
+  background: var(--purple-bg);
+  color: var(--purple);
+  border: 1px solid var(--purple-bd);
+}
+
+.tohfa-badge-amber-tint {
+  background: var(--tohfa-amber-tint);
+  color: var(--tohfa-brown);
+  border: 1px solid var(--tohfa-amber-border);
+}
+
+/* --- Form Controls (Page 11) --- */
+.tohfa-label {
+  display: block;
+  font-family: var(--font);
+  font-size: var(--fs-cell);
+  font-weight: var(--fw-bold);
+  color: var(--tohfa-ink);
+  margin-bottom: var(--space-7);
+}
+
+.tohfa-label-required::after {
+  content: ' *';
+  color: var(--err);
+}
+
+.tohfa-input {
+  width: 100%;
+  font-family: var(--font);
+  font-size: var(--fs-cell);
+  color: var(--tohfa-ink);
+  background: var(--tohfa-surface);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-tab);
+  padding: 10px 13px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tohfa-input::placeholder {
+  color: var(--tohfa-muted);
+}
+
+.tohfa-input:focus {
+  border-color: var(--tohfa-amber);
+  box-shadow: var(--tohfa-focus-ring);
+}
+
+.tohfa-input:disabled {
+  background: var(--tohfa-disabled-bg);
+  color: var(--tohfa-disabled-fg);
+  cursor: not-allowed;
+}
+
+.tohfa-input-lg {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+}
+
+.tohfa-input-filter {
+  padding: 9px 12px;
+  border-radius: var(--r-tab);
+  font-size: var(--fs-dense);
+}
+
+/* --- Checkbox (Page 11) --- */
+.tohfa-checkbox {
+  width: 15px;
+  height: 15px;
+  border-radius: var(--r-checkbox);
+  border: 1.5px solid var(--tohfa-checkbox-border);
+  accent-color: var(--tohfa-amber);
+  cursor: pointer;
+}
+
+/* --- Pill Tabs Navigation (Page 12) --- */
+.tohfa-tabs {
+  display: flex;
+  gap: var(--space-8);
+  flex-wrap: wrap;
+}
+
+.tohfa-tab-pill {
+  padding: 9px 15px;
+  border-radius: var(--r-tab);
+  background: var(--tohfa-surface);
+  color: var(--tohfa-slate);
+  font-family: var(--font);
+  font-size: var(--fs-cell);
+  font-weight: var(--fw-semi);
+  border: 1px solid var(--tohfa-border);
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.tohfa-tab-pill:hover {
+  color: var(--tohfa-ink);
+  background: var(--tohfa-page);
+}
+
+.tohfa-tab-pill.active,
+.tohfa-tab-pill.selected {
+  background: var(--tohfa-amber);
+  color: #ffffff;
+  font-weight: var(--fw-bold);
+  border-color: var(--tohfa-amber);
+}
+
+/* --- KPI Card & Mini Stat (Page 14) --- */
+.tohfa-kpi-card {
+  background: var(--tohfa-surface);
+  border: 1px solid var(--tohfa-border);
+  border-radius: var(--r-card);
+  padding: var(--space-15);
+  display: flex;
+  flex-direction: column;
+}
+
+.tohfa-kpi-label {
+  font-size: var(--fs-label);
+  font-weight: var(--fw-bold);
+  color: var(--tohfa-slate);
+}
+
+.tohfa-kpi-val {
+  font-size: var(--fs-kpi);
+  font-weight: var(--fw-xbold);
+  color: var(--tohfa-ink);
+  line-height: 1;
+  margin: var(--space-8) 0 var(--space-4);
+}
+
+.tohfa-kpi-chip {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- Banners (Page 14) --- */
+.tohfa-banner {
+  border-radius: var(--r-md);
+  padding: 11px 14px;
+  font-family: var(--font);
+  font-size: var(--fs-dense);
+  font-weight: var(--fw-semi);
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.tohfa-banner-success {
+  background: var(--ok-bg);
+  color: var(--ok);
+  border: 1px solid var(--ok-bd);
+}
+.tohfa-banner-warning {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-bd);
+}
+.tohfa-banner-danger {
+  background: var(--err-bg);
+  color: var(--err);
+  border: 1px solid var(--err-bd);
+}
+.tohfa-banner-info {
+  background: var(--info-bg);
+  color: var(--info);
+  border: 1px solid var(--info-bd);
+}
+
+/* --- Data Table Header & Row Specifications (Page 15) --- */
+.tohfa-table-header {
+  font-family: var(--font);
+  font-size: var(--fs-table-header);
+  font-weight: var(--fw-xbold);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--tohfa-muted);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--tohfa-border);
+}
+
+.tohfa-table-row {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--tohfa-divider);
+  font-size: var(--fs-dense);
+  color: var(--tohfa-ink);
+}
+
+/* --- Dialog Container & Scrim (Page 16) --- */
+.tohfa-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(247, 245, 238, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.tohfa-dialog {
+  background: var(--tohfa-surface);
+  border-radius: var(--r-dialog);
+  box-shadow: var(--shadow-dialog);
+  padding: 30px 36px 28px;
+  max-width: 560px;
+  width: 100%;
+}

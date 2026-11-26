@@ -5,20 +5,28 @@ export interface NavRoute {
   path: string;
   label: string;
   permission: string;
+  icon?: string;
+  badge?: string;
 }
 
 /** Drives both the router and the sidebar. Add a screen here, once. */
 export const NAV: readonly NavRoute[] = [
-  { path: 'farmer-applications', label: 'Farmer Applications', permission: 'farmer.application.list_pending' },
-  { path: 'warehouses', label: 'Warehouses', permission: 'warehouse.all.view' },
-  { path: 'pricing', label: 'Fair Price', permission: 'pricing.fair_price.view' },
-  { path: 'listings', label: 'Listings', permission: 'listing.queue.view_pending' },
-  { path: 'goods-receipts', label: 'Goods Receipts', permission: 'inventory.goods_receipt.record' },
-  { path: 'inventory', label: 'Inventory & Stock', permission: 'inventory.stock_ledger.view_own' },
-  { path: 'allocations', label: 'Allocations', permission: 'allocation.dashboard.view' },
-  { path: 'fulfilment', label: 'Fulfilment', permission: 'order.list.view_all' },
-  { path: 'payouts', label: 'Farmer Payouts', permission: 'payout.dues.view' },
-  { path: 'wallet/cash-topup', label: 'Cash Top-up', permission: 'wallet.cash_topup.process' },
+  { path: 'dashboard', label: 'Dashboard', permission: 'auth.principal.view_own', icon: 'dashboard' },
+  { path: 'approvals', label: 'Approvals Inbox', permission: 'farmer.application.list_pending', icon: 'inbox' },
+  { path: 'farmer-applications', label: 'Farmers Management', permission: 'farmer.application.list_pending', icon: 'agriculture' },
+  { path: 'listings', label: 'Produce & Crops', permission: 'listing.queue.view_pending', icon: 'eco' },
+  { path: 'audits', label: 'Audit Management', permission: 'inventory.goods_receipt.record', icon: 'fact_check' },
+  { path: 'inputs-pest', label: 'Inputs & Pest', permission: 'auth.principal.view_own', icon: 'pest_control' },
+  { path: 'pricing', label: 'Market & Pricing', permission: 'pricing.fair_price.view', icon: 'currency_rupee' },
+  { path: 'purchases', label: 'Purchases management', permission: 'inventory.goods_receipt.record', icon: 'shopping_cart' },
+  { path: 'fulfilment', label: 'Sales management', permission: 'order.list.view_all', icon: 'bar_chart' },
+  { path: 'inventory', label: 'Inventory & Warehouse', permission: 'inventory.stock_ledger.view_own', icon: 'warehouse' },
+  { path: 'allocations', label: 'Reserve & Allocation', permission: 'allocation.dashboard.view', icon: 'sync_alt' },
+  { path: 'customers', label: 'Customers Management', permission: 'auth.principal.view_own', icon: 'groups' },
+  { path: 'payouts', label: 'Accounts & Finance', permission: 'payout.dues.view', icon: 'account_balance_wallet' },
+  { path: 'workforce', label: 'Workforce & Staff', permission: 'wallet.cash_topup.process', icon: 'badge' },
+  { path: 'reports', label: 'Notifications & Reports', permission: 'auth.principal.view_own', icon: 'notifications' },
+  { path: 'settings', label: 'Settings & Profile', permission: 'auth.principal.view_own', icon: 'settings' },
 ];
 
 export const routes: Routes = [
@@ -35,7 +43,30 @@ export const routes: Routes = [
     loadComponent: async () =>
       (await import('./layout/shell.component')).ShellComponent,
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'farmer-applications' },
+      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+
+      {
+        path: 'dashboard',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        loadComponent: async () =>
+          (await import('./features/dashboard/dashboard.component')).DashboardComponent,
+      },
+
+      {
+        path: 'alert-thresholds',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        loadComponent: async () =>
+          (await import('./features/alert-thresholds/alert-thresholds.component'))
+            .AlertThresholdsComponent,
+      },
+
+      {
+        path: 'approvals',
+        canActivate: [permissionGuard('farmer.application.list_pending')],
+        loadComponent: async () =>
+          (await import('./features/farmer-applications/farmer-applications-list.component'))
+            .FarmerApplicationsListComponent,
+      },
 
       {
         path: 'farmer-applications',
@@ -76,6 +107,14 @@ export const routes: Routes = [
 
       {
         path: 'goods-receipts',
+        canActivate: [permissionGuard('inventory.goods_receipt.record')],
+        loadComponent: async () =>
+          (await import('./features/goods-receipt/goods-receipt-list.component'))
+            .GoodsReceiptListComponent,
+      },
+
+      {
+        path: 'purchases',
         canActivate: [permissionGuard('inventory.goods_receipt.record')],
         loadComponent: async () =>
           (await import('./features/goods-receipt/goods-receipt-list.component'))
@@ -130,10 +169,71 @@ export const routes: Routes = [
       },
 
       {
+        path: 'workforce',
+        canActivate: [permissionGuard('wallet.cash_topup.process')],
+        loadComponent: async () =>
+          (await import('./features/wallet/cash-topup.component')).CashTopupComponent,
+      },
+
+      {
         path: 'wallet/cash-topup',
         canActivate: [permissionGuard('wallet.cash_topup.process')],
         loadComponent: async () =>
           (await import('./features/wallet/cash-topup.component')).CashTopupComponent,
+      },
+
+      {
+        path: 'inputs-pest',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        data: { title: 'Inputs & Pest Management' },
+        loadComponent: async () =>
+          (await import('./features/placeholder/placeholder.component')).PlaceholderComponent,
+      },
+
+      {
+        path: 'audits',
+        canActivate: [permissionGuard('inventory.goods_receipt.record')],
+        data: { title: 'Audit Management' },
+        loadComponent: async () =>
+          (await import('./features/placeholder/placeholder.component')).PlaceholderComponent,
+      },
+
+      {
+        path: 'customers',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        data: { title: 'Customers Management' },
+        loadComponent: async () =>
+          (await import('./features/placeholder/placeholder.component')).PlaceholderComponent,
+      },
+
+      {
+        path: 'reports',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        data: { title: 'Notifications & Reports' },
+        loadComponent: async () =>
+          (await import('./features/placeholder/placeholder.component')).PlaceholderComponent,
+      },
+
+      {
+        path: 'settings',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        data: { title: 'Settings & Profile' },
+        loadComponent: async () =>
+          (await import('./features/placeholder/placeholder.component')).PlaceholderComponent,
+      },
+
+      {
+        path: 'work-queue',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        loadComponent: async () =>
+          (await import('./features/dashboard/dashboard.component')).DashboardComponent,
+      },
+
+      {
+        path: 'alert-thresholds',
+        canActivate: [permissionGuard('auth.principal.view_own')],
+        loadComponent: async () =>
+          (await import('./features/dashboard/dashboard.component')).DashboardComponent,
       },
 
       {
