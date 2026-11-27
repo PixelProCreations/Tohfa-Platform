@@ -12,21 +12,21 @@ export interface NavRoute {
 /** Drives both the router and the sidebar. Add a screen here, once. */
 export const NAV: readonly NavRoute[] = [
   { path: 'dashboard', label: 'Dashboard', permission: 'auth.principal.view_own', icon: 'dashboard' },
-  { path: 'approvals', label: 'Approvals Inbox', permission: 'farmer.application.list_pending', icon: 'inbox' },
-  { path: 'farmer-applications', label: 'Farmers Management', permission: 'farmer.application.list_pending', icon: 'agriculture' },
-  { path: 'listings', label: 'Produce & Crops', permission: 'listing.queue.view_pending', icon: 'eco' },
+  { path: 'approvals', label: 'Approvals Inbox', permission: 'farmer.application.list_pending', icon: 'inbox', badge: '7' },
+  { path: 'farmer-applications', label: 'Farmers Management', permission: 'farmer.application.list_pending', icon: 'groups' },
+  { path: 'listings', label: 'Produce & Crop', permission: 'listing.queue.view_pending', icon: 'agriculture' },
   { path: 'audits', label: 'Audit Management', permission: 'inventory.goods_receipt.record', icon: 'fact_check' },
-  { path: 'inputs-pest', label: 'Inputs & Pest', permission: 'auth.principal.view_own', icon: 'pest_control' },
+  { path: 'inputs-pest', label: 'Inputs & Pest Management', permission: 'auth.principal.view_own', icon: 'pest_control' },
   { path: 'pricing', label: 'Market & Pricing', permission: 'pricing.fair_price.view', icon: 'currency_rupee' },
-  { path: 'purchases', label: 'Purchases management', permission: 'inventory.goods_receipt.record', icon: 'shopping_cart' },
-  { path: 'fulfilment', label: 'Sales management', permission: 'order.list.view_all', icon: 'bar_chart' },
+  { path: 'purchases', label: 'Purchase & Sales Management', permission: 'inventory.goods_receipt.record', icon: 'shopping_cart' },
   { path: 'inventory', label: 'Inventory & Warehouse', permission: 'inventory.stock_ledger.view_own', icon: 'warehouse' },
   { path: 'allocations', label: 'Reserve & Allocation', permission: 'allocation.dashboard.view', icon: 'sync_alt' },
   { path: 'customers', label: 'Customers Management', permission: 'auth.principal.view_own', icon: 'groups' },
   { path: 'payouts', label: 'Accounts & Finance', permission: 'payout.dues.view', icon: 'account_balance_wallet' },
   { path: 'workforce', label: 'Workforce & Staff', permission: 'wallet.cash_topup.process', icon: 'badge' },
+  { path: 'community', label: 'Community & Knowledge Management', permission: 'auth.principal.view_own', icon: 'menu_book' },
   { path: 'reports', label: 'Notifications & Reports', permission: 'auth.principal.view_own', icon: 'notifications' },
-  { path: 'settings', label: 'Settings & Profile', permission: 'auth.principal.view_own', icon: 'settings' },
+  { path: 'settings', label: 'Settings', permission: 'auth.principal.view_own', icon: 'settings' },
 ];
 
 export const routes: Routes = [
@@ -64,8 +64,16 @@ export const routes: Routes = [
         path: 'approvals',
         canActivate: [permissionGuard('farmer.application.list_pending')],
         loadComponent: async () =>
-          (await import('./features/farmer-applications/farmer-applications-list.component'))
-            .FarmerApplicationsListComponent,
+          (await import('./features/approvals/approvals-inbox.component'))
+            .ApprovalsInboxComponent,
+      },
+
+      {
+        path: 'approvals/:id',
+        canActivate: [permissionGuard('farmer.application.list_pending')],
+        loadComponent: async () =>
+          (await import('./features/approvals/approval-payout-detail.component'))
+            .ApprovalPayoutDetailComponent,
       },
 
       {
@@ -100,6 +108,20 @@ export const routes: Routes = [
 
       {
         path: 'listings',
+        canActivate: [permissionGuard('listing.queue.view_pending')],
+        loadComponent: async () =>
+          (await import('./features/listings/listings-queue.component')).ListingsQueueComponent,
+      },
+
+      {
+        path: 'produce-crops',
+        canActivate: [permissionGuard('listing.queue.view_pending')],
+        loadComponent: async () =>
+          (await import('./features/listings/listings-queue.component')).ListingsQueueComponent,
+      },
+
+      {
+        path: 'produce-crop',
         canActivate: [permissionGuard('listing.queue.view_pending')],
         loadComponent: async () =>
           (await import('./features/listings/listings-queue.component')).ListingsQueueComponent,
@@ -187,7 +209,7 @@ export const routes: Routes = [
         canActivate: [permissionGuard('auth.principal.view_own')],
         data: { title: 'Inputs & Pest Management' },
         loadComponent: async () =>
-          (await import('./features/placeholder/placeholder.component')).PlaceholderComponent,
+          (await import('./features/inputs-pest/inputs-pest.component')).InputsPestComponent,
       },
 
       {

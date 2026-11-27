@@ -946,11 +946,11 @@ interface QuickAction {
       <div class="dash-card">
         <div class="card-head">
           <h3 class="card-title">Approvals Inbox</h3>
-          <button class="card-action-link" type="button" (click)="workQueueModalOpen.set(true)">View All (7)</button>
+          <a class="card-action-link" routerLink="/approvals" style="text-decoration: none;">View All (7)</a>
         </div>
 
         <div class="inbox-list">
-          <div class="inbox-item" *ngFor="let item of approvals" (click)="workQueueModalOpen.set(true)" style="cursor: pointer;">
+          <div class="inbox-item" *ngFor="let item of approvals" (click)="onApprovalItemClick(item)" style="cursor: pointer;">
             <div class="inbox-icon">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect width="20" height="14" x="2" y="5" rx="2"></rect>
@@ -1354,6 +1354,14 @@ export class DashboardComponent implements OnInit {
     }
   }
 
+  onApprovalItemClick(item: ApprovalItem): void {
+    if (item.id === '1') {
+      this.router.navigate(['/approvals']);
+    } else {
+      this.workQueueModalOpen.set(true);
+    }
+  }
+
   onMarketToggleClick(): void {
     if (this.isMarketOpen()) {
       this.marketControlModalMode.set('confirm_close');
@@ -1493,7 +1501,7 @@ export class DashboardComponent implements OnInit {
 
   readonly quickActions: readonly QuickAction[] = [
     { label: 'Create Staff', icon: 'person_add', link: '/warehouses' },
-    { label: 'Approvals Inbox', icon: 'inbox', action: 'workQueue' },
+    { label: 'Approvals Inbox', icon: 'inbox', link: '/approvals' },
     { label: 'Set Fair Price', icon: 'tag', link: '/pricing' },
     { label: 'Configure Allocation', icon: 'donut', link: '/allocations' },
     { label: 'Manage Transfers', icon: 'sync', link: '/inventory' },
