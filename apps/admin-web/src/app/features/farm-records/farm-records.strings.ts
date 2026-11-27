@@ -1,0 +1,133 @@
+/**
+ * UI string catalogue for Farmers Management → Farm Records: the list screen, the Add Farm Records
+ * shell and its Diary, Plant and Asset forms. (The Crops and Livestock forms keep their own catalogues.)
+ *
+ * Per root CLAUDE.md §2.7 user-facing strings do not live in components. The admin console has no
+ * i18n framework yet, so — like the other modules — this catalogue is the single source of truth.
+ */
+export const FARM_RECORDS_STRINGS = {
+  // ---------- List ----------
+  LIST_TITLE: 'Farm Records',
+  LIST_SUBTITLE: 'View and manage registered farms and their details.',
+  BTN_ADD_FARM_RECORDS: 'Add Farm Records',
+  SEARCH_LABEL: 'Search farm records',
+  SEARCH_PLACEHOLDER: 'Search by farm name, Farmer ID or mobile number',
+  FILTER_STATUS: 'Status:',
+  FILTER_ZONE: 'Zone:',
+  FILTER_ALL: 'All',
+  BTN_FILTER: 'Filter',
+  NOT_AVAILABLE_YET: 'Not available yet',
+
+  COL_FARM_NAME: 'Farm Name',
+  COL_FARMER: 'Farmer',
+  COL_FARMER_ID: 'Farmer ID',
+  COL_MOBILE: 'Mobile Number',
+  COL_LOCATION: 'Location',
+  COL_FARMING_TYPE: 'Farming Type',
+  COL_LAND_AREA: 'Land Area',
+  COL_STATUS: 'Status',
+  COL_ACTIONS: 'Actions',
+
+  STATUS_ACTIVE: 'Active',
+  STATUS_INACTIVE: 'Inactive',
+
+  ACTION_VIEW: 'View farm record',
+  ACTION_MORE: 'More actions',
+
+  EMPTY: 'No farm records match the selected filters.',
+  PREV: 'Previous',
+  NEXT: 'Next',
+  recordCount: (n: number): string => `${n} farm record${n === 1 ? '' : 's'}`,
+  showing: (first: number, last: number, total: number): string =>
+    total === 0 ? 'Showing 0 of 0 farm records' : `Showing ${first}–${last} of ${total} farm records`,
+  acres: (value: string): string => `${value} acres`,
+
+  // ---------- Add shell ----------
+  ADD_TITLE: 'Add Farm Records',
+  TABS_LABEL: 'Farm record type',
+  TAB_DIARY: 'Diary',
+  TAB_PLANT: 'Plant',
+  TAB_CROPS: 'Crops',
+  TAB_LIVESTOCK: 'Livestock',
+  TAB_ASSETS: 'Assets',
+  SUBTITLE_DIARY: 'Create a new diary entry for the farmer.',
+  SUBTITLE_PLANT: 'Create a new plant record for the farmer.',
+  SUBTITLE_CROPS: 'Create a new crop record for the farmer.',
+  SUBTITLE_LIVESTOCK: 'Create a new livestock record for the farmer.',
+  SUBTITLE_ASSETS: 'Create a new asset record for the farmer.',
+
+  // ---------- Shared form bits ----------
+  BTN_ADD: 'Add',
+  ADD_OPTION_NOT_AVAILABLE: 'Adding a new option is not available yet',
+  BTN_CANCEL: 'Cancel',
+  BTN_BACK: 'Back',
+  BTN_SAVE: 'Save',
+  BTN_SAVE_PLANT: 'Save Plant',
+  BTN_SAVE_ASSET: 'Save Asset',
+  ERR_REQUIRED: 'This field is required.',
+  ERR_FORM: 'Please fix the highlighted fields.',
+  SAVED_DEMO: 'Saved (demo — not stored)',
+  LEAVE_CONFIRM: 'You have unsaved changes. Leave this page and discard them?',
+
+  // ---------- Diary ----------
+  DIARY_CARD: 'Diary Records',
+  DIARY_DATE: 'Date',
+  DIARY_PLOT: 'Plot',
+  DIARY_PLOT_PLACEHOLDER: 'Select plot',
+  DIARY_CATEGORY: 'Activity Category',
+  DIARY_CATEGORY_PLACEHOLDER: 'Select activity category',
+  DIARY_ACTIVITY: 'Activity',
+  DIARY_ACTIVITY_PLACEHOLDER: 'Select activity',
+  DIARY_ACTIVITY_PLACEHOLDER_NO_CATEGORY: 'Select a category first',
+  DIARY_MINUTES: 'Time spent (minutes) (required)',
+  DIARY_LINKED_CROP: 'Linked crop (optional)',
+  DIARY_LINKED_CROP_NONE: 'Select linked crop',
+  DIARY_NOTES: 'Notes (up to 500 characters)',
+  DIARY_NOTES_PLACEHOLDER: 'Applied compost before the next rain.',
+  DIARY_NO_WORKERS: 'No workforce lines added.',
+  ERR_WORKER_NAME: 'Enter the worker’s name.',
+  hoursRange: (max: number): string => `Enter hours greater than 0 and up to ${max}, with at most 2 decimals.`,
+  WAGE_WHOLE: 'Enter the wage in whole rupees.',
+  DIARY_WORKFORCE: 'Workforce lines (optional)',
+  DIARY_ADD_WORKER: 'Add',
+  DIARY_COL_HOURS: 'Hours',
+  DIARY_COL_WAGE: 'Wage (₹)',
+  DIARY_PHOTOS: 'Photos (up to 5)',
+  DIARY_ADD_PHOTO: 'Add photo',
+  workerLabel: (n: number): string => `Worker ${n}`,
+  hoursLabel: (n: number): string => `Hours, worker ${n}`,
+  wageLabel: (n: number): string => `Wage in rupees, worker ${n}`,
+  removeWorker: (n: number): string => `Remove worker ${n}`,
+  photoLabel: (n: number): string => `Photo ${n} (placeholder)`,
+  removePhoto: (n: number): string => `Remove photo ${n}`,
+  photosRemaining: (used: number, max: number): string => `${used} of ${max} photos added`,
+  minutesRange: (min: number, max: number): string => `Enter whole minutes between ${min} and ${max}.`,
+  counter: (used: number, max: number): string => `${used}/${max}`,
+  counterAria: (used: number, max: number): string => `${used} of ${max} characters used`,
+
+  // ---------- Plant ----------
+  PLANT_CARD: 'Plant Records',
+  PLANT_TYPE: 'Plant Type',
+  PLANT_TYPE_PLACEHOLDER: 'Select plant type',
+  PLANT_VARIANT: 'Plant Variant',
+  PLANT_VARIANT_PLACEHOLDER: 'Select plant variant',
+  PLANT_VARIANT_PLACEHOLDER_NO_TYPE: 'Select a plant type first',
+  PLANT_AREA: 'Area (Acres, one decimal)',
+  PLANT_AREA_PLACEHOLDER: 'e.g. 1.5',
+  PLANT_GRADE: 'Grade',
+  PLANT_GRADE_PLACEHOLDER: 'Select grade',
+  PLANT_HARVEST_DAYS: 'Expected harvest days',
+  PLANT_HARVEST_DAYS_PLACEHOLDER: 'e.g. 90',
+  PLANT_NOTES: 'Notes',
+  areaFormat: (max: number): string => `Enter an area greater than 0 and up to ${max} acres, with at most one decimal.`,
+  harvestDaysRange: (min: number, max: number): string => `Enter whole days between ${min} and ${max}.`,
+
+  // ---------- Assets ----------
+  ASSET_CARD: 'Asset Records',
+  ASSET_TYPE: 'Asset Type',
+  ASSET_TYPE_PLACEHOLDER: 'Select asset type',
+  ASSET_CATEGORY: 'Category',
+  ASSET_CATEGORY_PLACEHOLDER: 'Select category',
+  ASSET_SOURCE: 'Source',
+  ASSET_SOURCE_PLACEHOLDER: 'Select source',
+} as const;

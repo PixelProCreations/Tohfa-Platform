@@ -1,0 +1,70 @@
+/**
+ * UI string catalogue for Audit Management → Audit History (design 96). Shared audit strings
+ * (statuses, types, months) live in audit.strings.ts. Per root CLAUDE.md §2.7 strings do not live in
+ * components.
+ */
+export const AUDIT_HISTORY_STRINGS = {
+  TITLE: 'Audit History',
+  SUBTITLE: 'Review completed audits and their results.',
+
+  FILTERS_REGION: 'Filter audit history',
+  SEARCH_LABEL: 'Search audit history',
+  SEARCH_PLACEHOLDER: 'Search farmer, Audit ID, farm or zone',
+  FILTER_TYPE: 'Audit Type',
+  FILTER_ZONE: 'Zone',
+  FILTER_DATE: 'Date range',
+  FILTER_RESULT: 'Result',
+  ALL: 'All',
+  ALL_ZONES: 'All zones',
+  DATE_PLACEHOLDER: 'Select date range',
+  dateRangeActive: (from: string, to: string): string => `${from} – ${to}`,
+  DATE_FROM: 'From',
+  DATE_TO: 'To',
+  DATE_ANY: 'Any',
+  DATE_CLEAR: 'Clear',
+  DATE_DONE: 'Done',
+  DATE_RANGE_DIALOG: 'Audit date range',
+  resultAtOrAbove: (threshold: number): string => `Score ${threshold} and above`,
+  resultBelow: (threshold: number): string => `Score below ${threshold}`,
+  RESULT_FINDINGS: 'With findings',
+  RESULT_NO_FINDINGS: 'No findings',
+  BTN_RESET: 'Reset',
+  BTN_EXPORT: 'Export',
+  EXPORT_INERT: 'Not available yet — no export format has been designed',
+
+  KPI_REGION: 'Audit history summary',
+  KPI_TOTAL: 'Total Audits',
+  KPI_COMPLETED: 'Completed',
+  KPI_AVERAGE: 'Average Score',
+  KPI_FINDINGS: 'Audits with Findings',
+  scoreOutOf: (score: number, max: number): string => `${score}/${max}`,
+
+  TABLE_CAPTION: 'Completed audits',
+  COL_ID: 'Audit ID',
+  COL_FARMER: 'Farmer',
+  COL_FARM_ZONE: 'Farm / Zone',
+  COL_TYPE: 'Audit Type',
+  COL_DATE: 'Audit Date',
+  COL_MAJOR: 'Major Findings',
+  COL_MINOR: 'Minor Findings',
+  COL_SCORE: 'Score',
+  COL_STATUS: 'Status',
+  COL_ACTIONS: 'Actions',
+  farmZone: (farm: string, zone: string): string => `${farm} · ${zone}`,
+  sortBy: (column: string): string => `Sort by ${column}`,
+
+  ACTION_VIEW: 'View',
+  viewAria: (id: string): string => `View audit ${id}`,
+  downloadAria: (id: string): string => `Download audit ${id} report (not available yet)`,
+  DOWNLOAD_INERT: 'Not available yet — no report file has been designed',
+
+  EMPTY: 'No completed audits match the selected filters.',
+  ROWS_PER_PAGE: 'Rows per page',
+  PAGER_LABEL: 'Pagination',
+  PREV: 'Previous page',
+  NEXT: 'Next page',
+  pageAria: (n: number): string => `Page ${n}`,
+  showing: (first: number, last: number, total: number): string =>
+    `Showing ${first}–${last} of ${total} audit${total === 1 ? '' : 's'}`,
+  resultCount: (n: number): string => `${n} audit${n === 1 ? '' : 's'} found`,
+} as const;
