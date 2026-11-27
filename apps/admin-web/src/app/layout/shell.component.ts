@@ -182,6 +182,31 @@ interface ShellNotification {
         box-shadow: 0 3px 10px rgba(228, 137, 50, 0.35);
       }
 
+      button.nav-link {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .nav-group.group-active > .nav-link {
+        background: var(--tohfa-amber, #E48932);
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 3px 10px rgba(228, 137, 50, 0.35);
+      }
+
+      .nav-chevron {
+        flex-shrink: 0;
+        transition: transform 0.15s ease;
+      }
+
+      .nav-chevron.open {
+        transform: rotate(180deg);
+      }
+
       .nav-link-icon {
         width: 18px;
         height: 18px;
@@ -611,11 +636,12 @@ interface ShellNotification {
       <nav class="sidebar-nav">
         <ng-container *ngFor="let item of visibleNav()">
           <!-- Farmers Management with Submenu -->
-          <ng-container *ngIf="item.path === 'farmer-applications'">
-            <a
-              [routerLink]="item.path"
-              routerLinkActive="active"
+          <ng-container *ngIf="item.path === 'farmers'">
+<div class="nav-group" routerLinkActive="group-active">
+            <button
+              type="button"
               class="nav-link"
+              [attr.aria-expanded]="farmersExpanded()"
               (click)="farmersExpanded.set(!farmersExpanded())"
             >
               <span class="nav-link-icon">
@@ -627,23 +653,25 @@ interface ShellNotification {
                 </svg>
               </span>
               <span class="nav-link-text">{{ item.label }}</span>
-            </a>
+              <svg class="nav-chevron" [class.open]="farmersExpanded()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
 
-            <!-- Sub items matching Image 9 & 10 -->
             <div class="nav-sub-list" *ngIf="farmersExpanded()">
-              <a [routerLink]="['/farmer-applications']" [queryParams]="{ tab: 'directory' }" class="nav-sub-item">Farmer Directory</a>
-              <a [routerLink]="['/farmer-applications']" class="nav-sub-item">Farmer Applications</a>
-              <a [routerLink]="['/farmer-applications']" [queryParams]="{ tab: 'compliance' }" class="nav-sub-item">Verification & Compliance</a>
-              <a [routerLink]="['/farmer-applications']" [queryParams]="{ tab: 'ratings' }" class="nav-sub-item">Farmer Ratings</a>
+              <a [routerLink]="['/farmers']" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Farmer Directory</a>
+              <a [routerLink]="['/farmer-applications']" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Farmer Applications</a>
+              <a [routerLink]="['/farmers/verification-compliance']" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Verification & Compliance</a>
+              <a [routerLink]="['/farmers/ratings']" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Farmer Ratings</a>
             </div>
+</div>
           </ng-container>
 
           <!-- Inputs & Pest Management with Submenu (Images 2, 3, 4) -->
           <ng-container *ngIf="item.path === 'inputs-pest'">
-            <a
-              [routerLink]="item.path"
-              routerLinkActive="active"
+<div class="nav-group" routerLinkActive="group-active">
+            <button
+              type="button"
               class="nav-link"
+              [attr.aria-expanded]="inputsPestExpanded()"
               (click)="inputsPestExpanded.set(!inputsPestExpanded())"
             >
               <span class="nav-link-icon">
@@ -660,23 +688,25 @@ interface ShellNotification {
                 </svg>
               </span>
               <span class="nav-link-text">{{ item.label }}</span>
-            </a>
+              <svg class="nav-chevron" [class.open]="inputsPestExpanded()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
 
-            <!-- Sub items matching Images 2, 3, 4 -->
             <div class="nav-sub-list" *ngIf="inputsPestExpanded()">
-              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'catalog' }" class="nav-sub-item">Input Catalog</a>
-              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'pest_library' }" class="nav-sub-item">Pest & Disease Library</a>
-              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'guides_library' }" class="nav-sub-item">Application Guides</a>
-              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'pest_incidents' }" class="nav-sub-item">Pest Incidents</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'catalog' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Input Catalog</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'pest_library' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Pest & Disease Library</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'guides_library' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Application Guides</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'pest_incidents' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Pest Incidents</a>
             </div>
+</div>
           </ng-container>
 
           <!-- Produce & Crop with Submenu -->
           <ng-container *ngIf="item.path === 'listings'">
-            <a
-              [routerLink]="item.path"
-              routerLinkActive="active"
+<div class="nav-group" routerLinkActive="group-active">
+            <button
+              type="button"
               class="nav-link"
+              [attr.aria-expanded]="produceExpanded()"
               (click)="produceExpanded.set(!produceExpanded())"
             >
               <span class="nav-link-icon">
@@ -689,21 +719,22 @@ interface ShellNotification {
                 </svg>
               </span>
               <span class="nav-link-text">{{ item.label }}</span>
-            </a>
+              <svg class="nav-chevron" [class.open]="produceExpanded()" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </button>
 
-            <!-- Sub items for Produce & Crop -->
             <div class="nav-sub-list" *ngIf="produceExpanded()">
-              <a [routerLink]="['/listings']" class="nav-sub-item">Crop Calendar</a>
-              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_detail', tab: 'Crop history' }" class="nav-sub-item">Crop History</a>
-              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_data' }" class="nav-sub-item">Crop Data</a>
-              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_compare' }" class="nav-sub-item">Crop Compare</a>
-              <a [routerLink]="['/listings']" [queryParams]="{ view: 'breakdown' }" class="nav-sub-item">Zone Breakdown</a>
+              <a [routerLink]="['/listings']" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Crop Calendar</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_detail', tab: 'Crop history' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Crop History</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_data' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Crop Data</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_compare' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Crop Compare</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'breakdown' }" routerLinkActive="active" [routerLinkActiveOptions]="subActive" class="nav-sub-item">Zone Breakdown</a>
             </div>
+</div>
           </ng-container>
 
           <!-- Standard Nav Item -->
           <a
-            *ngIf="item.path !== 'farmer-applications' && item.path !== 'inputs-pest' && item.path !== 'listings'"
+            *ngIf="item.path !== 'farmers' && item.path !== 'inputs-pest' && item.path !== 'listings'"
             [routerLink]="item.path"
             routerLinkActive="active"
             class="nav-link"
@@ -955,9 +986,12 @@ export class ShellComponent {
   private readonly rbac = inject(RbacService);
   private readonly auth = inject(AuthService);
 
-  readonly farmersExpanded = signal(true);
-  readonly inputsPestExpanded = signal(true);
-  readonly produceExpanded = signal(true);
+  // Collapsed by default; the group containing the current route is highlighted via routerLinkActive.
+  readonly farmersExpanded = signal(false);
+  readonly inputsPestExpanded = signal(false);
+  readonly produceExpanded = signal(false);
+  // Sub-items match on path plus exact query params so each one highlights on its own.
+  readonly subActive = { paths: 'exact', queryParams: 'exact', fragment: 'ignored', matrixParams: 'ignored' } as const;
   readonly isAuthenticated = computed(() => this.auth.isAuthenticated());
   readonly activeRole = computed(() => this.auth.activeRole());
   readonly roles = computed(() => this.auth.roles());

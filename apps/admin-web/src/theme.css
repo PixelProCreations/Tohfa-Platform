@@ -204,6 +204,7 @@
   --layout-kpi-cols: repeat(6, 1fr);
   --layout-dashboard-row: 1.6fr 1fr;
   --layout-profile-row: 2.2fr 1fr;
+  --layout-register-row: 1fr 1fr 0.78fr; /* Add Farmer Profile: two form columns + summary */
   --layout-detail-row: 1.05fr 1.35fr;
 
   /* ==========================================================================

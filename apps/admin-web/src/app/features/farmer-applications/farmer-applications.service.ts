@@ -181,4 +181,48 @@ export class AdminFarmerApplicationsService {
       },
     );
   }
+
+  /**
+   * GET /v1/admin/farmer-applications (listFarmerApplications) with every query parameter
+   * docs/openapi.yaml declares, including `q`, which `list()` does not pass. Additive so the
+   * existing `list()` callers are unchanged.
+   */
+  listQueue(query: FarmerApplicationListQuery): Observable<FarmerApplicationListResponse> {
+    let params = new HttpParams();
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') params = params.set(key, String(value));
+    }
+    return this.http.get<FarmerApplicationListResponse>('/v1/admin/farmer-applications', { params });
+  }
+}
+
+/** Query parameters of docs/openapi.yaml `listFarmerApplications`. */
+export interface FarmerApplicationListQuery {
+  status?: ApplicationStatus;
+  zoneId?: string;
+  hasZone?: boolean;
+  submittedAfter?: string;
+  /** Matches full name or mobile number. */
+  q?: string;
+  pendingOnly?: boolean;
+  cursor?: string;
+  limit?: number;
+}
+
+/**
+ * One list row. `zoneId` and `documentsComplete` are declared by docs/openapi.yaml
+ * `FarmerApplicationSummary`; `applicationCode` and `step2FarmDetails.typeOfFarming` are returned
+ * by the API (farmer-applications.service.ts mapApplicationResponse) but not yet declared in the
+ * spec, so they are optional here and the screen falls back to "—" without them.
+ */
+export interface FarmerApplicationListItem extends FarmerApplicationSummary {
+  zoneId?: string | null;
+  documentsComplete?: boolean;
+  applicationCode?: string;
+  step2FarmDetails?: { typeOfFarming?: string } | null;
+}
+
+export interface FarmerApplicationListResponse {
+  items: FarmerApplicationListItem[];
+  page: { nextCursor: string | null; hasMore: boolean };
 }
