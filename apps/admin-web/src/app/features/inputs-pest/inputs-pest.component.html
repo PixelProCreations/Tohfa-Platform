@@ -1,0 +1,2336 @@
+<div class="inputs-pest-container">
+  <!-- Toast Notification -->
+  <div class="toast-banner" *ngIf="toastMessage()">
+    <span>✓ {{ toastMessage() }}</span>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 1: INPUTS & PEST MANAGEMENT DASHBOARD (Image 1)                   -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'dashboard'">
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+            <path d="M2 21c0-3 1.85-5.36 5.08-6"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="page-title">Inputs & Pest Management</h1>
+          <p class="page-subtitle">Manage approved inputs, application guides, and pest & disease records.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 Metric Cards Row (Exact to Image 1) -->
+    <div class="metric-cards-row">
+      <!-- 1: Total Inputs -->
+      <div class="metric-card" (click)="navigateTo('catalog')">
+        <div class="metric-icon-wrap icon-layers">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div class="metric-val">{{ totalInputsCount() }}</div>
+        <div class="metric-lbl">Total Inputs</div>
+      </div>
+
+      <!-- 2: Approved Inputs -->
+      <div class="metric-card" (click)="typeFilter = 'All Types'; statusFilter = 'Approved'; navigateTo('catalog')">
+        <div class="metric-icon-wrap icon-check">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="9 12 11 14 15 10"></polyline>
+          </svg>
+        </div>
+        <div class="metric-val">{{ approvedInputsCount() }}</div>
+        <div class="metric-lbl">Approved Inputs</div>
+      </div>
+
+      <!-- 3: Pending Review -->
+      <div class="metric-card" (click)="typeFilter = 'All Types'; statusFilter = 'Pending'; navigateTo('catalog')">
+        <div class="metric-icon-wrap icon-clock">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="metric-val">{{ pendingInputsCount() }}</div>
+        <div class="metric-lbl">Pending Review</div>
+      </div>
+
+      <!-- 4: Inactive / Expired -->
+      <div class="metric-card" (click)="typeFilter = 'All Types'; statusFilter = 'Inactive'; navigateTo('catalog')">
+        <div class="metric-icon-wrap icon-x">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <div class="metric-val">{{ inactiveInputsCount() }}</div>
+        <div class="metric-lbl">Inactive / Expired</div>
+      </div>
+
+      <!-- 5: Pest & Disease Records -->
+      <div class="metric-card" (click)="navigateTo('pest_library')">
+        <div class="metric-icon-wrap icon-bug">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="8" height="14" x="8" y="6" rx="4"></rect>
+            <path d="m19 7-3 2"></path>
+            <path d="m5 7 3 2"></path>
+            <path d="m19 19-3-2"></path>
+            <path d="m5 19 3-2"></path>
+            <path d="M20 13h-4"></path>
+            <path d="M4 13h4"></path>
+            <path d="m10 4 1 2"></path>
+            <path d="m14 4-1 2"></path>
+          </svg>
+        </div>
+        <div class="metric-val">{{ pestLibrary.length }}</div>
+        <div class="metric-lbl">Pest & Disease Records</div>
+      </div>
+
+      <!-- 6: Application Guides -->
+      <div class="metric-card" (click)="navigateTo('guides_library')">
+        <div class="metric-icon-wrap icon-book">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+            <path d="M6 6h10"></path>
+            <path d="M6 10h10"></path>
+          </svg>
+        </div>
+        <div class="metric-val">9</div>
+        <div class="metric-lbl">Application Guides</div>
+      </div>
+    </div>
+
+    <!-- Info Banner (Exact text from Image 1) -->
+    <div class="info-alert-bar">
+      <div class="info-icon">ⓘ</div>
+      <span>Inactive / Expired follows the configured status and expiry rules. Where a rule is not defined, the record
+        count is shown without an inferred status.</span>
+    </div>
+
+    <!-- Main 2-Column Section (Left: Tables, Right: Attention & Quick Actions) -->
+    <div class="dashboard-grid-layout">
+      <!-- Left Column -->
+      <div class="dashboard-left-col">
+        <!-- Card 1: Input Catalog Activity -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <div class="card-title-group">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              <h3>Input Catalog Activity</h3>
+            </div>
+            <button type="button" class="btn-card-action" (click)="navigateTo('catalog')">
+              <span>View</span>
+              <span>→</span>
+            </button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="tohfa-table">
+              <thead>
+                <tr>
+                  <th>INPUT</th>
+                  <th>STATUS</th>
+                  <th>LAST UPDATED</th>
+                  <th>UPDATED BY</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="primary-name" (click)="openInputByIndex(0)" style="cursor: pointer;">Neem Oil Concentrate
+                  </td>
+                  <td><span class="status-badge badge-approved">Approved</span></td>
+                  <td class="muted-text">11 Oct 2026</td>
+                  <td class="muted-text">Priya Nair</td>
+                  <td>
+                    <button type="button" class="btn-action-view" (click)="openInputByIndex(0)">
+                      👁 View
+                    </button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="primary-name" (click)="openInputByIndex(1)" style="cursor: pointer;">Panchagavya Mix</td>
+                  <td><span class="status-badge badge-pending">Pending Review</span></td>
+                  <td class="muted-text">10 Oct 2026</td>
+                  <td class="muted-text">Priya Nair</td>
+                  <td>
+                    <button type="button" class="btn-action-view" (click)="openInputByIndex(1)">
+                      👁 Review
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Card 2: Pest & Disease Library -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <div class="card-title-group">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="8" height="14" x="8" y="6" rx="4"></rect>
+                <path d="m19 7-3 2"></path>
+                <path d="m5 7 3 2"></path>
+                <path d="m19 19-3-2"></path>
+                <path d="m5 19 3-2"></path>
+              </svg>
+              <h3>Pest & Disease Library</h3>
+            </div>
+            <button type="button" class="btn-card-action" (click)="navigateTo('pest_library')">
+              <span>View</span>
+              <span>→</span>
+            </button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="tohfa-table">
+              <thead>
+                <tr>
+                  <th>RECORD</th>
+                  <th>CROP / ISSUE</th>
+                  <th>STATUS</th>
+                  <th>UPDATED</th>
+                  <th>OWNER</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of pestLibrary.slice(0, 3)" (click)="navigateTo('pest_library')"
+                  style="cursor: pointer;">
+                  <td class="primary-name">{{ item.commonName }}</td>
+                  <td>{{ item.affectedCrops }}</td>
+                  <td>
+                    <span class="status-badge" [class.badge-approved]="item.status === 'Published'"
+                      [class.badge-pending]="item.status === 'Draft'">
+                      {{ item.status }}
+                    </span>
+                  </td>
+                  <td class="muted-text">{{ item.updatedDate }}</td>
+                  <td class="muted-text">{{ item.owner }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column -->
+      <div class="dashboard-right-col">
+        <!-- Attention Required (Exact to Image 1) -->
+        <div class="content-card attention-card">
+          <div class="content-card-header">
+            <div class="card-title-group">
+              <span class="alert-icon-warn">⚠</span>
+              <h3>Attention Required</h3>
+            </div>
+          </div>
+
+          <div class="attention-box" (click)="openInputByIndex(11)">
+            <div class="attention-header-row">
+              <span class="attention-item-title">Bio-NPK Liquid</span>
+              <span class="attention-tag-red">Missing composition data</span>
+            </div>
+            <p class="attention-subtext">Cannot be published until Composition & Usage is complete.</p>
+          </div>
+        </div>
+
+        <!-- Quick Actions (Exact to Image 1) -->
+        <div class="content-card">
+          <div class="content-card-header">
+            <div class="card-title-group">
+              <span style="color: var(--tohfa-amber, #E48932);">⚡</span>
+              <h3>Quick Actions</h3>
+            </div>
+          </div>
+
+          <div class="quick-actions-grid">
+            <div class="qa-btn" (click)="navigateTo('add_input')">
+              <div class="qa-icon">⊕</div>
+              <span class="qa-title">Add Input</span>
+            </div>
+
+            <div class="qa-btn" (click)="navigateTo('catalog')">
+              <div class="qa-icon">🗂</div>
+              <span class="qa-title">Open Catalog</span>
+            </div>
+
+            <div class="qa-btn" (click)="navigateTo('pest_library')">
+              <div class="qa-icon">🐛</div>
+              <span class="qa-title">Pest/Disease Library</span>
+            </div>
+
+            <div class="qa-btn" (click)="navigateTo('add_guide')">
+              <div class="qa-icon">📖</div>
+              <span class="qa-title">Create Guide</span>
+            </div>
+          </div>
+
+          <!-- Bottom full width button -->
+          <div class="qa-bottom-btn" (click)="navigateTo('pest_incidents')">
+            <div class="qa-icon-sm">ⓘ</div>
+            <span class="qa-title">Pest Incidents</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 2: APPROVED INPUTS CATALOG (Image 2)                               -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'catalog'">
+    <div class="page-header">
+      <div class="header-left">
+        <button type="button" class="btn-back-link" (click)="navigateTo('dashboard')">
+          ← Back to Dashboard
+        </button>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          <div class="header-icon-box">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="page-title">Approved Inputs Catalog</h1>
+            <p class="page-subtitle">Manage and monitor the list of approved agricultural inputs for organic farming.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Action Bar (Exact to Image 2) -->
+    <div class="filter-action-bar">
+      <!-- Search Input -->
+      <div class="search-input-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" [(ngModel)]="searchQuery" placeholder="Search name, ID or manufacturer" />
+      </div>
+
+      <!-- Input Type Dropdown -->
+      <div class="filter-select-wrap">
+        <label>Input Type</label>
+        <select [(ngModel)]="typeFilter">
+          <option value="All Types">All Types</option>
+          <option value="Pest control">Pest control</option>
+          <option value="Soil Input">Soil Input</option>
+          <option value="Biocontrol">Biocontrol</option>
+          <option value="Bio-fertilizer">Bio-fertilizer</option>
+          <option value="Plant booster">Plant booster</option>
+        </select>
+      </div>
+
+      <!-- Status Dropdown -->
+      <div class="filter-select-wrap">
+        <label>Status</label>
+        <select [(ngModel)]="statusFilter">
+          <option value="All Statuses">All Statuses</option>
+          <option value="Approved">Approved</option>
+          <option value="Pending">Pending</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+      </div>
+
+      <!-- More Filters Button -->
+      <button type="button" class="btn-more-filters"
+        (click)="searchQuery = ''; typeFilter = 'All Types'; statusFilter = 'All Statuses'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+        <span>More Filters</span>
+      </button>
+
+      <!-- + Add Input (Amber Button) -->
+      <button type="button" class="btn-primary-add" (click)="navigateTo('add_input')">
+        <span>+ Add Input</span>
+      </button>
+    </div>
+
+    <!-- Table Section with Counter (Exact to Image 2) -->
+    <div class="table-section">
+      <div class="table-counter">{{ filteredCatalogInputs().length }} records</div>
+
+      <div class="content-card table-card-full">
+        <table class="tohfa-table">
+          <thead>
+            <tr>
+              <th>INPUT NAME</th>
+              <th>INPUT ID</th>
+              <th>INPUT TYPE</th>
+              <th>MANUFACTURER / SUPPLIER</th>
+              <th>APPLICABLE CROPS</th>
+              <th>LAST UPDATED</th>
+              <th>UPDATED BY</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredCatalogInputs()">
+              <td class="primary-name" (click)="openInputDetail(item)" style="cursor: pointer;">{{ item.name }}</td>
+              <td class="code-text" (click)="openInputDetail(item)" style="cursor: pointer;">{{ item.code }}</td>
+              <td>{{ item.type }}</td>
+              <td>{{ item.manufacturer }}</td>
+              <td>{{ item.applicableCrops }}</td>
+              <td class="muted-text">{{ item.updatedDate }}</td>
+              <td class="muted-text">{{ item.updatedBy }}</td>
+              <td>
+                <span class="status-badge" [class.badge-approved]="item.status === 'Approved'"
+                  [class.badge-pending]="item.status === 'Pending'" [class.badge-inactive]="item.status === 'Inactive'">
+                  {{ item.status }}
+                </span>
+              </td>
+              <td>
+                <div class="actions-group">
+                  <button type="button" class="link-action" (click)="openInputDetail(item)">👁 View</button>
+                  <span class="action-divider">|</span>
+                  <button type="button" class="link-action" (click)="editInput(item)">✏ Edit</button>
+                  <span class="action-divider">|</span>
+                  <button type="button" class="link-action" (click)="openInputHistory(item)">⏱ History</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 3: ADD NEW INPUT (Images 3 & 4 of previous turn)                   -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'add_input'">
+    <div class="page-header">
+      <div class="header-left">
+        <button type="button" class="btn-back-link" (click)="navigateTo('catalog')">
+          ← Back to Catalog
+        </button>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          <div class="header-icon-box">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="page-title">Add New Input</h1>
+            <p class="page-subtitle">Register an agricultural input and define its approved usage.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2-Column Form Cards (Exact to Images 3 & 4) -->
+    <div class="form-grid-2col">
+      <!-- Col 1: Basic Info -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>📄</span>
+          <span>Basic Info</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Input name *</label>
+          <input type="text" [(ngModel)]="newInput.name" class="form-input" placeholder="Enter input name" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Referred Pest & Disease *</label>
+          <select [(ngModel)]="newInput.referredPest" class="form-input">
+            <option value="">Select...</option>
+            <option value="Late Blight (Tomato & Potato)">Late Blight (Tomato & Potato)</option>
+            <option value="Early Blight (Potato)">Early Blight (Potato)</option>
+            <option value="Powdery Mildew (Beans)">Powdery Mildew (Beans)</option>
+            <option value="Diamondback Moth (Cabbage)">Diamondback Moth (Cabbage)</option>
+            <option value="Carrot Rust Fly">Carrot Rust Fly</option>
+            <option value="Fruit Borer (Tomato)">Fruit Borer (Tomato)</option>
+            <option value="Aphids & Whiteflies">Aphids & Whiteflies</option>
+            <option value="Soil Nutrition Deficiency">Soil Nutrition Deficiency</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Input category *</label>
+          <select [(ngModel)]="newInput.category" class="form-input">
+            <option value="">Select...</option>
+            <option value="Pest control">Pest control</option>
+            <option value="Soil Input">Soil Input</option>
+            <option value="Biocontrol">Biocontrol</option>
+            <option value="Bio-fertilizer">Bio-fertilizer</option>
+            <option value="Plant booster">Plant booster</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Manufacturer / supplier</label>
+          <input type="text" [(ngModel)]="newInput.manufacturer" class="form-input"
+            placeholder="Enter manufacturer or supplier name" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Product / registration ID (optional)</label>
+          <input type="text" [(ngModel)]="newInput.productId" class="form-input"
+            placeholder="Enter product or registration ID" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description</label>
+          <textarea [(ngModel)]="newInput.description" class="form-textarea" placeholder="Enter description"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Validity date (if one applies)</label>
+          <div class="date-input-wrap">
+            <input type="date" [(ngModel)]="newInput.validityDate" class="form-input" placeholder="dd-mm-yyyy" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Col 2: Composition & Usage -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🧪</span>
+          <span>Composition & Usage</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Ingredients or composition</label>
+          <textarea [(ngModel)]="newInput.composition" class="form-textarea"
+            placeholder="Enter ingredients or composition"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Approved usage purpose *</label>
+          <textarea [(ngModel)]="newInput.purpose" class="form-textarea"
+            placeholder="Enter approved usage purpose"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Applicable crops (none selected means every crop)</label>
+          <select [(ngModel)]="newInput.applicableCrops" class="form-input">
+            <option value="">Select...</option>
+            <option value="All crops">All crops</option>
+            <option value="Tomato, Cabbage">Tomato, Cabbage</option>
+            <option value="Tomato, Potato, Carrot">Tomato, Potato, Carrot</option>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Root crops">Root crops</option>
+            <option value="Cabbage, Cauliflower">Cabbage, Cauliflower</option>
+          </select>
+        </div>
+
+        <div class="dosage-unit-row">
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Dosage</label>
+            <input type="text" [(ngModel)]="newInput.dosage" class="form-input" placeholder="Enter dosage" />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">Unit</label>
+            <select [(ngModel)]="newInput.unit" class="form-input">
+              <option value="">Select...</option>
+              <option value="ml / L">ml / L</option>
+              <option value="g / L">g / L</option>
+              <option value="kg / acre">kg / acre</option>
+              <option value="L / acre">L / acre</option>
+              <option value="tons / acre">tons / acre</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Application method</label>
+          <input type="text" [(ngModel)]="newInput.method" class="form-input" placeholder="Enter application method" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Frequency, if established</label>
+          <input type="text" [(ngModel)]="newInput.frequency" class="form-input"
+            placeholder="Enter application frequency" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Restrictions, incompatibilities and safety instructions</label>
+          <textarea [(ngModel)]="newInput.restrictions" class="form-textarea"
+            placeholder="Enter restrictions, incompatibilities and safety instructions"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documents Card (Image 4) -->
+    <div class="form-card documents-card">
+      <h3 class="form-card-title">
+        <span>📎</span>
+        <span>Documents</span>
+      </h3>
+
+      <div class="upload-dropzone">
+        <div class="upload-arrow-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </div>
+        <p class="upload-title">Upload supporting document</p>
+        <p class="upload-subtitle">Save the draft first, then add the product label and supporting documents.</p>
+      </div>
+    </div>
+
+    <!-- Bottom Buttons Bar (Image 4) -->
+    <div class="form-bottom-bar">
+      <button type="button" class="btn-cancel" (click)="navigateTo('catalog')">
+        Cancel
+      </button>
+
+      <div class="bottom-bar-right">
+        <button type="button" class="btn-save-draft" (click)="saveInputDraft()">
+          <span>💾</span>
+          <span>Save Draft</span>
+        </button>
+
+        <button type="button" class="btn-save-submit" (click)="submitInputForApproval()">
+          <span>▶</span>
+          <span>Save & Submit for Approval</span>
+        </button>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 4: INPUT DETAIL (Image 3: SA-M6-S01c Neem Oil Concentrate Detail) -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'input_detail'">
+    <div class="page-header" style="margin-bottom: 20px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div class="header-left">
+          <button type="button" class="btn-back-link" (click)="navigateTo('catalog')">
+            ← Back to Catalog
+          </button>
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 4px;">
+            <div class="header-icon-box">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                <path d="M2 21c0-3 1.85-5.36 5.08-6"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="page-title">{{ activeInput()?.name || 'Neem Oil Concentrate' }}</h1>
+              <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                <span class="code-text" style="font-size: 12px;">{{ activeInput()?.code || 'IN-0041' }}</span>
+                <span class="status-badge badge-approved" *ngIf="activeInput()?.status === 'Approved'">✓ Approved</span>
+                <span class="status-badge badge-pending" *ngIf="activeInput()?.status === 'Pending'">Pending
+                  Review</span>
+                <span class="status-badge badge-inactive" *ngIf="activeInput()?.status === 'Inactive'">Inactive</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-edit-amber" (click)="editInput(activeInput()!)">
+          <span>✏</span>
+          <span>Edit</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 Cards 2x2 Grid (Exact to Image 3) -->
+    <div class="form-grid-2col">
+      <!-- Card 1: Basic Information -->
+      <div class="content-card">
+        <h3 class="form-card-title">
+          <span>ⓘ</span>
+          <span>Basic Information</span>
+        </h3>
+
+        <div class="kv-detail-list">
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Input name</span>
+            <span class="kv-detail-val">{{ activeInput()?.name || 'Neem Oil Concentrate' }}</span>
+          </div>
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Category</span>
+            <span class="kv-detail-val">{{ activeInput()?.category || 'Pest control' }}</span>
+          </div>
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Manufacturer / supplier</span>
+            <span class="kv-detail-val">{{ activeInput()?.manufacturer || 'GreenGro Organics' }}</span>
+          </div>
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Registration ID</span>
+            <span class="kv-detail-val">NEEM-0041-TN</span>
+          </div>
+          <div class="kv-detail-row" style="border-bottom: none;">
+            <span class="kv-detail-lbl">Record status</span>
+            <span class="status-badge badge-approved">Approved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Composition & Usage -->
+      <div class="content-card">
+        <h3 class="form-card-title">
+          <span>🧪</span>
+          <span>Composition & Usage</span>
+        </h3>
+
+        <div class="kv-detail-list">
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Composition</span>
+            <span class="kv-detail-val">{{ activeInput()?.composition || 'Azadirachtin 1500 ppm' }}</span>
+          </div>
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Applicable crops</span>
+            <span class="kv-detail-val">{{ activeInput()?.applicableCrops || 'Tomato, Cabbage' }}</span>
+          </div>
+          <div class="kv-detail-row">
+            <span class="kv-detail-lbl">Dosage</span>
+            <span class="kv-detail-val">5 mL per litre of water</span>
+          </div>
+          <div class="kv-detail-row" style="border-bottom: none;">
+            <span class="kv-detail-lbl">Application method</span>
+            <span class="kv-detail-val">{{ activeInput()?.method || 'Foliar spray, every 10 days' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Supporting Documents -->
+      <div class="content-card">
+        <h3 class="form-card-title">
+          <span>📄</span>
+          <span>Supporting Documents</span>
+        </h3>
+
+        <div class="doc-list">
+          <div class="doc-item">
+            <div>
+              <h4 class="doc-title">Safety Data Sheet (MSDS)</h4>
+              <p class="doc-sub">Verified 11 Oct 2026 · PDF 1.2 MB</p>
+            </div>
+            <button type="button" class="btn-doc-view" (click)="showToast('Opening Safety Data Sheet (MSDS)...')">
+              <span>📄</span>
+              <span>View</span>
+            </button>
+          </div>
+
+          <div class="doc-item">
+            <div>
+              <h4 class="doc-title">NPOP Organic Certificate</h4>
+              <p class="doc-sub">Verified 11 Oct 2026 · PDF 1.2 MB</p>
+            </div>
+            <button type="button" class="btn-doc-view" (click)="showToast('Opening NPOP Organic Certificate...')">
+              <span>📄</span>
+              <span>View</span>
+            </button>
+          </div>
+
+          <div class="doc-item" style="border-bottom: none;">
+            <div>
+              <h4 class="doc-title">Usage & Label Specification</h4>
+              <p class="doc-sub">Verified 11 Oct 2026 · PDF 1.2 MB</p>
+            </div>
+            <button type="button" class="btn-doc-view" (click)="showToast('Opening Usage & Label Specification...')">
+              <span>📄</span>
+              <span>View</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Approval & History -->
+      <div class="content-card">
+        <h3 class="form-card-title">
+          <span>⏱</span>
+          <span>Approval & History</span>
+        </h3>
+
+        <div class="history-timeline">
+          <div class="history-step">
+            <span class="step-dot green"></span>
+            <div class="step-header">
+              <span class="muted-text">11 Oct 2026, 12:30 AM</span>
+            </div>
+            <strong style="font-size: 12px; color: var(--tohfa-ink, #1D2420); display: block; margin: 2px 0;">Approved
+              by Priya Nair</strong>
+            <p>Agronomy lead - Full organic compliance verified</p>
+          </div>
+
+          <div class="history-step">
+            <span class="step-dot blue"></span>
+            <div class="step-header">
+              <span class="muted-text">11 Oct 2026, 12:30 AM</span>
+            </div>
+            <strong style="font-size: 12px; color: var(--tohfa-ink, #1D2420); display: block; margin: 2px 0;">Verified
+              By TOHFA Admin</strong>
+            <p>NPOP certification check passed</p>
+          </div>
+
+          <div class="history-step" style="border-left-color: transparent;">
+            <span class="step-dot gray"></span>
+            <div class="step-header">
+              <span class="muted-text">11 Oct 2026, 12:30 AM</span>
+            </div>
+            <strong style="font-size: 12px; color: var(--tohfa-ink, #1D2420); display: block; margin: 2px 0;">Submitted
+              by GreenGro Organics</strong>
+            <p>Initial application filed for pest control input</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Action Bar (Image 3) -->
+    <div class="detail-bottom-bar">
+      <button type="button" class="btn-deactivate"
+        (click)="showToast('Input deactivated from active field distribution.')">
+        Deactivate account
+      </button>
+
+      <div style="display: flex; gap: 10px;">
+        <button type="button" class="btn-secondary-white" (click)="showToast('Input marked as Terminated.')">
+          Terminate
+        </button>
+        <button type="button" class="btn-secondary-white" (click)="showToast('Record deleted.')">
+          Delete Information
+        </button>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 5: PEST & DISEASE LIBRARY TABLE (Image 4: SA-M6-S01d)              -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'pest_library'">
+    <div class="page-header">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div class="header-left">
+          <button type="button" class="btn-back-link" (click)="navigateTo('dashboard')">
+            ← Back to Dashboard
+          </button>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <div class="header-icon-box" style="background: #FEF3C7; color: #B45309;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="8" height="14" x="8" y="6" rx="4"></rect>
+                <path d="m19 7-3 2"></path>
+                <path d="m5 7 3 2"></path>
+                <path d="m19 19-3-2"></path>
+                <path d="m5 19 3-2"></path>
+                <path d="M20 13h-4"></path>
+                <path d="M4 13h4"></path>
+                <path d="m10 4 1 2"></path>
+                <path d="m14 4-1 2"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="page-title">Pest & Disease Library</h1>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary-add" (click)="navigateTo('add_pest')">
+          <span>+ Add</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Bar with Filter Icon (Exact to Image 4) -->
+    <div class="library-search-row">
+      <div class="search-input-wrap" style="flex: 1;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" [(ngModel)]="pestSearchQuery" placeholder="Search common or scientific name" />
+        <svg class="search-end-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Counter and Table (Exact to Image 4) -->
+    <div class="table-section">
+      <div class="table-counter">{{ filteredPestLibrary().length }} records</div>
+
+      <div class="content-card table-card-full">
+        <table class="tohfa-table">
+          <thead>
+            <tr>
+              <th>COMMON NAME</th>
+              <th>SCIENTIFIC NAME</th>
+              <th>TYPE</th>
+              <th>AFFECTED CROPS</th>
+              <th>RISK / NOTES</th>
+              <th>STATUS</th>
+              <th>LAST UPDATED</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of filteredPestLibrary()">
+              <td class="primary-name" (click)="openPestDetail(item)" style="cursor: pointer;">{{ item.commonName }}
+              </td>
+              <td style="font-style: italic; color: #5C6B63;">{{ item.scientificName }}</td>
+              <td>{{ item.type }}</td>
+              <td>{{ item.affectedCrops }}</td>
+              <td class="muted-text">{{ item.riskNotes }}</td>
+              <td>
+                <span class="status-badge" [class.badge-approved]="item.status === 'Published'"
+                  [class.badge-pending]="item.status === 'Draft' || item.status === 'Under Review'">
+                  {{ item.status }}
+                </span>
+              </td>
+              <td class="muted-text">{{ item.updatedDate }}</td>
+              <td>
+                <div class="actions-group">
+                  <button type="button" class="btn-outline-action" (click)="openPestDetail(item)">
+                    👁 View
+                  </button>
+                  <button type="button" class="btn-outline-action" (click)="navigateTo('add_pest')">
+                    ✏ Edit
+                  </button>
+                  <button type="button" class="btn-outline-action"
+                    (click)="showToast('Loading history for ' + item.commonName)">
+                    🕒 History
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 6: ADD NEW PEST/DISEASE (Images 1 & 2: SA-M6-S01e)                 -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'add_pest'">
+    <div class="page-header">
+      <div class="header-left">
+        <button type="button" class="btn-back-link" (click)="navigateTo('pest_library')">
+          ← Back to Pest & Disease Library
+        </button>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          <div class="header-icon-box">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+              <path d="M2 21c0-3 1.85-5.36 5.08-6"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="page-title">Add New Pest/Disease</h1>
+            <p class="page-subtitle">Create a new pest or disease record with identification, crop impact, seasonal risk
+              and management details.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Cards 2x2 Grid (Exact to Images 1 & 2) -->
+    <div class="form-grid-2col">
+      <!-- Card 1: Identification -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🔍</span>
+          <span>Identification</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Common name *</label>
+          <input type="text" [(ngModel)]="newPest.commonName" class="form-input" placeholder="Enter common name" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Scientific name (only when verified)</label>
+          <input type="text" [(ngModel)]="newPest.scientificName" class="form-input"
+            placeholder="Enter scientific name" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Pest or disease *</label>
+          <select [(ngModel)]="newPest.type" class="form-input">
+            <option value="Disease">Disease</option>
+            <option value="Pest">Pest</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Description and identification notes *</label>
+          <textarea [(ngModel)]="newPest.description" class="form-textarea"
+            placeholder="Enter description and identification notes"></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 4px;">
+          <label class="form-label">Verification source *</label>
+          <input type="text" [(ngModel)]="newPest.verificationSource" class="form-input"
+            placeholder="Enter verification source" />
+        </div>
+        <p class="form-helper-note">Reference images and the approved documentation the entry comes from.</p>
+      </div>
+
+      <!-- Card 2: Crops & Symptoms -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🌱</span>
+          <span>Crops & Symptoms</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Applicable crops</label>
+          <select [(ngModel)]="newPest.applicableCrops" class="form-input">
+            <option value="">Select...</option>
+            <option value="Tomato, Potato">Tomato, Potato</option>
+            <option value="Cabbage, Beans">Cabbage, Beans</option>
+            <option value="Carrot">Carrot</option>
+            <option value="All vegetable nurseries">All vegetable nurseries</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Affected plant parts</label>
+          <input type="text" [(ngModel)]="newPest.affectedParts" class="form-input"
+            placeholder="Enter affected plant parts" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Visible symptoms *</label>
+          <textarea [(ngModel)]="newPest.visibleSymptoms" class="form-textarea"
+            placeholder="Enter visible symptoms"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Identification indicators</label>
+          <textarea [(ngModel)]="newPest.indicators" class="form-textarea"
+            placeholder="Enter identification indicators"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Similar conditions or lookalikes (when verified)</label>
+          <textarea [(ngModel)]="newPest.lookalikes" class="form-textarea"
+            placeholder="Enter similar conditions or lookalikes"></textarea>
+        </div>
+      </div>
+
+      <!-- Card 3: Seasonal Risk -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>📅</span>
+          <span>Seasonal Risk</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Known seasonal risk period</label>
+          <input type="text" [(ngModel)]="newPest.seasonalRiskPeriod" class="form-input"
+            placeholder="Enter known seasonal risk period" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Relevant growing conditions</label>
+          <input type="text" [(ngModel)]="newPest.growingConditions" class="form-input"
+            placeholder="Enter relevant growing conditions" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Weather-based risk information (only from a verified source)</label>
+          <textarea [(ngModel)]="newPest.weatherRisk" class="form-textarea"
+            placeholder="Enter weather-based risk information"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Severity guidance</label>
+          <input type="text" [(ngModel)]="newPest.severityGuidance" class="form-input"
+            placeholder="Enter severity guidance" />
+        </div>
+      </div>
+
+      <!-- Card 4: Prevention & Management -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🛡</span>
+          <span>Prevention & Management</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Preventive practices</label>
+          <input type="text" [(ngModel)]="newPest.preventivePractices" class="form-input"
+            placeholder="Enter preventive practices" />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 4px;">
+          <label class="form-label">Linked approved organic treatment</label>
+          <select [(ngModel)]="newPest.linkedOrganicTreatment" class="form-input">
+            <option value="">Select...</option>
+            <option value="Neem Oil Concentrate">Neem Oil Concentrate</option>
+            <option value="Trichoderma Viride">Trichoderma Viride</option>
+            <option value="Pseudomonas Fluorescens">Pseudomonas Fluorescens</option>
+            <option value="Agniastra Extract">Agniastra Extract</option>
+            <option value="Dashaparni Kashayam">Dashaparni Kashayam</option>
+            <option value="Beauveria Bassiana">Beauveria Bassiana</option>
+          </select>
+        </div>
+        <p class="form-helper-note">Only approved inputs are offered.</p>
+
+        <div class="form-group" style="margin-bottom: 4px;">
+          <label class="form-label">Relevant application guide</label>
+          <select [(ngModel)]="newPest.relevantGuide" class="form-input">
+            <option value="">Select...</option>
+            <option value="Foliar Neem Application Protocol">Foliar Neem Application Protocol</option>
+            <option value="Trichoderma Viride Soil Inoculation">Trichoderma Viride Soil Inoculation</option>
+            <option value="Bordeaux Mixture Preparation Guide">Bordeaux Mixture Preparation Guide</option>
+          </select>
+        </div>
+        <p class="form-helper-note">Only published guides are offered.</p>
+
+        <div class="form-group">
+          <label class="form-label">Safety precautions and follow-up</label>
+          <textarea [(ngModel)]="newPest.safetyPrecautions" class="form-textarea"
+            placeholder="Enter safety precautions and follow-up"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Buttons Bar (Image 2) -->
+    <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 14px;">
+      <button type="button" class="btn-cancel" (click)="navigateTo('pest_library')">
+        Cancel
+      </button>
+      <button type="button" class="btn-save-submit" (click)="savePest()">
+        <span>💾</span>
+        <span>Save</span>
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 7: PEST INCIDENTS & TREATMENT (Image 5)                             -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'pest_incidents'">
+    <div class="page-header">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div class="header-left">
+          <button type="button" class="btn-back-link" (click)="navigateTo('dashboard')">
+            ← Back to Dashboard
+          </button>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <div class="header-icon-box" style="background: #FEF3C7; color: #B45309;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="8" height="14" x="8" y="6" rx="4"></rect>
+                <path d="m19 7-3 2"></path>
+                <path d="m5 7 3 2"></path>
+                <path d="m19 19-3-2"></path>
+                <path d="m5 19 3-2"></path>
+                <path d="M20 13h-4"></path>
+                <path d="M4 13h4"></path>
+                <path d="m10 4 1 2"></path>
+                <path d="m14 4-1 2"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="page-title">Pest Incidents & Treatment</h1>
+              <p class="page-subtitle">14 incidents · 4 ongoing</p>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary-add" (click)="openReportIncident()">
+          <span>+ Report Incident</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 5 KPI Stat Cards in a row (Image 5) -->
+    <div class="incident-kpi-row">
+      <div class="incident-kpi-card">
+        <div class="kpi-icon-wrap icon-gray">
+          <span>🐛</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Total Incidents</span>
+          <span class="kpi-val">14</span>
+        </div>
+      </div>
+
+      <div class="incident-kpi-card">
+        <div class="kpi-icon-wrap icon-amber">
+          <span>🔄</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Ongoing</span>
+          <span class="kpi-val">4</span>
+        </div>
+      </div>
+
+      <div class="incident-kpi-card">
+        <div class="kpi-icon-wrap icon-green">
+          <span>✓</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Resolved</span>
+          <span class="kpi-val">6</span>
+        </div>
+      </div>
+
+      <div class="incident-kpi-card">
+        <div class="kpi-icon-wrap icon-blue">
+          <span>📋</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Under Review</span>
+          <span class="kpi-val">2</span>
+        </div>
+      </div>
+
+      <div class="incident-kpi-card">
+        <div class="kpi-icon-wrap icon-yellow">
+          <span>⏳</span>
+        </div>
+        <div class="kpi-body">
+          <span class="kpi-label">Pending</span>
+          <span class="kpi-val">2</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search & Filter Row (Image 5) -->
+    <div class="incidents-search-row">
+      <div class="search-input-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" [(ngModel)]="incidentsSearchQuery"
+          placeholder="Search common or scientific name, farmer, crop or incident ID" />
+      </div>
+
+      <button type="button" class="btn-filter-toggle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+        <span>Filter</span>
+      </button>
+    </div>
+
+    <!-- Incidents Table (Image 5) -->
+    <div class="table-section">
+      <div class="table-counter">11 records</div>
+
+      <div class="content-card table-card-full">
+        <table class="tohfa-table incidents-modern-table">
+          <thead>
+            <tr>
+              <th>INCIDENT ID</th>
+              <th>FARMER</th>
+              <th>CROP / LOCATION</th>
+              <th>PEST OR DISEASE</th>
+              <th>SEVERITY</th>
+              <th>REPORTED DATE</th>
+              <th>STATUS</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let inc of filteredPestIncidents()">
+              <td class="incident-id-cell">{{ inc.incidentCode }}</td>
+              <td class="incident-farmer-cell" (click)="openIncidentDetail(inc)" style="cursor: pointer;">{{ inc.farmer }}</td>
+              <td class="incident-crop-loc">{{ inc.cropLocation }}</td>
+              <td class="incident-pest-name">{{ inc.pestOrDisease }}</td>
+              <td>
+                <span class="severity-dot" [class.dot-high]="inc.severity === 'High'"
+                  [class.dot-medium]="inc.severity === 'Medium'" [class.dot-low]="inc.severity === 'Low'">
+                  {{ inc.severity }}
+                </span>
+              </td>
+              <td class="muted-text">{{ inc.reportedDate }}</td>
+              <td>
+                <span
+                  class="status-badge badge-resolved"
+                  *ngIf="inc.status === 'Resolved'"
+                >
+                  Resolved {{ inc.resolvedDate || '8 Oct 2026' }}
+                </span>
+                <span
+                  class="status-badge badge-ongoing"
+                  *ngIf="inc.status === 'Ongoing'"
+                >
+                  Ongoing
+                </span>
+                <span
+                  class="status-badge badge-under-review"
+                  *ngIf="inc.status === 'Under Review'"
+                >
+                  Under Review
+                </span>
+                <span
+                  class="status-badge badge-pending"
+                  *ngIf="inc.status === 'Pending'"
+                >
+                  Pending
+                </span>
+              </td>
+              <td>
+                <div class="actions-group" *ngIf="inc.status === 'Ongoing'">
+                  <button type="button" class="btn-review-action" (click)="reviewIncidentTreatment(inc)">
+                    🔍 Review Treatment
+                  </button>
+                  <button type="button" class="btn-outline-action" (click)="openIncidentDetail(inc)">
+                    👁 View Incident
+                  </button>
+                </div>
+                <div class="actions-group" *ngIf="inc.status !== 'Ongoing'">
+                  <button type="button" class="btn-outline-action" (click)="openIncidentDetail(inc)">
+                    👁 View Incident
+                  </button>
+                  <button type="button" class="btn-outline-action"
+                    (click)="openIncidentHistory(inc)">
+                    🕒 History
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 8: APPLICATION & TREATMENT GUIDES (Image 2)                         -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'guides_library'">
+    <div class="page-header">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div class="header-left">
+          <button type="button" class="btn-back-link" (click)="navigateTo('dashboard')">
+            ← Back to Dashboard
+          </button>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <div class="header-icon-box" style="background: #FAF2EB; color: var(--tohfa-amber, #E48932);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+                <path d="M6 6h10"></path>
+                <path d="M6 10h10"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="page-title">Application & Treatment Guides</h1>
+              <p class="page-subtitle">9 guides · input and pest treatment</p>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="btn-primary-add" (click)="navigateTo('add_guide')">
+          <span>+ Add Guide</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search Bar with Filter Icon (Image 2) -->
+    <div class="library-search-row">
+      <div class="search-input-wrap" style="flex: 1;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" [(ngModel)]="guidesSearchQuery" placeholder="Search common or scientific name" />
+        <svg class="search-end-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Guides Table (Image 2) -->
+    <div class="table-section">
+      <div class="table-counter">11 records</div>
+
+      <div class="content-card table-card-full">
+        <table class="tohfa-table">
+          <thead>
+            <tr>
+              <th>GUIDE TITLE</th>
+              <th>GUIDE TYPE</th>
+              <th>LINKED INPUT / PEST</th>
+              <th>APPLICABLE CROPS</th>
+              <th>VERSION</th>
+              <th>STATUS</th>
+              <th>LAST UPDATED</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let g of paginatedTreatmentGuides()">
+              <td class="primary-name">{{ g.title }}</td>
+              <td>
+                <span class="guide-type-pill">{{ g.guideType }}</span>
+              </td>
+              <td>{{ g.linkedInputPest }}</td>
+              <td>{{ g.applicableCrops }}</td>
+              <td>
+                <span class="version-tag">{{ g.version }}</span>
+              </td>
+              <td>
+                <span class="status-badge" [class.badge-approved]="g.status === 'Published'"
+                  [class.badge-pending]="g.status === 'Draft' || g.status === 'In Review'"
+                  [class.badge-inactive]="g.status === 'Archived'">
+                  {{ g.status }}
+                </span>
+              </td>
+              <td class="muted-text">{{ g.lastUpdated }}</td>
+              <td>
+                <div class="actions-group">
+                  <button type="button" class="btn-outline-action" (click)="showToast('Viewing ' + g.title)">
+                    👁 View
+                  </button>
+                  <button type="button" class="btn-outline-action" (click)="showToast('Audit history for ' + g.title)">
+                    🕒 History
+                  </button>
+                  <button type="button" class="btn-outline-action" *ngIf="g.status !== 'Archived'"
+                    (click)="navigateTo('add_guide')">
+                    ✏ Edit
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Pagination (Image 2: Showing 1-6 of 11 records < 1 2 >) -->
+        <div class="pagination-footer">
+          <span>Showing 1-6 of 11 records</span>
+          <div class="pagination-btns">
+            <button type="button" class="btn-page" [disabled]="guidePage() === 1"
+              (click)="setGuidePage(guidePage() - 1)">
+              ‹
+            </button>
+            <button type="button" class="btn-page" [class.active]="guidePage() === 1" (click)="setGuidePage(1)">
+              1
+            </button>
+            <button type="button" class="btn-page" [class.active]="guidePage() === 2" (click)="setGuidePage(2)">
+              2
+            </button>
+            <button type="button" class="btn-page" [disabled]="guidePage() === totalGuidePages()"
+              (click)="setGuidePage(guidePage() + 1)">
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 9: ADD NEW GUIDE (Images 3 & 4)                                     -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'add_guide' || currentView() === 'create_guide'">
+    <div class="page-header">
+      <div class="header-left">
+        <button type="button" class="btn-back-link" (click)="navigateTo('guides_library')">
+          ← Back to Guides
+        </button>
+        <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+          <div class="header-icon-box" style="background: #FAF2EB; color: var(--tohfa-amber, #E48932);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"></path>
+              <path d="M6 6h10"></path>
+              <path d="M6 10h10"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="page-title">Add New Guide</h1>
+            <p class="page-subtitle">Create an application or treatment guide with usage, safety and reference details.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 Cards in 2x2 Grid Layout (Images 3 & 4) -->
+    <div class="form-grid-2x2">
+      <!-- Card 1: Overview -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>ⓘ</span>
+          <span>Overview</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Guide title *</label>
+          <input type="text" [(ngModel)]="newGuideForm.title" class="form-input"
+            placeholder="Enter guide title (e.g., Neem Oil - Foliar Spray Guide)" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Guide type *</label>
+          <select [(ngModel)]="newGuideForm.guideType" class="form-input">
+            <option value="">Select guide type</option>
+            <option value="Input Application">Input Application</option>
+            <option value="Pest Treatment">Pest Treatment</option>
+            <option value="Soil Management">Soil Management</option>
+          </select>
+        </div>
+
+        <div class="form-grid-2col" style="margin-bottom: 4px;">
+          <div class="form-group" style="margin-bottom: 2px;">
+            <label class="form-label">Linked input (approved only)</label>
+            <select [(ngModel)]="newGuideForm.linkedInput" class="form-input">
+              <option value="">Select approved input</option>
+              <option value="Neem Oil Concentrate">Neem Oil Concentrate</option>
+              <option value="Trichoderma Viride">Trichoderma Viride</option>
+              <option value="Pseudomonas Fluorescens">Pseudomonas Fluorescens</option>
+              <option value="Agniastra Extract">Agniastra Extract</option>
+              <option value="Compost, Jeevamrutham">Compost, Jeevamrutham</option>
+              <option value="Bio-NPK Liquid">Bio-NPK Liquid</option>
+            </select>
+            <p class="form-helper-note" style="margin-top: 3px;">Only approved inputs are offered.</p>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 2px;">
+            <label class="form-label">Linked pest or disease (published only)</label>
+            <select [(ngModel)]="newGuideForm.linkedPest" class="form-input">
+              <option value="">Select pest or disease</option>
+              <option value="Late Blight">Late Blight</option>
+              <option value="Aphid Infestation">Aphid Infestation</option>
+              <option value="Powdery Mildew">Powdery Mildew</option>
+              <option value="Fruit Borer">Fruit Borer</option>
+              <option value="Leaf Spot">Leaf Spot</option>
+              <option value="Whitefly">Whitefly</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-grid-2col" style="margin-bottom: 0;">
+          <div class="form-group">
+            <label class="form-label">Applicable crops</label>
+            <input type="text" [(ngModel)]="newGuideForm.applicableCrops" class="form-input"
+              placeholder="Select crops" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Growing stage (only if verified)</label>
+            <select [(ngModel)]="newGuideForm.growingStage" class="form-input">
+              <option value="">Select growing stage</option>
+              <option value="All stages">All stages</option>
+              <option value="Vegetative growth">Vegetative growth</option>
+              <option value="Flowering">Flowering</option>
+              <option value="Crop development">Crop development</option>
+              <option value="Harvest">Harvest</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Safety & Restrictions -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🛡</span>
+          <span>Safety & Restrictions</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Precautions *</label>
+          <textarea [(ngModel)]="newGuideForm.precautions" class="form-textarea"
+            placeholder="e.g., Use protective gloves, avoid spraying during peak heat, etc."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Restrictions and protective measures</label>
+          <textarea [(ngModel)]="newGuideForm.restrictions" class="form-textarea"
+            placeholder="e.g., Do not mix with synthetic pesticides, keep away from water bodies, etc."></textarea>
+        </div>
+      </div>
+
+      <!-- Card 3: Instructions -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🧪</span>
+          <span>Instructions</span>
+        </h3>
+
+        <div class="form-group">
+          <label class="form-label">Application method *</label>
+          <input type="text" [(ngModel)]="newGuideForm.method" class="form-input"
+            placeholder="e.g., Foliar spray, soil drench, seed treatment, etc." />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Instructions *</label>
+          <textarea [(ngModel)]="newGuideForm.instructions" class="form-textarea"
+            placeholder="Step-by-step usage instructions (e.g., mix, apply, interval, etc.)"></textarea>
+        </div>
+
+        <div class="form-grid-2col" style="margin-bottom: 0;">
+          <div class="form-group">
+            <label class="form-label">Dosage</label>
+            <input type="text" [(ngModel)]="newGuideForm.dosage" class="form-input" placeholder="e.g., 5" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Unit</label>
+            <select [(ngModel)]="newGuideForm.unit" class="form-input">
+              <option value="">Select unit</option>
+              <option value="ml/L">ml/L</option>
+              <option value="g/L">g/L</option>
+              <option value="kg/acre">kg/acre</option>
+              <option value="L/acre">L/acre</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 10px;">
+          <label class="form-label">Timing / frequency</label>
+          <input type="text" [(ngModel)]="newGuideForm.timing" class="form-input"
+            placeholder="e.g., Every 10 days, at early growth stage, etc." />
+        </div>
+      </div>
+
+      <!-- Card 4: Review & Publish -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>❖</span>
+          <span>Review & Publish</span>
+        </h3>
+
+        <div class="form-group" style="margin-bottom: 4px;">
+          <label class="form-label">Supporting references *</label>
+          <textarea [(ngModel)]="newGuideForm.references" class="form-textarea"
+            placeholder="e.g., Research paper, certified manual, government guideline, etc."></textarea>
+        </div>
+        <p class="form-helper-note" style="margin-bottom: 14px;">The source documents and evidence.</p>
+
+        <div class="form-group">
+          <label class="form-label">Change summary</label>
+          <textarea [(ngModel)]="newGuideForm.changeSummary" class="form-textarea"
+            placeholder="e.g., Added dosage for tomato, updated safety note, etc."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Buttons Bar (Image 4) -->
+    <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 14px;">
+      <button type="button" class="btn-cancel" (click)="navigateTo('guides_library')">
+        Cancel
+      </button>
+      <button type="button" class="btn-save-submit" (click)="saveGuide()">
+        Save
+      </button>
+    </div>
+  </ng-container>
+
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 9: REPORT INCIDENT FORM                                            -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'report_incident'">
+    <div class="page-header">
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div class="header-left">
+          <button type="button" class="btn-back-link" (click)="navigateTo('pest_incidents')">
+            ← Back to Incidents
+          </button>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <div class="header-icon-box" style="background: #FEF3C7; color: #B45309;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect width="8" height="14" x="8" y="6" rx="4"></rect>
+                <path d="m19 7-3 2"></path>
+                <path d="m5 7 3 2"></path>
+                <path d="m19 19-3-2"></path>
+                <path d="m5 19 3-2"></path>
+                <path d="M20 13h-4"></path>
+                <path d="M4 13h4"></path>
+              </svg>
+            </div>
+            <div>
+              <h1 class="page-title">Report Pest / Disease Incident</h1>
+              <p class="page-subtitle">Record a new farm incident with farmer details, crop identification, visible symptoms, and urgency level.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-cards-grid">
+      <!-- Card 1: Farmer & Field Details -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>👨‍🌾</span>
+          <span>Farmer & Field Details</span>
+        </h3>
+        <div class="form-group">
+          <label class="form-label">Farmer Name *</label>
+          <select [(ngModel)]="newIncident.farmer" class="form-input">
+            <option value="Ramesh Kumar">Ramesh Kumar (FMR-00124)</option>
+            <option value="Selvi">Selvi (FMR-00128)</option>
+            <option value="Arun Raj">Arun Raj (FMR-00135)</option>
+            <option value="Meena">Meena (FMR-00142)</option>
+            <option value="Vijay">Vijay (FMR-00150)</option>
+            <option value="Sundar">Sundar (FMR-00156)</option>
+            <option value="Kumar">Kumar (FMR-00161)</option>
+            <option value="Latha">Latha (FMR-00168)</option>
+            <option value="Ravi">Ravi (FMR-00174)</option>
+          </select>
+        </div>
+        <div class="form-grid-2col">
+          <div class="form-group">
+            <label class="form-label">Crop *</label>
+            <select [(ngModel)]="newIncident.crop" class="form-input">
+              <option value="Tomato">Tomato</option>
+              <option value="Potato">Potato</option>
+              <option value="Cabbage">Cabbage</option>
+              <option value="Beans">Beans</option>
+              <option value="Brinjal">Brinjal</option>
+              <option value="Chilli">Chilli</option>
+              <option value="Cucumber">Cucumber</option>
+              <option value="Carrot">Carrot</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Farm Plot / Field *</label>
+            <input type="text" [(ngModel)]="newIncident.farmPlot" class="form-input" placeholder="e.g. Coonoor - plot 1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Current Growth Stage</label>
+          <select [(ngModel)]="newIncident.growthStage" class="form-input">
+            <option value="1. Land preparation">1. Land preparation</option>
+            <option value="2. Planting">2. Planting</option>
+            <option value="3. Germination">3. Germination</option>
+            <option value="4. Vegetative growth">4. Vegetative growth</option>
+            <option value="5. Flowering">5. Flowering</option>
+            <option value="6. Crop development">6. Crop development</option>
+            <option value="7. Harvest (current)">7. Harvest (current)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Card 2: Symptoms & Observation -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🔍</span>
+          <span>Pest / Disease Observation</span>
+        </h3>
+        <div class="form-group">
+          <label class="form-label">Suspected / Observed Issue *</label>
+          <select [(ngModel)]="newIncident.pestOrDisease" class="form-input">
+            <option value="Late Blight">Late Blight</option>
+            <option value="Aphid Infestation">Aphid Infestation</option>
+            <option value="Early Blight">Early Blight</option>
+            <option value="Leaf Spot">Leaf Spot</option>
+            <option value="Caterpillar">Caterpillar</option>
+            <option value="Whitefly">Whitefly</option>
+            <option value="Fruit Borer">Fruit Borer</option>
+            <option value="Thrips">Thrips</option>
+            <option value="Powdery Mildew">Powdery Mildew</option>
+            <option value="Unverified Pest">Unverified Pest / Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Severity Level *</label>
+          <div style="display: flex; gap: 16px; margin-top: 6px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #16A34A; cursor: pointer;">
+              <input type="radio" name="incidentSeverity" [(ngModel)]="newIncident.severity" value="Low" />
+              ● Low
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #D97706; cursor: pointer;">
+              <input type="radio" name="incidentSeverity" [(ngModel)]="newIncident.severity" value="Medium" />
+              ● Medium
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #DC2626; cursor: pointer;">
+              <input type="radio" name="incidentSeverity" [(ngModel)]="newIncident.severity" value="High" />
+              ● High
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Affected Plant Parts</label>
+          <input type="text" [(ngModel)]="newIncident.affectedParts" class="form-input" placeholder="e.g. Leaves, Stem, Fruit" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Farmer Description & Visual Symptoms</label>
+          <textarea [(ngModel)]="newIncident.description" class="form-textarea" placeholder="Describe symptoms, spread rate, weather conditions..."></textarea>
+        </div>
+      </div>
+
+      <!-- Card 3: Treatment & Recommendations -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>🧪</span>
+          <span>Preliminary Action & Protocol</span>
+        </h3>
+        <div class="form-group">
+          <label class="form-label">Immediate Containment Action</label>
+          <textarea [(ngModel)]="newIncident.preliminaryAction" class="form-textarea" placeholder="e.g. Isolate affected plants, apply neem spray (5ml/L) immediately..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Field Visit Urgency</label>
+          <select [(ngModel)]="newIncident.urgency" class="form-input">
+            <option value="Normal">Normal (Routine scheduled follow-up)</option>
+            <option value="High">High (Agronomist visit required within 24h)</option>
+            <option value="Critical">Critical (Immediate field inspection)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Card 4: Photos & Evidence -->
+      <div class="form-card">
+        <h3 class="form-card-title">
+          <span>📷</span>
+          <span>Visual Evidence & Verification</span>
+        </h3>
+        <div style="border: 2px dashed var(--tohfa-border, #E4E0D3); border-radius: 8px; padding: 24px; text-align: center; background: #FAF8F5;">
+          <span style="font-size: 28px; display: block; margin-bottom: 8px;">📷</span>
+          <span style="font-size: 12px; font-weight: 700; color: var(--tohfa-ink, #1D2420);">Upload leaf or pest photo</span>
+          <p style="font-size: 11px; color: var(--tohfa-slate, #5C6B63); margin: 4px 0 0 0;">Drag and drop or browse JPG, PNG up to 10MB</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px;">
+      <button type="button" class="btn-cancel" (click)="navigateTo('pest_incidents')">
+        Cancel
+      </button>
+      <button type="button" class="btn-save-submit" (click)="submitNewIncident()">
+        Submit Incident Report
+      </button>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- SCREEN 10: INCIDENT DETAIL & RESOLUTION (Image 9)                         -->
+  <!-- ========================================================================= -->
+  <ng-container *ngIf="currentView() === 'incident_detail'">
+    <div class="page-header" style="margin-bottom: 20px;">
+      <button type="button" class="btn-back-link" (click)="navigateTo('pest_incidents')">
+        ← Back to Incidents
+      </button>
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <div class="header-icon-box" style="background: #FEF3C7; color: #B45309;">
+            <span>🐛</span>
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <h1 class="page-title" style="margin: 0;">Incident {{ activeIncident().incidentCode }}</h1>
+              <span class="status-badge" [class.badge-ongoing]="activeIncident().status === 'Ongoing'" [class.badge-resolved]="activeIncident().status === 'Resolved'" [class.badge-under-review]="activeIncident().status === 'Under Review'" [class.badge-pending]="activeIncident().status === 'Pending'">
+                {{ activeIncident().status }}
+              </span>
+            </div>
+            <p class="page-subtitle" style="margin-top: 3px;">
+              {{ activeIncident().farmer }} · {{ activeIncident().crop }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2-Column Responsive Layout -->
+    <div class="incident-detail-grid">
+      <!-- Left Column: Sections 1, 2, 3 -->
+      <div class="detail-left-col">
+        <!-- 1 · Report Information -->
+        <div class="incident-card">
+          <h3 class="incident-card-title">
+            <span>📄</span>
+            <span>1 · Report Information</span>
+          </h3>
+          <div class="kv-list">
+            <div class="kv-row">
+              <span class="kv-key">Incident</span>
+              <span class="kv-val">{{ activeIncident().incidentCode }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Reported</span>
+              <span class="kv-val">{{ activeIncident().reportedDate }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Farmer and farm</span>
+              <span class="kv-val">{{ activeIncident().farmer }} · {{ activeIncident().farmPlot }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Crop and field</span>
+              <span class="kv-val">{{ activeIncident().crop }} · {{ activeIncident().field }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Growth stage</span>
+              <span class="kv-val">{{ activeIncident().growthStage }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Farmer's description</span>
+              <span class="kv-val">{{ activeIncident().farmerDescription }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Photos</span>
+              <span class="kv-val">{{ activeIncident().photos }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2 · Identification -->
+        <div class="incident-card">
+          <h3 class="incident-card-title">
+            <span>🎯</span>
+            <span>2 · Identification</span>
+          </h3>
+          <div class="kv-list">
+            <div class="kv-row">
+              <span class="kv-key">Pest or disease</span>
+              <span class="kv-val">{{ activeIncident().pestOrDisease }}</span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Severity (as reported)</span>
+              <span class="kv-val">
+                <span class="severity-dot" [class.dot-high]="activeIncident().severity === 'High'" [class.dot-medium]="activeIncident().severity === 'Medium'" [class.dot-low]="activeIncident().severity === 'Low'">
+                  {{ activeIncident().severity }}
+                </span>
+              </span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Identification notes</span>
+              <span class="kv-val">{{ activeIncident().identificationNotes }}</span>
+            </div>
+          </div>
+          <button type="button" class="btn-card-action" (click)="openLinkPestModal()">
+            🔗 Link Pest / Disease
+          </button>
+        </div>
+
+        <!-- 3 · Treatment -->
+        <div class="incident-card">
+          <h3 class="incident-card-title">
+            <span>🧴</span>
+            <span>3 · Treatment</span>
+          </h3>
+          <div class="kv-list">
+            <div class="kv-row">
+              <span class="kv-key">Linked treatment guide</span>
+              <span class="kv-val" style="color: var(--ok, #1E8E5A);">{{ activeIncident().linkedTreatmentGuide }}</span>
+            </div>
+          </div>
+          <p class="form-helper-note" style="margin: 8px 0 14px 0;">Link a pest or disease to see the guides for it.</p>
+          <button type="button" class="btn-card-action" (click)="openLinkGuideModal()">
+            🔗 Link Treatment Guide
+          </button>
+
+          <div style="margin-top: 16px; padding: 12px; background: #FAF8F5; border-radius: 8px; border: 1px solid var(--tohfa-border, #E4E0D3);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" disabled [checked]="activeIncident().followUpSubmitted" />
+              <strong style="font-size: 12px; color: var(--tohfa-ink, #1D2420);">Follow-up from the farmer</strong>
+            </div>
+            <p style="font-size: 11px; color: var(--tohfa-slate, #5C6B63); margin: 4px 0 0 22px;">
+              {{ activeIncident().followUpSubmitted ? 'Follow-up submitted by farmer.' : 'No follow-up has been submitted.' }}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Sections 4 & History -->
+      <div class="detail-right-col">
+        <!-- 4 · Resolution -->
+        <div class="incident-card">
+          <h3 class="incident-card-title">
+            <span>🛡</span>
+            <span>4 · Resolution</span>
+          </h3>
+          <div class="kv-list">
+            <div class="kv-row">
+              <span class="kv-key">Status</span>
+              <span class="kv-val">
+                <span class="status-badge" [class.badge-ongoing]="activeIncident().status === 'Ongoing'" [class.badge-resolved]="activeIncident().status === 'Resolved'" [class.badge-under-review]="activeIncident().status === 'Under Review'" [class.badge-pending]="activeIncident().status === 'Pending'">
+                  {{ activeIncident().status }}
+                </span>
+              </span>
+            </div>
+            <div class="kv-row">
+              <span class="kv-key">Resolution notes</span>
+              <span class="kv-val">{{ activeIncident().resolutionNotes }}</span>
+            </div>
+          </div>
+
+          <button type="button" class="btn-card-action" (click)="openRecordNoteModal()">
+            📝 Record Admin Review Note
+          </button>
+
+          <p class="form-helper-note" style="margin-top: 12px;">
+            Whether the TOHFA Admin may mark an incident resolved is not defined, so only the farmer's follow-up changes the status.
+          </p>
+        </div>
+
+        <!-- History -->
+        <div class="incident-card">
+          <h3 class="incident-card-title">
+            <span>🕒</span>
+            <span>History</span>
+          </h3>
+
+          <div class="history-list">
+            <div class="milestone-item" *ngFor="let h of activeIncident().history">
+              <span class="milestone-dot">●</span>
+              <div>
+                <span class="milestone-time">{{ h.date }} · {{ h.author }}</span>
+                <div class="milestone-text">{{ h.text }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="append-only-box">
+            <span>🔒</span>
+            <span>The history is append-only.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: LINK PEST / DISEASE                                                -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="linkPestModalOpen()" (click)="linkPestModalOpen.set(false)">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">Link Pest or Disease</h3>
+        <button type="button" class="btn-close-modal" (click)="linkPestModalOpen.set(false)">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--tohfa-slate, #5C6B63); margin-bottom: 12px;">
+          Select a verified pest or disease from the library to link to incident <strong>{{ activeIncident().incidentCode }}</strong>.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Verified Pest / Disease *</label>
+          <select [(ngModel)]="selectedPestToLink" class="form-input">
+            <option value="">Select pest or disease...</option>
+            <option value="Late Blight">Late Blight (Phytophthora infestans)</option>
+            <option value="Aphid Infestation">Aphid Infestation (Aphidoidea spp.)</option>
+            <option value="Early Blight">Early Blight (Alternaria solani)</option>
+            <option value="Leaf Spot">Leaf Spot (Cercospora spp.)</option>
+            <option value="Caterpillar">Caterpillar (Helicoverpa armigera)</option>
+            <option value="Whitefly">Whitefly (Bemisia tabaci)</option>
+            <option value="Fruit Borer">Fruit Borer (Leucinodes orbonalis)</option>
+            <option value="Thrips">Thrips (Thysanoptera spp.)</option>
+            <option value="Powdery Mildew">Powdery Mildew (Erysiphales)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="linkPestModalOpen.set(false)">Cancel</button>
+        <button type="button" class="btn-save-submit" (click)="confirmLinkPest()">Link to Incident</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: LINK TREATMENT GUIDE                                               -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="linkGuideModalOpen()" (click)="linkGuideModalOpen.set(false)">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">Link Treatment Guide</h3>
+        <button type="button" class="btn-close-modal" (click)="linkGuideModalOpen.set(false)">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--tohfa-slate, #5C6B63); margin-bottom: 12px;">
+          Choose an approved organic treatment guide from the library for <strong>{{ activeIncident().crop }}</strong>.
+        </p>
+        <div class="modal-cream-box">
+          <div class="modal-cream-row">
+            <span class="cream-key">Current Pest:</span>
+            <span class="cream-val">{{ activeIncident().pestOrDisease }}</span>
+          </div>
+          <div class="modal-cream-row">
+            <span class="cream-key">Crop:</span>
+            <span class="cream-val">{{ activeIncident().crop }}</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Available Treatment Guides *</label>
+          <select class="form-input">
+            <option value="GD-001">GD-001 · Late Blight Organic Control Protocol (Neem Oil + Trichoderma)</option>
+            <option value="GD-002">GD-002 · Neem Oil – Foliar Spray Guide (Neem Oil Concentrate 5ml/L)</option>
+            <option value="GD-004">GD-004 · Powdery Mildew – Organic Treatment</option>
+            <option value="GD-008">GD-008 · Bordeaux Mixture Preparation Guide</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="linkGuideModalOpen.set(false)">Cancel</button>
+        <button type="button" class="btn-save-submit" (click)="confirmLinkGuide()">Link Guide</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: RECORD ADMIN REVIEW NOTE                                           -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="recordNoteModalOpen()" (click)="recordNoteModalOpen.set(false)">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="font-size: 15px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">Record Admin Review Note</h3>
+        <button type="button" class="btn-close-modal" (click)="recordNoteModalOpen.set(false)">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 12px; color: var(--tohfa-slate, #5C6B63); margin-bottom: 12px;">
+          Add an administrative observation or review comment. This will be permanently recorded in the append-only history.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Review Note *</label>
+          <textarea [(ngModel)]="reviewNoteText" class="form-textarea" placeholder="Enter findings, phone conversation notes, or agronomist instructions..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="recordNoteModalOpen.set(false)">Cancel</button>
+        <button type="button" class="btn-save-submit" (click)="confirmSaveReviewNote()">Save Note</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: INCIDENT AUDIT HISTORY                                             -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="historyModalIncident()" (click)="historyModalIncident.set(null)">
+    <div class="modal-card" style="max-width: 540px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="header-icon-box" style="width: 32px; height: 32px; background: #FAF2EB; color: var(--tohfa-amber, #E48932);">
+            <span>🕒</span>
+          </div>
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">
+              Audit History · {{ historyModalIncident()?.incidentCode }}
+            </h3>
+            <span style="font-size: 11px; color: var(--tohfa-slate, #5C6B63);">
+              {{ historyModalIncident()?.farmer }} · {{ historyModalIncident()?.cropLocation }}
+            </span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="historyModalIncident.set(null)">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="history-timeline">
+          <div class="history-step" *ngIf="historyModalIncident()?.resolvedDate">
+            <span class="step-dot green"></span>
+            <div class="step-header">
+              <strong style="color: var(--tohfa-ink, #1D2420);">Incident Resolved</strong>
+              <span class="muted-text">{{ historyModalIncident()?.resolvedDate }}, 14:00</span>
+            </div>
+            <p>Farmer reported crop recovery and field verification completed by agronomy officer.</p>
+          </div>
+
+          <div class="history-step">
+            <span class="step-dot amber"></span>
+            <div class="step-header">
+              <strong style="color: var(--tohfa-ink, #1D2420);">Treatment Protocol Linked</strong>
+              <span class="muted-text">{{ historyModalIncident()?.reportedDate }}, 11:30</span>
+            </div>
+            <p>Prescribed organic treatment for {{ historyModalIncident()?.pestOrDisease }} with Neem Oil spray.</p>
+          </div>
+
+          <div class="history-step" style="border-left-color: transparent;">
+            <span class="step-dot gray"></span>
+            <div class="step-header">
+              <strong style="color: var(--tohfa-ink, #1D2420);">Incident Reported</strong>
+              <span class="muted-text">{{ historyModalIncident()?.reportedDate }}, 08:30</span>
+            </div>
+            <p>Reported by {{ historyModalIncident()?.farmer }} with {{ historyModalIncident()?.severity }} severity.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="historyModalIncident.set(null)">Close</button>
+        <button type="button" class="btn-save-draft" (click)="openIncidentDetail(historyModalIncident()!); historyModalIncident.set(null)">
+          👁 View Full Incident Screen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: VIEW INCIDENT DETAIL                                               -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="selectedIncidentModal()" (click)="selectedIncidentModal.set(null)">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="header-icon-box" style="width: 32px; height: 32px; background: #FEF3C7; color: #B45309;">
+            <span>🐛</span>
+          </div>
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">
+              Incident {{ selectedIncidentModal()?.incidentCode }} · {{ selectedIncidentModal()?.pestOrDisease }}
+            </h3>
+            <span style="font-size: 11px; color: var(--tohfa-slate, #5C6B63);">{{ selectedIncidentModal()?.farmer }} ·
+              {{ selectedIncidentModal()?.cropLocation }}</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="selectedIncidentModal.set(null)">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="detail-section">
+          <h4>Incident Information</h4>
+          <p><strong>Reported Date:</strong> {{ selectedIncidentModal()?.reportedDate }}</p>
+          <p style="margin-top: 4px;"><strong>Severity:</strong> {{ selectedIncidentModal()?.severity }}</p>
+          <p style="margin-top: 4px;"><strong>Current Status:</strong> {{ selectedIncidentModal()?.status }}</p>
+        </div>
+        <div class="detail-section">
+          <h4>Prescribed Organic Protocol</h4>
+          <p style="color: var(--ok, #1E8E5A); font-weight: 600;">
+            Immediate foliar spray of Neem Oil Concentrate (5ml/L) and soil application of Trichoderma Viride.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="selectedIncidentModal.set(null)">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: VIEW PEST DETAIL                                                   -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="selectedPestModal()" (click)="closeModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="header-icon-box" style="width: 32px; height: 32px; background: #FEF3C7; color: #B45309;">
+            <span>🐛</span>
+          </div>
+          <div>
+            <h3 style="font-size: 15px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">
+              {{ selectedPestModal()?.commonName }}
+            </h3>
+            <span style="font-style: italic; font-size: 11px; color: var(--tohfa-slate, #5C6B63);">{{
+              selectedPestModal()?.scientificName }} · {{ selectedPestModal()?.type }}</span>
+          </div>
+        </div>
+
+        <button type="button" class="btn-close-modal" (click)="closeModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="detail-section">
+          <h4>Affected Crops & Risk</h4>
+          <p><strong>Crops:</strong> {{ selectedPestModal()?.affectedCrops }}</p>
+          <p style="margin-top: 4px;"><strong>Risk / Seasonal Notes:</strong> {{ selectedPestModal()?.riskNotes }}</p>
+        </div>
+
+        <div class="detail-section" *ngIf="selectedPestModal()?.symptoms">
+          <h4>Visible Symptoms</h4>
+          <p>{{ selectedPestModal()?.symptoms }}</p>
+        </div>
+
+        <div class="detail-section" *ngIf="selectedPestModal()?.organicTreatments">
+          <h4>Recommended Organic Treatments</h4>
+          <p style="color: #15803D; font-weight: 600;">{{ selectedPestModal()?.organicTreatments }}</p>
+        </div>
+
+        <div class="detail-section" *ngIf="selectedPestModal()?.prevention">
+          <h4>Preventive Practices</h4>
+          <p>{{ selectedPestModal()?.prevention }}</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeModal()">Close</button>
+        <button type="button" class="btn-save-draft" (click)="closeModal(); navigateTo('add_pest')">
+          ✏ Edit Pest Record
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: INPUT HISTORY                                                      -->
+  <!-- ========================================================================= -->
+  <div class="modal-backdrop" *ngIf="selectedHistoryItem()" (click)="closeModal()">
+    <div class="modal-card" style="max-width: 520px;" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 style="font-size: 14px; font-weight: 800; color: var(--tohfa-ink, #1D2420); margin: 0;">
+          Audit History · {{ selectedHistoryItem()?.name }}
+        </h3>
+        <button type="button" class="btn-close-modal" (click)="closeModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="history-timeline">
+          <div class="history-step">
+            <span class="step-dot green"></span>
+            <div class="step-header">
+              <strong style="color: var(--tohfa-ink, #1D2420);">Approved by Agronomy Team</strong>
+              <span class="muted-text">{{ selectedHistoryItem()?.updatedDate }}</span>
+            </div>
+            <p>Verification confirmed against NPOP Organic Inputs Schedule.</p>
+          </div>
+
+          <div class="history-step">
+            <span class="step-dot amber"></span>
+            <div class="step-header">
+              <strong style="color: var(--tohfa-ink, #1D2420);">Submitted for Evaluation</strong>
+              <span class="muted-text">1 Oct 2026</span>
+            </div>
+            <p>Lab composition test report attached and logged by {{ selectedHistoryItem()?.updatedBy }}.</p>
+          </div>
+
+          <div class="history-step" style="border-left-color: transparent;">
+            <span class="step-dot gray"></span>
+            <div class="step-header">
+              <strong style="color: var(--tohfa-ink, #1D2420);">Draft Created</strong>
+              <span class="muted-text">28 Sep 2026</span>
+            </div>
+            <p>Input registered into TOHFA system.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" (click)="closeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

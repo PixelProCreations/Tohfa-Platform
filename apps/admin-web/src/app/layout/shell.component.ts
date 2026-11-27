@@ -212,6 +212,34 @@ interface ShellNotification {
         color: #ffffff;
       }
 
+      /* Sub items under Farmers Management matching mockup */
+      .nav-sub-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 4px 0 6px 34px;
+      }
+
+      .nav-sub-item {
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 11px;
+        font-weight: 500;
+        text-decoration: none;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: all 0.15s ease;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .nav-sub-item:hover,
+      .nav-sub-item.active {
+        color: #ffffff;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
       .sidebar-footer {
         padding: 14px 16px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -581,42 +609,135 @@ interface ShellNotification {
       <div class="nav-section-label">MAIN</div>
 
       <nav class="sidebar-nav">
-        <a
-          *ngFor="let item of visibleNav()"
-          [routerLink]="item.path"
-          routerLinkActive="active"
-          class="nav-link"
-        >
-          <!-- Material Symbol / SVG Icon for each nav item -->
-          <span class="nav-link-icon">
-            <!-- Dashboard -->
-            <svg *ngIf="item.icon === 'dashboard'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect width="7" height="9" x="3" y="3" rx="1"></rect>
-              <rect width="7" height="5" x="14" y="3" rx="1"></rect>
-              <rect width="7" height="9" x="14" y="12" rx="1"></rect>
-              <rect width="7" height="5" x="3" y="16" rx="1"></rect>
-            </svg>
+        <ng-container *ngFor="let item of visibleNav()">
+          <!-- Farmers Management with Submenu -->
+          <ng-container *ngIf="item.path === 'farmer-applications'">
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              (click)="farmersExpanded.set(!farmersExpanded())"
+            >
+              <span class="nav-link-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </span>
+              <span class="nav-link-text">{{ item.label }}</span>
+            </a>
 
-            <!-- Approvals Inbox -->
-            <svg *ngIf="item.icon === 'inbox'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
-              <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
-            </svg>
+            <!-- Sub items matching Image 9 & 10 -->
+            <div class="nav-sub-list" *ngIf="farmersExpanded()">
+              <a [routerLink]="['/farmer-applications']" [queryParams]="{ tab: 'directory' }" class="nav-sub-item">Farmer Directory</a>
+              <a [routerLink]="['/farmer-applications']" class="nav-sub-item">Farmer Applications</a>
+              <a [routerLink]="['/farmer-applications']" [queryParams]="{ tab: 'compliance' }" class="nav-sub-item">Verification & Compliance</a>
+              <a [routerLink]="['/farmer-applications']" [queryParams]="{ tab: 'ratings' }" class="nav-sub-item">Farmer Ratings</a>
+            </div>
+          </ng-container>
 
-            <!-- Farmers Management -->
-            <svg *ngIf="item.icon === 'agriculture'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="7" cy="17" r="2"></circle>
-              <circle cx="17" cy="17" r="2"></circle>
-              <path d="M9 17h6"></path>
-              <path d="M19 17h1a1 1 0 0 0 1-1v-3.5a1.5 1.5 0 0 0-1.5-1.5H16l-3-6H7a1 1 0 0 0-1 1v6"></path>
-              <path d="M5 17H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2"></path>
-            </svg>
+          <!-- Inputs & Pest Management with Submenu (Images 2, 3, 4) -->
+          <ng-container *ngIf="item.path === 'inputs-pest'">
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              (click)="inputsPestExpanded.set(!inputsPestExpanded())"
+            >
+              <span class="nav-link-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect width="8" height="14" x="8" y="6" rx="4"></rect>
+                  <path d="m19 7-3 2"></path>
+                  <path d="m5 7 3 2"></path>
+                  <path d="m19 19-3-2"></path>
+                  <path d="m5 19 3-2"></path>
+                  <path d="M20 13h-4"></path>
+                  <path d="M4 13h4"></path>
+                  <path d="m10 4 1 2"></path>
+                  <path d="m14 4-1 2"></path>
+                </svg>
+              </span>
+              <span class="nav-link-text">{{ item.label }}</span>
+            </a>
 
-            <!-- Produce & Crops -->
-            <svg *ngIf="item.icon === 'eco'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
-              <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
-            </svg>
+            <!-- Sub items matching Images 2, 3, 4 -->
+            <div class="nav-sub-list" *ngIf="inputsPestExpanded()">
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'catalog' }" class="nav-sub-item">Input Catalog</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'pest_library' }" class="nav-sub-item">Pest & Disease Library</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'guides_library' }" class="nav-sub-item">Application Guides</a>
+              <a [routerLink]="['/inputs-pest']" [queryParams]="{ view: 'pest_incidents' }" class="nav-sub-item">Pest Incidents</a>
+            </div>
+          </ng-container>
+
+          <!-- Produce & Crop with Submenu -->
+          <ng-container *ngIf="item.path === 'listings'">
+            <a
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              class="nav-link"
+              (click)="produceExpanded.set(!produceExpanded())"
+            >
+              <span class="nav-link-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="7" cy="17" r="2"></circle>
+                  <circle cx="17" cy="17" r="2"></circle>
+                  <path d="M9 17h6"></path>
+                  <path d="M19 17h1a1 1 0 0 0 1-1v-3.5a1.5 1.5 0 0 0-1.5-1.5H16l-3-6H7a1 1 0 0 0-1 1v6"></path>
+                  <path d="M5 17H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2"></path>
+                </svg>
+              </span>
+              <span class="nav-link-text">{{ item.label }}</span>
+            </a>
+
+            <!-- Sub items for Produce & Crop -->
+            <div class="nav-sub-list" *ngIf="produceExpanded()">
+              <a [routerLink]="['/listings']" class="nav-sub-item">Crop Calendar</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_detail', tab: 'Crop history' }" class="nav-sub-item">Crop History</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_data' }" class="nav-sub-item">Crop Data</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'crop_compare' }" class="nav-sub-item">Crop Compare</a>
+              <a [routerLink]="['/listings']" [queryParams]="{ view: 'breakdown' }" class="nav-sub-item">Zone Breakdown</a>
+            </div>
+          </ng-container>
+
+          <!-- Standard Nav Item -->
+          <a
+            *ngIf="item.path !== 'farmer-applications' && item.path !== 'inputs-pest' && item.path !== 'listings'"
+            [routerLink]="item.path"
+            routerLinkActive="active"
+            class="nav-link"
+          >
+            <!-- Material Symbol / SVG Icon for each nav item -->
+            <span class="nav-link-icon">
+              <!-- Dashboard -->
+              <svg *ngIf="item.icon === 'dashboard'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="7" height="9" x="3" y="3" rx="1"></rect>
+                <rect width="7" height="5" x="14" y="3" rx="1"></rect>
+                <rect width="7" height="9" x="14" y="12" rx="1"></rect>
+                <rect width="7" height="5" x="3" y="16" rx="1"></rect>
+              </svg>
+
+              <!-- Approvals Inbox -->
+              <svg *ngIf="item.icon === 'inbox'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+              </svg>
+
+              <!-- Tractor Icon (Produce & Crop) -->
+              <svg *ngIf="item.icon === 'agriculture'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="7" cy="17" r="2"></circle>
+                <circle cx="17" cy="17" r="2"></circle>
+                <path d="M9 17h6"></path>
+                <path d="M19 17h1a1 1 0 0 0 1-1v-3.5a1.5 1.5 0 0 0-1.5-1.5H16l-3-6H7a1 1 0 0 0-1 1v6"></path>
+                <path d="M5 17H4a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1h2"></path>
+              </svg>
+
+              <!-- Leaf Eco -->
+              <svg *ngIf="item.icon === 'eco'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+              </svg>
 
             <!-- Audit Management -->
             <svg *ngIf="item.icon === 'fact_check'" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -703,7 +824,8 @@ interface ShellNotification {
           <span class="nav-link-text">{{ item.label }}</span>
           <span *ngIf="item.badge" class="nav-badge">{{ item.badge }}</span>
         </a>
-      </nav>
+      </ng-container>
+    </nav>
 
       <!-- Sidebar User Footer -->
       <div class="sidebar-footer">
@@ -833,6 +955,9 @@ export class ShellComponent {
   private readonly rbac = inject(RbacService);
   private readonly auth = inject(AuthService);
 
+  readonly farmersExpanded = signal(true);
+  readonly inputsPestExpanded = signal(true);
+  readonly produceExpanded = signal(true);
   readonly isAuthenticated = computed(() => this.auth.isAuthenticated());
   readonly activeRole = computed(() => this.auth.activeRole());
   readonly roles = computed(() => this.auth.roles());
